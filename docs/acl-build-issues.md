@@ -2,6 +2,10 @@
 
 Tracking issues encountered while building ACL (Azure Container Linux) VHDs using the Flatcar packer pipeline.
 
+Each issue below includes two sections:
+- **AgentBaker fix**: what changed in this repo.
+- **ACL base image follow-up**: what still needs to change in the ACL base image (or external component). Use `None` when no base image action is needed.
+
 ---
 
 ## Issue 1: OS detection — `isFlatcar()` doesn't recognize ACL
@@ -9,48 +13,33 @@ Tracking issues encountered while building ACL (Azure Container Linux) VHDs usin
 **Status**: Fixed
 **Date**: 2026-02-10
 **Symptom**: Build fails with `rsyslog could not be started` / `exit 1` in `pre-install-dependencies.sh`.
-
-**Root cause**: ACL's `/etc/os-release` has `ID=acl`, which gets uppercased to `ACL`. The `isFlatcar()` function only checked for `FLATCAR`, so it returned false for ACL. This caused the build to try starting `rsyslog.service` (which ACL doesn't have, like Flatcar) and fail.
-
-**Affected files/functions**:
-- `parts/linux/cloud-init/artifacts/cse_helpers.sh` — `isFlatcar()` function (line ~814)
-- `vhdbuilder/packer/vhd-scanning.sh` — `isFlatcar()` function (line ~253)
-- `vhdbuilder/packer/pre-install-dependencies.sh` — callers at lines 49, 65
-- `vhdbuilder/packer/packer_source.sh` — caller at line 411
-
-**Fix**:
-- Added `ACL_OS_NAME="ACL"` constant to `cse_helpers.sh`
-- Updated `isFlatcar()` in `cse_helpers.sh` to also check `$os = $ACL_OS_NAME`
-- Updated `isFlatcar()` in `vhd-scanning.sh` to also check `$os = "ACL"`
-
-**Log reference**: `failed.log` lines 503, 768–773, 1847–1851, 3040–3063
+**Root cause**: ACL reports `ID=acl` in `/etc/os-release`, uppercased to `ACL`. `isFlatcar()` only matched `FLATCAR`, so it returned false and the build attempted to start `rsyslog.service` (missing on ACL/Flatcar).
+**AgentBaker fix**:
+- Extend `isFlatcar()` to treat `ACL` as Flatcar in both script locations.
+- Affected files:
+	- `parts/linux/cloud-init/artifacts/cse_helpers.sh` — `isFlatcar()`
+	- `vhdbuilder/packer/vhd-scanning.sh` — `isFlatcar()`
+	- Callers in `vhdbuilder/packer/pre-install-dependencies.sh` and `vhdbuilder/packer/packer_source.sh`
+**ACL base image follow-up**: None.
+**Notes**: This aligns ACL behavior with Flatcar for service expectations.
 
 ---
 
 ## Issue 2: `disk_queue.service` fails — missing Azure disk udev rules
 
-**Status**: Fixed (workaround in AgentBaker; root fix needed in ACL image)
+**Status**: Fixed (workaround); follow-up needed in ACL base image
 **Date**: 2026-02-10
 **Symptom**: Build fails with `disk_queue could not be started` / `exit 1` in `pre-install-dependencies.sh`.
-
-**Root cause**: `disk_queue.service` runs `disk_queue.sh`, which requires `/dev/disk/azure/root` or `/dev/disk/azure/os` symlinks. These symlinks are created by `80-azure-disk.rules` udev rules. On ACL, neither source of these rules is present:
-
-1. **WALinuxAgent skips udev rules on Flatcar >= 3550** — ACL is Flatcar-based (v4459), so the patched WALinuxAgent assumes the OS already ships the rules and calls `set_udev_files()` is skipped (see `0001-flatcar-changes.patch` in acl-scripts).
-2. **`azure-vm-utils` is missing from the ACL image** — Real Flatcar ships `azure-vm-utils` v0.7.0 (which provides `80-azure-disk.rules`), and the ACL `coreos-0.0.1-r318.ebuild` lists it as a dependency, but the tested ACL image (v4459.2.2) doesn't have it installed.
-
-This creates a gap unique to ACL: WALinuxAgent won't install the rules, and `azure-vm-utils` isn't there either.
-
-**Why other distros are unaffected**:
-- **Flatcar**: `azure-vm-utils` v0.7.0 is in the base image → rules exist at boot
-- **Ubuntu / Azure Linux 3**: WALinuxAgent installs its own udev rules → symlinks exist
-
-**Affected files**:
-- `vhdbuilder/packer/pre-install-dependencies.sh` — `disk_queue` started at line 116
-- `parts/linux/cloud-init/artifacts/disk_queue.sh` — checks for `/dev/disk/azure/{root,os}`
-
-**Fix (workaround)**: Install `80-azure-disk.rules` in `pre-install-dependencies.sh` before starting `disk_queue`, guarded by a file-existence check so it's a no-op on distros that already have the rules. Same guard added to `install-dependencies.sh` for idempotency.
-
-**Proper fix**: Ensure the ACL base image ships `azure-vm-utils` so the rules are present at boot, matching Flatcar behavior.
+**Root cause**:
+- `disk_queue.sh` requires `/dev/disk/azure/{root,os}` symlinks created by `80-azure-disk.rules`.
+- On ACL, WALinuxAgent skips installing udev rules for Flatcar >= 3550, and the ACL image does not include `azure-vm-utils` (which provides the rules on Flatcar).
+**AgentBaker fix**:
+- Install `80-azure-disk.rules` in `pre-install-dependencies.sh` before starting `disk_queue`, guarded by file existence.
+- Affected files:
+	- `vhdbuilder/packer/pre-install-dependencies.sh`
+	- `parts/linux/cloud-init/artifacts/disk_queue.sh`
+**ACL base image follow-up**:
+- Ensure the ACL base image includes `azure-vm-utils` so the rules exist at boot.
 
 ---
 
@@ -58,30 +47,15 @@ This creates a gap unique to ACL: WALinuxAgent won't install the rules, and `azu
 
 **Status**: Fixed
 **Date**: 2026-02-10
-**Symptom**: Build completes all install phases successfully, then fails at the final Packer deprovision step with exit code 125:
-```
-sudo: /usr/sbin/waagent: command not found
-Script exited with non-zero exit status: 125
-```
-
-**Root cause**: The Packer template `vhd-image-builder-flatcar.json` (line 774) hardcodes:
-```
-sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125
-```
-
-On **Flatcar**, `/usr/sbin` is a symlink to `/usr/bin` (usr-merge), so `/usr/sbin/waagent` resolves to `/usr/bin/waagent` transparently. On **ACL**, `/usr/sbin` is a real directory with ~400+ binaries, and the Azure Linux `waagent` RPM only installs to `/usr/bin/waagent`. There is no `/usr/sbin/waagent`.
-
-**Why Flatcar works**: `ls -ld /usr/sbin` → `lrwxrwxrwx. 1 root root 3 /usr/sbin -> bin`. Same inode for both paths.
-
-**Why ACL fails**: `/usr/sbin` is a separate directory. `waagent` exists only at `/usr/bin/waagent`.
-
-**Affected files**:
-- `vhdbuilder/packer/vhd-image-builder-flatcar.json` — line 774 (hardcoded `/usr/sbin/waagent`)
-- All other packer templates also hardcode the same path (`vhd-image-builder-base.json`, `vhd-image-builder-arm64-gen2.json`, `vhd-image-builder-cvm.json`, `vhd-image-builder-flatcar-arm64.json`)
-
-**Fix (v2 — current)**: Changed the Flatcar packer templates (`vhd-image-builder-flatcar.json`, `vhd-image-builder-flatcar-arm64.json`) to use bare `waagent` instead of `/usr/sbin/waagent` in the deprovision command. This lets the shell resolve `waagent` via PATH, finding it at `/usr/bin/waagent` regardless of whether `/usr/sbin` is a symlink (Flatcar) or a separate read-only directory (ACL). This matches the pattern already used by the Mariner packer templates.
-
-**Log reference**: `failed.log` lines 51535 (`command not found`), 51536 (`cleanup provisioner`), 51706 (`exit status: 125`)
+**Symptom**: Final deprovision step fails with exit code 125 and `sudo: /usr/sbin/waagent: command not found`.
+**Root cause**: ACL installs `waagent` to `/usr/bin/waagent` and has a real `/usr/sbin`. Flatcar uses a `/usr/sbin -> /usr/bin` symlink, so `/usr/sbin/waagent` works there but not on ACL.
+**AgentBaker fix**:
+- Use `waagent` via PATH (no hardcoded `/usr/sbin`) in Flatcar packer templates.
+- Affected files:
+	- `vhdbuilder/packer/vhd-image-builder-flatcar.json`
+	- `vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json`
+**ACL base image follow-up**: None.
+**Notes**: ACL does not provide the `/usr/sbin` -> `/usr/bin` symlink used by Flatcar.
 
 ---
 
@@ -89,38 +63,72 @@ On **Flatcar**, `/usr/sbin` is a symlink to `/usr/bin` (usr-merge), so `/usr/sbi
 
 **Status**: Fixed
 **Date**: 2026-02-11
-**Symptom**: VHD build succeeds but test phase fails with:
-- `testContainerNetworkingPluginsInstalled` — CNI bridge binary not found at `/opt/cni/bin/bridge`
-- `testAcrCredentialProviderInstalled` — tarball missing at `/opt/credentialprovider/downloads/`
+**Symptom**: Tests fail because `/opt/cni/bin/bridge` and `/opt/credentialprovider/downloads/` artifacts are missing.
+**Root cause**: `getPackageJSON()` was called with `OS=ACL` but `components.json` only had `flatcar.current` entries. The function fell through to defaults and skipped installs.
+**AgentBaker fix**:
+- Add ACL -> Flatcar fallback in `getPackageJSON()` so ACL inherits Flatcar entries.
+- Affected files:
+	- `parts/linux/cloud-init/artifacts/cse_helpers.sh` — `getPackageJSON()`
+	- `pkg/agent/testdata/**/CustomData` — regenerated snapshots
+**ACL base image follow-up**: None.
+**Notes**: Prevents duplication in `components.json` while keeping ACL aligned with Flatcar.
 
-**Root cause**: `getPackageJSON()` in `cse_helpers.sh` is called with OS=`ACL` during VHD build,
-but `components.json` has no `acl` key for packages — only `flatcar.current` entries. The function
-couldn't resolve ACL-specific entries, fell through to `.downloadURIs.default.current` (which doesn't
-exist for these packages), and returned empty/skip. This caused the install script to skip:
-- `containernetworking-plugins` package installation
-- `azure-acr-credential-provider-pmc` package installation
+---
 
-**Build log evidence**:
-```
-"containernetworking-plugins package versions array is either empty or the first element is <SKIP>. 
- Skipping containernetworking-plugins installation."
+## Issue 5: Cloud-init distro detection warning — `acl` not recognized
 
-"azure-acr-credential-provider-pmc package versions array is either empty or the first element is <SKIP>. 
- Skipping azure-acr-credential-provider-pmc installation."
-```
+**Status**: Active (non-blocking)
+**Date**: 2026-02-11
+**Symptom**: Cloud-init warns: `Unable to load distro implementation for acl. Using default distro implementation instead.`
+**Root cause**: `distro` library does not recognize `acl` as a distro ID and falls back to defaults.
+**AgentBaker fix**: None.
+**ACL base image follow-up**:
+- Evaluate cloud-init behavior on ACL and determine whether ACL needs a proper distro implementation or downstream patching.
+**Notes**: Build succeeds today, but provisioning scripts that rely on OS detection may misbehave.
 
-**Fix**: Added ACL→flatcar fallback in `getPackageJSON()` function. When OS is ACL, the jq search
-path now tries:
-1. `.downloadURIs.acl.{variant}/current` (ACL-specific, if it exists)
-2. `.downloadURIs.acl.current` (ACL default)  
-3. `.downloadURIs.flatcar.current` (fallback to Flatcar)
-4. `.downloadURIs.default.current` (global default)
+---
 
-This allows ACL to inherit Flatcar package entries without needing duplicate entries in `components.json`,
-since both are Flatcar-based distributions with identical runtime dependencies.
+## Issue 6: `testUmaskSettings` fails
 
-**Affected files**:
-- `parts/linux/cloud-init/artifacts/cse_helpers.sh` — `getPackageJSON()` function (lines 885-888)
-- `pkg/agent/testdata/**/CustomData` — auto-regenerated snapshot test data
+**Status**: Active (workaround in place; ACL base image version-dependent)
+**Date**: 2026-02-11
+**Symptom**: `testUmaskSettings` fails because `/etc/profile.d/umask.sh` exists in the ACL base image with non-CIS defaults (umask 022 or similar).
+**Root cause**:
+- Flatcar (4593.0.0+) does not include `/etc/profile.d/umask.sh` at all, so the test skips automatically via the condition check.
+**AgentBaker fix**:
+- Skip `testUmaskSettings` for Flatcar (which includes ACL) in the VHD content test when the file exists.
+- Affected files:
+	- `vhdbuilder/packer/test/linux-vhd-content-test.sh` — test correctly skips if `os_sku = "Flatcar"`
+**ACL base image follow-up**:
+- Ensure the ACL base image either removes `/etc/profile.d/umask.sh` entirely, or ensures it contains exactly `umask 027` so the file content matches expectations.
+**Notes**: Test passes on Flatcar because the file does not exist. Test fails on ACL because it includes the file with non-CIS defaults. Workaround is conditional, but depends on ACL base image version.
 
-**Full analysis**: See `acl_test_failures_analysis.txt`
+---
+
+## Issue 7: `testChrony` fails — chronyd doesn't auto-correct large time offsets
+
+**Status**: Fixed (workaround in AgentBaker); root cause identified in ACL build scripts
+**Date**: 2026-02-12
+**Symptom**: `testChrony` fails with `chronyd failed to readjust the system time` after setting time 5 years in the past.
+**Root cause**:
+- ACL's base image ships chrony with `makestep 1.0 3` — only steps the clock during the first 3 updates, then slews gradually (cannot correct a 5-year offset in the 100s test window).
+- The config lives at `/usr/lib/chrony/chrony.conf` on a read-only `/usr` filesystem (immutable, verity-protected), so it cannot be overwritten during VHD build.
+- No PTP refclock configured; only `time.windows.com` as NTP server.
+- **Build-level root cause**: The correct Azure-optimized chrony.conf already exists in the Flatcar overlay at `sdk_container/src/third_party/coreos-overlay/coreos-base/oem-azure/files/chrony.conf` (with `makestep 1.0 -1` and `refclock PHC /dev/ptp_hyperv`). However, it never reaches the final image because `coreos-base/oem-azure` is marked `SKIP` in `build_library/rpm/package_catalog.sh` (line 245). In RPM mode, the ebuild's `src_install()` — which copies `chrony.conf`, `chrony-hyperv.conf` drop-in, and tmpfiles configs — never runs. Only the RPM-mapped dependencies (`chrony`, `WALinuxAgent`, `hyperv-daemons`) are installed via dnf, so the image gets the Azure Linux `chrony` RPM's default config instead of the Azure-tuned one.
+- Also missing from the sysext due to the SKIP: the `chronyd.service.d/chrony-hyperv.conf` drop-in (starts chronyd with `-F 1`), and the tmpfiles configs (`var-chrony.conf`, `etc-chrony.conf`) that create required directories.
+**AgentBaker fix**:
+- Write Azure-optimized chrony config to `/etc/chrony/chrony.conf` (writable) with `makestep 1.0 -1`, `refclock PHC /dev/ptp_hyperv`, and `time.windows.com` fallback.
+- Add systemd drop-in (`chronyd.service.d/20-chrony-config-override.conf`) to override `ExecStart` to use the writable config path instead of read-only `/usr/lib/chrony/chrony.conf`.
+- Affected files:
+	- `vhdbuilder/scripts/linux/flatcar/tool_installs_flatcar.sh` — implemented `disableNtpAndTimesyncdInstallChrony()` for ACL
+**ACL base image follow-up**:
+- The oem-azure sysext build (`build_sysext --metapkgs=coreos-base/oem-azure`) skips the `coreos-base/oem-azure` ebuild in RPM mode because `package_catalog.sh` maps it to `SKIP`. This means all files installed by the ebuild's `src_install()` are missing:
+	- `chrony.conf` (Azure Hyper-V PTP + `makestep 1.0 -1`)
+	- `chrony-hyperv.conf` drop-in for `chronyd.service`
+	- `var-chrony.conf` and `etc-chrony.conf` tmpfiles configs
+	- `chronyd.service` enablement symlink
+- **Fix options** (in `acl-scripts`):
+	Could Add explicit file-copy logic in `manglefs.sh` to source the overlay's `files/chrony.conf` and related configs into the sysext rootfs.
+**Notes**: Flatcar already has correct chrony config at `/etc/chrony/chrony.conf` (writable) because in Portage mode the oem-azure ebuild runs normally. Validated manually on ACL VM — chrony corrects 5-year offset in ~20 seconds with the AgentBaker workaround.
+
+
