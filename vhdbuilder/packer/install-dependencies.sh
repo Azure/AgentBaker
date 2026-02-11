@@ -618,6 +618,7 @@ EOF
     systemctl enable openibd
 
     # One additional request from MAI: Disable the AKS node problem detector. When this file is present, the Azure AKS VM Extension assumes the NPD has been installed on the VHD and skips installing it at provision time.
+    mkdir -p /etc/node-problem-detector.d/
     touch /etc/node-problem-detector.d/skip_vhd_npd
   fi
 fi
