@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2019 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.8276",
-          "previousLatestVersion": "10.0.17763.8146",
+          "latestVersion": "10.0.17763.8389",
+          "previousLatestVersion": "10.0.17763.8276",
           "windowsSkuMatch": "2019-containerd"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4648",
-          "previousLatestVersion": "10.0.20348.4529",
+          "latestVersion": "10.0.20348.4773",
+          "previousLatestVersion": "10.0.20348.4648",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4648",
-          "previousLatestVersion": "10.0.20348.4529",
+          "latestVersion": "10.0.20348.4773",
+          "previousLatestVersion": "10.0.20348.4648",
           "windowsSkuMatch": "23H2*"
         },
         {
@@ -47,8 +47,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4648",
-          "previousLatestVersion": "10.0.20348.4529",
+          "latestVersion": "10.0.20348.4773",
+          "previousLatestVersion": "10.0.20348.4648",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -60,8 +60,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.32230",
-          "previousLatestVersion": "10.0.26100.7462",
+          "latestVersion": "10.0.26100.32370",
+          "previousLatestVersion": "10.0.26100.32230",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -769,8 +769,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.5-hotfix.20250926",
-          "previousLatestVersion": "v1.33.5"
+          "latestVersion": "v1.33.7",
+          "previousLatestVersion": "v1.33.6"
         }
       ],
       "windowsVersions": []
@@ -1195,7 +1195,7 @@
       }
     },
     {
-      "name": "cni-plugins",
+      "name": "containernetworking-plugins",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
         "windows": {
@@ -1203,7 +1203,62 @@
             "versionsV2": []
           }
         },
-        "default": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "1.9.0-ubuntu20.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.9.0-ubuntu22.04u1"
+              }
+            ]
+          },
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=containernetworking-plugins, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.9.0-ubuntu24.04u1"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.6.2"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
+              }
+            ]
+          }
+        },
+        "flatcar": {
           "current": {
             "versionsV2": [
               {
@@ -1599,6 +1654,23 @@
       }
     },
     {
+      "name": "inspektor-gadget",
+      "downloadLocation": "/opt/azure/ig",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.45.0",
+                "revision": "1"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "azure-acr-credential-provider-pmc",
       "downloadLocation": "/opt/azure-acr-credential-provider/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
@@ -1719,7 +1791,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.18.1-ubuntu24.04u1"
+                "latestVersion": "0.18.1-ubuntu24.04u4"
               }
             ]
           },
@@ -1727,7 +1799,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.18.1-ubuntu22.04u1"
+                "latestVersion": "0.18.1-ubuntu22.04u4"
               }
             ]
           }
@@ -1737,7 +1809,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
-                "latestVersion": "0.18.1-1.azl3"
+                "latestVersion": "0.18.1-3.azl3"
               }
             ]
           }

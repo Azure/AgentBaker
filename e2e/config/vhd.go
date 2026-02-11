@@ -16,11 +16,6 @@ const (
 )
 
 var (
-	logf = toolkit.Logf
-	log  = toolkit.Log
-)
-
-var (
 	imageGalleryLinux = &Gallery{
 		SubscriptionID:    Config.GallerySubscriptionIDLinux,
 		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
@@ -79,6 +74,16 @@ var (
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204Gen2,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+	}
+	VHDUbuntu2204Gen2FIPSTLContainerd = &Image{
+		Name:                "2204gen2fipsTLcontainerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuFipsTLContainerd2204Gen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
@@ -297,7 +302,7 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 		if err != nil {
 			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
 		}
-		logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
+		toolkit.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
 		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
@@ -305,9 +310,9 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
 		}
 		if vhd != "" {
-			logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			toolkit.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
 		} else {
-			logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+			toolkit.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
 		}
 		return vhd, nil
 	}

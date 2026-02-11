@@ -406,6 +406,73 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
 }
 
+func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/ig.d/skip_vhd_ig"
+	serviceName := "ig-import-gadgets.service"
+	servicePath := "/usr/lib/systemd/system/" + serviceName
+
+	// Check if IG is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
+	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
+
+	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, servicePath)
+
+	// Validate that gadgets were actually imported
+	trackingFile := "/var/lib/ig/imported-gadgets.txt"
+	ValidateFileExists(ctx, s, trackingFile)
+	s.T.Logf("Validating imported gadgets tracking file is not empty")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -s %s", trackingFile), 0, "tracking file should not be empty")
+
+	// Verify ig image list shows imported gadgets
+	s.T.Logf("Validating ig image list shows imported gadgets")
+	result := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
+	if result.exitCode != "0" {
+		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr)
+	}
+	if len(result.stdout) == 0 {
+		s.T.Fatal("ig image list returned empty output, expected at least one imported gadget")
+	}
+	s.T.Logf("ig image list output:\n%s", result.stdout)
+
+	// Run a simple gadget as a functional test.
+	// We dynamically get the trace_exec tag from ig image list since gadgets are imported
+	// with version tags (e.g., v0.45.0) matching components.json, not :latest.
+	// IG requires root privileges to run eBPF programs.
+	// We use timeout(1) to kill the gadget after 3s in case it hangs.
+	// The ig --timeout flag expects an integer (seconds), not a duration string.
+	// Exit codes: 0 = success, 124 = timeout killed it (also OK), anything else = failure.
+	s.T.Logf("Running functional test with trace_exec gadget")
+	funcTestScript := `
+set -e
+TRACE_EXEC_TAG=$(sudo ig image list | grep trace_exec | awk '{print $2}')
+if [ -z "$TRACE_EXEC_TAG" ]; then
+    echo "trace_exec gadget not found in ig image list"
+    exit 1
+fi
+echo "Using trace_exec:$TRACE_EXEC_TAG"
+timeout 3s sudo ig run "trace_exec:$TRACE_EXEC_TAG" --timeout 2 || EXIT_CODE=$?
+if [ "${EXIT_CODE:-0}" != "0" ] && [ "${EXIT_CODE:-0}" != "124" ]; then
+    echo "trace_exec gadget failed with exit code ${EXIT_CODE}"
+    exit 1
+fi
+echo "trace_exec gadget ran successfully"
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, funcTestScript, 0, "trace_exec gadget should run successfully")
+	s.T.Logf("Inspektor Gadget functional validation passed")
+}
+
 func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if !fileExist(ctx, s, fileName) {
