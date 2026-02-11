@@ -1814,3 +1814,78 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	// Validate network interface settings match expected default
 	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
 }
+
+// ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
+// - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
+// - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
+// - Memory issues (OOM killer, page allocation failure, memory corruption)
+// - I/O and filesystem errors (I/O error, filesystem errors, nvme/ata/scsi errors)
+func ValidateKernelLogs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	type categoryPattern struct {
+		pattern string
+		exclude string // optional pattern to exclude false positives
+	}
+	patterns := map[string]categoryPattern{
+		"PANIC/CRASH": {
+			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			// exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
+			exclude: `panic=`,
+		},
+		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
+		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
+		"IO/FS": {
+			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
+			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+			exclude: `sr[0-9]`,
+		},
+	}
+
+	// Collect all issues first before potentially failing
+	issuesFound := make(map[string]string)
+	for category, cp := range patterns {
+		var command []string
+		if cp.exclude != "" {
+			command = []string{
+				"set -e",
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' | grep -ivE '%s' || true", cp.pattern, cp.exclude),
+			}
+		} else {
+			command = []string{
+				"set -e",
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' || true", cp.pattern),
+			}
+		}
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
+
+		stdout := strings.TrimSpace(execResult.stdout)
+		if stdout != "" {
+			issuesFound[category] = stdout
+		}
+	}
+
+	// If issues found, write the full kernel dump to a file for debugging
+	if len(issuesFound) > 0 {
+		// Get full kernel log dump and write to file
+		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
+		logFileName := "kernel-log.txt"
+		if err := writeToFile(s.T, logFileName, fullDmesgResult.stdout); err != nil {
+			s.T.Logf("Warning: failed to write kernel log to file: %v", err)
+		} else {
+			s.T.Logf("Full kernel log written to: %s/%s", testDir(s.T), logFileName)
+		}
+
+		// Log each category of issues found
+		var summary strings.Builder
+		summary.WriteString("Critical kernel issues detected:\n")
+		for category, issues := range issuesFound {
+			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
+		}
+		s.T.Fatalf("%s", summary.String())
+	}
+
+	s.T.Logf("No critical kernel issues found")
+}
