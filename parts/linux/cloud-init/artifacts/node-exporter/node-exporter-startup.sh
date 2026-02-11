@@ -102,6 +102,18 @@ ARGS=(
     --no-collector.arp.netlink
 )
 
+# Add localdns metrics collectors only if localdns service is enabled
+if systemctl is-enabled localdns.service &>/dev/null; then
+    ARGS+=(
+        --collector.systemd
+        --collector.systemd.unit-include="^localdns\.service$"
+        --collector.systemd.enable-task-metrics
+        --collector.systemd.enable-restarts-metrics
+        --collector.cgroups
+        --collector.cgroups.include="^/system\.slice/localdns\.slice"
+    )
+fi
+
 if [ -n "$TLS_CONFIG_ARG" ]; then
     ARGS+=("$TLS_CONFIG_ARG")
 fi
