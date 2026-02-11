@@ -1825,7 +1825,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.4.2-1"
+                "latestVersion": "1:4.5.1-1"
               }
             ]
           },
@@ -1833,7 +1833,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-core, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.4.2-1"
+                "latestVersion": "1:4.5.1-1"
               }
             ]
           }
@@ -1843,7 +1843,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-core, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "1:4.4.2-1"
+                "latestVersion": "1:4.5.1-1"
               }
             ]
           }
@@ -1859,7 +1859,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=24.04",
-                "latestVersion": "1:4.4.2-1"
+                "latestVersion": "1:4.5.1-1"
               }
             ]
           },
@@ -1867,7 +1867,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=ubuntu, release=22.04",
-                "latestVersion": "1:4.4.2-1"
+                "latestVersion": "1:4.5.1-1"
               }
             ]
           }
@@ -1877,7 +1877,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/repodata, name=datacenter-gpu-manager-4-proprietary, repository=nvidia, os=azurelinux, release=3.0",
-                "latestVersion": "1:4.4.2-1"
+                "latestVersion": "1:4.5.1-1"
               }
             ]
           }
@@ -1893,7 +1893,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "4.7.1-ubuntu24.04u1"
+                "latestVersion": "4.8.0-ubuntu24.04u1"
               }
             ]
           },
@@ -1901,7 +1901,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "4.7.1-ubuntu22.04u1"
+                "latestVersion": "4.8.0-ubuntu22.04u1"
               }
             ]
           }
@@ -1911,7 +1911,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.7.1-1.azl3"
+                "latestVersion": "4.8.0-1.azl3"
               }
             ]
           }
