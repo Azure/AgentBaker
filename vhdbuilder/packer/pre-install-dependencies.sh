@@ -96,12 +96,14 @@ if ! isFlatcar "$OS"; then
         exit 1
       fi
       popd > /dev/null || exit 1
-      # Fix the waagent shebang: setup.py installs it with "#!/usr/bin/env python"
+      # Fix waagent scripts: setup.py installs them with "#!/usr/bin/env python"
       # but some distros (e.g. Azure Linux V3) only have python3, not python.
-      if [ -f /usr/sbin/waagent ] && head -1 /usr/sbin/waagent | grep -q '#!/usr/bin/env python$'; then
-        sed -i '1s|#!/usr/bin/env python$|#!/usr/bin/env python3|' /usr/sbin/waagent
-        echo "Patched waagent shebang to use python3"
-      fi
+      for waagent_bin in /usr/bin/waagent /usr/sbin/waagent; do
+        if [ -f "${waagent_bin}" ] && head -1 "${waagent_bin}" | grep -q '#!/usr/bin/env python$'; then
+          sed -i '1s|#!/usr/bin/env python$|#!/usr/bin/env python3|' "${waagent_bin}"
+          echo "Patched ${waagent_bin} to use python3"
+        fi
+      done
       # Restore the original waagent.conf from the OS image
       mv /etc/waagent.conf.bak /etc/waagent.conf
       rm -rf "${WAAGENT_DOWNLOADS_DIR}"
