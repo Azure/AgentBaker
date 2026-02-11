@@ -2,12 +2,9 @@ package e2e
 
 import (
 	"context"
-
 	crand "crypto/rand"
-
 	"encoding/base64"
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +18,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -40,7 +38,7 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	}
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
-	logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
 	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
@@ -62,7 +60,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 		"GOOS=linux",
 		"GOARCH="+arch,
 	)
-	logf(ctx, "compiling aks-node-controller: %q", cmd.String())
+	toolkit.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
@@ -164,10 +162,8 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 
 	} else {
-		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
@@ -229,7 +225,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		attempt++
 		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 		if err == nil {
-			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 			return vm, nil
 		}
 
@@ -242,7 +237,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
-		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		toolkit.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
 			return vm, err
@@ -252,6 +247,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 }
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
+	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
@@ -338,11 +334,11 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
 						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
 						if powerState == "running" {
-							logf(ctxTimeout, "VM reached running state")
+							toolkit.Logf(ctxTimeout, "VM reached running state")
 							*vmssVM = vm.VirtualMachineScaleSetVM
 							return nil
 						}
-						logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+						toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
 					}
 				}
 			}
