@@ -880,6 +880,11 @@ getPackageJSON() {
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
 
+    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
+    if isACL "${os}"; then
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.flatcar.current // .downloadURIs.default.current"
+    fi
+
     jq -r -c "${search}" <<< "${package}"
 }
 
