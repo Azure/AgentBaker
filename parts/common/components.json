@@ -1654,6 +1654,23 @@
       }
     },
     {
+      "name": "inspektor-gadget",
+      "downloadLocation": "/opt/azure/ig",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.45.0",
+                "revision": "1"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "azure-acr-credential-provider-pmc",
       "downloadLocation": "/opt/azure-acr-credential-provider/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
