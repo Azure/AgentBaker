@@ -1301,6 +1301,40 @@ EOF
 
     # Start the nvidia-dcgm-exporter service.
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+
+    # Verify all NVIDIA managed experience services are actually running
+    verifyNvidiaServiceAndLog nvidia-device-plugin
+    verifyNvidiaServiceAndLog nvidia-dcgm
+    verifyNvidiaServiceAndLog nvidia-dcgm-exporter
+}
+
+# Verifies a NVIDIA systemd service is active and logs status to events pipeline.
+# Logs diagnostic info (systemctl status + journalctl) if service is not active.
+# Does not fail CSE - only logs for debugging.
+# All commands have timeouts to prevent hanging the critical path.
+verifyNvidiaServiceAndLog() {
+    local service=$1
+    local status
+    local timeout_seconds=5
+
+    # Use timeout to prevent hanging; default to "unknown" on any failure
+    status=$(timeout ${timeout_seconds} systemctl is-active "$service" 2>/dev/null) || status="unknown"
+
+    if [ "$status" = "active" ]; then
+        # Log with status in task name: AKS.CSE.verify.nvidia-device-plugin.active
+        logs_to_events "AKS.CSE.verify.${service}.${status}" "echo service $service is $status"
+        return 0
+    fi
+
+    # Service is not active - collect diagnostic information with timeouts
+    local systemctl_output
+    local journal_output
+    systemctl_output=$(timeout ${timeout_seconds} systemctl status "$service" --no-pager -l 2>&1) || systemctl_output="timeout or error getting status"
+    journal_output=$(timeout ${timeout_seconds} journalctl -u "$service" -n 20 --no-pager 2>&1) || journal_output="timeout or error getting journal"
+
+    # Log with status in task name and diagnostic info echoed
+    logs_to_events "AKS.CSE.verify.${service}.${status}" "echo service $service is $status. systemctl: ${systemctl_output}. journal: ${journal_output}"
+    return 0
 }
 
 get_compute_sku() {
