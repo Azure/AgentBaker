@@ -109,8 +109,8 @@ if systemctl is-enabled localdns.service &>/dev/null; then
         --collector.systemd.unit-include="^localdns\.service$"
         --collector.systemd.enable-task-metrics
         --collector.systemd.enable-restarts-metrics
-        --collector.cgroups
-        --collector.cgroups.include="^/system\.slice/localdns\.slice"
+        --collector.systemd.enable-cpu-accounting-metrics
+        --collector.systemd.enable-memory-accounting-metrics
     )
 fi
 
