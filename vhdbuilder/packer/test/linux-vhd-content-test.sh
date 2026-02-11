@@ -1067,10 +1067,20 @@ testNetworkSettings() {
 # Ensures that the content /etc/profile.d/umask.sh is correct, per code in
 # <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
 testUmaskSettings() {
+    os_sku=$1
     local test="testUmaskSettings"
+    echo "$test:Start"
+
+    # ACL uses overlay filesystem on /etc which prevents persistent modification of /etc/profile.d/umask.sh.
+	# os_sku is still "Flatcar" for ACL as we're just changing what base image we use
+    if [ "$os_sku" = "Flatcar" ]; then
+        echo $test "Skipping umask.sh validation for ACL (uses overlay filesystem and global CIS.sh for umask enforcement)"
+        echo "$test:End"
+        return
+    fi
+
     local settings_file=/etc/profile.d/umask.sh
     local expected_settings_file_content='umask 027'
-    echo "$test:Start"
 
     # If the settings file exists, it must just be a single line that sets umask properly.
     if [ -f "${settings_file}" ]; then
@@ -1765,7 +1775,7 @@ testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
-testUmaskSettings
+testUmaskSettings $OS_SKU
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
