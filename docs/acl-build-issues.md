@@ -82,3 +82,45 @@ On **Flatcar**, `/usr/sbin` is a symlink to `/usr/bin` (usr-merge), so `/usr/sbi
 **Fix (v2 — current)**: Changed the Flatcar packer templates (`vhd-image-builder-flatcar.json`, `vhd-image-builder-flatcar-arm64.json`) to use bare `waagent` instead of `/usr/sbin/waagent` in the deprovision command. This lets the shell resolve `waagent` via PATH, finding it at `/usr/bin/waagent` regardless of whether `/usr/sbin` is a symlink (Flatcar) or a separate read-only directory (ACL). This matches the pattern already used by the Mariner packer templates.
 
 **Log reference**: `failed.log` lines 51535 (`command not found`), 51536 (`cleanup provisioner`), 51706 (`exit status: 125`)
+
+---
+
+## Issue 4: Missing packages during VHD build (CNI plugins, ACR credential provider)
+
+**Status**: Fixed
+**Date**: 2026-02-11
+**Symptom**: VHD build succeeds but test phase fails with:
+- `testContainerNetworkingPluginsInstalled` — CNI bridge binary not found at `/opt/cni/bin/bridge`
+- `testAcrCredentialProviderInstalled` — tarball missing at `/opt/credentialprovider/downloads/`
+
+**Root cause**: `getPackageJSON()` in `cse_helpers.sh` is called with OS=`ACL` during VHD build,
+but `components.json` has no `acl` key for packages — only `flatcar.current` entries. The function
+couldn't resolve ACL-specific entries, fell through to `.downloadURIs.default.current` (which doesn't
+exist for these packages), and returned empty/skip. This caused the install script to skip:
+- `containernetworking-plugins` package installation
+- `azure-acr-credential-provider-pmc` package installation
+
+**Build log evidence**:
+```
+"containernetworking-plugins package versions array is either empty or the first element is <SKIP>. 
+ Skipping containernetworking-plugins installation."
+
+"azure-acr-credential-provider-pmc package versions array is either empty or the first element is <SKIP>. 
+ Skipping azure-acr-credential-provider-pmc installation."
+```
+
+**Fix**: Added ACL→flatcar fallback in `getPackageJSON()` function. When OS is ACL, the jq search
+path now tries:
+1. `.downloadURIs.acl.{variant}/current` (ACL-specific, if it exists)
+2. `.downloadURIs.acl.current` (ACL default)  
+3. `.downloadURIs.flatcar.current` (fallback to Flatcar)
+4. `.downloadURIs.default.current` (global default)
+
+This allows ACL to inherit Flatcar package entries without needing duplicate entries in `components.json`,
+since both are Flatcar-based distributions with identical runtime dependencies.
+
+**Affected files**:
+- `parts/linux/cloud-init/artifacts/cse_helpers.sh` — `getPackageJSON()` function (lines 885-888)
+- `pkg/agent/testdata/**/CustomData` — auto-regenerated snapshot test data
+
+**Full analysis**: See `acl_test_failures_analysis.txt`
