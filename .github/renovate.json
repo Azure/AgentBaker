@@ -24,9 +24,10 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "oss/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "*/kubernetes/coredns",
         "oss/v2/kubernetes/pause",
-        "oss/v2/kubernetes/coredns",
         "containernetworking/azure-cni",
         "containernetworking/azure-cns",
         "containernetworking/azure-ipam",
