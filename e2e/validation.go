@@ -71,11 +71,16 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
-		ValidateLocalDNSHostsFile(ctx, s, map[string][]string{
-			"mcr.microsoft.com":         {"20.61.99.68", "2603:1061:1002::2"},
-			"login.microsoftonline.com": {"20.190.160.1"},
-			"acs-mirror.azureedge.net":  {"152.199.19.161"},
+		// Validate aks-hosts-setup service ran successfully and timer is active
+		ValidateAKSHostsSetupService(ctx, s)
+		// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
+		ValidateLocalDNSHostsFile(ctx, s, []string{
+			"mcr.microsoft.com",
+			"login.microsoftonline.com",
+			"acs-mirror.azureedge.net",
 		})
+		// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
+		ValidateLocalDNSHostsPluginBypass(ctx, s)
 	}
 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
