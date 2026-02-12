@@ -737,8 +737,8 @@ testLSMBPF() {
   os_sku=$1
   os_version=$2
 
-  # Only test on Ubuntu 24.04 and Azure Linux 3.0 that LSM BPF is configured correctly
-  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
+  # Only test on Ubuntu and Azure Linux 3.0 that LSM BPF is configured correctly
+  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" = "20.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
     echo "$test: will not test for BPF to be present within LSM modules for SKU: $os_sku, version: $os_version"
     echo "$test:Finish"
     return 0

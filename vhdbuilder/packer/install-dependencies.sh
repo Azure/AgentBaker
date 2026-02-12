@@ -856,7 +856,7 @@ configureLsmWithBpf() {
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
       local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
       if [ -f "$grub_cfg" ]; then
         if grep -q "lsm=" "$grub_cfg"; then
@@ -864,7 +864,7 @@ configureLsmWithBpf() {
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
         fi
-        echo "Updating GRUB configuration for Ubuntu 24.04..."
+        echo "Updating GRUB configuration for Ubuntu..."
         update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
