@@ -251,7 +251,7 @@ installCNI() {
     if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
         mkdir -p "${downloadDir}"
         chown -R root:root "${downloadDir}"
-        
+
         echo "Downloading CNI plugins from ${evaluatedURL}"
         retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
@@ -478,7 +478,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.14'
+  MIRROR_PROXY_VERSION='0.3.0'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
