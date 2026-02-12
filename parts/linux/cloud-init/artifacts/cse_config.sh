@@ -1315,7 +1315,7 @@ EOF
 verifyNvidiaServiceAndLog() {
     local service=$1
     local status
-    local timeout_seconds=5
+    local timeout_seconds=15
 
     # Use timeout to prevent hanging; default to "unknown" on any failure
     status=$(timeout ${timeout_seconds} systemctl is-active "$service" 2>/dev/null) || status="unknown"
@@ -1330,7 +1330,7 @@ verifyNvidiaServiceAndLog() {
     local systemctl_output
     local journal_output
     systemctl_output=$(timeout ${timeout_seconds} systemctl status "$service" --no-pager -l 2>&1) || systemctl_output="timeout or error getting status"
-    journal_output=$(timeout ${timeout_seconds} journalctl -u "$service" -n 20 --no-pager 2>&1) || journal_output="timeout or error getting journal"
+    journal_output=$(timeout ${timeout_seconds} journalctl -u "$service" -n 50 --no-pager 2>&1) || journal_output="timeout or error getting journal"
 
     # Log with status in task name and diagnostic info echoed
     logs_to_events "AKS.CSE.verify.${service}.${status}" "echo service $service is $status. systemctl: ${systemctl_output}. journal: ${journal_output}"
