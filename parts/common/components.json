@@ -1493,7 +1493,7 @@
     },
     {
       "name": "azure-acr-credential-provider-pmc",
-      "downloadLocation": "/opt/credentialprovider/downloads",
+      "downloadLocation": "/opt/azure-acr-credential-provider/downloads",
       "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
       "downloadURIs": {
         "ubuntu": {
