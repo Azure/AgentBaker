@@ -277,10 +277,10 @@ installPkgWithAptGet() {
     packageName="${1:-}"
     packageVersion="${2}"
     downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}_${packageVersion}-*"
 
     # if no deb file with desired version found then try fetching from packages.microsoft repo
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
+    filename=$(apt-get download --print-uris "${packageName}=${packageVersion}" | awk '{print $2}')
+    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${filename}" -print -quit 2>/dev/null) || debFile=""
     if [ -z "${debFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
             echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
@@ -288,7 +288,7 @@ installPkgWithAptGet() {
             return 0
         fi
 
-        # update pmc repo to get latest package versions
+        # update pmc repo to get latest versions
         updatePMCRepository ${packageVersion}
         # query all package versions and get the latest version for matching k8s version
         fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
@@ -298,7 +298,7 @@ installPkgWithAptGet() {
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
-        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${filename}" -print -quit 2>/dev/null) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"

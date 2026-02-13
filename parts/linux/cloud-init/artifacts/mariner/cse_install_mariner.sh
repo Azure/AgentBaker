@@ -440,24 +440,28 @@ installRPMPackageFromFile() {
     echo "installing ${packageName} version ${desiredVersion}"
     local downloadDir
     downloadDir="$(getPackageDownloadDir "${packageName}")"
-    local rpmPattern="${packageName}-${desiredVersion}"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+    # query all package versions and get the latest version for matching k8s version
+    # e.g. 1.34.0-5.azl3
+    fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+    if [ -z "${fullPackageVersion}" ]; then
+        echo "Failed to find valid ${packageName} version for ${desiredVersion}"
+        return 1
+    fi
+    # query repo metadata for rpm filename
+    url=$(dnf repoquery --location ${packageName}-${fullPackageVersion} 2>/dev/null | head -1)
+    filename=$(basename "$url")
+    # check cached rpms for matching filename
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${filename}" -print -quit 2>/dev/null) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
             rm -rf "${downloadDir}"
             return 0
         fi
-        # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
-        if [ -z "${fullPackageVersion}" ]; then
-            echo "Failed to find valid ${packageName} version for ${desiredVersion}"
-            return 1
-        fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${filename}" -print -quit 2>/dev/null) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
@@ -478,11 +482,7 @@ installRPMPackageFromFile() {
       cachedBaseName=$(basename "${cachedRpm}")
 
       case "${cachedBaseName}" in
-        ${packageName}-${desiredVersion}-*.rpm)
-          rpmArgs+=("${cachedRpm}")
-          continue
-          ;;
-        ${packageName}-*.rpm)
+        *${packageName}*)
           echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
           continue
           ;;
