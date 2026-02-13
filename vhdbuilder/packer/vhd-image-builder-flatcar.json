@@ -24,7 +24,7 @@
     "sig_source_resource_group": "acl-test-gallery-rg",
     "sig_source_gallery_name": "acltestacg",
     "sig_source_image_name": "aadhar-acl-test-vm-img",
-    "sig_source_image_version": "1.0.1",
+    "sig_source_image_version": "1.0.4",
     "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
