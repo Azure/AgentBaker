@@ -76,3 +76,25 @@ Once the base image ships the correct chrony config, the entire 50+ line `disabl
 **Why AgentBaker**: The base image's firewall rules are reasonable for a general Azure VM (SSH access, conntrack, etc.). AgentBaker (the AKS-specific tool) should adjust the firewall for AKS's needs — it already does this for Mariner/AzureLinux via `disableSystemdIptables`. The ACL guard in `vhdbuilder/packer/install-dependencies.sh` is the right place. If ACL were ever used outside AKS, the base image rules would be desired.
 
 ---
+
+### Issue 9: Explicit Ignition enable symlinks (workaround)
+
+**Why AgentBaker**: The immediate workaround uses Ignition's `storage.links` to create enable symlinks directly in `sysinit.target.wants/`, bypassing the broken preset mechanism entirely. This is safe on both ACL and upstream Flatcar (`overwrite: true` handles the case where presets already work). The fix is in `parts/linux/cloud-init/flatcar.yml`.
+
+---
+
+## Changes to make in both (AgentBaker workaround now, base image fix long-term)
+
+### Issue 9: Ignition preset mechanism broken on ACL (High priority)
+
+**Why base image (long-term)**: The root cause is that ACL's systemd v255 lacks `systemd-preset-all.service` (introduced in v256), and `/etc/machine-id` is pre-populated so `ConditionFirstBoot=yes` fails. This breaks *any* Ignition-defined service that uses `enabled: true` — not just AgentBaker's two services. Any future use of Ignition presets on ACL will hit the same problem.
+
+**AgentBaker workaround (already implemented)**: Added `storage.links` to `flatcar.yml` to create explicit enable symlinks, bypassing the preset mechanism.
+
+**Fix in ACL base image** (choose one or both):
+1. **Add `systemd-preset-all.service` equivalent**: Create a boot service that runs `systemctl preset-all` unconditionally during early boot. This is what systemd v256+ provides natively. Could be added to bootengine or as a new systemd unit in the sysext.
+2. **Fix first-boot detection**: Investigate why `/etc/machine-id` is populated after switch-root despite being emptied during VHD build (`cleanup-vhd.sh` and `build_image_util.sh:1241`). The E2E diagnostics show a freshly generated machine-id (`a0902b9f403843fbbdc3b1a79d2c3800`), suggesting something in the boot chain (possibly `systemd-machine-id-setup` in initrd, or `waagent`) regenerates it before PID 1 evaluates `ConditionFirstBoot=yes`. Fixing this would make systemd's built-in `-Dfirst-boot-full-preset=true` logic work correctly.
+
+Once the base image properly processes Ignition presets, the `storage.links` workaround in AgentBaker becomes redundant (but harmless due to `overwrite: true`).
+
+---

@@ -331,6 +331,22 @@
         "overwrite": true,
         "path": "/etc/ignition-bootcmds.sh"
       }
+    ],
+    "links": [
+      {
+        "group": {},
+        "overwrite": true,
+        "path": "/etc/systemd/system/sysinit.target.wants/ignition-file-extract.service",
+        "target": "/etc/systemd/system/ignition-file-extract.service",
+        "user": {}
+      },
+      {
+        "group": {},
+        "overwrite": true,
+        "path": "/etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service",
+        "target": "/etc/systemd/system/ignition-bootcmds.service",
+        "user": {}
+      }
     ]
   },
   "systemd": {

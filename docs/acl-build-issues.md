@@ -177,8 +177,8 @@ Each issue below includes two sections:
 
 ---
 ## Issue 9: `ignition-file-extract.service` never runs — instance-specific files missing (localdns, etc.)
-**Status**: Open — root cause of 4 E2E failures (Test_Flatcar, Test_Flatcar_AzureCNI, Test_Flatcar_AzureCNI_ChronyRestarts, Test_Flatcar_SecureTLSBootstrapping)
-**Date**: 2026-02-13
+**Status**: Fixed (workaround) — root cause of 4 E2E failures (Test_Flatcar, Test_Flatcar_AzureCNI, Test_Flatcar_AzureCNI_ChronyRestarts, Test_Flatcar_SecureTLSBootstrapping)\
+**Date**: 2026-02-13\
 **Symptom**: E2E tests fail with `localdns: active=inactive enabled=disabled` / `expected active, got inactive`. The `localdns.corefile` at `/opt/azure/containers/localdns/localdns.corefile` does not exist on the VM, even though it should have been delivered via the Ignition tarball.
 
 **Root cause — Ignition preset mechanism is broken on ACL (not an overlay issue)**:
@@ -189,23 +189,145 @@ The root cause is a **three-part failure chain** in systemd's preset mechanism t
 
 2. **`systemd-preset-all.service` does not exist on ACL**: In upstream Flatcar, the preset file would be processed by `systemd-preset-all.service` (with `ConditionFirstBoot=yes`) which runs `systemctl preset-all` on first boot to create enable symlinks from all preset files. **Azure Linux's systemd v255 does not ship `systemd-preset-all.service`** — this service was introduced in upstream systemd v256. Instead, Azure Linux handles presets at RPM install time via a `%post` scriptlet (`systemctl preset-all`) in the systemd RPM spec, which only runs during package installation, not at boot.
 
-3. **First-boot detection also fails**: Even if a preset-all mechanism existed, it wouldn't trigger because `ConditionFirstBoot=yes` fails. The serial console logs confirm:
-   ```
-   systemd-firstboot.service - First Boot Wizard was skipped because of an unmet condition check (ConditionFirstBoot=yes)
-   first-boot-complete.target - First Boot Complete was skipped because of an unmet condition check (ConditionFirstBoot=yes)
-   ```
-   Azure Linux's systemd is built with `-Dfirst-boot-full-preset=true` (which makes PID 1 run preset-all internally on first boot), but this also depends on `ConditionFirstBoot=yes`, which requires `/etc/machine-id` to be empty or missing. Despite both `cleanup-vhd.sh` (AgentBaker Packer) and `build_image_util.sh` (ACL image build) emptying machine-id, something repopulates it before PID 1 evaluates the condition.
+3. **First-boot detection also fails**: Even if a preset-all mechanism existed, it wouldn't trigger because `ConditionFirstBoot=yes` fails. Azure Linux's systemd is built with `-Dfirst-boot-full-preset=true` (which makes PID 1 run preset-all internally on first boot), but this also depends on `ConditionFirstBoot=yes`, which requires `/etc/machine-id` to be empty or missing. Despite both `cleanup-vhd.sh` (AgentBaker Packer) and `build_image_util.sh` (ACL image build) emptying machine-id, something repopulates it before PID 1 evaluates the condition.
 
 **The net result**: Ignition writes the preset file, but nothing ever processes it into enable symlinks, so `ignition-file-extract.service` and `ignition-bootcmds.service` are never enabled, never started, and the tarball is never extracted.
 
-**Diagnostic evidence from serial console logs**:
-- Ignition engine successfully wrote `/sysroot/var/lib/ignition/ignition-files.tar` (confirmed at 04:08:12)
-- Ignition engine wrote the `ignition-file-extract.service` unit file to `/sysroot/etc/systemd/system/`
-- Ignition wrote the preset file to `/sysroot/etc/systemd/system-preset/20-ignition.preset`
-- Kernel cmdline confirms initrd detected first boot: `flatcar.first_boot=detected ignition.firstboot=1`
-- After switch-root, `ConditionFirstBoot=yes` evaluates as false (machine-id populated)
-- `ignition-file-extract.service` never starts — zero log entries after switch-root
-- The `/etc/systemd/system-preset/` directory does not even exist on a standalone ACL VM (`systemctl status systemd-preset-all.service` → "Unit could not be found")
+**Confirmed — E2E diagnostic evidence (2026-02-13, build 153149009)**:
+
+Added `DebugIgnitionPresetMechanism()` to E2E tests (`e2e/validators.go`) that runs a 14-point diagnostic script on Flatcar/ACL VMs. The output from all 4 failing tests was identical and confirms every part of the theory:
+
+*1. OS identity — ACL confirmed:*
+```
+NAME="Azure Container Linux"
+ID=acl
+ID_LIKE=flatcar
+VERSION=4459.2.2+73-g6b86e1475c
+```
+
+*2. Ignition preset file — written correctly:*
+```
+EXISTS: /etc/systemd/system-preset/20-ignition.preset
+--- contents ---
+enable update-ca-certificates.service
+enable ignition-bootcmds.service
+enable ignition-file-extract.service
+--- end ---
+```
+Ignition wrote the preset file with the correct `enable` lines. This part works fine.
+
+*3. `systemd-preset-all.service` — confirmed missing:*
+```
+No files found for systemd-preset-all.service.
+SERVICE NOT FOUND
+Unit systemd-preset-all.service could not be found.
+STATUS CHECK FAILED
+```
+Azure Linux's systemd v255 does not ship this service. Nothing on this system processes preset files at boot.
+
+*4. `/etc/machine-id` — populated, kills `ConditionFirstBoot`:*
+```
+Content of /etc/machine-id:
+a0902b9f403843fbbdc3b1a79d2c3800
+(length: 33)
+```
+With a 32-char hex machine-id populated, `ConditionFirstBoot=yes` evaluates to **false**. Both first-boot services confirm this:
+```
+○ systemd-firstboot.service - First Boot Wizard
+    Condition: start condition unmet at Fri 2026-02-13 22:35:54 UTC; 3min 2s ago
+○ first-boot-complete.target - First Boot Complete
+    Condition: start condition unmet at Fri 2026-02-13 22:35:54 UTC; 3min 2s ago
+ConditionResult=no
+ConditionResult=no
+```
+
+*5. Enable symlinks — all missing (the direct consequence):*
+```
+MISSING: /etc/systemd/system/sysinit.target.wants/ignition-file-extract.service
+MISSING: /etc/systemd/system/multi-user.target.wants/ignition-file-extract.service
+MISSING: /etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service
+MISSING: /etc/systemd/system/multi-user.target.wants/ignition-bootcmds.service
+```
+Without `systemd-preset-all.service` and with `ConditionFirstBoot=no`, nothing ever converts the `20-ignition.preset` file into enable symlinks.
+
+Note: The `sysinit.target.wants/` directory exists and has ~20 other symlinks (blk-availability, ensure-sysext, systemd-resolved, etc.) — all created during image build, not by Ignition.
+
+*6. Unit files — exist but are disabled:*
+```
+--- ignition-file-extract.service ---
+EXISTS: /etc/systemd/system/ignition-file-extract.service
+[Install]
+WantedBy=sysinit.target
+
+--- ignition-bootcmds.service ---
+EXISTS: /etc/systemd/system/ignition-bootcmds.service
+[Install]
+WantedBy=sysinit.target
+```
+Ignition correctly wrote the unit files. The `[Install]` section says `WantedBy=sysinit.target`, so the symlinks should go into `sysinit.target.wants/` — but nobody created them.
+
+*7. Ignition tar — still sitting there, never extracted:*
+```
+EXISTS (NOT extracted!): /var/lib/ignition/ignition-files.tar (199680 bytes)
+```
+The ~195KB tar containing the localdns corefile and other instance configs was delivered by Ignition but never unpacked. The `ConditionPathExists=/var/lib/ignition/ignition-files.tar` in the unit file would have been satisfied, but the service was never enabled so it never ran.
+
+*8. Services — disabled, inactive, zero journal entries:*
+```
+ignition-file-extract.service:
+  UnitFileState=disabled
+  ActiveState=inactive
+  SubState=dead
+  ConditionResult=no
+  Journal: -- No entries --
+
+ignition-bootcmds.service:
+  UnitFileState=disabled
+  ActiveState=inactive
+  SubState=dead
+  ConditionResult=no
+  Journal: -- No entries --
+```
+Zero log entries — the services were never even attempted by systemd.
+
+*9. Localdns — missing (downstream consequence):*
+```
+MISSING: /opt/azure/containers/localdns/localdns.corefile
+localdns service: inactive, disabled
+```
+The corefile was inside the un-extracted tar, so localdns has no config and never starts. This is the direct cause of the E2E test failures.
+
+*10. Kernel cmdline confirms initrd saw first boot:*
+```
+flatcar.first_boot=detected ignition.firstboot=1
+```
+The initrd correctly detected first boot and ran Ignition (which wrote the unit files, the tar, and the preset file). But after switch-root, PID 1 doesn't honor this because machine-id is already populated.
+
+*11. The `disable *` catch-all:*
+The preset file `/usr/lib/systemd/system-preset/99-default-disable.preset` contains `disable *`, meaning if presets were ever re-evaluated without the `20-ignition.preset` at higher priority, everything would be disabled. The `20-ignition.preset` in `/etc/systemd/system-preset/` has correct priority (20 < 99), but it doesn't matter since nothing processes presets at boot.
+
+*12. Full preset file hierarchy on ACL:*
+```
+/etc/systemd/system-preset/
+  20-ignition.preset              ← written by Ignition (enable 3 services)
+
+/usr/lib/systemd/system-preset/
+  50-acl-ntp.preset               ← disable ntpdate.service
+  50-acl-rsyncd.preset            ← disable rsyncd.service
+  50-acl-sshd.preset              ← disable sshd.service, enable sshd.socket
+  50-conntrackd.preset            ← disable conntrackd.service
+  50-etcd-member.preset           ← disable etcd-member.service
+  50-lvm2.preset                  ← disable lvm2-activate/monitor
+  50-nfs-server.preset            ← disable nfs-server.service
+  50-ntpd.preset                  ← disable ntpd.service
+  50-rpcbind.preset               ← disable rpcbind.socket/service
+  50-saslauthd.preset             ← disable saslauthd.service
+  90-default.preset               ← ACL defaults (enable chronyd, dbus, sshd, etc.)
+  90-systemd.preset               ← systemd defaults (enable getty, timesyncd, networkd)
+  99-default-disable.preset       ← disable * (catch-all)
+
+/run/systemd/system-preset/       ← DOES NOT EXIST
+```
 
 **Impact**: All instance-specific files from the Ignition tar are missing. VHD-baked scripts at `/opt/` still work, so CSE can run and kubelet starts. But localdns corefile and potentially other instance-specific configs are absent.
 
@@ -213,31 +335,39 @@ The root cause is a **three-part failure chain** in systemd's preset mechanism t
 
 **E2E validation flow**: `ValidateCommonLinux()` in `e2e/validation.go:70` always checks localdns unless `VHD.UnsupportedLocalDns == true`. The Flatcar VHD config does NOT set this flag (see `e2e/config/vhd.go`). The base NBC in `e2e/node_config.go:450` sets `LocalDNSProfile.EnableLocalDNS = true`, so the corefile SHOULD be generated by the AgentBaker Go service and included in the Ignition tar + cloud-init write_files.
 
-**Fix options** (in priority order):
-1. **AgentBaker workaround — explicit symlinks via Ignition** (quickest, no base image change):
-   In `parts/linux/cloud-init/flatcar.yml`, instead of relying on `enabled: true` (which uses the broken preset mechanism), use Ignition's `storage.links` to explicitly create the enable symlinks:
-   ```yaml
-   storage:
-     links:
-       - path: /etc/systemd/system/multi-user.target.wants/ignition-file-extract.service
-         target: /etc/systemd/system/ignition-file-extract.service
-       - path: /etc/systemd/system/multi-user.target.wants/ignition-bootcmds.service
-         target: /etc/systemd/system/ignition-bootcmds.service
-   ```
-   This bypasses the broken preset mechanism entirely. Ignition writes these symlinks during initrd before switch-root, and the overlay preserves them.
+**AgentBaker fix** (workaround — explicit symlinks via Ignition):
+- Instead of relying on `enabled: true` (which uses the broken preset mechanism), added `storage.links` to `parts/linux/cloud-init/flatcar.yml` to explicitly create enable symlinks:
+  ```yaml
+  storage:
+    links:
+      - path: /etc/systemd/system/sysinit.target.wants/ignition-file-extract.service
+        target: /etc/systemd/system/ignition-file-extract.service
+        overwrite: true
+      - path: /etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service
+        target: /etc/systemd/system/ignition-bootcmds.service
+        overwrite: true
+  ```
+- This bypasses the broken preset mechanism entirely. Ignition writes these symlinks during initrd before switch-root, and the overlay preserves them.
+- `overwrite: true` ensures compatibility with upstream Flatcar where presets may already work and create the symlinks.
+- Note: the target directory is `sysinit.target.wants/` (not `multi-user.target.wants/`) because the unit files specify `WantedBy=sysinit.target` in their `[Install]` section.
+- The `enabled: true` on the units is kept for backward compatibility — it still writes the preset file, which is harmless.
+- Affected files:
+	- `parts/linux/cloud-init/flatcar.yml` — added `storage.links` section
+	- `pkg/agent/testdata/Flatcar/CustomData` + `.inner` — regenerated snapshot
+	- `pkg/agent/testdata/Flatcar+CustomCloud/CustomData` + `.inner` — regenerated snapshot
+	- `pkg/agent/testdata/Flatcar+CustomCloud+USSec/CustomData` + `.inner` — regenerated snapshot
 
-2. **ACL base image fix — add a preset-all boot service**:
-   Create a custom systemd service in the ACL image (e.g., in bootengine or a new package) that runs `systemctl preset-all` unconditionally during early boot, equivalent to what `systemd-preset-all.service` provides in systemd v256+. This is the proper long-term fix.
+**Long-term fix options for ACL base image** (in priority order):
+1. **Add a preset-all boot service**:
+   Create a custom systemd service in the ACL image (e.g., in bootengine or a new package) that runs `systemctl preset-all` unconditionally during early boot, equivalent to what `systemd-preset-all.service` provides in systemd v256+.
 
-3. **ACL base image fix — fix first-boot detection**:
+2. **Fix first-boot detection**:
    Debug why `/etc/machine-id` is populated after switch-root despite being emptied during VHD build, and fix the cleanup chain so systemd's `-Dfirst-boot-full-preset=true` logic triggers correctly. This would make PID 1 process presets automatically.
-
-4. **Short-term E2E workaround**: Set `UnsupportedLocalDns: true` on `VHDFlatcarGen2` in `e2e/config/vhd.go` to skip localdns validation for ACL/Flatcar. This doesn't fix the underlying extraction issue but unblocks test runs.
 
 **ACL base image follow-up**:
 - Azure Linux's systemd v255 does not include `systemd-preset-all.service` (introduced in v256). Consider backporting this service or creating an equivalent.
-- Investigate and fix the first-boot detection chain: `cleanup-vhd.sh` empties `/etc/machine-id` → `waagent -deprovision+user` runs after → bootengine `initrd-setup-root` removes the blank machine-id → but something repopulates it before PID 1 evaluates `ConditionFirstBoot=yes`.
-- The `20-ignition.preset` file written by Ignition is ultimately defeated by the `disable *` catch-all in Azure Linux's `90-systemd.preset` if `systemctl preset` is ever re-run without the Ignition preset file present.
+- Investigate and fix the first-boot detection chain: `cleanup-vhd.sh` empties `/etc/machine-id` → `waagent -deprovision+user` runs after → bootengine `initrd-setup-root` removes the blank machine-id → but something repopulates it before PID 1 evaluates `ConditionFirstBoot=yes`. The E2E diagnostics show the machine-id is `a0902b9f403843fbbdc3b1a79d2c3800` — this is a freshly generated ID, not a VHD-baked one.
+- The `20-ignition.preset` file written by Ignition is ultimately defeated by the `disable *` catch-all in Azure Linux's `99-default-disable.preset` if `systemctl preset` is ever re-run without the Ignition preset file present.
 
 **Key files involved**:
 - `parts/linux/cloud-init/flatcar.yml` — Ignition config defining the services with `enabled: true`
@@ -247,5 +377,7 @@ The root cause is a **three-part failure chain** in systemd's preset mechanism t
 - Bootengine `initrd-setup-root` — removes blank machine-id, mounts `/etc` overlay
 - Azure Linux `systemd.spec` line 703 — builds with `-Dfirst-boot-full-preset=true`
 - Azure Linux `systemd.spec` line 965 — `systemctl preset-all` in `%post` (RPM install time only)
+- `e2e/validators.go` — `DebugIgnitionPresetMechanism()` diagnostic function (added for this investigation)
+- `e2e/validation.go` — calls diagnostics from `ValidateCommonLinux()` when `s.VHD.Flatcar` is true
 
-**Notes**: This is NOT an overlay issue. The overlay correctly preserves Ignition-written files. The root cause is that Azure Linux's systemd v255 lacks the boot-time preset processing that Ignition relies on to enable services.
+**Notes**: This is NOT an overlay issue. The overlay correctly preserves Ignition-written files. The root cause is that Azure Linux's systemd v255 lacks the boot-time preset processing that Ignition relies on to enable services. **Theory fully confirmed by E2E diagnostics on 2026-02-13.**
