@@ -608,32 +608,127 @@ param(
     [string]$arg3
 )
 
-Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
-Expand-Archive azcopy.zip
-cd .\azcopy\*
-$env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-$env:AZCOPY_MSI_RESOURCE_STRING=$arg3
-C:\k\debug\collect-windows-logs.ps1
-$CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
-.\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
-.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
-.\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
-.\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
-.\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
+function Write-Log {
+	param([string]$Message)
+	$timestamp = (Get-Date).ToString("o")
+	Write-Output "[$timestamp] $Message"
+}
 
-# Collect network configuration information
-ipconfig /all > network_config.txt
-Get-NetIPConfiguration -Detailed >> network_config.txt
-Get-NetAdapter | Format-Table -AutoSize >> network_config.txt
-Get-DnsClientServerAddress >> network_config.txt
-Get-NetRoute >> network_config.txt
-Get-NetNat >> network_config.txt
-Get-NetIPAddress >> network_config.txt
-Get-NetNeighbor >> network_config.txt
-Get-NetConnectionProfile >> network_config.txt
-hnsdiag list networks >> network_config.txt
-hnsdiag list endpoints >> network_config.txt
-.\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
+function Upload-FileToBlobStorage {
+	param(
+		[string]$FilePath,
+		[string]$BlobUrl,
+		[string]$ManagedIdentityResourceId
+	)
+	if (-not (Test-Path $FilePath)) { return }
+	$fileSize = (Get-Item $FilePath).Length
+	Write-Log "Uploading $FilePath ($fileSize bytes) to $BlobUrl"
+	try {
+		$encodedMiResId = [System.Uri]::EscapeDataString($ManagedIdentityResourceId)
+		$tokenUri = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://storage.azure.com/&mi_res_id=$encodedMiResId"
+		$tokenResponse = Invoke-RestMethod -Uri $tokenUri -Headers @{Metadata="true"} -ErrorAction Stop
+		$accessToken = $tokenResponse.access_token
+		$bytes = [System.IO.File]::ReadAllBytes($FilePath)
+		$headers = @{
+			"Authorization"  = "Bearer $accessToken"
+			"x-ms-blob-type" = "BlockBlob"
+			"x-ms-version"   = "2020-10-02"
+		}
+		Invoke-RestMethod -Uri $BlobUrl -Method Put -Headers $headers -Body $bytes -ContentType "application/octet-stream" -ErrorAction Stop
+		Write-Log "Upload complete: $BlobUrl"
+	} catch {
+		Write-Log "Upload failed: $_"
+	}
+}
+
+function Emit-File {
+	param(
+		[string]$Path,
+		[string]$Label
+	)
+
+	if (Test-Path $Path) {
+		Write-Output "===== BEGIN $Label ($Path) ====="
+		try {
+			Get-Content -Path $Path -ErrorAction Stop | ForEach-Object { Write-Output $_ }
+		} catch {
+			Write-Output "Failed to read ${Path}: $_"
+		}
+		Write-Output "===== END $Label ($Path) ====="
+	} else {
+		Write-Log "File not found: $Path"
+	}
+}
+
+function Emit-Command {
+	param(
+		[string]$Label,
+		[scriptblock]$Command
+	)
+
+	Write-Output "===== BEGIN $Label ====="
+	try {
+		& $Command 2>&1 | ForEach-Object { Write-Output $_ }
+	} catch {
+		Write-Output "Command failed: $Label - $_"
+	}
+	Write-Output "===== END $Label ====="
+}
+
+$scriptStart = Get-Date
+Write-Log "RunCommand starting"
+Write-Log "Blob prefix: $arg2"
+Write-Log "Target container: $arg1"
+
+$collectScript = "C:\k\debug\collect-windows-logs.ps1"
+if (Test-Path $collectScript) {
+	try {
+		$collectOutput = & $collectScript -ErrorAction Stop
+		Write-Log "collect-windows-logs.ps1 completed"
+	} catch {
+		Write-Log "collect-windows-logs.ps1 failed: $_"
+	}
+} else {
+	Write-Log "collect-windows-logs.ps1 not found at $collectScript"
+}
+
+Emit-File -Path "C:\azuredata\CustomDataSetupScript.log" -Label "CustomDataSetupScript.log"
+Emit-File -Path "C:\AzureData\provision.complete" -Label "provision.complete"
+Emit-File -Path "C:\k\kubelet.err.log" -Label "kubelet.err.log"
+Emit-File -Path "C:\k\containerd.err.log" -Label "containerd.err.log"
+Emit-File -Path "C:\k\windowsnodereset.log" -Label "windowsnodereset.log"
+
+# Network configuration (replaces old network_config.txt collected via azcopy)
+Emit-Command -Label "ipconfig /all" -Command { ipconfig /all }
+Emit-Command -Label "Get-NetIPConfiguration" -Command { Get-NetIPConfiguration -Detailed }
+Emit-Command -Label "Get-NetAdapter" -Command { Get-NetAdapter | Format-Table -AutoSize }
+Emit-Command -Label "Get-DnsClientServerAddress" -Command { Get-DnsClientServerAddress }
+Emit-Command -Label "Get-NetRoute" -Command { Get-NetRoute }
+Emit-Command -Label "Get-NetIPAddress" -Command { Get-NetIPAddress }
+Emit-Command -Label "hnsdiag list networks" -Command { hnsdiag list networks }
+Emit-Command -Label "hnsdiag list endpoints" -Command { hnsdiag list endpoints }
+
+# Upload collected-node-logs.zip (replaces old azcopy upload)
+$logZip = $null
+if ($collectOutput) {
+	$logZip = $collectOutput | Where-Object { $_ -is [System.IO.FileInfo] -and $_.FullName -like "*_logs.zip" } | Select-Object -Last 1
+}
+if ($null -ne $logZip) {
+	Upload-FileToBlobStorage -FilePath $logZip.FullName -BlobUrl "$arg1/collected-node-logs.zip" -ManagedIdentityResourceId $arg3
+} else {
+	Write-Log "No *_logs.zip found from collect-windows-logs output"
+}
+
+# Upload minidump zip to blob storage for offline WinDbg analysis
+$minidumpZip = Get-ChildItem -Path $env:TEMP -Filter "Minidump-*.zip" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($minidumpZip) {
+	Upload-FileToBlobStorage -FilePath $minidumpZip.FullName -BlobUrl "$arg1/minidump.zip" -ManagedIdentityResourceId $arg3
+} else {
+	Write-Log "No Minidump zip found in TEMP"
+}
+
+$scriptDuration = (Get-Date) - $scriptStart
+Write-Log ("RunCommand completed in {0:hh\:mm\:ss\.fff}" -f $scriptDuration)
 `
 
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
@@ -659,6 +754,17 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	instanceID := *page.Value[0].InstanceID
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
+	// Sanitize test name for use in blob names (remove slashes, spaces, and "Test" prefix noise)
+	sanitizedTestName := strings.ReplaceAll(s.T.Name(), "/", "-")
+	sanitizedTestName = strings.ReplaceAll(sanitizedTestName, " ", "-")
+	outputBlobName := "runcommand-" + s.Runtime.VMSSName + "-" + sanitizedTestName + "-output.txt"
+	errorBlobName := "runcommand-" + s.Runtime.VMSSName + "-" + sanitizedTestName + "-error.txt"
+	outputBlobUrl := blobUrl + "/" + outputBlobName
+	errorBlobUrl := blobUrl + "/" + errorBlobName
+	vmIdentityClientID, identityErr := CachedCreateVMManagedIdentity(ctx, s.Location)
+	if identityErr != nil {
+		s.T.Logf("failed to get VM managed identity client ID: %v", identityErr)
+	}
 
 	client := config.Azure.VMSSVMRunCommands
 
@@ -685,6 +791,20 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		armcompute.VirtualMachineRunCommand{
 			Properties: &armcompute.VirtualMachineRunCommandProperties{
 				TimeoutInSeconds: to.Ptr(runCommandTimeout), // 20 minutes should be enough
+				OutputBlobURI:    to.Ptr(outputBlobUrl),
+				ErrorBlobURI:     to.Ptr(errorBlobUrl),
+				OutputBlobManagedIdentity: func() *armcompute.RunCommandManagedIdentity {
+					if identityErr != nil {
+						return nil
+					}
+					return &armcompute.RunCommandManagedIdentity{ClientID: to.Ptr(vmIdentityClientID)}
+				}(),
+				ErrorBlobManagedIdentity: func() *armcompute.RunCommandManagedIdentity {
+					if identityErr != nil {
+						return nil
+					}
+					return &armcompute.RunCommandManagedIdentity{ClientID: to.Ptr(vmIdentityClientID)}
+				}(),
 				Source: &armcompute.VirtualMachineRunCommandScriptSource{
 					//CommandID: to.Ptr("RunPowerShellScript"),
 					Script: to.Ptr(uploadLogsPowershellScript),
@@ -716,7 +836,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
 
-	s.T.Logf("uploaded logs to %s", blobUrl)
+	s.T.Logf("run command output stored at %s", blobUrl)
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.T), blobSuffix)
@@ -741,10 +861,11 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 			return
 		}
 	}
+	downloadBlob(outputBlobName)
+	downloadBlob(errorBlobName)
 	downloadBlob("collected-node-logs.zip")
-	downloadBlob("cse.log")
-	downloadBlob("provision.complete")
-	downloadBlob("network_config.txt")
+	downloadBlob("minidump.zip")
+
 	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
