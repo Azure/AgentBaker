@@ -117,6 +117,15 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+
+# ACL inherits Azure Linux's restrictive iptables rules from its base image.
+# Original Flatcar's iptables.service loads empty rules (harmless), but ACL's
+# loads actual host firewall rules that conflict with Cilium eBPF host routing.
+# Mariner/AzureLinux handles this in their block below; ACL needs it separately
+# because isMarinerOrAzureLinux returns false for ACL.
+if isACL "$OS"; then
+  disableSystemdIptables || exit 1
+fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
 # Configure SSH service during VHD build for Ubuntu 22.10+
