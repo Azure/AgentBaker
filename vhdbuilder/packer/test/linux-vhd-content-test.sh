@@ -233,6 +233,10 @@ testPackagesInstalled() {
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "cni-plugins")
+        # cni-plugins is a special case that it is still in components.json for backward compatibility but we don't cache it.
+        continue
+        ;;
       "containernetworking-plugins")
         # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
         testContainerNetworkingPluginsInstalled
@@ -1723,12 +1727,12 @@ testInspektorGadgetAssets() {
 
   if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
     echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
-    
+
     # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi
-    
+
     if [ -f "$import_script" ]; then
       err $test "Import script should not exist for $OS_SKU but found at $import_script"
     fi
@@ -1736,11 +1740,11 @@ testInspektorGadgetAssets() {
     if [ -f "$remove_script" ]; then
       err $test "Remove script should not exist for $OS_SKU but found at $remove_script"
     fi
-    
+
     if [ -f "$unit_file" ]; then
       err $test "Unit file should not exist for $OS_SKU but found at $unit_file"
     fi
-    
+
     echo "$test:Finish"
     return 0
   fi
