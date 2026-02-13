@@ -312,10 +312,9 @@
     },
     {
       "matchPackageNames": [
-        "*/kubernetes/autoscaler/addon-resizer",
-        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
-        "*/kubernetes/coredns",
-        "*/kubernetes/coredns"
+        "**/kubernetes/autoscaler/addon-resizer",
+        "**/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "**/kubernetes/coredns"
       ],
       "assignees": [
         "ashokobulapuram7"
