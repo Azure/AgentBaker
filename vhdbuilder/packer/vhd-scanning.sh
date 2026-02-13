@@ -318,6 +318,57 @@ fi
 
 # Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
 # A regression is when a rule that previously "pass" now has any other result.
+assemble_cis_report() {
+    local l1_file="$1"
+    local l2_file="$2"
+    local output_file="$3"
+
+    if [ ! -f "${l1_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing L1 CIS report file: %s\n' "$l1_file"
+        return 1
+    fi
+    if [ ! -f "${l2_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing L2 CIS report file: %s\n' "$l2_file"
+        return 1
+    fi
+
+    local -A l1_rules
+    while IFS= read -r line; do
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*)
+                local rest
+                rest=$(printf '%s' "$line" | cut -d':' -f2-)
+                rest="${rest# }"
+                local rule_id=${rest%% *}
+                if [ -n "$rule_id" ]; then
+                    l1_rules["$rule_id"]=1
+                fi
+                ;;
+        esac
+    done < "${l1_file}"
+
+    while IFS= read -r line; do
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*)
+                local status rest rule_id desc level
+                status=$(printf '%s' "$line" | cut -d':' -f1)
+                rest=$(printf '%s' "$line" | cut -d':' -f2-)
+                rest="${rest# }"
+                rule_id=${rest%% *}
+                desc="${rest#"$rule_id"}"
+                level="L2"
+                if [ -n "${l1_rules[$rule_id]-}" ]; then
+                    level="L1"
+                fi
+                printf '%s: %s [%s]%s\n' "$status" "$rule_id" "$level" "$desc"
+                ;;
+            *)
+                printf '%s\n' "$line"
+                ;;
+        esac
+    done < "${l2_file}" > "${output_file}"
+}
+
 compare_cis_with_baseline() {
     local baseline_file="vhdbuilder/packer/cis/baselines/${OS_SKU,,}/${OS_VERSION}.txt"
     local current_file="cis-report.txt"
@@ -443,6 +494,8 @@ echo "$msg"
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --file "${CIS_REPORT_L1_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --file "${CIS_REPORT_L2_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+
+assemble_cis_report "${CIS_REPORT_L1_LOCAL}" "${CIS_REPORT_L2_LOCAL}" "cis-report.txt"
 
 # Remove CIS report blobs from storage
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --auth-mode login
