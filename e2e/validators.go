@@ -1871,7 +1871,8 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		"IO/FS": {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
 			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
-			exclude: `sr[0-9]`,
+			// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
+			exclude: `sr[0-9]|Shutdown timeout set to`,
 		},
 	}
 
