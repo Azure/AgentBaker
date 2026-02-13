@@ -1,28 +1,29 @@
-Starting build on  Tue Feb 10 22:32:23 UTC 2026
+Starting build on  Tue Jan 27 18:53:48 UTC 2026
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - aks-secure-tls-bootstrap-client version 1.0.1
-  - containernetworking-plugins version 1.6.2
+  - containerd version 1.7.20
+  - CNI plugin version 1.6.2
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
   - kubernetes-binaries version v1.28.103-akslts
-  - kubernetes-binaries version v1.28.102-akslts
   - kubernetes-binaries version v1.29.101-akslts
-  - kubernetes-binaries version v1.29.100-akslts
   - kubernetes-binaries version v1.30.101-akslts
-  - kubernetes-binaries version v1.30.100-akslts
   - kubernetes-binaries version v1.29.15
-  - kubernetes-binaries version v1.29.14
   - kubernetes-binaries version v1.30.14
-  - kubernetes-binaries version v1.30.13
   - kubernetes-binaries version v1.31.14
-  - kubernetes-binaries version v1.31.13
-  - kubernetes-binaries version v1.32.11
   - kubernetes-binaries version v1.32.10
-  - kubernetes-binaries version v1.33.7
   - kubernetes-binaries version v1.33.6
-  - kubernetes-binaries version v1.34.3
   - kubernetes-binaries version v1.34.1
+  - kubernetes-binaries version v1.28.102-akslts
+  - kubernetes-binaries version v1.29.100-akslts
+  - kubernetes-binaries version v1.30.100-akslts
+  - kubernetes-binaries version v1.29.14
+  - kubernetes-binaries version v1.30.13
+  - kubernetes-binaries version v1.31.13
+  - kubernetes-binaries version v1.32.9
+  - kubernetes-binaries version v1.33.5
+  - kubernetes-binaries version v1.34.0
   - azure-acr-credential-provider version v1.30.15
   - azure-acr-credential-provider version v1.31.12
   - azure-acr-credential-provider version v1.32.11
@@ -38,34 +39,32 @@ images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-4
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-9
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-17
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.5.50
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.35-0
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.5.44
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.32
   - mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.50
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.35-0
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.49
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.33
   - mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.29
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.13-250826
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250927
+  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.10-250610
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.17.7-250821
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.2-251028
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.2-251028
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.2-251028
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.2-251028
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-2
+  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-1
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.4
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.7.2
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.34
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.3-main-01-28-2026-e05105c7
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.3-main-01-28-2026-e05105c7-targetallocator
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.3-main-01-28-2026-e05105c7-cfg
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.32
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.1-main-11-14-2025-15146744
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.1-main-11-14-2025-15146744-targetallocator
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.24.1-main-11-14-2025-15146744-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.12
-  - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.9
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.32.11
-  - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.32.8
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.33.6
+  - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.9
+  - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.32.8
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.33.3
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.32.11-1
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.6-1
@@ -74,13 +73,14 @@ images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-7
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-7
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-6
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.32.12
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.8
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.32.11
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.7
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.32.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.7
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.3
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.9
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.2
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.25.10
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.8
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.1
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.16.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.17.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.14.0
@@ -94,22 +94,22 @@ images pre-pulled:
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.12.1-7
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.103-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.101-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.101-akslts
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.15
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.14
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.14
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.13
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.11
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.10
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.7
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.6
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.3-3
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.5-hotfix.20250926
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.102-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.100-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.100-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.14
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.13
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.13
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.32.9
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.33.5
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.2-1
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.13.2-2
@@ -128,8 +128,14 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x. 1 root root  49623192 Aug 25 22:07 /opt/bin/kubectl-1.28.102-akslts
 -rwxr-xr-x. 1 root root 113107204 Aug 26 19:42 /opt/bin/kubelet-1.29.100-akslts
 -rwxr-xr-x. 1 root root  50765976 Aug 26 19:42 /opt/bin/kubectl-1.29.100-akslts
+-rwxr-xr-x. 1 root root  59195684 Aug 27 19:33 /opt/bin/kubelet-1.34.0
+-rwxr-xr-x. 1 root root  60559544 Aug 27 19:33 /opt/bin/kubectl-1.34.0
 -rwxr-xr-x. 1 root root  59195684 Sep 12 15:08 /opt/bin/kubelet-1.34.1
 -rwxr-xr-x. 1 root root  60559544 Sep 12 15:08 /opt/bin/kubectl-1.34.1
+-rwxr-xr-x. 1 root root  77447428 Sep 26 00:46 /opt/bin/kubelet-1.32.9
+-rwxr-xr-x. 1 root root  57352344 Sep 26 00:46 /opt/bin/kubectl-1.32.9
+-rwxr-xr-x. 1 root root  81715492 Sep 26 20:23 /opt/bin/kubelet-1.33.5
+-rwxr-xr-x. 1 root root  60133560 Sep 26 20:23 /opt/bin/kubectl-1.33.5
 -rwxr-xr-x. 1 root root  77320472 Sep 26 20:54 /opt/bin/kubelet-1.31.13
 -rwxr-xr-x. 1 root root  56934552 Sep 26 20:54 /opt/bin/kubectl-1.31.13
 -rwxr-xr-x. 1 root root  81719588 Nov 17 19:19 /opt/bin/kubelet-1.33.6
@@ -144,21 +150,15 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x. 1 root root  50765976 Nov 25 18:07 /opt/bin/kubectl-1.29.101-akslts
 -rwxr-xr-x. 1 root root 100534744 Nov 25 20:44 /opt/bin/kubelet-1.30.101-akslts
 -rwxr-xr-x. 1 root root  51994776 Nov 25 20:44 /opt/bin/kubectl-1.30.101-akslts
--rwxr-xr-x. 1 root root  81719588 Dec 10 23:54 /opt/bin/kubelet-1.33.7
--rwxr-xr-x. 1 root root  60133560 Dec 10 23:54 /opt/bin/kubectl-1.33.7
--rwxr-xr-x. 1 root root  78233892 Dec 23 00:56 /opt/bin/kubelet-1.32.11
--rwxr-xr-x. 1 root root  57999544 Dec 23 00:56 /opt/bin/kubectl-1.32.11
--rwxr-xr-x. 1 root root  59203876 Jan 26 23:29 /opt/bin/kubelet-1.34.3
--rwxr-xr-x. 1 root root  60563640 Jan 26 23:29 /opt/bin/kubectl-1.34.3
 === Installed Packages Begin
 listInstalledPackages stub
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda9        23G   20G  1.6G  93% /
+/dev/sda9        23G   21G  782M  97% /
 sysext           32G  8.0K   32G   1% /usr
-overlay          23G   20G  1.6G  93% /etc
-/dev/sda6       1.0G   14M 1007M   2% /oem
+overlay          23G   21G  782M  97% /etc
+/dev/sda6       1.0G   15M 1006M   2% /oem
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 efivarfs        128M   32K  128M   1% /sys/firmware/efi/efivars
@@ -177,23 +177,23 @@ tmpfs           1.0M     0  1.0M   0% /run/credentials/systemd-journald.service
 NAME="Flatcar Container Linux by Kinvolk"
 ID=flatcar
 ID_LIKE=coreos
-VERSION=4593.0.0
-VERSION_ID=4593.0.0
-BUILD_ID=2026-01-23-2245
+VERSION=4547.0.0
+VERSION_ID=4547.0.0
+BUILD_ID=2025-12-16-0122
 SYSEXT_LEVEL=1.0
-PRETTY_NAME="Flatcar Container Linux by Kinvolk 4593.0.0 (Oklo)"
+PRETTY_NAME="Flatcar Container Linux by Kinvolk 4547.0.0 (Oklo)"
 ANSI_COLOR="38;5;75"
 HOME_URL="https://flatcar.org/"
 BUG_REPORT_URL="https://issues.flatcar.org"
 FLATCAR_BOARD="amd64-usr"
-CPE_NAME="cpe:2.3:o:flatcar-linux:flatcar_linux:4593.0.0:*:*:*:*:*:*:*"
+CPE_NAME="cpe:2.3:o:flatcar-linux:flatcar_linux:4547.0.0:*:*:*:*:*:*:*"
 === os-release End
 Using kernel:
-Linux version 6.12.66-flatcar (build@pony-truck.infra.kinvolk.io) (x86_64-cros-linux-gnu-gcc (Gentoo Hardened 14.3.1_p20250801 p4) 14.3.1 20250801, GNU ld (Gentoo 2.45 p3) 2.45.0) #1 SMP PREEMPT_DYNAMIC Fri Jan 23 21:38:55 -00 2026
-Install completed successfully on  Tue Feb 10 22:36:27 UTC 2026
-VSTS Build NUMBER: 20260210.3_main_152666373
-VSTS Build ID: 152666373
-Commit: a9a2e97d21845ce972af7146047c59a628d89947
+Linux version 6.12.61-flatcar (build@pony-truck.infra.kinvolk.io) (x86_64-cros-linux-gnu-gcc (Gentoo Hardened 14.3.1_p20250801 p4) 14.3.1 20250801, GNU ld (Gentoo 2.45 p3) 2.45.0) #1 SMP PREEMPT_DYNAMIC Tue Dec 16 00:18:19 -00 2025
+Install completed successfully on  Tue Jan 27 18:58:34 UTC 2026
+VSTS Build NUMBER: 20260127.1_main_150827388
+VSTS Build ID: 150827388
+Commit: f9bf5e69dcf39b15ac54e80ff1bd56ae9bf1044a
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
