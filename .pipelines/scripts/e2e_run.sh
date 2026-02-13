@@ -40,8 +40,8 @@ TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-90m}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
-DEFAULT_VM_SKU="${VM_SIZE:-}"
-LOCATION="${LOCATION:-}"
+export DEFAULT_VM_SKU="${VM_SIZE:-}"
+export LOCATION="${LOCATION:-}"
 
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
