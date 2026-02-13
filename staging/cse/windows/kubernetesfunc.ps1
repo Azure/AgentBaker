@@ -182,7 +182,7 @@ function Check-APIServerConnectivity {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Start to check API server connectivity."
     $retryCount=0
-    $LastException=$null
+    $lastExceptionMessage=$null
 
     do {
         $retryString="${retryCount}/${MaxRetryCount}"
@@ -203,27 +203,19 @@ function Check-APIServerConnectivity {
             $tcpClient.Close()
         } catch [System.AggregateException] {
             Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
-            $LastException = $_.Exception.ToString()
+            $lastExceptionMessage = $_.Exception.ToString()
         } catch {
             Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
-            $LastException = "$_"
-      }
+            $lastExceptionMessage = "$_"
+        }
 
         $retryCount++
         Write-Log "Retry ${retryString}: Sleep $RetryInterval and then retry to connect to API server"
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    $lastExceptionMessage = ""
-    if ($LastException -ne $null) {
-        if ($LastException.Exception -ne $null -and -not [string]::IsNullOrEmpty($LastException.Exception.Message)) {
-            $lastExceptionMessage = $LastException.Exception.Message
-        } else {
-            $lastExceptionMessage = $LastException.ToString()
-        }
-        # Normalize any CR/LF in the exception message to spaces to keep ErrorMessage single-line.
-        $lastExceptionMessage = $lastExceptionMessage -replace "(`r|`n)+", " "
-    }
+    # Normalize any CR/LF in the exception message to spaces to keep ErrorMessage single-line.
+    $lastExceptionMessage = $lastExceptionMessage -replace "(`r|`n)+", " "
 
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
