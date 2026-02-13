@@ -66,6 +66,13 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
+	// Debug diagnostics for Issue 9: run on Flatcar/ACL to confirm the theory
+	// that systemd's preset mechanism is broken, preventing ignition-file-extract.service
+	// from being enabled. This logs diagnostic info but does not fail the test.
+	if s.VHD.Flatcar {
+		DebugIgnitionPresetMechanism(ctx, s)
+	}
+
 	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
