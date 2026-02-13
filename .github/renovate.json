@@ -238,12 +238,10 @@
         "oss/v2/azure/ip-masq-agent-v2"
       ],
       "reviewers": [
-        "robogatikov",
-        "paulgmiller"
+        "robogatikov"
       ],
       "assignees": [
-        "robogatikov",
-        "paulgmiller"
+        "robogatikov"
       ]
     },
     {
