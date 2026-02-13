@@ -520,27 +520,50 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	}
 }
 
+func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, error) {
+	s.T.Helper()
+	var steps []string
+
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("Get-Content %s", fileName),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("sudo cat %s", fileName),
+		}
+	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if execResult.exitCode != "0" {
+		return "", fmt.Errorf("failed to get file content for %s: exit code %s\nStdout: %s\nStderr: %s", fileName, execResult.exitCode, execResult.stdout, execResult.stderr)
+	}
+
+	return execResult.stdout, nil
+}
+
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
 	s.T.Helper()
 	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	var steps []string
 	if s.IsWindows() {
-		steps := []string{
+		steps = []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("Get-Content %s", fileName),
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
 			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	} else {
-		steps := []string{
+		steps = []string{
 			"set -ex",
-			fmt.Sprintf("sudo cat %s", fileName),
 			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	return execResult.exitCode == "0"
+
 }
 
 func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
@@ -578,7 +601,12 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if !fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to have contents %q, but it does not", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
@@ -588,7 +616,12 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
