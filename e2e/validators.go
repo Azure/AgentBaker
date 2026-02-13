@@ -1931,3 +1931,174 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("No critical kernel issues found")
 }
+
+// DebugIgnitionPresetMechanism runs diagnostic commands on a Flatcar/ACL VM to
+// confirm or refute the theory that systemd's preset mechanism is broken,
+// causing ignition-file-extract.service to never be enabled/started.
+//
+// This is a non-fatal debug helper — it only logs, never fails the test.
+// It checks:
+//  1. Whether the Ignition preset file exists and its contents
+//  2. Whether systemd-preset-all.service exists
+//  3. Whether /etc/machine-id is populated (breaking ConditionFirstBoot)
+//  4. Whether the Ignition unit files exist in /etc/systemd/system/
+//  5. Whether enable symlinks exist in multi-user.target.wants/ and sysinit.target.wants/
+//  6. Whether the Ignition tar was delivered and/or already extracted
+//  7. Service status of ignition-file-extract and ignition-bootcmds
+//  8. Whether ConditionFirstBoot-dependent services were skipped
+//  9. Whether localdns corefile was delivered
+//  10. Full preset file listing and systemd first-boot state
+func DebugIgnitionPresetMechanism(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Log("=== BEGIN: Issue 9 debug diagnostics (Ignition preset mechanism) ===")
+
+	debugScript := `set -uo pipefail
+
+echo "===== 1. OS RELEASE ====="
+cat /etc/os-release 2>/dev/null | head -5 || echo "MISSING /etc/os-release"
+
+echo ""
+echo "===== 2. IGNITION PRESET FILE ====="
+PRESET="/etc/systemd/system-preset/20-ignition.preset"
+if [ -f "$PRESET" ]; then
+    echo "EXISTS: $PRESET"
+    echo "--- contents ---"
+    cat "$PRESET"
+    echo "--- end ---"
+else
+    echo "MISSING: $PRESET"
+fi
+
+echo ""
+echo "===== 3. ALL PRESET FILES ====="
+for dir in /etc/systemd/system-preset /usr/lib/systemd/system-preset /run/systemd/system-preset; do
+    echo "--- $dir ---"
+    if [ -d "$dir" ]; then
+        ls -la "$dir/" 2>/dev/null
+        echo "Contents of each:"
+        for f in "$dir"/*; do
+            [ -f "$f" ] && echo "  [$f]:" && cat "$f" | head -20
+        done
+    else
+        echo "  DIRECTORY DOES NOT EXIST"
+    fi
+done
+
+echo ""
+echo "===== 4. SYSTEMD-PRESET-ALL.SERVICE ====="
+systemctl cat systemd-preset-all.service 2>&1 || echo "SERVICE NOT FOUND"
+systemctl status systemd-preset-all.service 2>&1 || echo "STATUS CHECK FAILED"
+
+echo ""
+echo "===== 5. MACHINE-ID (ConditionFirstBoot check) ====="
+echo "Content of /etc/machine-id:"
+cat /etc/machine-id 2>/dev/null && echo "(length: $(wc -c < /etc/machine-id))" || echo "MISSING"
+echo "Content of /var/lib/dbus/machine-id:"
+cat /var/lib/dbus/machine-id 2>/dev/null || echo "MISSING or not applicable"
+
+echo ""
+echo "===== 6. FIRST-BOOT RELATED SERVICES ====="
+systemctl status systemd-firstboot.service 2>&1 | head -10 || echo "systemd-firstboot not found"
+systemctl status first-boot-complete.target 2>&1 | head -10 || echo "first-boot-complete.target not found"
+systemctl show -p ConditionResult systemd-firstboot.service 2>/dev/null || true
+systemctl show -p ConditionResult first-boot-complete.target 2>/dev/null || true
+
+echo ""
+echo "===== 7. IGNITION UNIT FILES ====="
+for unit in ignition-file-extract.service ignition-bootcmds.service; do
+    echo "--- $unit ---"
+    UNIT_PATH="/etc/systemd/system/$unit"
+    if [ -f "$UNIT_PATH" ]; then
+        echo "EXISTS: $UNIT_PATH"
+        cat "$UNIT_PATH"
+    else
+        echo "MISSING: $UNIT_PATH"
+    fi
+done
+
+echo ""
+echo "===== 8. ENABLE SYMLINKS ====="
+echo "--- sysinit.target.wants ---"
+ls -la /etc/systemd/system/sysinit.target.wants/ 2>/dev/null || echo "  directory missing"
+echo "--- multi-user.target.wants ---"
+ls -la /etc/systemd/system/multi-user.target.wants/ 2>/dev/null || echo "  directory missing"
+echo ""
+echo "Checking specific symlinks:"
+for unit in ignition-file-extract.service ignition-bootcmds.service; do
+    for target_dir in sysinit.target.wants multi-user.target.wants; do
+        LINK="/etc/systemd/system/$target_dir/$unit"
+        if [ -L "$LINK" ]; then
+            echo "  SYMLINK EXISTS: $LINK -> $(readlink "$LINK")"
+        elif [ -f "$LINK" ]; then
+            echo "  FILE EXISTS (not symlink): $LINK"
+        else
+            echo "  MISSING: $LINK"
+        fi
+    done
+done
+
+echo ""
+echo "===== 9. IGNITION TAR FILE ====="
+TAR="/var/lib/ignition/ignition-files.tar"
+if [ -f "$TAR" ]; then
+    echo "EXISTS (NOT extracted!): $TAR ($(stat -c%s "$TAR") bytes)"
+    echo "Listing contents:"
+    tar -tf "$TAR" 2>/dev/null | head -30
+else
+    echo "MISSING: $TAR (either extracted already or never delivered)"
+fi
+ls -la /var/lib/ignition/ 2>/dev/null || echo "/var/lib/ignition/ directory missing"
+
+echo ""
+echo "===== 10. IGNITION SERVICE STATUS ====="
+for svc in ignition-file-extract.service ignition-bootcmds.service; do
+    echo "--- $svc ---"
+    systemctl is-active "$svc" 2>/dev/null && echo "  is-active: $(systemctl is-active $svc)" || echo "  is-active: $(systemctl is-active $svc 2>/dev/null || echo 'unknown')"
+    systemctl is-enabled "$svc" 2>/dev/null && echo "  is-enabled: $(systemctl is-enabled $svc)" || echo "  is-enabled: $(systemctl is-enabled $svc 2>/dev/null || echo 'unknown')"
+    systemctl show -p ActiveState,SubState,LoadState,UnitFileState,ConditionResult "$svc" 2>/dev/null || true
+    echo "  Journal (last 10 lines):"
+    journalctl -u "$svc" --no-pager -n 10 2>/dev/null || echo "  no journal entries"
+done
+
+echo ""
+echo "===== 11. LOCALDNS COREFILE ====="
+COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+if [ -f "$COREFILE" ]; then
+    echo "EXISTS: $COREFILE"
+    head -5 "$COREFILE"
+else
+    echo "MISSING: $COREFILE"
+fi
+echo "localdns service status:"
+systemctl is-active localdns 2>/dev/null || echo "inactive/unknown"
+systemctl is-enabled localdns 2>/dev/null || echo "disabled/unknown"
+
+echo ""
+echo "===== 12. SYSTEMD PRESET QUERY ====="
+echo "What systemd thinks about these units:"
+for svc in ignition-file-extract.service ignition-bootcmds.service localdns.service; do
+    preset_result=$(systemctl preset "$svc" --dry-run 2>&1 || true)
+    echo "  $svc: $preset_result"
+done
+
+echo ""
+echo "===== 13. DMESG/JOURNAL FOR IGNITION ====="
+echo "--- Ignition-related journal entries (first 30) ---"
+journalctl --no-pager -b | grep -i "ignition\|preset\|first.boot\|firstboot\|machine-id" 2>/dev/null | head -30 || echo "  no matches"
+
+echo ""
+echo "===== 14. KERNEL CMDLINE ====="
+cat /proc/cmdline 2>/dev/null || echo "  cannot read cmdline"
+
+echo ""
+echo "===== END: Issue 9 debug diagnostics ====="
+`
+
+	result := execScriptOnVMForScenario(ctx, s, debugScript)
+	s.T.Logf("Issue 9 debug diagnostics exit code: %s", result.exitCode)
+	s.T.Logf("Issue 9 debug stdout:\n%s", result.stdout)
+	if result.stderr != "" {
+		s.T.Logf("Issue 9 debug stderr:\n%s", result.stderr)
+	}
+	s.T.Log("=== END: Issue 9 debug diagnostics ===")
+}
