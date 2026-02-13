@@ -24,9 +24,10 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "oss/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "*/kubernetes/coredns",
         "oss/v2/kubernetes/pause",
-        "oss/v2/kubernetes/coredns",
         "containernetworking/azure-cni",
         "containernetworking/azure-cns",
         "containernetworking/azure-ipam",
@@ -313,18 +314,16 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/autoscaler/addon-resizer",
-        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
-        "oss/kubernetes/coredns",
-        "oss/v2/kubernetes/coredns"
+        "*/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "*/kubernetes/coredns",
+        "*/kubernetes/coredns"
       ],
       "assignees": [
-        "nirnaymsft",
-        "SriHarsha001"
+        "ashokobulapuram7"
       ],
       "reviewers": [
-        "nirnaymsft",
-        "SriHarsha001"
+        "ashokobulapuram7"
       ]
     },
     {
