@@ -112,7 +112,7 @@ Analyze PRs for these compatibility scenarios:
   - **Forward and backward compatibility**: Keep compatibility across the 6-month VHD support window in both directions.
     - **Backward**: Newer VHDs must still work with older CSE scripts delivered via CRP custom data.
       - Example: PR #7866 restored `cni-plugins` dependency + install logic after a removal caused provisioning failures (exit 206) when old scripts ran on newer VHDs.
-    - **Forward**: Newer CSE script changes must not require components/features that exist only on newer VHDs.
+    - **Forward**: Newer CSE script changes must not require components/features that exist only on newer VHDs, unless the logic to detect and handle missing features is implemented.
 
 
 **2. Windows Bidirectional Compatibility**
