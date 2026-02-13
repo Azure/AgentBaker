@@ -481,15 +481,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.32.11-1"
+          "latestVersion": "v1.32.11-2",
+          "previousLatestVersion": "v1.32.11-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.6-1"
+          "latestVersion": "v1.33.6-2",
+          "previousLatestVersion": "v1.33.6-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.3-1"
+          "latestVersion": "v1.34.3-2",
+          "previousLatestVersion": "v1.34.3-1"
         }
       ],
       "windowsVersions": [
@@ -792,14 +795,14 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "580.126.09-20260126030251"
+        "latestVersion": "580.126.09-20260126030251"
       }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.144.06-20260108183226"
+        "latestVersion": "550.144.06-20260108183226"
       }
     }
   ],
