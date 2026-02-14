@@ -1411,7 +1411,7 @@ for fqdn in "${fqdns[@]}"; do
     if [ -z "$ipv4_addrs" ]; then
         echo "  WARNING: Could not resolve IPv4 for $fqdn, skipping IP validation"
         # At minimum, check the FQDN exists in the file
-        if ! grep -q "$fqdn" "$hosts_file"; then
+        if ! grep -qF "$fqdn" "$hosts_file"; then
             echo "  ERROR: FQDN $fqdn not found in hosts file at all"
             errors=$((errors + 1))
         fi
@@ -1421,7 +1421,7 @@ for fqdn in "${fqdns[@]}"; do
     # Check each resolved IP exists in the hosts file for this FQDN
     for ip in $ipv4_addrs; do
         expected_entry="$ip $fqdn"
-        if grep -q "$expected_entry" "$hosts_file"; then
+        if grep -qF "$expected_entry" "$hosts_file"; then
             echo "  OK: Found '$expected_entry' in hosts file"
         else
             echo "  ERROR: Expected entry '$expected_entry' not found in hosts file"
