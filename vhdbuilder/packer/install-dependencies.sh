@@ -117,13 +117,22 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
-# ACL inherits Azure Linux's restrictive iptables rules from its base image.
-# Original Flatcar's iptables.service loads empty rules (harmless), but ACL's
-# loads actual host firewall rules that conflict with Cilium eBPF host routing.
-# Mariner/AzureLinux handles this in their block below; ACL needs it separately
-# because isMarinerOrAzureLinux returns false for ACL.
+# ACL inherits several Azure Linux behaviors that Mariner/AzureLinux handles
+# in its own block below. ACL needs them separately because
+# isMarinerOrAzureLinux returns false for ACL.
 if isACL "$OS"; then
+  # ACL inherits Azure Linux's restrictive iptables rules from its base image.
+  # Original Flatcar's iptables.service loads empty rules (harmless), but ACL's
+  # loads actual host firewall rules that conflict with Cilium eBPF host routing.
   disableSystemdIptables || exit 1
+  # ACL inherits Azure Linux's systemd-resolved stub resolver. By default
+  # /etc/resolv.conf -> /run/systemd/resolve/stub-resolv.conf (127.0.0.53).
+  # localdns configures systemd-resolved to use 169.254.10.10 as upstream, but
+  # the stub still shows 127.0.0.53. This service repoints /etc/resolv.conf to
+  # /run/systemd/resolve/resolv.conf (the real upstream file) so that DNS
+  # queries go directly through localdns. This matches what Mariner/AzureLinux
+  # does via the same function in its block below.
+  disableSystemdResolvedCache
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 

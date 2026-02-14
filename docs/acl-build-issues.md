@@ -248,4 +248,38 @@ The root cause is a **three-part failure chain** in systemd's preset mechanism t
 - Azure Linux `systemd.spec` line 703 — builds with `-Dfirst-boot-full-preset=true`
 - Azure Linux `systemd.spec` line 965 — `systemctl preset-all` in `%post` (RPM install time only)
 
-**Notes**: This is NOT an overlay issue. The overlay correctly preserves Ignition-written files. The root cause is that Azure Linux's systemd v255 lacks the boot-time preset processing that Ignition relies on to enable services.
+**Notes**: This is NOT an overlay issue. The overlay correctly preserves Ignition-written files. The root cause is that Azure Linux's systemd v255 lacks the boot-time preset processing that Ignition relies on to enable services. **Theory fully confirmed by E2E diagnostics on 2026-02-13.**
+
+---
+
+## Issue 10: `/etc/resolv.conf` points to systemd-resolved stub — localdns DNS validation fails
+
+**Status**: Fixed\
+**Date**: 2026-02-14\
+**Symptom**: All Flatcar E2E tests fail `ValidateLocalDNSResolution` with `SERVER: 127.0.0.53` instead of `SERVER: 169.254.10.10`, even though localdns-coredns is running and actively serving queries on `169.254.10.10`.
+
+**Root cause**:
+
+On systemd-resolved systems there are two resolv.conf files:
+- `/run/systemd/resolve/stub-resolv.conf` — always `nameserver 127.0.0.53` (the stub listener)
+- `/run/systemd/resolve/resolv.conf` — real upstream nameservers (e.g. `168.63.129.16`, or `169.254.10.10` after localdns configures it)
+
+`/etc/resolv.conf` is a symlink that determines which one `dig` and other tools use.
+
+When localdns starts, `disable_dhcp_use_clusterlistener()` creates a network dropin that tells systemd-resolved to use `169.254.10.10` as upstream. This updates `/run/systemd/resolve/resolv.conf` to `nameserver 169.254.10.10`, but the stub file always stays `127.0.0.53`. So if `/etc/resolv.conf` points to the stub, `dig` reports `SERVER: 127.0.0.53`.
+
+Each distro handles this differently:
+- **Mariner/AzureLinux**: At VHD build time, `disableSystemdResolvedCache()` installs `resolv-uplink-override.service` — a oneshot that runs `ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf` before kubelet. This is baked into the VHD.
+- **Ubuntu**: At CSE time, `disableSystemdResolved()` in `cse_config.sh` does the same `ln -sf` for Ubuntu 20.04/22.04/24.04.
+- **ACL**: Neither fix applied. `isMarinerOrAzureLinux("ACL")` returns false (skips VHD build fix), and `disableSystemdResolved()` checks `lsb_release` which doesn't exist on ACL (CSE fix is a no-op).
+
+The result: `/etc/resolv.conf → stub-resolv.conf → 127.0.0.53` on ACL. DNS queries still work (127.0.0.53 → systemd-resolved → 169.254.10.10 → upstream), but the path is indirect and the E2E test (which checks `dig` output for `SERVER: 169.254.10.10`) fails.
+
+**AgentBaker fix**:
+- Call `disableSystemdResolvedCache` for ACL during VHD build, matching what Mariner/AzureLinux does. This installs `resolv-uplink-override.service` into the VHD so `/etc/resolv.conf` is repointed to the real resolv.conf on every boot.
+- Affected files:
+	- `vhdbuilder/packer/install-dependencies.sh` — added `disableSystemdResolvedCache` to the `isACL` block
+
+**ACL base image follow-up**: None — the VHD build fix is sufficient. The ACL base image does not need changes since this is a standard configuration step for all Azure Linux-based distros using systemd-resolved + localdns.
+
+**Notes**: This is the same pattern as Issue 8 (iptables) — ACL inherits Azure Linux behavior but `isMarinerOrAzureLinux` returns false for ACL, so Mariner-specific VHD build steps are skipped. Both are now handled in the `isACL` block in `install-dependencies.sh`.
