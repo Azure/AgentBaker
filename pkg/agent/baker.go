@@ -1221,13 +1221,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
-		"GetCriticalHostsEntriesBase64": func() string {
-			content := profile.GetCriticalHostsEntriesContent()
-			if content == "" {
-				return ""
-			}
-			return base64.StdEncoding.EncodeToString([]byte(content))
-		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
 		"BlockIptables": func() bool {

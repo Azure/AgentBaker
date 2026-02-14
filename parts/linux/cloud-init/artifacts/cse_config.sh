@@ -1199,20 +1199,10 @@ enableLocalDNS() {
 enableAKSHostsSetup() {
     local hosts_file="/etc/localdns/hosts"
 
-    # Check if AKS-RP provided critical hosts entries
-    # AKS-RP provides IP addresses for critical FQDNs at provisioning time
-    if [ -n "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" ]; then
-        echo "AKS-RP provided critical hosts entries, writing to ${hosts_file}..."
-        mkdir -p "$(dirname "${hosts_file}")"
-        echo "${LOCALDNS_CRITICAL_HOSTS_ENTRIES}" | base64 -d > "${hosts_file}"
-        chmod 644 "${hosts_file}"
-        echo "Critical hosts entries written from AKS-RP."
-    else
-        # Run the script once immediately to resolve live DNS before kubelet starts
-        echo "Running initial aks-hosts-setup to resolve DNS..."
-        mkdir -p "$(dirname "${hosts_file}")"
-        /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed"
-    fi
+    # Run the script once immediately to resolve live DNS before kubelet starts
+    echo "Running initial aks-hosts-setup to resolve DNS..."
+    mkdir -p "$(dirname "${hosts_file}")"
+    /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed"
 
     # Enable the timer for periodic refresh (every 15 minutes)
     # This will update the hosts file with fresh IPs from live DNS
