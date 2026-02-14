@@ -2431,6 +2431,7 @@ const (
 // LocalDNSProfile represents localdns configuration for agentpool nodes.
 type LocalDNSProfile struct {
 	EnableLocalDNS       bool                          `json:"enableLocalDNS,omitempty"`
+	EnableHostsPlugin    bool                          `json:"enableHostsPlugin,omitempty"`
 	CPULimitInMilliCores *int32                        `json:"cpuLimitInMilliCores,omitempty"`
 	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
