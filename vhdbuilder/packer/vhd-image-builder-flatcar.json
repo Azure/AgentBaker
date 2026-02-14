@@ -484,7 +484,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/flatcar/update_certs.service",
+      "source": "parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service",
       "destination": "/home/packer/update_certs.service"
     },
     {

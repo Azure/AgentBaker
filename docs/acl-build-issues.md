@@ -415,3 +415,26 @@ The result: `/etc/resolv.conf → stub-resolv.conf → 127.0.0.53` on ACL. DNS q
 **ACL base image follow-up**: None — the VHD build fix is sufficient. The ACL base image does not need changes since this is a standard configuration step for all Azure Linux-based distros using systemd-resolved + localdns.
 
 **Notes**: This is the same pattern as Issue 8 (iptables) — ACL inherits Azure Linux behavior but `isMarinerOrAzureLinux` returns false for ACL, so Mariner-specific VHD build steps are skipped. Both are now handled in the `isACL` block in `install-dependencies.sh`.
+
+---
+
+## Issue 11: `Test_Flatcar_CustomCATrust` fails — `update-ca-certificates` not found (exit 161)
+
+**Status**: Fixed\
+**Date**: 2026-02-14\
+**Symptom**: CSE exit code 161 (`ERR_UPDATE_CA_CERTS`). Both `configureHTTPProxyCA()` and `update_certs.service` call `update-ca-certificates`, which doesn't exist on ACL.
+
+**Root cause**: ACL uses Azure Linux's PKI (`update-ca-trust`, `/etc/pki/ca-trust/`) instead of Flatcar's (`update-ca-certificates`, `/etc/ssl/certs/`). Two code paths were affected:
+1. **CSE**: `configureHTTPProxyCA()` fell through to the `isFlatcar` branch → wrong command.
+2. **VHD**: Flatcar packer JSON installed `flatcar/update_certs.service` which hardcodes `update-ca-certificates`.
+
+**AgentBaker fix**:
+1. Added `isACL` check *before* `isFlatcar` in `configureHTTPProxyCA()` to route ACL to `update-ca-trust`.
+2. Changed Flatcar packer JSON to install `mariner/update_certs_mariner.service` (calls `update-ca-trust`), matching `azlosguard.yml`.
+- Affected files:
+	- `parts/linux/cloud-init/artifacts/cse_config.sh`
+	- `vhdbuilder/packer/vhd-image-builder-flatcar.json`
+	- `pkg/agent/testdata/*/CustomData` — regenerated
+
+**ACL base image follow-up**: None.\
+**Notes**: `isACL` must precede `isFlatcar` since `isFlatcar()` returns true for both. If the Flatcar packer JSON is later used for stock Flatcar, the service source must be reverted.
