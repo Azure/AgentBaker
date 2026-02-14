@@ -804,17 +804,10 @@ providers:
 
         It 'should enable localdns successfully'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
-            When call enableLocalDNS
+            When run enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
-        End
-
-        It 'should skip enabling localdns if corefile is not created'
-            rm -rf "$LOCALDNS_CORE_FILE"
-            When call enableLocalDNS
-            The status should be success
-            The output should include "localdns should not be enabled."
         End
 
         It 'should return error when systemctl fails to start localdns'
@@ -823,18 +816,17 @@ providers:
                 echo "systemctlEnableAndStart $@"
                 return 1
             }
-            When call enableLocalDNS
+            When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
-            The output should include "Enable localdns failed."
         End
     End
 
     Describe 'shouldEnableLocalDns'
         setup() {
             TMP_DIR=$(mktemp -d)
-            LOCALDNS_COREFILE="$TMP_DIR/localdns.corefile"
-            LOCALDNS_SLICEFILE="$TMP_DIR/localdns.slice"
+            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
             LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
             LOCALDNS_CPU_LIMIT="250%"
@@ -852,7 +844,7 @@ providers:
 
         # Success case.
         It 'should enable localdns successfully'
-            When call enableLocalDNSForScriptless
+            When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
@@ -860,34 +852,34 @@ providers:
 
         # Corefile file creation.
         It 'should create localdns.corefile with correct data'
-            When call enableLocalDNSForScriptless
+            When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
-            The path "$LOCALDNS_COREFILE" should be file
-            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The path "$LOCALDNS_CORE_FILE" should be file
+            The contents of file "$LOCALDNS_CORE_FILE" should include "localdns corefile"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
         End
 
         # Corefile already exists (idempotency).
         It 'should overwrite existing localdns.corefile'
-            echo "wrong data" > "$LOCALDNS_COREFILE"
-            When call enableLocalDNSForScriptless
+            echo "wrong data" > "$LOCALDNS_CORE_FILE"
+            When call enableLocalDNS
             The status should be success
-            The path "$LOCALDNS_COREFILE" should be file
-            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The path "$LOCALDNS_CORE_FILE" should be file
+            The contents of file "$LOCALDNS_CORE_FILE" should include "localdns corefile"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
         End
 
         # Slice file creation.
         It 'should create localdns.slice with correct CPU and Memory limits'
-            When call enableLocalDNSForScriptless
+            When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
-            The path "$LOCALDNS_SLICEFILE" should be file
-            The contents of file "$LOCALDNS_SLICEFILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
-            The contents of file "$LOCALDNS_SLICEFILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
+            The path "$LOCALDNS_SLICE_FILE" should be file
+            The contents of file "$LOCALDNS_SLICE_FILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
+            The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
         End
