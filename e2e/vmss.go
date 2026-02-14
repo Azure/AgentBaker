@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	crand "crypto/rand"
 	"encoding/base64"
@@ -168,6 +170,18 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
+		if s.Runtime.NBC.EnableScriptlessCSECmd {
+			// Validate that the custom data doesn't contain any script content,
+			// which indicates that the scriptless CSE is working as intended
+			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
+			require.NoError(s.T, err, "failed to decode custom data")
+			reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
+			require.NoError(s.T, err, "failed to create gzip reader")
+			result, err := io.ReadAll(reader)
+			require.NoError(s.T, err, "failed to read gzip data")
+			reader.Close()
+			require.Contains(s.T, string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled")
+		}
 	}
 
 	// These two links are really for local development

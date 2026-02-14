@@ -1179,19 +1179,20 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
+
 # localdns corefile used by localdns systemd unit.
-LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
-LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-enableLocalDNSForScriptless() {
-    mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
-    touch "${LOCALDNS_COREFILE}"
-    chmod 0644 "${LOCALDNS_COREFILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+generateLocalDNSFiles() {
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    touch "${LOCALDNS_CORE_FILE}"
+    chmod 0644 "${LOCALDNS_CORE_FILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
@@ -1202,10 +1203,10 @@ LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
-	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
-    touch "${LOCALDNS_SLICEFILE}"
-    chmod 0644 "${LOCALDNS_SLICEFILE}"
-    cat > "${LOCALDNS_SLICEFILE}" <<EOF
+	mkdir -p "$(dirname "${LOCALDNS_SLICE_FILE}")"
+    touch "${LOCALDNS_SLICE_FILE}"
+    chmod 0644 "${LOCALDNS_SLICE_FILE}"
+    cat > "${LOCALDNS_SLICE_FILE}" <<EOF
 [Unit]
 Description=localdns Slice
 DefaultDependencies=no
@@ -1216,6 +1217,10 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+}
+
+enableLocalDNS() {
+    generateLocalDNSFiles
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL

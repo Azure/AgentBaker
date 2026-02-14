@@ -1776,6 +1776,11 @@ type NodeBootstrappingConfiguration struct {
 
 	// CSETimeout specifies the timeout execution in seconds.
 	CSETimeout int
+
+	// EnableScriptlessCSECmd enables scriptless CSE command execution.
+	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
+	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
+	EnableScriptlessCSECmd bool
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {

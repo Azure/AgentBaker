@@ -198,10 +198,23 @@ stages:
             artifactName: azurelinuxosguardv3-gen2-fips-trustedlaunch
 
   - stage: e2e
+    dependsOn: build
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       DISABLE_SCRIPTLESS_COMPILATION: true
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          IgnoreScenariosWithMissingVhd: true
+
+  - stage: scriptless_cse_cmd_e2e
+    dependsOn: build
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      ENABLE_SCRIPTLESS_CSE_CMD: true
+      TAGS_TO_SKIP: gpu=true,os=windows,scriptless=true
     jobs:
       - template: ./templates/e2e-template.yaml
         parameters:

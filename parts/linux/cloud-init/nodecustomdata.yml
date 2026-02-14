@@ -10,6 +10,16 @@ bootcmd:
   done
 
 write_files:
+{{if EnableScriptlessCSECmd}}
+- path: /opt/azure/containers/scriptless-cse-overrides.txt
+  permissions: "0644"
+  owner: root
+  content: |
+    Executing in scriptless CSE mode. No cloud-init scripts will be written to the VM.
+    Any overridden files will be listed here - Hotfix mode
+    Example: {{GetCSEHelpersScriptFilepath}}
+
+{{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -348,27 +358,4 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{if ShouldEnableLocalDNS}}
-- path: /opt/azure/containers/localdns/localdns.corefile
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetGeneratedLocalDNSCoreFile}}
-
-- path: /etc/systemd/system/localdns.slice
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=localdns Slice
-    DefaultDependencies=no
-    Before=slices.target
-    Requires=system.slice
-    After=system.slice
-
-    [Slice]
-    MemoryMax={{GetLocalDNSMemoryLimitInMB}}
-    CPUQuota={{GetLocalDNSCPULimitInPercentage}}
 {{- end}}

@@ -300,14 +300,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
-			// Expect an error if LocalDNSProfile is nil and GenerateLocalDNSCoreFile is invoked somehow.
-			It("returns an error when LocalDNSProfile is nil", func() {
-				config.AgentPoolProfile.LocalDNSProfile = nil
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("localdns profile is nil"))
-			})
-
 			// Expect an error from GenerateLocalDNSCoreFile if template is invalid.
 			It("returns an error when template parsing fails", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -323,20 +315,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(err.Error()).To(ContainSubstring("failed to execute localdns corefile template"))
 			})
 
-			// Expect an error from GenerateLocalDNSCoreFile if it is invoked when EnableLocalDNS is set to false.
-			It("returns an error when EnableLocalDNS is set to false", func() {
-				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					EnableLocalDNS:       false,
-					CPULimitInMilliCores: to.Int32Ptr(2008),
-					MemoryLimitInMB:      to.Int32Ptr(128),
-					VnetDNSOverrides:     nil,
-					KubeDNSOverrides:     nil,
-				}
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("EnableLocalDNS is set to false, corefile will not be generated"))
-			})
-
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -346,20 +324,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     nil,
 					KubeDNSOverrides:     nil,
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
@@ -371,20 +339,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 					KubeDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
@@ -438,19 +396,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						},
 					},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
 				expectedlocalDNSCorefile := `
 # ***********************************************************************************
@@ -560,7 +508,7 @@ testdomain456.com:53 {
     }
 }
 `
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
 
 			// Expect no error and correct localdns corefile.
@@ -634,19 +582,9 @@ testdomain456.com:53 {
 						},
 					},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
 				expectedlocalDNSCorefile := `
 # ***********************************************************************************
@@ -792,7 +730,7 @@ testdomain567.com:53 {
     prometheus :9253
 }
 `
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
 		})
 	})

@@ -45,6 +45,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
 	ValidateKernelLogs(ctx, s)
+	ValidateScriptlessCSECmd(ctx, s)
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
@@ -63,7 +64,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"vhd-install.complete",
 	})
 
-// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
+	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
 	if !s.VHD.UnsupportedKubeletNodeIP {
 		ValidateKubeletNodeIP(ctx, s)
 	}
