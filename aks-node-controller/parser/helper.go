@@ -803,41 +803,6 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 	return defaultLocalDnsMemoryLimitInMb
 }
 
-// getCriticalHostsEntriesContent returns the critical hosts entries formatted as a hosts file content.
-// Returns empty string if no entries are provided by AKS-RP.
-// AKS-RP provides these entries at provisioning time, and CSE writes them to /etc/localdns/hosts.
-func getCriticalHostsEntriesContent(aksnodeconfig *aksnodeconfigv1.Configuration) string {
-	if aksnodeconfig == nil || aksnodeconfig.GetLocalDnsProfile() == nil {
-		return ""
-	}
-	entries := aksnodeconfig.GetLocalDnsProfile().GetCriticalHostsEntries()
-	if len(entries) == 0 {
-		return ""
-	}
-
-	var content strings.Builder
-	content.WriteString("# AKS critical FQDN addresses provided by AKS-RP\n")
-	content.WriteString("# This file is written by CSE during node provisioning\n\n")
-
-	// Sort FQDNs for deterministic output
-	fqdns := make([]string, 0, len(entries))
-	for fqdn := range entries {
-		fqdns = append(fqdns, fqdn)
-	}
-	sort.Strings(fqdns)
-
-	for _, fqdn := range fqdns {
-		entry := entries[fqdn]
-		content.WriteString(fmt.Sprintf("# %s\n", fqdn))
-		for _, ip := range entry.GetIpAddresses() {
-			content.WriteString(fmt.Sprintf("%s %s\n", ip, fqdn))
-		}
-		content.WriteString("\n")
-	}
-
-	return base64.StdEncoding.EncodeToString([]byte(content.String()))
-}
-
 // ---------------------- End of localdns related helper code ----------------------//
 
 // ---------------------- Start of cse timeout helper code ----------------------//
