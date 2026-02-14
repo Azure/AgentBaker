@@ -328,6 +328,26 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-ig.sh",
+      "destination": "/home/packer/install-ig.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/import_gadgets.sh",
+      "destination": "/home/packer/ig-import-gadgets.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/remove_gadgets.sh",
+      "destination": "/home/packer/ig-remove-gadgets.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/lib/systemd/system/ig-import-gadgets.service",
+      "destination": "/home/packer/ig-import-gadgets.service"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },

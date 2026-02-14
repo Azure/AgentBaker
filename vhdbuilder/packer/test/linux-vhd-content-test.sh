@@ -233,6 +233,10 @@ testPackagesInstalled() {
         testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "cni-plugins")
+        # cni-plugins is a special case that it is still in components.json for backward compatibility but we don't cache it.
+        continue
+        ;;
       "containernetworking-plugins")
         # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
         testContainerNetworkingPluginsInstalled
@@ -1703,6 +1707,80 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+# Basic sanity check for Inspektor Gadget artifacts baked into the image.
+testInspektorGadgetAssets() {
+  local test="testInspektorGadgetAssets"
+  echo "$test:Start"
+
+  local skip_file="/etc/ig.d/skip_vhd_ig"
+  local import_script="/usr/share/inspektor-gadget/import_gadgets.sh"
+  local remove_script="/usr/share/inspektor-gadget/remove_gadgets.sh"
+  local service_name="ig-import-gadgets.service"
+  local unit_file="/usr/lib/systemd/system/${service_name}"
+  local tracking_file="/var/lib/ig/imported-gadgets.txt"
+
+  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
+  local is_kata=false
+  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    is_kata=true
+  fi
+
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
+    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
+
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
+    if [ -f "$skip_file" ]; then
+      err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
+    fi
+
+    if [ -f "$import_script" ]; then
+      err $test "Import script should not exist for $OS_SKU but found at $import_script"
+    fi
+
+    if [ -f "$remove_script" ]; then
+      err $test "Remove script should not exist for $OS_SKU but found at $remove_script"
+    fi
+
+    if [ -f "$unit_file" ]; then
+      err $test "Unit file should not exist for $OS_SKU but found at $unit_file"
+    fi
+
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ ! -f "$skip_file" ]; then
+    err $test "Skip sentinel missing at $skip_file"
+  fi
+
+  if [ ! -x "$import_script" ]; then
+    err $test "Import script missing or not executable at $import_script"
+  fi
+
+  if [ ! -x "$remove_script" ]; then
+    err $test "Remove script missing or not executable at $remove_script"
+  fi
+
+  if [ ! -f "$unit_file" ]; then
+    err $test "Unit file missing at $unit_file"
+  fi
+
+  local service_state
+  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
+  if [ "$service_state" != "enabled" ]; then
+    err $test "$service_name not enabled, state: ${service_state:-absent}"
+  fi
+
+  # Verify gadgets were imported during VHD build (tracking file should exist and have content)
+  if [ ! -f "$tracking_file" ]; then
+    err $test "Tracking file missing at $tracking_file - gadget import may have failed"
+  elif [ ! -s "$tracking_file" ]; then
+    err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  echo "$test:Finish"
+}
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1807,6 +1885,7 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
+testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive

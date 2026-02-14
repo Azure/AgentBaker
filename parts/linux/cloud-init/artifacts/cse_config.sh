@@ -1147,51 +1147,19 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-# localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-# This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by checking for existence of corefile.
-# It returns 0 if localdns is enabled successfully or if it should not be enabled.
-# It returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
-enableLocalDNS() {
-    # Check if the localdns corefile exists and is not empty.
-    # If the corefile exists and is not empty, localdns should be enabled.
-    # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "localdns should not be enabled."
-        return 0
-    fi
-
-    # If the corefile exists and is not empty, attempt to enable localdns.
-    echo "localdns should be enabled."
-
-    # Write hosts file BEFORE starting LocalDNS so it has entries to serve
-    # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
-    enableAKSHostsSetup || return $ERR_SYSTEMCTL_START_FAIL
-
-    if ! systemctlEnableAndStart localdns 30; then
-      echo "Enable localdns failed."
-      return $ERR_LOCALDNS_FAIL
-    fi
-
-    # Enabling localdns succeeded.
-    echo "Enable localdns succeeded."
-}
-
 # localdns corefile used by localdns systemd unit.
-LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
-LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-enableLocalDNSForScriptless() {
-    mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
-    touch "${LOCALDNS_COREFILE}"
-    chmod 0644 "${LOCALDNS_COREFILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+generateLocalDNSFiles() {
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    touch "${LOCALDNS_CORE_FILE}"
+    chmod 0644 "${LOCALDNS_CORE_FILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
@@ -1202,10 +1170,10 @@ LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
-	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
-    touch "${LOCALDNS_SLICEFILE}"
-    chmod 0644 "${LOCALDNS_SLICEFILE}"
-    cat > "${LOCALDNS_SLICEFILE}" <<EOF
+	mkdir -p "$(dirname "${LOCALDNS_SLICE_FILE}")"
+    touch "${LOCALDNS_SLICE_FILE}"
+    chmod 0644 "${LOCALDNS_SLICE_FILE}"
+    cat > "${LOCALDNS_SLICE_FILE}" <<EOF
 [Unit]
 Description=localdns Slice
 DefaultDependencies=no
@@ -1216,6 +1184,10 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+}
+
+enableLocalDNS() {
+    generateLocalDNSFiles
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL

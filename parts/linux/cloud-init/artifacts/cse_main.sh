@@ -56,7 +56,8 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    aptmarkWALinuxAgent hold &
+    # Run synchronously to avoid apt lock contention with later apt operations (eg kubelet install)
+    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
@@ -294,9 +295,6 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-    logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
-
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         # Write hosts file BEFORE starting LocalDNS so it has entries to serve
@@ -304,7 +302,7 @@ EOF
         logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
 
         # Start LocalDNS after hosts file is populated
-        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then

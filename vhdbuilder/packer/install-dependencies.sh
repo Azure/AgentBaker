@@ -29,6 +29,7 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+source /home/packer/install-ig.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -250,7 +251,7 @@ installCNI() {
     if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
         mkdir -p "${downloadDir}"
         chown -R root:root "${downloadDir}"
-        
+
         echo "Downloading CNI plugins from ${evaluatedURL}"
         retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
@@ -394,6 +395,15 @@ while IFS= read -r p; do
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
+    "inspektor-gadget")
+      if isMariner "$OS" || isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+      else
+        ig_version="${PACKAGE_VERSIONS[0]}"
+        # installIG is defined in install-ig.sh
+        installIG "${p}" "${ig_version}" "${downloadDir}"
+      fi
+      ;;
     "kubernetes-binaries")
       # kubelet and kubectl
       # need to cover previously supported version for VMAS scale up scenario
@@ -468,7 +478,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.14'
+  MIRROR_PROXY_VERSION='0.3.0'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
