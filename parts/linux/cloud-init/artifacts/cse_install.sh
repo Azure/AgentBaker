@@ -149,6 +149,7 @@ installFixedCNI() {
         return
     fi
     #always just use what is listed in components.json so we don't have to sync.
+    #for older VHDs with components.json without containernetworking-plugins but with cni-plugins, unzip cached
     if [ -z "$(jq -r '.Packages[] | select(.name == "containernetworking-plugins") | .name' < $COMPONENTS_FILEPATH)" ]; then
         cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
 
