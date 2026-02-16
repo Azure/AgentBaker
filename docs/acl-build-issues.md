@@ -283,3 +283,48 @@ The result: `/etc/resolv.conf → stub-resolv.conf → 127.0.0.53` on ACL. DNS q
 **ACL base image follow-up**: None — the VHD build fix is sufficient. The ACL base image does not need changes since this is a standard configuration step for all Azure Linux-based distros using systemd-resolved + localdns.
 
 **Notes**: This is the same pattern as Issue 8 (iptables) — ACL inherits Azure Linux behavior but `isMarinerOrAzureLinux` returns false for ACL, so Mariner-specific VHD build steps are skipped. Both are now handled in the `isACL` block in `install-dependencies.sh`.
+
+---
+
+## Issue 11: `logrotate.service` fails — missing `/var/lib/logrotate/` directory
+
+**Status**: Fixed (workaround); follow-up needed in ACL base image\
+**Date**: 2026-02-16\
+**Symptom**: 6 out of 7 Flatcar E2E tests fail. `logrotate.service` exits with status 3 (`NOTIMPLEMENTED`). Serial console / journalctl shows:
+```
+logrotate[...]: error creating stub state file /var/lib/logrotate/logrotate.status: No such file or directory
+systemd[1]: logrotate.service: Main process exited, code=exited, status=3/NOTIMPLEMENTED
+systemd[1]: logrotate.service: Failed with result 'exit-code'.
+```
+
+**Root cause**:
+
+ACL uses an immutable rootfs with `/var` as a separate partition populated at boot via `systemd-tmpfiles`. The Azure Linux 3 logrotate RPM (version 3.21.0) creates `/var/lib/logrotate/` and touches `/var/lib/logrotate/logrotate.status` at RPM **install time** only (in the `%install` section of the spec). It does **not** ship a `tmpfiles.d` drop-in to recreate the directory at boot.
+
+Upstream Flatcar includes `usr/lib/tmpfiles.d/logrotate.conf` which creates this directory at every boot. ACL does not have this file because it uses the Azure Linux 3 RPM instead of the Gentoo/Flatcar ebuild.
+
+Confirmed by comparing filesystem data:
+- **Upstream Flatcar 4459.2.2**: has `lib/tmpfiles.d/logrotate.conf` in `usr_files`
+- **ACL 4459.2.2**: does **not** have `lib/tmpfiles.d/logrotate.conf`
+
+The logrotate binary is configured with `--with-state-file-path=/var/lib/logrotate/logrotate.status` and fails immediately when the parent directory doesn't exist.
+
+In `packer_source.sh`, ACL takes the `else` branch (since the base image has a built-in `logrotate.timer` at `/usr/lib/systemd/system/logrotate.timer`), so only the timer dropin (`override.conf`) is installed — NOT the AKS custom `logrotate.sh` wrapper which would have created the directory via `mkdir -p /var/lib/logrotate`.
+
+**AgentBaker fix**:
+- Add `mkdir -p /var/lib/logrotate` in `pre-install-dependencies.sh` before enabling `logrotate.timer`, guarded by `isFlatcar`.
+- Affected files:
+	- `vhdbuilder/packer/pre-install-dependencies.sh`
+
+**ACL base image follow-up**:
+- Add a `tmpfiles.d` drop-in to the ACL base image so `/var/lib/logrotate/` is created at every boot, matching upstream Flatcar behavior. Create `/usr/lib/tmpfiles.d/logrotate.conf` with contents:
+  ```
+  d /var/lib/logrotate 0755 root root -
+  ```
+  This should be added either in the logrotate RPM spec (ideal) or in the ACL build scripts (e.g. `manglefs.sh` or `build_image_util.sh`).
+
+**Notes**: This is the same `/var` partition issue as chrony (Issue 7) — Azure Linux RPMs assume a persistent rootfs where directories created at install time survive reboots, but ACL/Flatcar's immutable rootfs + separate `/var` partition requires `tmpfiles.d` entries for any state directories under `/var`.
+
+**References**:
+- Azure Linux 3 logrotate spec: https://github.com/microsoft/azurelinux/blob/3.0/SPECS/logrotate/logrotate.spec
+- Upstream Flatcar logrotate ebuild ships `tmpfiles.d/logrotate.conf`; ACL's RPM-based build does not

@@ -51,6 +51,28 @@ Once the base image ships the correct chrony config, the entire 50+ line `disabl
 
 ---
 
+### Issue 11: Add `tmpfiles.d/logrotate.conf` — logrotate state directory (High priority)
+
+**Why base image**: The `/var/lib/logrotate/` directory is required by logrotate's built-in `logrotate.service` to write its state file (`logrotate.status`). This is basic OS functionality — log rotation should work on any ACL VM, not just AKS nodes. The Azure Linux 3 logrotate RPM creates this directory at RPM install time but does not ship a `tmpfiles.d` drop-in. On ACL's immutable rootfs with a separate `/var` partition, directories must be created at boot via `systemd-tmpfiles`. Upstream Flatcar 4459.2.2 ships `usr/lib/tmpfiles.d/logrotate.conf` for exactly this purpose; ACL does not.
+
+**Fix**: Create `/usr/lib/tmpfiles.d/logrotate.conf` in the ACL image with:
+```
+d /var/lib/logrotate 0755 root root -
+```
+
+This can be added in `manglefs.sh` or `build_image_util.sh`:
+```bash
+# Create tmpfiles.d entry for logrotate state directory
+# Azure Linux 3 RPM creates /var/lib/logrotate at install time but doesn't ship
+# a tmpfiles.d drop-in. On Flatcar's immutable rootfs, /var is populated at boot
+# via systemd-tmpfiles, so the directory must be declared here.
+echo 'd /var/lib/logrotate 0755 root root -' > "${rootfs}/usr/lib/tmpfiles.d/logrotate.conf"
+```
+
+Once fixed, the `mkdir -p /var/lib/logrotate` workaround in AgentBaker's `pre-install-dependencies.sh` can be removed.
+
+---
+
 ## Changes to keep in AgentBaker
 
 ### Issue 1: `isFlatcar()` recognizing ACL
