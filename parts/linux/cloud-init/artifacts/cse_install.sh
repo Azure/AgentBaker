@@ -138,7 +138,7 @@ installContainerRuntime() {
 installFixedCNI() {
     # Old versions of VHDs will not have components.json. If it does not exist, we will try our best to download the hardcoded version for CNI here during provisioning.
     # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
-    if [ ! -f "$COMPONENTS_FILEPATH" ] || [ -z "$(jq -r '.Packages[] | select(.name == "containernetworking-plugins") | .name' < $COMPONENTS_FILEPATH)" ]; then
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || [ -z "$(jq -r '.Packages[] | select(.name == "containernetworking-plugins" or .name == "cni-plugins") | .name' < $COMPONENTS_FILEPATH)" ]; then
         echo "WARNING: no containernetworking-plugins components present falling back to hard coded download of 1.4.1"
         # handles amd64 and arm64 via CPU_ARCH
         if [ -z "${CPU_ARCH:-}" ]; then
