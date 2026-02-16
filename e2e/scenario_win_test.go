@@ -551,3 +551,29 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 		},
 	})
 }
+
+func Test_NetworkIsolated_Cluster_PMC_Install(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that an AzureWindows node will install kube pkgs from PMC and can be properly bootstrapped",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDWindows2025Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletConfig["--image-credential-provider-config"] = "C:\\k\\credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "C:\\var\\lib\\kubelet\\credential-provider"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
