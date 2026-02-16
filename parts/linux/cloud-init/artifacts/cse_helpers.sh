@@ -873,13 +873,6 @@ updateRelease() {
     if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
         RELEASE="\"r${osVersionWithoutDot}\""
     fi
-
-    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
-    if isACL "${os}"; then
-        search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.flatcar.current // .downloadURIs.default.current"
-    fi
-
-    jq -r -c "${search}" <<< "${package}"
 }
 
 # sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
@@ -893,7 +886,13 @@ updatePackageVersions() {
     PACKAGE_VERSIONS=()
 
     # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
-    # Otherwise get the versions from .downloadURIs.${osLowerCase
+    # Otherwise get the versions from .downloadURIs.${osLowerCase}
+    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
+        if isACL "${os}"; then
+            osLowerCase="flatcar"
+        fi
+    fi
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
         osLowerCase="default"
     fi
@@ -962,6 +961,10 @@ updatePackageDownloadURL() {
 
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
     #otherwise get the downloadURL from .downloadURIs.default
+    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" = "null" ] && isACL "${os}"; then
+        osLowerCase="flatcar"
+    fi
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
