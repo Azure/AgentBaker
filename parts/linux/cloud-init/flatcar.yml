@@ -18,3 +18,16 @@ systemd:
 
         [Install]
         WantedBy=sysinit.target
+# Workaround for Issue 9: ACL (Azure Container Linux) uses Azure Linux's
+# systemd v255 which lacks systemd-preset-all.service (introduced in v256),
+# and /etc/machine-id is pre-populated so ConditionFirstBoot=yes is false.
+# This means Ignition's "enabled: true" preset file (20-ignition.preset) is
+# never processed, leaving services disabled. We create the enable symlink
+# explicitly via storage.links to bypass the broken preset mechanism entirely.
+# This is safe on upstream Flatcar too — overwrite: true handles the case
+# where presets work and the symlink already exists.
+storage:
+  links:
+    - path: /etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service
+      target: /etc/systemd/system/ignition-bootcmds.service
+      overwrite: true

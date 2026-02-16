@@ -480,6 +480,15 @@
         },
         "mode": 493
       }
+    ],
+    "links": [
+      {
+        "group": {},
+        "overwrite": true,
+        "path": "/etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service",
+        "user": {},
+        "target": "/etc/systemd/system/ignition-bootcmds.service"
+      }
     ]
   },
   "systemd": {
