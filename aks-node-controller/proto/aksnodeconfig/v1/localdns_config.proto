@@ -19,9 +19,6 @@ message LocalDnsProfile {
 
   // KubeDns overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDns traffic).
   map<string, LocalDnsOverrides> kube_dns_overrides = 5;
-
-  // Field 6 was critical_hosts_entries, removed.
-  reserved 6;
 }
 
 // Represents DNS override settings for both VnetDNS and KubeDNS traffic.
