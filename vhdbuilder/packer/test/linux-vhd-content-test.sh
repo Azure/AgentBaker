@@ -234,7 +234,7 @@ testPackagesInstalled() {
         continue
         ;;
       "cni-plugins")
-        # cni-plugins is a special case that it is still in components.json for backward compatibility but we don't cache it.
+        testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
       "containernetworking-plugins")
@@ -1812,6 +1812,26 @@ testDiskQueueServiceIsActive() {
 
   echo "$test:Finish"
 }
+
+testcniPluginsInstalled() {
+  local test="testcniPluginsInstalled"
+  echo "$test: Start"
+
+  local downloadLocation=$1
+  local packageVersion=$2
+  local cni_bin_dir=${downloadLocation}/cni/bin
+  local cni_bin_name="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"
+
+  local plugin="$cni_bin_dir/$cni_bin_name"
+  echo "$test: Checking for existence of CNI plugin $plugin"
+  if [ ! -f "$plugin" ]; then
+    err "$test: CNI plugin $plugin not found"
+    return 1
+  fi
+  echo "$test: CNI plugin $plugin found"
+  echo "$test: Finish"
+  return 0
+
 
 testContainerNetworkingPluginsInstalled() {
   local test="testContainerNetworkingPluginsInstalled"
