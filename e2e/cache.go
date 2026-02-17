@@ -167,8 +167,10 @@ func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster,
 	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
-// clusterAzureNetworkBootstrapProfileCachefunc creates a cluster with bootstrap profile cache but without network isolation
-func clusterAzureNetworkBootstrapProfileCachefunc(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+var ClusterAzureBootstrapProfileCache = cachedFunc(clusterAzureBootstrapProfileCache)
+
+// clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
+func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU), false, true)
 }
 

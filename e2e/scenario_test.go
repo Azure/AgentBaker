@@ -522,7 +522,7 @@ func Test_AzureLinuxV3_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -556,7 +556,7 @@ func Test_AzureLinuxV3_NetworkIsolated_Package_Install(t *testing.T) {
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeNone
@@ -596,7 +596,7 @@ func Test_Ubuntu2204_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -629,7 +629,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NoneCached(t *testing
 			NetworkIsolated: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -659,7 +659,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCache
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -700,7 +700,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCache
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -2139,12 +2139,11 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: clusterAzureNetworkIsolated,
+			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
-				nbc.OutboundType = datamodel.OutboundTypeBlock
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
