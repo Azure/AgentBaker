@@ -43,8 +43,13 @@ func Test_Flatcar(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/protocols", "protocols definition file")
-				ValidateFileIsRegularFile(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+				// Check /etc/protocols exists with real protocol data.
+				// ACL (Azure Linux) uses a different header than Flatcar, so we check for
+				// "tcp" which both include, rather than the Flatcar-specific header comment.
+				ValidateFileHasContent(ctx, s, "/etc/protocols", "tcp")
+				// ACL's update-ca-trust may create this as a symlink to /etc/pki/tls/certs/ca-bundle.crt
+				// rather than a regular file, so use ValidateFileExists which follows symlinks.
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 			},
 		},
 	})
@@ -65,8 +70,8 @@ func Test_Flatcar_CustomCATrust(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/opt/certs")
-				// openssl x509 -hash of input cert
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/5c3b39ed.0")
+				// ACL uses update-ca-trust with /etc/pki/ca-trust/source/anchors (writable, unlike /usr)
+				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
 			},
 		},
 	})

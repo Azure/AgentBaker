@@ -137,9 +137,9 @@ configureHTTPProxyCA() {
         update_cmd="update-ca-trust"
     elif isACL "$OS"; then
         # ACL is Flatcar-based but uses Azure Linux internals for CA trust.
-        # It has update-ca-trust (not update-ca-certificates) and uses the
-        # same PKI anchor path as Mariner/AzureLinux.
-        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        # It has update-ca-trust (not update-ca-certificates). Unlike Mariner,
+        # ACL's /usr is read-only (dm-verity), so certs go under /etc.
+        cert_dest="/etc/pki/ca-trust/source/anchors"
         update_cmd="update-ca-trust"
     elif isFlatcar "$OS"; then
         cert_dest="/etc/ssl/certs"

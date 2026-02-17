@@ -479,7 +479,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service",
+      "source": "parts/linux/cloud-init/artifacts/acl/update_certs.service",
       "destination": "/home/packer/update_certs.service"
     },
     {

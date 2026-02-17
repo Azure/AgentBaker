@@ -118,6 +118,18 @@ Once fixed, the `update-ssh-keys-after-ignition.service` allowlist entry in Agen
 
 ### Issue 13: Route ACL to `update-ca-trust` for CA certificate handling
 
-**Why AgentBaker**: ACL uses Azure Linux's `update-ca-trust` instead of Flatcar's `update-ca-certificates`. This is a provisioning-time tool routing decision — AgentBaker is responsible for knowing which cert update tool each distro uses. The `isACL` check in `configureHTTPProxyCA()` and the Mariner service file in the packer template are the correct approach. No base image change needed.
+**Why AgentBaker**: ACL uses Azure Linux's `update-ca-trust` instead of Flatcar's `update-ca-certificates`, and ACL's `/usr` is dm-verity read-only so certs must be placed under `/etc/pki/ca-trust/source/anchors` (not `/usr/share/pki/...`). This is a provisioning-time tool routing decision — AgentBaker is responsible for knowing which cert update tool each distro uses. The `isACL` check in `configureHTTPProxyCA()` and the dedicated `acl/update_certs.service` file (using `/etc/pki/ca-trust/source/anchors` + `update-ca-trust`) are the correct approach. No base image change needed.
+
+---
+
+### Issue 14: `/etc/protocols` header differs on ACL
+
+**Why AgentBaker**: ACL's `iana-etc` RPM uses a different header comment than Flatcar's. The file contents are functionally identical — same protocol entries, just different comment formatting. The E2E test was checking for a Flatcar-specific header string. Relaxing the check to `"tcp"` validates the file has real protocol data without coupling to one distro's comment style. No base image change needed.
+
+---
+
+### Issue 15: `/etc/ssl/certs/ca-certificates.crt` is a symlink on ACL
+
+**Why AgentBaker**: On ACL, `update-ca-trust` creates this path as a symlink to `/etc/pki/tls/certs/ca-bundle.crt` rather than a regular file. This is standard Azure Linux/RHEL CA trust layout. The E2E test validator was checking `ValidateFileIsRegularFile`, which rejects symlinks. Changing to `ValidateFileExists` (which follows symlinks via `test -f`) correctly validates the trust bundle is present regardless of file type. No base image change needed.
 
 ---
