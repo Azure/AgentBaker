@@ -295,12 +295,12 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Write hosts file BEFORE starting LocalDNS so it has entries to serve
+    # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
+    logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
+    
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        # Write hosts file BEFORE starting LocalDNS so it has entries to serve
-        # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
-        logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
-
         # Start LocalDNS after hosts file is populated
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
