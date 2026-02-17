@@ -328,3 +328,57 @@ In `packer_source.sh`, ACL takes the `else` branch (since the base image has a b
 **References**:
 - Azure Linux 3 logrotate spec: https://github.com/microsoft/azurelinux/blob/3.0/SPECS/logrotate/logrotate.spec
 - Upstream Flatcar logrotate ebuild ships `tmpfiles.d/logrotate.conf`; ACL's RPM-based build does not
+
+---
+
+## Issue 12: `update-ssh-keys-after-ignition.service` fails — bash replacement cross-device `mv`
+
+**Status**: Fixed (E2E workaround); fix needed in ACL base image\
+**Date**: 2026-02-17\
+**Symptom**: `Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback` fails with `update-ssh-keys-after-ignition.service` in a failed state. Journalctl shows:
+```
+mv: cannot create regular file '/home/core/.ssh/authorized_keys': File exists
+```
+
+**Root cause**:
+
+ACL replaces Flatcar's Rust `update-ssh-keys` binary with a bash script (`build_library/rpm/additional_files/update-ssh-keys`). The Rust package `coreos-base/update-ssh-keys` is `SKIP`ped in `package_catalog.sh` (line 244), and the bash replacement is installed by `build_image_util.sh` (lines 843–846).
+
+The bash script's `regenerate()` function does:
+```bash
+temp_file=$(mktemp)                    # creates in /tmp (tmpfs)
+# ... build authorized_keys content ...
+mv "$temp_file" "$KEYS_FILE"           # target is /home/core/.ssh/authorized_keys (ext4)
+```
+
+This fails because:
+1. `mktemp` with no arguments creates the temp file in `/tmp` (tmpfs).
+2. The target `$KEYS_FILE` is on `/home` (ext4) — a **different filesystem**.
+3. Cross-device `mv` cannot use the atomic `rename()` syscall. It falls back to copy, which fails with `EEXIST` when waagent has already created the target file.
+4. The script uses `set -euo pipefail`, so the `mv` failure causes immediate exit with code 1.
+
+Flatcar's Rust binary (from `https://github.com/flatcar/update-ssh-keys.git`) creates its temp file in the same directory as the target and uses Rust's `std::fs::rename()`, which maps to the `rename()` syscall. Since source and destination are on the same filesystem, `rename()` atomically replaces the target — even if it already exists.
+
+The `update-ssh-keys-after-ignition.service` itself comes from the upstream Flatcar `init` package (`coreos-base/coreos-init`), which is mapped to the `coreos-init` RPM (not skipped). So the service runs on ACL but calls the broken bash replacement instead of the Rust binary.
+
+The failure is **harmless** — waagent already created `authorized_keys` with the correct SSH keys, so the race condition doesn't affect node authentication.
+
+**AgentBaker fix**:
+- Add `update-ssh-keys-after-ignition.service` to the systemd unit failure allowlist in `e2e/validators.go`, gated by `s.VHD.Flatcar`.
+- Affected files:
+	- `e2e/validators.go` — `ValidateNoFailedSystemdUnits()` allowlist
+
+**ACL base image follow-up**:
+- Fix the bash `update-ssh-keys` script's `regenerate()` function to create the temp file on the same filesystem as the target. Change:
+  ```bash
+  temp_file=$(mktemp)
+  ```
+  to:
+  ```bash
+  temp_file=$(mktemp "${KEYS_FILE}.XXXXXX")
+  ```
+  This keeps both files on the same filesystem, allows `mv` to use the atomic `rename()` syscall (which overwrites existing files), and matches the Rust binary's behavior.
+- The same fix should also be applied to the `temp_key=$(mktemp)` in the `add|force-add` case for consistency.
+- Affected file: `build_library/rpm/additional_files/update-ssh-keys`
+
+**Notes**: The race condition occurs between `update-ssh-keys-after-ignition.service` and `walinuxagent.service` — both try to populate `/home/core/.ssh/authorized_keys` during early boot. The service fails intermittently depending on which one runs first.

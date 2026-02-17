@@ -73,6 +73,23 @@ Once fixed, the `mkdir -p /var/lib/logrotate` workaround in AgentBaker's `pre-in
 
 ---
 
+### Issue 12: Fix bash `update-ssh-keys` cross-device `mv` (Medium priority)
+
+**Why base image**: The `update-ssh-keys` binary is a core OS tool called by `update-ssh-keys-after-ignition.service` (from `coreos-init`). ACL's bash replacement has a bug in `regenerate()` — it creates a temp file in `/tmp` (tmpfs) and tries to `mv` it to `/home/core/.ssh/authorized_keys` (ext4). The cross-device `mv` fails with `EEXIST` when waagent has already created the target. Flatcar's Rust binary creates its temp file alongside the target (same filesystem) so `rename()` atomically overwrites. This is an OS-level tool bug, not an AKS concern.
+
+**Fix**: In `build_library/rpm/additional_files/update-ssh-keys`, change both `mktemp` calls in `regenerate()` and the `add|force-add` case to create temp files on the same filesystem as the target:
+```bash
+# In regenerate():
+temp_file=$(mktemp "${KEYS_FILE}.XXXXXX")
+
+# In add|force-add case:
+temp_key=$(mktemp "${key_file}.XXXXXX")
+```
+
+Once fixed, the `update-ssh-keys-after-ignition.service` allowlist entry in AgentBaker's `e2e/validators.go` can be removed.
+
+---
+
 ## Changes to keep in AgentBaker
 
 ### Issue 1: `isFlatcar()` recognizing ACL
