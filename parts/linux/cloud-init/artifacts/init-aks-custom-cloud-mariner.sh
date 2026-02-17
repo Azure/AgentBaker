@@ -116,6 +116,9 @@ function init_azurelinux_repo_depot {
 
         echo "File '$output_file' has been created."
     done
+
+    dnf makecache -y
+    echo "Azure Linux repo setup complete."
 }
 
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
