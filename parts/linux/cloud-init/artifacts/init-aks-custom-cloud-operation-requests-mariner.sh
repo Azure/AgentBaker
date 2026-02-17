@@ -199,6 +199,22 @@ function init_azurelinux_repo_depot {
 
 cloud-init status --wait
 
+dnf_makecache() {
+    local retries=10
+    local dnf_makecache_output=/tmp/dnf-makecache.out
+    local i
+    for i in $(seq 1 $retries); do
+        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_makecache_output && break || \
+        cat $dnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else sleep 5
+        fi
+    done
+    echo "Executed dnf makecache -y $i times"
+}
+
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
 if [ -z "$marinerRepoDepotEndpoint" ]; then
   >&2 echo "repo depot endpoint empty while running custom-cloud init script"
@@ -207,9 +223,11 @@ else
   if [ "$IS_MARINER" -eq 1 ]; then
       echo "Initializing Mariner repo depot settings..."
       init_mariner_repo_depot ${marinerRepoDepotEndpoint}
+      dnf_makecache || exit 1
   elif [ "$IS_AZURELINUX" -eq 1 ]; then
       echo "Initializing Azure Linux repo depot settings..."
       init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
+      dnf_makecache || exit 1
   else
       echo "No customizations for distribution: $NAME"
   fi
