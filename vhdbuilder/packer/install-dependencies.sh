@@ -234,6 +234,15 @@ unpackTgzToCNIDownloadsDIR() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
+# this is for the old package not coming from Dalec, currently fixed at 1.6.2. We can remove this function and the related logic when we don't have to support the old package anymore.
+downloadCNIPlugins() {
+    downloadDir=${1}
+    mkdir -p $downloadDir
+    CNI_PLUGINS_URL=${2}
+    cniTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
 # The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
 installCNI() {
@@ -345,6 +354,14 @@ while IFS= read -r p; do
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
         unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "cni-plugins")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCNIPlugins "${downloadDir}" "${evaluatedURL}"
+        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
+        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containernetworking-plugins")
