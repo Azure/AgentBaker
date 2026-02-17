@@ -514,7 +514,7 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_NetworkIsolatedCluster_NonAnonymousAcr(t *testing.T) {
+func Test_AzureLinuxV3_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
