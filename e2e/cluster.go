@@ -106,7 +106,7 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 			return nil, fmt.Errorf("add network isolated settings: %w", err)
 		}
 	}
-	if !isNetworkIsolated { // network isolated cluster blocks all egress via NSG, so we have to add firewall rules to allow traffic to Azure Container Registry and other Azure services. for non-network isolated cluster, we can skip this step to speed up the setup.
+	if !isNetworkIsolated { // network isolated cluster blocks all egress via NSG
 		if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
 			return nil, fmt.Errorf("add firewall rules: %w", err)
 		}

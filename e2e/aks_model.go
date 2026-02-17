@@ -492,7 +492,7 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 		return err
 	}
 
-	if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(true, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
+	if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
 		return fmt.Errorf("assigning acr pull permissions to kubelet identity: %w", err)
 	}
 
