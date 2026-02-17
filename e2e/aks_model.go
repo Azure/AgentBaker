@@ -582,7 +582,7 @@ func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACR
 	toolkit.Logf(ctx, "Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
 	var err error
 	var privateEndpoint *armnetwork.PrivateEndpoint
-	privateEndpointName := "PE-for-ABE2ETests"
+	privateEndpointName := fmt.Sprintf("PE-for-%s",privateACRName)
 	if privateEndpoint, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
 		return err
 	}
