@@ -1207,18 +1207,39 @@ enableLocalDNS() {
 
 # This function enables and starts the aks-hosts-setup timer.
 # The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
+# Returns non-zero (instead of exiting) on failure so the caller in cse_main.sh
+# can fall back to the corefile without the hosts plugin.
 enableAKSHostsSetup() {
     local hosts_file="/etc/localdns/hosts"
+    local hosts_setup_script="/opt/azure/containers/aks-hosts-setup.sh"
+    local hosts_setup_timer="/etc/systemd/system/aks-hosts-setup.timer"
 
-    # Run the script once immediately to resolve live DNS before kubelet starts
+    # Guard: verify required artifacts exist on this VHD.
+    # Older VHDs (or certain build modes) may not include them.
+    if [ ! -f "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-hosts-setup"
+        return 1
+    fi
+    if [ ! -f "${hosts_setup_timer}" ]; then
+        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
+        return 1
+    fi
+
+    # Run the script once immediately to resolve live DNS before kubelet starts.
+    # If this fails, return 1 so the caller falls back to the corefile without the hosts plugin,
+    # since /etc/localdns/hosts would be empty/missing and the hosts plugin would have nothing to serve.
     echo "Running initial aks-hosts-setup to resolve DNS..."
     mkdir -p "$(dirname "${hosts_file}")"
-    /opt/azure/containers/aks-hosts-setup.sh || echo "Warning: Initial hosts setup failed"
+    if ! "${hosts_setup_script}"; then
+        echo "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
+        return 1
+    fi
 
     # Enable the timer for periodic refresh (every 15 minutes)
     # This will update the hosts file with fresh IPs from live DNS
     echo "Enabling aks-hosts-setup timer..."
-    systemctlEnableAndStart aks-hosts-setup.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    # Use return instead of exit so the caller can fall back gracefully
+    systemctlEnableAndStart aks-hosts-setup.timer 30 || return 1
     echo "aks-hosts-setup timer enabled successfully."
 }
 
