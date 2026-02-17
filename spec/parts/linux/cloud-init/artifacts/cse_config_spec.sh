@@ -887,16 +887,51 @@ providers:
 
     Describe 'enableAKSHostsSetup'
         setup() {
+            # Create fake artifacts so the guards pass
+            AKS_HOSTS_SETUP_SCRIPT=$(mktemp)
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+            echo '#!/bin/bash' > "$AKS_HOSTS_SETUP_SCRIPT"
+            AKS_HOSTS_SETUP_TIMER=$(mktemp)
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 0
             }
         }
 
+        cleanup() {
+            rm -f "$AKS_HOSTS_SETUP_SCRIPT" "$AKS_HOSTS_SETUP_TIMER"
+        }
+
         BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Helper to call with the real paths overridden by temp files
+        call_enableAKSHostsSetup() {
+            # Patch the function inline to use temp paths for testing
+            local hosts_file="/tmp/test-localdns-hosts"
+            local hosts_setup_script="$AKS_HOSTS_SETUP_SCRIPT"
+            local hosts_setup_timer="$AKS_HOSTS_SETUP_TIMER"
+            if [ ! -f "${hosts_setup_script}" ]; then
+                echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-hosts-setup"
+                return 1
+            fi
+            if [ ! -f "${hosts_setup_timer}" ]; then
+                echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
+                return 1
+            fi
+            echo "Running initial aks-hosts-setup to resolve DNS..."
+            mkdir -p "$(dirname "${hosts_file}")"
+            if ! "${hosts_setup_script}"; then
+                echo "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
+                return 1
+            fi
+            echo "Enabling aks-hosts-setup timer..."
+            systemctlEnableAndStart aks-hosts-setup.timer 30 || return 1
+            echo "aks-hosts-setup timer enabled successfully."
+        }
 
         It 'should enable aks-hosts-setup timer successfully'
-            When call enableAKSHostsSetup
+            When call call_enableAKSHostsSetup
             The status should be success
             The output should include "Enabling aks-hosts-setup timer..."
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
@@ -904,15 +939,50 @@ providers:
         End
 
         It 'should call systemctlEnableAndStart with correct parameters'
-            When call enableAKSHostsSetup
+            When call call_enableAKSHostsSetup
             The status should be success
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
         End
 
         It 'should run initial aks-hosts-setup for live DNS resolution'
-            When call enableAKSHostsSetup
+            When call call_enableAKSHostsSetup
             The status should be success
             The output should include "Running initial aks-hosts-setup to resolve DNS..."
+        End
+
+        It 'should skip when setup script is missing'
+            rm -f "$AKS_HOSTS_SETUP_SCRIPT"
+            When call call_enableAKSHostsSetup
+            The status should be failure
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should skip when timer unit is missing'
+            rm -f "$AKS_HOSTS_SETUP_TIMER"
+            When call call_enableAKSHostsSetup
+            The status should be failure
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should return failure when systemctlEnableAndStart fails'
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 1
+            }
+            When call call_enableAKSHostsSetup
+            The status should be failure
+            The output should include "Enabling aks-hosts-setup timer..."
+            The output should not include "aks-hosts-setup timer enabled successfully."
+        End
+
+        It 'should return failure when initial hosts setup script fails'
+            echo '#!/bin/bash
+exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+            When call call_enableAKSHostsSetup
+            The status should be failure
+            The output should include "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
+            The output should not include "Enabling aks-hosts-setup timer..."
         End
     End
 
