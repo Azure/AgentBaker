@@ -1225,6 +1225,14 @@ enableAKSHostsSetup() {
         return 1
     fi
 
+    # Write the cloud environment as a systemd EnvironmentFile so aks-hosts-setup.sh
+    # can use $TARGET_CLOUD directly — both when called from CSE (already in env) and
+    # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
+    local cloud_env_file="/etc/localdns/cloud-env"
+    mkdir -p "$(dirname "${cloud_env_file}")"
+    echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
+    chmod 0644 "${cloud_env_file}"
+
     # Run the script once immediately to resolve live DNS before kubelet starts.
     # If this fails, return 1 so the caller falls back to the corefile without the hosts plugin,
     # since /etc/localdns/hosts would be empty/missing and the hosts plugin would have nothing to serve.

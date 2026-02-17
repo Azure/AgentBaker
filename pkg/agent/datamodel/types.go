@@ -2440,10 +2440,11 @@ type LocalDNSProfile struct {
 
 type LocalDNSCoreFileData struct {
 	LocalDNSProfile
-	NodeListenerIP    string
-	ClusterListenerIP string
-	CoreDNSServiceIP  string
-	AzureDNSIP        string
+	NodeListenerIP     string
+	ClusterListenerIP  string
+	CoreDNSServiceIP   string
+	AzureDNSIP         string
+	IncludeHostsPlugin bool
 }
 
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
