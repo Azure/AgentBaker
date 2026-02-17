@@ -25,7 +25,7 @@ CRITICAL_FQDNS=(
 resolve_ipv4() {
     local domain="$1"
     local output
-    output=$(nslookup -type=A "${domain}" 2>/dev/null) || return 0
+    output=$(timeout 3 nslookup -type=A "${domain}" 2>/dev/null) || return 0
     # Parse Address lines (skip server address with #), validate IPv4 format (4 octets of 1-3 digits)
     echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || return 0
 }
@@ -35,7 +35,7 @@ resolve_ipv4() {
 resolve_ipv6() {
     local domain="$1"
     local output
-    output=$(nslookup -type=AAAA "${domain}" 2>/dev/null) || return 0
+    output=$(timeout 3 nslookup -type=AAAA "${domain}" 2>/dev/null) || return 0
     # Parse Address lines (skip server address with #), validate IPv6 format (must contain : and only hex/colons, min 3 chars)
     echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':' || return 0
 }

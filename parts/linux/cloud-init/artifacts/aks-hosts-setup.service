@@ -6,6 +6,7 @@ Before=kubelet.service localdns.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=10
 ExecStart=/opt/azure/containers/aks-hosts-setup.sh
 
 [Install]
