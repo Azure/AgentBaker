@@ -321,6 +321,22 @@ copyPackerFiles() {
   cpAndMode $AZURE_NETWORK_UDEV_RULE_SRC $AZURE_NETWORK_UDEV_RULE_DEST 0644
 # ---------------------------------------------------------------------------------------
 
+# ------------------------- Files related to inspektor-gadget ---------------------------
+  IG_IMPORT_SCRIPT_SRC=/home/packer/ig-import-gadgets.sh
+  IG_IMPORT_SCRIPT_DEST=/usr/share/inspektor-gadget/import_gadgets.sh
+  IG_REMOVE_SCRIPT_SRC=/home/packer/ig-remove-gadgets.sh
+  IG_REMOVE_SCRIPT_DEST=/usr/share/inspektor-gadget/remove_gadgets.sh
+  IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
+  IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
+
+  # Skip for Mariner, OSGuard, Flatcar, and Kata
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+    cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
+    cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
+    cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
+  fi
+# ---------------------------------------------------------------------------------------
+
   # Install AKS diagnostic
   cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 
