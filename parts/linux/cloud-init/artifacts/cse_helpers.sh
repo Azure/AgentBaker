@@ -178,6 +178,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
+ORAS=/opt/bin/oras
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
 # but vhd build runs with `set -o nounset`
@@ -347,7 +348,7 @@ retrycmd_pull_from_registry_with_oras() {
         if [ "$i" -gt 1 ]; then
             sleep $wait_sleep
         fi
-        timeout 60 oras pull "$url" -o "$target_folder" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "$@" > $ORAS_OUTPUT 2>&1
+        timeout 60 $ORAS pull "$url" -o "$target_folder" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "$@" > $ORAS_OUTPUT 2>&1
         if [ "$?" -eq 0 ]; then
             return 0
         else
@@ -379,7 +380,7 @@ retrycmd_cp_oci_layout_with_oras() {
             if [ "$i" -gt 1 ]; then
                 sleep $wait_sleep
             fi
-            timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            timeout 120 $ORAS cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             else
@@ -427,7 +428,7 @@ retrycmd_get_refresh_token_for_oras() {
 retrycmd_oras_login() {
     retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
     for i in $(seq 1 $retries); do
-        ORAS_LOGIN_OUTPUT=$(oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
+        ORAS_LOGIN_OUTPUT=$($ORAS login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
         exit_code=$?
         if [ "$exit_code" -eq 0 ]; then
             echo "$ORAS_LOGIN_OUTPUT"
@@ -443,8 +444,8 @@ retrycmd_can_oras_ls_acr_anonymously() {
 
     for i in $(seq 1 $retries); do
         # Logout first to ensure insufficient ABAC token won't affect anonymous judging
-        oras logout "$acr_url" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" 2>/dev/null || true
-        output=$(timeout 60 oras repo ls "$acr_url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        $ORAS logout "$acr_url" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" 2>/dev/null || true
+        output=$(timeout 60 $ORAS repo ls "$acr_url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
         if [ "$?" -eq 0 ]; then
             echo "acr is anonymously reachable"
             return 0
