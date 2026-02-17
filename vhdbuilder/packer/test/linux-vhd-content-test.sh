@@ -234,7 +234,7 @@ testPackagesInstalled() {
         continue
         ;;
       "cni-plugins")
-        # cni-plugins is a special case that it is still in components.json for backward compatibility but we don't cache it.
+        testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
       "containernetworking-plugins")
@@ -1812,6 +1812,40 @@ testDiskQueueServiceIsActive() {
 
   echo "$test:Finish"
 }
+
+testCNIPluginsInstalled() {
+  local test="testCNIPluginsInstalled"
+  echo "$test: Start"
+
+  local downloadLocation=$1
+  local packageVersion=$2
+  local cni_extracted_dir="${downloadLocation}/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"
+
+  # Check that the extracted directory exists
+  echo "$test: Checking for existence of extracted CNI plugins directory: $cni_extracted_dir"
+  if [ ! -d "$cni_extracted_dir" ]; then
+    err "$test: CNI plugins directory $cni_extracted_dir not found"
+    return 1
+  fi
+  echo "$test: CNI plugins directory $cni_extracted_dir found"
+
+  # Verify that the directory contains the expected CNI plugin binaries
+  local required_plugins=("bridge" "host-local" "loopback")
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_extracted_dir/$plugin"
+    echo "$test: Checking for CNI plugin binary $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin binary $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin binary $plugin found"
+  done
+
+  echo "$test: All required CNI plugin binaries are present in cached directory."
+  echo "$test: Finish"
+  return 0
+}
+
 
 testContainerNetworkingPluginsInstalled() {
   local test="testContainerNetworkingPluginsInstalled"

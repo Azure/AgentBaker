@@ -225,13 +225,24 @@ capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
-  local URL=$1
-  CNI_TGZ_TMP=${URL##*/}
-  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir -p "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  extract_tarball "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
+  local download_dir=${1}
+  local url=${2}
+  local cni_tgz_tmp=${url##*/}
+  local cni_dir_tmp=${cni_tgz_tmp%.tgz}
+  mkdir -p "${download_dir}/${cni_dir_tmp}"
+  extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
+  rm -rf "${download_dir:?}/${cni_tgz_tmp}"
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
+
+# this is for the old package not coming from Dalec, currently fixed at 1.6.2.
+# The binary is expected to be present during bootstrapping, no dynamic download logic exists for this one
+downloadCNIPlugins() {
+    local download_dir=${1}
+    mkdir -p "${download_dir}"
+    local cni_plugins_url=${2}
+    local cni_tgz_tmp=${cni_plugins_url##*/}
+    retrycmd_get_tarball 120 5 "${download_dir}/${cni_tgz_tmp}" "${cni_plugins_url}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
@@ -343,8 +354,16 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
+        unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "cni-plugins")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCNIPlugins "${downloadDir}" "${evaluatedURL}"
+        unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
+        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containernetworking-plugins")
