@@ -143,11 +143,11 @@ else
   if [ "$IS_MARINER" -eq 1 ]; then
       echo "Initializing Mariner repo depot settings..."
       init_mariner_repo_depot ${marinerRepoDepotEndpoint}
-      dnf_makecache || return 1
+      dnf_makecache || exit 1
   elif [ "$IS_AZURELINUX" -eq 1 ]; then
       echo "Initializing Azure Linux repo depot settings..."
       init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
-      dnf_makecache || return 1
+      dnf_makecache || exit 1
   else
       echo "No customizations for distribution: $NAME"
   fi
