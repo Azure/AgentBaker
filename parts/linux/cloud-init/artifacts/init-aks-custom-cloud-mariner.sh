@@ -117,8 +117,24 @@ function init_azurelinux_repo_depot {
         echo "File '$output_file' has been created."
     done
 
-    dnf makecache -y
+    dnf_makecache || return 1
     echo "Azure Linux repo setup complete."
+}
+
+dnf_makecache() {
+    local retries=10
+    local dnf_makecache_output=/tmp/dnf-makecache.out
+    local i
+    for i in $(seq 1 $retries); do
+        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_makecache_output && break || \
+        cat $dnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else sleep 5
+        fi
+    done
+    echo "Executed dnf makecache -y $i times"
 }
 
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
