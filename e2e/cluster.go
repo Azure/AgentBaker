@@ -98,8 +98,12 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 
 	if isNetworkIsolated || attachPrivateAcr {
 		// private acr must be created before we add the debug daemonsets
-		addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, true)
-		addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, false)
+		if err := addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, true); err != nil {
+			return nil, fmt.Errorf("add private azure container registry (true): %w", err)
+		}
+		if err := addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, false); err != nil {
+			return nil, fmt.Errorf("add private azure container registry (false): %w", err)
+		}
 	}
 	if isNetworkIsolated {
 		if err := addNetworkIsolatedSettings(ctx, cluster, *cluster.Location); err != nil {
