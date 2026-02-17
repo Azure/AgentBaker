@@ -2,23 +2,88 @@
 set -uo pipefail
 
 # aks-hosts-setup.sh
-# Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts
+# Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts.
+# TARGET_CLOUD is set by CSE (cse_cmd.sh) and persisted via /etc/localdns/cloud-env
+# as a systemd EnvironmentFile so it's available on both initial and timer-triggered runs.
 
 HOSTS_FILE="/etc/localdns/hosts"
 
 # Ensure the directory exists
 mkdir -p "$(dirname "$HOSTS_FILE")"
 
-# Critical AKS FQDNs that should be cached for DNS reliability
-CRITICAL_FQDNS=(
-    "acs-mirror.azureedge.net"
-    "eastus.data.mcr.microsoft.com"
-    "login.microsoftonline.com"
-    "management.azure.com"
-    "mcr.microsoft.com"
-    "packages.aks.azure.com"
-    "packages.microsoft.com"
+# Use TARGET_CLOUD directly. It's available from:
+#   1. CSE environment (initial run from enableAKSHostsSetup)
+#   2. Systemd EnvironmentFile (timer-triggered runs via aks-hosts-setup.service)
+# Falls back to AzurePublicCloud if unset (e.g. older CSE or missing env file).
+local_cloud="${TARGET_CLOUD:-AzurePublicCloud}"
+
+# Select critical FQDNs based on the cloud environment.
+# Each cloud has its own service endpoints for container registry, identity, ARM, and packages.
+# This mirrors the cloud detection in GetCloudTargetEnv (pkg/agent/datamodel/sig_config.go).
+
+# FQDNs common to all clouds.
+COMMON_FQDNS=(
+    "packages.microsoft.com"            # Microsoft packages
 )
+
+# Cloud-specific FQDNs.
+case "${local_cloud}" in
+    AzureChinaCloud)
+        CLOUD_FQDNS=(
+            "acs-mirror.azureedge.net"          # K8s binaries mirror
+            "mcr.azure.cn"                      # Container registry (China)
+            "login.partner.microsoftonline.cn"  # Azure AD (China)
+            "management.chinacloudapi.cn"       # ARM (China)
+        )
+        ;;
+    AzureUSGovernmentCloud)
+        CLOUD_FQDNS=(
+            "acs-mirror.azureedge.net"          # K8s binaries mirror
+            "mcr.microsoft.com"                 # Container registry
+            "login.microsoftonline.us"          # Azure AD (US Gov)
+            "management.usgovcloudapi.net"      # ARM (US Gov)
+            "packages.aks.azure.com"            # AKS packages
+        )
+        ;;
+    USNatCloud)
+        CLOUD_FQDNS=(
+            "mcr.microsoft.com"                        # Container registry
+            "login.microsoftonline.eaglex.ic.gov"      # Azure AD (USNat)
+            "management.azure.eaglex.ic.gov"           # ARM (USNat)
+        )
+        ;;
+    USSecCloud)
+        CLOUD_FQDNS=(
+            "mcr.microsoft.com"                           # Container registry
+            "login.microsoftonline.microsoft.scloud"      # Azure AD (USSec)
+            "management.azure.microsoft.scloud"           # ARM (USSec)
+        )
+        ;;
+    AzureStackCloud)
+        # Custom cloud / AGC — endpoints are customer-defined.
+        CLOUD_FQDNS=(
+            "mcr.microsoft.com"                 # Container registry
+        )
+        ;;
+    AzurePublicCloud|AzureGermanCloud|AzureGermanyCloud|AzureBleuCloud|*)
+        # AzurePublicCloud: standard public endpoints.
+        # AzureGermanCloud (legacy): retired, uses public endpoints.
+        # AzureGermanyCloud (Delos) / AzureBleuCloud: EU sovereign clouds,
+        #   use public endpoints for container registry and packages.
+        CLOUD_FQDNS=(
+            "acs-mirror.azureedge.net"          # K8s binaries mirror
+            "mcr.microsoft.com"                 # Container registry
+            "login.microsoftonline.com"         # Azure AD / Entra ID
+            "management.azure.com"              # ARM
+            "packages.aks.azure.com"            # AKS packages
+        )
+        ;;
+esac
+
+# Combine common + cloud-specific FQDNs.
+CRITICAL_FQDNS=("${COMMON_FQDNS[@]}" "${CLOUD_FQDNS[@]}")
+
+echo "Detected cloud environment: ${local_cloud}"
 
 # Function to resolve IPv4 addresses for a domain
 # Filters output to only include valid IPv4 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)

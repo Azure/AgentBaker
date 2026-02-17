@@ -1212,14 +1212,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.ShouldEnableHostsPlugin()
 		},
 		"GetGeneratedLocalDNSCoreFile": func() (string, error) {
-			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
+			output, err := GenerateLocalDNSCoreFile(config, profile, true)
 			if err != nil {
 				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
 			}
 			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
 		"GetGeneratedLocalDNSCoreFileNoHosts": func() (string, error) {
-			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileNoHostsTemplateString)
+			output, err := GenerateLocalDNSCoreFile(config, profile, false)
 			if err != nil {
 				return "", fmt.Errorf("failed generate corefile (no hosts) for localdns using template: %w", err)
 			}
@@ -1841,10 +1841,13 @@ func containerdConfigFromTemplate(
 
 // ----------------------- Start of changes related to localdns ------------------------------------------.
 // Parse and generate localdns Corefile from template and LocalDNSProfile.
+// includeHostsPlugin controls whether the hosts plugin blocks for caching critical AKS FQDNs
+// are included in the generated Corefile. When false, the same template is rendered without
+// the hosts blocks, used as a fallback when enableAKSHostsSetup fails at provisioning time.
 func GenerateLocalDNSCoreFile(
 	config *datamodel.NodeBootstrappingConfiguration,
 	profile *datamodel.AgentPoolProfile,
-	tmpl string,
+	includeHostsPlugin bool,
 ) (string, error) {
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
@@ -1858,7 +1861,8 @@ func GenerateLocalDNSCoreFile(
 		"hasSuffix": strings.HasSuffix,
 	}
 	localDNSCoreFileData := profile.GetLocalDNSCoreFileData()
-	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
+	localDNSCoreFileData.IncludeHostsPlugin = includeHostsPlugin
+	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(localDNSCoreFileTemplateString))
 
 	// Generate the Corefile content.
 	var corefileBuffer bytes.Buffer
@@ -1871,7 +1875,10 @@ func GenerateLocalDNSCoreFile(
 }
 
 // Template to create corefile that will be used by localdns service.
-// This version includes the hosts plugin blocks for caching critical AKS FQDNs.
+// When IncludeHostsPlugin is true, the hosts plugin blocks for caching critical AKS FQDNs
+// (mcr.microsoft.com, packages.aks.azure.com, etc.) are included in root domain server blocks.
+// When false, hosts blocks are omitted — used as a fallback when enableAKSHostsSetup fails at
+// provisioning time, following the same dual-config pattern used for containerd GPU/no-GPU configs.
 const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
@@ -1898,7 +1905,7 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.NodeListenerIP}}
-    {{- if $isRootDomain}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
         fallthrough
@@ -1965,143 +1972,12 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.ClusterListenerIP}}
-    {{- if $isRootDomain}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
         fallthrough
     }
     {{- end}}
-    {{- if $fwdToClusterCoreDNS}}
-    forward . {{$.CoreDNSServiceIP}} {
-    {{- else}}
-    forward . {{$.AzureDNSIP}} {
-    {{- end}}
-        {{- if eq $override.Protocol "ForceTCP"}}
-        force_tcp
-        {{- end}}
-        policy {{$forwardPolicy}}
-        max_concurrent {{$override.MaxConcurrent}}
-    }
-    ready {{$.ClusterListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}} {
-        success 9984
-        denial 9984
-        {{- if ne $override.ServeStale "Disable"}}
-        {{- if eq $override.ServeStale "Verify"}}
-        serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
-        {{- else if eq $override.ServeStale "Immediate"}}
-        serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
-        {{- end }}
-        {{- end }}
-        servfail 0
-    }
-    loop
-    nsid localdns-pod
-    prometheus :9253
-    {{- if $isRootDomain}}
-    template ANY ANY internal.cloudapp.net {
-        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
-        rcode NXDOMAIN
-        fallthrough
-    }
-    template ANY ANY reddog.microsoft.com {
-        rcode NXDOMAIN
-    }
-    {{- end}}
-}
-{{- end}}
-`
-
-// localDNSCoreFileNoHostsTemplateString is the same as localDNSCoreFileTemplateString but without
-// the hosts plugin blocks. This is used as a fallback when enableAKSHostsSetup fails at provisioning
-// time, following the same dual-config pattern used for containerd GPU/no-GPU configs.
-const localDNSCoreFileNoHostsTemplateString = `
-# ***********************************************************************************
-# WARNING: Changes to this file will be overwritten and not persisted.
-# ***********************************************************************************
-# whoami (used for health check of DNS)
-health-check.localdns.local:53 {
-    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
-    whoami
-}
-# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
-{{- range $domain, $override := $.VnetDNSOverrides -}}
-{{- $isRootDomain := eq $domain "." -}}
-{{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
-{{- $forwardPolicy := "sequential" -}}
-{{- if eq $override.ForwardPolicy "RoundRobin" -}}
-    {{- $forwardPolicy = "round_robin" -}}
-{{- else if eq $override.ForwardPolicy "Random" -}}
-    {{- $forwardPolicy = "random" -}}
-{{- end }}
-{{$domain}}:53 {
-	{{- if eq $override.QueryLogging "Error" }}
-    errors
-    {{- else if eq $override.QueryLogging "Log" }}
-    log
-    {{- end }}
-    bind {{$.NodeListenerIP}}
-    {{- if $isRootDomain}}
-    forward . {{$.AzureDNSIP}} {
-    {{- else}}
-    {{- if $fwdToClusterCoreDNS}}
-    forward . {{$.CoreDNSServiceIP}} {
-    {{- else}}
-    forward . {{$.AzureDNSIP}} {
-    {{- end}}
-	{{- end}}
-        {{- if eq $override.Protocol "ForceTCP"}}
-        force_tcp
-        {{- end}}
-        policy {{$forwardPolicy}}
-        max_concurrent {{$override.MaxConcurrent}}
-    }
-    ready {{$.NodeListenerIP}}:8181
-    cache {{$override.CacheDurationInSeconds}} {
-        success 9984
-        denial 9984
-        {{- if ne $override.ServeStale "Disable"}}
-        {{- if eq $override.ServeStale "Verify"}}
-        serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
-        {{- else if eq $override.ServeStale "Immediate"}}
-        serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
-        {{- end }}
-        {{- end }}
-        servfail 0
-    }
-    loop
-    nsid localdns
-    prometheus :9253
-    {{- if $isRootDomain}}
-    template ANY ANY internal.cloudapp.net {
-        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
-        rcode NXDOMAIN
-        fallthrough
-    }
-    template ANY ANY reddog.microsoft.com {
-        rcode NXDOMAIN
-    }
-    {{- end}}
-}
-{{- end}}
-# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
-{{- range $domain, $override := $.KubeDNSOverrides}}
-{{- $isRootDomain := eq $domain "." -}}
-{{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
-{{- $forwardPolicy := "" }}
-{{- $forwardPolicy := "sequential" -}}
-{{- if eq $override.ForwardPolicy "RoundRobin" -}}
-    {{- $forwardPolicy = "round_robin" -}}
-{{- else if eq $override.ForwardPolicy "Random" -}}
-    {{- $forwardPolicy = "random" -}}
-{{- end }}
-{{$domain}}:53 {
-	{{- if eq $override.QueryLogging "Error" }}
-    errors
-    {{- else if eq $override.QueryLogging "Log" }}
-    log
-    {{- end }}
-    bind {{$.ClusterListenerIP}}
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
