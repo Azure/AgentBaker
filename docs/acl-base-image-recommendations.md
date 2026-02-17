@@ -115,3 +115,9 @@ Once fixed, the `update-ssh-keys-after-ignition.service` allowlist entry in Agen
 **Why AgentBaker**: The base image's firewall rules are reasonable for a general Azure VM (SSH access, conntrack, etc.). AgentBaker (the AKS-specific tool) should adjust the firewall for AKS's needs — it already does this for Mariner/AzureLinux via `disableSystemdIptables`. The ACL guard in `vhdbuilder/packer/install-dependencies.sh` is the right place. If ACL were ever used outside AKS, the base image rules would be desired.
 
 ---
+
+### Issue 13: Route ACL to `update-ca-trust` for CA certificate handling
+
+**Why AgentBaker**: ACL uses Azure Linux's `update-ca-trust` instead of Flatcar's `update-ca-certificates`. This is a provisioning-time tool routing decision — AgentBaker is responsible for knowing which cert update tool each distro uses. The `isACL` check in `configureHTTPProxyCA()` and the Mariner service file in the packer template are the correct approach. No base image change needed.
+
+---

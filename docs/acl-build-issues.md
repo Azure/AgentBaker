@@ -382,3 +382,34 @@ The failure is **harmless** — waagent already created `authorized_keys` with t
 - Affected file: `build_library/rpm/additional_files/update-ssh-keys`
 
 **Notes**: The race condition occurs between `update-ssh-keys-after-ignition.service` and `walinuxagent.service` — both try to populate `/home/core/.ssh/authorized_keys` during early boot. The service fails intermittently depending on which one runs first.
+
+---
+
+## Issue 13: `update_certs.service` fails — `update-ca-certificates` not found on ACL
+
+**Status**: Fixed\
+**Date**: 2026-02-17\
+**Symptom**: `Test_Flatcar_CustomCATrust` fails with CSE exit code 161. `update_certs.service` exits with status 127 (command not found).
+
+**Root cause**:
+
+ACL does not have `update-ca-certificates` (a Gentoo/Debian-style tool). Instead it uses `update-ca-trust` from the Azure Linux `ca-certificates-tools` RPM, the same tool Mariner uses. Two code paths invoke the wrong command on ACL:
+
+1. **VHD-baked service file**: The Flatcar packer templates used `flatcar/update_certs.service` which calls `update_certs.sh /etc/ssl/certs update-ca-certificates`. This service is restarted by `configureCustomCaCertificate()` in `cse_config.sh` when custom CA certs are configured.
+
+2. **CSE-time HTTP proxy CA**: `configureHTTPProxyCA()` in `cse_config.sh` falls into the `isFlatcar` branch for ACL (since `isFlatcar("ACL")` returns true), and uses `update-ca-certificates` directly.
+
+Both fail with exit code 127 on ACL because the command doesn't exist.
+
+**AgentBaker fix**:
+- Add `isACL` check before `isFlatcar` in `configureHTTPProxyCA()` to route ACL to `update-ca-trust` with the Mariner cert destination.
+- Change both Flatcar packer templates to use `mariner/update_certs_mariner.service` instead of `flatcar/update_certs.service`. The Mariner service file calls `update_certs.sh /usr/share/pki/ca-trust-source/anchors update-ca-trust`.
+- Affected files:
+	- `parts/linux/cloud-init/artifacts/cse_config.sh` — `configureHTTPProxyCA()`
+	- `vhdbuilder/packer/vhd-image-builder-flatcar.json` — service file source
+	- `vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json` — service file source
+	- `pkg/agent/testdata/**/CustomData` — regenerated snapshots
+
+**ACL base image follow-up**: None — AgentBaker correctly routes ACL to the right cert tools.
+
+**Notes**: The `isACL` check must come before `isFlatcar` because `isFlatcar` returns true for ACL. This is the same ordering pattern used throughout the codebase for distro-specific logic.
