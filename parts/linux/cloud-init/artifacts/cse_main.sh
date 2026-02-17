@@ -295,14 +295,24 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # Write hosts file BEFORE starting LocalDNS so it has entries to serve
-    # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
-    logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup || exit $ERR_SYSTEMCTL_START_FAIL
-    
+    # Determine which localdns corefile to use based on hosts plugin setup success/failure.
+    # This follows the same dual-config pattern used for containerd GPU/no-GPU configs:
+    # two corefiles are generated at Go template time, and the shell picks at provisioning time.
+    LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE}"
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        if logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup; then
+            echo "aks-hosts-setup succeeded, using corefile with hosts plugin"
+            LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE}"
+        else
+            echo "Warning: aks-hosts-setup failed, falling back to corefile without hosts plugin"
+            LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}"
+        fi
+    fi
+
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        # Start LocalDNS after hosts file is populated
-        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
+        # Start LocalDNS with the chosen corefile (with or without hosts plugin)
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS "${LOCALDNS_COREFILE_TO_USE}" || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then

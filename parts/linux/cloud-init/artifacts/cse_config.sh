@@ -1155,18 +1155,24 @@ LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+# generateLocalDNSFiles creates the localdns corefile and slice file.
+# Usage: generateLocalDNSFiles [corefile_base64]
+#   corefile_base64: optional base64-encoded corefile content to use.
+#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 generateLocalDNSFiles() {
+    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    echo "${corefile_content}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_content}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -1186,8 +1192,13 @@ CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
 }
 
+# enableLocalDNS creates localdns files and starts the service.
+# Usage: enableLocalDNS [corefile_base64]
+#   corefile_base64: optional base64-encoded corefile content to use.
+#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 enableLocalDNS() {
-    generateLocalDNSFiles
+    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+    generateLocalDNSFiles "${corefile_content}"
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
