@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/hack/tools
 
-go 1.24
+go 1.24.12
 
 require github.com/onsi/ginkgo v1.16.4
 
