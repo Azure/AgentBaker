@@ -2894,10 +2894,8 @@ func TestShouldEnableLocalDNS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualData := false
-			if tt.agentPoolProfile != nil {
-				actualData = tt.agentPoolProfile.ShouldEnableLocalDNS()
-			}
+			actualData := tt.agentPoolProfile.ShouldEnableLocalDNS()
+
 			assert.Equal(t, tt.expectedData, actualData)
 		})
 	}
@@ -3257,10 +3255,8 @@ func TestShouldEnableHostsPlugin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualData := false
-			if tt.agentPoolProfile != nil {
-				actualData = tt.agentPoolProfile.ShouldEnableHostsPlugin()
-			}
+			actualData := tt.agentPoolProfile.ShouldEnableHostsPlugin()
+
 			assert.Equal(t, tt.expectedData, actualData)
 		})
 	}
