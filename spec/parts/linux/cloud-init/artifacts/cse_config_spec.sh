@@ -890,7 +890,12 @@ providers:
             # Create fake artifacts so the guards pass
             AKS_HOSTS_SETUP_SCRIPT=$(mktemp)
             chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
-            echo '#!/bin/bash' > "$AKS_HOSTS_SETUP_SCRIPT"
+            # The fake script writes a non-empty hosts file so the -s check passes
+            cat > "$AKS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
+#!/bin/bash
+echo "# test hosts file" > /tmp/test-localdns-hosts
+SETUP_EOF
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
             AKS_HOSTS_SETUP_TIMER=$(mktemp)
             TEST_CLOUD_ENV_DIR=$(mktemp -d)
             TARGET_CLOUD="AzurePublicCloud"
@@ -901,7 +906,7 @@ providers:
         }
 
         cleanup() {
-            rm -f "$AKS_HOSTS_SETUP_SCRIPT" "$AKS_HOSTS_SETUP_TIMER"
+            rm -f "$AKS_HOSTS_SETUP_SCRIPT" "$AKS_HOSTS_SETUP_TIMER" /tmp/test-localdns-hosts
             rm -rf "$TEST_CLOUD_ENV_DIR"
         }
 
@@ -933,6 +938,10 @@ providers:
             mkdir -p "$(dirname "${hosts_file}")"
             if ! "${hosts_setup_script}"; then
                 echo "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
+                return 1
+            fi
+            if [ ! -s "${hosts_file}" ]; then
+                echo "Warning: ${hosts_file} is missing or empty after initial run, signaling fallback to no-hosts corefile"
                 return 1
             fi
             echo "Enabling aks-hosts-setup timer..."
@@ -992,6 +1001,17 @@ exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
             When call call_enableAKSHostsSetup
             The status should be failure
             The output should include "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
+            The output should not include "Enabling aks-hosts-setup timer..."
+        End
+
+        It 'should return failure when hosts file is empty after successful script run'
+            # Script exits 0 but does not write the hosts file (simulates no DNS records resolved)
+            echo '#!/bin/bash
+exit 0' > "$AKS_HOSTS_SETUP_SCRIPT"
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+            When call call_enableAKSHostsSetup
+            The status should be failure
+            The output should include "is missing or empty after initial run, signaling fallback to no-hosts corefile"
             The output should not include "Enabling aks-hosts-setup timer..."
         End
 
