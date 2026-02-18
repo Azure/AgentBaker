@@ -426,5 +426,42 @@ MOCK_EOF
             The contents of file "$HOSTS_FILE" should not include "not-an-ipv6"
             The contents of file "$HOSTS_FILE" should not include "SERVFAIL"
         End
+
+        It 'rejects IPv4 addresses with out-of-range octets'
+            cat > "${MOCK_BIN}/nslookup" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+for arg in "$@"; do
+    if [[ "$arg" == "-type=A" ]]; then
+        record_type="A"
+    elif [[ "$arg" == "-type=AAAA" ]]; then
+        record_type="AAAA"
+    fi
+done
+
+echo "Server:		127.0.0.53"
+echo "Address:	127.0.0.53#53"
+echo ""
+if [[ "$record_type" == "A" ]]; then
+    echo "Address: 10.0.0.1"
+    echo "Address: 999.999.999.999"
+    echo "Address: 256.1.1.1"
+    echo "Address: 1.2.3.400"
+    echo "Address: 255.255.255.255"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/nslookup"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Writing addresses"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "10.0.0.1"
+            The contents of file "$HOSTS_FILE" should include "255.255.255.255"
+            The contents of file "$HOSTS_FILE" should not include "999.999.999.999"
+            The contents of file "$HOSTS_FILE" should not include "256.1.1.1"
+            The contents of file "$HOSTS_FILE" should not include "1.2.3.400"
+        End
     End
 End

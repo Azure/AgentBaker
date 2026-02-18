@@ -91,8 +91,13 @@ resolve_ipv4() {
     local domain="$1"
     local output
     output=$(timeout 3 nslookup -type=A "${domain}" 2>/dev/null) || return 0
-    # Parse Address lines (skip server address with #), validate IPv4 format (4 octets of 1-3 digits)
-    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || return 0
+    # Parse Address lines (skip server address with #), validate IPv4 format with octet range 0-255
+    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | while IFS='.' read -r a b c d; do
+        if [ "$a" -le 255 ] && [ "$b" -le 255 ] && [ "$c" -le 255 ] && [ "$d" -le 255 ]; then
+            echo "${a}.${b}.${c}.${d}"
+        fi
+    done
+    return 0
 }
 
 # Function to resolve IPv6 addresses for a domain
