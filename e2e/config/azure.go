@@ -45,7 +45,7 @@ type AzureClient struct {
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.AzureCLICredential
+	Credential                azcore.TokenCredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient

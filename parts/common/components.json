@@ -56,6 +56,12 @@
           "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "ltsc2025",
           "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
+          "latestVersion": "10.0.26100.4652",
+          "previousLatestVersion": "10.0.26100.4349",
+          "windowsSkuMatch": "activebranch*"
         }
       ]
     },
@@ -83,6 +89,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2025",
           "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "activebranch*"
         }
       ]
     },

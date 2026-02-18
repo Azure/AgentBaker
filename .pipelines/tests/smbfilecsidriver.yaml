@@ -1,0 +1,24 @@
+# Manifest for Kubernetes external tests.
+# See https://github.com/kubernetes/kubernetes/tree/master/test/e2e/storage/external
+StorageClass:
+    FromName: true
+DriverInfo:
+  Name: file.csi.azure.com
+  Capabilities:
+    persistence: true
+    exec: true
+    multipods: true
+    RWX: true
+    fsGroup: true
+    topology: false
+    controllerExpansion: true
+    nodeExpansion: true
+    offlineExpansion: true
+    onlineExpansion: true
+    volumeLimits: false
+    snapshotDataSource: true
+    volumeMountGroup: true
+    pvcDataSource: true
+  StressTestOptions:
+    NumPods: 10
+    NumRestarts: 10

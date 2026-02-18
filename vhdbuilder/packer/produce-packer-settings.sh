@@ -1,16 +1,16 @@
 #!/bin/bash
 set -e
 
-echo "Installing previous version of azcli in order to mitigate az compute bug"
+#echo "Installing previous version of azcli in order to mitigate az compute bug"
 source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 
 SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
 
-if [ -n "${AZCLI_VERSION_OVERRIDE}" ]; then
-  echo "Overriding azcli version to ${AZCLI_VERSION_OVERRIDE}"
-  enforce_azcli_version "${AZCLI_VERSION_OVERRIDE}"
-fi
+#if [ -n "${AZCLI_VERSION_OVERRIDE}" ]; then
+#  echo "Overriding azcli version to ${AZCLI_VERSION_OVERRIDE}"
+#  enforce_azcli_version "${AZCLI_VERSION_OVERRIDE}"
+#fi
 
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"

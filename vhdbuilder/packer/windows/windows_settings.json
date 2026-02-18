@@ -58,6 +58,12 @@
       "windows_image_name": "windows-23H2",
       "base_image_version": "25398.2207.260303",
       "patches_to_apply": []
+    },
+    "activebranch": {
+      "os_disk_size": "130",
+      "base_image_sku": "2025-datacenter-core-smalldisk-g2",
+      "windows_image_name": "windows-activebranch",
+      "patches_to_apply": []
     }
   },
   "WindowsRegistryKeys": [

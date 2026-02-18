@@ -77,7 +77,8 @@
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
             "virtual_network_subnet_name": "{{user `subnet_name`}}",
-            "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
+            "user_assigned_managed_identities": "{{user `msi_resource_strings`}}",
+            "use_azure_cli_auth": true
         }
     ],
     "provisioners": [

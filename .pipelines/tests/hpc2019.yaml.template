@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hpc
+  labels:
+    app: hpc
+spec:
+  selector:
+    matchLabels:
+      app: hpc
+  template:
+    metadata:
+      labels:
+        app: hpc
+    spec:
+      nodeSelector:
+        kubernetes.io/os: windows
+      containers:
+        - name: hpc
+          image: containerrollingregistry.azurecr.io/hpc2019:1.7
+          securityContext:
+            windowsOptions:
+              hostProcess: true
+              runAsUserName: "NT AUTHORITY\\SYSTEM"
+          command: ["powershell", "-c", "c:/hpc/startMonagent.ps1 $managedidentityresourceid $subscription $resourcegroup $clustername 1.1"]
+          imagePullPolicy: IfNotPresent
+      hostNetwork: true
