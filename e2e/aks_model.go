@@ -245,6 +245,19 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData)},
 	}
 
+	// needed for ACL sysext GPU driver pulls from ACR
+	acrAppRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("acr-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr("*.azurecr.io")},
+	}
+
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -252,7 +265,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &acrAppRule},
 		},
 	}
 

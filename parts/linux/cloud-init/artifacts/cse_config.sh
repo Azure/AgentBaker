@@ -926,6 +926,10 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
+    elif isACL "$OS"; then
+        downloadGPUDriverSysext
+        installNvidiaContainerToolkitSysext
+        enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -987,6 +991,7 @@ ensureGPUDrivers() {
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
+
 
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
