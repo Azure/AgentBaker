@@ -159,18 +159,18 @@ fi
 
 #clean up the image versions generated from successful builds
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
-  echo "Looking for image versions in ${AZURE_RESOURCE_GROUP_NAME}, only keep the last 10..."
+  echo "Looking for image versions in ${AZURE_RESOURCE_GROUP_NAME}, only keep the last 1..."
   image_defs=("windows-2019-containerd" "windows-2022-containerd" "windows-2022-containerd-gen2" "windows-23h2" "windows-23h2-gen2" "windows-2025" "windows-2025-gen2" "windows-activebranch" "rs_sparc")
   for image_def in ${image_defs[@]}; do
     to_keep=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i $image_def \
-      | jq -r '.[] | {name: .name, publishDate: .publishingProfile.publishedDate}' |  jq -s 'sort_by(.publishDate) | reverse |.[:10] | .[].name')
+      | jq -r '.[] | {name: .name, publishDate: .publishingProfile.publishedDate}' |  jq -s 'sort_by(.publishDate) | reverse |.[:1] | .[].name')
 
     echo "Keeping the following image versions for ${image_def}: $to_keep"
 
     image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i $image_def | jq --arg dl $due_date -r '.[] | select(.publishingProfile.publishedDate < $dl).name')
 
     for image_version in $image_versions; do
-    #keep the last three image versions if there has been no builds for a week
+    #keep the last image version if there has been no builds for a week
       if [[ ! ${to_keep} =~  ${image_version} ]];  then
         echo "Deleting sig image-version ${image_version} ${image_def} from gallery $SIG_GALLERY_NAME rg ${AZURE_RESOURCE_GROUP_NAME}"
         az sig image-version delete -e $image_version -i ${image_def} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
