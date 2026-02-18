@@ -151,6 +151,7 @@ ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Expor
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -566,32 +567,6 @@ semverCompare() {
     return 1
 }
 
-
-
-apt_get_download() {
-  retries=$1; wait_sleep=$2; shift && shift;
-  local ret=0
-  pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 "$retries"); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-
-    # Pull the first quoted URL from --print-uris
-    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
-           | awk -F"'" 'NR==1 && $2 {print $2}')"
-    if [ -n "$url" ]; then
-      # This avoids issues with the naming in the package. `apt-get download`
-      # encodes the package names with special characters and does not decode
-      # them when saving to disk, but `curl -J` handles the names correctly.
-      if curl -fLJO -- "$url"; then ret=0; break; fi
-    fi
-
-    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
-  done
-  popd || return 1
-  return "$ret"
-}
-
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -600,6 +575,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local seArch=$(getCPUArch)
+    case ${seArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${seArch}" ;;
+    esac
 }
 
 isARM64() {

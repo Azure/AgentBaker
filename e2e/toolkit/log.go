@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 )
 
 // testLoggerKey is a private key to prevent *testing.T from being easily accessed
@@ -39,6 +40,22 @@ func Log(ctx context.Context, args ...any) {
 
 type testLogger struct {
 	testing.TB
+	start time.Time
+}
+
+func (t *testLogger) elapsed() string {
+	return fmt.Sprintf("[%.3fs]", time.Since(t.start).Seconds())
+}
+
+func (t *testLogger) Log(args ...any) {
+	t.Helper()
+	args = append([]any{t.elapsed()}, args...)
+	t.TB.Log(args...)
+}
+
+func (t *testLogger) Logf(format string, args ...any) {
+	t.Helper()
+	t.TB.Logf(t.elapsed()+" "+format, args...)
 }
 
 // formatError formats the ERROR prefix with emoji
@@ -48,34 +65,24 @@ func (t *testLogger) formatError() string {
 
 func (t *testLogger) Fatal(args ...any) {
 	t.Helper()
-	// Prepend "ERROR: " to the first argument
-	if len(args) > 0 {
-		args[0] = fmt.Sprintf("%s %v", t.formatError(), args[0])
-	} else {
-		args = []any{t.formatError() + " "}
-	}
+	args = append([]any{t.elapsed(), t.formatError()}, args...)
 	t.TB.Fatal(args...)
 }
 
 func (t *testLogger) Fatalf(format string, args ...any) {
 	t.Helper()
-	t.TB.Fatalf(t.formatError()+" "+format, args...)
+	t.TB.Fatalf(t.elapsed()+" "+t.formatError()+" "+format, args...)
 }
 
 func (t *testLogger) Error(args ...any) {
 	t.Helper()
-	// Prepend "ERROR: " to the first argument
-	if len(args) > 0 {
-		args[0] = fmt.Sprintf("%s %v", t.formatError(), args[0])
-	} else {
-		args = []any{t.formatError() + " "}
-	}
+	args = append([]any{t.elapsed(), t.formatError()}, args...)
 	t.TB.Error(args...)
 }
 
 func (t *testLogger) Errorf(format string, args ...any) {
 	t.Helper()
-	t.TB.Errorf(t.formatError()+" "+format, args...)
+	t.TB.Errorf(t.elapsed()+" "+t.formatError()+" "+format, args...)
 }
 
 func (t *testLogger) FailNow() {
@@ -91,5 +98,54 @@ func (t *testLogger) Fail() {
 }
 
 func WithTestLogger(t testing.TB) testing.TB {
-	return &testLogger{TB: t}
+	return &testLogger{TB: t, start: time.Now()}
+}
+
+// LogStep logs "→ msg..." at the start and "✓ msg done (Xs)" or "✗ msg failed (Xs)"
+// when the returned function is called. Intended for use with defer:
+//
+//	defer toolkit.LogStep(t, "creating firewall")()
+func LogStep(t testing.TB, msg string) func() {
+	t.Helper()
+	t.Log("→", msg+"...")
+	start := time.Now()
+	alreadyFailed := t.Failed()
+	return func() {
+		t.Helper()
+		elapsed := time.Since(start).Seconds()
+		if !alreadyFailed && t.Failed() {
+			t.Logf("✗ %s failed (%.1fs)", msg, elapsed)
+		} else {
+			t.Logf("✓ %s done (%.1fs)", msg, elapsed)
+		}
+	}
+}
+
+// LogStepf is like LogStep but accepts a format string.
+func LogStepf(t testing.TB, format string, args ...any) func() {
+	t.Helper()
+	msg := fmt.Sprintf(format, args...)
+	return LogStep(t, msg)
+}
+
+// LogStepCtx is like LogStep but extracts testing.TB from context.
+func LogStepCtx(ctx context.Context, msg string) func() {
+	t, ok := ctx.Value(testLoggerKey{}).(testing.TB)
+	if !ok || t == nil {
+		log.Printf("→ %s...", msg)
+		start := time.Now()
+		return func() {
+			log.Printf("✓ %s done (%.1fs)", msg, time.Since(start).Seconds())
+		}
+	}
+	t.Helper()
+	return LogStep(t, msg)
+}
+
+// LogStepCtxf is like LogStepCtx but accepts a format string.
+func LogStepCtxf(ctx context.Context, format string, args ...any) func() {
+	if t, ok := ctx.Value(testLoggerKey{}).(testing.TB); ok {
+		t.Helper()
+	}
+	return LogStepCtx(ctx, fmt.Sprintf(format, args...))
 }

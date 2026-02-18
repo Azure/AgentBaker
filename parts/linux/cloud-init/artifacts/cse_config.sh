@@ -539,27 +539,22 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
+    # Install kubelet and kubectl binaries from URL:
+    # 1. For Custom Kube binary or Private Kube binary.
+    # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+    # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
+       { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+    then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-    # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
-    elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+    elif [ "$(type -t installKubeletKubectlFromPkg)" = function ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     else
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
-        elif isMarinerOrAzureLinux "$OS"; then
-            if [ "$OS_VERSION" = "2.0" ]; then
-                # we do not publish packages to PMC for azurelinux V2
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-            else
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-            fi
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-        fi
+        echo "installKubeletKubectlFromPkg is not defined for this OS"
+        exit $ERR_K8S_INSTALL_ERR
     fi
 }
 
@@ -754,23 +749,21 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+        # Install credential provider from URL:
+        # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+        # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+        if { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+           { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+        then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+        elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            # For network isolated clusters, try distro packages first and fallback to binary installation
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+        elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
         else
-            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-                # For network isolated clusters, try distro packages first and fallback to binary installation
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
-            elif isMarinerOrAzureLinux "$OS"; then
-                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-                else
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                fi
-            elif isFlatcar "$OS"; then # Flatcar cannot use PMC. It will use sysext soon.
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-            else
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-            fi
+            echo "installCredentialProviderFromPkg is not defined for this OS"
+            exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
         fi
     fi
 
@@ -1177,47 +1170,19 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-# localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-# This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by checking for existence of corefile.
-# It returns 0 if localdns is enabled successfully or if it should not be enabled.
-# It returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
-enableLocalDNS() {
-    # Check if the localdns corefile exists and is not empty.
-    # If the corefile exists and is not empty, localdns should be enabled.
-    # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "localdns should not be enabled."
-        return 0
-    fi
-
-    # If the corefile exists and is not empty, attempt to enable localdns.
-    echo "localdns should be enabled."
-
-    if ! systemctlEnableAndStart localdns 30; then
-      echo "Enable localdns failed."
-      return $ERR_LOCALDNS_FAIL
-    fi
-
-    # Enabling localdns succeeded.
-    echo "Enable localdns succeeded."
-}
-
 # localdns corefile used by localdns systemd unit.
-LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
-LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-enableLocalDNSForScriptless() {
-    mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
-    touch "${LOCALDNS_COREFILE}"
-    chmod 0644 "${LOCALDNS_COREFILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+generateLocalDNSFiles() {
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    touch "${LOCALDNS_CORE_FILE}"
+    chmod 0644 "${LOCALDNS_CORE_FILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
@@ -1228,10 +1193,10 @@ LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
-	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
-    touch "${LOCALDNS_SLICEFILE}"
-    chmod 0644 "${LOCALDNS_SLICEFILE}"
-    cat > "${LOCALDNS_SLICEFILE}" <<EOF
+	mkdir -p "$(dirname "${LOCALDNS_SLICE_FILE}")"
+    touch "${LOCALDNS_SLICE_FILE}"
+    chmod 0644 "${LOCALDNS_SLICE_FILE}"
+    cat > "${LOCALDNS_SLICE_FILE}" <<EOF
 [Unit]
 Description=localdns Slice
 DefaultDependencies=no
@@ -1242,6 +1207,10 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+}
+
+enableLocalDNS() {
+    generateLocalDNSFiles
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
