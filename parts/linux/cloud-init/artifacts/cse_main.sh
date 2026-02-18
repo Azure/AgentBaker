@@ -295,12 +295,19 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Run aks-hosts-setup unconditionally so the timer/service are always installed,
+    # then use the result to decide which localdns corefile to select.
+    AKS_HOSTS_SETUP_SUCCESS="false"
+    if logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup; then
+        AKS_HOSTS_SETUP_SUCCESS="true"
+    fi
+
     # Determine which localdns corefile to use based on hosts plugin setup success/failure.
     # This follows the same dual-config pattern used for containerd GPU/no-GPU configs:
     # two corefiles are generated at Go template time, and the shell picks at provisioning time.
     LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE}"
     if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
-        if logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup; then
+        if [ "${AKS_HOSTS_SETUP_SUCCESS}" = "true" ]; then
             echo "aks-hosts-setup succeeded, using corefile with hosts plugin"
             LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE}"
         else
