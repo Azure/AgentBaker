@@ -69,20 +69,10 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped), and AzureLinux OSGuard.
+	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
-		// Validate aks-hosts-setup service ran successfully and timer is active
-		ValidateAKSHostsSetupService(ctx, s)
-		// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
-		ValidateLocalDNSHostsFile(ctx, s, []string{
-			"mcr.microsoft.com",
-			"login.microsoftonline.com",
-			"acs-mirror.azureedge.net",
-		})
-		// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
-		ValidateLocalDNSHostsPluginBypass(ctx, s)
 	}
 
 	ValidateInspektorGadget(ctx, s)
