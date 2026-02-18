@@ -1523,35 +1523,40 @@ echo "$fake_ip $fake_fqdn" | sudo tee -a "$hosts_file" > /dev/null
 echo "Current hosts file contents:"
 sudo cat "$hosts_file"
 
-# Give localdns a moment to pick up the change (hosts plugin reloads periodically)
-sleep 2
-
+# Give localdns time to pick up the change (hosts plugin reloads periodically).
+# Poll for up to 30 seconds to avoid flakes due to reload interval variance.
 echo ""
-echo "Querying localdns for fake FQDN: $fake_fqdn"
+echo "Polling localdns for fake FQDN: $fake_fqdn (up to 30s)"
 echo "If this resolves to $fake_ip, it proves the hosts plugin is working"
 
-# Query localdns at the cluster listener IP
-result=$(dig "$fake_fqdn" @169.254.10.10 +short +timeout=5 +tries=2 2>/dev/null || true)
-echo "DNS response: $result"
+for i in $(seq 1 30); do
+    echo "Attempt $i:"
 
-# Check if the fake IP is in the response
-if echo "$result" | grep -q "$fake_ip"; then
-    echo ""
-    echo "SUCCESS: localdns resolved fake FQDN $fake_fqdn to $fake_ip from hosts file!"
-    echo "This proves the hosts plugin is correctly bypassing upstream DNS."
-    exit 0
-else
-    echo ""
-    echo "ERROR: Expected fake IP $fake_ip not found in response for $fake_fqdn"
-    echo "The hosts plugin may not be working correctly."
-    echo ""
-    echo "Full dig output:"
-    dig "$fake_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
-    echo ""
-    echo "localdns service status:"
-    systemctl status localdns --no-pager -n 10 || true
-    exit 1
-fi
+    # Query localdns at the cluster listener IP
+    result=$(dig "$fake_fqdn" @169.254.10.10 +short +timeout=5 +tries=2 2>/dev/null || true)
+    echo "DNS response: $result"
+
+    # Check if the fake IP is in the response
+    if echo "$result" | grep -q "$fake_ip"; then
+        echo ""
+        echo "SUCCESS: localdns resolved fake FQDN $fake_fqdn to $fake_ip from hosts file!"
+        echo "This proves the hosts plugin is correctly bypassing upstream DNS."
+        exit 0
+    fi
+
+    sleep 1
+done
+
+echo ""
+echo "ERROR: Expected fake IP $fake_ip not found in response for $fake_fqdn after polling"
+echo "The hosts plugin may not be working correctly."
+echo ""
+echo "Full dig output:"
+dig "$fake_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+echo ""
+echo "localdns service status:"
+systemctl status localdns --no-pager -n 10 || true
+exit 1
 `, fakeFQDN, fakeIP)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
