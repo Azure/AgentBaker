@@ -9,6 +9,8 @@ AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 
+exit 0
+
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"

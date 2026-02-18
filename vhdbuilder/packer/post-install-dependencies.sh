@@ -10,6 +10,8 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
+exit 0
+
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
