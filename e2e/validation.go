@@ -69,7 +69,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped), and AzureLinux OSGuard.
+	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped, scriptless), network isolated VHDs, and AzureLinux OSGuard.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")

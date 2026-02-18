@@ -677,4 +677,33 @@ EOF
 			rm -f existing_file
         End
     End
+
+    Describe 'getSystemdArch'
+        It 'returns x86-64 for amd64 architecture'
+            # Mock getCPUArch to return amd64
+            getCPUArch() {
+                echo "amd64"
+            }
+            When call getSystemdArch
+            The output should equal "x86-64"
+        End
+
+        It 'returns arm64 for arm64 architecture'
+            # Mock getCPUArch to return arm64
+            getCPUArch() {
+                echo "arm64"
+            }
+            When call getSystemdArch
+            The output should equal "arm64"
+        End
+
+        It 'returns the same value for unknown architectures'
+            # Mock getCPUArch to return unknown architecture
+            getCPUArch() {
+                echo "unknown"
+            }
+            When call getSystemdArch
+            The output should equal "unknown"
+        End
+    End
 End

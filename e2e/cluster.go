@@ -59,7 +59,7 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
-func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
@@ -91,38 +91,32 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	toolkit.Logf(ctx, "using private acr %q isNonAnonymousPull %v", config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), isNonAnonymousPull)
-	if isAirgap {
-		// private acr must be created before we add the debug daemonsets
-		if err := createPrivateAzureContainerRegistry(ctx, cluster, resourceGroupName, isNonAnonymousPull); err != nil {
-			return nil, fmt.Errorf("failed to create private acr: %w", err)
-		}
-
-		if err := createPrivateAzureContainerRegistryPullSecret(ctx, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
-			return nil, fmt.Errorf("create private acr pull secret: %w", err)
-		}
-
-		if err := addAirgapNetworkSettings(ctx, cluster, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *cluster.Location); err != nil {
-			return nil, fmt.Errorf("add airgap network settings: %w", err)
-		}
-	}
-
-	if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
-		return nil, fmt.Errorf("add firewall rules: %w", err)
-	}
-
 	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
 	}
 
-	if isNonAnonymousPull {
-		if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
-			return nil, fmt.Errorf("assigning acr pull permissions to kubelet identity: %w", err)
+	if isNetworkIsolated || attachPrivateAcr {
+		// private acr must be created before we add the debug daemonsets
+		if err := addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, true); err != nil {
+			return nil, fmt.Errorf("add private azure container registry (true): %w", err)
+		}
+		if err := addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, false); err != nil {
+			return nil, fmt.Errorf("add private azure container registry (false): %w", err)
+		}
+	}
+	if isNetworkIsolated {
+		if err := addNetworkIsolatedSettings(ctx, cluster, *cluster.Location); err != nil {
+			return nil, fmt.Errorf("add network isolated settings: %w", err)
+		}
+	}
+	if !isNetworkIsolated { // network isolated cluster blocks all egress via NSG
+		if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
+			return nil, fmt.Errorf("add firewall rules: %w", err)
 		}
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, isAirgap, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
