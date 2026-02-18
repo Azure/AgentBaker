@@ -718,6 +718,104 @@ testdomain567.com:53 {
 `
 				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
+
+			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
+			// This is the fallback corefile used when enableAKSHostsSetup fails at provisioning time.
+			It("generates a valid localdnsCorefile without hosts plugin when includeHostsPlugin is false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					EnableHostsPlugin:    true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Immediate",
+						},
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(2000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(72000),
+							ServeStale:                  "Verify",
+						},
+					},
+				}
+				// Generate with includeHostsPlugin=false (the no-hosts fallback)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+
+				// The no-hosts corefile must NOT contain hosts plugin blocks
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("hosts /etc/localdns/hosts"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("# Check /etc/localdns/hosts"))
+
+				// But it should still contain the standard corefile structure
+				Expect(localDNSCoreFile).To(ContainSubstring("health-check.localdns.local:53"))
+				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.10"))
+				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.11"))
+				Expect(localDNSCoreFile).To(ContainSubstring("forward . 168.63.129.16"))
+				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns"))
+				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns-pod"))
+			})
+
+			// Verify that includeHostsPlugin=true produces hosts blocks and includeHostsPlugin=false does not,
+			// when using the same LocalDNSProfile configuration.
+			It("produces different output for includeHostsPlugin true vs false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					EnableHostsPlugin:    true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Immediate",
+						},
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+					},
+				}
+				withHosts, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, true)
+				Expect(err).To(BeNil())
+				withoutHosts, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+
+				// With hosts should have the hosts plugin block
+				Expect(withHosts).To(ContainSubstring("hosts /etc/localdns/hosts"))
+				// Without hosts should NOT have it
+				Expect(withoutHosts).ToNot(ContainSubstring("hosts /etc/localdns/hosts"))
+				// Both should still be valid corefiles
+				Expect(withHosts).To(ContainSubstring("health-check.localdns.local:53"))
+				Expect(withoutHosts).To(ContainSubstring("health-check.localdns.local:53"))
+			})
 		})
 	})
 	// ------------------------------- End of tests related to Localdns ---------------------------------------

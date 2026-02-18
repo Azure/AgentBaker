@@ -892,6 +892,8 @@ providers:
             chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
             echo '#!/bin/bash' > "$AKS_HOSTS_SETUP_SCRIPT"
             AKS_HOSTS_SETUP_TIMER=$(mktemp)
+            TEST_CLOUD_ENV_DIR=$(mktemp -d)
+            TARGET_CLOUD="AzurePublicCloud"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 0
@@ -900,6 +902,7 @@ providers:
 
         cleanup() {
             rm -f "$AKS_HOSTS_SETUP_SCRIPT" "$AKS_HOSTS_SETUP_TIMER"
+            rm -rf "$TEST_CLOUD_ENV_DIR"
         }
 
         BeforeEach 'setup'
@@ -919,6 +922,13 @@ providers:
                 echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
                 return 1
             fi
+
+            # Write cloud environment file so aks-hosts-setup.sh knows which cloud to target
+            local cloud_env_file="${TEST_CLOUD_ENV_DIR}/cloud-env"
+            mkdir -p "$(dirname "${cloud_env_file}")"
+            echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
+            chmod 0644 "${cloud_env_file}"
+
             echo "Running initial aks-hosts-setup to resolve DNS..."
             mkdir -p "$(dirname "${hosts_file}")"
             if ! "${hosts_setup_script}"; then
@@ -983,6 +993,38 @@ exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
             The status should be failure
             The output should include "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
             The output should not include "Enabling aks-hosts-setup timer..."
+        End
+
+        It 'should create cloud-env file with TARGET_CLOUD value'
+            TARGET_CLOUD="AzurePublicCloud"
+            When call call_enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The file "${TEST_CLOUD_ENV_DIR}/cloud-env" should be exist
+            The contents of file "${TEST_CLOUD_ENV_DIR}/cloud-env" should equal "TARGET_CLOUD=AzurePublicCloud"
+        End
+
+        It 'should write correct cloud-env for AzureChinaCloud'
+            TARGET_CLOUD="AzureChinaCloud"
+            When call call_enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "${TEST_CLOUD_ENV_DIR}/cloud-env" should equal "TARGET_CLOUD=AzureChinaCloud"
+        End
+
+        It 'should write correct cloud-env for AzureUSGovernmentCloud'
+            TARGET_CLOUD="AzureUSGovernmentCloud"
+            When call call_enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "${TEST_CLOUD_ENV_DIR}/cloud-env" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
+        End
+
+        It 'should set 0644 permissions on cloud-env file'
+            When call call_enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The file "${TEST_CLOUD_ENV_DIR}/cloud-env" should be exist
         End
     End
 

@@ -156,8 +156,13 @@ if [ "${RESOLVED_ANY}" != "true" ]; then
     exit 0
 fi
 
-# Write the hosts file
+# Write the hosts file atomically: write to a temp file in the same directory,
+# then rename it over the target. rename(2) on the same filesystem is atomic,
+# so CoreDNS (or any other reader) never sees a truncated/empty file.
 echo "Writing addresses to ${HOSTS_FILE}..."
-echo "${HOSTS_CONTENT}" > "${HOSTS_FILE}"
+HOSTS_TMP="${HOSTS_FILE}.tmp.$$"
+echo "${HOSTS_CONTENT}" > "${HOSTS_TMP}"
+chmod 0644 "${HOSTS_TMP}"
+mv "${HOSTS_TMP}" "${HOSTS_FILE}"
 
 echo "AKS critical FQDN hosts resolution completed at $(date)"
