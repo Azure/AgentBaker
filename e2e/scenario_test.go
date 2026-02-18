@@ -1347,7 +1347,7 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 
 func Test_AzureLinuxV3_MA35D(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV3 can support MA35D SKU",
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1372,7 +1372,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 
 func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV3 can support MA35D SKU",
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
 		Tags: Tags{
 			Scriptless: true,
 		},
