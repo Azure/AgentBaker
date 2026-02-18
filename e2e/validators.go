@@ -1384,9 +1384,9 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
-// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains entries for critical FQDNs.
-// It dynamically resolves IPs on the VM and verifies they match what's in the hosts file.
-// This avoids hardcoding IPs that can change over time.
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
+// This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
+// can rotate between queries. We verify presence, not exact IP matching.
 func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
 	s.T.Helper()
 
@@ -1413,37 +1413,23 @@ errors=0
 for fqdn in "${fqdns[@]}"; do
     echo "Checking FQDN: $fqdn"
 
-    # Resolve IPv4 addresses using the Azure DNS (168.63.129.16)
-    ipv4_addrs=$(nslookup -type=A "$fqdn" 168.63.129.16 2>/dev/null | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || true)
-
-    if [ -z "$ipv4_addrs" ]; then
-        echo "  WARNING: Could not resolve IPv4 for $fqdn, skipping IP validation"
-        # At minimum, check the FQDN exists in the file
-        if ! grep -qF "$fqdn" "$hosts_file"; then
-            echo "  ERROR: FQDN $fqdn not found in hosts file at all"
-            errors=$((errors + 1))
-        fi
-        continue
+    # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+    # rather than requiring every currently resolved IP to be present. This avoids
+    # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn"'([[:space:]]|$)' "$hosts_file"; then
+        echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+    else
+        echo "  ERROR: No IPv4 entry found for $fqdn in hosts file"
+        errors=$((errors + 1))
     fi
-
-    # Check each resolved IP exists in the hosts file for this FQDN
-    for ip in $ipv4_addrs; do
-        expected_entry="$ip $fqdn"
-        if grep -qF "$expected_entry" "$hosts_file"; then
-            echo "  OK: Found '$expected_entry' in hosts file"
-        else
-            echo "  ERROR: Expected entry '$expected_entry' not found in hosts file"
-            errors=$((errors + 1))
-        fi
-    done
 done
 
 echo ""
 if [ $errors -gt 0 ]; then
-    echo "FAILED: $errors entries missing from hosts file"
+    echo "FAILED: $errors FQDNs missing from hosts file"
     exit 1
 else
-    echo "SUCCESS: All critical FQDNs have correct entries in hosts file"
+    echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
     exit 0
 fi
 `, quoteFQDNsForBash(fqdns))
