@@ -219,6 +219,14 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	// Override OS disk size if the VHD requires a non-default size.
+	if s.VHD.OSDiskSizeGB > 0 {
+		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+		if osDisk != nil {
+			osDisk.DiskSizeGB = to.Ptr(s.VHD.OSDiskSizeGB)
+		}
+	}
+
 	s.updateTags(ctx, vmss)
 }
 
