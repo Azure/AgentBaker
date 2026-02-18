@@ -16,10 +16,10 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-# Flatcar uses a larger disk (40GB) due to its immutable OS design
+# Flatcar uses a larger disk (60GB) due to its immutable OS design
 if [ "$OS" = "$FLATCAR_OS_NAME" ]; then
-  MAX_BLOCK_COUNT=40265318 # 40 GB
-  DISK_SIZE_GB=40
+  MAX_BLOCK_COUNT=60397977 # 60 GB
+  DISK_SIZE_GB=60
 else
   MAX_BLOCK_COUNT=30298176 # 30 GB
   DISK_SIZE_GB=30

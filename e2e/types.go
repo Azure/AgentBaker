@@ -219,6 +219,17 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 		ID: to.Ptr(string(resourceID)),
 	}
 
+	// Apply VHD-specific OS disk size and use ResourceDisk placement for ephemeral disks.
+	if s.VHD.OSDiskSizeGB > 0 {
+		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+		if osDisk != nil {
+			osDisk.DiskSizeGB = to.Ptr(s.VHD.OSDiskSizeGB)
+			if osDisk.DiffDiskSettings != nil {
+				osDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementResourceDisk)
+			}
+		}
+	}
+
 	s.updateTags(ctx, vmss)
 }
 
