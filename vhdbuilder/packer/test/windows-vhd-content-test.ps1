@@ -353,6 +353,10 @@ function Test-ImagesPulled
                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2025"
                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2025"
             }
+            "*activebranch*" {
+               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+            }
             default {
                Write-OutputWithTimestamp "No additional images to pull for SKU: $windowsSKU"
                exit 1

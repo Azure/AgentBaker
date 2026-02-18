@@ -347,6 +347,7 @@ var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2025,
 	AKSWindows2025Gen2,
 	CustomizedWindowsOSImage,
+	AKSWindowsActiveBranch,
 }
 
 // SIG const.
@@ -391,10 +392,11 @@ const (
 	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
-	Windows2019SIGImageVersion string = "17763.2019.221114"
-	Windows2022SIGImageVersion string = "20348.2022.221114"
-	Windows23H2SIGImageVersion string = "25398.2022.221114"
-	Windows2025SIGImageVersion string = "26100.2025.221114"
+	Windows2019SIGImageVersion         string = "17763.2019.221114"
+	Windows2022SIGImageVersion         string = "20348.2022.221114"
+	Windows23H2SIGImageVersion         string = "25398.2022.221114"
+	Windows2025SIGImageVersion         string = "26100.2025.221114"
+	WindowsActiveBranchSIGImageVersion string = "27100.2025.221114"
 )
 
 type sigVersion struct {
@@ -825,6 +827,13 @@ var (
 		Definition:    "windows-2025-gen2",
 		Version:       Windows2025SIGImageVersion,
 	}
+
+	SIGWindowsActiveBranchImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-activebranch",
+		Version:       Windows2025SIGImageVersion,
+	}
 )
 
 // GomegaString provides a custom string representation for Gomega assertions to avoid truncation when comparing large maps or structs.
@@ -940,6 +949,7 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows23H2Gen2:           SIGWindows23H2Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2025:               SIGWindows2025ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2025Gen2:           SIGWindows2025Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindowsActiveBranch:       SIGWindowsActiveBranchImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

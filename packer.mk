@@ -82,7 +82,7 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
-	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+	@PACKER_LOG=1 packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
 build-imagecustomizer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary

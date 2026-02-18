@@ -44,6 +44,13 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          AZCOPY_AUTO_LOGIN_TYPE: AZCLI
+          BLOB_CONTAINER: wcct
+          BLOB_STORAGE_ACCOUNT_PREFIX: wcct
+          DEFAULT_VM_SKU: standard_d2s_v3
+          E2E_LOCATION: $(AZURE_E2E_LOCATION)   #note ${} will not work here, use $()
+          GALLERY_SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+          GALLERY_RESOURCE_GROUP: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
 
       - task: PublishTestResults@2
         displayName: Upload test results

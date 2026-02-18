@@ -1,0 +1,180 @@
+parameters:
+- name: resourceGroup
+  displayName: resource group name of created AKS cluster
+  type: string
+- name: clusterName
+  displayName: name of created AKS cluster
+  type: string
+- name: containerName
+  displayName: container name of Azure storage
+  type: string
+- name: kustoUrl
+  displayName: Kusto URL
+  type: string
+- name: kustoDataBaseName
+  displayName: Kusto Database Name
+  type: string
+- name: kustoTableName
+  displayName: Kusto Table Name
+  type: string
+
+steps:
+- bash: |
+    az login --identity --username $(Azure_BUILD_MANAGE_IDENTITY)
+    az account set -s $(AZURE_BUILD_SUBSCRIPTION_ID)
+  displayName: Managed Identity Login
+- bash: |
+    mkdir -p $(System.DefaultWorkingDirectory)/kubeconfig
+
+    az aks get-credentials \
+    --resource-group ${{parameters.resourceGroup}} \
+    --name ${{parameters.clusterName}} \
+    --file $(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig
+
+    export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig"
+    export ARTIFACTS="$(System.DefaultWorkingDirectory)/_artifacts"
+    export ADDITIONAL_E2E_ARGS=()
+    #export ADDITIONAL_E2E_ARGS+=("--ginkgo.slow-spec-threshold=120s")
+    export ADDITIONAL_E2E_ARGS+=("--ginkgo.timeout=4h")
+
+    FQDN=`az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv`
+    
+    curl -L -O https://github.com/zylxjtu/kubernetes/releases/download/v1.0.0/e2e.test
+    curl -L -O https://github.com/zylxjtu/kubernetes/releases/download/v1.0.0/ginkgo
+
+    chmod +x ./e2e.test
+    chmod +x ./ginkgo
+
+    #git clone https://github.com/zylxjtu/kubernetes.git
+    #cd Kubernetes
+    #make WHAT="test/e2e/e2e.test vendor/github.com/onsi/ginkgo/ginkgo"
+    
+    echo "beginning npm conformance test..."
+
+    toRun="NetworkPolicy"
+
+    nomatch1="should enforce policy based on PodSelector or NamespaceSelector"
+    nomatch2="should enforce policy based on NamespaceSelector with MatchExpressions using default ns label"
+    nomatch3="should enforce policy based on PodSelector and NamespaceSelector"
+    nomatch4="should enforce policy based on Multiple PodSelectors and NamespaceSelectors"
+    cidrExcept1="should ensure an IP overlapping both IPBlock.CIDR and IPBlock.Except is allowed"
+    cidrExcept2="should enforce except clause while egress access to server in CIDR block"
+    namedPorts="named port"
+    wrongK8sVersion="Netpol API"
+    toSkip="\[LinuxOnly\]|$nomatch1|$nomatch2|$nomatch3|$nomatch4|$cidrExcept1|$cidrExcept2|$namedPorts|$wrongK8sVersion|SCTP"
+    
+    # to debug with one test case, uncomment this
+    #toRun="Netpol NetworkPolicy between server and client should deny ingress access to updated pod"
+
+    # we have 3 linux nodes, so we can run 3 not ready nodes
+    KUBERNETES_SERVICE_HOST="$FQDN" KUBERNETES_SERVICE_PORT=443 ./e2e.test \
+        --provider=skeleton \
+        --ginkgo.no-color \
+        --ginkgo.focus="$toRun" \
+        --ginkgo.skip="$toSkip" \
+        --allowed-not-ready-nodes=3 \
+        --node-os-distro="windows" \
+        --disable-log-dump \
+        --ginkgo.flake-attempts=0 \
+        --ginkgo.trace=true \
+        --ginkgo.v=true \
+        --dump-logs-on-failure=true \
+        --report-dir="${ARTIFACTS}" \
+        --prepull-images=true \
+        --v=5 "${ADDITIONAL_E2E_ARGS[@]}" 
+    set +x
+  name: run_npm_test
+  displayName: run npm test
+- bash: |
+    export RESOURCE_GROUP=${{parameters.resourceGroup}}
+
+    export XML_FILE_PATH=$(System.DefaultWorkingDirectory)/_artifacts
+
+    #This is for test usage only
+    #export XML_FILE_PATH=$(System.DefaultWorkingDirectory)/.pipelines/scripts
+
+    cd $(System.DefaultWorkingDirectory)/.pipelines/scripts
+
+    python3 $(System.DefaultWorkingDirectory)/.pipelines/scripts/parse_sig_result.py
+  name: parse_test_result
+  displayName: parse test result
+- bash: |
+    blobName=$(date +%Y%m%d%H%M%S)_$RANDOM.csv
+
+    az storage blob upload \
+      --account-name $(AZURE_E2E_STORAGE_ACCOUNT_NAME) \
+      --auth-mode "login" \
+      --container-name ${{parameters.containerName}} \
+      --file $(System.DefaultWorkingDirectory)/_artifacts/testresults.csv \
+      --name ${blobName}
+
+      echo "##vso[task.setvariable variable=blobName]${blobName}" 
+  displayName: Upload parsed test results to Azure storage
+- task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+  inputs:
+    targetType: 'inline'
+    script: |
+              .ingest into table ${{parameters.kustoTableName}} (
+                  'https://$(AZURE_E2E_STORAGE_ACCOUNT_NAME).blob.core.windows.net/${{parameters.containerName}}/${blobName};managed_identity=924da118-3adb-400e-9021-3552a4f351e6'
+              )
+    kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+    connectedServiceARM: 'agentbaker_kusto'
+  displayName: Publish test results into Kusto
+- task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+  displayName: 'ADX Query for test result'
+  inputs:
+    targetType: 'inline'
+    script: |
+      let resourcegroup = "${{parameters.resourceGroup}}";
+      windowssigtestlogs 
+        |where TIMESTAMP >= ago(2h)
+        |where ResourceGroup == resourcegroup
+        |where Level < 3
+    kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
+    connectedServiceARM: 'agentbaker_kusto'
+    maxThreshold: 0
+# - bash: |
+#     mkdir -p $(System.DefaultWorkingDirectory)/kubeconfig
+
+#     az aks get-credentials \
+#     --resource-group ${{parameters.resourceGroup}} \
+#     --name ${{parameters.clusterName}} \
+#     --file $(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig
+
+#     export KUBECONFIG="$(System.DefaultWorkingDirectory)/kubeconfig/kubeconfig"
+#     export ARTIFACTS="$(System.DefaultWorkingDirectory)/_artifacts"
+
+#     # this is copied from: https://github.com/Azure/azure-container-networking/blob/master/test/cyclonus/test-cyclonus-windows.sh
+#     LOG_FILE=cyclonus-a
+
+#     curl -fsSL github.com/mattfenwick/cyclonus/releases/latest/download/cyclonus_linux_amd64.tar.gz | tar -zxv
+#     ./cyclonus_linux_amd64/cyclonus generate \
+#         --noisy=true \
+#         --retries=7 \
+#         --ignore-loopback=true \
+#         --cleanup-namespaces=true \
+#         --perturbation-wait-seconds=17 \
+#         --pod-creation-timeout-seconds=480 \
+#         --job-timeout-seconds=5 \
+#         --server-protocol=TCP,UDP \
+#         --junit-results-file ${ARTIFACTS}\junit_01.xml \
+#         --exclude sctp,named-port,ip-block-with-except,multi-peer,upstream-e2e,example,end-port,namespaces-by-default-label,update-policy | tee $LOG_FILE
+
+#     # might need to redirect to /dev/null 2>&1 instead of just grepping with -q to avoid "cat: write error: Broken pipe"
+#     rc=999
+#     cat $LOG_FILE | grep "SummaryTable:" > /dev/null 2>&1 && rc=$?
+#     echo $rc
+#     if [ $rc -ne 0 ]; then
+#         echo "FAILING because cyclonus tests did not complete"
+#         exit 2
+#     fi
+
+#     rc=0
+#     cat $LOG_FILE | grep "failed" > /dev/null 2>&1 || rc=$?
+#     echo $rc
+#     if [ $rc -eq 0 ]; then
+#         echo "FAILING because cyclonus completed but failures detected"
+#         exit 3
+#     fi
+#   name: run_cyclonus_test
+#   displayName: run cyclonus test
