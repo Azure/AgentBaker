@@ -975,6 +975,8 @@ ensureGPUDrivers() {
     fi
 }
 
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
 dnf_install_amd_ama_core() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -989,6 +991,8 @@ dnf_install_amd_ama_core() {
     echo Executed dnf install AMD AMA core pacakge $i times;
 }
 
+# Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
 setupAmdAma() {
     if [ "$(isARM64)" -eq 1 ]; then
         return

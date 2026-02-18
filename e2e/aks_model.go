@@ -245,7 +245,9 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData)},
 	}
 
-	// needed for access to download.microsoft.com
+	// Needed for access to download.microsoft.com
+	// This is currently only needed by the Supernova (MA35D) SKU GPU tests
+	// Driver install code in setupAmdAma() depends on this
 	dmcRule := armnetwork.AzureFirewallApplicationRule{
 		Name:            to.Ptr("dmc-fqdn"),
 		SourceAddresses: []*string{to.Ptr("*")},
