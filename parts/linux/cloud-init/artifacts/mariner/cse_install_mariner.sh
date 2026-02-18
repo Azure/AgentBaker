@@ -229,7 +229,7 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then
@@ -262,7 +262,7 @@ installCredentialProviderFromPMC() {
     echo "$(getPackageCacheDir "${packageName}")/downloads"
   }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
