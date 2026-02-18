@@ -24,6 +24,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type cseVariableEncoding string
+
+const (
+	cseVariableEncodingGzip cseVariableEncoding = "gzip"
+)
+
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
 
@@ -107,7 +113,7 @@ func buildIgnitionTarEntries(customData cloudInit) ([]ignitionTarEntry, error) {
 		switch {
 		case file.Content == "" || file.Encoding == "":
 			contents = []byte(file.Content)
-		case file.Encoding == "gzip":
+		case file.Encoding == string(cseVariableEncodingGzip):
 			decoded, err := getGzipDecodedValue([]byte(file.Content))
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode gzip content for %s: %w", file.Path, err)
@@ -208,7 +214,7 @@ func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 		Overwrite: to.BoolPtr(true),
 		Contents: base0_5.Resource{
 			Source:      to.StringPtr(dataURL),
-			Compression: to.StringPtr("gzip"),
+			Compression: to.StringPtr(string(cseVariableEncodingGzip)),
 		},
 	}
 	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
@@ -667,13 +673,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var sb strings.Builder
 			sb.WriteString("[Service]\n")
 			if ulimitConfig.MaxLockedMemory != "" {
-				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+				fmt.Fprintf(&sb, "LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory)
 			}
 			if ulimitConfig.NoFile != "" {
 				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404 distro
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
 				if !profile.Is2404VHDDistro() {
-					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+					fmt.Fprintf(&sb, "LimitNOFILE=%s\n", ulimitConfig.NoFile)
 				}
 			}
 			return sb.String()

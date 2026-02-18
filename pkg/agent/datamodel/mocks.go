@@ -46,7 +46,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 
 func getMockProperitesWithCustomClouEnv() Properties {
 	properties := Properties{
-		CustomCloudEnv: &CustomCloudEnv{
+		CustomCloudEnv: &CustomCloudEnv{ //nolint:gosec // mock data for testing, not real credentials
 			Name:                         "akscustom",
 			McrURL:                       "mcr.microsoft.fakecustomcloud",
 			RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
