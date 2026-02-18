@@ -404,6 +404,7 @@ configureContainerdLegacyMooncakeMcrHost() {
 
     TARGET_MCR_REPOSITORY_BASE="mcr.azure.cn"
     tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+server = "https://$LEGACY_MCR_REPOSITORY_BASE"
 [host."https://${TARGET_MCR_REPOSITORY_BASE}"]
   capabilities = ["pull", "resolve"]
 [host."https://${TARGET_MCR_REPOSITORY_BASE}".header]
