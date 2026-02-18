@@ -51,6 +51,27 @@ func Test_Flatcar(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_GPU(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a Flatcar VHD with GPU can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_ND96isr_H100_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_ND96isr_H100_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_Flatcar_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Flatcar VHD can be properly bootstrapped and custom CA was correctly added",

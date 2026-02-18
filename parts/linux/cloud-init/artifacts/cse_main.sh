@@ -376,6 +376,8 @@ function nodePrep {
             # while it fails to install on NC24.
             if isMarinerOrAzureLinux "$OS"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+            elif isACL "$OS"; then
+                logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
             # Start fabric manager service
             logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
