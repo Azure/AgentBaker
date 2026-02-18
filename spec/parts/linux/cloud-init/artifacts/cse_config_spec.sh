@@ -884,70 +884,50 @@ providers:
 
     Describe 'enableAKSHostsSetup'
         setup() {
-            # Create fake artifacts so the guards pass
-            AKS_HOSTS_SETUP_SCRIPT=$(mktemp)
-            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
-            # The fake script writes a non-empty hosts file so the -s check passes
+            # Create temporary test directories and files
+            TEST_TEMP_DIR=$(mktemp -d)
+            AKS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
+            AKS_HOSTS_SETUP_SCRIPT="${TEST_TEMP_DIR}/aks-hosts-setup.sh"
+            AKS_HOSTS_SETUP_SERVICE="${TEST_TEMP_DIR}/aks-hosts-setup.service"
+            AKS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-hosts-setup.timer"
+            AKS_CLOUD_ENV_FILE="${TEST_TEMP_DIR}/cloud-env"
+
+            # Create fake script that simulates successful hosts file creation
             cat > "$AKS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
 #!/bin/bash
-echo "# test hosts file" > /tmp/test-localdns-hosts
+echo "# test hosts file" > "${AKS_HOSTS_FILE}"
 SETUP_EOF
             chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
-            AKS_HOSTS_SETUP_TIMER=$(mktemp)
-            TEST_CLOUD_ENV_DIR=$(mktemp -d)
+
+            # Create dummy service and timer files
+            touch "$AKS_HOSTS_SETUP_SERVICE"
+            touch "$AKS_HOSTS_SETUP_TIMER"
+
+            # Set up test environment
             TARGET_CLOUD="AzurePublicCloud"
+
+            # Mock systemctl function
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 0
             }
+
+            # Export variables so the real function can use them
+            export AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
+            export AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
         }
 
         cleanup() {
-            rm -f "$AKS_HOSTS_SETUP_SCRIPT" "$AKS_HOSTS_SETUP_TIMER" /tmp/test-localdns-hosts
-            rm -rf "$TEST_CLOUD_ENV_DIR"
+            rm -rf "$TEST_TEMP_DIR"
+            unset AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
+            unset AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
         }
 
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        # Helper to call with the real paths overridden by temp files
-        call_enableAKSHostsSetup() {
-            # Patch the function inline to use temp paths for testing
-            local hosts_file="/tmp/test-localdns-hosts"
-            local hosts_setup_script="$AKS_HOSTS_SETUP_SCRIPT"
-            local hosts_setup_timer="$AKS_HOSTS_SETUP_TIMER"
-            if [ ! -f "${hosts_setup_script}" ]; then
-                echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-hosts-setup"
-                return 1
-            fi
-            if [ ! -f "${hosts_setup_timer}" ]; then
-                echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
-                return 1
-            fi
-
-            # Write cloud environment file so aks-hosts-setup.sh knows which cloud to target
-            local cloud_env_file="${TEST_CLOUD_ENV_DIR}/cloud-env"
-            mkdir -p "$(dirname "${cloud_env_file}")"
-            echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
-            chmod 0644 "${cloud_env_file}"
-
-            echo "Running initial aks-hosts-setup to resolve DNS..."
-            mkdir -p "$(dirname "${hosts_file}")"
-            if ! "${hosts_setup_script}"; then
-                echo "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
-                return 1
-            fi
-            if [ ! -s "${hosts_file}" ]; then
-                echo "Warning: ${hosts_file} is missing or empty after initial run, signaling fallback to no-hosts corefile"
-                return 1
-            fi
-            echo "Enabling aks-hosts-setup timer..."
-            systemctlEnableAndStart aks-hosts-setup.timer 30 || return 1
-            echo "aks-hosts-setup timer enabled successfully."
-        }
-
         It 'should enable aks-hosts-setup timer successfully'
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "Enabling aks-hosts-setup timer..."
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
@@ -955,93 +935,97 @@ SETUP_EOF
         End
 
         It 'should call systemctlEnableAndStart with correct parameters'
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
         End
 
         It 'should run initial aks-hosts-setup for live DNS resolution'
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "Running initial aks-hosts-setup to resolve DNS..."
         End
 
         It 'should skip when setup script is missing'
             rm -f "$AKS_HOSTS_SETUP_SCRIPT"
-            When call call_enableAKSHostsSetup
-            The status should be failure
+            When call enableAKSHostsSetup
+            The status should be success
             The output should include "not found on this VHD, skipping aks-hosts-setup"
         End
 
         It 'should skip when timer unit is missing'
             rm -f "$AKS_HOSTS_SETUP_TIMER"
-            When call call_enableAKSHostsSetup
-            The status should be failure
+            When call enableAKSHostsSetup
+            The status should be success
             The output should include "not found on this VHD, skipping aks-hosts-setup"
         End
 
-        It 'should return failure when systemctlEnableAndStart fails'
+        It 'should print warning when systemctlEnableAndStart fails'
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 1
             }
-            When call call_enableAKSHostsSetup
-            The status should be failure
+            When call enableAKSHostsSetup
+            The status should be success
             The output should include "Enabling aks-hosts-setup timer..."
+            The output should include "Warning: Failed to enable aks-hosts-setup timer"
             The output should not include "aks-hosts-setup timer enabled successfully."
         End
 
-        It 'should return failure when initial hosts setup script fails'
+        It 'should skip when service unit is missing'
+            rm -f "$AKS_HOSTS_SETUP_SERVICE"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should skip when setup script is not executable'
+            chmod -x "$AKS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "is not executable, skipping aks-hosts-setup"
+        End
+
+        It 'should warn when initial hosts setup script fails'
             echo '#!/bin/bash
 exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
             chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
-            When call call_enableAKSHostsSetup
-            The status should be failure
-            The output should include "Warning: Initial hosts setup failed, signaling fallback to no-hosts corefile"
-            The output should not include "Enabling aks-hosts-setup timer..."
-        End
-
-        It 'should return failure when hosts file is empty after successful script run'
-            # Script exits 0 but does not write the hosts file (simulates no DNS records resolved)
-            echo '#!/bin/bash
-exit 0' > "$AKS_HOSTS_SETUP_SCRIPT"
-            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
-            When call call_enableAKSHostsSetup
-            The status should be failure
-            The output should include "is missing or empty after initial run, signaling fallback to no-hosts corefile"
-            The output should not include "Enabling aks-hosts-setup timer..."
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Warning: Initial hosts setup failed"
+            The output should include "Enabling aks-hosts-setup timer..."
         End
 
         It 'should create cloud-env file with TARGET_CLOUD value'
             TARGET_CLOUD="AzurePublicCloud"
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The file "${TEST_CLOUD_ENV_DIR}/cloud-env" should be exist
-            The contents of file "${TEST_CLOUD_ENV_DIR}/cloud-env" should equal "TARGET_CLOUD=AzurePublicCloud"
+            The file "$AKS_CLOUD_ENV_FILE" should be exist
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzurePublicCloud"
         End
 
         It 'should write correct cloud-env for AzureChinaCloud'
             TARGET_CLOUD="AzureChinaCloud"
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "${TEST_CLOUD_ENV_DIR}/cloud-env" should equal "TARGET_CLOUD=AzureChinaCloud"
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureChinaCloud"
         End
 
         It 'should write correct cloud-env for AzureUSGovernmentCloud'
             TARGET_CLOUD="AzureUSGovernmentCloud"
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "${TEST_CLOUD_ENV_DIR}/cloud-env" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
         End
 
         It 'should set 0644 permissions on cloud-env file'
-            When call call_enableAKSHostsSetup
+            When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The file "${TEST_CLOUD_ENV_DIR}/cloud-env" should be exist
+            The file "$AKS_CLOUD_ENV_FILE" should be exist
         End
     End
 

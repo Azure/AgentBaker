@@ -1204,10 +1204,12 @@ enableLocalDNS() {
 # which corefile to use, so this function does not need to signal success/failure.
 enableAKSHostsSetup() {
     # handle nxdomain and no answer case
-    local hosts_file="/etc/localdns/hosts"
-    local hosts_setup_script="/opt/azure/containers/aks-hosts-setup.sh"
-    local hosts_setup_service="/etc/systemd/system/aks-hosts-setup.service"
-    local hosts_setup_timer="/etc/systemd/system/aks-hosts-setup.timer"
+    # Allow overriding paths for testing (via environment variables)
+    local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_script="${AKS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-hosts-setup.sh}"
+    local hosts_setup_service="${AKS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-hosts-setup.service}"
+    local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
+    local cloud_env_file="${AKS_CLOUD_ENV_FILE:-/etc/localdns/cloud-env}"
 
     # Guard: verify required artifacts exist on this VHD.
     # Older VHDs (or certain build modes) may not include them.
@@ -1231,7 +1233,6 @@ enableAKSHostsSetup() {
     # Write the cloud environment as a systemd EnvironmentFile so aks-hosts-setup.sh
     # can use $TARGET_CLOUD directly — both when called from CSE (already in env) and
     # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
-    local cloud_env_file="/etc/localdns/cloud-env"
     mkdir -p "$(dirname "${cloud_env_file}")"
     echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
     chmod 0644 "${cloud_env_file}"
