@@ -1250,8 +1250,11 @@ enableAKSHostsSetup() {
     # Enable the timer for periodic refresh (every 15 minutes)
     # This will update the hosts file with fresh IPs from live DNS
     echo "Enabling aks-hosts-setup timer..."
-    systemctlEnableAndStart aks-hosts-setup.timer 30 || echo "Warning: Failed to enable aks-hosts-setup timer"
-    echo "aks-hosts-setup timer enabled successfully."
+    if systemctlEnableAndStart aks-hosts-setup.timer 30; then
+        echo "aks-hosts-setup timer enabled successfully."
+    else
+        echo "Warning: Failed to enable aks-hosts-setup timer"
+    fi
 }
 
 configureManagedGPUExperience() {
