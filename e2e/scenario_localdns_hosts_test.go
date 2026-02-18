@@ -19,10 +19,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns (default behavior, but being explicit)
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate aks-hosts-setup service ran successfully and timer is active
@@ -54,9 +56,12 @@ func Test_Ubuntu2404_LocalDNSHostsPlugin(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAKSHostsSetupService(ctx, s)
@@ -80,9 +85,12 @@ func Test_AzureLinuxV2_LocalDNSHostsPlugin(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAKSHostsSetupService(ctx, s)
@@ -106,9 +114,12 @@ func Test_AzureLinuxV3_LocalDNSHostsPlugin(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAKSHostsSetupService(ctx, s)
@@ -132,9 +143,12 @@ func Test_MarinerV2_LocalDNSHostsPlugin(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAKSHostsSetupService(ctx, s)
@@ -161,9 +175,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_China(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				// Tag the VMSS to mock China cloud environment
@@ -254,9 +271,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_TimerRefresh(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate timer configuration
@@ -290,9 +310,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_IPv4Validation(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate that hosts file only contains valid IPv4 addresses
@@ -345,9 +368,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate cloud-env file exists and contains TARGET_CLOUD
@@ -371,9 +397,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_DNSResolutionFailure(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Enable localdns and hosts plugin explicitly
 				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
 					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Even if some FQDNs fail to resolve, the service should succeed
