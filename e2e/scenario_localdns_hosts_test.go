@@ -221,18 +221,18 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback(t *testing.T) {
 	})
 }
 
-// Test_Ubuntu2204_LocalDNSHostsPlugin_AirgappedVHD tests backward compatibility
-// with airgapped VHDs
-func Test_Ubuntu2204_LocalDNSHostsPlugin_AirgappedVHD(t *testing.T) {
+// Test_Ubuntu2204_LocalDNSHostsPlugin_BackwardCompatVHD tests backward compatibility
+// with older VHDs that don't have aks-hosts-setup artifacts
+func Test_Ubuntu2204_LocalDNSHostsPlugin_BackwardCompatVHD(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description:      "Tests that airgapped VHD without aks-hosts-setup artifacts still provisions successfully",
+		Description:      "Tests that older VHD without aks-hosts-setup artifacts still provisions successfully",
 		K8sSystemPoolSKU: "Standard_D4s_v3",
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			// Use an airgapped VHD without aks-hosts-setup
-			VHD: config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			Cluster: ClusterKubenet,
+			// Use an older VHD without aks-hosts-setup (PrivateKubePkg has UnsupportedLocalDns=true)
+			VHD: config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Airgapped VHD has UnsupportedLocalDns=true
+				// Older VHD has UnsupportedLocalDns=true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Check that aks-hosts-setup artifacts don't exist
@@ -262,9 +262,10 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_TimerRefresh(t *testing.T) {
 				// Validate timer configuration
 				ValidateAKSHostsSetupService(ctx, s)
 
-				// Check timer unit file exists and has correct OnCalendar setting
+				// Check timer unit file exists and has correct interval and boot settings
 				ValidateFileExists(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer", "OnCalendar=*:0/15")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer", "OnUnitActiveSec=15min")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer", "OnBootSec=0")
 
 				// Verify timer is enabled for automatic startup
 				execScriptOnVMForScenarioValidateExitCode(ctx, s,
