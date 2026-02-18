@@ -500,7 +500,7 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 }
 
 func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, location string) error {
-	toolkit.Logf(ctx, "Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
+	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
@@ -582,7 +582,7 @@ func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACR
 	toolkit.Logf(ctx, "Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
 	var err error
 	var privateEndpoint *armnetwork.PrivateEndpoint
-	privateEndpointName := fmt.Sprintf("PE-for-%s",privateACRName)
+	privateEndpointName := fmt.Sprintf("PE-for-%s", privateACRName)
 	if privateEndpoint, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
 		return err
 	}
