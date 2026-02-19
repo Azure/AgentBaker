@@ -1773,7 +1773,7 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.32.11-ubuntu24.04u1"
+                "latestVersion": "1.32.13-ubuntu24.04u1"
               },
               {
                 "k8sVersion": "1.33",
@@ -1793,7 +1793,7 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.32.11-ubuntu22.04u1"
+                "latestVersion": "1.32.13-ubuntu22.04u1"
               },
               {
                 "k8sVersion": "1.33",
@@ -1813,7 +1813,7 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.32.11-ubuntu20.04u1"
+                "latestVersion": "1.32.13-ubuntu20.04u1"
               },
               {
                 "k8sVersion": "1.33",
