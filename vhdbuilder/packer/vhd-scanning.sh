@@ -303,7 +303,8 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
-SKIP_CIS=${SKIP_CIS:-true}
+# Set this pipeline variable to true if CIS scanning is broken
+SKIP_CIS=${SKIP_CIS:-false}
 if [ "${SKIP_CIS,,}" = "true" ]; then
     # For artifacts
     touch cis-report.txt
@@ -317,6 +318,57 @@ fi
 
 # Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
 # A regression is when a rule that previously "pass" now has any other result.
+assemble_cis_report() {
+    local l1_file="$1"
+    local l2_file="$2"
+    local output_file="$3"
+
+    if [ ! -f "${l1_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing L1 CIS report file: %s\n' "$l1_file"
+        return 1
+    fi
+    if [ ! -f "${l2_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing L2 CIS report file: %s\n' "$l2_file"
+        return 1
+    fi
+
+    local -A l1_rules
+    while IFS= read -r line; do
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*)
+                local rest
+                rest=$(printf '%s' "$line" | cut -d':' -f2-)
+                rest="${rest# }"
+                local rule_id=${rest%% *}
+                if [ -n "$rule_id" ]; then
+                    l1_rules["$rule_id"]=1
+                fi
+                ;;
+        esac
+    done < "${l1_file}"
+
+    while IFS= read -r line; do
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*)
+                local status rest rule_id desc level
+                status=$(printf '%s' "$line" | cut -d':' -f1)
+                rest=$(printf '%s' "$line" | cut -d':' -f2-)
+                rest="${rest# }"
+                rule_id=${rest%% *}
+                desc="${rest#"$rule_id"}"
+                level="L2"
+                if [ -n "${l1_rules[$rule_id]-}" ]; then
+                    level="L1"
+                fi
+                printf '%s: %s [%s]%s\n' "$status" "$rule_id" "$level" "$desc"
+                ;;
+            *)
+                printf '%s\n' "$line"
+                ;;
+        esac
+    done < "${l2_file}" > "${output_file}"
+}
+
 compare_cis_with_baseline() {
     local baseline_file="vhdbuilder/packer/cis/baselines/${OS_SKU,,}/${OS_VERSION}.txt"
     local current_file="cis-report.txt"
@@ -377,7 +429,7 @@ compare_cis_with_baseline() {
     local regression_count=0
     for rule_id in "${!baseline_pass[@]}"; do
         baseline_status="pass"
-        current_rule_status=${current_status["$rule_id"]}
+        current_rule_status=${current_status["$rule_id"]-}
         if [ -z "$current_rule_status" ]; then
             # Missing rule considered regression
             printf '%s|%s->MISSING\n' "$rule_id" "$baseline_status" >> "${regressions_file}"
@@ -402,8 +454,11 @@ compare_cis_with_baseline() {
 }
 
 CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
-CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_L1_TXT_NAME="cis-report-l1-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_L2_TXT_NAME="cis-report-l2-${BUILD_ID}-${TIMESTAMP}.txt"
 CIS_REPORT_HTML_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.html"
+CIS_REPORT_L1_LOCAL="cis-report-l1.txt"
+CIS_REPORT_L2_LOCAL="cis-report-l2.txt"
 
 # Upload cisassessor tarball to storage account
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
@@ -425,7 +480,8 @@ ret=$(az vm run-command invoke \
         "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
         "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
         "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
-        "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
+        "CIS_REPORT_L1_TXT_NAME=${CIS_REPORT_L1_TXT_NAME}" \
+        "CIS_REPORT_L2_TXT_NAME=${CIS_REPORT_L2_TXT_NAME}" \
         "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
         "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "OS_SKU=${OS_SKU}"
@@ -435,11 +491,15 @@ msg=$(echo -E "$ret" | jq -r '.value[].message')
 echo "$msg"
 
 # Download CIS report files to working directory
-az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --file cis-report.txt --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --file "${CIS_REPORT_L1_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --file "${CIS_REPORT_L2_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 
+assemble_cis_report "${CIS_REPORT_L1_LOCAL}" "${CIS_REPORT_L2_LOCAL}" "cis-report.txt"
+
 # Remove CIS report blobs from storage
-az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
 # Remove CIS assessor tarball blob from storage
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
