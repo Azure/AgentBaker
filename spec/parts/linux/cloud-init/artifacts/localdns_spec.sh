@@ -1528,5 +1528,81 @@ EOF
             The status should be success
             The stdout should include "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
         End
+
+        It 'should wait for node to be registered before annotating'
+            cat > "$HOSTS_FILE" <<EOF
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that simulates node not registered initially
+            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
+            mkdir -p "$MOCK_KUBECTL_DIR"
+
+            # Create a counter file to track attempts
+            ATTEMPT_FILE="${TEST_DIR}/attempt_count"
+            echo "0" > "$ATTEMPT_FILE"
+
+            cat > "$MOCK_KUBECTL_DIR/kubectl" <<KUBECTL_EOF
+#!/bin/bash
+ATTEMPT_FILE="${ATTEMPT_FILE}"
+count=\$(cat "\$ATTEMPT_FILE")
+count=\$((count + 1))
+echo "\$count" > "\$ATTEMPT_FILE"
+
+# Simulate node not ready for first 2 attempts
+if [[ "\$1" == "get" && "\$2" == "node" && \$count -le 2 ]]; then
+    echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
+    exit 1
+elif [[ "\$1" == "get" && "\$2" == "node" ]]; then
+    # Node is now registered
+    exit 0
+elif [[ "\$1" == "annotate" ]]; then
+    echo "node/testnode123 annotated"
+    exit 0
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
+            PATH="$MOCK_KUBECTL_DIR:$PATH"
+
+            # Use short timeout for testing
+            NODE_REGISTRATION_WAIT_ATTEMPTS=5
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for node testnode123 to be registered in the cluster"
+            The stdout should include "Node testnode123 is registered in the cluster"
+            The stdout should include "Successfully set hosts plugin annotation"
+        End
+
+        It 'should timeout and skip annotation if node never registers'
+            cat > "$HOSTS_FILE" <<EOF
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl that always fails to find node
+            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
+            mkdir -p "$MOCK_KUBECTL_DIR"
+            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
+            PATH="$MOCK_KUBECTL_DIR:$PATH"
+
+            # Use very short timeout for testing
+            NODE_REGISTRATION_WAIT_ATTEMPTS=2
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for node registration"
+            The stdout should include "Timeout waiting for node testnode123 to be registered"
+        End
     End
 End
