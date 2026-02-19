@@ -20,7 +20,7 @@ parameters:
   - name: build2019containerd
     displayName: Build 2019 containerd
     type: boolean
-    default: True
+    default: False #TODO: (Jane) remove the parameter entirely once confirmed 2019 removal is safe
   - name: build2022containerd
     displayName: Build 2022 containerd
     type: boolean

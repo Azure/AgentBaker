@@ -1,4 +1,5 @@
 parameters:
+# TODO: (Jane) remove build2019containerd parameter after confirming just disabling the version is safe
   - name: build2019containerd
     displayName: Build 2019 containerd
     type: boolean
