@@ -373,6 +373,7 @@ func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
 				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateWindowsVelocityKeysEnabled(ctx, s, []string{"1150694031", "2902347406", "1253853326"})
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateWindowsCiliumIsRunning(ctx, s)

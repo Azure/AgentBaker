@@ -1272,6 +1272,24 @@ func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) {
 	}
 }
 
+// ValidateWindowsVelocityKeysEnabled checks that velocity feature keys are set in the registry
+// and logs their values for debugging. This is used to confirm feature enablement after reboot.
+func ValidateWindowsVelocityKeysEnabled(ctx context.Context, s *Scenario, featureKeys []string) {
+	s.T.Helper()
+	keyPath := `HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides`
+	steps := []string{
+		"$ErrorActionPreference = \"Stop\"",
+	}
+	for _, key := range featureKeys {
+		steps = append(steps,
+			fmt.Sprintf("$val = Get-ItemProperty -Path '%s' -Name '%s' -ErrorAction Stop", keyPath, key),
+			fmt.Sprintf("Write-Output \"Feature %s = $($val.'%s')\"", key, key),
+		)
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0,
+		"failed to validate velocity feature keys in registry")
+}
+
 func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 

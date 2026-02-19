@@ -897,6 +897,30 @@
       "Name": "2112481934",
       "Value": "1",
       "Type": "DWORD"
+    },
+    {
+      "Comment": "Workaround for Win2025 BSOD in tcpip!UdpGetPortPoolInCurrentCompartment (bugcheck 0x3b). Parent key for Feature_TCPIP_2025_Wave2. Remove once 4B image ships.",
+      "WindowsSkuMatch": "2025*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1150694031",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Workaround for Win2025 BSOD in tcpip!UdpGetPortPoolInCurrentCompartment (bugcheck 0x3b). Remove once 4B image ships.",
+      "WindowsSkuMatch": "2025*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2902347406",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Workaround for Win2025 BSOD in tcpip!UdpGetPortPoolInCurrentCompartment (bugcheck 0x3b). Remove once 4B image ships.",
+      "WindowsSkuMatch": "2025*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1253853326",
+      "Value": "1",
+      "Type": "DWORD"
     }
   ]
 }
