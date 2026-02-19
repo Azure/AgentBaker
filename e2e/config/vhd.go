@@ -179,6 +179,7 @@ var (
 		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
 		IgnoreFailedCgroupTelemetryServices: true,
 		Gen2Supported:                       true,
+	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
 		Name:    "2404containerd",
@@ -189,11 +190,11 @@ var (
 	}
 
 	VHDUbuntu2404Gen2Containerd = &Image{
-		Name:    "2404gen2containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "2404gen2containerd",
+		OS:            OSUbuntu,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSUbuntuContainerd2404Gen2,
+		Gallery:       imageGalleryLinux,
 		Gen2Supported: true,
 	}
 
@@ -206,22 +207,22 @@ var (
 	}
 
 	VHDFlatcarGen2 = &Image{
-		Name:    "flatcargen2",
-		OS:      OSFlatcar,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSFlatcarGen2,
-		Gallery: imageGalleryLinux,
-		Flatcar: true,
+		Name:          "flatcargen2",
+		OS:            OSFlatcar,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSFlatcarGen2,
+		Gallery:       imageGalleryLinux,
+		Flatcar:       true,
 		Gen2Supported: true,
 	}
 
 	VHDFlatcarGen2Arm64 = &Image{
-		Name:    "flatcargen2arm64",
-		OS:      OSFlatcar,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSFlatcarArm64Gen2,
-		Gallery: imageGalleryLinux,
-		Flatcar: true,
+		Name:          "flatcargen2arm64",
+		OS:            OSFlatcar,
+		Arch:          "arm64",
+		Distro:        datamodel.AKSFlatcarArm64Gen2,
+		Gallery:       imageGalleryLinux,
+		Flatcar:       true,
 		Gen2Supported: true,
 	}
 
@@ -242,11 +243,11 @@ var (
 	}
 
 	VHDWindows2022ContainerdGen2 = &Image{
-		Name:    "windows-2022-containerd-gen2",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Gallery: imageGalleryWindows,
+		Name:          "windows-2022-containerd-gen2",
+		OS:            OSWindows,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSWindows2022ContainerdGen2,
+		Gallery:       imageGalleryWindows,
 		Gen2Supported: true,
 	}
 
@@ -259,11 +260,11 @@ var (
 	}
 
 	VHDWindows23H2Gen2 = &Image{
-		Name:    "windows-23H2-gen2",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows23H2Gen2,
-		Gallery: imageGalleryWindows,
+		Name:          "windows-23H2-gen2",
+		OS:            OSWindows,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSWindows23H2Gen2,
+		Gallery:       imageGalleryWindows,
 		Gen2Supported: true,
 	}
 
@@ -276,11 +277,11 @@ var (
 	}
 
 	VHDWindows2025Gen2 = &Image{
-		Name:    "windows-2025-gen2",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2025Gen2,
-		Gallery: imageGalleryWindows,
+		Name:          "windows-2025-gen2",
+		OS:            OSWindows,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSWindows2025Gen2,
+		Gallery:       imageGalleryWindows,
 		Gen2Supported: true,
 	}
 )
