@@ -389,10 +389,20 @@ annotate_node_with_hosts_plugin_status() {
     fi
 
     KUBECONFIG="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
-    if [ ! -f "${KUBECONFIG}" ]; then
-        echo "Kubeconfig not found at ${KUBECONFIG}, skipping annotation."
-        return 0
-    fi
+    # Wait for kubelet to finish TLS bootstrapping and create the kubeconfig file
+    # This is necessary because localdns starts in basePrep(), before kubelet starts in nodePrep()
+    local wait_count=0
+    local max_wait="${KUBECONFIG_WAIT_ATTEMPTS:-60}"  # Default: wait up to 3 minutes (60 * 3 seconds), but configurable for testing
+    while [ ! -f "${KUBECONFIG}" ]; do
+        if [ $wait_count -ge $max_wait ]; then
+            echo "Timeout waiting for kubeconfig at ${KUBECONFIG} after ${max_wait} attempts, skipping annotation."
+            return 0
+        fi
+        echo "Waiting for TLS bootstrapping to complete (attempt $((wait_count + 1))/${max_wait})..."
+        sleep 3
+        wait_count=$((wait_count + 1))
+    done
+    echo "Kubeconfig found at ${KUBECONFIG}"
 
     KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 

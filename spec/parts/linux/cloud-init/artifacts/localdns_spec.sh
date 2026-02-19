@@ -1329,7 +1329,7 @@ EOF
             The stdout should include "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
         End
 
-        It 'should skip annotation if kubeconfig does not exist'
+        It 'should timeout and skip annotation if kubeconfig does not exist after waiting'
             cat > "$HOSTS_FILE" <<EOF
 10.0.0.1 mcr.microsoft.com
 10.0.0.2 example.com
@@ -1340,9 +1340,12 @@ EOF
                 fi
             }
             rm -f "$KUBECONFIG"
+            # Use short timeout for testing (2 attempts = 6 seconds)
+            KUBECONFIG_WAIT_ATTEMPTS=2
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Kubeconfig not found at ${KUBECONFIG}, skipping annotation."
+            The stdout should include "Waiting for TLS bootstrapping to complete"
+            The stdout should include "Timeout waiting for kubeconfig"
         End
 
         It 'should set annotation successfully when hosts file has IPv4 mappings'
