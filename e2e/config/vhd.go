@@ -46,18 +46,20 @@ var (
 
 var (
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
-		Name:    "2204gen2arm64containerd",
-		OS:      OSUbuntu,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "2204gen2arm64containerd",
+		OS:            OSUbuntu,
+		Arch:          "arm64",
+		Distro:        datamodel.AKSUbuntuArm64Containerd2204Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name:    "2204gen2containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "2204gen2containerd",
+		OS:            OSUbuntu,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSUbuntuContainerd2204Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
@@ -78,6 +80,7 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
+		Gen2Supported:                     true,
 	}
 	VHDUbuntu2204Gen2FIPSTLContainerd = &Image{
 		Name:                "2204gen2fipsTLcontainerd",
@@ -88,27 +91,31 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
+		Gen2Supported:                     true,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
-		Name:    "AzureLinuxV2gen2arm64",
-		OS:      OSAzureLinux,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSAzureLinuxV2Arm64Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "AzureLinuxV2gen2arm64",
+		OS:            OSAzureLinux,
+		Arch:          "arm64",
+		Distro:        datamodel.AKSAzureLinuxV2Arm64Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
-		Name:    "AzureLinuxV2gen2",
-		OS:      OSAzureLinux,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSAzureLinuxV2Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "AzureLinuxV2gen2",
+		OS:            OSAzureLinux,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSAzureLinuxV2Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	VHDAzureLinuxV3Gen2 = &Image{
-		Name:    "AzureLinuxV3gen2",
-		OS:      OSAzureLinux,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSAzureLinuxV3Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "AzureLinuxV3gen2",
+		OS:            OSAzureLinux,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSAzureLinuxV3Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
@@ -119,20 +126,23 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
+		Gen2Supported:                     true,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
-		Name:    "CBLMarinerV2gen2arm64",
-		OS:      OSMariner,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSCBLMarinerV2Arm64Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "CBLMarinerV2gen2arm64",
+		OS:            OSMariner,
+		Arch:          "arm64",
+		Distro:        datamodel.AKSCBLMarinerV2Arm64Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
-		Name:    "CBLMarinerV2gen2",
-		OS:      OSMariner,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSCBLMarinerV2Gen2,
-		Gallery: imageGalleryLinux,
+		Name:          "CBLMarinerV2gen2",
+		OS:            OSMariner,
+		Arch:          "amd64",
+		Distro:        datamodel.AKSCBLMarinerV2Gen2,
+		Gallery:       imageGalleryLinux,
+		Gen2Supported: true,
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
@@ -151,6 +161,7 @@ var (
 		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
 		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
 		IgnoreFailedCgroupTelemetryServices: true,
+		Gen2Supported:                       true,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -167,7 +178,7 @@ var (
 		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
 		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
 		IgnoreFailedCgroupTelemetryServices: true,
-	}
+		Gen2Supported:                       true,
 
 	VHDUbuntu2404Gen1Containerd = &Image{
 		Name:    "2404containerd",
@@ -183,6 +194,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 		Gallery: imageGalleryLinux,
+		Gen2Supported: true,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
@@ -200,6 +212,7 @@ var (
 		Distro:  datamodel.AKSFlatcarGen2,
 		Gallery: imageGalleryLinux,
 		Flatcar: true,
+		Gen2Supported: true,
 	}
 
 	VHDFlatcarGen2Arm64 = &Image{
@@ -209,6 +222,7 @@ var (
 		Distro:  datamodel.AKSFlatcarArm64Gen2,
 		Gallery: imageGalleryLinux,
 		Flatcar: true,
+		Gen2Supported: true,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -233,6 +247,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
 		Gallery: imageGalleryWindows,
+		Gen2Supported: true,
 	}
 
 	VHDWindows23H2 = &Image{
@@ -249,6 +264,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
 		Gallery: imageGalleryWindows,
+		Gen2Supported: true,
 	}
 
 	VHDWindows2025 = &Image{
@@ -265,6 +281,7 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
 		Gallery: imageGalleryWindows,
+		Gen2Supported: true,
 	}
 )
 
@@ -283,6 +300,7 @@ type Image struct {
 	OS                                  OS
 	Version                             string
 	Gallery                             *Gallery
+	Gen2Supported                       bool
 	UnsupportedKubeletNodeIP            bool
 	UnsupportedLocalDns                 bool
 	UnsupportedSecureTLSBootstrapping   bool

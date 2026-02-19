@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -26,6 +27,23 @@ import (
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
+
+// vmSizeVersionRegex matches the version suffix (e.g. "_v6") at the end of an Azure VM size name.
+var vmSizeVersionRegex = regexp.MustCompile(`(?i)_v(\d+)$`)
+
+// isVMSizeGen2Only checks if a VM size name has a version suffix of v6 or later,
+// which only supports Gen2 hypervisor.
+func isVMSizeGen2Only(vmSize string) bool {
+	matches := vmSizeVersionRegex.FindStringSubmatch(vmSize)
+	if len(matches) < 2 {
+		return false
+	}
+	version, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return false
+	}
+	return version >= 6
+}
 
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
@@ -265,6 +283,15 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	require.NoError(s.T, err)
 
+	vmSize := config.Config.DefaultVMSKU
+	if s.Runtime.NBC.AgentPoolProfile.VMSize != "" {
+		vmSize = s.Runtime.NBC.AgentPoolProfile.VMSize
+	}
+
+	if isVMSizeGen2Only(vmSize) && !s.Config.VHD.Gen2Supported {
+		s.T.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
+	}
+
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// fail test, but continue to extract debug information
@@ -330,6 +357,7 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 			t.Fatalf("failing scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
 		}
 	}
+
 	t.Logf("TAGS %+v", s.Tags)
 }
 
