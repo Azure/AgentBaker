@@ -105,9 +105,9 @@ ig_install_deb_stack() {
     local download_dir="${IG_BUILD_ROOT}/downloads"
     mkdir -p "${download_dir}"
 
-    local ig_tag="${IG_VERSION}-ubuntu18.04u${IG_REVISION}"
+    local ig_tag="${IG_VERSION}-ubuntu${OS_VERSION}u${IG_REVISION}"
     local ig_deb="${download_dir}/ig_${ig_tag}_${IG_DEB_ARCH}.deb"
-    local ig_url="https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/i/ig/ig_${ig_tag}_${IG_DEB_ARCH}.deb"
+    local ig_url="https://packages.microsoft.com/ubuntu/${OS_VERSION}/prod/pool/main/i/ig/ig_${ig_tag}_${IG_DEB_ARCH}.deb"
 
     local ig_gadgets_tag="${IG_VERSION}-ubuntu20.04u${IG_REVISION}"
     local ig_gadgets_deb="${download_dir}/ig-gadgets_${ig_gadgets_tag}_${IG_DEB_ARCH}.deb"
