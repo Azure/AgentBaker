@@ -5,7 +5,9 @@ Wants=kubelet.service
 After=kubelet.service
 
 [Service]
+EnvironmentFile=-/etc/default/node-exporter
 ExecStart=/opt/bin/node-exporter-startup.sh
+TimeoutStartSec=360
 
 Restart=on-failure
 RestartSec=10

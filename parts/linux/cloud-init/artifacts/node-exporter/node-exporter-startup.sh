@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "$(cat /etc/os-release | grep ^ID= | cut -c 4-)" = "flatcar" ]; then
+if [ "$(grep ^ID= /etc/os-release | cut -c 4-)" = "flatcar" ]; then
     NODE_IP=$(ip -o -4 addr show dev eth0 | awk '{print $4}' | cut -d '/' -f 1)
 else
     NODE_IP=$(hostname -I | awk '{print $1}')
@@ -104,6 +104,13 @@ ARGS=(
 
 if [ -n "$TLS_CONFIG_ARG" ]; then
     ARGS+=("$TLS_CONFIG_ARG")
+fi
+
+# Append extra args from EnvironmentFile (e.g., /etc/default/node-exporter)
+# Example: NODE_EXPORTER_EXTRA_ARGS="--collector.systemd --no-collector.bonding"
+if [ -n "${NODE_EXPORTER_EXTRA_ARGS:-}" ]; then
+    read -ra EXTRA <<< "$NODE_EXPORTER_EXTRA_ARGS"
+    ARGS+=("${EXTRA[@]}")
 fi
 
 exec /opt/bin/node-exporter "${ARGS[@]}"

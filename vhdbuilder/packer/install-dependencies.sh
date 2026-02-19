@@ -477,12 +477,14 @@ while IFS= read -r p; do
       done
       ;;
     "node-exporter")
-      # Skip for Flatcar, OSGuard, Kata, and Mariner (we only build AzureLinuxV3 now, mariner entry removed from components.json)
-      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ] || [ "$OS" = "$MARINER_OS_NAME" ]; then
-        echo "Skipping node-exporter installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for mariner, flatcar, and osguard. Kata is skipped explicitly here.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
       else
-        # installNodeExporter is defined in install-node-exporter.sh
-        installNodeExporter "${p}" "${downloadDir}"
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
       fi
       ;;
     *)

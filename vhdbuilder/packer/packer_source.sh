@@ -344,7 +344,7 @@ copyPackerFiles() {
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
     cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
-    ln -sf /usr/bin/node-exporter /opt/bin/node-exporter
+    # Symlink to /opt/bin is created by installNodeExporter in install-node-exporter.sh
   fi
 # ---------------------------------------------------------------------------------------
 
