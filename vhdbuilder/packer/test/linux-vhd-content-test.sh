@@ -1558,9 +1558,10 @@ testNodeExporter () {
 
   # Check that the service is DISABLED during VHD build
   # CSE will enable and start node-exporter at provisioning time, not during VHD build
-  is_enabled=$(systemctl is-enabled node-exporter.service 2>/dev/null)
-  if [ "${is_enabled}" != "disabled" ]; then
-    err "$test" "node-exporter.service should be disabled during VHD build, state is: $is_enabled"
+  local node_exporter_enabled_state
+  node_exporter_enabled_state=$(systemctl is-enabled node-exporter.service 2>/dev/null)
+  if [ "${node_exporter_enabled_state}" != "disabled" ]; then
+    err "$test" "node-exporter.service should be disabled during VHD build, state is: $node_exporter_enabled_state"
     return 1
   fi
   echo "$test: node-exporter.service is correctly disabled (will be enabled by CSE at provisioning)"
