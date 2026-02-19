@@ -14,7 +14,7 @@ jobs:
       - group: ab-e2e # all variables prefixed with E2E_* come from this variable group
     pool:
       name: $(E2E_POOL_NAME)
-    timeoutInMinutes: 90
+    timeoutInMinutes: 180
     displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
       - checkout: self
