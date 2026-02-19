@@ -368,6 +368,55 @@ wait_for_localdns_ready() {
     return 0
 }
 
+# Set node annotation to indicate hosts plugin is in use if the hosts file has contents.
+annotate_node_with_hosts_plugin_status() {
+    # Check if the hosts plugin file exists and has IP mappings
+    # This matches the check in cse_main.sh for determining which corefile to use
+    if [ ! -f "/etc/localdns/hosts" ]; then
+        echo "Hosts plugin file /etc/localdns/hosts does not exist, skipping annotation."
+        return 0
+    fi
+
+    if ! grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' /etc/localdns/hosts; then
+        echo "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
+        return 0
+    fi
+
+    # Only proceed if we have the necessary kubectl binary and configuration
+    if ! command -v /opt/bin/kubectl >/dev/null 2>&1; then
+        echo "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
+        return 0
+    fi
+
+    KUBECONFIG="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    if [ ! -f "${KUBECONFIG}" ]; then
+        echo "Kubeconfig not found at ${KUBECONFIG}, skipping annotation."
+        return 0
+    fi
+
+    KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
+
+    # Get node name
+    node_name=$(hostname)
+    if [ -z "${node_name}" ]; then
+        echo "Cannot get node name, skipping annotation."
+        return 0
+    fi
+
+    # Azure cloud provider assigns node name as the lower case of the hostname
+    node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
+    # Set annotation to indicate hosts plugin is in use
+    echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
+    if $KUBECTL annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
+        echo "Successfully set hosts plugin annotation."
+    else
+        echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+    fi
+
+    return 0
+}
+
 # Add iptables rules to skip conntrack for DNS traffic to localdns.
 add_iptable_rules_to_skip_conntrack_from_pods(){
     # Check if the localdns interface already exists and delete it.
@@ -707,6 +756,10 @@ wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
 echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
 disable_dhcp_use_clusterlistener || exit $ERR_LOCALDNS_FAIL
 echo "Startup complete - serving node and pod DNS traffic."
+
+# Set node annotation to indicate hosts plugin is in use (if applicable).
+# --------------------------------------------------------------------------------------------------------------------
+annotate_node_with_hosts_plugin_status
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
