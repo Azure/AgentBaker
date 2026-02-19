@@ -416,6 +416,27 @@ annotate_node_with_hosts_plugin_status() {
     # Azure cloud provider assigns node name as the lower case of the hostname
     node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
+    # Wait for node to be registered in the cluster
+    # The kubeconfig exists but the node might not be registered yet
+    echo "Waiting for node ${node_name} to be registered in the cluster..."
+    local node_wait_count=0
+    local max_node_wait="${NODE_REGISTRATION_WAIT_ATTEMPTS:-30}"  # Default: wait up to 90 seconds (30 * 3 seconds)
+    while [ $node_wait_count -lt $max_node_wait ]; do
+        if $KUBECTL get node "${node_name}" >/dev/null 2>&1; then
+            echo "Node ${node_name} is registered in the cluster."
+            break
+        fi
+        echo "Waiting for node registration (attempt $((node_wait_count + 1))/${max_node_wait})..."
+        sleep 3
+        node_wait_count=$((node_wait_count + 1))
+    done
+
+    # Check if we timed out waiting for node registration
+    if [ $node_wait_count -ge $max_node_wait ]; then
+        echo "Timeout waiting for node ${node_name} to be registered after ${max_node_wait} attempts, skipping annotation."
+        return 0
+    fi
+
     # Set annotation to indicate hosts plugin is in use
     echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
     if $KUBECTL annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
