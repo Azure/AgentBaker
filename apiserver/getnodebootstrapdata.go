@@ -46,7 +46,7 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 
 	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
 	if err != nil {
-		log.Println(err.Error())
+		log.Println(err.Error()) //nolint:gosec // error is from internal API processing, not user-controlled
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -58,5 +58,5 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(result))
+	fmt.Fprint(w, string(result)) //nolint:gosec // result is JSON-marshalled struct, not raw user input
 }

@@ -22,7 +22,7 @@ ifeq ($(UNAME_M),aarch64)
     GOARCH := arm64
 endif
 
-GOLANGCI_LINT_VERSION := v2.8.0
+GOLANGCI_LINT_VERSION := v2.10.1
 
 all: install
 
