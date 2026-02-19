@@ -122,6 +122,7 @@ ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
 ERR_IMDS_FETCH_FAILED=231 # Error fetching or caching IMDS instance metadata
+ERR_ORAS_BINARY_NOT_FOUND=232 # oras binary is absent from the image; CSE cannot perform ACR login or artifact pulls
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
@@ -1099,6 +1100,29 @@ oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
     local tenant_id=$3
+
+    # Pre-flight check: verify oras binary is available before attempting login
+    if ! command -v oras > /dev/null 2>&1; then
+        echo "ERROR: oras binary not found in PATH=$PATH"
+        echo "Checking known locations:"
+        local oras_path
+        for oras_path in /usr/local/bin/oras /usr/bin/oras /opt/bin/oras; do
+            if [ -f "$oras_path" ]; then
+                echo "  found at $oras_path (not in PATH)"
+            else
+                echo "  not found at $oras_path"
+            fi
+        done
+        echo "OS information:"
+        cat /etc/os-release 2>/dev/null || true
+        echo "Installed oras packages:"
+        if command -v rpm > /dev/null 2>&1; then
+            rpm -qa | grep -i oras || echo "  no oras package found via rpm"
+        elif command -v dpkg > /dev/null 2>&1; then
+            dpkg -l | grep -i oras || echo "  no oras package found via dpkg"
+        fi
+        return $ERR_ORAS_BINARY_NOT_FOUND
+    fi
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
