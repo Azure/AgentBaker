@@ -419,7 +419,7 @@ installCrictl() {
 downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
@@ -436,7 +436,7 @@ downloadTeleportdPlugin() {
 }
 
 installTeleportdPlugin() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 

@@ -420,7 +420,8 @@ ensureTeleportd() {
 }
 
 ensureArtifactStreaming() {
-  retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  systemctl unmask overlaybd-{tcmu,snapshotter}.service # Flatcar masks these initially.
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
   time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 
@@ -936,7 +937,7 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
@@ -961,7 +962,7 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
+    if isARM64; then
         return
     fi
 
