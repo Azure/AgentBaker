@@ -897,6 +897,30 @@
       "Name": "2112481934",
       "Value": "1",
       "Type": "DWORD"
+    },
+    {
+      "Comment": "Feature_Bundle_2509 - parent of Feature_TCPIP_2025_Wave2, required for WCN BSOD fix",
+      "WindowsSkuMatch": "2025*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1150694031",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Feature_TCPIP_2025_Wave2 - parent of Feature_TCPIP_RevertContainerAsyncNotification",
+      "WindowsSkuMatch": "2025*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2902347406",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Feature_TCPIP_RevertContainerAsyncNotification - fixes WCN BSOD in tcpip!UdpGetPortPoolInCurrentCompartment",
+      "WindowsSkuMatch": "2025*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1253853326",
+      "Value": "1",
+      "Type": "DWORD"
     }
   ]
 }
