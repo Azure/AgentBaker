@@ -1461,10 +1461,9 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
-	resourceName := "nvidia.com/gpu"
 
 	// First, wait for the nvidia.com/gpu resource to be available
 	waitUntilResourceAvailable(ctx, s, resourceName)

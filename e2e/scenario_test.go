@@ -1392,6 +1392,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
 				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
 				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
 			},
 		},
 		// No MA35D GPU capacity in West US, so using East US
@@ -1419,6 +1420,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
 				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
 				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
 			},
 		},
 		// No MA35D GPU capacity in West US, so using East US
