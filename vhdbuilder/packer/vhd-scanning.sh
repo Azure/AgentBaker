@@ -126,7 +126,7 @@ else
         --nics $SCANNING_NIC_ID \
         --admin-username $SCAN_VM_ADMIN_USERNAME \
         --admin-password $SCAN_VM_ADMIN_PASSWORD \
-        --os-disk-size-gb 50 \
+        --os-disk-size-gb 60 \
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
 
