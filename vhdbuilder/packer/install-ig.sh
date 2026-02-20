@@ -168,7 +168,7 @@ ig_log_version() {
 }
 
 installIG() {
-    local package_json="$1"
+    local revision="$1"
     local version="$2"
     local download_dir="$3"
 
@@ -177,8 +177,8 @@ installIG() {
         return 1
     fi
 
-    local revision
-    if ! revision=$(ig_extract_package_metadata "${package_json}" "${version}"); then
+    if [[ -z "${revision}" || "${revision}" == "null" ]]; then
+        echo "[ig] Invalid or empty Inspektor Gadget revision"
         return 1
     fi
 

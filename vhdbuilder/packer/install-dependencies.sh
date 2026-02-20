@@ -420,8 +420,9 @@ while IFS= read -r p; do
         echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
-        # installIG is defined in install-ig.sh
-        installIG "${p}" "${ig_version}" "${downloadDir}"
+        # ig_extract_package_metadata and installIG are defined in install-ig.sh
+        ig_revision=$(ig_extract_package_metadata "${p}" "${ig_version}") || exit $?
+        installIG "${ig_revision}" "${ig_version}" "${downloadDir}"
       fi
       ;;
     "kubernetes-binaries")
