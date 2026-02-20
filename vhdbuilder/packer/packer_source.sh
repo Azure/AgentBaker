@@ -297,6 +297,21 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
+
+  LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh
+  LOCALDNS_EXPORTER_SCRIPT_DEST=/opt/azure/containers/localdns/localdns_exporter.sh
+  cpAndMode $LOCALDNS_EXPORTER_SCRIPT_SRC $LOCALDNS_EXPORTER_SCRIPT_DEST 0755
+
+  LOCALDNS_EXPORTER_SOCKET_SRC=/home/packer/localdns-exporter.socket
+  LOCALDNS_EXPORTER_SOCKET_DEST=/etc/systemd/system/localdns-exporter.socket
+  cpAndMode $LOCALDNS_EXPORTER_SOCKET_SRC $LOCALDNS_EXPORTER_SOCKET_DEST 0644
+
+  LOCALDNS_EXPORTER_SERVICE_SRC=/home/packer/localdns-exporter@.service
+  LOCALDNS_EXPORTER_SERVICE_DEST=/etc/systemd/system/localdns-exporter@.service
+  cpAndMode $LOCALDNS_EXPORTER_SERVICE_SRC $LOCALDNS_EXPORTER_SERVICE_DEST 0644
+
+  # Enable the exporter socket so it starts automatically on boot
+  systemctl enable localdns-exporter.socket
 # ---------------------------------------------------------------------------------------
 
 # ------------------------- Files related to azure-network ------------------------------

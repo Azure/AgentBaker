@@ -1691,6 +1691,9 @@ checkLocaldnsScriptsAndConfigs() {
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+    ["/opt/azure/containers/localdns/localdns_exporter.sh"]=755
+    ["/etc/systemd/system/localdns-exporter.socket"]=644
+    ["/etc/systemd/system/localdns-exporter@.service"]=644
   )
 
   for file in "${!localdnsfiles[@]}"; do
