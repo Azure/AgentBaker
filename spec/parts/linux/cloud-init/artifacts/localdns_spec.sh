@@ -213,6 +213,58 @@ EOF
             The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
         End
 
+        It 'should create forward_ips.prom file when corefile is updated'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export VnetDNS forward IP to prom file with correct format'
+            # Setup corefile with VnetDNS block
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'ip="10.0.0.1"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export KubeDNS forward IP to prom file with correct format'
+            # Setup corefile with both VnetDNS and KubeDNS blocks
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16
+}
+.:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_kubedns_forward_info"
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'ip="10.0.0.1"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should set correct permissions on forward_ips.prom file'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The path "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be file
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+            Assert check_file_permissions "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" "644"
+        End
+
         It 'should fail if resolv.conf not found'
             rm -f "$RESOLV_CONF"
             When run replace_azurednsip_in_corefile
