@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+
+# localdns_exporter.sh
+# Prometheus-compatible metrics exporter for localdns.service
+# Scrapes systemd accounting metrics and converts them to Prometheus format
+# This script is executed on-demand via systemd socket activation (localdns-exporter.socket)
+
+UNIT="localdns.service"
+
+# 1. Scrape Raw Values from systemd
+# --value flag prevents needing to parse "Key=Value" strings
+RAW_CPU=$(systemctl show "$UNIT" --property=CPUUsageNSec --value)
+RAW_MEM=$(systemctl show "$UNIT" --property=MemoryCurrent --value)
+
+# Handle empty values (if service is down or not yet started)
+if [ -z "$RAW_CPU" ] || [ "$RAW_CPU" == "[not set]" ]; then
+    RAW_CPU=0
+fi
+if [ -z "$RAW_MEM" ] || [ "$RAW_MEM" == "[not set]" ]; then
+    RAW_MEM=0
+fi
+
+# 2. Math with Awk (Floating Point Conversion)
+# CPU: Nanoseconds -> Seconds (divide by 1e9)
+# VMAgent/Kusto will calculate rate() and multiply by 1000 to get millicores
+# Memory: Bytes -> Megabytes (divide by 1024*1024)
+CPU_SEC=$(awk -v val="$RAW_CPU" 'BEGIN {printf "%.4f", val / 1000000000}')
+MEM_MB=$(awk -v val="$RAW_MEM" 'BEGIN {printf "%.2f", val / 1048576}')
+
+# 3. Output HTTP Response in Prometheus Exposition Format
+# Note: The empty line after headers is required by HTTP protocol
+echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\n"
+echo "# HELP localdns_memory_usage_mb Current memory usage in Megabytes"
+echo "# TYPE localdns_memory_usage_mb gauge"
+echo "localdns_memory_usage_mb $MEM_MB"
+echo "# HELP localdns_cpu_usage_seconds_total Total CPU time consumed in Seconds"
+echo "# TYPE localdns_cpu_usage_seconds_total counter"
+echo "localdns_cpu_usage_seconds_total $CPU_SEC"

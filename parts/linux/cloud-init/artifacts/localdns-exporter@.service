@@ -1,0 +1,25 @@
+[Unit]
+Description=Localdns Prometheus Exporter Per-Connection Worker
+Documentation=https://github.com/Azure/AgentBaker
+Requires=localdns-exporter.socket
+After=localdns.service
+
+[Service]
+Type=simple
+ExecStart=/opt/azure/containers/localdns/localdns_exporter.sh
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+
+# Security hardening
+User=root
+Group=root
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/
+ReadWritePaths=/run
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
