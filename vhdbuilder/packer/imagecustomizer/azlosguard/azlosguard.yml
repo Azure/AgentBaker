@@ -327,6 +327,7 @@ os:
     - ci-syslog-watcher.service
     - aks-log-collector.timer
     - sync-container-logs.service
+    - localdns-exporter.socket
     disable:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
