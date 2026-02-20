@@ -790,7 +790,9 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Set node annotation to indicate hosts plugin is in use (if applicable).
 # --------------------------------------------------------------------------------------------------------------------
-annotate_node_with_hosts_plugin_status
+# Run annotation in background to avoid blocking CSE completion
+# The annotation is a best-effort operation that should not delay node provisioning
+annotate_node_with_hosts_plugin_status &
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
