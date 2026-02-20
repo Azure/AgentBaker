@@ -788,6 +788,9 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				ValidateNPDGPUCountCondition(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
 
+				// Validate GPU clock throttling NPD condition
+				ValidateNPDGPUClockThrottlingCondition(ctx, s)
+
 				// Validate the if IB NPD is reporting the flapping condition
 				ValidateNPDIBLinkFlappingCondition(ctx, s)
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
