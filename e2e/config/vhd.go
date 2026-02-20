@@ -83,7 +83,7 @@ var (
 		Name:                "2204gen2fipsTLcontainerd",
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuFipsTLContainerd2204Gen2,
+		Distro:              datamodel.AKSUbuntuFipsContainerd2204TLGen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
