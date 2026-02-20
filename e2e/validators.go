@@ -1465,7 +1465,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
 
-	// First, wait for the nvidia.com/gpu resource to be available
+	// First, wait for the GPU resource to be available
 	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework

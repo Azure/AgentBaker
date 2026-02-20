@@ -989,7 +989,7 @@ dnf_install_amd_ama_core() {
             dnf_makecache
         fi
     done
-    echo Executed dnf install AMD AMA core pacakge $i times;
+    echo Executed dnf install AMD AMA core package $i times;
 }
 
 # Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
