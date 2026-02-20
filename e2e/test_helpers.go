@@ -45,6 +45,20 @@ func isVMSizeGen2Only(vmSize string) bool {
 	return version >= 6
 }
 
+// isVMSizeNVMeOnly checks if a VM size name has a version suffix of v7 or later,
+// which only supports NVMe disk controllers.
+func isVMSizeNVMeOnly(vmSize string) bool {
+	matches := vmSizeVersionRegex.FindStringSubmatch(vmSize)
+	if len(matches) < 2 {
+		return false
+	}
+	version, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return false
+	}
+	return version >= 7
+}
+
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
 var testCtx = setupSignalHandler()
