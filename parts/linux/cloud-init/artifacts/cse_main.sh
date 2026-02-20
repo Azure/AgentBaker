@@ -265,6 +265,12 @@ Requires=bind-mount.service
 After=bind-mount.service
 EOF
     fi
+    # Add mount for local NVMe disk. This should not be checked into the main branch.
+    tee "/etc/systemd/system/kubelet.service.d/11-fmtmount.conf" > /dev/null <<EOF
+[Unit]
+Requires=format-mount-nvme-root.service
+After=format-mount-nvme-root.service
+EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
