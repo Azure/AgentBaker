@@ -342,6 +342,18 @@
       "windowsVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium-log-collector:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium-log-collector",
+          "latestVersion": "v0.0.1-0",
+          "previousLatestVersion": "v0.0.1-0"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
