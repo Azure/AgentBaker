@@ -283,6 +283,15 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	require.NoError(s.T, err)
 
+	vmSize := config.Config.DefaultVMSKU
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil && s.Runtime.NBC.AgentPoolProfile.VMSize != "" {
+		vmSize = s.Runtime.NBC.AgentPoolProfile.VMSize
+	}
+
+	if isVMSizeGen2Only(vmSize) && !s.Config.VHD.Gen2Supported {
+		s.T.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
+	}
+
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// fail test, but continue to extract debug information
@@ -347,15 +356,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 		} else {
 			t.Fatalf("failing scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
 		}
-	}
-
-	vmSize := config.Config.DefaultVMSKU
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil && s.Runtime.NBC.AgentPoolProfile.VMSize != "" {
-		vmSize = s.Runtime.NBC.AgentPoolProfile.VMSize
-	}
-
-	if isVMSizeGen2Only(vmSize) && !s.Config.VHD.Gen2Supported {
-		t.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
 	}
 
 	t.Logf("TAGS %+v", s.Tags)
