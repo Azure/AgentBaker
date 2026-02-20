@@ -551,3 +551,30 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 		},
 	})
 }
+
+func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that credential provider config includes identity binding in network isolated (NI) clusters",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureBootstrapProfileCache,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify mcr.microsoft.com host config exist
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml`)
+				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+			},
+		},
+	})
+}
