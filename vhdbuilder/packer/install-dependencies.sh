@@ -524,6 +524,25 @@ fi
 
 capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
+# Enable discard_unpacked_layers during VHD build to reduce VHD size.
+# Containerd will discard unpacked layer data after it's been committed to a snapshot.
+# This config is only used during VHD build; CSE overwrites it at provisioning time.
+echo "Enabling discard_unpacked_layers for VHD build"
+mkdir -p /etc/containerd
+containerd config default > /etc/containerd/config.toml
+sed -i 's/discard_unpacked_layers = false/discard_unpacked_layers = true/' /etc/containerd/config.toml
+# If discard_unpacked_layers was not in the default config, add it under the correct section
+if ! grep -q "discard_unpacked_layers = true" /etc/containerd/config.toml; then
+  sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\][[:space:]]*$/a\      discard_unpacked_layers = true' /etc/containerd/config.toml
+fi
+systemctl restart containerd
+for i in $(seq 1 30); do
+  if ctr version >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 cliTool="ctr"
@@ -987,6 +1006,15 @@ extractAndCacheCoreDnsBinary() {
 }
 
 extractAndCacheCoreDnsBinary
+
+# Remove the temporary VHD-build-time containerd config so it doesn't persist in the VHD.
+# CSE generates the production config at provisioning time.
+if [ -f /etc/containerd/config.toml ]; then
+  rm -f /etc/containerd/config.toml
+  systemctl restart containerd || true
+fi
+
+echo "containerd directory space: $(du -sh /var/lib/containerd)" >> ${VHD_LOGS_FILEPATH}
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
