@@ -325,6 +325,29 @@ copyPackerFiles() {
   fi
 # ---------------------------------------------------------------------------------------
 
+# ------------------------- Files related to node-exporter ------------------------------
+  NODE_EXPORTER_STARTUP_SRC=/home/packer/node-exporter-startup.sh
+  NODE_EXPORTER_STARTUP_DEST=/opt/bin/node-exporter-startup.sh
+  NODE_EXPORTER_SERVICE_SRC=/home/packer/node-exporter.service
+  NODE_EXPORTER_SERVICE_DEST=/etc/systemd/system/node-exporter.service
+  NODE_EXPORTER_RESTART_SERVICE_SRC=/home/packer/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_SERVICE_DEST=/etc/systemd/system/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_PATH_SRC=/home/packer/node-exporter-restart.path
+  NODE_EXPORTER_RESTART_PATH_DEST=/etc/systemd/system/node-exporter-restart.path
+  NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
+  NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
+
+  # Skip for OSGuard, Flatcar, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+    cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
+    cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
+    cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
+    # Symlink to /opt/bin is created by installNodeExporter in install-node-exporter.sh
+  fi
+# ---------------------------------------------------------------------------------------
+
   # Install AKS diagnostic
   cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 

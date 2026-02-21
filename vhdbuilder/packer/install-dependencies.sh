@@ -30,6 +30,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
+source /home/packer/install-node-exporter.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -474,6 +475,20 @@ while IFS= read -r p; do
         downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      ;;
+    "node-exporter")
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for mariner, flatcar, and osguard. Kata is skipped explicitly here.
+      # NOTE: 24.04 packages are not yet published on PMC, so the r2404 entry
+      # in components.json points to the 22.04 package as a fallback.
+      # Update r2404 once node-exporter-kubernetes is available for 24.04.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
+      else
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+      fi
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
