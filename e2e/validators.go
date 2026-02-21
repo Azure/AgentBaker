@@ -1151,6 +1151,14 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to restart Nvidia GRID services")
 }
 
+// ValidateNPDGPUClockThrottlingCondition validates that NPD is reporting no problematic GPU clock throttling
+func ValidateNPDGPUClockThrottlingCondition(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Validate that NPD is reporting no problematic GPU clock throttling
+	validateNPDCondition(ctx, s, "GPUClockThrottling", "GPUClockThrottlingIsNotPresent", corev1.ConditionFalse,
+		"No problematic GPU clock throttling detected", "expected GPUClockThrottling message to indicate no throttling")
+}
+
 func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	s.T.Helper()
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))

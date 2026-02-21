@@ -24,6 +24,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	encodingGzip = "gzip"
+)
+
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
 
@@ -107,10 +111,10 @@ func buildIgnitionTarEntries(customData cloudInit) ([]ignitionTarEntry, error) {
 		switch {
 		case file.Content == "" || file.Encoding == "":
 			contents = []byte(file.Content)
-		case file.Encoding == "gzip":
+		case file.Encoding == encodingGzip:
 			decoded, err := getGzipDecodedValue([]byte(file.Content))
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode gzip content for %s: %w", file.Path, err)
+				return nil, fmt.Errorf("failed to decode %s content for %s: %w", encodingGzip, file.Path, err)
 			}
 			contents = decoded
 		case file.Encoding == "base64":
@@ -208,7 +212,7 @@ func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 		Overwrite: to.BoolPtr(true),
 		Contents: base0_5.Resource{
 			Source:      to.StringPtr(dataURL),
-			Compression: to.StringPtr("gzip"),
+			Compression: to.StringPtr(encodingGzip),
 		},
 	}
 	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
