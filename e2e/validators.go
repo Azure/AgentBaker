@@ -270,8 +270,7 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 		"enp_ifaces=()",
 		"for dev in /sys/class/net/*; do",
 		"  iface=\"$(basename \"$dev\")\"",
-		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}' || true)\"",
-		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
+		"  [[ \"$iface\" == enP* ]] && enp_ifaces+=(\"$iface\")",
 		"done",
 		"IFS=,; echo \"${enp_ifaces[*]}\"",
 	}
@@ -1800,6 +1799,8 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	expectedRx := "1024"
 	if cpuCount >= 4 {
 		expectedRx = "2048"
+	} else {
+		expectedRx = "512"
 	}
 
 	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)

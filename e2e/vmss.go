@@ -207,13 +207,19 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
-	// Set NVMe disk controller type for VM sizes that only support NVMe (v7+).
+	// Set NVMe disk controller type for VM sizes that only support NVMe.
 	// The final SKU name is checked after PrepareVMSSModel since VMConfigMutator may change it.
 	finalVMSize := config.Config.DefaultVMSKU
 	if model.SKU != nil && model.SKU.Name != nil {
 		finalVMSize = *model.SKU.Name
 	}
-	if isVMSizeNVMeOnly(finalVMSize) {
+	nvmeOnly, err := CachedIsVMSizeNVMeOnly(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   finalVMSize,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", finalVMSize)
+	if nvmeOnly {
+		s.T.Logf("VM size %q supports only NVMe, setting disk controller type to NVMe", finalVMSize)
 		model.Properties.VirtualMachineProfile.StorageProfile.DiskControllerType = to.Ptr(string(armcompute.DiskControllerTypesNVMe))
 	}
 

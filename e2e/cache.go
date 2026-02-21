@@ -227,3 +227,21 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
 var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
+
+// VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
+type VMSizeSKURequest struct {
+	Location string
+	VMSize   string
+}
+
+// CachedIsVMSizeNVMeOnly caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size only supports the NVMe disk controller type.
+var CachedIsVMSizeNVMeOnly = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.IsVMSizeNVMeOnly(ctx, req.Location, req.VMSize)
+})
+
+// CachedIsVMSizeGen2Only caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size only supports the Gen2 hypervisor.
+var CachedIsVMSizeGen2Only = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.IsVMSizeGen2Only(ctx, req.Location, req.VMSize)
+})

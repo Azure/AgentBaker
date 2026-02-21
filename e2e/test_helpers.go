@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -27,37 +26,6 @@ import (
 	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
-
-// vmSizeVersionRegex matches the version suffix (e.g. "_v6") at the end of an Azure VM size name.
-var vmSizeVersionRegex = regexp.MustCompile(`(?i)_v(\d+)$`)
-
-// isVMSizeGen2Only checks if a VM size name has a version suffix of v6 or later,
-// which only supports Gen2 hypervisor.
-func isVMSizeGen2Only(vmSize string) bool {
-	matches := vmSizeVersionRegex.FindStringSubmatch(vmSize)
-	if len(matches) < 2 {
-		return false
-	}
-	version, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return false
-	}
-	return version >= 6
-}
-
-// isVMSizeNVMeOnly checks if a VM size name has a version suffix of v7 or later,
-// which only supports NVMe disk controllers.
-func isVMSizeNVMeOnly(vmSize string) bool {
-	matches := vmSizeVersionRegex.FindStringSubmatch(vmSize)
-	if len(matches) < 2 {
-		return false
-	}
-	version, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return false
-	}
-	return version >= 7
-}
 
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
@@ -302,7 +270,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		vmSize = s.Runtime.NBC.AgentPoolProfile.VMSize
 	}
 
-	if isVMSizeGen2Only(vmSize) && !s.Config.VHD.Gen2Supported {
+	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   vmSize,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", vmSize)
+	if gen2Only && !s.Config.VHD.Gen2Supported {
 		s.T.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
 	}
 
