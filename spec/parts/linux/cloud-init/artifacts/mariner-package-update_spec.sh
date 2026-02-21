@@ -461,11 +461,52 @@ EOF
 
         setup_target_kubelet_version() {
             local target_version="$1"
-            export target_kubelet_version="$target_version"
+            export mock_version="$target_version"
+            local custom_patching_enabled="$2"
+            export mock_custom_patching_enabled="$custom_patching_enabled"
 
             Mock kubectl
                 if [[ "$@" == *"live-patching-kubelet-version"* ]]; then
-                    echo "$target_kubelet_version"
+                    echo "$mock_version"
+                elif [[ "$@" == *"live-patching-custom-patching"* ]]; then
+                    echo "$mock_custom_patching_enabled"
+                elif [[ "$@" == *"get svc kubernetes"* ]]; then
+                    echo "10.0.0.1"
+                fi
+            End
+        }
+
+        setup_curl() {
+            local patching_version="$1"
+            export mock_patching_version="$patching_version"
+            local status_code="${2:-200}"
+            export mock_status_code="$status_code"
+            export download_dir="/tmp/security-patch"
+
+            Mock curl
+                if [[ "$@" == *"/metadata/attested/document"* ]]; then
+                    echo '{"signature":"mock-signature"}'
+                elif [[ "$@" == *"/v1/packages"* ]]; then
+                    echo "{\"packages\":[{\"name\":\"kubelet\",\"version\":\"${mock_patching_version}\",\"url\":\"kubelet-${mock_patching_version}-1.azl3.x86_64.rpm\",\"token\":\"fake-token\"}]}${mock_status_code}"
+                elif [[ "$@" == *"rpm"* ]]; then
+                    # Create a mock RPM file (just a marker)
+                    mkdir -p "$download_dir/usr/bin"
+
+                    # Create mock kubelet binary in the download dir structure
+                    cat <<KUBELET_EOF > "$download_dir/usr/bin/kubelet"
+#!/bin/bash
+if [ "\\\$1" = "--version" ]; then
+    echo "Kubernetes v${mock_patching_version}"
+elif [ "\\\$1" = "--version=raw" ]; then
+    echo "{\"major\":\"1\",\"minor\":\"29\",\"gitVersion\":\"v${mock_patching_version}\",\"gitCommit\":\"def456\",\"gitTreeState\":\"clean\",\"buildDate\":\"2024-02-01T00:00:00Z\",\"goVersion\":\"go1.21.5\",\"compiler\":\"gc\",\"platform\":\"linux/amd64\"}"
+fi
+KUBELET_EOF
+                    chmod +x "$download_dir/usr/bin/kubelet"
+
+                    # Create a mock RPM file (just a marker)
+                    touch "$download_dir/kubelet-${mock_patching_version}.x86_64.rpm"
+                else
+                    echo "curl mock called with args: $@"
                 fi
             End
         }
@@ -520,7 +561,7 @@ KUBELET_EOF
 
             It 'should skip kubelet update on Mariner 2.0'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.29.11"
+                setup_target_kubelet_version "1.29.11" ""
 
                 When run kubelet_update
                 The status should be success
@@ -533,7 +574,7 @@ KUBELET_EOF
 
             It 'should skip update when target version annotation is not set'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version ""
+                setup_target_kubelet_version "" ""
 
                 When run kubelet_update
                 The status should be success
@@ -542,7 +583,7 @@ KUBELET_EOF
 
             It 'should fail when kubelet executable is not found'
                 KUBELET_EXECUTABLE="${TEST_DIR}/nonexistent-kubelet"
-                setup_target_kubelet_version "1.29.11"
+                setup_target_kubelet_version "1.29.11" ""
 
                 When run kubelet_update
                 The status should be failure
@@ -551,7 +592,7 @@ KUBELET_EOF
 
             It 'should fail when major.minor version mismatch'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.30.0"
+                setup_target_kubelet_version "1.30.0" ""
 
                 When run kubelet_update
                 The status should be failure
@@ -561,18 +602,18 @@ KUBELET_EOF
 
             It 'should skip update when target version is older than current version'
                 setup_kubelet_executable "1.29.12"
-                setup_target_kubelet_version "1.29.10"
+                setup_target_kubelet_version "1.29.10" ""
 
                 When run kubelet_update
                 The status should be success
                 The output should include "current kubelet version is: 1.29.12"
-                The output should include "target kubelet version to update to is: 1.29.10"
+                The output should include "custom patching is not enabled, retrieved target kubelet version from node annotation: 1.29.10"
                 The output should include "Skip kubelet update since target_kubelet_version (1.29.10) is older than current_kubelet_version (1.29.12)"
             End
 
             It 'should skip update when binary sha256 is the same'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.29.10"
+                setup_target_kubelet_version "1.29.10" ""
                 export KUBELET_EXECUTABLE
 
                 # Mock tdnf to copy the same kubelet binary
@@ -594,11 +635,11 @@ KUBELET_EOF
 
             It 'should successfully update kubelet to newer patch version'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.29.11"
+                setup_target_kubelet_version "1.29.11" ""
 
                 When run kubelet_update
                 The status should be success
-                The output should include "target kubelet version to update to is: 1.29.11"
+                The output should include "custom patching is not enabled, retrieved target kubelet version from node annotation: 1.29.11"
                 The output should include "current kubelet version is: 1.29.10"
                 The output should include "updating kubelet from 1.29.10"
                 The output should include "to version 1.29.11"
@@ -608,7 +649,7 @@ KUBELET_EOF
 
             It 'should successfully update kubelet with same version but different release'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.29.10"
+                setup_target_kubelet_version "1.29.10" ""
 
                 # Mock tdnf to provide a different binary (different sha256)
                 Mock tdnf
@@ -640,7 +681,7 @@ KUBELET_EOF
 
             It 'should fail when downloaded kubelet binary is not found'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.29.11"
+                setup_target_kubelet_version "1.29.11" ""
 
                 # Mock tdnf to not create the kubelet binary
                 Mock tdnf
@@ -660,11 +701,11 @@ KUBELET_EOF
 
             It 'should update from 1.29.10 to 1.29.15'
                 setup_kubelet_executable "1.29.10"
-                setup_target_kubelet_version "1.29.15"
+                setup_target_kubelet_version "1.29.15" ""
 
                 When run kubelet_update
                 The status should be success
-                The output should include "target kubelet version to update to is: 1.29.15"
+                The output should include "custom patching is not enabled, retrieved target kubelet version from node annotation: 1.29.15"
                 The output should include "current kubelet version is: 1.29.10"
                 The output should include "updating kubelet from 1.29.10"
                 The output should include "to version 1.29.15"
@@ -674,12 +715,40 @@ KUBELET_EOF
 
             It 'should handle version comparison correctly for multi-digit patch versions'
                 setup_kubelet_executable "1.29.9"
-                setup_target_kubelet_version "1.29.10"
+                setup_target_kubelet_version "1.29.10" ""
 
                 When run kubelet_update
                 The status should be success
                 The output should include "updating kubelet from 1.29.9"
                 The output should include "to version 1.29.10"
+                The output should include "kubelet update completed successfully"
+            End
+
+            It 'should skip update when live patching service return an older version'
+                setup_kubelet_executable "1.29.10"
+                setup_target_kubelet_version "" "true"
+                setup_curl "1.29.9" 200
+
+                When run kubelet_update
+                The status should be success
+                The output should include "custom patching is enabled, retrieving target kubelet version from custom patching service"
+                The output should include "retrieved target kubelet version: 1.29.9 from custom patching service"
+                The output should include "Skip kubelet update since target_kubelet_version (1.29.9) is older than current_kubelet_version (1.29.10)"
+            End
+
+            It 'should update successfully when live patching service return a newer version'
+                setup_kubelet_executable "1.29.10"
+                setup_target_kubelet_version "" "true"
+                setup_curl "1.29.11" 200
+
+                When run kubelet_update
+                The status should be success
+                The output should include "custom patching is enabled, retrieving target kubelet version from custom patching service"
+                The output should include "retrieved target kubelet version: 1.29.11 from custom patching service"
+                The output should include "current kubelet version is: 1.29.10"
+                The output should include "updating kubelet from 1.29.10"
+                The output should include "to version 1.29.11"
+                The output should include "systemctl mock called with args: restart kubelet.service"
                 The output should include "kubelet update completed successfully"
             End
         End
