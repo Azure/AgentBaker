@@ -640,6 +640,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns_exporter.sh",
+      "destination": "/home/packer/localdns_exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter.socket",
+      "destination": "/home/packer/localdns-exporter.socket"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter@.service",
+      "destination": "/home/packer/localdns-exporter@.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
       "destination": "/home/packer/configure-azure-network.sh"
     },
