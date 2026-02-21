@@ -1384,6 +1384,171 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
+// This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
+// can rotate between queries. We verify presence, not exact IP matching.
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
+	s.T.Helper()
+
+	// Force a fresh refresh of the hosts file before validating so the snapshot
+	// is consistent with the DNS answers we are about to resolve. Without this,
+	// the 15-minute timer gap can cause flaky mismatches due to DNS load-balancing
+	// or record rotation.
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo systemctl start aks-hosts-setup.service",
+		0, "failed to refresh hosts file via aks-hosts-setup.service")
+
+	// Build script that resolves each FQDN and checks it exists in hosts file
+	script := fmt.Sprintf(`set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+fqdns=(%s)
+
+echo "=== Validating /etc/localdns/hosts contains resolved IPs for critical FQDNs ==="
+echo ""
+echo "Current hosts file contents:"
+cat "$hosts_file"
+echo ""
+
+errors=0
+for fqdn in "${fqdns[@]}"; do
+    echo "Checking FQDN: $fqdn"
+
+    # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+    # rather than requiring every currently resolved IP to be present. This avoids
+    # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn"'([[:space:]]|$)' "$hosts_file"; then
+        echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+    else
+        echo "  ERROR: No IPv4 entry found for $fqdn in hosts file"
+        errors=$((errors + 1))
+    fi
+done
+
+echo ""
+if [ $errors -gt 0 ]; then
+    echo "FAILED: $errors FQDNs missing from hosts file"
+    exit 1
+else
+    echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
+    exit 0
+fi
+`, quoteFQDNsForBash(fqdns))
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts file should contain resolved IPs for critical FQDNs")
+}
+
+// quoteFQDNsForBash converts a slice of FQDNs to a bash array string
+func quoteFQDNsForBash(fqdns []string) string {
+	quoted := make([]string, len(fqdns))
+	for i, fqdn := range fqdns {
+		quoted[i] = fmt.Sprintf("%q", fqdn)
+	}
+	return strings.Join(quoted, " ")
+}
+
+// ValidateAKSHostsSetupService checks that aks-hosts-setup.service ran successfully
+// and the aks-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
+func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check that aks-hosts-setup.service completed successfully (oneshot service)
+	serviceScript := `set -euo pipefail
+svc="aks-hosts-setup.service"
+# For oneshot services, check if it ran successfully (exit code 0)
+result=$(systemctl show -p Result "$svc" --value 2>/dev/null || echo "unknown")
+echo "aks-hosts-setup.service result: $result"
+if [ "$result" != "success" ]; then
+    echo "ERROR: aks-hosts-setup.service did not complete successfully"
+    systemctl status "$svc" --no-pager || true
+    journalctl -u "$svc" --no-pager -n 50 || true
+    exit 1
+fi
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, serviceScript, 0,
+		"aks-hosts-setup.service should have completed successfully")
+
+	// Check that aks-hosts-setup.timer is active for periodic refresh
+	timerScript := `set -euo pipefail
+timer="aks-hosts-setup.timer"
+active=$(systemctl is-active "$timer" 2>/dev/null || true)
+echo "aks-hosts-setup.timer: active=$active"
+if [ "$active" != "active" ]; then
+    echo "ERROR: aks-hosts-setup.timer is not active"
+    systemctl status "$timer" --no-pager || true
+    exit 1
+fi
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, timerScript, 0,
+		"aks-hosts-setup.timer should be active for periodic hosts file refresh")
+}
+
+// ValidateLocalDNSHostsPluginBypass verifies that localdns resolves FQDNs from /etc/localdns/hosts
+// without querying the upstream DNS server. This confirms the hosts plugin is working correctly.
+// It injects a fake FQDN (that doesn't exist in public DNS) into the hosts file and verifies
+// localdns can resolve it - proving the hosts plugin is functioning.
+func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Use a fake FQDN that doesn't exist in public DNS and a TEST-NET-3 IP (RFC 5737)
+	// If this resolves, it MUST be coming from the hosts file
+	fakeFQDN := "fake-mcr.microsoft.com"
+	fakeIP := "203.0.113.42"
+
+	script := fmt.Sprintf(`set -euo pipefail
+fake_fqdn=%q
+fake_ip=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing localdns hosts plugin bypass ==="
+echo "Injecting fake entry: $fake_ip $fake_fqdn"
+
+# Add fake entry to hosts file
+echo "$fake_ip $fake_fqdn" | sudo tee -a "$hosts_file" > /dev/null
+
+echo "Current hosts file contents:"
+sudo cat "$hosts_file"
+
+# Give localdns time to pick up the change (hosts plugin reloads periodically).
+# Poll for up to 30 seconds to avoid flakes due to reload interval variance.
+echo ""
+echo "Polling localdns for fake FQDN: $fake_fqdn (up to 30s)"
+echo "If this resolves to $fake_ip, it proves the hosts plugin is working"
+
+for i in $(seq 1 30); do
+    echo "Attempt $i:"
+
+    # Query localdns at the cluster listener IP
+    result=$(dig "$fake_fqdn" @169.254.10.10 +short +timeout=5 +tries=2 2>/dev/null || true)
+    echo "DNS response: $result"
+
+    # Check if the fake IP is in the response
+    if echo "$result" | grep -q "$fake_ip"; then
+        echo ""
+        echo "SUCCESS: localdns resolved fake FQDN $fake_fqdn to $fake_ip from hosts file!"
+        echo "This proves the hosts plugin is correctly bypassing upstream DNS."
+        exit 0
+    fi
+
+    sleep 1
+done
+
+echo ""
+echo "ERROR: Expected fake IP $fake_ip not found in response for $fake_fqdn after polling"
+echo "The hosts plugin may not be working correctly."
+echo ""
+echo "Full dig output:"
+dig "$fake_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+echo ""
+echo "localdns service status:"
+systemctl status localdns --no-pager -n 10 || true
+exit 1
+`, fakeFQDN, fakeIP)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should resolve fake FQDN from hosts file (proving hosts plugin bypass)")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()

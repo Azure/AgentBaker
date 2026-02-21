@@ -297,6 +297,18 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
+
+  AKS_HOSTS_SETUP_SCRIPT_SRC=/home/packer/aks-hosts-setup.sh
+  AKS_HOSTS_SETUP_SCRIPT_DEST=/opt/azure/containers/aks-hosts-setup.sh
+  cpAndMode $AKS_HOSTS_SETUP_SCRIPT_SRC $AKS_HOSTS_SETUP_SCRIPT_DEST 0755
+
+  AKS_HOSTS_SETUP_SERVICE_SRC=/home/packer/aks-hosts-setup.service
+  AKS_HOSTS_SETUP_SERVICE_DEST=/etc/systemd/system/aks-hosts-setup.service
+  cpAndMode $AKS_HOSTS_SETUP_SERVICE_SRC $AKS_HOSTS_SETUP_SERVICE_DEST 0644
+
+  AKS_HOSTS_SETUP_TIMER_SRC=/home/packer/aks-hosts-setup.timer
+  AKS_HOSTS_SETUP_TIMER_DEST=/etc/systemd/system/aks-hosts-setup.timer
+  cpAndMode $AKS_HOSTS_SETUP_TIMER_SRC $AKS_HOSTS_SETUP_TIMER_DEST 0644
 # ---------------------------------------------------------------------------------------
 
 # ------------------------- Files related to azure-network ------------------------------

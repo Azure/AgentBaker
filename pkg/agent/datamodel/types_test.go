@@ -2894,10 +2894,8 @@ func TestShouldEnableLocalDNS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualData := false
-			if tt.agentPoolProfile != nil {
-				actualData = tt.agentPoolProfile.ShouldEnableLocalDNS()
-			}
+			actualData := tt.agentPoolProfile.ShouldEnableLocalDNS()
+
 			assert.Equal(t, tt.expectedData, actualData)
 		})
 	}
@@ -3190,6 +3188,75 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 			if tt.agentPoolProfile != nil {
 				actualData = tt.agentPoolProfile.GetLocalDNSCoreFileData()
 			}
+			assert.Equal(t, tt.expectedData, actualData)
+		})
+	}
+}
+
+func TestShouldEnableHostsPlugin(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     bool
+	}{
+		{
+			name:             "ShouldEnableHostsPlugin - AgentPoolProfile nil",
+			agentPoolProfile: nil,
+			expectedData:     false,
+		},
+		{
+			name: "ShouldEnableHostsPlugin - LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectedData: false,
+		},
+		{
+			name: "ShouldEnableHostsPlugin - LocalDNS disabled, HostsPlugin enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:    false,
+					EnableHostsPlugin: true,
+				},
+			},
+			expectedData: false,
+		},
+		{
+			name: "ShouldEnableHostsPlugin - LocalDNS enabled, HostsPlugin disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:    true,
+					EnableHostsPlugin: false,
+				},
+			},
+			expectedData: false,
+		},
+		{
+			name: "ShouldEnableHostsPlugin - both enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:    true,
+					EnableHostsPlugin: true,
+				},
+			},
+			expectedData: true,
+		},
+		{
+			name: "ShouldEnableHostsPlugin - both disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:    false,
+					EnableHostsPlugin: false,
+				},
+			},
+			expectedData: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualData := tt.agentPoolProfile.ShouldEnableHostsPlugin()
+
 			assert.Equal(t, tt.expectedData, actualData)
 		})
 	}

@@ -1148,18 +1148,24 @@ LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+# generateLocalDNSFiles creates the localdns corefile and slice file.
+# Usage: generateLocalDNSFiles [corefile_base64]
+#   corefile_base64: optional base64-encoded corefile content to use.
+#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 generateLocalDNSFiles() {
+    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    echo "${corefile_content}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_content}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -1179,12 +1185,77 @@ CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
 }
 
+# enableLocalDNS creates localdns files and starts the service.
+# Usage: enableLocalDNS [corefile_base64]
+#   corefile_base64: optional base64-encoded corefile content to use.
+#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 enableLocalDNS() {
-    generateLocalDNSFiles
+    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+    generateLocalDNSFiles "${corefile_content}"
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+}
+
+# This function enables and starts the aks-hosts-setup timer.
+# The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
+# The caller in cse_main.sh checks /etc/localdns/hosts content directly to decide
+# which corefile to use, so this function does not need to signal success/failure.
+enableAKSHostsSetup() {
+    # handle nxdomain and no answer case
+    # Allow overriding paths for testing (via environment variables)
+    local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_script="${AKS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-hosts-setup.sh}"
+    local hosts_setup_service="${AKS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-hosts-setup.service}"
+    local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
+    local cloud_env_file="${AKS_CLOUD_ENV_FILE:-/etc/localdns/cloud-env}"
+
+    # Guard: verify required artifacts exist on this VHD.
+    # Older VHDs (or certain build modes) may not include them.
+    if [ ! -f "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-hosts-setup"
+        return
+    fi
+    if [ ! -x "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} is not executable, skipping aks-hosts-setup"
+        return
+    fi
+    if [ ! -f "${hosts_setup_service}" ]; then
+        echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-hosts-setup"
+        return
+    fi
+    if [ ! -f "${hosts_setup_timer}" ]; then
+        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
+        return
+    fi
+
+    # Write the cloud environment as a systemd EnvironmentFile so aks-hosts-setup.sh
+    # can use $TARGET_CLOUD directly — both when called from CSE (already in env) and
+    # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
+    mkdir -p "$(dirname "${cloud_env_file}")"
+    echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
+    chmod 0644 "${cloud_env_file}"
+
+    # Run the script once immediately to resolve live DNS before kubelet starts.
+    echo "Running initial aks-hosts-setup to resolve DNS..."
+    mkdir -p "$(dirname "${hosts_file}")"
+    # Create an empty hosts file so the localdns hosts plugin can start watching it
+    # immediately. The file will be populated by aks-hosts-setup.sh below.
+    touch "${hosts_file}"
+    chmod 0644 "${hosts_file}"
+    if ! "${hosts_setup_script}"; then
+        echo "Warning: Initial hosts setup failed"
+    fi
+
+    # Enable the timer for periodic refresh (every 15 minutes)
+    # This will update the hosts file with fresh IPs from live DNS
+    echo "Enabling aks-hosts-setup timer..."
+    if systemctlEnableAndStart aks-hosts-setup.timer 30; then
+        echo "aks-hosts-setup timer enabled successfully."
+    else
+        echo "Warning: Failed to enable aks-hosts-setup timer"
+    fi
 }
 
 configureManagedGPUExperience() {
