@@ -1033,7 +1033,7 @@ setupAmdAma() {
         fi
         # Configure huge pages
         sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
-        sh -c "echo 4096 >> /proc/sys/vm/nr_hugepages"
+        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
