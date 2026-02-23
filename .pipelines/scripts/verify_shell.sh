@@ -112,3 +112,15 @@ if [ -n "${filesToCheckPosix}" ]; then
 else
     echo "No POSIX-only shell scripts to lint"
 fi
+
+# Check that no CSE provisioning scripts invoke sudo.
+# CSE scripts run as root, so sudo is unnecessary and indicates a bug or code quality issue.
+echo "Checking for sudo invocations in CSE artifact scripts..."
+CSE_ARTIFACTS_DIR="./parts/linux/cloud-init/artifacts"
+# grep for 'sudo ' (sudo followed by a space) to catch command invocations but not
+# path strings like '/var/log/sudo.log' or heredoc content mentioning sudo.
+if grep -rn --include="*.sh" "sudo " "${CSE_ARTIFACTS_DIR}"; then
+    echo "ERROR: sudo invocation(s) found in ${CSE_ARTIFACTS_DIR}. CSE scripts run as root; remove sudo."
+    exit 1
+fi
+echo "No sudo invocations found in CSE artifact scripts."
