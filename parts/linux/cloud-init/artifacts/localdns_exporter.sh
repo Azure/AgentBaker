@@ -24,13 +24,25 @@ fi
 
 # 1. Scrape Raw Values from systemd
 # --value flag prevents needing to parse "Key=Value" strings
-RAW_CPU=$(systemctl show "$UNIT" --property=CPUUsageNSec --value)
-RAW_MEM=$(systemctl show "$UNIT" --property=MemoryCurrent --value)
+# Capture failures gracefully to handle missing/renamed units without exiting
+RAW_CPU=$(systemctl show "$UNIT" --property=CPUUsageNSec --value 2>/dev/null || echo "[not set]")
+RAW_MEM=$(systemctl show "$UNIT" --property=MemoryCurrent --value 2>/dev/null || echo "[not set]")
 
-# Handle empty values (if service is down or not yet started)
-if [ -z "$RAW_CPU" ] || [ "$RAW_CPU" = "[not set]" ]; then
+# Determine service availability status for metrics label
+# Check if systemctl is returning actual values or "[not set]" (indicates unit doesn't exist or never started)
+if [ "$RAW_CPU" = "[not set]" ] && [ "$RAW_MEM" = "[not set]" ]; then
+    # Service unit not found or never started
+    SERVICE_STATUS="unavailable"
     RAW_CPU=0
+    RAW_MEM=0
+elif [ -z "$RAW_CPU" ] || [ "$RAW_CPU" = "[not set]" ]; then
+    SERVICE_STATUS="available"
+    RAW_CPU=0
+else
+    SERVICE_STATUS="available"
 fi
+
+# Handle empty memory values (if service is down or not yet started)
 if [ -z "$RAW_MEM" ] || [ "$RAW_MEM" = "[not set]" ]; then
     RAW_MEM=0
 fi
@@ -45,6 +57,15 @@ MEM_MB=$(awk -v val="$RAW_MEM" 'BEGIN {printf "%.2f", val / 1048576}')
 # 3. Output HTTP Response in Prometheus Exposition Format
 # Note: The empty line after headers is required by HTTP protocol
 echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\n"
+
+# Service status metric (info-style gauge with status label)
+echo "# HELP localdns_service_status Service availability status (1=available, 0=unavailable)"
+echo "# TYPE localdns_service_status gauge"
+if [ "$SERVICE_STATUS" = "available" ]; then
+    echo "localdns_service_status{status=\"available\"} 1"
+else
+    echo "localdns_service_status{status=\"unavailable\"} 0"
+fi
 
 # Memory metric
 echo "# HELP localdns_memory_usage_mb Current memory usage in Megabytes"
