@@ -140,6 +140,12 @@ echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.
 systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
+# ACL uses Azure Linux 3's logrotate RPM which creates /var/lib/logrotate at install time
+# but does not ship a tmpfiles.d drop-in. On ACL's immutable rootfs with a separate /var
+# partition, the directory is missing at runtime, causing logrotate.service to fail.
+if isFlatcar "$OS"; then
+    mkdir -p /var/lib/logrotate
+fi
 systemctlEnableAndStart logrotate.timer 30 || exit 1
 rm -f /etc/cron.daily/logrotate
 

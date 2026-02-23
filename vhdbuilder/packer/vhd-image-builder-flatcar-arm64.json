@@ -476,7 +476,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/flatcar/update_certs.service",
+      "source": "parts/linux/cloud-init/artifacts/acl/update_certs.service",
       "destination": "/home/packer/update_certs.service"
     },
     {

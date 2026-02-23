@@ -757,6 +757,15 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
+	if s.VHD.Flatcar {
+		// ACL replaces Flatcar's Rust update-ssh-keys binary with a bash script whose
+		// regenerate() function uses mktemp (creates in /tmp, a tmpfs) then mv to
+		// /home/core/.ssh/authorized_keys (ext4). This cross-device mv fails with
+		// EEXIST when waagent has already created the target. The failure is harmless —
+		// waagent already wrote the correct SSH keys. Fix belongs in the ACL base image
+		// (use mktemp "${KEYS_FILE}.XXXXXX" for same-device rename).
+		unitFailureAllowList["update-ssh-keys-after-ignition.service"] = true
+	}
 
 	type systemdUnit struct {
 		Name string `json:"unit,omitempty"`

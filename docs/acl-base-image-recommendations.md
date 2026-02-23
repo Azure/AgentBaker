@@ -51,6 +51,45 @@ Once the base image ships the correct chrony config, the entire 50+ line `disabl
 
 ---
 
+### Issue 11: Add `tmpfiles.d/logrotate.conf` — logrotate state directory (High priority)
+
+**Why base image**: The `/var/lib/logrotate/` directory is required by logrotate's built-in `logrotate.service` to write its state file (`logrotate.status`). This is basic OS functionality — log rotation should work on any ACL VM, not just AKS nodes. The Azure Linux 3 logrotate RPM creates this directory at RPM install time but does not ship a `tmpfiles.d` drop-in. On ACL's immutable rootfs with a separate `/var` partition, directories must be created at boot via `systemd-tmpfiles`. Upstream Flatcar 4459.2.2 ships `usr/lib/tmpfiles.d/logrotate.conf` for exactly this purpose; ACL does not.
+
+**Fix**: Create `/usr/lib/tmpfiles.d/logrotate.conf` in the ACL image with:
+```
+d /var/lib/logrotate 0755 root root -
+```
+
+This can be added in `manglefs.sh` or `build_image_util.sh`:
+```bash
+# Create tmpfiles.d entry for logrotate state directory
+# Azure Linux 3 RPM creates /var/lib/logrotate at install time but doesn't ship
+# a tmpfiles.d drop-in. On Flatcar's immutable rootfs, /var is populated at boot
+# via systemd-tmpfiles, so the directory must be declared here.
+echo 'd /var/lib/logrotate 0755 root root -' > "${rootfs}/usr/lib/tmpfiles.d/logrotate.conf"
+```
+
+Once fixed, the `mkdir -p /var/lib/logrotate` workaround in AgentBaker's `pre-install-dependencies.sh` can be removed.
+
+---
+
+### Issue 12: Fix bash `update-ssh-keys` cross-device `mv` (Medium priority)
+
+**Why base image**: The `update-ssh-keys` binary is a core OS tool called by `update-ssh-keys-after-ignition.service` (from `coreos-init`). ACL's bash replacement has a bug in `regenerate()` — it creates a temp file in `/tmp` (tmpfs) and tries to `mv` it to `/home/core/.ssh/authorized_keys` (ext4). The cross-device `mv` fails with `EEXIST` when waagent has already created the target. Flatcar's Rust binary creates its temp file alongside the target (same filesystem) so `rename()` atomically overwrites. This is an OS-level tool bug, not an AKS concern.
+
+**Fix**: In `build_library/rpm/additional_files/update-ssh-keys`, change both `mktemp` calls in `regenerate()` and the `add|force-add` case to create temp files on the same filesystem as the target:
+```bash
+# In regenerate():
+temp_file=$(mktemp "${KEYS_FILE}.XXXXXX")
+
+# In add|force-add case:
+temp_key=$(mktemp "${key_file}.XXXXXX")
+```
+
+Once fixed, the `update-ssh-keys-after-ignition.service` allowlist entry in AgentBaker's `e2e/validators.go` can be removed.
+
+---
+
 ## Changes to keep in AgentBaker
 
 ### Issue 1: `isFlatcar()` recognizing ACL
@@ -80,6 +119,24 @@ Once the base image ships the correct chrony config, the entire 50+ line `disabl
 ### Issue 9: Explicit Ignition enable symlinks (workaround)
 
 **Why AgentBaker**: The immediate workaround uses Ignition's `storage.links` to create enable symlinks directly in `sysinit.target.wants/`, bypassing the broken preset mechanism entirely. This is safe on both ACL and upstream Flatcar (`overwrite: true` handles the case where presets already work). The fix is in `parts/linux/cloud-init/flatcar.yml`.
+
+---
+
+### Issue 13: Route ACL to `update-ca-trust` for CA certificate handling
+
+**Why AgentBaker**: ACL uses Azure Linux's `update-ca-trust` instead of Flatcar's `update-ca-certificates`, and ACL's `/usr` is dm-verity read-only so certs must be placed under `/etc/pki/ca-trust/source/anchors` (not `/usr/share/pki/...`). This is a provisioning-time tool routing decision — AgentBaker is responsible for knowing which cert update tool each distro uses. The `isACL` check in `configureHTTPProxyCA()` and the dedicated `acl/update_certs.service` file (using `/etc/pki/ca-trust/source/anchors` + `update-ca-trust`) are the correct approach. No base image change needed.
+
+---
+
+### Issue 14: `/etc/protocols` header differs on ACL
+
+**Why AgentBaker**: ACL's `iana-etc` RPM uses a different header comment than Flatcar's. The file contents are functionally identical — same protocol entries, just different comment formatting. The E2E test was checking for a Flatcar-specific header string. Relaxing the check to `"tcp"` validates the file has real protocol data without coupling to one distro's comment style. No base image change needed.
+
+---
+
+### Issue 15: `/etc/ssl/certs/ca-certificates.crt` is a symlink on ACL
+
+**Why AgentBaker**: On ACL, `update-ca-trust` creates this path as a symlink to `/etc/pki/tls/certs/ca-bundle.crt` rather than a regular file. This is standard Azure Linux/RHEL CA trust layout. The E2E test validator was checking `ValidateFileIsRegularFile`, which rejects symlinks. Changing to `ValidateFileExists` (which follows symlinks via `test -f`) correctly validates the trust bundle is present regardless of file type. No base image change needed.
 
 ---
 
