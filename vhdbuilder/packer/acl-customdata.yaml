@@ -1,0 +1,42 @@
+variant: flatcar
+version: 1.1.0
+kernel_arguments:
+  should_not_exist:
+    - flatcar.autologin
+storage:
+  directories:
+  - path: /opt/aks-sysext-rw/usr/local/bin
+  files:
+  - path: /opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+    contents:
+      inline: |
+        ID=acl
+        SYSEXT_LEVEL=1.0
+  - path: /etc/flatcar/update.conf
+    overwrite: true
+    contents:
+      inline: |
+        SERVER=disabled
+  - path: /etc/systemd/system/containerd.service.d/50-default-config.conf
+    contents:
+      inline: |
+        [Service]
+        Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+  # NOTE: Flatcar customdata has protocols.conf (copy from baselayout) and nsswitch.conf
+  # (with usrfiles NSS module). Both are removed for ACL because:
+  # - /usr/share/baselayout/ does not exist on ACL (Flatcar/Gentoo specific)
+  # - ACL's glibc does not have nss_usrfiles compiled in
+  # - ACL already ships /etc/protocols and a correct /etc/nsswitch.conf natively
+  links:
+  - path: /etc/extensions/aks-sysext
+    target: /opt/aks-sysext
+    hard: false
+  - path: /opt/aks-sysext/usr/local/bin
+    target: /opt/aks-sysext-rw/usr/local/bin
+    hard: false
+  - path: /etc/containerd/config.toml
+    target: /usr/share/containerd/config.toml
+    hard: false
+# NOTE: ACL does NOT have update-ca-certificates.service (Flatcar-specific).
+# ACL uses update-ca-trust (Azure Linux style) which is invoked on-demand by CSE scripts.
+# The Flatcar customdata has a dropin for update-ca-certificates.service that is omitted here.
