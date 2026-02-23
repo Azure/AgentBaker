@@ -4,6 +4,7 @@ mkdir -p /root/AzureCACertificates
 
 IS_FLATCAR=0
 IS_UBUNTU=0
+IS_ACL=0
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -12,6 +13,8 @@ if [[ -f /etc/os-release ]]; then
         IS_UBUNTU=1
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
+    elif [[ $ID == "acl" ]]; then
+        IS_ACL=1
     else
         echo "Unknown Linux distribution"
         exit 1
@@ -39,15 +42,18 @@ for i in ${!certBodies[@]}; do
 done
 IFS=$IFS_backup
 
-if [ "$IS_FLATCAR" -eq 0 ]; then
+if [ "$IS_ACL" -eq 1 ]; then
+    cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
+    update-ca-trust
+elif [ "$IS_FLATCAR" -eq 1 ]; then
+    cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
+    update-ca-certificates
+else
     cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
     update-ca-certificates
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used
     cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
-else
-    cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
-    update-ca-certificates
 fi
 
 # This section creates a cron job to poll for refreshed CA certs daily
@@ -221,7 +227,7 @@ if [ "$IS_UBUNTU" -eq 1 ]; then
     # update apt list
     echo "Running apt-get update"
     aptget_update
-elif [ "$IS_FLATCAR" -eq 1 ]; then
+elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
     script_path="$(readlink -f "$0")"
     svc="/etc/systemd/system/azure-ca-refresh.service"
     tmr="/etc/systemd/system/azure-ca-refresh.timer"
@@ -255,6 +261,11 @@ EOF
 fi
 
 # Disable systemd-timesyncd and install chrony and uses local time source
+# ACL has PTP clock config compiled into chronyd with no config file or sourcedir directives,
+# so it uses only the local PTP clock and has no DHCP-injectable NTP sources.
+if [ "$IS_ACL" -eq 1 ]; then
+    echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
+else
 chrony_conf="/etc/chrony/chrony.conf"
 if [ "$IS_UBUNTU" -eq 1 ]; then
     systemctl stop systemd-timesyncd
@@ -321,5 +332,6 @@ if [ "$IS_UBUNTU" -eq 1 ]; then
 elif [ "$IS_FLATCAR" -eq 1 ]; then
     systemctl restart chronyd
 fi
+fi # end of IS_ACL skip block
 
 #EOF

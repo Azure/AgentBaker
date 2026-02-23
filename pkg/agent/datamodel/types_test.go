@@ -1211,6 +1211,13 @@ func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "ACL distro is not Flatcar",
+			ap: AgentPoolProfile{
+				Distro: AKSACLGen2TL,
+			},
+			expected: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -1220,6 +1227,54 @@ func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
 			isFlatcar := c.ap.IsFlatcar()
 			if c.expected != isFlatcar {
 				t.Fatalf("Got unexpected AgentPoolProfile.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isFlatcar)
+			}
+		})
+	}
+}
+
+func TestAgentPoolProfileIsACL(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "ACL distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLGen2TL,
+			},
+			expected: true,
+		},
+		{
+			name: "Flatcar distro is not ACL",
+			ap: AgentPoolProfile{
+				Distro: AKSFlatcarGen2,
+			},
+			expected: false,
+		},
+		{
+			name: "Ubuntu distro is not ACL",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu,
+			},
+			expected: false,
+		},
+		{
+			name: "Azure Linux distro is not ACL",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isACL := c.ap.IsACL()
+			if c.expected != isACL {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsACL() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isACL)
 			}
 		})
 	}
@@ -1269,6 +1324,25 @@ func TestFlatcarAndCustomDistro(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "ACL OSSKU is not Flatcar",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSACLGen2TL,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSACLGen2TL,
+				},
+				OSSKU: OSSKUAzureContainerLinux,
+			},
+			expected: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -1281,6 +1355,121 @@ func TestFlatcarAndCustomDistro(t *testing.T) {
 			isFlatcar := c.nbc.IsFlatcar()
 			if c.expected != isFlatcar {
 				t.Fatalf("Got unexpected NodeBootstrappingConfiguration.IsFlatcar() result for %s. Expected: %t. Got: %t.", c.name, c.expected, isFlatcar)
+			}
+		})
+	}
+}
+
+func TestNodeBootstrappingConfigurationIsACL(t *testing.T) {
+	cases := []struct {
+		name     string
+		nbc      NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name: "ACL OSSKU",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSACLGen2TL,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSACLGen2TL,
+				},
+				OSSKU: OSSKUAzureContainerLinux,
+			},
+			expected: true,
+		},
+		{
+			name: "ACL distro without OSSKU",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSACLGen2TL,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSACLGen2TL,
+				},
+				OSSKU: "",
+			},
+			expected: true,
+		},
+		{
+			name: "ACL OSSKU with custom distro",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: CustomizedImage,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: CustomizedImage,
+				},
+				OSSKU: OSSKUAzureContainerLinux,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux distro is not ACL",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSAzureLinuxV3Gen2,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSAzureLinuxV3Gen2,
+				},
+				OSSKU: "",
+			},
+			expected: false,
+		},
+		{
+			name: "Flatcar is not ACL",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSFlatcarGen2,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSFlatcarGen2,
+				},
+				OSSKU: OSSKUFlatcar,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isACL := c.nbc.IsACL()
+			if c.expected != isACL {
+				t.Fatalf("Got unexpected NodeBootstrappingConfiguration.IsACL() result for %s. Expected: %t. Got: %t.", c.name, c.expected, isACL)
 			}
 		})
 	}
