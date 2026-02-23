@@ -417,6 +417,11 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+    # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
+    if isAmdAmaEnabledNode; then
+        logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
+    fi
+
     VALIDATION_ERR=0
 
     # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
