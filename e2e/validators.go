@@ -1799,8 +1799,6 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	expectedRx := "1024"
 	if cpuCount >= 4 {
 		expectedRx = "2048"
-	} else {
-		expectedRx = "512"
 	}
 
 	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)

@@ -275,10 +275,17 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		VMSize:   vmSize,
 	})
 	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", vmSize)
-	if gen2Only && !s.Config.VHD.Gen2Supported {
+	if gen2Only && s.Config.VHD.UnsupportedGen2 {
 		s.T.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
 	}
-
+	nvmeOnly, err := CachedIsVMSizeNVMeOnly(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   vmSize,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", vmSize)
+	if nvmeOnly && !s.Config.VHD.Gen2Supported {
+		s.T.Skipf("VM size %q only supports NVMe disk controller but Gen1 image does not support NVMe, skipping test", vmSize)
+	}
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// fail test, but continue to extract debug information
