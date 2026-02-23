@@ -835,7 +835,7 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
@@ -1229,10 +1229,10 @@ extract_tarball() {
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
-            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
         *)
-            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
 }

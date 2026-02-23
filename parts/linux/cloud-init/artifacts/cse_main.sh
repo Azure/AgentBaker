@@ -63,9 +63,9 @@ function basePrep {
 
     UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
-        sudo apt-get -y autoremove chrony
+        apt-get -y autoremove chrony
         echo $?
-        sudo systemctl restart systemd-timesyncd
+        systemctl restart systemd-timesyncd
     fi
 
     # Eval proxy vars to ensure curl commands use proxy if configured.
