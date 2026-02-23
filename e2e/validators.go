@@ -270,7 +270,8 @@ func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig 
 		"enp_ifaces=()",
 		"for dev in /sys/class/net/*; do",
 		"  iface=\"$(basename \"$dev\")\"",
-		"  [[ \"$iface\" == enP* ]] && enp_ifaces+=(\"$iface\")",
+		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}' || true)\"",
+		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
 		"done",
 		"IFS=,; echo \"${enp_ifaces[*]}\"",
 	}

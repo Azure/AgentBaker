@@ -284,7 +284,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	})
 	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", vmSize)
 	if nvmeOnly && s.Config.VHD.UnsupportedNVMe {
-		s.T.Skipf("VM size %q only supports NVMe disk controller but Gen1 image does not support NVMe, skipping test", vmSize)
+		s.T.Skipf("VM size %q only supports NVMe disk controller but image does not support NVMe, skipping test", vmSize)
 	}
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
