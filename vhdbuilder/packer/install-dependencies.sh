@@ -118,6 +118,22 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+
+# ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
+# so these must be called separately (mirrored in the Mariner/AzureLinux block below).
+# Other Mariner functions are safe to skip for ACL:
+#   setMarinerNetworkdConfig — ACL doesn't ship systemd-bootstrap's 99-dhcp-en.network
+#   fixCBLMarinerPermissions — product_uuid already 444; no rsyslog on ACL
+#   addMarinerNvidiaRepo / updateDnfWithNvidiaPkg / disableDNFAutomatic / enableCheckRestart — ACL has no dnf/rpm
+#   activateNfConntrack — nf_conntrack auto-loads via iptables dependency chain
+#   disableTimesyncd — ACL handles chrony separately above via disableNtpAndTimesyncdInstallChrony
+if isACL "$OS"; then
+  # ACL's iptables.service loads host firewall rules that conflict with Cilium eBPF routing.
+  disableSystemdIptables || exit 1
+  # Repoint /etc/resolv.conf from the stub (127.0.0.53) to the real upstream file
+  # so DNS queries go directly through localdns.
+  disableSystemdResolvedCache
+fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
 # Configure SSH service during VHD build for Ubuntu 22.10+
@@ -416,7 +432,7 @@ while IFS= read -r p; do
       done
       ;;
     "inspektor-gadget")
-      if isMariner "$OS" || isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
         echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
@@ -442,7 +458,7 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-        elif isFlatcar; then
+        elif isFlatcar || isACL; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
         fi

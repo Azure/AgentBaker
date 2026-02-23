@@ -14,7 +14,7 @@ CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME:-"cis-report.html"}
 OS_SKU=${OS_SKU:-""}
 TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME:-"azureuser"}
 
-if [ "$OS_SKU" = "Flatcar" ]; then
+if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
     # The venv with azure-cli is created in trivy-scan.sh but PATH changes are
     # not preserved across scripts.
     export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"

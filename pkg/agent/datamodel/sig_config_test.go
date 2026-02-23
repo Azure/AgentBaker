@@ -36,6 +36,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3OSGuardGen2FIPSTL:      SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSFlatcarGen2:                        SIGFlatcarGen2ImageConfigTemplate.WithOptions(),
 			AKSFlatcarArm64Gen2:                   SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(),
+			AKSACLGen2TL:                          SIGACLGen2TLImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		Expect(actual).To(HaveLen(len(expected)))
@@ -74,6 +75,10 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 			},
 			"AKSFlatcar": {
 				GalleryName:   "aksflatcar",
+				ResourceGroup: "resourcegroup",
+			},
+			"AKSACL": {
+				GalleryName:   "aksacl",
 				ResourceGroup: "resourcegroup",
 			},
 		}
@@ -370,5 +375,13 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2404TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2404TLGen2Containerd.Definition).To(Equal("2404gen2TLcontainerd"))
 		Expect(aksUbuntu2404TLGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
+
+		Expect(len(sigConfig.SigACLImageConfig)).To(Equal(1))
+
+		aclGen2 := sigConfig.SigACLImageConfig[AKSACLGen2TL]
+		Expect(aclGen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aclGen2.Gallery).To(Equal("aksacl"))
+		Expect(aclGen2.Definition).To(Equal("aclgen2TL"))
+		Expect(aclGen2.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })
