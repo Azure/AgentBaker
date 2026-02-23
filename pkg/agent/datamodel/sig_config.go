@@ -25,6 +25,7 @@ type SIGAzureEnvironmentSpecConfig struct {
 	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
 	SigFlatcarImageConfig        map[Distro]SigImageConfig `json:"sigFlatcarImageConfig,omitempty"`
+	SigACLImageConfig            map[Distro]SigImageConfig `json:"sigACLImageConfig,omitempty"`
 	// TODO(adadilli) add PIR constants as well
 }
 
@@ -117,6 +118,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+	AKSACLGen2TL,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -178,6 +180,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+	AKSACLGen2TL,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -260,6 +263,11 @@ var AvailableAzureLinuxOSGuardDistros = []Distro{
 var AvailableFlatcarDistros = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+}
+
+//nolint:gochecknoglobals
+var AvailableACLDistros = []Distro{
+	AKSACLGen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -354,6 +362,8 @@ const (
 	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
 	AKSFlatcarGalleryName          string = "AKSFlatcar"
 	AKSFlatcarResourceGroup        string = "AKS-Flatcar"
+	AKSACLGalleryName              string = "AKSACL"
+	AKSACLResourceGroup            string = "AKS-ACL"
 )
 
 const (
@@ -739,6 +749,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGACLGen2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSACLResourceGroup,
+		Gallery:       AKSACLGalleryName,
+		Definition:    "aclgen2TL",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -821,6 +838,7 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 		getSigCBLMarinerImageConfigMapWithOpts(),
 		getSigAzureLinuxImageConfigMapWithOpts(),
 		getSigFlatcarImageConfigMapWithOpts(),
+		getSigACLImageConfigMapWithOpts(),
 	}
 
 	maintained := map[Distro]SigImageConfig{}
@@ -902,6 +920,12 @@ func getSigFlatcarImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 	}
 }
 
+func getSigACLImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
+	return map[Distro]SigImageConfig{
+		AKSACLGen2TL: SIGACLGen2TLImageConfigTemplate.WithOptions(opts...),
+	}
+}
+
 func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSWindows2019:               SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
@@ -971,6 +995,10 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	fromACSFlatcar := withACSSIGConfigWithDefaults(sigConfig, "AKSFlatcar", AKSFlatcarGalleryName, AKSFlatcarResourceGroup)
 	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
 
+	// TODO: use withACSConfig when the gallery config is available within SIGConfig (ACSConfig) provided by the resource provider.
+	fromACSACL := withACSSIGConfigWithDefaults(sigConfig, "AKSACL", AKSACLGalleryName, AKSACLResourceGroup)
+	c.SigACLImageConfig = getSigACLImageConfigMapWithOpts(fromACSACL)
+
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
@@ -997,6 +1025,7 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigACLImageConfig:            getSigACLImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
 }
 

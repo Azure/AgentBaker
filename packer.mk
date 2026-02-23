@@ -56,6 +56,9 @@ endif
 else ifeq (${OS_SKU},Flatcar)
 	@echo "Using packer template file vhd-image-builder-flatcar.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar.json
+else ifeq (${OS_SKU},AzureContainerLinux)
+	@echo "Using packer template file vhd-image-builder-acl.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -140,6 +143,10 @@ build-lister-binary:
 
 generate-flatcar-customdata: vhdbuilder/packer/flatcar-customdata.json
 vhdbuilder/packer/flatcar-customdata.json: vhdbuilder/packer/flatcar-customdata.yaml | hack/tools/bin/butane
+	@hack/tools/bin/butane --strict $< -o $@
+
+generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
+vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane
 	@hack/tools/bin/butane --strict $< -o $@
 
 publish-imagecustomizer:

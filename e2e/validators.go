@@ -1870,8 +1870,8 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
 			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
-			// exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
-			exclude: `panic=`,
+			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot)
+			exclude: `panic[-=]`,
 		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
@@ -1879,7 +1879,11 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
 			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
 			// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
-			exclude: `sr[0-9]|Shutdown timeout set to`,
+			// "duplicate device" is a benign BTRFS warning from udev-workers racing to scan the same block device during boot (seen on ACL).
+			// loop[0-9] is used by ACL for sysext images backed by loop devices. Transient I/O errors on loop devices during sysext
+			// initialization are benign — they are caused by kernel block-layer read-ahead overshooting the squashfs backing file
+			// boundary. systemd-sysext completes successfully and squashfs's own internal checksums catch actual data corruption.
+			exclude: `sr[0-9]|Shutdown timeout set to|duplicate device|loop[0-9]`,
 		},
 	}
 
