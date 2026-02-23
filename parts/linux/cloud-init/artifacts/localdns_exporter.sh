@@ -16,10 +16,10 @@ RAW_CPU=$(systemctl show "$UNIT" --property=CPUUsageNSec --value)
 RAW_MEM=$(systemctl show "$UNIT" --property=MemoryCurrent --value)
 
 # Handle empty values (if service is down or not yet started)
-if [ -z "$RAW_CPU" ] || [ "$RAW_CPU" == "[not set]" ]; then
+if [ -z "$RAW_CPU" ] || [ "$RAW_CPU" = "[not set]" ]; then
     RAW_CPU=0
 fi
-if [ -z "$RAW_MEM" ] || [ "$RAW_MEM" == "[not set]" ]; then
+if [ -z "$RAW_MEM" ] || [ "$RAW_MEM" = "[not set]" ]; then
     RAW_MEM=0
 fi
 
