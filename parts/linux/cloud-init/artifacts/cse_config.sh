@@ -323,7 +323,7 @@ disableSystemdResolved() {
     if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
-        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        [ -f /run/systemd/resolve/resolv.conf ] && ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
@@ -1017,14 +1017,14 @@ configureSSHPubkeyAuth() {
   ' "$SSHD_CONFIG" > "$TMP"
 
   # Validate the candidate config
-  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+  sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 644, owned by root)
-  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd
-  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path

@@ -206,6 +206,25 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	}
 }
 
+// ValidateNoSudoInCSELogs checks that sudo was not invoked during CSE provisioning.
+// CSE scripts run as root, so sudo is unnecessary and its presence indicates a code quality issue.
+func ValidateNoSudoInCSELogs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	logFile := "/var/log/azure/cluster-provision.log"
+	// Match lines where sudo appears as a command (e.g., set -x trace lines like '+ sudo cmd'
+	// or direct invocations like 'sudo cmd'), but not when it appears in comments or strings.
+	sudoPattern := `(^\+[[:space:]]+|^[[:space:]]*)sudo[[:space:]]`
+	command := strings.Join([]string{
+		"set -e",
+		fmt.Sprintf(`if grep -qE '%s' %s; then`, sudoPattern, logFile),
+		fmt.Sprintf(`    echo "sudo usage found in %s:"`, logFile),
+		fmt.Sprintf(`    grep -E '%s' %s || true`, sudoPattern, logFile),
+		`    exit 1`,
+		`fi`,
+	}, "\n")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "sudo was used during CSE provisioning; CSE runs as root so sudo is unnecessary")
+}
+
 func ValidateSSHServiceEnabled(ctx context.Context, s *Scenario) {
 	// Verify SSH service is active and running
 	ValidateSystemdUnitIsRunning(ctx, s, "ssh")

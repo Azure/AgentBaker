@@ -42,6 +42,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateAKSLogCollector(ctx, s)
 	ValidateDiskQueueService(ctx, s)
 	ValidateLeakedSecrets(ctx, s)
+	ValidateNoSudoInCSELogs(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
 	ValidateKernelLogs(ctx, s)
