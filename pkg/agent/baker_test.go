@@ -849,6 +849,10 @@ testdomain567.com:53 {
 						GalleryName:   "aksflatcar",
 						ResourceGroup: "resourcegroup",
 					},
+					"AKSACL": {
+						GalleryName:   "aksacl",
+						ResourceGroup: "resourcegroup",
+					},
 				},
 			},
 		}
@@ -877,7 +881,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() {
+		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() || config.IsACL() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
@@ -1548,6 +1552,34 @@ oom_score = -999
 				Name: "akscustom",
 			}
 		}, nil),
+		Entry("ACL", "ACL", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSACLGen2
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
+		Entry("ACL with custom cloud", "ACL+CustomCloud", "1.32.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSACLGen2
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+		Entry("ACL with custom cloud USSec", "ACL+CustomCloud+USSec", "1.33.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSACLGen2
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "ussecwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),
@@ -2027,6 +2059,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						GalleryName:   "aksflatcar",
 						ResourceGroup: "resourcegroup",
 					},
+					"AKSACL": {
+						GalleryName:   "aksacl",
+						ResourceGroup: "resourcegroup",
+					},
 				},
 			},
 		}
@@ -2321,7 +2357,7 @@ func backfillCustomData(folder, customData string) {
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
-	if strings.Contains(folder, "Flatcar") {
+	if strings.Contains(folder, "Flatcar") || strings.Contains(folder, "ACL") {
 		err := writeInnerCustomData(fmt.Sprintf("testdata/%s/CustomData.inner", folder), customData)
 		Expect(err).To(BeNil())
 		return

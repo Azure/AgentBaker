@@ -312,7 +312,7 @@ applyCIS() {
     fixUmaskSettings
     maskNfsServer
     addFailLockDir
-    if isMarinerOrAzureLinux "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" ; then
+    if isMarinerOrAzureLinux "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" ; then
         echo "Further functions only work for Ubuntu"
         return
     fi

@@ -42,6 +42,7 @@ var (
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
 	OSFlatcar    OS = "flatcar"
+	OSACL        OS = "acl"
 )
 
 var (
@@ -208,6 +209,16 @@ var (
 		OS:           OSFlatcar,
 		Arch:         "arm64",
 		Distro:       datamodel.AKSFlatcarArm64Gen2,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
+	}
+
+	VHDACLGen2 = &Image{
+		Name:         "aclgen2",
+		OS:           OSACL,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSACLGen2,
 		Gallery:      imageGalleryLinux,
 		Flatcar:      true,
 		OSDiskSizeGB: 60,

@@ -181,6 +181,151 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	})
 }
 
+func Test_ACL(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=acl")
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+			},
+		},
+	})
+}
+
+func Test_ACL_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using ACL and the self-contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+		},
+	})
+}
+
+func Test_ACL_CustomCATrust(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{
+						encodedTestCert,
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
+				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+			},
+		},
+	})
+}
+
+func Test_ACL_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "ACL scenario on a cluster configured with Azure CNI",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDACLGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+		},
+	})
+}
+
+func Test_ACL_AzureCNI_ChronyRestarts(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test ACL scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDACLGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_ACL_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:                true,
+					Deadline:               (10 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
+func Test_ACL_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test ACL scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDACLGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_ACL_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using ACL VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",

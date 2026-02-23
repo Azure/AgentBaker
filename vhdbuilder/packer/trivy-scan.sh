@@ -94,7 +94,7 @@ install_azure_cli() {
         sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
         sudo sh -c 'echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
         sudo dnf install -y azure-cli
-    elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+    elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
         python3 -m venv "/home/$TEST_VM_ADMIN_USERNAME/venv"
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
         pip install azure-cli
@@ -149,7 +149,7 @@ mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
 curl -fL -o "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" --no-same-owner
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-chmod a+x trivy 
+chmod a+x trivy
 
 # pull vuln-to-kusto binary
 az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
@@ -179,7 +179,7 @@ fi
 
 IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 
-echo "This contains the list of images with high and critical level CVEs (if present), that are present in the node. 
+echo "This contains the list of images with high and critical level CVEs (if present), that are present in the node.
 Note: images without CVEs are also listed" >> "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 
 for CONTAINER_IMAGE in $IMAGE_LIST; do
