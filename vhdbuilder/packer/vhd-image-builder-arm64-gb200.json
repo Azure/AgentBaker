@@ -110,6 +110,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/format-mount-nvme-root.sh",
+      "destination": "/home/packer/format-mount-nvme-root.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/format-mount-nvme-root.service",
+      "destination": "/home/packer/format-mount-nvme-root.service"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
