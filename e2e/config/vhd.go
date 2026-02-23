@@ -194,23 +194,25 @@ var (
 	}
 
 	VHDFlatcarGen2 = &Image{
-		Name:         "flatcargen2",
-		OS:           OSFlatcar,
-		Arch:         "amd64",
-		Distro:       datamodel.AKSFlatcarGen2,
-		Gallery:      imageGalleryLinux,
-		Flatcar:      true,
-		OSDiskSizeGB: 60,
+		Name:                    "flatcargen2",
+		OS:                      OSFlatcar,
+		Arch:                    "amd64",
+		Distro:                  datamodel.AKSFlatcarGen2,
+		Gallery:                 imageGalleryLinux,
+		Flatcar:                 true,
+		OSDiskSizeGB:            60,
+		EphemeralOSResourceDisk: true,
 	}
 
 	VHDFlatcarGen2Arm64 = &Image{
-		Name:         "flatcargen2arm64",
-		OS:           OSFlatcar,
-		Arch:         "arm64",
-		Distro:       datamodel.AKSFlatcarArm64Gen2,
-		Gallery:      imageGalleryLinux,
-		Flatcar:      true,
-		OSDiskSizeGB: 60,
+		Name:                    "flatcargen2arm64",
+		OS:                      OSFlatcar,
+		Arch:                    "arm64",
+		Distro:                  datamodel.AKSFlatcarArm64Gen2,
+		Gallery:                 imageGalleryLinux,
+		Flatcar:                 true,
+		OSDiskSizeGB:            60,
+		EphemeralOSResourceDisk: true,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -292,6 +294,8 @@ type Image struct {
 	Flatcar                             bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
+	// EphemeralOSResourceDisk places the ephemeral OS disk on the resource/temp disk instead of the cache disk.
+	EphemeralOSResourceDisk bool
 }
 
 func (i *Image) String() string {

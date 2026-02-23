@@ -227,6 +227,14 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 		}
 	}
 
+	// Place ephemeral OS disk on the resource/temp disk instead of the cache disk.
+	if s.VHD.EphemeralOSResourceDisk {
+		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+		if osDisk != nil && osDisk.DiffDiskSettings != nil {
+			osDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementResourceDisk)
+		}
+	}
+
 	s.updateTags(ctx, vmss)
 }
 
