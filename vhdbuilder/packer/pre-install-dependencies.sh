@@ -144,9 +144,10 @@ systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 # The Azure Linux 3 logrotate RPM creates /var/lib/logrotate at RPM install time but does
 # not ship a tmpfiles.d drop-in, so the directory is missing at runtime on ACL.
 # Upstream Flatcar includes usr/lib/tmpfiles.d/logrotate.conf for this; ACL does not.
-if isACL "$OS"; then
-    mkdir -p /var/lib/logrotate
-fi
+# TODO: remove once ACL base image ships tmpfiles.d/logrotate.conf (Task 3 in acl-base-image-tasks.md)
+#if isACL "$OS"; then
+#    mkdir -p /var/lib/logrotate
+#fi
 systemctlEnableAndStart logrotate.timer 30 || exit 1
 rm -f /etc/cron.daily/logrotate
 
