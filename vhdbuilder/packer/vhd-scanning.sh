@@ -258,6 +258,14 @@ isFlatcar() {
     fi
     return 1
 }
+isACL() {
+    local os="$1"
+
+    if [ "$os" = "AzureContainerLinux" ]; then
+        return 0
+    fi
+    return 1
+}
 isAzureLinuxOSGuard() {
     local os="$1"
 
@@ -286,6 +294,9 @@ requiresCISScan() {
         return 1
     fi
     if isFlatcar "$os"; then
+        return 1
+    fi
+    if isACL "$os"; then
         return 1
     fi
     if isAzureLinuxOSGuard "$os"; then
