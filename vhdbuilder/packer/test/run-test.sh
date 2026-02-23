@@ -130,6 +130,8 @@ CDIR=$(dirname "$FULL_PATH")
 
 if [ "${OS_TYPE,,}" = "linux" ]; then
   [ -z "${ENABLE_FIPS// }" ] && ENABLE_FIPS="false"
+  # Default to empty; ACL builder release template does not set IMG_SKU
+  IMG_SKU="${IMG_SKU:-}"
 
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
