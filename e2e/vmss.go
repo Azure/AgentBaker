@@ -219,9 +219,6 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	})
 	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", finalVMSize)
 	if nvmeOnly {
-		if s.Config.VHD.UnsupportedNVMe {
-			s.T.Skipf("VM size %q only supports NVMe disk controller but image does not support NVMe, skipping test", finalVMSize)
-		}
 		s.T.Logf("VM size %q supports only NVMe, setting disk controller type to NVMe", finalVMSize)
 		model.Properties.VirtualMachineProfile.StorageProfile.DiskControllerType = to.Ptr(string(armcompute.DiskControllerTypesNVMe))
 	}
