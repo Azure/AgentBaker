@@ -486,8 +486,36 @@ func addFirewallRules(
 	return nil
 }
 
-func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, privateACRName, location string) error {
-	toolkit.Logf(ctx, "Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
+func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, resourceGroupName string, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {
+	if cluster == nil || kube == nil || kubeletIdentity == nil {
+		return errors.New("cluster, kubeclient, and kubeletIdentity cannot be nil when adding Private Azure Container Registry")
+	}
+	if err := createPrivateAzureContainerRegistry(ctx, cluster, resourceGroupName, isNonAnonymousPull); err != nil {
+		return fmt.Errorf("failed to create private acr: %w", err)
+	}
+
+	if err := createPrivateAzureContainerRegistryPullSecret(ctx, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
+		return fmt.Errorf("create private acr pull secret: %w", err)
+	}
+	vnet, err := getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+	if err != nil {
+		return err
+	}
+
+	err = addPrivateEndpointForACR(ctx, *cluster.Properties.NodeResourceGroup, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), vnet, *cluster.Location)
+	if err != nil {
+		return err
+	}
+
+	if err := assignACRPullToIdentity(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), *kubeletIdentity.ObjectID, *cluster.Location); err != nil {
+		return fmt.Errorf("assigning acr pull permissions to kubelet identity: %w", err)
+	}
+
+	return nil
+}
+
+func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, location string) error {
+	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
@@ -495,12 +523,12 @@ func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerser
 	}
 	subnetId := vnet.subnetId
 
-	nsgParams, err := airGapSecurityGroup(location, *clusterModel.Properties.Fqdn)
+	nsgParams, err := networkIsolatedSecurityGroup(location, *clusterModel.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
 
-	nsg, err := createAirgapSecurityGroup(ctx, clusterModel, nsgParams, nil)
+	nsg, err := createNetworkIsolatedSecurityGroup(ctx, clusterModel, nsgParams, nil)
 	if err != nil {
 		return err
 	}
@@ -518,19 +546,14 @@ func addAirgapNetworkSettings(ctx context.Context, clusterModel *armcontainerser
 		return err
 	}
 
-	err = addPrivateEndpointForACR(ctx, *clusterModel.Properties.NodeResourceGroup, privateACRName, vnet, location)
-	if err != nil {
-		return err
-	}
-
-	toolkit.Logf(ctx, "updated cluster %s subnet with airgap settings", *clusterModel.Name)
+	toolkit.Logf(ctx, "updated cluster %s subnet with network isolated cluster settings", *clusterModel.Name)
 	return nil
 }
 
-func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup, error) {
+func networkIsolatedSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup, error) {
 	requiredRules, err := getRequiredSecurityRules(clusterFQDN)
 	if err != nil {
-		return armnetwork.SecurityGroup{}, fmt.Errorf("failed to get required security rules for airgap resource group: %w", err)
+		return armnetwork.SecurityGroup{}, fmt.Errorf("failed to get required security rules for network isolated resource group: %w", err)
 	}
 
 	allowVnet := &armnetwork.SecurityRule{
@@ -565,7 +588,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 
 	return armnetwork.SecurityGroup{
 		Location:   &location,
-		Name:       &config.Config.AirgapNSGName,
+		Name:       &config.Config.NetworkIsolatedNSGName,
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{SecurityRules: rules},
 	}, nil
 }
@@ -574,7 +597,7 @@ func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACR
 	toolkit.Logf(ctx, "Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
 	var err error
 	var privateEndpoint *armnetwork.PrivateEndpoint
-	privateEndpointName := "PE-for-ABE2ETests"
+	privateEndpointName := fmt.Sprintf("PE-for-%s", privateACRName)
 	if privateEndpoint, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
 		return err
 	}
@@ -733,7 +756,7 @@ func deletePrivateAzureContainerRegistry(ctx context.Context, resourceGroup, pri
 	return nil
 }
 
-// if the ACR needs to be recreated so does the airgap k8s cluster
+// if the ACR needs to be recreated so does the network isolated k8s cluster
 func shouldRecreateACR(ctx context.Context, resourceGroup, privateACRName string) (error, bool) {
 	toolkit.Logf(ctx, "Checking if private Azure Container Registry cache rules are correct in rg %s", resourceGroup)
 
@@ -1025,8 +1048,8 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 	}
 }
 
-func createAirgapSecurityGroup(ctx context.Context, cluster *armcontainerservice.ManagedCluster, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
-	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, config.Config.AirgapNSGName, nsgParams, options)
+func createNetworkIsolatedSecurityGroup(ctx context.Context, cluster *armcontainerservice.ManagedCluster, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
+	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, config.Config.NetworkIsolatedNSGName, nsgParams, options)
 	if err != nil {
 		return nil, err
 	}
