@@ -278,6 +278,14 @@ copyPackerFiles() {
   CLOUD_INIT_STATUS_CHECK_DEST=/opt/azure/containers/cloud-init-status-check.sh
   cpAndMode $CLOUD_INIT_STATUS_CHECK_SRC $CLOUD_INIT_STATUS_CHECK_DEST 0744
 
+  AKS_PCAP_SERVICE_SRC=/home/packer/aks-pcap.service
+  AKS_PCAP_SERVICE_DEST=/etc/systemd/system/aks-pcap.service
+  cpAndMode $AKS_PCAP_SERVICE_SRC $AKS_PCAP_SERVICE_DEST 0644
+
+  AKS_PCAP_SCRIPT_SRC=/home/packer/aks-pcap.sh
+  AKS_PCAP_SCRIPT_DEST=/opt/azure/containers/aks-pcap.sh
+  cpAndMode $AKS_PCAP_SCRIPT_SRC $AKS_PCAP_SCRIPT_DEST 0744
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 

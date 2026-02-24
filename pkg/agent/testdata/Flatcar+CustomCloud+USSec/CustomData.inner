@@ -244,15 +244,6 @@
       {
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/3SRP087MQxA93wKq8NvS+/aH2sqFeiAWCoOxFB1SHPmLmoujmKnf1A/PGoBMVCGDJHfe4O9eole1uoe2WWfxFM088cGlnfzpXq1UdhElD3lraYYfMSx2NyhqPmbYP5jplYN5p13uFbPx4SGInJPop5wsD5ezMXBizkiq6Y4h8znfyNWCpvJ9EYtDugasVmWGU218bHaWO5BHxyMuLQEw7b1GXSCamdzFair7HvJWNktj37sq6r4AakI/K9rEJfaMiTQHlD6GjRDDXp/pXp+OlKL4+RsgtMJLrGKknxBjqJYHzF/soE67SgEdEJ5zD3MrkQdo/4NB+pgOvs3GSm1eogsNoT15RjY3h7NUIJ4XRjz974/AgAA//+GGNpbxAEAAA=="
-        },
-        "mode": 420,
-        "overwrite": true,
-        "path": "/etc/systemd/system/aks-pcap.service"
-      },
-      {
-        "contents": {
-          "compression": "gzip",
           "source": "data:;base64,H4sIAAAAAAAC/+xXe2/TPhT935/izL9K+yHV3YOHoGhCXVtQxPpQWoTQNFVpc9OapU5xXLGx9bsjJ+s73SgMCSryT6L4+vjec8+9tv/bO+hKddD14gEbaTn09HVd9pzmCc/dNF2nVnI/depOueM0i4LzCWdSxaSNOw6pHdU81Q+p7XVDsvZOvVV12x2nVml13Gqr7TrlttOod9wPZ9VOu9Gplerv7Ffp9KxaFIEXxjThjJSdbye5FBste0ZGysJV69ZwDW4+k1FvEIE3U7dRd8pwmkXkFuPgd0ZO4jYsGPR8HehxSDARhkkoMNaXInIbopyiVROf19CKyGVGwxmTAc4hvoEve4eL1zADUgwAUuzFccgYYxWTyYOupJGqXygUeGp8JQ2OWCAZIxWP9eqa1vf/n+AmMbarn4PnbjbElc9POE5OwI0eE8fFoldzz04piDQhxZCq/2Ns5tEbUO/S2n8dkBmQttipqRdq8vxrG0xs4llsicujZHYMYaZwooVb9DWNIAT2hY+jF68Kx8+fFe7eB0+PIUYwvRHEMH0JfxRpg5eH9k8vGg5JGQgx/eKl9y2L7vXJL8LzffLRvUapT8qcepekkcktgkivBx+QZ8aaOMRnVNxGc38ei00+z73hEPQFh1ild05xNqPLNEGqFYI1mbFWi+qYPukIDmc/A7mSVGe7bD6YIwdvG+7HklvBEfYg4jXF//F5w+3ttLoSmsKYfroQAhkaK/hHKoQ7uH+FMCuEZYJ/cyEsLvZgjnauEALJJoz5Ms7Y4WY7TcpleVXo2ZRm97MZs7uyBSyoXlGG6u9TvB9RDBWZlKv11q8iKCLfqtOnkAzxTU2rYoc3yzvQ0XC7Tl+ZCTyR95K6/0Zx/4p+MzvDrnTuh/S7pYCXW/bjCnirDr1rAp6k14zkoJ95D7nvmL/xEsFmqchu/SyQ3wMAAP//w/c/J0UOAAA="
         },
         "mode": 493,

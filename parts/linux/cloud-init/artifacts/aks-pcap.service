@@ -1,0 +1,13 @@
+[Unit]
+Description=AKS PCAP
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+SuccessExitStatus=124
+ExecStart=/bin/bash /opt/azure/containers/aks-pcap.sh
+
+[Install]
+WantedBy=multi-user.target
