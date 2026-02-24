@@ -207,7 +207,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.9-0"
+          "latestVersion": "v1.7.12-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -235,7 +235,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.9-0",
+          "latestVersion": "v1.7.12-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -335,8 +335,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.17.7-250927",
-          "previousLatestVersion": "v1.17.7-250821"
+          "latestVersion": "v1.17.9-251110",
+          "previousLatestVersion": "v1.17.7-250927"
         }
       ],
       "windowsVersions": []
@@ -347,7 +347,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.18.2-251028",
+          "latestVersion": "v1.18.6-260130",
           "previousLatestVersion": "v1.18.2-251028"
         }
       ],
@@ -359,7 +359,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.18.2-251028",
+          "latestVersion": "v1.18.6-260130",
           "previousLatestVersion": "v1.18.2-251028"
         }
       ],
