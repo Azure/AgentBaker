@@ -63,9 +63,9 @@ function basePrep {
 
     UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
-        sudo apt-get -y autoremove chrony
+        apt-get -y autoremove chrony
         echo $?
-        sudo systemctl restart systemd-timesyncd
+        systemctl restart systemd-timesyncd
     fi
 
     # Eval proxy vars to ensure curl commands use proxy if configured.
@@ -295,12 +295,9 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-    logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
-
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
@@ -418,6 +415,11 @@ function nodePrep {
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
+    fi
+
+    # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
+    if isAmdAmaEnabledNode; then
+        logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
     VALIDATION_ERR=0

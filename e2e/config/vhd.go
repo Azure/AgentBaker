@@ -84,7 +84,7 @@ var (
 		Name:                "2204gen2fipsTLcontainerd",
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuFipsTLContainerd2204Gen2,
+		Distro:              datamodel.AKSUbuntuFipsContainerd2204TLGen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
@@ -156,7 +156,7 @@ var (
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
-	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
+	VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached = &Image{
 		Name:                "2204Gen2",
 		OS:                  OSUbuntu,
 		Arch:                "amd64",
@@ -198,21 +198,23 @@ var (
 	}
 
 	VHDFlatcarGen2 = &Image{
-		Name:    "flatcargen2",
-		OS:      OSFlatcar,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSFlatcarGen2,
-		Gallery: imageGalleryLinux,
-		Flatcar: true,
+		Name:         "flatcargen2",
+		OS:           OSFlatcar,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSFlatcarGen2,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
 	}
 
 	VHDFlatcarGen2Arm64 = &Image{
-		Name:    "flatcargen2arm64",
-		OS:      OSFlatcar,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSFlatcarArm64Gen2,
-		Gallery: imageGalleryLinux,
-		Flatcar: true,
+		Name:         "flatcargen2arm64",
+		OS:           OSFlatcar,
+		Arch:         "arm64",
+		Distro:       datamodel.AKSFlatcarArm64Gen2,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -297,6 +299,8 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
+	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
+	OSDiskSizeGB int32
 }
 
 func (i *Image) String() string {

@@ -8,7 +8,8 @@ STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME:-""}
 SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME:-""}
 AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING:-""}
 ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH:-""}
-CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME:-"cis-report.txt"}
+CIS_REPORT_L1_TXT_NAME=${CIS_REPORT_L1_TXT_NAME:-"cis-report-l1.txt"}
+CIS_REPORT_L2_TXT_NAME=${CIS_REPORT_L2_TXT_NAME:-"cis-report-l2.txt"}
 CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME:-"cis-report.html"}
 OS_SKU=${OS_SKU:-""}
 TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME:-"azureuser"}
@@ -59,12 +60,36 @@ systemctl disable --now gcd.service || true
 find /var/log -type f -exec chmod 640 {} \;
 
 tar xzf "$CISASSESSOR_TARBALL_PATH"
-cisassessor/launch-cis.sh
-TXT_REPORT=$(find cisassessor/lib/app/reports -name "*.txt" | head -n1)
-HTML_REPORT=$(find cisassessor/lib/app/reports -name "*.html" | head -n1)
+
+# Run L1 and L2 and upload both text reports. L2 HTML is used to assist in fixing issues.
+REPORT_DIR="cisassessor/lib/app/reports"
+latest_report() {
+    local pattern="$1"
+    find "$REPORT_DIR" -name "$pattern" -printf '%T@ %p\n' | sort -n | tail -n1 | cut -d' ' -f2-
+}
+
+LEVEL=1 cisassessor/launch-cis.sh
+L1_TXT_REPORT=$(latest_report "*.txt")
+if [ -z "$L1_TXT_REPORT" ] || [ ! -f "$L1_TXT_REPORT" ]; then
+    echo "No CIS L1 text report found in ${REPORT_DIR}"
+    exit 1
+fi
+
+LEVEL=2 cisassessor/launch-cis.sh
+L2_TXT_REPORT=$(latest_report "*.txt")
+if [ -z "$L2_TXT_REPORT" ] || [ ! -f "$L2_TXT_REPORT" ]; then
+    echo "No CIS L2 text report found in ${REPORT_DIR}"
+    exit 1
+fi
+L2_HTML_REPORT=$(latest_report "*.html")
+if [ -z "$L2_HTML_REPORT" ] || [ ! -f "$L2_HTML_REPORT" ]; then
+    echo "No CIS L2 HTML report found in ${REPORT_DIR}"
+    exit 1
+fi
 
 # Upload reports to storage account
-az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$TXT_REPORT" --name "${CIS_REPORT_TXT_NAME}" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
-az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$HTML_REPORT" --name "${CIS_REPORT_HTML_NAME}" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
+az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$L1_TXT_REPORT" --name "$CIS_REPORT_L1_TXT_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
+az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$L2_TXT_REPORT" --name "$CIS_REPORT_L2_TXT_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
+az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$L2_HTML_REPORT" --name "$CIS_REPORT_HTML_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
 
 popd || exit 1

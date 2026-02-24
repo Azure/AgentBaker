@@ -1,12 +1,12 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+FLATCAR_OS_NAME="FLATCAR"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -224,13 +224,18 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "azure-acr-credential-provider-pmc"|\
       "kubelet"|\
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "cni-plugins")
+        testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
       "containernetworking-plugins")
@@ -916,9 +921,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  downloadLocation="/opt/${packageName}/downloads"
+  local seArch seFile
+  seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
@@ -932,6 +938,11 @@ testPkgDownloaded() {
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ]; then
+      seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
+      if [ -z "${seFile}" ]; then
+        err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
       fi
     fi
 
@@ -1723,12 +1734,12 @@ testInspektorGadgetAssets() {
 
   if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
     echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
-    
+
     # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi
-    
+
     if [ -f "$import_script" ]; then
       err $test "Import script should not exist for $OS_SKU but found at $import_script"
     fi
@@ -1736,11 +1747,11 @@ testInspektorGadgetAssets() {
     if [ -f "$remove_script" ]; then
       err $test "Remove script should not exist for $OS_SKU but found at $remove_script"
     fi
-    
+
     if [ -f "$unit_file" ]; then
       err $test "Unit file should not exist for $OS_SKU but found at $unit_file"
     fi
-    
+
     echo "$test:Finish"
     return 0
   fi
@@ -1808,6 +1819,40 @@ testDiskQueueServiceIsActive() {
 
   echo "$test:Finish"
 }
+
+testCNIPluginsInstalled() {
+  local test="testCNIPluginsInstalled"
+  echo "$test: Start"
+
+  local downloadLocation=$1
+  local packageVersion=$2
+  local cni_extracted_dir="${downloadLocation}/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"
+
+  # Check that the extracted directory exists
+  echo "$test: Checking for existence of extracted CNI plugins directory: $cni_extracted_dir"
+  if [ ! -d "$cni_extracted_dir" ]; then
+    err "$test: CNI plugins directory $cni_extracted_dir not found"
+    return 1
+  fi
+  echo "$test: CNI plugins directory $cni_extracted_dir found"
+
+  # Verify that the directory contains the expected CNI plugin binaries
+  local required_plugins=("bridge" "host-local" "loopback")
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_extracted_dir/$plugin"
+    echo "$test: Checking for CNI plugin binary $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin binary $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin binary $plugin found"
+  done
+
+  echo "$test: All required CNI plugin binaries are present in cached directory."
+  echo "$test: Finish"
+  return 0
+}
+
 
 testContainerNetworkingPluginsInstalled() {
   local test="testContainerNetworkingPluginsInstalled"

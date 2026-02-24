@@ -520,27 +520,50 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	}
 }
 
+func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, error) {
+	s.T.Helper()
+	var steps []string
+
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("Get-Content %s", fileName),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("sudo cat %s", fileName),
+		}
+	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if execResult.exitCode != "0" {
+		return "", fmt.Errorf("failed to get file content for %s: exit code %s\nStdout: %s\nStderr: %s", fileName, execResult.exitCode, execResult.stdout, execResult.stderr)
+	}
+
+	return execResult.stdout, nil
+}
+
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
 	s.T.Helper()
 	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	var steps []string
 	if s.IsWindows() {
-		steps := []string{
+		steps = []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("Get-Content %s", fileName),
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
 			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	} else {
-		steps := []string{
+		steps = []string{
 			"set -ex",
-			fmt.Sprintf("sudo cat %s", fileName),
 			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	return execResult.exitCode == "0"
+
 }
 
 func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
@@ -578,7 +601,12 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if !fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to have contents %q, but it does not", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
@@ -588,7 +616,12 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
@@ -1428,12 +1461,11 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
-	resourceName := "nvidia.com/gpu"
 
-	// First, wait for the nvidia.com/gpu resource to be available
+	// First, wait for the GPU resource to be available
 	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework
@@ -1783,6 +1815,14 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
 
+// ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
+func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc != nil && nbc.EnableScriptlessCSECmd {
+		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
+	}
+}
+
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
@@ -1838,7 +1878,8 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		"IO/FS": {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
 			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
-			exclude: `sr[0-9]`,
+			// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
+			exclude: `sr[0-9]|Shutdown timeout set to`,
 		},
 	}
 

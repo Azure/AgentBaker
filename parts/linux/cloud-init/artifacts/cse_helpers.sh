@@ -52,6 +52,8 @@ ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started 
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_AMDAMA_DRIVER_NOT_FOUND=95 # AMD AMA driver package not found for current kernel version
+ERR_AMDAMA_INSTALL_FAIL=96 # Unable to install AMD AMA package
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
 ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
 ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
@@ -150,6 +152,7 @@ ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Expor
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -565,32 +568,6 @@ semverCompare() {
     return 1
 }
 
-
-
-apt_get_download() {
-  retries=$1; wait_sleep=$2; shift && shift;
-  local ret=0
-  pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 "$retries"); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-
-    # Pull the first quoted URL from --print-uris
-    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
-           | awk -F"'" 'NR==1 && $2 {print $2}')"
-    if [ -n "$url" ]; then
-      # This avoids issues with the naming in the package. `apt-get download`
-      # encodes the package names with special characters and does not decode
-      # them when saving to disk, but `curl -J` handles the names correctly.
-      if curl -fLJO -- "$url"; then ret=0; break; fi
-    fi
-
-    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
-  done
-  popd || return 1
-  return "$ret"
-}
-
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -599,6 +576,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local seArch=$(getCPUArch)
+    case ${seArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${seArch}" ;;
+    esac
 }
 
 isARM64() {
@@ -734,6 +719,13 @@ get_imds_vm_tag_value() {
     echo "${tag_value,,}"
 }
 
+isAmdAmaEnabledNode() {
+    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+        return 0
+    fi
+    return 1
+}
+
 should_skip_nvidia_drivers() {
     set -x
     # Case-insensitive match for both tag name and value
@@ -843,7 +835,7 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
@@ -1237,10 +1229,10 @@ extract_tarball() {
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
-            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
         *)
-            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
 }
