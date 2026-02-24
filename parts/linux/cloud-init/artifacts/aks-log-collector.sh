@@ -41,6 +41,7 @@ COLLECT_NETNS=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .netns? // fals
 ZIP="aks_logs.zip"
 
 # Log bundle upload max size is limited to 100MB
+ENFORCE_MAX_ZIP_SIZE="${ENFORCE_MAX_ZIP_SIZE:-true}"
 MAX_SIZE=104857600
 
 # File globs to include
@@ -146,7 +147,7 @@ collectToZip collect/ip_rule.json ip -d -j rule show
 echo "Adding log files to zip archive..."
 for file in ${GLOBS[*]}; do
   if test -e "$file"; then
-    if [ "${ENFORCE_MAX_ZIP_SIZE:-true}" = "true" ]; then
+    if [ "${ENFORCE_MAX_ZIP_SIZE}" = "true" ]; then
       # If the archive is already at or over the max size, stop adding files.
       FILE_SIZE=$(stat --printf "%s" "${ZIP}" 2>/dev/null || echo 0)
       if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
@@ -157,7 +158,7 @@ for file in ${GLOBS[*]}; do
 
     zip -g -DZ deflate -u "${ZIP}" "$file" -x '*.sock'
 
-    if [ "${ENFORCE_MAX_ZIP_SIZE:-true}" = "true" ]; then
+    if [ "${ENFORCE_MAX_ZIP_SIZE}" = "true" ]; then
       # The API for the log bundle has a max file size (defined above, usually 100MB), so if
       # adding this last file made the zip go over that size, remove that file and try the next one.
       # Using continue instead of break ensures smaller subsequent files can still be included.
