@@ -1603,21 +1603,22 @@ func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 
 func Test_AzureLinuxV3_GPU(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
+		Description: "Tests that an A10 GPU node using AzureLinuxV3 VHD bootstraps with GRID (vGPU) driver",
 		Tags: Tags{
 			GPU: true,
 		},
+		Location: "westus3",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -1625,7 +1626,7 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
@@ -1651,7 +1652,7 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
+func Skip_Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{

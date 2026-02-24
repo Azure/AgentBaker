@@ -125,15 +125,14 @@ downloadGridDrivers() {
     # both CUDA and GRID workloads — installing vanilla CUDA drivers will fail.
     #
     # TODO(mitchzhu): GRID driver RPM is not yet available on PMC (packages.microsoft.com).
-    # Once published, replace the wget + rpm install below with:
+    # Once published, replace with:
     #   GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
     #       grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
     #   dnf_install 30 1 600 ${GRID_PACKAGE}
     local grid_rpm="nvidia-vgpu-guest-driver-570.195.03-1_${KERNEL_VERSION}.x86_64.rpm"
     local grid_url="https://github.com/miz060/AgentBaker/releases/download/grid-driver-v570.195.03/nvidia-vgpu-guest-driver-570.195.03-1_6.6.121.1.1.azl3.x86_64.rpm"
     echo "Installing GRID driver: ${grid_rpm}"
-    retrycmd_if_failure 5 10 600 wget -O "/tmp/${grid_rpm}" "${grid_url}" || exit $ERR_GPU_DOWNLOAD_TIMEOUT
-    rpm -ivh "/tmp/${grid_rpm}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    dnf_install 5 10 600 "${grid_url}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 }
 
 downloadGPUDrivers() {

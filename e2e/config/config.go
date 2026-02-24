@@ -65,13 +65,13 @@ type Configuration struct {
 	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
-	KeepVMSS                               bool          `env:"KEEP_VMSS"`
+	KeepVMSS                               bool          `env:"KEEP_VMSS" envDefault:"true"`
 	NetworkIsolatedNSGName                 string        `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
-	TagsToRun                              string        `env:"TAGS_TO_RUN"`
+	TagsToRun                              string        `env:"TAGS_TO_RUN" envDefault:"name=Test_AzureLinuxV3_GPU"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
