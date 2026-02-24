@@ -31,7 +31,6 @@
 
 
 #WindowsBaseVersions: {
-  "2019-containerd": #WindowsBaseVersion
   "2022-containerd": #WindowsBaseVersion
   "2022-containerd-gen2": #WindowsBaseVersion
   "23H2": #WindowsBaseVersion
@@ -51,5 +50,5 @@
   WindowsRegistryKeys: #WindowsRegistryKeys
   WindowsBaseVersions: #WindowsBaseVersions
 }
-  
+
 #WindowsSettings
