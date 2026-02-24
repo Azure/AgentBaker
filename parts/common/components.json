@@ -1754,7 +1754,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.45.0-ubuntu24.04u6"
+                "latestVersion": "0.49.1-ubuntu24.04u1"
               }
             ]
           },
@@ -1762,7 +1762,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.45.0-ubuntu22.04u6"
+                "latestVersion": "0.49.1-ubuntu22.04u1"
               }
             ]
           },
@@ -1770,7 +1770,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.45.0-ubuntu20.04u6"
+                "latestVersion": "0.49.1-ubuntu20.04u1"
               }
             ]
           }
@@ -1780,7 +1780,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.45.0-1.azl3"
+                "latestVersion": "0.49.1-1.azl3"
               }
             ]
           }
