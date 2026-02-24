@@ -24,7 +24,7 @@
     "2022-containerd-gen2": {
       "os_disk_size": "35",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
-      "windows_image_name": "windows-2022-containerd-gen2",
+      "windows_image_name": "windows-2022-containerd",
       "base_image_version": "20348.4773.260206",
       "patches_to_apply": []
     },
