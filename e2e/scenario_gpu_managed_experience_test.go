@@ -276,7 +276,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 1)
@@ -351,7 +351,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 1)
@@ -425,7 +425,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 1)
@@ -501,7 +501,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb")
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 3)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 3)
@@ -572,7 +572,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 1)

@@ -975,6 +975,71 @@ ensureGPUDrivers() {
     fi
 }
 
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+dnf_install_amd_ama_core() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        # RPM_FRONTEND env variable needed to disable license agreement prompt
+        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+            dnf_makecache
+        fi
+    done
+    echo Executed dnf install AMD AMA core package $i times;
+}
+
+# Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install driver - currently version 1.3.0 is supported
+        if ! dnf_install 30 1 600 azurelinux-repos-amd; then
+          echo "Unable to install Azure Linux AMD package repo, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
+          echo "Unable to install AMD AMA driver package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install core package
+        if ! dnf_install 30 1 600 azurelinux-repos-extended libzip; then
+          echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        if ! dnf_install_amd_ama_core 30 1 600; then
+          echo "Unable to install AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install AKS device plugin
+        if ! dnf_install 30 1 600 amdama-device-plugin.x86_64; then
+          echo "Unable to install AMD AMA AKS device plugin package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        # Configure huge pages
+        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
+        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        if [ "$(systemctl is-active kubelet)" = "active" ]; then
+            systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
