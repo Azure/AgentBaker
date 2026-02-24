@@ -380,6 +380,17 @@
     },
     {
       "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget"
+    },
+    {
+      "matchPackageNames": [
         "nvidia-device-plugin"
       ],
       "groupName": "nvidia-device-plugin",

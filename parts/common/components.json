@@ -1749,13 +1749,38 @@
       "name": "inspektor-gadget",
       "downloadLocation": "/opt/azure/ig",
       "downloadURIs": {
-        "default": {
-          "current": {
+        "ubuntu": {
+          "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.45.0",
-                "revision": "1"
+                "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.45.0-ubuntu24.04u6"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "0.45.0-ubuntu22.04u6"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "0.45.0-ubuntu20.04u6"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
+                "latestVersion": "0.45.0-1.azl3"
               }
             ]
           }
