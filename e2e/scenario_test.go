@@ -1410,6 +1410,60 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_MA35D(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
+				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			},
+		},
+		// No MA35D GPU capacity in West US, so using East US
+		Location: "eastus",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+	})
+}
+
+func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			},
+		},
+		// No MA35D GPU capacity in West US, so using East US
+		Location: "eastus",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+	})
+}
+
 func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
