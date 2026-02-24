@@ -11,8 +11,8 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # are managed separately here rather than derived from the ig version.
 # NOTE: ig-gadgets deb is only published to the 20.04 repo on PMC, even though
 # the project only builds 22.04 and 24.04 VHDs. The 20.04 deb is compatible.
-IG_GADGETS_DEB_VERSION="0.45.0-ubuntu20.04u1"
-IG_GADGETS_RPM_VERSION="0.45.0-1.azl3"
+IG_GADGETS_DEB_VERSION="0.49.1-ubuntu20.04u1"
+IG_GADGETS_RPM_VERSION="0.49.1-1.azl3"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)

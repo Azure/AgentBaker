@@ -385,6 +385,17 @@
       "matchUpdateTypes": [
         "patch"
       ],
+      "automerge": true,
+      "enabled": true,
+      "groupName": "inspektor-gadget"
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
       "automerge": false,
       "enabled": true,
       "groupName": "inspektor-gadget"
