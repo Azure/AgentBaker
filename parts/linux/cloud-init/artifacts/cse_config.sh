@@ -531,6 +531,8 @@ Environment="BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}"
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
 EOF
+    # start the PCAP service
+    systemctlEnableAndStartNoBlock aks-pcap 30 || exit $ERR_AKS_PCAP_START_FAILURE
 
     # explicitly start secure TLS bootstrapping ahead of kubelet
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE

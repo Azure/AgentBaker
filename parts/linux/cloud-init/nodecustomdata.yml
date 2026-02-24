@@ -296,6 +296,25 @@ write_files:
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 
+- path: /etc/systemd/system/aks-pcap.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=AKS PCAP
+    Wants=network-online.target
+    After=network-online.target
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    SuccessExitStatus=124
+    ExecStartPre=/bin/bash -xc "sudo mkdir -p /var/log/azure/aks"
+    ExecStart=/bin/bash -xc "sudo timeout 300 tcpdump -i eth0 -s 0 -w /var/log/azure/aks/aks-node.pcap || sudo /opt/azure/containers/aks-log-collector.sh >/var/log/azure/aks/cse-aks-log-collector.log 2>&1"
+
+    [Install]
+    WantedBy=multi-user.target
+
 - path: /opt/azure/containers/ensure_imds_restriction.sh
   permissions: "0755"
   encoding: gzip

@@ -58,78 +58,10 @@ for NAMESPACE in $(<<<"$CONFIG" jq -esRr 'try fromjson catch ("" | halt_error) |
 done
 
 # AKS specific entries
-GLOBS+=(/etc/cni/net.d/*)
-GLOBS+=(/etc/containerd/*)
 GLOBS+=(/etc/default/kubelet)
-GLOBS+=(/etc/kubernetes/manifests/*)
-GLOBS+=(/var/log/azure-cni*)
-GLOBS+=(/var/log/azure-cns*)
-GLOBS+=(/var/log/azure-ipam*)
-GLOBS+=(/var/log/azure-vnet*)
-GLOBS+=(/var/log/cilium-cni*)
-GLOBS+=(/var/run/azure-vnet*)
-GLOBS+=(/var/run/azure-cns*)
-
-# GPU specific entries
-GLOBS+=(/var/log/nvidia*.log)
-GLOBS+=(/var/log/azure/nvidia*.log)
-GLOBS+=(/var/log/fabricmanager*.log)
-
-# based on MANIFEST_FULL from Azure Linux Agent's log collector
-# https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
-GLOBS+=(/var/lib/waagent/provisioned)
-GLOBS+=(/etc/fstab)
-GLOBS+=(/etc/ssh/sshd_config)
-GLOBS+=(/boot/grub*/grub.c*)
-GLOBS+=(/boot/grub*/menu.lst)
-GLOBS+=(/etc/*-release)
-GLOBS+=(/etc/HOSTNAME)
-GLOBS+=(/etc/hostname)
-GLOBS+=(/etc/apt/sources.list)
-GLOBS+=(/etc/apt/sources.list.d/*)
-GLOBS+=(/etc/network/interfaces)
-GLOBS+=(/etc/network/interfaces.d/*.cfg)
-GLOBS+=(/etc/netplan/*.yaml)
-GLOBS+=(/etc/nsswitch.conf)
-GLOBS+=(/etc/resolv.conf)
-GLOBS+=(/run/systemd/resolve/stub-resolv.conf)
-GLOBS+=(/run/resolvconf/resolv.conf)
-GLOBS+=(/etc/sysconfig/iptables)
-GLOBS+=(/etc/sysconfig/network)
-GLOBS+=(/etc/sysconfig/network/ifcfg-eth*)
-GLOBS+=(/etc/sysconfig/network/routes)
-GLOBS+=(/etc/sysconfig/network-scripts/ifcfg-eth*)
-GLOBS+=(/etc/sysconfig/network-scripts/route-eth*)
-GLOBS+=(/etc/ufw/ufw.conf)
-GLOBS+=(/etc/waagent.conf)
-GLOBS+=(/var/lib/hyperv/.kvp_pool_*)
-GLOBS+=(/var/lib/dhcp/dhclient.eth0.leases)
-GLOBS+=(/var/lib/dhclient/dhclient-eth0.leases)
-GLOBS+=(/var/lib/wicked/lease-eth0-dhcp-ipv4.xml)
-GLOBS+=(/var/log/azure/custom-script/handler.log)
-GLOBS+=(/var/log/azure/run-command/handler.log)
-GLOBS+=(/var/lib/waagent/ovf-env.xml)
-GLOBS+=(/var/lib/waagent/*/status/*.status)
-GLOBS+=(/var/lib/waagent/*/config/*.settings)
-GLOBS+=(/var/lib/waagent/*/config/HandlerState)
-GLOBS+=(/var/lib/waagent/*/config/HandlerStatus)
-GLOBS+=(/var/lib/waagent/SharedConfig.xml)
-GLOBS+=(/var/lib/waagent/ManagedIdentity-*.json)
-GLOBS+=(/var/lib/waagent/waagent_status.json)
-GLOBS+=(/var/lib/waagent/*/error.json)
-GLOBS+=(/var/log/cloud-init*)
 GLOBS+=(/var/log/azure/*/*)
 GLOBS+=(/var/log/azure/*/*/*)
 GLOBS+=(/var/log/syslog*)
-GLOBS+=(/var/log/rsyslog*)
-GLOBS+=(/var/log/messages*)
-GLOBS+=(/var/log/kern*)
-GLOBS+=(/var/log/dmesg*)
-GLOBS+=(/var/log/dpkg*)
-GLOBS+=(/var/log/yum*)
-GLOBS+=(/var/log/boot*)
-GLOBS+=(/var/log/auth*)
-GLOBS+=(/var/log/secure*)
 GLOBS+=(/var/log/journal*)
 
 ### END CONFIGURATION
@@ -189,40 +121,8 @@ mkdir collect
 # Collect general information and create the ZIP in the first place
 zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|meminfo|modules|mounts|slabinfo|stat|uptime|version*|vmstat) /proc/net/*
 
-# Include some disk listings
-collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
-
 # Collect system information
-collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
-collectToZip collect/du_bytes.txt df -al
-collectToZip collect/du_inodes.txt df -ail
-collectToZip collect/diskinfo.txt lsblk
-collectToZip collect/lscpu.txt lscpu
-collectToZip collect/lscpu.json lscpu -J
-collectToZip collect/lshw.txt lshw
-collectToZip collect/lshw.json lshw -json
-collectToZip collect/lsipc.txt lsipc
-collectToZip collect/lsns.json lsns -J --output-all
-collectToZip collect/lspci.txt lspci -vkPP
-collectToZip collect/lsscsi.txt lsscsi -vv
-collectToZip collect/lsvmbus.txt lsvmbus -vv
-collectToZip collect/sysctl.txt sysctl -a
 collectToZip collect/systemctl-status.txt systemctl status --all -fr
-
-# Collect logs of the Nvidia services if present
-collectToZip collect/journalctl_nvidia-dcgm.txt journalctl -u nvidia-dcgm --no-pager
-collectToZip collect/journalctl_nvidia-dcgm-exporter.txt journalctl -u nvidia-dcgm-exporter --no-pager
-collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-device-plugin --no-pager
-
-# Collect container runtime information
-collectToZip collect/crictl_version.txt crictl version
-collectToZip collect/crictl_info.json crictl info -o json
-collectToZip collect/crictl_images.json crictl images -o json
-collectToZip collect/crictl_imagefsinfo.json crictl imagefsinfo -o json
-collectToZip collect/crictl_pods.json crictl pods -o json
-collectToZip collect/crictl_ps.json crictl ps -o json
-collectToZip collect/crictl_stats.json crictl stats -o json
-collectToZip collect/crictl_statsp.json crictl statsp -o json
 
 # Collect network information
 collectToZip collect/conntrack.txt conntrack -L
@@ -240,63 +140,32 @@ collectToZip collect/ip_netconf.json ip -d -j netconf show
 collectToZip collect/ip_netns.json ip -d -j netns show
 collectToZip collect/ip_rule.json ip -d -j rule show
 
-if [ "${COLLECT_IPTABLES}" = "true" ]; then
-  collectToZip collect/iptables.txt iptables -L -vn --line-numbers
-  collectToZip collect/ip6tables.txt ip6tables -L -vn --line-numbers
-fi
-
-if [ "${COLLECT_NFTABLES}" = "true" ]; then
-  collectToZip collect/nftables.txt nft -n list ruleset 2>&1
-fi
-
-collectToZip collect/ss.txt ss -anoempiO --cgroup
-collectToZip collect/ss_stats.txt ss -s
-
-# Collect network information from network namespaces
-if [ "${COLLECT_NETNS}" = "true" ]; then
-  for NETNS in $(ip -j netns list | jq -r '.[].name'); do
-    mkdir -p "collect/ip_netns_${NETNS}/"
-    collectToZip collect/ip_netns_${NETNS}/conntrack.txt ip netns exec "${NETNS}" conntrack -L
-    collectToZip collect/ip_netns_${NETNS}/conntrack_stats.txt ip netns exec "${NETNS}" conntrack -S
-    collectToZip collect/ip_netns_${NETNS}/ip_4_addr.json ip -n "${NETNS}" -4 -d -j addr show
-    collectToZip collect/ip_netns_${NETNS}/ip_4_neighbor.json ip -n "${NETNS}" -4 -d -j neighbor show
-    collectToZip collect/ip_netns_${NETNS}/ip_4_route.json ip -n "${NETNS}" -4 -d -j route show
-    collectToZip collect/ip_netns_${NETNS}/ip_4_tcpmetrics.json ip -n "${NETNS}" -4 -d -j tcpmetrics show
-    collectToZip collect/ip_netns_${NETNS}/ip_6_addr.json ip -n "${NETNS}" -6 -d -j addr show table all
-    collectToZip collect/ip_netns_${NETNS}/ip_6_neighbor.json ip -n "${NETNS}" -6 -d -j neighbor show
-    collectToZip collect/ip_netns_${NETNS}/ip_6_route.json ip -n "${NETNS}" -6 -d -j route show table all
-    collectToZip collect/ip_netns_${NETNS}/ip_6_tcpmetrics.json ip -n "${NETNS}" -6 -d -j tcpmetrics show
-    collectToZip collect/ip_netns_${NETNS}/ip_link.json ip -n "${NETNS}" -d -j link show
-    collectToZip collect/ip_netns_${NETNS}/ip_netconf.json ip -n "${NETNS}" -d -j netconf show
-    collectToZip collect/ip_netns_${NETNS}/ip_netns.json ip -n "${NETNS}" -d -j netns show
-    collectToZip collect/ip_netns_${NETNS}/ip_rule.json ip -n "${NETNS}" -d -j rule show
-    if [ "${COLLECT_IPTABLES}" = "true" ]; then
-      collectToZip collect/ip_netns_${NETNS}/iptables.txt ip netns exec "${NETNS}" iptables -L -vn --line-numbers
-      collectToZip collect/ip_netns_${NETNS}/ip6tables.txt ip netns exec "${NETNS}" ip6tables -L -vn --line-numbers
-    fi
-    if [ "${COLLECT_NFTABLES}" = "true" ]; then
-      collectToZip collect/ip_netns_${NETNS}/nftables.txt nft -n list ruleset
-    fi
-    collectToZip collect/ip_netns_${NETNS}/ss.txt ip netns exec "${NETNS}" ss -anoempiO --cgroup
-    collectToZip collect/ip_netns_${NETNS}/ss_stats.txt ip netns exec "${NETNS}" ss -s
-  done
-fi
-
 # Add each file sequentially to the zip archive. This is slightly less efficient then adding them
 # all at once, but allows us to easily check when we've exceeded the maximum file size and stop
 # adding things to the archive.
 echo "Adding log files to zip archive..."
 for file in ${GLOBS[*]}; do
-  if test -e $file; then
-    zip -g -DZ deflate -u "${ZIP}" $file -x '*.sock'
+  if test -e "$file"; then
+    if [ "${ENFORCE_MAX_ZIP_SIZE:-true}" = "true" ]; then
+      # If the archive is already at or over the max size, stop adding files.
+      FILE_SIZE=$(stat --printf "%s" "${ZIP}" 2>/dev/null || echo 0)
+      if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
+        echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; not adding more files."
+        break
+      fi
+    fi
 
-    # The API for the log bundle has a max file size (defined above, usually 100MB), so if
-    # adding this last file made the zip go over that size, remove that file and stop processing.
-    FILE_SIZE=$(stat --printf "%s" ${ZIP})
-    if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
-      echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; removing last log file and terminating adding more files."
-      zip -d "${ZIP}" $file
-      break
+    zip -g -DZ deflate -u "${ZIP}" "$file" -x '*.sock'
+
+    if [ "${ENFORCE_MAX_ZIP_SIZE:-true}" = "true" ]; then
+      # The API for the log bundle has a max file size (defined above, usually 100MB), so if
+      # adding this last file made the zip go over that size, remove that file and try the next one.
+      # Using continue instead of break ensures smaller subsequent files can still be included.
+      FILE_SIZE=$(stat --printf "%s" "${ZIP}")
+      if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
+        echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE after adding $file; removing it and trying next file."
+        zip -d "${ZIP}" "$file"
+      fi
     fi
   fi
 done
