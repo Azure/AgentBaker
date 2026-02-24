@@ -38,6 +38,27 @@ IFS=$IFS_backup
 cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 /usr/bin/update-ca-trust
 
+# This section creates a cron job to poll for refreshed CA certs daily
+# It can be removed if not needed or desired
+action=${1:-init}
+if [ "$action" = "ca-refresh" ]; then
+    exit
+fi
+
+scriptPath=$0
+# Determine an absolute, canonical path to this script for use in cron.
+if command -v readlink >/dev/null 2>&1; then
+    # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
+    scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+fi
+
+if ! crontab -l 2>/dev/null | grep -q "\"$scriptPath\" ca-refresh"; then
+    # Quote the script path in the cron entry to avoid issues with spaces or special characters.
+    if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh") | crontab -; then
+        echo "Failed to install ca-refresh cron job via crontab" >&2
+    fi
+fi
+
 cloud-init status --wait
 
 function init_mariner_repo_depot {
@@ -95,6 +116,23 @@ function init_azurelinux_repo_depot {
 
         echo "File '$output_file' has been created."
     done
+    echo "Azure Linux repo setup complete."
+}
+
+dnf_makecache() {
+    local retries=10
+    local dnf_makecache_output=/tmp/dnf-makecache.out
+    local i
+    for i in $(seq 1 $retries); do
+        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_makecache_output && break || \
+        cat $dnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else sleep 5
+        fi
+    done
+    echo "Executed dnf makecache -y $i times"
 }
 
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
@@ -105,9 +143,11 @@ else
   if [ "$IS_MARINER" -eq 1 ]; then
       echo "Initializing Mariner repo depot settings..."
       init_mariner_repo_depot ${marinerRepoDepotEndpoint}
+      dnf_makecache || exit 1
   elif [ "$IS_AZURELINUX" -eq 1 ]; then
       echo "Initializing Azure Linux repo depot settings..."
       init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
+      dnf_makecache || exit 1
   else
       echo "No customizations for distribution: $NAME"
   fi

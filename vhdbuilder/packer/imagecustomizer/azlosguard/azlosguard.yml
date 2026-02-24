@@ -13,6 +13,9 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh
       destination: /opt/azure/containers/install-dependencies.sh
       permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/install-ig.sh
+      destination: /opt/azure/containers/install-ig.sh
+      permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
       destination: /opt/azure/containers/provision_source_benchmarks.sh
       permissions: 744
@@ -291,6 +294,13 @@ os:
       permissions: 755
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
+      permissions: 644
+    # azure network configuration (RxBuffer)
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/configure-azure-network.sh
+      destination: /opt/azure-network/configure-azure-network.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/99-azure-network.rules
+      destination: /etc/udev/rules.d/99-azure-network.rules
       permissions: 644
 
   services:

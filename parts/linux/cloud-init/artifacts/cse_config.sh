@@ -5,6 +5,7 @@ NODE_NAME=$(hostname)
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
+    chage -I -1 -M -1 root
 }
 
 configPrivateClusterHosts() {
@@ -322,7 +323,7 @@ disableSystemdResolved() {
     if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
-        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        [ -f /run/systemd/resolve/resolv.conf ] && ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
@@ -339,10 +340,12 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
+  # Remove in case this is an existing symlink
+  rm -f /etc/containerd/config.toml
   if [ "${GPU_NODE}" = "true" ]; then
     # Check VM tag directly to determine if GPU drivers should be skipped
     export -f should_skip_nvidia_drivers
-    should_skip=$(retrycmd_silent 10 1 10 bash -cx should_skip_nvidia_drivers)
+    should_skip=$(should_skip_nvidia_drivers)
     if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
       echo "Generating non-GPU containerd config for GPU node due to VM tags"
       echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
@@ -355,8 +358,8 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
-  export -f e2e_mock_azure_china_cloud
-  E2EMockAzureChinaCloud=$(retrycmd_silent 10 1 10 bash -cx e2e_mock_azure_china_cloud)
+  export -f should_e2e_mock_azure_china_cloud
+  E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   elif [ "${TARGET_CLOUD}" = "AzureChinaCloud" ] || [ "${E2EMockAzureChinaCloud}" = "true" ]; then
@@ -427,23 +430,10 @@ ensureDHCPv6() {
 }
 
 getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
     local ip=""
-
-    while [ "$i" -lt "$maxRetries" ]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01")
-        if [ "$?" -eq 0 ]; then
-            ip=$(echo "$ip" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
-            if [ -n "$ip" ]; then
-                break
-            fi
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
+    export -f get_primary_nic_ip
+    ip=$(get_primary_nic_ip)
+    echo "${ip}"
 }
 
 generateSelfSignedKubeletServingCertificate() {
@@ -469,7 +459,7 @@ configureKubeletServing() {
 
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
     export -f should_disable_kubelet_serving_certificate_rotation
-    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_silent 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(should_disable_kubelet_serving_certificate_rotation)
     if [ "$?" -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
@@ -551,27 +541,22 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
+    # Install kubelet and kubectl binaries from URL:
+    # 1. For Custom Kube binary or Private Kube binary.
+    # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+    # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
+       { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+    then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-    # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
-    elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+    elif [ "$(type -t installKubeletKubectlFromPkg)" = function ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     else
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
-        elif isMarinerOrAzureLinux "$OS"; then
-            if [ "$OS_VERSION" = "2.0" ]; then
-                # we do not publish packages to PMC for azurelinux V2
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-            else
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-            fi
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-        fi
+        echo "installKubeletKubectlFromPkg is not defined for this OS"
+        exit $ERR_K8S_INSTALL_ERR
     fi
 }
 
@@ -766,23 +751,21 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+        # Install credential provider from URL:
+        # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+        # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+        if { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+           { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+        then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+        elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            # For network isolated clusters, try distro packages first and fallback to binary installation
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+        elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
         else
-            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-                # For network isolated clusters, try distro packages first and fallback to binary installation
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
-            elif isMarinerOrAzureLinux "$OS"; then
-                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-                else
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                fi
-            elif isFlatcar "$OS"; then # Flatcar cannot use PMC. It will use sysext soon.
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-            else
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-            fi
+            echo "installCredentialProviderFromPkg is not defined for this OS"
+            exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
         fi
     fi
 
@@ -829,6 +812,18 @@ ensureSysctl() {
     chmod 0644 "${SYSCTL_CONFIG_FILE}"
     echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
+}
+
+ensureAzureNetworkConfig() {
+    # Reload udev rules to pick up the new azure-network rules
+    udevadm control --reload-rules
+
+    # Trigger udev to detect and populate network interfaces
+    echo "Triggering udev for network devices..."
+    udevadm trigger --subsystem-match=net --action=add
+
+    # Give udev time to process and trigger the systemd service
+    udevadm settle --timeout=10
 }
 
 ensureK8sControlPlane() {
@@ -982,6 +977,71 @@ ensureGPUDrivers() {
     fi
 }
 
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+dnf_install_amd_ama_core() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        # RPM_FRONTEND env variable needed to disable license agreement prompt
+        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+            dnf_makecache
+        fi
+    done
+    echo Executed dnf install AMD AMA core package $i times;
+}
+
+# Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install driver - currently version 1.3.0 is supported
+        if ! dnf_install 30 1 600 azurelinux-repos-amd; then
+          echo "Unable to install Azure Linux AMD package repo, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
+          echo "Unable to install AMD AMA driver package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install core package
+        if ! dnf_install 30 1 600 azurelinux-repos-extended libzip; then
+          echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        if ! dnf_install_amd_ama_core 30 1 600; then
+          echo "Unable to install AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install AKS device plugin
+        if ! dnf_install 30 1 600 amdama-device-plugin.x86_64; then
+          echo "Unable to install AMD AMA AKS device plugin package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        # Configure huge pages
+        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
+        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        if [ "$(systemctl is-active kubelet)" = "active" ]; then
+            systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
@@ -1024,14 +1084,14 @@ configureSSHPubkeyAuth() {
   ' "$SSHD_CONFIG" > "$TMP"
 
   # Validate the candidate config
-  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+  sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 644, owned by root)
-  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd
-  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path
@@ -1132,62 +1192,34 @@ configCredentialProvider() {
 }
 
 setKubeletNodeIPFlag() {
-    imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
-    if [ "$?" -eq 0 ]; then
-        nodeIPAddrs=()
-        ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
-        [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
-        ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
-        [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
-        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
-        if [ -n "$nodeIPArg" ]; then
-            echo "Adding --node-ip=$nodeIPArg to kubelet flags"
-            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
-        fi
+    local imdsOutput
+    export -f get_imds_network_metadata
+    imdsOutput=$(get_imds_network_metadata)
+    nodeIPAddrs=()
+    ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
+    [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+    ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
+    [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+    nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
+    if [ -n "$nodeIPArg" ]; then
+        echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+        KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
     fi
-}
-
-# localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-# This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by checking for existence of corefile.
-# It returns 0 if localdns is enabled successfully or if it should not be enabled.
-# It returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
-enableLocalDNS() {
-    # Check if the localdns corefile exists and is not empty.
-    # If the corefile exists and is not empty, localdns should be enabled.
-    # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "localdns should not be enabled."
-        return 0
-    fi
-
-    # If the corefile exists and is not empty, attempt to enable localdns.
-    echo "localdns should be enabled."
-
-    if ! systemctlEnableAndStart localdns 30; then
-      echo "Enable localdns failed."
-      return $ERR_LOCALDNS_FAIL
-    fi
-
-    # Enabling localdns succeeded.
-    echo "Enable localdns succeeded."
 }
 
 # localdns corefile used by localdns systemd unit.
-LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
-LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
-enableLocalDNSForScriptless() {
-    mkdir -p "$(dirname "${LOCALDNS_COREFILE}")"
-    touch "${LOCALDNS_COREFILE}"
-    chmod 0644 "${LOCALDNS_COREFILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_COREFILE}" || exit $ERR_LOCALDNS_FAIL
+generateLocalDNSFiles() {
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    touch "${LOCALDNS_CORE_FILE}"
+    chmod 0644 "${LOCALDNS_CORE_FILE}"
+    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
@@ -1198,10 +1230,10 @@ LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
-	mkdir -p "$(dirname "${LOCALDNS_SLICEFILE}")"
-    touch "${LOCALDNS_SLICEFILE}"
-    chmod 0644 "${LOCALDNS_SLICEFILE}"
-    cat > "${LOCALDNS_SLICEFILE}" <<EOF
+	mkdir -p "$(dirname "${LOCALDNS_SLICE_FILE}")"
+    touch "${LOCALDNS_SLICE_FILE}"
+    chmod 0644 "${LOCALDNS_SLICE_FILE}"
+    cat > "${LOCALDNS_SLICE_FILE}" <<EOF
 [Unit]
 Description=localdns Slice
 DefaultDependencies=no
@@ -1212,6 +1244,10 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+}
+
+enableLocalDNS() {
+    generateLocalDNSFiles
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
@@ -1219,11 +1255,16 @@ EOF
 }
 
 configureManagedGPUExperience() {
-    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        return
+    fi
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
-    elif [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ]; then
+    else
+        # EnableManagedGPUExperience is mutable, so services may have been
+        # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
@@ -1237,12 +1278,26 @@ startNvidiaManagedExpServices() {
     mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
 
     if [ "${MIG_NODE}" = "true" ]; then
-        # Configure with MIG strategy for MIG nodes
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+        # Configure with MIG strategy for MIG nodes.
+        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
+        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
+        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
+        #
+        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
+        # Otherwise, we default to "single" which is the safer/simpler option.
+        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
+        # "None" and "Single" both result in using the "single" strategy.
+        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
+            MIG_STRATEGY_FLAG="--mig-strategy mixed"
+        else
+            # Default to "single" for "Single", "None", empty, or any other value
+            MIG_STRATEGY_FLAG="--mig-strategy single"
+        fi
+
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
 [Service]
-Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/bin/nvidia-device-plugin $MIG_STRATEGY --pass-device-specs
+ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
 EOF
     else
         # Configure with pass-device-specs for non-MIG nodes
@@ -1282,6 +1337,21 @@ EOF
 
     # Start the nvidia-dcgm-exporter service.
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+}
+
+get_compute_sku() {
+    # Retrieves the VM SKU (size) from the cached IMDS instance metadata.
+    local vm_sku=""
+    if [ ! -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        echo "IMDS cache file not found: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return 1
+    fi
+    vm_sku=$(jq -r '.compute.vmSize // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    if [ -z "$vm_sku" ]; then
+        echo "Failed to retrieve VM SKU from IMDS cache" >&2
+        return 1
+    fi
+    echo "$vm_sku"
 }
 
 #EOF

@@ -196,7 +196,19 @@ function init_ubuntu_pmc_repo_depot {
 }
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
-    (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
+    scriptPath=$0
+    # Determine an absolute, canonical path to this script for use in cron.
+    if command -v readlink >/dev/null 2>&1; then
+        # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
+        scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+    fi
+
+    if ! crontab -l 2>/dev/null | grep -q "\"$scriptPath\" ca-refresh"; then
+        # Quote the script path in the cron entry to avoid issues with spaces or special characters.
+        if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh") | crontab -; then
+            echo "Failed to install ca-refresh cron job via crontab" >&2
+        fi
+    fi
 
     cloud-init status --wait
     rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
@@ -213,6 +225,7 @@ elif [ "$IS_FLATCAR" -eq 1 ]; then
     script_path="$(readlink -f "$0")"
     svc="/etc/systemd/system/azure-ca-refresh.service"
     tmr="/etc/systemd/system/azure-ca-refresh.timer"
+
     cat >"$svc" <<EOF
 [Unit]
 Description=Refresh Azure Custom Cloud CA certificates
@@ -223,6 +236,7 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=$script_path ca-refresh
 EOF
+
     cat >"$tmr" <<EOF
 [Unit]
 Description=Daily refresh of Azure Custom Cloud CA certificates
@@ -235,6 +249,7 @@ RandomizedDelaySec=300
 [Install]
 WantedBy=timers.target
 EOF
+
     systemctl daemon-reload
     systemctl enable --now azure-ca-refresh.timer
 fi

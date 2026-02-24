@@ -6,7 +6,7 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 aptmarkWALinuxAgent() {
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
+    retrycmd_if_failure 225 2 2 apt-mark $1 walinuxagent || \
     if [ "$1" = "hold" ]; then
         exit $ERR_HOLD_WALINUXAGENT
     elif [ "$1" = "unhold" ]; then
@@ -177,5 +177,29 @@ apt_get_install_from_local_repo() {
     rmdir "${tmp_dir}"
 
     return 0
+}
+
+apt_get_download() {
+  retries=$1; wait_sleep=$2; shift && shift;
+  local ret=0
+  pushd $APT_CACHE_DIR || return 1
+  for i in $(seq 1 "$retries"); do
+    dpkg --configure -a --force-confdef
+    wait_for_apt_locks
+
+    # Pull the first quoted URL from --print-uris
+    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
+           | awk -F"'" 'NR==1 && $2 {print $2}')"
+    if [ -n "$url" ]; then
+      # This avoids issues with the naming in the package. `apt-get download`
+      # encodes the package names with special characters and does not decode
+      # them when saving to disk, but `curl -J` handles the names correctly.
+      if curl -fLJO -- "$url"; then ret=0; break; fi
+    fi
+
+    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
+  done
+  popd || return 1
+  return "$ret"
 }
 #EOF

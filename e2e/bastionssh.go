@@ -1,11 +1,9 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -18,9 +16,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/coder/websocket"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
-var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA}
+var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
 
 type Bastion struct {
 	credential                                 *azidentity.AzureCLICredential
@@ -53,9 +53,17 @@ type tunnelSession struct {
 	bastion *Bastion
 	ws      *websocket.Conn
 	session *sessionToken
+	ctx     context.Context
+
+	readDeadline  time.Time
+	writeDeadline time.Time
+	readBuf       []byte
+
+	targetHost string
+	targetPort uint16
 }
 
-func (b *Bastion) NewTunnelSession(targetHost string, port uint16) (*tunnelSession, error) {
+func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port uint16) (*tunnelSession, error) {
 	session, err := b.newSessionToken(targetHost, port)
 	if err != nil {
 		return nil, err
@@ -63,8 +71,8 @@ func (b *Bastion) NewTunnelSession(targetHost string, port uint16) (*tunnelSessi
 
 	wsUrl := fmt.Sprintf("wss://%v/webtunnelv2/%v?X-Node-Id=%v", b.dnsName, session.WebsocketToken, session.NodeID)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	ws, _, err := websocket.Dial(ctx, wsUrl, &websocket.DialOptions{
+	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ws, _, err := websocket.Dial(dialCtx, wsUrl, &websocket.DialOptions{
 		CompressionMode: websocket.CompressionDisabled,
 	})
 	cancel()
@@ -75,9 +83,12 @@ func (b *Bastion) NewTunnelSession(targetHost string, port uint16) (*tunnelSessi
 	ws.SetReadLimit(32 * 1024 * 1024)
 
 	return &tunnelSession{
-		bastion: b,
-		ws:      ws,
-		session: session,
+		bastion:    b,
+		ws:         ws,
+		session:    session,
+		ctx:        ctx,
+		targetHost: targetHost,
+		targetPort: port,
 	}, nil
 }
 
@@ -167,47 +178,80 @@ func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken
 	return &response, nil
 }
 
-func (t *tunnelSession) Pipe(conn net.Conn) error {
-
-	defer t.Close()
-	defer conn.Close()
-
-	done := make(chan error, 2)
-
-	go func() {
-		for {
-			_, data, err := t.ws.Read(context.Background())
-			if err != nil {
-				done <- err
-				return
-			}
-
-			if _, err := io.Copy(conn, bytes.NewReader(data)); err != nil {
-				done <- err
-				return
-			}
+func (t *tunnelSession) Read(p []byte) (int, error) {
+	if len(t.readBuf) == 0 {
+		ctx := t.ctx
+		if !t.readDeadline.IsZero() {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithDeadline(t.ctx, t.readDeadline)
+			defer cancel()
 		}
-	}()
-
-	go func() {
-		buf := make([]byte, 4096) // 4096 is copy from az cli bastion code
-
-		for {
-			n, err := conn.Read(buf)
-			if err != nil {
-				done <- err
-				return
-			}
-
-			if err := t.ws.Write(context.Background(), websocket.MessageBinary, buf[:n]); err != nil {
-				done <- err
-				return
-			}
+		typ, data, err := t.ws.Read(ctx)
+		if err != nil {
+			return 0, err
 		}
-	}()
+		if typ != websocket.MessageBinary {
+			return 0, fmt.Errorf("unexpected websocket message type: %v", typ)
+		}
+		t.readBuf = data
+	}
 
-	return <-done
+	n := copy(p, t.readBuf)
+	t.readBuf = t.readBuf[n:]
+	return n, nil
 }
+
+func (t *tunnelSession) Write(p []byte) (int, error) {
+	ctx := t.ctx
+	if !t.writeDeadline.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(t.ctx, t.writeDeadline)
+		defer cancel()
+	}
+	if err := t.ws.Write(ctx, websocket.MessageBinary, p); err != nil {
+		return 0, err
+	}
+
+	return len(p), nil
+}
+
+func (t *tunnelSession) LocalAddr() net.Addr {
+	return bastionAddr{
+		network: "bastion",
+		address: "local",
+	}
+}
+
+func (t *tunnelSession) RemoteAddr() net.Addr {
+	return bastionAddr{
+		network: "bastion",
+		address: fmt.Sprintf("%s:%d", t.targetHost, t.targetPort),
+	}
+}
+
+func (t *tunnelSession) SetDeadline(deadline time.Time) error {
+	t.readDeadline = deadline
+	t.writeDeadline = deadline
+	return nil
+}
+
+func (t *tunnelSession) SetReadDeadline(deadline time.Time) error {
+	t.readDeadline = deadline
+	return nil
+}
+
+func (t *tunnelSession) SetWriteDeadline(deadline time.Time) error {
+	t.writeDeadline = deadline
+	return nil
+}
+
+type bastionAddr struct {
+	network string
+	address string
+}
+
+func (a bastionAddr) Network() string { return a.network }
+func (a bastionAddr) String() string  { return a.address }
 
 func sshClientConfig(user string, privateKey []byte) (*ssh.ClientConfig, error) {
 	signer, err := ssh.ParsePrivateKey(privateKey)
@@ -237,41 +281,55 @@ func DialSSHOverBastion(
 	vmPrivateIP string,
 	sshPrivateKey []byte,
 ) (*ssh.Client, error) {
-
-	// Create Bastion tunnel session (SSH = port 22)
-	tunnel, err := bastion.NewTunnelSession(
-		vmPrivateIP,
-		22,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create in-memory connection pair
-	sshSide, tunnelSide := net.Pipe()
-
-	// Start Bastion tunnel piping
-	go func() {
-		_ = tunnel.Pipe(tunnelSide)
-		fmt.Printf("Closed tunnel for VM IP %s\n", vmPrivateIP)
-	}()
-
-	// SSH client configuration
 	sshConfig, err := sshClientConfig("azureuser", sshPrivateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Establish SSH over the Bastion tunnel
-	sshConn, chans, reqs, err := ssh.NewClientConn(
-		sshSide,
-		vmPrivateIP,
-		sshConfig,
+	const (
+		sshDialAttempts = 5
+		sshDialTimeout  = 30 * time.Second
+		sshDialBackoff  = 10 * time.Second
 	)
-	if err != nil {
-		sshSide.Close()
-		return nil, err
+
+	var lastErr error
+	for attempt := 1; attempt <= sshDialAttempts; attempt++ {
+		if attempt > 1 {
+			select {
+			case <-time.After(sshDialBackoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		toolkit.Logf(ctx, "Attempt %d/%d establishing SSH over bastion to %s", attempt, sshDialAttempts, vmPrivateIP)
+
+		// Intentionally use a background context to prevent cancelling the SSH connection before
+		// we fetch logs during cleanup.
+		tunnel, err := bastion.NewTunnelSession(context.Background(), vmPrivateIP, 22)
+		if err != nil {
+			lastErr = err
+			toolkit.Logf(ctx, "Attempt %d/%d failed to create bastion tunnel: %v", attempt, sshDialAttempts, err)
+			continue
+		}
+
+		_ = tunnel.SetDeadline(time.Now().Add(sshDialTimeout))
+		sshConn, chans, reqs, err := ssh.NewClientConn(
+			tunnel,
+			vmPrivateIP,
+			sshConfig,
+		)
+		if err != nil {
+			lastErr = err
+			toolkit.Logf(ctx, "Attempt %d/%d SSH handshake failed: %v", attempt, sshDialAttempts, err)
+			_ = tunnel.Close()
+			continue
+		}
+		_ = tunnel.SetDeadline(time.Time{})
+		return ssh.NewClient(sshConn, chans, reqs), nil
 	}
 
-	return ssh.NewClient(sshConn, chans, reqs), nil
+	if lastErr == nil {
+		lastErr = fmt.Errorf("failed to establish SSH connection over bastion")
+	}
+	return nil, lastErr
 }

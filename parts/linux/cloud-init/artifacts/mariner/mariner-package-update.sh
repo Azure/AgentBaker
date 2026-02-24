@@ -9,8 +9,9 @@ OS_RELEASE_FILE="/etc/os-release"
 SECURITY_PATCH_REPO_DIR="/etc/yum.repos.d"
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
 KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
-KUBELET_EXECUTABLE="/usr/local/bin/kubelet"
+KUBELET_EXECUTABLE="/opt/bin/kubelet"
 SECURITY_PATCH_TMP_DIR="/tmp/security-patch"
+CLUSTER_CA_CERT="/etc/kubernetes/certs/ca.crt"
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -67,6 +68,16 @@ tdnf_download() {
     echo Executed dnf install $package_name -y $i times
 }
 
+redact_token() {
+    local s="$1"
+    # shellcheck disable=SC3010
+    if [[ "$s" == *"sig="* ]]; then
+        echo "$s" | sed 's/sig=[^&]*/sig=***REDACTED***/g'
+    else
+        echo "$s"
+    fi
+}
+
 kubelet_update() {
     versionID=$(grep '^VERSION_ID=' ${OS_RELEASE_FILE} | cut -d'=' -f2 | tr -d '"')
     if [ "${versionID}" != "3.0" ]; then
@@ -74,12 +85,50 @@ kubelet_update() {
         return 0
     fi
 
-    target_kubelet_version=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-kubelet-version']}")
+    target_kubelet_version=""
+    kubelet_url=""
+    kubelet_url_with_token=""
+    custom_patching=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-custom-patching']}")
+    if [ "${custom_patching}" = "true" ]; then
+        echo "custom patching is enabled, retrieving target kubelet version from custom patching service"
+        cluster_ip=$($KUBECTL get svc kubernetes -o jsonpath="{.spec.clusterIP}")
+        if [ -z "${cluster_ip}" ]; then
+            echo "cannot get kubernetes cluster IP"
+            return 1
+        fi
+        imds_token=$(curl --max-time 30 -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/attested/document?api-version=2025-04-07" | jq -r .signature)
+        if [ -z "${imds_token}" ] || [ "${imds_token}" = "null" ]; then
+            echo "cannot get IMDS token"
+            return 1
+        fi
+        endpoint="aks-security-patch.data.mcr.microsoft.com"
+        response=$(curl --max-time 30 -s -w "%{http_code}" -H "Authorization: ${imds_token}" --cacert ${CLUSTER_CA_CERT} --resolve ${endpoint}:443:${cluster_ip} https://${endpoint}/v1/packages)
+        packages="${response::-3}"
+        status="${response: -3}"
+        if [ "${status}" != "200" ]; then
+            echo "failed to get custom patching info, status code: ${status}"
+            return 1
+        fi
+        while IFS= read -r package; do
+            name=$(echo "${package}" | jq -r '.name')
+            if [ "${name}" = "kubelet" ]; then
+                target_kubelet_version=$(echo "${package}" | jq -r '.version')
+                kubelet_url=$(echo "${package}" | jq -r '.url')
+                token=$(echo "${package}" | jq -r '.token')
+                kubelet_url_with_token="${kubelet_url}?${token}"
+                echo "retrieved target kubelet version: ${target_kubelet_version} from custom patching service"
+                break
+            fi
+        done < <(echo "${packages}" | jq -c '.packages[]')
+    else
+        target_kubelet_version=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-kubelet-version']}")
+        echo "custom patching is not enabled, retrieved target kubelet version from node annotation: ${target_kubelet_version}"
+    fi
+
     if [ -z "${target_kubelet_version}" ]; then
         echo "target kubelet version is not set, skip kubelet update"
         return 0
     fi
-    echo "target kubelet version to update to is: ${target_kubelet_version}"
 
     if [ ! -f ${KUBELET_EXECUTABLE} ]; then
         echo "kubelet executable not found at ${KUBELET_EXECUTABLE}"
@@ -105,8 +154,19 @@ kubelet_update() {
 
     rm -rf ${SECURITY_PATCH_TMP_DIR} && mkdir -p ${SECURITY_PATCH_TMP_DIR}
 
-    tdnf_download kubelet-${target_kubelet_version} azurelinux-official-cloud-native ${SECURITY_PATCH_TMP_DIR}
-    rpm2cpio ${SECURITY_PATCH_TMP_DIR}/kubelet-${target_kubelet_version}*.rpm | cpio -idmv -D ${SECURITY_PATCH_TMP_DIR}
+    if [ "${custom_patching}" = "true" ]; then
+        package_name=$(basename "${kubelet_url}")
+        curl_output=$(curl --max-time 300 -fsSL -o "${SECURITY_PATCH_TMP_DIR}/${package_name}" "${kubelet_url_with_token}" 2>&1)
+        curl_exit_code=$?
+        if [ "${curl_exit_code}" -ne 0 ]; then
+            echo "failed to download kubelet package from custom patching service: $(redact_token "${curl_output}")" >&2
+            return 1
+        fi
+    else
+        tdnf_download kubelet-${target_kubelet_version} azurelinux-official-cloud-native ${SECURITY_PATCH_TMP_DIR}
+    fi
+
+    rpm2cpio ${SECURITY_PATCH_TMP_DIR}/*kubelet*.rpm | cpio -idmv -D ${SECURITY_PATCH_TMP_DIR}
     target_kubelet_path="${SECURITY_PATCH_TMP_DIR}/usr/bin/kubelet"
     if [ ! -f ${target_kubelet_path} ]; then
         echo "kubelet binary not found in the downloaded package"

@@ -24,7 +24,7 @@ while IFS= read -r component; do
 	if [ -n "${multiArchVersionsV2[*]}" ]; then
 		IFS=' ' read -r -a multiArchVersionsV2String <<< "${multiArchVersionsV2[*]}"
 	fi
-	
+
 	arch=$(uname -m)
 	# shellcheck disable=SC3010
 	if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
@@ -34,7 +34,7 @@ while IFS= read -r component; do
 	fi
 
 	validVersions=$(curl -sL https://$downloadURL | jq .tags[])
-	
+
 	for versionToBeDownloaded in ${versionsToBeDownloaded[*]}; do
 	    # shellcheck disable=SC3010
 		[[ ${validVersions[*]}  =~  ${versionToBeDownloaded} ]] || (echo "${versionToBeDownloaded} does not exist in ${downloadURL}" && exit 1)

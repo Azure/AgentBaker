@@ -1,11 +1,12 @@
 package agent
 
 import (
+	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
+	base0_5 "github.com/coreos/butane/base/v0_5"
 	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	ign3_4 "github.com/coreos/ignition/v2/config/v3_4/types"
 	. "github.com/onsi/ginkgo"
@@ -58,6 +60,7 @@ type nodeBootstrappingOutput struct {
 type decodedValue struct {
 	encoding cseVariableEncoding
 	value    string
+	mode     int64
 }
 
 type cseVariableEncoding string
@@ -297,14 +300,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
-			// Expect an error if LocalDNSProfile is nil and GenerateLocalDNSCoreFile is invoked somehow.
-			It("returns an error when LocalDNSProfile is nil", func() {
-				config.AgentPoolProfile.LocalDNSProfile = nil
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("localdns profile is nil"))
-			})
-
 			// Expect an error from GenerateLocalDNSCoreFile if template is invalid.
 			It("returns an error when template parsing fails", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -320,20 +315,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(err.Error()).To(ContainSubstring("failed to execute localdns corefile template"))
 			})
 
-			// Expect an error from GenerateLocalDNSCoreFile if it is invoked when EnableLocalDNS is set to false.
-			It("returns an error when EnableLocalDNS is set to false", func() {
-				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					EnableLocalDNS:       false,
-					CPULimitInMilliCores: to.Int32Ptr(2008),
-					MemoryLimitInMB:      to.Int32Ptr(128),
-					VnetDNSOverrides:     nil,
-					KubeDNSOverrides:     nil,
-				}
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("EnableLocalDNS is set to false, corefile will not be generated"))
-			})
-
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -343,20 +324,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     nil,
 					KubeDNSOverrides:     nil,
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
@@ -368,20 +339,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 					KubeDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
@@ -435,19 +396,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						},
 					},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
 				expectedlocalDNSCorefile := `
 # ***********************************************************************************
@@ -549,7 +500,7 @@ testdomain456.com:53 {
     }
 }
 `
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
 
 			// Expect no error and correct localdns corefile.
@@ -623,19 +574,9 @@ testdomain456.com:53 {
 						},
 					},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
 				expectedlocalDNSCorefile := `
 # ***********************************************************************************
@@ -773,7 +714,7 @@ testdomain567.com:53 {
     prometheus :9253
 }
 `
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
 		})
 	})
@@ -1452,6 +1393,102 @@ oom_score = -999
 				// Verify ManagedGPUExperienceAFECEnabled is disabled
 				Expect(o.vars["MANAGED_GPU_EXPERIENCE_AFEC_ENABLED"]).To(Equal("false"))
 				// Verify other GPU settings are still correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with EnableManagedGPU", "AKSUbuntu2204+EnableManagedGPU", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.EnableManagedGPU = true
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify EnableManagedGPU is set
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("true"))
+				// Verify other GPU settings are also correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with EnableManagedGPU disabled", "AKSUbuntu2204+EnableManagedGPU+Disabled", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.EnableManagedGPU = false
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify EnableManagedGPU is disabled
+				Expect(o.vars["ENABLE_MANAGED_GPU"]).To(Equal("false"))
+				// Verify other GPU settings are still correct
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy Mixed", "AKSUbuntu2204+MigStrategy+Mixed", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "Mixed"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("Mixed"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy Single", "AKSUbuntu2204+MigStrategy+Single", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "Single"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("Single"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
+				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 with MIG Strategy None", "AKSUbuntu2204+MigStrategy+None", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.EnableGPUDevicePluginIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+				config.MigStrategy = "None"
+			}, func(o *nodeBootstrappingOutput) {
+				// Verify MigStrategy is set
+				Expect(o.vars["NVIDIA_MIG_STRATEGY"]).To(Equal("None"))
+				// Verify MIG settings are correct
+				Expect(o.vars["MIG_NODE"]).To(Equal("true"))
 				Expect(o.vars["GPU_NODE"]).To(Equal("true"))
 				Expect(o.vars["ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED"]).To(Equal("true"))
 			}),
@@ -2201,24 +2238,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 })
 
-func ignitionUnwrapEnvelope(ignitionFile []byte) []byte {
-	// Unwrap the Ignition envelope
-	var outer ign3_4.Config
-	err := json.Unmarshal(ignitionFile, &outer)
-	if err != nil {
-		panic(err)
-	}
-	innerencoded := outer.Ignition.Config.Replace
-	if innerencoded.Source == nil {
-		panic("ignition missing replacement config")
-	}
-	inner, err := ignitionDecodeFileContents(innerencoded)
-	if err != nil {
-		panic(err)
-	}
-	return inner
-}
-
 func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
 	// Decode data url format
 	decodeddata, err := dataurl.DecodeString(*input.Source)
@@ -2236,14 +2255,66 @@ func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
 }
 
 func writeInnerCustomData(outputname, customData string) error {
-	ignitionInner := ignitionUnwrapEnvelope([]byte(customData))
-	ignitionJson := json.RawMessage(ignitionInner)
-	ignitionIndented, err := json.MarshalIndent(ignitionJson, "", "  ")
+	ignition := []byte(customData)
+	var ignitionConfig ign3_4.Config
+	if err := json.Unmarshal(ignition, &ignitionConfig); err != nil {
+		return err
+	}
+
+	var tarFile *ign3_4.File
+	for i, file := range ignitionConfig.Storage.Files {
+		if file.Path == ignitionFilesTarPath && file.Contents.Source != nil {
+			tarFile = &ignitionConfig.Storage.Files[i]
+			break
+		}
+	}
+
+	if tarFile == nil {
+		ignitionJson := json.RawMessage(ignition)
+		ignitionIndented, err := json.MarshalIndent(ignitionJson, "", "  ")
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(outputname, ignitionIndented, 0644)
+	}
+
+	ignitionMap := map[string]interface{}{}
+	if err := json.Unmarshal(ignition, &ignitionMap); err != nil {
+		return err
+	}
+	contents, err := ignitionDecodeFileContents(tarFile.Contents)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(outputname, ignitionIndented, 0644)
-	return err
+	files := []map[string]interface{}{}
+	decodedFiles, err := decodeTarFiles(contents)
+	if err != nil {
+		return err
+	}
+	for _, entry := range decodedFiles {
+		gzippedContents := getGzippedBufferFromBytes([]byte(entry.value))
+		files = append(files, map[string]interface{}{
+			"path":      entry.path,
+			"overwrite": true,
+			"mode":      entry.mode,
+			"contents": map[string]interface{}{
+				"compression": "gzip",
+				"source":      "data:;base64," + base64.StdEncoding.EncodeToString(gzippedContents),
+			},
+		})
+	}
+
+	storage, ok := ignitionMap["storage"].(map[string]interface{})
+	if !ok {
+		storage = map[string]interface{}{}
+		ignitionMap["storage"] = storage
+	}
+	storage["files"] = files
+	ignitionIndented, err := json.MarshalIndent(ignitionMap, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(outputname, ignitionIndented, 0644)
 }
 
 func backfillCustomData(folder, customData string) {
@@ -2287,22 +2358,6 @@ func getValueWithoutQuotes(value string) string {
 		return value[1 : len(value)-1]
 	}
 	return value
-}
-
-//lint:ignore U1000 this is used for test helpers in the future
-func getGzipDecodedValue(data []byte) ([]byte, error) {
-	reader := bytes.NewReader(data)
-	gzipReader, err := gzip.NewReader(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-
-	output, err := io.ReadAll(gzipReader)
-	if err != nil {
-		return nil, fmt.Errorf("read from gzipped buffered string: %w", err)
-	}
-
-	return output, nil
 }
 
 func getBase64DecodedValue(data []byte) (string, error) {
@@ -2349,6 +2404,41 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 		}
 	}
 
+	return files, nil
+}
+
+type tarEntry struct {
+	path string
+	*decodedValue
+}
+
+func decodeTarFiles(data []byte) ([]tarEntry, error) {
+	files := make([]tarEntry, 0)
+	reader := tar.NewReader(bytes.NewReader(data))
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		contents, err := io.ReadAll(reader)
+		if err != nil {
+			return nil, err
+		}
+		path := "/" + strings.TrimPrefix(header.Name, "/")
+		files = append(files, tarEntry{
+			path: path,
+			decodedValue: &decodedValue{
+				value: string(contents),
+				mode:  header.Mode,
+			},
+		})
+	}
 	return files, nil
 }
 
@@ -2799,7 +2889,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 var _ = Describe("cloudInitToButane", func() {
 	checkForUnit := func(butane flatcar1_1.Config) {
-		Expect(butane.Systemd.Units).To(HaveLen(1))
+		Expect(butane.Systemd.Units).To(HaveLen(2))
 		var unit = butane.Systemd.Units[0]
 		Expect(unit.Name).To(Equal("ignition-bootcmds.service"))
 		Expect(*unit.Contents).To(ContainSubstring("/etc/ignition-bootcmds.sh"))
@@ -2811,8 +2901,90 @@ var _ = Describe("cloudInitToButane", func() {
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
-		Expect(file.Path).To(Equal("/etc/ignition-bootcmds.sh"))
-		Expect(*file.Contents.Inline).To(Equal("#!/bin/sh\necho hello world\nls 'some dir'"))
+		Expect(file.Path).To(Equal(ignitionFilesTarPath))
+		Expect(file.Contents.Source).NotTo(BeNil())
+		tarball, err := decodeButaneResource(file.Contents)
+		Expect(err).To(BeNil())
+		files, err := decodeTarFiles(tarball)
+		Expect(err).To(BeNil())
+		var ignitionBootcmdScript *decodedValue
+		for _, f := range files {
+			if f.path == ignitionBootcmdScriptPath {
+				ignitionBootcmdScript = f.decodedValue
+			}
+		}
+		Expect(ignitionBootcmdScript).To(Not(BeNil()))
+		Expect(ignitionBootcmdScript.value).To(Equal("#!/bin/sh\necho hello world\nls 'some dir'"))
+		Expect(butane.Systemd.Units).NotTo(BeEmpty())
+		found := false
+		for _, unit := range butane.Systemd.Units {
+			if unit.Name == ignitionTarUnitName {
+				found = true
+				Expect(unit.Contents).NotTo(BeNil())
+				Expect(*unit.Contents).To(ContainSubstring(ignitionFilesTarPath))
+				break
+			}
+		}
+		Expect(found).To(BeTrue())
+	})
+
+	It("should decode gzip-encoded write_files and preserve permissions", func() {
+		// gzip content is stored as raw bytes via YAML !!binary, so use the raw gzip buffer.
+		plainText := "hello from gzip"
+		gzipped := getGzippedBufferFromBytes([]byte(plainText))
+		var config = cloudInit{WriteFiles: []cloudInitWriteFile{
+			{
+				Path:        "/etc/test-gzip",
+				Permissions: "0644",
+				Encoding:    "gzip",
+				Content:     string(gzipped),
+			},
+		}}
+		var butane = cloudInitToButane(config)
+		Expect(butane.Storage.Files).To(HaveLen(1))
+		var file = butane.Storage.Files[0]
+		tarball, err := decodeButaneResource(file.Contents)
+		Expect(err).To(BeNil())
+		files, err := decodeTarFiles(tarball)
+		Expect(err).To(BeNil())
+		var decoded *decodedValue
+		for _, f := range files {
+			if f.path == "/etc/test-gzip" {
+				decoded = f.decodedValue
+			}
+		}
+		Expect(decoded).NotTo(BeNil())
+		Expect(decoded.value).To(Equal(plainText))
+		Expect(decoded.mode).To(Equal(int64(0o644)))
+	})
+
+	It("should decode base64-encoded write_files and preserve permissions", func() {
+		plainText := "hello from base64"
+		encoded := base64.StdEncoding.EncodeToString([]byte(plainText))
+		var config = cloudInit{WriteFiles: []cloudInitWriteFile{
+			{
+				Path:        "/etc/test-base64",
+				Permissions: "0600",
+				Encoding:    "base64",
+				Content:     encoded,
+			},
+		}}
+		var butane = cloudInitToButane(config)
+		Expect(butane.Storage.Files).To(HaveLen(1))
+		var file = butane.Storage.Files[0]
+		tarball, err := decodeButaneResource(file.Contents)
+		Expect(err).To(BeNil())
+		files, err := decodeTarFiles(tarball)
+		Expect(err).To(BeNil())
+		var decoded *decodedValue
+		for _, f := range files {
+			if f.path == "/etc/test-base64" {
+				decoded = f.decodedValue
+			}
+		}
+		Expect(decoded).NotTo(BeNil())
+		Expect(decoded.value).To(Equal(plainText))
+		Expect(decoded.mode).To(Equal(int64(0o600)))
 	})
 
 	It("should create a system unit but not a shell script with no bootcmds", func() {
@@ -2820,5 +2992,34 @@ var _ = Describe("cloudInitToButane", func() {
 		var butane = cloudInitToButane(config)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(BeEmpty())
+		Expect(butane.Systemd.Units).NotTo(BeEmpty())
+		found := false
+		for _, unit := range butane.Systemd.Units {
+			if unit.Name == ignitionTarUnitName {
+				found = true
+				Expect(unit.Contents).NotTo(BeNil())
+				Expect(*unit.Contents).To(ContainSubstring(ignitionFilesTarPath))
+				break
+			}
+		}
+		Expect(found).To(BeTrue())
 	})
 })
+
+func decodeButaneResource(resource base0_5.Resource) ([]byte, error) {
+	if resource.Source == nil {
+		return nil, fmt.Errorf("resource source is nil")
+	}
+	decodeddata, err := dataurl.DecodeString(*resource.Source)
+	if err != nil {
+		return nil, err
+	}
+	contents := decodeddata.Data
+	if resource.Compression != nil && *resource.Compression == "gzip" {
+		contents, err = getGzipDecodedValue(contents)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return contents, nil
+}

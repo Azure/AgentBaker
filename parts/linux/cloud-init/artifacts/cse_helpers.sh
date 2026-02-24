@@ -52,6 +52,8 @@ ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started 
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_AMDAMA_DRIVER_NOT_FOUND=95 # AMD AMA driver package not found for current kernel version
+ERR_AMDAMA_INSTALL_FAIL=96 # Unable to install AMD AMA package
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
 ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
 ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
@@ -121,6 +123,8 @@ ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
+ERR_IMDS_FETCH_FAILED=231 # Error fetching or caching IMDS instance metadata
+
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
@@ -149,6 +153,7 @@ ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Expor
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -564,32 +569,6 @@ semverCompare() {
     return 1
 }
 
-
-
-apt_get_download() {
-  retries=$1; wait_sleep=$2; shift && shift;
-  local ret=0
-  pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 "$retries"); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-
-    # Pull the first quoted URL from --print-uris
-    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
-           | awk -F"'" 'NR==1 && $2 {print $2}')"
-    if [ -n "$url" ]; then
-      # This avoids issues with the naming in the package. `apt-get download`
-      # encodes the package names with special characters and does not decode
-      # them when saving to disk, but `curl -J` handles the names correctly.
-      if curl -fLJO -- "$url"; then ret=0; break; fi
-    fi
-
-    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
-  done
-  popd || return 1
-  return "$ret"
-}
-
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -598,6 +577,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local seArch=$(getCPUArch)
+    case ${seArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${seArch}" ;;
+    esac
 }
 
 isARM64() {
@@ -652,74 +639,139 @@ logs_to_events() {
     fi
 }
 
+# Cache file for IMDS instance metadata to avoid redundant network calls.
+# The IMDS endpoint provides VM metadata that doesn't change during provisioning,
+# so we can safely cache it for the duration of CSE execution.
+IMDS_INSTANCE_METADATA_CACHE_FILE="/opt/azure/containers/imds_instance_metadata_cache.json"
+
+# Fetches IMDS instance metadata and caches it to a file.
+# Exits with ERR_IMDS_FETCH_FAILED on failure.
+# The cache is stored in IMDS_INSTANCE_METADATA_CACHE_FILE.
+fetch_and_cache_imds_instance_metadata() {
+    set -x
+    # If cache file already exists and is valid, skip fetching
+    if [ -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        # Validate the cache file contains valid JSON
+        if jq -e . "$IMDS_INSTANCE_METADATA_CACHE_FILE" > /dev/null 2>&1; then
+            echo "IMDS instance metadata cache already exists and is valid"
+            return 0
+        else
+            echo "IMDS instance metadata cache exists but is invalid, refetching"
+            rm -f "$IMDS_INSTANCE_METADATA_CACHE_FILE"
+        fi
+    fi
+
+    local body
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" --retry 20 --retry-delay 2 --retry-connrefused --connect-timeout 5 --max-time 60 "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to fetch IMDS instance metadata"
+        exit $ERR_IMDS_FETCH_FAILED
+    fi
+
+    # Validate response is valid JSON before caching
+    if ! echo "$body" | jq -e . > /dev/null 2>&1; then
+        echo "IMDS response is not valid JSON"
+        exit $ERR_IMDS_FETCH_FAILED
+    fi
+
+    echo "$body" > "$IMDS_INSTANCE_METADATA_CACHE_FILE"
+    echo "IMDS instance metadata cached successfully"
+}
+
+# Retrieves IMDS network interface metadata from the cached instance metadata.
+# The /metadata/instance endpoint contains both compute and network data,
+# so we extract .network.interface from the instance metadata cache.
+# Outputs:
+#   The JSON network interface array
+# Returns:
+#   0 on success, non-zero on failure
+get_imds_network_metadata() {
+    local network_metadata=""
+    network_metadata=$(jq -r '.network.interface' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    echo "$network_metadata"
+}
+
+# Retrieves the primary NIC's private IPv4 address from IMDS instance metadata.
+# Outputs:
+#   The private IPv4 address or empty string if not found.
+# Returns:
+#   0 on success, non-zero on failure
+get_primary_nic_ip() {
+    local primary_ip=""
+    primary_ip=$(jq -r '.network.interface[0].ipv4.ipAddress[0].privateIpAddress // ""' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    echo "$primary_ip"
+}
+
+# Retrieves a VM tag value from the cached IMDS instance metadata.
+# Arguments:
+#   $1 - tag_name: The name of the tag to look up (case-sensitive match)
+#   $2 - case_insensitive_name: Optional. If "true", performs case-insensitive name matching
+#   $3 - case_insensitive_value: Optional. If "true", performs case-insensitive value matching for "true"
+# Outputs:
+#   The tag value (lowercased) or empty string if not found.
+#   For case_insensitive_value="true", outputs "true" or "false" based on whether value matches "true" case-insensitively.
+# Returns:
+#   0 on success, 1 if cache file doesn't exist or tag not found
+get_imds_vm_tag_value() {
+    local tag_name="$1"
+    local tag_value
+    tag_value=$(jq -r --arg name "$tag_name" '.compute.tagsList | map(select(.name | test($name; "i")))[0].value // "false" | test("true"; "i")' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    # Output lowercase value for consistency
+    echo "${tag_value,,}"
+}
+
+isAmdAmaEnabledNode() {
+    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+        return 0
+    fi
+    return 1
+}
+
 should_skip_nvidia_drivers() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
+    # Case-insensitive match for both tag name and value
+    local should_skip
+    should_skip=$(get_imds_vm_tag_value "SkipGpuDriverInstall")
     echo "$should_skip"
 }
 
 should_disable_kubelet_serving_certificate_rotation() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "${should_disable,,}"
+    local should_disable
+    should_disable=$(get_imds_vm_tag_value "aks-disable-kubelet-serving-certificate-rotation")
+    echo "$should_disable"
 }
 
 should_skip_binary_cleanup() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
-    echo "${should_skip,,}"
+    local should_skip
+    should_skip=$(get_imds_vm_tag_value "SkipBinaryCleanup")
+    echo "$should_skip"
 }
 
 should_enforce_kube_pmc_install() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "ShouldEnforceKubePMCInstall") | .value')
-    echo "${should_enforce,,}"
+    local should_enforce
+    should_enforce=$(get_imds_vm_tag_value "ShouldEnforceKubePMCInstall")
+    echo "$should_enforce"
 }
 
-e2e_mock_azure_china_cloud() {
+should_e2e_mock_azure_china_cloud() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "E2EMockAzureChinaCloud") | .value')
-    echo "${should_enforce,,}"
+    local should_enforce
+    should_enforce=$(get_imds_vm_tag_value "E2EMockAzureChinaCloud")
+    echo "$should_enforce"
 }
 
-enableManagedGPUExperience() {
+should_enable_managed_gpu_experience() {
     set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" -ne 0 ]; then
-      return $ret
-    fi
-    should_enforce=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "EnableManagedGPUExperience") | .value')
-    echo "${should_enforce,,}"
+    local should_enforce
+    should_enforce=$(get_imds_vm_tag_value "EnableManagedGPUExperience")
+    echo "$should_enforce"
 }
 
 isMarinerOrAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -727,8 +779,8 @@ isMarinerOrAzureLinux() {
 }
 
 isAzureLinuxOSGuard() {
-    local os=$1
-    local os_variant=$2
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$AZURELINUX_OSGUARD_OS_VARIANT" ]; then
         return 0
     fi
@@ -736,7 +788,7 @@ isAzureLinuxOSGuard() {
 }
 
 isMariner() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -744,7 +796,7 @@ isMariner() {
 }
 
 isAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -752,8 +804,16 @@ isAzureLinux() {
 }
 
 isFlatcar() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isUbuntu() {
+    local os=${1-$OS}
+    if [ "$os" = "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -776,139 +836,66 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
 }
 
-# sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
-# Otherwise set RELEASE to "current"
-updateRelease() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
-    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
+# Returns the JSON for the given package on the given OS and OS version.
+getPackageJSON() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    local osVariant=${4:-DEFAULT}
+    local osLowerCase=${os,,}
+
+    # By default, use the first match from these:
+    # .downloadURIs.${osLowerCase}.${osVariant}/current
+    # .downloadURIs.${osLowerCase}.current
+    # .downloadURIs.default.current
+    local search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.default.current"
+
+    # For AZURELINUX, check the OS version (e.g. 3.0) prefixed with "v" before "current" (e.g. v3.0).
     if isMarinerOrAzureLinux "${os}"; then
-        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
-            RELEASE="\"v${osVersion}\""
-        fi
-        return 0
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
+    # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
+    elif isUbuntu "${os}"; then
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
-    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
-        RELEASE="\"r${osVersionWithoutDot}\""
-    fi
+
+    jq -r -c "${search}" <<< "${package}"
 }
 
 # sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
 updatePackageVersions() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
-
-    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
-    # Otherwise get the versions from .downloadURIs.${osLowerCase
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
-        osLowerCase="default"
-    fi
-
-    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
-    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
-        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
-        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-        for version in "${latestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        for version in "${previousLatestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        return 0
-    fi
-
-    # Fallback to versions if versionsV2 is null
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
-        return 0
-    fi
-    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
-    for version in "${versions[@]}"; do
-        PACKAGE_VERSIONS+=("${version}")
-    done
-    return 0
+    readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
+    return
 }
 
 # sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
 updateMultiArchVersions() {
-  local imageToBePulled="$1"
-
-  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
-    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
-    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-    for version in "${latestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    for version in "${previousLatestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    return
-  fi
-
-  # check if multiArchVersions not exists
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
     MULTI_ARCH_VERSIONS=()
+    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
     return
-  fi
-
-  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
-  for version in "${versions[@]}"; do
-    MULTI_ARCH_VERSIONS+=("${version}")
-  done
 }
 
+# sets PACKAGE_DOWNLOAD_URL to the URL of the package based on the os and osVersion
 updatePackageDownloadURL() {
-    local package=$1
-    local os=$2
-    local osVersion=$3
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-
-    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
-        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-        return
-    fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
-    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    PACKAGE_DOWNLOAD_URL=$(jq -r ".downloadURL | values" <<< "$(getPackageJSON "$@")")
     return
 }
 
-# Function to get latestVersion for a given k8sVersion from components.json
+# Get latestVersion for a given k8sVersion from components.json based on the os and osVersion
 getLatestPkgVersionFromK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
-    local os="$3"
-    local os_version="$4"
 
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${package}" "${os}" "${os_version}"
+    updatePackageVersions "${package}" "${@:3}"
 
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
@@ -939,10 +926,10 @@ fallbackToKubeBinaryInstall() {
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
             echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
             return 1
-        elif [ -f "/usr/local/bin/${packageName}-${packageVersion}" ]; then
-            mv "/usr/local/bin/${packageName}-${packageVersion}" "/usr/local/bin/${packageName}"
-            chmod a+x /usr/local/bin/${packageName}
-            rm -rf /usr/local/bin/${packageName}-* &
+        elif [ -f "/opt/bin/${packageName}-${packageVersion}" ]; then
+            mv "/opt/bin/${packageName}-${packageVersion}" "/opt/bin/${packageName}"
+            chmod a+x /opt/bin/${packageName}
+            rm -rf /opt/bin/${packageName}-* &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
@@ -1243,10 +1230,10 @@ extract_tarball() {
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
-            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
         *)
-            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
 }

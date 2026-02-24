@@ -85,6 +85,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                        fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
 		"ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED":                 fmt.Sprintf("%v", config.GetGpuConfig().GetGpuDevicePlugin()),
 		"MANAGED_GPU_EXPERIENCE_AFEC_ENABLED":                fmt.Sprintf("%v", config.GetGpuConfig().GetManagedGpuExperienceAfecEnabled()),
+		"ENABLE_MANAGED_GPU":                                 fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpu()),
+		"NVIDIA_MIG_STRATEGY":                                config.GetGpuConfig().GetMigStrategy(),
 		"TELEPORTD_PLUGIN_DOWNLOAD_URL":                      config.GetTeleportConfig().GetTeleportdPluginDownloadUrl(),
 		"CREDENTIAL_PROVIDER_DOWNLOAD_URL":                   config.GetKubeBinaryConfig().GetLinuxCredentialProviderUrl(),
 		"CONTAINERD_VERSION":                                 config.GetContainerdConfig().GetContainerdVersion(),
@@ -136,7 +138,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"DHCPV6_CONFIG_FILEPATH":                             getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                        config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
 		"THP_DEFRAG":                                         config.GetCustomLinuxOsConfig().GetTransparentDefrag(),
-		"SERVICE_PRINCIPAL_FILE_CONTENT":                     getServicePrincipalFileContent(config.AuthConfig),
+		"SERVICE_PRINCIPAL_FILE_CONTENT":                     config.GetAuthConfig().GetServicePrincipalSecret(),
 		"KUBELET_CLIENT_CONTENT":                             config.GetKubeletConfig().GetKubeletClientKey(),
 		"KUBELET_CLIENT_CERT_CONTENT":                        config.GetKubeletConfig().GetKubeletClientCertContent(),
 		"KUBELET_CONFIG_FILE_ENABLED":                        fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
@@ -177,6 +179,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultClientId(),
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultTenantId(),
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":              config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
+		"CSE_TIMEOUT":                                        getCSETimeout(config),
 	}
 
 	for i, cert := range config.CustomCaCerts {

@@ -1,12 +1,12 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+FLATCAR_OS_NAME="FLATCAR"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -199,18 +199,19 @@ testPackagesInstalled() {
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${MARINER_KATA_OS_NAME}
       fi
-    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
+    elif [ "$OS_SKU" = "AzureLinux" ]; then
       OS=$AZURELINUX_OS_NAME
       if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
         OS=${AZURELINUX_KATA_OS_NAME}
       fi
+    elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+      OS=$AZURELINUX_OS_NAME
+      OS_VARIANT=OSGUARD
     else
-      OS=$UBUNTU_OS_NAME
+      OS=${OS_SKU^^}
     fi
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
-    PACKAGE_DOWNLOAD_URL=""
-    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     case "${name}" in
       "kubernetes-binaries")
         # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
@@ -223,13 +224,23 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "azure-acr-credential-provider-pmc"|\
       "kubelet"|\
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "cni-plugins")
+        testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "containernetworking-plugins")
+        # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
+        testContainerNetworkingPluginsInstalled
         continue
         ;;
     esac
@@ -386,7 +397,6 @@ testImagesPulled() {
     else
       amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq -r '.amd64OnlyVersions // empty')
     fi
-    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
@@ -911,9 +921,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  downloadLocation="/opt/${packageName}/downloads"
+  local seArch seFile
+  seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
@@ -927,6 +938,11 @@ testPkgDownloaded() {
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ]; then
+      seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
+      if [ -z "${seFile}" ]; then
+        err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
       fi
     fi
 
@@ -1508,6 +1524,12 @@ testCriCtl() {
   expectedVersion="${1}"
   local test="testCriCtl"
   echo "$test: Start"
+  # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
+  # Therefore, we will just skip the test.
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for containerd version, as expected version is <SKIP>"
+    return 0
+  fi
   # the expectedVersion looks like this, "1.32.0-ubuntu24.04u3", need to extract the version number.
   expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
   # use command `crictl --version` to get the version
@@ -1692,6 +1714,80 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+# Basic sanity check for Inspektor Gadget artifacts baked into the image.
+testInspektorGadgetAssets() {
+  local test="testInspektorGadgetAssets"
+  echo "$test:Start"
+
+  local skip_file="/etc/ig.d/skip_vhd_ig"
+  local import_script="/usr/share/inspektor-gadget/import_gadgets.sh"
+  local remove_script="/usr/share/inspektor-gadget/remove_gadgets.sh"
+  local service_name="ig-import-gadgets.service"
+  local unit_file="/usr/lib/systemd/system/${service_name}"
+  local tracking_file="/var/lib/ig/imported-gadgets.txt"
+
+  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
+  local is_kata=false
+  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    is_kata=true
+  fi
+
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
+    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
+
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
+    if [ -f "$skip_file" ]; then
+      err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
+    fi
+
+    if [ -f "$import_script" ]; then
+      err $test "Import script should not exist for $OS_SKU but found at $import_script"
+    fi
+
+    if [ -f "$remove_script" ]; then
+      err $test "Remove script should not exist for $OS_SKU but found at $remove_script"
+    fi
+
+    if [ -f "$unit_file" ]; then
+      err $test "Unit file should not exist for $OS_SKU but found at $unit_file"
+    fi
+
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ ! -f "$skip_file" ]; then
+    err $test "Skip sentinel missing at $skip_file"
+  fi
+
+  if [ ! -x "$import_script" ]; then
+    err $test "Import script missing or not executable at $import_script"
+  fi
+
+  if [ ! -x "$remove_script" ]; then
+    err $test "Remove script missing or not executable at $remove_script"
+  fi
+
+  if [ ! -f "$unit_file" ]; then
+    err $test "Unit file missing at $unit_file"
+  fi
+
+  local service_state
+  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
+  if [ "$service_state" != "enabled" ]; then
+    err $test "$service_name not enabled, state: ${service_state:-absent}"
+  fi
+
+  # Verify gadgets were imported during VHD build (tracking file should exist and have content)
+  if [ ! -f "$tracking_file" ]; then
+    err $test "Tracking file missing at $tracking_file - gadget import may have failed"
+  elif [ ! -s "$tracking_file" ]; then
+    err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  echo "$test:Finish"
+}
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1722,6 +1818,63 @@ testDiskQueueServiceIsActive() {
   fi
 
   echo "$test:Finish"
+}
+
+testCNIPluginsInstalled() {
+  local test="testCNIPluginsInstalled"
+  echo "$test: Start"
+
+  local downloadLocation=$1
+  local packageVersion=$2
+  local cni_extracted_dir="${downloadLocation}/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"
+
+  # Check that the extracted directory exists
+  echo "$test: Checking for existence of extracted CNI plugins directory: $cni_extracted_dir"
+  if [ ! -d "$cni_extracted_dir" ]; then
+    err "$test: CNI plugins directory $cni_extracted_dir not found"
+    return 1
+  fi
+  echo "$test: CNI plugins directory $cni_extracted_dir found"
+
+  # Verify that the directory contains the expected CNI plugin binaries
+  local required_plugins=("bridge" "host-local" "loopback")
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_extracted_dir/$plugin"
+    echo "$test: Checking for CNI plugin binary $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin binary $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin binary $plugin found"
+  done
+
+  echo "$test: All required CNI plugin binaries are present in cached directory."
+  echo "$test: Finish"
+  return 0
+}
+
+
+testContainerNetworkingPluginsInstalled() {
+  local test="testContainerNetworkingPluginsInstalled"
+  echo "$test: Start"
+
+  local cni_bin_dir="/opt/cni/bin"
+  #there are several other plugins but these are used by kubenet and containerd so focus on them.
+  local required_plugins=("bridge" "host-local" "loopback")
+
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_bin_dir/$plugin"
+    echo "$test: Checking for existence of CNI plugin $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin $plugin found at $plugin_path"
+  done
+
+  echo "$test: All required CNI plugins are installed."
+  echo "$test: Finish"
+  return 0
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
@@ -1773,6 +1926,7 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
+testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive

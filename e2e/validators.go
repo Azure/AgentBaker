@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -199,7 +200,7 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
 		for _, secretValue := range secrets {
 			if secretValue != "" {
-				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+				ValidateFileExcludesExactContent(ctx, s, logFile, secretValue)
 			}
 		}
 	}
@@ -252,6 +253,97 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, execResult.stdout)
 	}
+}
+
+// ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
+// It identifies network interfaces with slot names matching the enP* pattern (same logic as the udev rule),
+// then verifies that each interface has the expected configuration settings (e.g., rx buffer size).
+// The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
+func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
+	s.T.Helper()
+
+	// Get list of NICs using udevadm (same logic as udev rule)
+	getNicsCommand := []string{
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"echo '=== NICs to Configure ==='",
+		"enp_ifaces=()",
+		"for dev in /sys/class/net/*; do",
+		"  iface=\"$(basename \"$dev\")\"",
+		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}' || true)\"",
+		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
+		"done",
+		"IFS=,; echo \"${enp_ifaces[*]}\"",
+	}
+	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	s.T.Logf("NICs to configure:\n%s", nicsResult.stdout)
+
+	// Parse NIC output - it may be multi-line with header
+	lines := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
+	nicsOutput := ""
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Skip header lines
+		if strings.Contains(line, "===") || line == "" {
+			continue
+		}
+		nicsOutput = line
+		break
+	}
+
+	nics := strings.Split(nicsOutput, ",")
+
+	s.T.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
+
+	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
+		s.T.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping network interface config validation")
+		return
+	}
+
+	for _, nic := range nics {
+		// Skip empty entries
+		nic = strings.TrimSpace(nic)
+		if nic == "" {
+			continue
+		}
+
+		s.T.Logf("Validating network interface config for NIC: %s", nic)
+
+		// Get full ethtool output for debugging
+		debugCommand := []string{
+			"set -ex",
+			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+			fmt.Sprintf("sudo ethtool -g %s", nic),
+		}
+		debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
+
+		for setting, expectedValue := range nicConfig {
+			var cmd string
+			if oldEthtool {
+				cmd = fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting)
+			} else {
+				cmd = fmt.Sprintf("sudo ethtool --json -g %s | jq -r .[0].\\\"%s\\\"", nic, setting)
+			}
+			command := []string{
+				"set -ex",
+				cmd,
+			}
+			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			actualValue := strings.TrimSpace(execResult.stdout)
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
+			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout)
+		}
+	}
+}
+
+// ValidateAzureNetworkFiles checks that udev rules files exist.
+func ValidateAzureNetworkFiles(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
+	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
@@ -314,6 +406,73 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
 }
 
+func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/ig.d/skip_vhd_ig"
+	serviceName := "ig-import-gadgets.service"
+	servicePath := "/usr/lib/systemd/system/" + serviceName
+
+	// Check if IG is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
+	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
+
+	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, servicePath)
+
+	// Validate that gadgets were actually imported
+	trackingFile := "/var/lib/ig/imported-gadgets.txt"
+	ValidateFileExists(ctx, s, trackingFile)
+	s.T.Logf("Validating imported gadgets tracking file is not empty")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -s %s", trackingFile), 0, "tracking file should not be empty")
+
+	// Verify ig image list shows imported gadgets
+	s.T.Logf("Validating ig image list shows imported gadgets")
+	result := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
+	if result.exitCode != "0" {
+		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr)
+	}
+	if len(result.stdout) == 0 {
+		s.T.Fatal("ig image list returned empty output, expected at least one imported gadget")
+	}
+	s.T.Logf("ig image list output:\n%s", result.stdout)
+
+	// Run a simple gadget as a functional test.
+	// We dynamically get the trace_exec tag from ig image list since gadgets are imported
+	// with version tags (e.g., v0.45.0) matching components.json, not :latest.
+	// IG requires root privileges to run eBPF programs.
+	// We use timeout(1) to kill the gadget after 3s in case it hangs.
+	// The ig --timeout flag expects an integer (seconds), not a duration string.
+	// Exit codes: 0 = success, 124 = timeout killed it (also OK), anything else = failure.
+	s.T.Logf("Running functional test with trace_exec gadget")
+	funcTestScript := `
+set -e
+TRACE_EXEC_TAG=$(sudo ig image list | grep trace_exec | awk '{print $2}')
+if [ -z "$TRACE_EXEC_TAG" ]; then
+    echo "trace_exec gadget not found in ig image list"
+    exit 1
+fi
+echo "Using trace_exec:$TRACE_EXEC_TAG"
+timeout 3s sudo ig run "trace_exec:$TRACE_EXEC_TAG" --timeout 2 || EXIT_CODE=$?
+if [ "${EXIT_CODE:-0}" != "0" ] && [ "${EXIT_CODE:-0}" != "124" ]; then
+    echo "trace_exec gadget failed with exit code ${EXIT_CODE}"
+    exit 1
+fi
+echo "trace_exec gadget ran successfully"
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, funcTestScript, 0, "trace_exec gadget should run successfully")
+	s.T.Logf("Inspektor Gadget functional validation passed")
+}
+
 func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if !fileExist(ctx, s, fileName) {
@@ -361,40 +520,118 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	}
 }
 
+func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, error) {
+	s.T.Helper()
+	var steps []string
+
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("Get-Content %s", fileName),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("sudo cat %s", fileName),
+		}
+	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if execResult.exitCode != "0" {
+		return "", fmt.Errorf("failed to get file content for %s: exit code %s\nStdout: %s\nStderr: %s", fileName, execResult.exitCode, execResult.stdout, execResult.stderr)
+	}
+
+	return execResult.stdout, nil
+}
+
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
 	s.T.Helper()
 	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	var steps []string
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
+		}
+	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	return execResult.exitCode == "0"
+
+}
+
+func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
+	s.T.Helper()
+	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	encodedPattern := base64.StdEncoding.EncodeToString([]byte(contents))
 	if s.IsWindows() {
 		steps := []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("Get-Content %s", fileName),
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
-			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
+			fmt.Sprintf("$pattern = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%s'))", encodedPattern),
+			fmt.Sprintf("$content = Get-Content -Path %s -Raw", fileName),
+			"$escaped = [regex]::Escape($pattern)",
+			"if ([regex]::Match($content, \"(?<!\\w)\" + $escaped + \"(?!\\w)\").Success) { exit 0 } else { exit 1 }",
 		}
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"
 	} else {
 		steps := []string{
 			"set -ex",
-			fmt.Sprintf("sudo cat %s", fileName),
-			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
+			fmt.Sprintf("if [ ! -f %s ]; then exit 2; fi", fileName),
+			fmt.Sprintf("pattern=$(printf '%%s' '%s' | base64 -d)", encodedPattern),
+			"escaped=$(printf '%s\n' \"$pattern\" | sed -e 's/[.\\[\\()*?^$+{}|]/\\\\&/g')",
+			"regex='(^|[^[:alnum:]_])'\"$escaped\"'([^[:alnum:]_]|$)'",
+			fmt.Sprintf("if sudo grep -Eq \"$regex\" %s; then exit 0; else exit 1; fi", fileName),
 		}
 		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
 		return execResult.exitCode == "0"
 	}
 }
 
+// ValidateFileHasContent passes the test if the specified file contains the specified contents.
+// The contents doesn't need to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is a match, thus the validation passes.
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if !fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to have contents %q, but it does not", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
+// ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
+// The contents doesn't need to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
+		}
+	}
+}
+
+// ValidateFileExcludesExactContent fails the test if the specified file contains the specified contents.
+// The contents needs to be surrounded by non-word characters.
+// E.g.: searching "bcd" in "abcdef" is not a match, thus the validation passes.
+func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+	s.T.Helper()
+	if fileHasExactContent(ctx, s, fileName, contents) {
+		s.T.Fatalf("expected file %s to not have exact contents %q, but it does", fileName, contents)
 	}
 }
 
@@ -1224,12 +1461,11 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
-	resourceName := "nvidia.com/gpu"
 
-	// First, wait for the nvidia.com/gpu resource to be available
+	// First, wait for the GPU resource to be available
 	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework
@@ -1577,4 +1813,120 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	actualValue, exists := node.Labels[labelKey]
 	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
+
+// ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
+func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc != nil && nbc.EnableScriptlessCSECmd {
+		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
+	}
+}
+
+// ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
+func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Query the VM's actual CPU count using nproc
+	cpuCountCmd := "nproc"
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
+	vmCPUCount := strings.TrimSpace(result.stdout)
+
+	// Parse CPU count
+	cpuCount, err := strconv.Atoi(vmCPUCount)
+	require.NoError(s.T, err, "failed to parse CPU count: %s", vmCPUCount)
+
+	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
+	expectedRx := "1024"
+	if cpuCount >= 4 {
+		expectedRx = "2048"
+	}
+
+	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)
+
+	customNicConfig := map[string]string{
+		"rx": expectedRx,
+	}
+
+	// Validate files exist
+	ValidateAzureNetworkFiles(ctx, s)
+
+	// Validate network interface settings match expected default
+	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
+}
+
+// ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
+// - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
+// - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
+// - Memory issues (OOM killer, page allocation failure, memory corruption)
+// - I/O and filesystem errors (I/O error, filesystem errors, nvme/ata/scsi errors)
+func ValidateKernelLogs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	type categoryPattern struct {
+		pattern string
+		exclude string // optional pattern to exclude false positives
+	}
+	patterns := map[string]categoryPattern{
+		"PANIC/CRASH": {
+			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			// exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
+			exclude: `panic=`,
+		},
+		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
+		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
+		"IO/FS": {
+			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
+			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+			// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
+			exclude: `sr[0-9]|Shutdown timeout set to`,
+		},
+	}
+
+	// Collect all issues first before potentially failing
+	issuesFound := make(map[string]string)
+	for category, cp := range patterns {
+		var command []string
+		if cp.exclude != "" {
+			command = []string{
+				"set -e",
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' | grep -ivE '%s' || true", cp.pattern, cp.exclude),
+			}
+		} else {
+			command = []string{
+				"set -e",
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' || true", cp.pattern),
+			}
+		}
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
+
+		stdout := strings.TrimSpace(execResult.stdout)
+		if stdout != "" {
+			issuesFound[category] = stdout
+		}
+	}
+
+	// If issues found, write the full kernel dump to a file for debugging
+	if len(issuesFound) > 0 {
+		// Get full kernel log dump and write to file
+		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
+		logFileName := "kernel-log.txt"
+		if err := writeToFile(s.T, logFileName, fullDmesgResult.stdout); err != nil {
+			s.T.Logf("Warning: failed to write kernel log to file: %v", err)
+		} else {
+			s.T.Logf("Full kernel log written to: %s/%s", testDir(s.T), logFileName)
+		}
+
+		// Log each category of issues found
+		var summary strings.Builder
+		summary.WriteString("Critical kernel issues detected:\n")
+		for category, issues := range issuesFound {
+			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
+		}
+		s.T.Fatalf("%s", summary.String())
+	}
+
+	s.T.Logf("No critical kernel issues found")
 }

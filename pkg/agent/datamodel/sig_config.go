@@ -95,6 +95,7 @@ var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
+	AKSUbuntuFipsContainerd2204TLGen2,
 }
 
 //nolint:gochecknoglobals
@@ -113,6 +114,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
+	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSCBLMarinerV1,
@@ -162,6 +164,7 @@ var AvailableContainerdDistros = []Distro{
 var AvailableGen2Distros = []Distro{
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204Gen2,
+	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuArm64GB200Containerd2404Gen2,
@@ -429,14 +432,21 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204fipscontainerd",
-		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2fipscontainerd",
-		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuFipsContainerd2204TLGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204gen2fipsTLcontainerd",
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -828,6 +838,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsContainerd2004Gen2:       SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2204:           SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2204Gen2:       SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204TLGen2:     SIGUbuntuFipsContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204:               SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204Gen2:           SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:        SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),

@@ -7,14 +7,21 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
 func main() {
 	// defer calls are not executed on os.Exit
 	logCleanup := configureLogging()
-	app := App{cmdRunner: cmdRunner}
+	app := App{
+		cmdRun:      cmdRunner,
+		eventLogger: helpers.NewEventLogger("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),
+	}
+
 	exitCode := app.Run(context.Background(), os.Args)
 	logCleanup()
+
 	os.Exit(exitCode)
 }
 

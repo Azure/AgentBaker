@@ -41,6 +41,7 @@ package components
 	latestVersion:           string
 	previousLatestVersion?:  string
 	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
+	revision?:               string
 }
 
 #ReleaseDownloadURI: {
@@ -65,8 +66,10 @@ package components
 }
 
 #AzureLinuxOSDistro: {
-	"v3.0"?:  #ReleaseDownloadURI
-	current?: #ReleaseDownloadURI
+	"v3.0"?:          #ReleaseDownloadURI
+	"DEFAULT/v3.0"?:  #ReleaseDownloadURI
+	"OSGUARD/v3.0"?:  #ReleaseDownloadURI
+	current?:         #ReleaseDownloadURI
 }
 
 #WindowsOsDistro: {

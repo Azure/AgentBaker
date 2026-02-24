@@ -74,10 +74,12 @@ function cleanup() {
 trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
-VM_OPTIONS="--size Standard_D8ds_v5"
+VM_SIZE="Standard_D8ds_v5"
+VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D8pds_v5"
+    VM_SIZE="Standard_D8pds_v5"
+    VM_OPTIONS="--size $VM_SIZE"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
@@ -85,8 +87,9 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    VM_SIZE="Standard_DC8ads_v5"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
@@ -101,15 +104,41 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
-az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $SCAN_VM_NAME \
-    --image $VHD_IMAGE \
-    --nics $SCANNING_NIC_ID \
-    --admin-username $SCAN_VM_ADMIN_USERNAME \
-    --admin-password $SCAN_VM_ADMIN_PASSWORD \
-    --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
+# Create VM using appropriate method based on scenario
+if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s "${ENABLE_FIPS}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+    # Source the FIPS helper functions
+    FULL_PATH=$(realpath $0)
+    CDIR=$(dirname $FULL_PATH)
+    source "$CDIR/fips-helper.sh"
+
+    # Register FIPS feature and create VM using REST API. Exit if any step fails.
+    ensure_fips_feature_registered || exit $?
+    create_fips_vm "$VM_SIZE" || exit $?
+else
+    echo "Creating VM using standard az vm create command..."
+
+    # Disable tracing to prevent password from appearing in logs
+    set +x
+    # Use the standard VM creation approach for all other scenarios
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
+        --name $SCAN_VM_NAME \
+        --image $VHD_IMAGE \
+        --nics $SCANNING_NIC_ID \
+        --admin-username $SCAN_VM_ADMIN_USERNAME \
+        --admin-password $SCAN_VM_ADMIN_PASSWORD \
+        --os-disk-size-gb 60 \
+        ${VM_OPTIONS} \
+        --assign-identity "${UMSI_RESOURCE_ID}"
+
+    # Check for errors in the az vm create command
+    AZ_VM_CREATE_EXIT_CODE=$?
+    # Re-enable tracing after sensitive command
+    set -x
+    if [ $AZ_VM_CREATE_EXIT_CODE -ne 0 ]; then
+        echo "Error: Failed to create VM" >&2
+        exit 1
+    fi
+fi
 
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
@@ -274,7 +303,8 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
-SKIP_CIS=${SKIP_CIS:-true}
+# Set this pipeline variable to true if CIS scanning is broken
+SKIP_CIS=${SKIP_CIS:-false}
 if [ "${SKIP_CIS,,}" = "true" ]; then
     # For artifacts
     touch cis-report.txt
@@ -288,6 +318,57 @@ fi
 
 # Compare current cis-report.txt against stored baseline for Ubuntu 22.04 / 24.04.
 # A regression is when a rule that previously "pass" now has any other result.
+assemble_cis_report() {
+    local l1_file="$1"
+    local l2_file="$2"
+    local output_file="$3"
+
+    if [ ! -f "${l1_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing L1 CIS report file: %s\n' "$l1_file"
+        return 1
+    fi
+    if [ ! -f "${l2_file}" ]; then
+        printf '##vso[task.logissue type=error]Missing L2 CIS report file: %s\n' "$l2_file"
+        return 1
+    fi
+
+    local -A l1_rules
+    while IFS= read -r line; do
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*)
+                local rest
+                rest=$(printf '%s' "$line" | cut -d':' -f2-)
+                rest="${rest# }"
+                local rule_id=${rest%% *}
+                if [ -n "$rule_id" ]; then
+                    l1_rules["$rule_id"]=1
+                fi
+                ;;
+        esac
+    done < "${l1_file}"
+
+    while IFS= read -r line; do
+        case "$line" in
+            pass:*|fail:*|manual:*|error:*|unknown:*)
+                local status rest rule_id desc level
+                status=$(printf '%s' "$line" | cut -d':' -f1)
+                rest=$(printf '%s' "$line" | cut -d':' -f2-)
+                rest="${rest# }"
+                rule_id=${rest%% *}
+                desc="${rest#"$rule_id"}"
+                level="L2"
+                if [ -n "${l1_rules[$rule_id]-}" ]; then
+                    level="L1"
+                fi
+                printf '%s: %s [%s]%s\n' "$status" "$rule_id" "$level" "$desc"
+                ;;
+            *)
+                printf '%s\n' "$line"
+                ;;
+        esac
+    done < "${l2_file}" > "${output_file}"
+}
+
 compare_cis_with_baseline() {
     local baseline_file="vhdbuilder/packer/cis/baselines/${OS_SKU,,}/${OS_VERSION}.txt"
     local current_file="cis-report.txt"
@@ -348,7 +429,7 @@ compare_cis_with_baseline() {
     local regression_count=0
     for rule_id in "${!baseline_pass[@]}"; do
         baseline_status="pass"
-        current_rule_status=${current_status["$rule_id"]}
+        current_rule_status=${current_status["$rule_id"]-}
         if [ -z "$current_rule_status" ]; then
             # Missing rule considered regression
             printf '%s|%s->MISSING\n' "$rule_id" "$baseline_status" >> "${regressions_file}"
@@ -373,8 +454,11 @@ compare_cis_with_baseline() {
 }
 
 CIS_SCRIPT_PATH="$CDIR/cis-report.sh"
-CIS_REPORT_TXT_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_L1_TXT_NAME="cis-report-l1-${BUILD_ID}-${TIMESTAMP}.txt"
+CIS_REPORT_L2_TXT_NAME="cis-report-l2-${BUILD_ID}-${TIMESTAMP}.txt"
 CIS_REPORT_HTML_NAME="cis-report-${BUILD_ID}-${TIMESTAMP}.html"
+CIS_REPORT_L1_LOCAL="cis-report-l1.txt"
+CIS_REPORT_L2_LOCAL="cis-report-l2.txt"
 
 # Upload cisassessor tarball to storage account
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
@@ -396,7 +480,8 @@ ret=$(az vm run-command invoke \
         "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
         "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
         "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
-        "CIS_REPORT_TXT_NAME=${CIS_REPORT_TXT_NAME}" \
+        "CIS_REPORT_L1_TXT_NAME=${CIS_REPORT_L1_TXT_NAME}" \
+        "CIS_REPORT_L2_TXT_NAME=${CIS_REPORT_L2_TXT_NAME}" \
         "CIS_REPORT_HTML_NAME=${CIS_REPORT_HTML_NAME}" \
         "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "OS_SKU=${OS_SKU}"
@@ -406,11 +491,15 @@ msg=$(echo -E "$ret" | jq -r '.value[].message')
 echo "$msg"
 
 # Download CIS report files to working directory
-az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --file cis-report.txt --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --file "${CIS_REPORT_L1_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
+az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --file "${CIS_REPORT_L2_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --file cis-report.html --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login
 
+assemble_cis_report "${CIS_REPORT_L1_LOCAL}" "${CIS_REPORT_L2_LOCAL}" "cis-report.txt"
+
 # Remove CIS report blobs from storage
-az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --auth-mode login
+az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
 # Remove CIS assessor tarball blob from storage
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login

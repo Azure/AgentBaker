@@ -43,7 +43,7 @@ ln -s /opt/azure/containers /home/packer
 ### pre-install-dependencies ###
 echo -e "\nnews.none                          -/var/log/messages" >> /etc/rsyslog.d/60-CIS.conf
 # Create dir for update_certs.path
-mkdir /opt/certs
+mkdir -p /opt/certs
 chmod 755 /opt/certs
 # Use AKS Log Collector instead of WALA log collections
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf
@@ -73,7 +73,10 @@ rm /home/packer/tool_installs_distro.sh
 rm /home/packer/lister
 rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
+rm /home/packer/install-ig.sh
 rm /home/packer
+
+chage -I -1 -M -1 root
 
 # Create release-notes.txt
 mkdir -p /_imageconfigs/out
