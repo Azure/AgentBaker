@@ -93,7 +93,7 @@ echo "   Status: $VNETDNS_STATUS"
 echo "   IP: $VNETDNS_IP"
 echo "   Value: $VNETDNS_VALUE"
 
-# VnetDNS can be "ok" or "forward_not_configured" depending on cluster config
+# VnetDNS can have different status values depending on configuration
 if [ "$VNETDNS_STATUS" = "ok" ]; then
     if [ -z "$VNETDNS_IP" ] || [ "$VNETDNS_IP" = "unknown" ]; then
         echo "   ❌ ERROR: VnetDNS status is ok but IP is missing or unknown"
@@ -109,15 +109,18 @@ if [ "$VNETDNS_STATUS" = "ok" ]; then
         exit 1
     fi
     echo "   ✓ VnetDNS forward IP: $VNETDNS_IP (valid)"
-elif [ "$VNETDNS_STATUS" = "forward_not_configured" ]; then
-    echo "   ⚠️  VnetDNS forward not configured (expected for some cluster configs)"
+elif [ "$VNETDNS_STATUS" = "missing" ]; then
+    echo "   ⚠️  VnetDNS forward not configured in corefile (expected for some cluster configs)"
     if [ "$VNETDNS_VALUE" != "0" ]; then
         echo "   ❌ ERROR: VnetDNS not configured but value is not 0"
         exit 1
     fi
-elif [ "$VNETDNS_STATUS" = "corefile_missing" ]; then
-    echo "   ❌ ERROR: Corefile is missing - localdns may not be configured correctly"
-    exit 1
+elif [ "$VNETDNS_STATUS" = "file_missing" ]; then
+    echo "   ⚠️  Forward IPs .prom file is missing (may occur during initial setup)"
+    if [ "$VNETDNS_VALUE" != "0" ]; then
+        echo "   ❌ ERROR: File missing but value is not 0"
+        exit 1
+    fi
 else
     echo "   ❌ ERROR: Unknown VnetDNS status: $VNETDNS_STATUS"
     exit 1
@@ -137,7 +140,7 @@ echo "   Status: $KUBEDNS_STATUS"
 echo "   IP: $KUBEDNS_IP"
 echo "   Value: $KUBEDNS_VALUE"
 
-# KubeDNS can be "ok" or "forward_not_configured" depending on cluster config
+# KubeDNS can have different status values depending on configuration
 if [ "$KUBEDNS_STATUS" = "ok" ]; then
     if [ -z "$KUBEDNS_IP" ] || [ "$KUBEDNS_IP" = "unknown" ]; then
         echo "   ❌ ERROR: KubeDNS status is ok but IP is missing or unknown"
@@ -153,15 +156,18 @@ if [ "$KUBEDNS_STATUS" = "ok" ]; then
         exit 1
     fi
     echo "   ✓ KubeDNS forward IP: $KUBEDNS_IP (valid)"
-elif [ "$KUBEDNS_STATUS" = "forward_not_configured" ]; then
-    echo "   ⚠️  KubeDNS forward not configured (expected for some cluster configs)"
+elif [ "$KUBEDNS_STATUS" = "missing" ]; then
+    echo "   ⚠️  KubeDNS forward not configured in corefile (expected for some cluster configs)"
     if [ "$KUBEDNS_VALUE" != "0" ]; then
         echo "   ❌ ERROR: KubeDNS not configured but value is not 0"
         exit 1
     fi
-elif [ "$KUBEDNS_STATUS" = "corefile_missing" ]; then
-    echo "   ❌ ERROR: Corefile is missing - localdns may not be configured correctly"
-    exit 1
+elif [ "$KUBEDNS_STATUS" = "file_missing" ]; then
+    echo "   ⚠️  Forward IPs .prom file is missing (may occur during initial setup)"
+    if [ "$KUBEDNS_VALUE" != "0" ]; then
+        echo "   ❌ ERROR: File missing but value is not 0"
+        exit 1
+    fi
 else
     echo "   ❌ ERROR: Unknown KubeDNS status: $KUBEDNS_STATUS"
     exit 1
