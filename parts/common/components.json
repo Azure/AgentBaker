@@ -614,7 +614,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.16.0"
+          "latestVersion": "v2.18.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
@@ -624,7 +624,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.16.0"
+          "latestVersion": "v2.18.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
@@ -638,7 +638,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.16.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
@@ -648,7 +648,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.16.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
