@@ -473,7 +473,6 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 }
 
 func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
-	t.Skip("skipping test for Windows Cilium Networking (WCN) on Windows 23H2 Gen2, as it needs a reboot after provisioning - and that is not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
 		Config: Config{
