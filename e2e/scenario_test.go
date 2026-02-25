@@ -1422,6 +1422,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
@@ -1431,7 +1432,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			},
 		},
 		// No MA35D GPU capacity in West US, so using East US
-		Location: "eastus",
+		Location:         "eastus",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 	})
 }
@@ -1450,6 +1451,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
@@ -1459,7 +1461,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 			},
 		},
 		// No MA35D GPU capacity in West US, so using East US
-		Location: "eastus",
+		Location:         "eastus",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 	})
 }
