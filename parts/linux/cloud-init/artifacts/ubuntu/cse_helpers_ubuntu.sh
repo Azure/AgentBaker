@@ -6,7 +6,7 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 aptmarkWALinuxAgent() {
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
-    retrycmd_if_failure 225 2 2 apt-mark $1 walinuxagent || \
+    retrycmd_if_failure 120 2 60 apt-mark $1 walinuxagent || \
     if [ "$1" = "hold" ]; then
         exit $ERR_HOLD_WALINUXAGENT
     elif [ "$1" = "unhold" ]; then
