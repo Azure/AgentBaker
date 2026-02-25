@@ -280,16 +280,23 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	})
 	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", vmSize)
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.T.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
+		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", vmSize, config.DefaultV5VMSKU)
+		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
 	}
-	nvmeOnly, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
+	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
 		VMSize:   vmSize,
 	})
 	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", vmSize)
-	if nvmeOnly && s.Config.VHD.UnsupportedNVMe {
-		s.T.Skipf("VM size %q only supports NVMe disk controller but image does not support NVMe, skipping test", vmSize)
+	if supportsNVMe {
+		if s.Config.VHD.UnsupportedNVMe {
+			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", vmSize, config.DefaultV5VMSKU)
+			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		} else {
+			s.Config.UseNVMe = true
+		}
 	}
+
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// fail test, but continue to extract debug information

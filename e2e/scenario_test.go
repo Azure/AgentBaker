@@ -366,6 +366,9 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
@@ -391,6 +394,9 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,

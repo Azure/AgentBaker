@@ -188,6 +188,9 @@ type Config struct {
 
 	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
 	ReturnErrorOnVMSSCreation bool
+
+	// UseNVMe indicates whether to use NVMe caching for the VMSS. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
+	UseNVMe bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
