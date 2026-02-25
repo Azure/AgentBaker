@@ -24,7 +24,7 @@ echo "   Running: /opt/azure/containers/localdns/localdns_exporter.sh"
 echo ""
 
 if [ -f "/opt/azure/containers/localdns/localdns_exporter.sh" ]; then
-    /opt/azure/containers/localdns/localdns_exporter.sh
+    echo "GET /metrics HTTP/1.1" | /opt/azure/containers/localdns/localdns_exporter.sh
 else
     echo "   ERROR: Exporter script not found at /opt/azure/containers/localdns/localdns_exporter.sh"
     echo "   Run VHD build first to install the files."
@@ -42,8 +42,8 @@ systemctl is-active localdns-exporter.socket || echo "   Socket is not active"
 echo ""
 echo "4. Testing metrics via HTTP (if socket is running):"
 if systemctl is-active --quiet localdns-exporter.socket; then
-    echo "   Fetching metrics from localhost:9353..."
-    curl -s http://localhost:9353 || echo "   Failed to fetch metrics"
+    echo "   Fetching metrics from localhost:9353/metrics..."
+    curl -s http://localhost:9353/metrics || echo "   Failed to fetch metrics"
 else
     echo "   Socket is not running. Start it with: systemctl start localdns-exporter.socket"
 fi
@@ -55,6 +55,6 @@ echo "To enable and start the exporter:"
 echo "  sudo systemctl enable --now localdns-exporter.socket"
 echo ""
 echo "To test the metrics endpoint:"
-echo "  curl http://localhost:9353"
+echo "  curl http://localhost:9353/metrics"
 echo ""
 echo "VMAgent will scrape metrics from port 9353 automatically."
