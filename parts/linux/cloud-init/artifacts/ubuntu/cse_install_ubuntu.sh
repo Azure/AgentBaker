@@ -35,7 +35,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=3.0.10")
+        pkg_list+=("aznfs=3.0.14")
     fi
 
     for apt_package in ${pkg_list[*]}; do
