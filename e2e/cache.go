@@ -234,10 +234,10 @@ type VMSizeSKURequest struct {
 	VMSize   string
 }
 
-// CachedIsVMSizeNVMeOnly caches the result of querying the Azure Resource SKUs API
-// to determine if a VM size only supports the NVMe disk controller type.
-var CachedIsVMSizeNVMeOnly = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
-	return config.Azure.IsVMSizeNVMeOnly(ctx, req.Location, req.VMSize)
+// CachedVMSizeSupportsNVMe caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size supports the NVMe disk controller type.
+var CachedVMSizeSupportsNVMe = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.VMSizeSupportsNVMe(ctx, req.Location, req.VMSize)
 })
 
 // CachedIsVMSizeGen2Only caches the result of querying the Azure Resource SKUs API

@@ -294,7 +294,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
 		s.T.Skipf("VM size %q only supports Gen2 hypervisor but image does not, skipping test", vmSize)
 	}
-	nvmeOnly, err := CachedIsVMSizeNVMeOnly(ctx, VMSizeSKURequest{
+	nvmeOnly, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
 		VMSize:   vmSize,
 	})

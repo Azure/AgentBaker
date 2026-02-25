@@ -225,7 +225,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	if model.SKU != nil && model.SKU.Name != nil {
 		finalVMSize = *model.SKU.Name
 	}
-	nvmeOnly, err := CachedIsVMSizeNVMeOnly(ctx, VMSizeSKURequest{
+	nvmeOnly, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
 		VMSize:   finalVMSize,
 	})

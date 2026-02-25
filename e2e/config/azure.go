@@ -843,14 +843,14 @@ func (a *AzureClient) getResourceSKU(ctx context.Context, location, vmSize strin
 	return nil, fmt.Errorf("VM size %q not found in location %q", vmSize, location)
 }
 
-// IsVMSizeNVMeOnly queries the Azure Resource SKUs API to determine if the given VM size
-// only supports the NVMe disk controller type (i.e., does not support SCSI).
-func (a *AzureClient) IsVMSizeNVMeOnly(ctx context.Context, location, vmSize string) (bool, error) {
+// VMSizeSupportsNVMe queries the Azure Resource SKUs API to determine if the given VM size
+// supports the NVMe disk controller type.
+func (a *AzureClient) VMSizeSupportsNVMe(ctx context.Context, location, vmSize string) (bool, error) {
 	sku, err := a.getResourceSKU(ctx, location, vmSize)
 	if err != nil {
 		return false, err
 	}
-	return SkuSupportsOnlyNVMe(sku), nil
+	return SkuSupportsNVMe(sku), nil
 }
 
 // IsVMSizeGen2Only queries the Azure Resource SKUs API to determine if the given VM size
@@ -863,9 +863,9 @@ func (a *AzureClient) IsVMSizeGen2Only(ctx context.Context, location, vmSize str
 	return SkuSupportsOnlyGen2(sku), nil
 }
 
-// SkuSupportsOnlyNVMe checks the DiskControllerTypes capability of a resource SKU.
-// Returns true if the only supported disk controller type is NVMe.
-func SkuSupportsOnlyNVMe(sku *armcompute.ResourceSKU) bool {
+// SkuSupportsNVMe checks the DiskControllerTypes capability of a resource SKU.
+// Returns true if supported disk controller type is NVMe.
+func SkuSupportsNVMe(sku *armcompute.ResourceSKU) bool {
 	for _, capability := range sku.Capabilities {
 		if capability.Name != nil && strings.EqualFold(*capability.Name, "DiskControllerTypes") {
 			if capability.Value == nil {
@@ -874,10 +874,10 @@ func SkuSupportsOnlyNVMe(sku *armcompute.ResourceSKU) bool {
 			// The value is a comma-separated list of supported controller types, e.g. "SCSI, NVMe" or "NVMe"
 			controllers := strings.Split(*capability.Value, ",")
 			for i := range controllers {
-				controllers[i] = strings.TrimSpace(controllers[i])
+				if strings.EqualFold(strings.TrimSpace(controllers[i]), "NVMe") {
+					return true
+				}
 			}
-			// NVMe-only if "NVMe" is the sole controller type
-			return len(controllers) == 1 && strings.EqualFold(controllers[0], "NVMe")
 		}
 	}
 	return false
