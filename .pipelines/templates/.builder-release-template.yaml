@@ -85,7 +85,7 @@ steps:
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME" && \
-      az login && \
+      az account set -s $(SUBSCRIPTION_ID) && \
       sas=$(az disk grant-access --ids $(disk_resource_id) --duration-in-seconds 3600 --query [accessSAS] -o tsv) && \
       export AZCOPY_AUTO_LOGIN_TYPE="AZCLI" && \
       export AZCOPY_CONCURRENCY_VALUE="AUTO" && \
