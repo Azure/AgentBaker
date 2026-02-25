@@ -531,8 +531,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.15-8",
-          "previousLatestVersion": "v0.1.15-7"
+          "latestVersion": "v0.1.16-1",
+          "previousLatestVersion": "v0.1.15-8"
         }
       ],
       "windowsVersions": []
@@ -614,7 +614,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.16.0"
+          "latestVersion": "v2.18.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
@@ -624,7 +624,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.16.0"
+          "latestVersion": "v2.18.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
@@ -638,7 +638,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.16.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
@@ -648,7 +648,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.16.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
@@ -784,7 +784,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.34.3-3"
+          "latestVersion": "v1.34.4-1"
         }
       ],
       "windowsVersions": []
@@ -802,7 +802,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-        "latestVersion": "550.144.06-20260108183226"
+          "latestVersion": "550.144.06-20260126030228"
       }
     }
   ],
@@ -1099,7 +1099,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.0.0-16.azl3"
+                "latestVersion": "2.0.0-17.azl3"
               }
             ]
           },
@@ -1905,7 +1905,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.18.1-ubuntu24.04u4"
+                "latestVersion": "0.18.2-ubuntu24.04u1"
               }
             ]
           },
@@ -1913,7 +1913,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.18.1-ubuntu22.04u4"
+                "latestVersion": "0.18.2-ubuntu22.04u1"
               }
             ]
           }
@@ -1923,7 +1923,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
-                "latestVersion": "0.18.1-3.azl3"
+                "latestVersion": "0.18.2-1.azl3"
               }
             ]
           }

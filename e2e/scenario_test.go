@@ -1434,6 +1434,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
@@ -1462,6 +1463,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
