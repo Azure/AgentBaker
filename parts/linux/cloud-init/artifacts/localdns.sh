@@ -211,18 +211,33 @@ replace_azurednsip_in_corefile() {
 
     # Parse forward IPs from the updated corefile we just created
     # VnetDNS uses bind 169.254.10.10, KubeDNS uses bind 169.254.10.11
-    VNETDNS_FORWARD_IP=$(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {print $3; exit}')
-    KUBEDNS_FORWARD_IP=$(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {print $3; exit}')
+    # Capture all forward IPs (there can be multiple) as arrays
+    local vnetdns_ips kubedns_ips ip
+    vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i; exit}'))
+    kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i; exit}'))
 
     # Write Prometheus metrics directly to .prom file
-    cat > "${FORWARD_IPS_PROM_FILE}" <<EOF
-# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile
-# TYPE localdns_vnetdns_forward_info gauge
-localdns_vnetdns_forward_info{ip="${VNETDNS_FORWARD_IP:-unknown}",status="${VNETDNS_FORWARD_IP:+ok}"} ${VNETDNS_FORWARD_IP:+1}${VNETDNS_FORWARD_IP:-0}
-# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile
-# TYPE localdns_kubedns_forward_info gauge
-localdns_kubedns_forward_info{ip="${KUBEDNS_FORWARD_IP:-unknown}",status="${KUBEDNS_FORWARD_IP:+ok}"} ${KUBEDNS_FORWARD_IP:+1}${KUBEDNS_FORWARD_IP:-0}
-EOF
+    # Generate one metric line per IP (standard Prometheus practice for multi-valued labels)
+    {
+        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_vnetdns_forward_info gauge"
+        if [ ${#vnetdns_ips[@]} -eq 0 ]; then
+            echo 'localdns_vnetdns_forward_info{ip="unknown",status="missing"} 0'
+        else
+            for ip in "${vnetdns_ips[@]}"; do
+                echo "localdns_vnetdns_forward_info{ip=\"${ip}\",status=\"ok\"} 1"
+            done
+        fi
+        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_kubedns_forward_info gauge"
+        if [ ${#kubedns_ips[@]} -eq 0 ]; then
+            echo 'localdns_kubedns_forward_info{ip="unknown",status="missing"} 0'
+        else
+            for ip in "${kubedns_ips[@]}"; do
+                echo "localdns_kubedns_forward_info{ip=\"${ip}\",status=\"ok\"} 1"
+            done
+        fi
+    } > "${FORWARD_IPS_PROM_FILE}"
 
     chmod 0644 "${FORWARD_IPS_PROM_FILE}" || {
         echo "Failed to set permissions on ${FORWARD_IPS_PROM_FILE}"
