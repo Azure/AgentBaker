@@ -22,49 +22,46 @@ if [ "$REQUEST_PATH" != "/metrics" ]; then
     exit 0
 fi
 
-# 1. Scrape Raw Values from systemd
-# --value flag prevents needing to parse "Key=Value" strings
-# Capture failures gracefully to handle missing/renamed units without exiting
-RAW_CPU=$(systemctl show "$UNIT" --property=CPUUsageNSec --value 2>/dev/null || echo "[not set]")
-RAW_MEM=$(systemctl show "$UNIT" --property=MemoryCurrent --value 2>/dev/null || echo "[not set]")
-
-# Determine service availability status for metrics label
-# Check if systemctl is returning actual values or "[not set]" (indicates unit doesn't exist or never started)
-if [ "$RAW_CPU" = "[not set]" ] && [ "$RAW_MEM" = "[not set]" ]; then
-    # Service unit not found or never started
-    SERVICE_STATUS="unavailable"
-    RAW_CPU=0
-    RAW_MEM=0
-elif [ -z "$RAW_CPU" ] || [ "$RAW_CPU" = "[not set]" ]; then
-    SERVICE_STATUS="available"
-    RAW_CPU=0
+# 1. Determine service status using systemctl is-active
+# Returns: active, inactive, failed, activating, deactivating, or unknown
+if systemctl is-active "$UNIT" >/dev/null 2>&1; then
+    SERVICE_STATUS="active"
 else
-    SERVICE_STATUS="available"
+    SERVICE_STATUS="inactive"
 fi
 
-# Handle empty memory values (if service is down or not yet started)
+# 2. Scrape Raw Values from systemd
+# --value flag prevents needing to parse "Key=Value" strings
+# Capture failures gracefully to handle missing/renamed units without exiting
+RAW_CPU=$(systemctl show "$UNIT" --property=CPUUsageNSec --value 2>/dev/null || echo "0")
+RAW_MEM=$(systemctl show "$UNIT" --property=MemoryCurrent --value 2>/dev/null || echo "0")
+
+# Handle empty or [not set] values
+if [ -z "$RAW_CPU" ] || [ "$RAW_CPU" = "[not set]" ]; then
+    RAW_CPU=0
+fi
 if [ -z "$RAW_MEM" ] || [ "$RAW_MEM" = "[not set]" ]; then
     RAW_MEM=0
 fi
 
-# 2. Math with Awk (Floating Point Conversion)
+# 3. Math with Awk (Floating Point Conversion)
 # CPU: Nanoseconds -> Seconds (divide by 1e9)
 # VMAgent/Kusto will calculate rate() and multiply by 1000 to get millicores
 # Memory: Bytes -> Megabytes (divide by 1024*1024)
 CPU_SEC=$(awk -v val="$RAW_CPU" 'BEGIN {printf "%.4f", val / 1000000000}')
 MEM_MB=$(awk -v val="$RAW_MEM" 'BEGIN {printf "%.2f", val / 1048576}')
 
-# 3. Output HTTP Response in Prometheus Exposition Format
+# 4. Output HTTP Response in Prometheus Exposition Format
 # Note: The empty line after headers is required by HTTP protocol
 printf "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\n\r\n"
 
 # Service status metric (info-style gauge with status label)
-echo "# HELP localdns_service_status Service availability status (1=available, 0=unavailable)"
+echo "# HELP localdns_service_status Service status from systemctl is-active (1=active, 0=inactive)"
 echo "# TYPE localdns_service_status gauge"
-if [ "$SERVICE_STATUS" = "available" ]; then
-    echo "localdns_service_status{status=\"available\"} 1"
+if [ "$SERVICE_STATUS" = "active" ]; then
+    echo "localdns_service_status{status=\"active\"} 1"
 else
-    echo "localdns_service_status{status=\"unavailable\"} 0"
+    echo "localdns_service_status{status=\"inactive\"} 0"
 fi
 
 # Memory metric
