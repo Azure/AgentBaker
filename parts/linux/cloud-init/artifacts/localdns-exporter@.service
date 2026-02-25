@@ -1,8 +1,6 @@
 [Unit]
 Description=Localdns Prometheus Exporter Per-Connection Worker
 Documentation=https://github.com/Azure/AgentBaker
-Requires=localdns-exporter.socket
-After=localdns.service
 
 [Service]
 Type=simple
