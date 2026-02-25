@@ -77,7 +77,7 @@ func RunScenario(t *testing.T, s *Scenario) error {
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
 		ctx := newTestCtx(t)
-		nvmeOnly, err := CachedIsVMSizeNVMeOnly(ctx, VMSizeSKURequest{
+		nvmeOnly, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 			Location: s.Location,
 			VMSize:   config.Config.DefaultVMSKU,
 		})
