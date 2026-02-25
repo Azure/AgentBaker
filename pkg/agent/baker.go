@@ -81,6 +81,11 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 }
 
 const (
+	encodingGZIP   = "gzip"
+	encodingBase64 = "base64"
+)
+
+const (
 	ignitionFilesTarPath      = "/var/lib/ignition/ignition-files.tar"
 	ignitionBootcmdScriptPath = "/etc/ignition-bootcmds.sh"
 	ignitionTarUnitName       = "ignition-file-extract.service"
@@ -107,13 +112,13 @@ func buildIgnitionTarEntries(customData cloudInit) ([]ignitionTarEntry, error) {
 		switch {
 		case file.Content == "" || file.Encoding == "":
 			contents = []byte(file.Content)
-		case file.Encoding == "gzip":
+		case file.Encoding == encodingGZIP:
 			decoded, err := getGzipDecodedValue([]byte(file.Content))
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode gzip content for %s: %w", file.Path, err)
 			}
 			contents = decoded
-		case file.Encoding == "base64":
+		case file.Encoding == encodingBase64:
 			decoded, err := base64.StdEncoding.DecodeString(file.Content)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode base64 content: %w", err)
@@ -208,7 +213,7 @@ func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 		Overwrite: to.BoolPtr(true),
 		Contents: base0_5.Resource{
 			Source:      to.StringPtr(dataURL),
-			Compression: to.StringPtr("gzip"),
+			Compression: to.StringPtr(encodingGZIP),
 		},
 	}
 	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
