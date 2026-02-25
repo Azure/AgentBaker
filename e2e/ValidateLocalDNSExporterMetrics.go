@@ -24,18 +24,28 @@ fi
 echo "   ✓ Port 9353 is listening"
 echo ""
 
-# Fetch metrics
-echo "2. Fetching metrics from http://localhost:9353..."
+# Check HTTP status code
+echo "2. Checking HTTP status from http://localhost:9353/metrics..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9353/metrics)
+if [ "$HTTP_CODE" -ne 200 ]; then
+    echo "   ❌ ERROR: Metrics endpoint returned HTTP $HTTP_CODE"
+    exit 1
+fi
+echo "   ✓ HTTP 200 OK received"
+echo ""
+
+# Fetch metrics body
+echo "3. Fetching metrics body..."
 METRICS=$(curl -s http://localhost:9353/metrics)
 if [ -z "$METRICS" ]; then
-    echo "   ❌ ERROR: No response from metrics endpoint"
+    echo "   ❌ ERROR: No response body from metrics endpoint"
     exit 1
 fi
 echo "   ✓ Metrics fetched successfully"
 echo ""
 
 # Check for required base metrics
-echo "3. Validating base metrics..."
+echo "4. Validating base metrics..."
 if ! echo "$METRICS" | grep -q "localdns_cpu_usage_seconds_total"; then
     echo "   ❌ ERROR: Missing localdns_cpu_usage_seconds_total"
     exit 1
@@ -50,7 +60,7 @@ echo "   ✓ Memory metric present"
 echo ""
 
 # Check for VnetDNS forward IP metric
-echo "4. Validating VnetDNS forward IP metric..."
+echo "5. Validating VnetDNS forward IP metric..."
 if ! echo "$METRICS" | grep -q "localdns_vnetdns_forward_info"; then
     echo "   ❌ ERROR: Missing localdns_vnetdns_forward_info"
     echo "   Available metrics:"
@@ -60,7 +70,7 @@ fi
 echo "   ✓ VnetDNS forward metric present"
 
 # Check for KubeDNS forward IP metric
-echo "5. Validating KubeDNS forward IP metric..."
+echo "6. Validating KubeDNS forward IP metric..."
 if ! echo "$METRICS" | grep -q "localdns_kubedns_forward_info"; then
     echo "   ❌ ERROR: Missing localdns_kubedns_forward_info"
     echo "   Available metrics:"
@@ -71,7 +81,7 @@ echo "   ✓ KubeDNS forward metric present"
 echo ""
 
 # Extract and validate VnetDNS forward IP
-echo "6. Extracting VnetDNS forward IP..."
+echo "7. Extracting VnetDNS forward IP..."
 VNETDNS_LINE=$(echo "$METRICS" | grep "localdns_vnetdns_forward_info" | head -n 1)
 echo "   Raw metric: $VNETDNS_LINE"
 
@@ -115,7 +125,7 @@ fi
 echo ""
 
 # Extract and validate KubeDNS forward IP
-echo "7. Extracting KubeDNS forward IP..."
+echo "8. Extracting KubeDNS forward IP..."
 KUBEDNS_LINE=$(echo "$METRICS" | grep "localdns_kubedns_forward_info" | head -n 1)
 echo "   Raw metric: $KUBEDNS_LINE"
 
