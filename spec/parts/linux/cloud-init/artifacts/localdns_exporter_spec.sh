@@ -49,4 +49,11 @@ Describe 'localdns_exporter.sh HTTP request routing'
         The output should include "0d"
         The output should include "0a"
     End
+
+    It 'should exit cleanly when client disconnects without sending request'
+        # Simulate client disconnect by providing no input (EOF immediately)
+        When run bash -c "$SCRIPT_PATH < /dev/null"
+        The status should be success
+        The output should equal ""
+    End
 End

@@ -12,7 +12,11 @@ FORWARD_IPS_PROM_FILE="/opt/azure/containers/localdns/forward_ips.prom"
 
 # Read the HTTP request line to extract the path
 # Format: "GET /metrics HTTP/1.1"
-read -r REQUEST_LINE
+# Handle read failure gracefully (client disconnected or incomplete request)
+if ! read -r REQUEST_LINE; then
+    # Client disconnected or sent an incomplete request; exit without error
+    exit 0
+fi
 REQUEST_PATH=$(echo "$REQUEST_LINE" | awk '{print $2}')
 
 # Only serve metrics at /metrics endpoint (Prometheus convention)
