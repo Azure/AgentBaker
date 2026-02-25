@@ -20,7 +20,7 @@ func makeCapabilities(pairs ...string) []*armcompute.ResourceSKUCapabilities {
 	return caps
 }
 
-func Test_skuSupportsOnlyNVMe(t *testing.T) {
+func Test_skuSupportsNVMe(t *testing.T) {
 	tests := []struct {
 		name         string
 		capabilities []*armcompute.ResourceSKUCapabilities
@@ -34,7 +34,7 @@ func Test_skuSupportsOnlyNVMe(t *testing.T) {
 		{
 			name:         "SCSI and NVMe",
 			capabilities: makeCapabilities("DiskControllerTypes", "SCSI, NVMe"),
-			want:         false,
+			want:         true,
 		},
 		{
 			name:         "SCSI only",
@@ -57,8 +57,8 @@ func Test_skuSupportsOnlyNVMe(t *testing.T) {
 			sku := &armcompute.ResourceSKU{
 				Capabilities: tt.capabilities,
 			}
-			if got := config.SkuSupportsOnlyNVMe(sku); got != tt.want {
-				t.Errorf("SkuSupportsOnlyNVMe() = %v, want %v", got, tt.want)
+			if got := config.SkuSupportsNVMe(sku); got != tt.want {
+				t.Errorf("SkuSupportsNVMe() = %v, want %v", got, tt.want)
 			}
 		})
 	}
