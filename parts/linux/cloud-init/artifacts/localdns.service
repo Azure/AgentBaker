@@ -18,6 +18,9 @@ TimeoutStopSec=30
 Slice=localdns.slice
 EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/localdns/localdns.sh
+# Enable resource accounting for metrics collection
+CPUAccounting=yes
+MemoryAccounting=yes
 
 [Install]
 WantedBy=multi-user.target
