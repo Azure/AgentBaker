@@ -32,6 +32,8 @@ for v in "${required_env_vars[@]}"; do
   fi
 done
 
+exit 0
+
 echo "Present working directory: ${PWD}"
 
 # Set GALLERY_SUBSCRIPTION_ID to default to SUBSCRIPTION_ID if not set

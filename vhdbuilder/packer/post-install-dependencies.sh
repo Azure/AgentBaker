@@ -3,6 +3,8 @@ OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(
 UBUNTU_OS_NAME="UBUNTU"
 FLATCAR_OS_NAME="FLATCAR"
 
+exit 0
+
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh

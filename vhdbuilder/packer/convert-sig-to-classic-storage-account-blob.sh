@@ -139,7 +139,7 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if ! azcopy copy "${sas}" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${TEST_VERSION}.vhd" --recursive=true ; then
   azExitCode=$?
   # loop through azcopy log files
   shopt -s nullglob
