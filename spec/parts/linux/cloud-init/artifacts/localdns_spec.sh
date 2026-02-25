@@ -232,7 +232,8 @@ EOF
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
-            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'ip="10.0.0.1"'
+            # Verify complete metric format with both IP and status labels
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",status="ok"} 1'
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
         End
 
@@ -253,7 +254,76 @@ EOF
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
             The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_kubedns_forward_info"
-            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'ip="10.0.0.1"'
+            # Verify complete metric format with both IP and status labels
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.1",status="ok"} 1'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export multiple VnetDNS forward IPs to prom file'
+            # Setup corefile with VnetDNS block with multiple forward IPs
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify all 4 IPs are exported as separate metric lines
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.2",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.3",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.4",status="ok"} 1'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export multiple KubeDNS forward IPs to prom file'
+            # Setup corefile with both VnetDNS and KubeDNS blocks with multiple forward IPs
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16
+}
+.:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify all 4 IPs are exported for both VnetDNS and KubeDNS
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.2",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.3",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.4",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.1",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.2",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.3",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.4",status="ok"} 1'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export missing status when no forward IPs are configured'
+            # Setup corefile without forward directive in VnetDNS block
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+.:53 {
+    bind 169.254.10.10
+    # No forward directive here
+}
+.:53 {
+    bind 169.254.10.11
+    # No forward directive here
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify status="missing" when no forward IPs are found
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="unknown",status="missing"} 0'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="unknown",status="missing"} 0'
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
         End
 
