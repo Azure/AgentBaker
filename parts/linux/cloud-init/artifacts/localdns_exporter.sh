@@ -17,7 +17,7 @@ REQUEST_PATH=$(echo "$REQUEST_LINE" | awk '{print $2}')
 
 # Only serve metrics at /metrics endpoint (Prometheus convention)
 if [ "$REQUEST_PATH" != "/metrics" ]; then
-    echo -e "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n"
+    printf "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n"
     echo "404 Not Found - Metrics available at /metrics"
     exit 0
 fi
@@ -56,7 +56,7 @@ MEM_MB=$(awk -v val="$RAW_MEM" 'BEGIN {printf "%.2f", val / 1048576}')
 
 # 3. Output HTTP Response in Prometheus Exposition Format
 # Note: The empty line after headers is required by HTTP protocol
-echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\n"
+printf "HTTP/1.1 200 OK\r\nContent-Type: text/plain; version=0.0.4\r\n\r\n"
 
 # Service status metric (info-style gauge with status label)
 echo "# HELP localdns_service_status Service availability status (1=available, 0=unavailable)"
