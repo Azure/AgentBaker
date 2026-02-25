@@ -76,17 +76,6 @@ func RunScenario(t *testing.T, s *Scenario) error {
 	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
-		ctx := newTestCtx(t)
-		nvmeOnly, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
-			Location: s.Location,
-			VMSize:   config.Config.DefaultVMSKU,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to check NVMe support for VM size %s: %w", config.Config.DefaultVMSKU, err)
-		}
-		if nvmeOnly {
-			t.Skipf("scenario creates vm snapshot that does not support nvme")
-		}
 		t.Run("VHDCreation", func(t *testing.T) {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
@@ -135,7 +124,6 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		if vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk != nil {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 		}
-
 	}
 	if original.BootstrapConfigMutator != nil {
 		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -367,7 +355,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 			t.Fatalf("failing scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.Distro, err)
 		}
 	}
-
 	t.Logf("TAGS %+v", s.Tags)
 }
 

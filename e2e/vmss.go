@@ -219,23 +219,20 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 	}
 
-	// Set NVMe disk controller type for VM sizes that only support NVMe.
+	s.PrepareVMSSModel(ctx, s.T, &model)
+
+	// Set NVMe disk controller type for VM sizes that support NVMe.
 	// The final SKU name is checked after PrepareVMSSModel since VMConfigMutator may change it.
-	finalVMSize := config.Config.DefaultVMSKU
-	if model.SKU != nil && model.SKU.Name != nil {
-		finalVMSize = *model.SKU.Name
-	}
-	nvmeOnly, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
+	vmSize := *model.SKU.Name
+	nvme, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   finalVMSize,
+		VMSize:   vmSize,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", finalVMSize)
-	if nvmeOnly {
-		s.T.Logf("VM size %q supports only NVMe, setting disk controller type to NVMe", finalVMSize)
+	require.NoError(s.T, err, "checking if VM size %q supports NVMe", vmSize)
+	if nvme {
+		s.T.Logf("VM size %q supports NVMe, setting disk controller type to NVMe", vmSize)
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
 	}
-
-	s.PrepareVMSSModel(ctx, s.T, &model)
 	return model
 }
 
@@ -957,7 +954,6 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.OSProfile.AdminUsername = to.Ptr("azureuser")
 		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr(generateWindowsPassword())
 	}
-
 	return model
 }
 
