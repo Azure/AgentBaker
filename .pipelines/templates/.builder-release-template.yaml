@@ -126,12 +126,6 @@ steps:
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
 
   - bash: |
-      az storage blob copy start \
-        --destination-blob $(BLOB_NAME) \
-        --destination-container $(VHD_STAGING_CONTAINER_NAME) \
-        --account-name $(STORAGE_ACCOUNT_NAME) \
-        --source-uri $(SOURCE_BLOB) \
-        --auth-mode login
       PACKER_VNET_RESOURCE_GROUP_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       PACKER_VNET_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
