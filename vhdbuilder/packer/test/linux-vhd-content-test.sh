@@ -245,7 +245,10 @@ testPackagesInstalled() {
         ;;
       "walinuxagent")
         # walinuxagent is installed from the wireserver manifest, not via the standard download URL
-        testWALinuxAgentInstalled
+        # Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version of WALinuxAgent
+        if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+          testWALinuxAgentInstalled
+        fi
         continue
         ;;
     esac

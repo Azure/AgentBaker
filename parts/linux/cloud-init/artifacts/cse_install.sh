@@ -387,9 +387,9 @@ sys.exit(1)
     }
 
     # Step 8: Install the agent zip under /var/lib/waagent/WALinuxAgent-<version>/
-    # Use python3 zipfile module instead of unzip, which may not be installed on all build VMs
     local installDir="/var/lib/waagent/WALinuxAgent-${version}"
     mkdir -p "${installDir}"
+    # Use python3 zipfile module instead of unzip, which may not be installed on all build VMs
     python3 -m zipfile -e "${zipFile}" "${installDir}" || {
         echo "ERROR: Failed to extract WALinuxAgent zip to ${installDir}"
         rm -rf "${tmpDir}"

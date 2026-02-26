@@ -476,10 +476,15 @@ while IFS= read -r p; do
       done
       ;;
     "walinuxagent")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        installWALinuxAgent "${downloadDir}" "${version}"
-        echo "  - walinuxagent version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
+      # Skip walinuxagent install on Flatcar and AzureLinuxOSGuard — use OS-packaged version
+      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        echo "  - walinuxagent skipped for ${OS}" >> ${VHD_LOGS_FILEPATH}
+      else
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          installWALinuxAgent "${downloadDir}" "${version}"
+          echo "  - walinuxagent version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+      fi
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."

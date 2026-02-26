@@ -1,6 +1,7 @@
 #!/bin/bash
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -68,16 +69,18 @@ fi
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 
-# Configure WALinuxAgent auto-update settings:
+# Configure WALinuxAgent auto-update settings (skip on Flatcar and AzureLinuxOSGuard which do not modify the OS-packaged version of WALinuxAgent):
 # - AutoUpdate.Enabled=y allows the older agent to pick up the latest version already installed on disk
 # - AutoUpdate.UpdateToLatestVersion=n prevents the agent from downloading further updates from the network
-sed -i 's/AutoUpdate.Enabled=n/AutoUpdate.Enabled=y/g' /etc/waagent.conf
-if ! grep -q '^AutoUpdate.Enabled=' /etc/waagent.conf; then
-    echo 'AutoUpdate.Enabled=y' >> /etc/waagent.conf
-fi
-sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
-if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
-    echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
+if ! isFlatcar "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    sed -i 's/AutoUpdate.Enabled=n/AutoUpdate.Enabled=y/g' /etc/waagent.conf
+    if ! grep -q '^AutoUpdate.Enabled=' /etc/waagent.conf; then
+        echo 'AutoUpdate.Enabled=y' >> /etc/waagent.conf
+    fi
+    sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
+    if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
+        echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
+    fi
 fi
 systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 
