@@ -312,18 +312,6 @@ steps:
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Release Notes
-    inputs:
-      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-      targetPath: 'release-notes.txt'
-
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Container Image List
-    inputs:
-      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-      targetPath: 'image-bom.json'
-
   # TODO(cameissner): remove when running prefetch optimization + VHD blob conversion by default
   - task: AzureCLI@2
     inputs:
@@ -407,31 +395,3 @@ steps:
     condition: false # temporarily disabling since this causing build warnings in corp/tme due to internal issues
     continueOnError: true
     displayName: Check Grid Compatibility
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        make -f packer.mk generate-publishing-info
-    displayName: Generate Publishing Info
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
-    env:
-      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
-      OFFER_NAME: $(OS_SKU)
-
-  - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
-    displayName: Publish Publishing Info
-    inputs:
-      artifactName: 'publishing-info-${{ parameters.artifactName }}'
-      targetPath: 'vhd-publishing-info.json'
-
-  - task: PublishPipelineArtifact@0
-    condition: succeeded()
-    displayName: Publish Artifacts
-    inputs:
-      artifactName: '${{ parameters.artifactName }}'
-      targetPath: '$(Build.ArtifactStagingDirectory)'
