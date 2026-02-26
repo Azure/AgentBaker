@@ -41,7 +41,8 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
-				// Disable the systemd-based device plugin - we'll deploy it as a DaemonSet instead
+				// Don't enable the managed GPU experience - we'll deploy the device plugin as a DaemonSet instead.
+				// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
@@ -53,7 +54,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 
 				// Verify that the systemd-based device plugin is NOT running
-				// (we disabled it via EnableGPUDevicePluginIfNeeded = false)
+				// (managed GPU experience is not enabled, so the service should not be active)
 				validateNvidiaDevicePluginServiceNotRunning(ctx, s)
 
 				// Deploy the NVIDIA device plugin as a DaemonSet
