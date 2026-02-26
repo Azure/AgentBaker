@@ -57,7 +57,7 @@ get_ubuntu_release() {
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
     # Run synchronously to avoid apt lock contention with later apt operations (eg kubelet install)
-    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold
+    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
