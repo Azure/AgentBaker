@@ -21,11 +21,13 @@ do
     fi
 done
 
+sas=$(az storage blob generate-sas --account-name $STORAGE_ACCOUNT_NAME --container-name $VHD_CONTAINER_NAME --name $BLOB_NAME --permissions r --expiry 3600 --https-only --auth-mode login)
+
 az storage blob copy start \
   --destination-blob "${BLOB_NAME}" \
   --destination-container "${VHD_STAGING_CONTAINER_NAME}" \
   --account-name "${STORAGE_ACCOUNT_NAME}" \
-  --source-uri "${SOURCE_BLOB}" \
+  --source-uri "${sas}" \
   --auth-mode login
 
 if [ "${OS_TYPE,,}" = "windows" ]; then
