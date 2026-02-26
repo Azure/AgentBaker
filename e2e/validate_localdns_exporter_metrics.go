@@ -26,7 +26,8 @@ echo ""
 
 # Check HTTP status code
 echo "2. Checking HTTP status from http://localhost:9353/metrics..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9353/metrics)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9353/metrics || true)
+HTTP_CODE=${HTTP_CODE:-000}
 if [ "$HTTP_CODE" -ne 200 ]; then
     echo "   ❌ ERROR: Metrics endpoint returned HTTP $HTTP_CODE"
     exit 1
@@ -36,7 +37,7 @@ echo ""
 
 # Fetch metrics body
 echo "3. Fetching metrics body..."
-METRICS=$(curl -s http://localhost:9353/metrics)
+METRICS=$(curl -s http://localhost:9353/metrics || true)
 if [ -z "$METRICS" ]; then
     echo "   ❌ ERROR: No response body from metrics endpoint"
     exit 1
