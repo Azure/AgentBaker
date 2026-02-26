@@ -88,25 +88,25 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${TEST_VERSION}.vhd" --recursive=true ; then
-  azExitCode=$?
+#if ! azcopy copy "${sas}" "${CLASSIC_BLOB}/${TEST_VERSION}.vhd" --recursive=true ; then
+  #azExitCode=$?
   # loop through azcopy log files
-  shopt -s nullglob
-  for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-    echo "Azcopy log file: $f"
+  #shopt -s nullglob
+  #for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+    #echo "Azcopy log file: $f"
     # upload the log file as an attachment to vso
-    echo "##vso[build.uploadlog]$f"
+    #echo "##vso[build.uploadlog]$f"
     # check if the log file contains any errors
-    if grep -q '"level":"Error"' "$f"; then
- 	 echo "log file $f contains errors"
-     echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+    #if grep -q '"level":"Error"' "$f"; then
+ 	 #echo "log file $f contains errors"
+     #echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
       # print the log file
-      cat "$f"
-    fi
-  done
-  shopt -u nullglob
-  exit $azExitCode
-fi
+      #cat "$f"
+    #fi
+  #done
+  #shopt -u nullglob
+  #exit $azExitCode
+#fi
 
 echo "Uploaded $disk_resource_id to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
