@@ -212,9 +212,10 @@ replace_azurednsip_in_corefile() {
     # Parse forward IPs from the updated corefile we just created
     # VnetDNS uses bind 169.254.10.10, KubeDNS uses bind 169.254.10.11
     # Capture all forward IPs (there can be multiple) as arrays
+    # CoreDNS syntax has only one 'forward .' line per bind block with space-separated IPs
     local vnetdns_ips kubedns_ips ip
-    vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i; exit}'))
-    kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i; exit}'))
+    vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i}'))
+    kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i}'))
 
     # Write Prometheus metrics directly to .prom file
     # Generate one metric line per IP (standard Prometheus practice for multi-valued labels)
