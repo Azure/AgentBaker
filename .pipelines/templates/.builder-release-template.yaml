@@ -324,6 +324,7 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      DISK_RESOURCE_ID: $(disk_resource_id)
 
   - task: AzureCLI@2
     inputs:

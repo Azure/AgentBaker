@@ -60,7 +60,7 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 if [ "$sas" = "None" ]; then
  echo "sas token empty. Trying alternative query string"
 # shellcheck disable=SC2102
- sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSAS] -o tsv)
+ sas=$(az disk grant-access --ids $DISK_RESOURCE_ID --duration-in-seconds 3600 --query [accessSAS] -o tsv)
 fi
 
 if [ "$sas" = "None" ]; then
