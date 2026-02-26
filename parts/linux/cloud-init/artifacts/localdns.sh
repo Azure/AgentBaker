@@ -217,8 +217,15 @@ replace_azurednsip_in_corefile() {
     vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i}'))
     kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i}'))
 
-    # Write Prometheus metrics directly to .prom file
+    # Write Prometheus metrics to temp file, then atomically rename
+    # This prevents the exporter from reading a partially-written file during scrapes
     # Generate one metric line per IP (standard Prometheus practice for multi-valued labels)
+    local tmp
+    tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")" || {
+        echo "Failed to create temp file for ${FORWARD_IPS_PROM_FILE}"
+        return 1
+    }
+
     {
         echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
         echo "# TYPE localdns_vnetdns_forward_info gauge"
@@ -238,10 +245,18 @@ replace_azurednsip_in_corefile() {
                 echo "localdns_kubedns_forward_info{ip=\"${ip}\",status=\"ok\"} 1"
             done
         fi
-    } > "${FORWARD_IPS_PROM_FILE}"
+    } > "$tmp"
 
-    chmod 0644 "${FORWARD_IPS_PROM_FILE}" || {
-        echo "Failed to set permissions on ${FORWARD_IPS_PROM_FILE}"
+    chmod 0644 "$tmp" || {
+        echo "Failed to set permissions on temp file $tmp"
+        rm -f "$tmp"
+        return 1
+    }
+
+    # Atomic rename - ensures exporter never sees partial file
+    mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}" || {
+        echo "Failed to move temp file to ${FORWARD_IPS_PROM_FILE}"
+        rm -f "$tmp"
         return 1
     }
 
