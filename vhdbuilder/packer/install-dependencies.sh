@@ -476,23 +476,15 @@ while IFS= read -r p; do
       done
       ;;
     "walinuxagent")
-      # Skip walinuxagent install on Flatcar and AzureLinuxOSGuard — use OS-packaged version
+      # WALinuxAgent GAFamily version is installed post-deprovision to survive the
+      # waagent -force -deprovision+user step that wipes /var/lib/waagent/.
+      # The install script is written by cleanup-vhd.sh and called from the packer
+      # inline block after deprovision completes.
+      # Skip on Flatcar and AzureLinuxOSGuard which use their OS-packaged version.
       if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         echo "  - walinuxagent skipped for ${OS}" >> ${VHD_LOGS_FILEPATH}
       else
-        installWALinuxAgent "${downloadDir}"
-        echo "  - walinuxagent (GAFamily version from wireserver)" >> ${VHD_LOGS_FILEPATH}
-        # Configure waagent.conf to pick up the pre-cached agent from disk:
-        # - AutoUpdate.Enabled=y tells the daemon to look for newer agent versions on disk
-        # - AutoUpdate.UpdateToLatestVersion=n prevents downloading updates from the network
-        sed -i 's/AutoUpdate.Enabled=n/AutoUpdate.Enabled=y/g' /etc/waagent.conf
-        if ! grep -q '^AutoUpdate.Enabled=' /etc/waagent.conf; then
-            echo 'AutoUpdate.Enabled=y' >> /etc/waagent.conf
-        fi
-        sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
-        if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
-            echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
-        fi
+        echo "  - walinuxagent (deferred to post-deprovision)" >> ${VHD_LOGS_FILEPATH}
       fi
       ;;
     *)

@@ -1495,61 +1495,31 @@ testBccTools () {
   return 0
 }
 
-# testWALinuxAgentInstalled verifies that the WALinuxAgent was downloaded from the
-# wireserver GAFamily manifest and installed under /var/lib/waagent/WALinuxAgent-<version>/.
-# The version is determined dynamically from wireserver at VHD build time, so this test
-# finds any WALinuxAgent-* directory and checks it contains the expected artifacts
-# (the egg file, HandlerManifest.json, and manifest.xml).
+# testWALinuxAgentInstalled verifies WALinuxAgent configuration.
+# The actual GAFamily agent installation is deferred to post-deprovision (after
+# waagent -force -deprovision+user wipes /var/lib/waagent/). The install and
+# waagent.conf configuration are handled by the post-deprovision script written
+# by cleanup-vhd.sh and called from the packer inline block.
+# At VHD test time (pre-deprovision), we only verify the components.json config.
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
 
-  # Expect exactly 2 WALinuxAgent-* directories: the OS-packaged version and the
-  # GAFamily version we pre-cached from the wireserver manifest at VHD build time.
-  local -a dirs
-  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort)
-  local dirCount=${#dirs[@]}
-  if [ "$dirCount" -ne 2 ]; then
-    err "$test" "Expected 2 WALinuxAgent directories (OS-packaged + pre-cached), found ${dirCount}: ${dirs[*]}"
-    return 1
-  fi
-  echo "$test: Found ${dirCount} WALinuxAgent directories as expected: ${dirs[*]}"
-
-  # The pre-cached (newer) directory is the one we validate artifacts in.
-  # Sort puts them in version order; pick the last one (highest version).
-  local installDir="${dirs[-1]}"
-  echo "$test: Validating pre-cached agent directory ${installDir}"
-
-  # Check expected artifacts in the install directory
-  local expectedFiles=("HandlerManifest.json" "manifest.xml")
-  for f in "${expectedFiles[@]}"; do
-    if [ ! -f "${installDir}/${f}" ]; then
-      err "$test" "Expected file ${f} not found in ${installDir}, contents: $(ls -al "${installDir}")"
-      return 1
-    fi
-    echo "$test: Found expected file ${installDir}/${f}"
-  done
-
-  # Check that the egg file exists (WALinuxAgent-<version>.egg)
-  local eggFile
-  eggFile=$(find "${installDir}" -maxdepth 1 -name "WALinuxAgent-*.egg" -print -quit 2>/dev/null) || eggFile=""
-  if [ -z "${eggFile}" ]; then
-    err "$test" "WALinuxAgent egg file not found in ${installDir}, contents: $(ls -al "${installDir}")"
-    return 1
-  fi
-  echo "$test: Found egg file ${eggFile}"
-
-  # Check the download dir has the zip for provenance tracking
+  # Verify walinuxagent is configured in components.json
   local downloadDir
   downloadDir=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' "$COMPONENTS_FILEPATH")
-  if [ -n "$downloadDir" ] && [ "$downloadDir" != "null" ]; then
-    local zipFile
-    zipFile=$(find "${downloadDir}" -maxdepth 1 -name "WALinuxAgent-*.zip" -print -quit 2>/dev/null) || zipFile=""
-    if [ -z "$zipFile" ]; then
-      err "$test" "WALinuxAgent zip not found in ${downloadDir} for provenance tracking"
-    else
-      echo "$test: WALinuxAgent zip exists at ${zipFile}"
-    fi
+  if [ -z "$downloadDir" ] || [ "$downloadDir" = "null" ]; then
+    err "$test" "WALinuxAgent downloadLocation not found in components.json"
+    return 1
+  fi
+  echo "$test: WALinuxAgent configured in components.json (downloadDir=${downloadDir})"
+
+  # Verify the post-deprovision install script was written by cleanup-vhd.sh
+  if [ -f /opt/azure/containers/post-deprovision-walinuxagent.sh ]; then
+    echo "$test: Post-deprovision install script exists at /opt/azure/containers/post-deprovision-walinuxagent.sh"
+  else
+    err "$test" "Post-deprovision WALinuxAgent install script not found — cleanup-vhd.sh may not have run yet"
+    return 1
   fi
 
   echo "$test:Finish"
