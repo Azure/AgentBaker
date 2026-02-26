@@ -10,6 +10,12 @@ bootcmd:
   done
 
 write_files:
+# IMPORTANT: OSGuard images have /usr/ mounted read-only (dm-verity).
+# All write_files entries must target /opt/ or /etc/ paths only.
+# If a /usr/ path is ever needed for non-OSGuard distros, guard it with:
+#   {{ if not IsAzlOSGuard }}
+#   - path: /usr/...
+#   {{ end }}
 {{if EnableScriptlessCSECmd}}
 - path: /opt/azure/containers/scriptless-cse-overrides.txt
   permissions: "0644"
@@ -28,7 +34,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 
-{{if IsMariner}}
+{{if IsAzlOSGuard}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceAzlOSGuard"}}
+{{- else if IsMariner}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -88,7 +101,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
 
-{{if IsMariner}}
+{{if IsAzlOSGuard}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsAzlOSGuard"}}
+{{- else if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -176,7 +196,8 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-{{if IsMariner}}
+{{if IsAzlOSGuard}}
+{{- else if IsMariner}}
 - path: /opt/azure/containers/mariner-package-update.sh
   permissions: "0544"
   encoding: gzip
