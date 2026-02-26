@@ -19,11 +19,11 @@
 #>
 [CmdletBinding(DefaultParameterSetName="Standard")]
 param(
-    [parameter(Mandatory=$true)]
+    [parameter(Mandatory=$true, ParameterSetName="Standard")]
     [ValidateNotNullOrEmpty()]
     $AgentKey,
 
-    [parameter(Mandatory=$true)]
+    [parameter(Mandatory=$true, ParameterSetName="Standard")]
     [ValidateNotNullOrEmpty()]
     $AADClientSecret, # base64
 
@@ -31,9 +31,13 @@ param(
     # MUST keep generating this file when CSE is done and do not change the name
     #  - It is used to avoid running CSE multiple times
     #  - Some customers use this file to check if CSE is done
-    [parameter(Mandatory=$true)]
+    [parameter(Mandatory=$true, ParameterSetName="Standard")]
     [ValidateNotNullOrEmpty()]
-    $CSEResultFilePath
+    $CSEResultFilePath,
+
+    [parameter(Mandatory=$true, ParameterSetName="CARefresh")]
+    [switch]
+    $CARefreshOnly
 )
 
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
@@ -220,6 +224,219 @@ $global:WindowsCiliumNetworkingConfiguration = "{{GetVariable "nextGenNetworking
 $global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
 $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
+# The purpose of RCV 1P is to reliably distribute root and intermediate certificates at scale to
+# only Microsoft 1st party (1P) virtual machines (VM) and virtual machine scale sets (VMSS).
+# This is critical for initiatives such as Microsoft PKI. RCV 1P ensures that these certificates
+# are installed on the node at creation time. This eliminates the need for your VM to be connected
+# to the internet and ping an endpoint to receive certificate packages. The feature also eliminates
+# the dependency on updates to AzSecPack to receive the latest root and intermediate certs.
+# RCV 1P is designed to work completely autonomously from the user perspective on all Azure 1st
+# party VMs.
+
+$global:WireServerEndpoint = "http://168.63.129.16"
+$global:RCV1PCertificatesDirectory = "C:\AzureData\RCV1PCertificates"
+$global:RCV1PCertificateRefreshTaskName = "aks-rcv1p-cert-refresh"
+
+function Write-RCV1PLog {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $Message
+    )
+
+    if (Get-Command -Name Write-Log -ErrorAction SilentlyContinue) {
+        Write-Log $Message
+    } else {
+        Write-Output $Message
+    }
+}
+
+function Invoke-RCV1PWithRetry {
+    Param(
+        [Parameter(Mandatory=$true)][scriptblock]
+        $Script,
+        [Parameter(Mandatory=$false)][int]
+        $MaxRetryCount = 5,
+        [Parameter(Mandatory=$false)][int]
+        $InitialDelaySeconds = 3
+    )
+
+    $attempt = 1
+    $delaySeconds = $InitialDelaySeconds
+    while ($attempt -le $MaxRetryCount) {
+        try {
+            return & $Script
+        } catch {
+            if ($attempt -ge $MaxRetryCount) {
+                throw
+            }
+
+            Write-RCV1PLog "RCV1P retry [$attempt/$MaxRetryCount] failed: $($_.Exception.Message). Retrying in $delaySeconds seconds."
+            Start-Sleep -Seconds $delaySeconds
+            $delaySeconds = [Math]::Min($delaySeconds * 2, 60)
+            $attempt++
+        }
+    }
+}
+
+function Get-RCV1POptInStatus {
+    $optInUri = "$($global:WireServerEndpoint)/acms/isOptedInForRootCerts"
+
+    try {
+        $response = Invoke-RCV1PWithRetry -Script {
+            Invoke-WebRequest -Uri $optInUri -UseBasicParsing -ErrorAction Stop
+        }
+
+        $body = "$($response.Content)"
+        if ([string]::IsNullOrEmpty($body)) {
+            Write-RCV1PLog "RCV1P opt-in response is empty, defaulting to not opted in"
+            return $false
+        }
+
+        try {
+            $json = $body | ConvertFrom-Json -ErrorAction Stop
+            return ($json.IsOptedInForRootCerts -eq $true)
+        } catch {
+            return ($body -match '"IsOptedInForRootCerts"\s*:\s*true')
+        }
+    } catch {
+        Write-RCV1PLog "Failed to query RCV1P opt-in endpoint: $($_.Exception.Message). Defaulting to non-opt-in flow."
+        return $false
+    }
+}
+
+function Get-RCV1POperationCertificates {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $OperationType
+    )
+
+    $listUri = "$($global:WireServerEndpoint)/machine?comp=acmspackage&type=$OperationType&ext=json"
+    $listResponse = Invoke-RCV1PWithRetry -Script {
+        Invoke-WebRequest -Uri $listUri -UseBasicParsing -ErrorAction Stop
+    }
+
+    $operationData = $listResponse.Content | ConvertFrom-Json -ErrorAction Stop
+    $certFileNames = @()
+    foreach ($entry in $operationData) {
+        $candidate = $entry.ResouceFileName
+        if ([string]::IsNullOrEmpty($candidate)) {
+            $candidate = $entry.ResourceFileName
+        }
+
+        if (-not [string]::IsNullOrEmpty($candidate)) {
+            $certFileNames += $candidate
+        }
+    }
+
+    $certificates = @()
+    foreach ($certFileName in $certFileNames) {
+        $nameWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($certFileName)
+        $extension = [System.IO.Path]::GetExtension($certFileName).TrimStart('.')
+        $contentUri = "$($global:WireServerEndpoint)/machine?comp=acmspackage&type=$nameWithoutExtension&ext=$extension"
+
+        $certContentResponse = Invoke-RCV1PWithRetry -Script {
+            Invoke-WebRequest -Uri $contentUri -UseBasicParsing -ErrorAction Stop
+        }
+
+        $certificates += [PSCustomObject]@{
+            Name     = $certFileName
+            CertBody = $certContentResponse.Content
+        }
+    }
+
+    return $certificates
+}
+
+function Get-LegacyCACertificates {
+    $uri = "$($global:WireServerEndpoint)/machine?comp=acmspackage&type=cacertificates&ext=json"
+    $response = Invoke-RCV1PWithRetry -Script {
+        Invoke-WebRequest -Uri $uri -UseBasicParsing -ErrorAction Stop
+    }
+
+    $caCerts = $response.Content | ConvertFrom-Json -ErrorAction Stop
+    return $caCerts.Certificates
+}
+
+function Install-RCV1PCertificateFile {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $CertificatePath
+    )
+
+    $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($CertificatePath)
+    $storeLocation = if ($certificate.Subject -eq $certificate.Issuer) { "Cert:\LocalMachine\Root" } else { "Cert:\LocalMachine\CA" }
+    Import-Certificate -FilePath $CertificatePath -CertStoreLocation $storeLocation -ErrorAction Stop | Out-Null
+}
+
+function Invoke-RCV1PCertificateRefresh {
+    try {
+        Write-RCV1PLog "Starting RCV1P certificate refresh"
+        Create-Directory -FullPath $global:RCV1PCertificatesDirectory -DirectoryUsage "storing RCV1P certificates"
+
+        $certificates = @()
+        if (Get-RCV1POptInStatus) {
+            Write-RCV1PLog "VM is opted in for RCV1P PKI setup. Pulling operation-request certificates."
+            $certificates += Get-RCV1POperationCertificates -OperationType "operationrequestsroot"
+            $certificates += Get-RCV1POperationCertificates -OperationType "operationrequestsintermediate"
+        } else {
+            Write-RCV1PLog "VM is not opted in for RCV1P PKI setup. Pulling legacy certificate package."
+            $certificates += Get-LegacyCACertificates
+        }
+
+        if ($null -eq $certificates -or $certificates.Count -eq 0) {
+            throw "No certificates received from WireServer"
+        }
+
+        foreach ($cert in $certificates) {
+            if ([string]::IsNullOrEmpty($cert.Name) -or [string]::IsNullOrEmpty($cert.CertBody)) {
+                continue
+            }
+
+            $certPath = Join-Path $global:RCV1PCertificatesDirectory $cert.Name
+            [System.IO.File]::WriteAllText($certPath, $cert.CertBody)
+            Install-RCV1PCertificateFile -CertificatePath $certPath
+            Write-RCV1PLog "Installed certificate $($cert.Name)"
+        }
+
+        Write-RCV1PLog "RCV1P certificate refresh completed successfully"
+    } catch {
+        Write-RCV1PLog "RCV1P certificate refresh failed: $($_.Exception.Message)"
+        throw
+    }
+}
+
+function Register-RCV1PCertificateRefreshTask {
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if ([string]::IsNullOrEmpty($scriptPath)) {
+        $scriptPath = $PSCommandPath
+    }
+
+    if ([string]::IsNullOrEmpty($scriptPath)) {
+        Write-RCV1PLog "Unable to determine script path. Skipping registration of RCV1P refresh scheduled task."
+        return
+    }
+
+    if (Get-ScheduledTask -TaskName $global:RCV1PCertificateRefreshTaskName -ErrorAction SilentlyContinue) {
+        Write-RCV1PLog "Scheduled task $($global:RCV1PCertificateRefreshTaskName) already exists"
+        return
+    }
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -CARefreshOnly"
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-ScheduledTaskTrigger -Daily -At (Get-Date "19:00")
+    $trigger.RandomDelay = "00:05:00"
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Settings $settings -Description "Refresh RCV1P certificates daily"
+    Register-ScheduledTask -TaskName $global:RCV1PCertificateRefreshTaskName -InputObject $definition | Out-Null
+
+    Write-RCV1PLog "Registered scheduled task $($global:RCV1PCertificateRefreshTaskName)"
+}
+
+if ($CARefreshOnly) {
+    Invoke-RCV1PCertificateRefresh
+    exit 0
+}
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 try {
@@ -381,7 +598,8 @@ function BasePrep {
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
 
-    Get-CACertificates
+    Invoke-RCV1PCertificateRefresh
+    Register-RCV1PCertificateRefreshTask
     {{end}}
 
     Write-CACert -CACertificate $global:CACertificate `
