@@ -22,10 +22,10 @@ do
 done
 
 az storage blob copy start \
-  --destination-blob $(BLOB_NAME) \
-  --destination-container $(VHD_STAGING_CONTAINER_NAME) \
-  --account-name $(STORAGE_ACCOUNT_NAME) \
-  --source-uri $(SOURCE_BLOB) \
+  --destination-blob "${BLOB_NAME}" \
+  --destination-container "${VHD_STAGING_CONTAINER_NAME}" \
+  --account-name "${STORAGE_ACCOUNT_NAME}" \
+  --source-uri "${SOURCE_BLOB}" \
   --auth-mode login
 
 if [ "${OS_TYPE,,}" = "windows" ]; then
