@@ -673,12 +673,6 @@
       ]
     },
     {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/disk-usage.txt",
-      "destination": "disk-usage.txt"
-    },
-    {
       "type": "shell",
       "inline": "sudo reboot",
       "expect_disconnect": true,
