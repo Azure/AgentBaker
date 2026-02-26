@@ -1450,15 +1450,34 @@ func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
 }
 
 func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) {
+    s.T.Helper()
+    s.T.Logf("validating that NVIDIA device plugin systemd service is running")
+
+    command := []string{
+        "set -ex",
+        "systemctl is-active nvidia-device-plugin.service",
+        "systemctl is-enabled nvidia-device-plugin.service",
+    }
+    execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
+}
+
+func ValidateNvidiaCdiRefreshServiceRunning(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	s.T.Logf("validating that NVIDIA device plugin systemd service is running")
 
 	command := []string{
-		"set -ex",
-		"systemctl is-active nvidia-device-plugin.service",
-		"systemctl is-enabled nvidia-device-plugin.service",
+		"set -euo pipefail",
+		"systemctl is-enabled nvidia-cdi-refresh.path",
+		"systemctl is-enabled nvidia-cdi-refresh.service",
+		"RESULT=$(systemctl show nvidia-cdi-refresh.service --property=Result --value)",
+		"SUBSTATE=$(systemctl show nvidia-cdi-refresh.service --property=SubState --value)",
+		"if [ \"$RESULT\" != \"success\" ]; then",
+		"  echo \"Expected nvidia-cdi-refresh.service Result=success, got $RESULT\"",
+		"  exit 1",
+		"fi",
+		"# SubState is typically 'dead' for a oneshot service that completed successfully",
+		"echo \"nvidia-cdi-refresh.service Result=$RESULT SubState=$SUBSTATE\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "nvidia-cdi-refresh units should be enabled and last run must succeed")
 }
 
 func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
