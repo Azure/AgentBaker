@@ -697,30 +697,6 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/containers/image-bom.json",
-      "destination": "image-bom.json"
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/vhd-install.complete",
-      "destination": "release-notes.txt"
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/vhd-build-performance-data.json",
-      "destination": "vhd-build-performance-data.json"
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/vhd-grid-compatibility-data.json",
-      "destination": "vhd-grid-compatibility-data.json"
-    },
-    {
       "type": "shell",
       "inline": [
         "sudo rm /opt/azure/vhd-build-performance-data.json",
