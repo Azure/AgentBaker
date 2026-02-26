@@ -7,6 +7,9 @@ ListenStream=127.0.0.1:9353
 # Accept=yes means "Spawn a new service instance for every connection"
 # This enables on-demand execution: the exporter script only runs when VMAgent scrapes
 Accept=yes
+# Defense-in-depth: Restrict access to loopback only
+IPAddressAllow=localhost
+IPAddressDeny=any
 
 [Install]
 WantedBy=sockets.target
