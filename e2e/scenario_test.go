@@ -25,7 +25,6 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -2034,7 +2033,6 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {

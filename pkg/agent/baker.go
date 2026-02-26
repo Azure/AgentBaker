@@ -705,6 +705,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
 		},
+		"IsAzlOSGuard": func() bool {
+			return profile.Distro.IsAzureLinuxOSGuardDistro() ||
+				profile.Distro == datamodel.CustomizedImageLinuxGuard
+		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
 				profile.Distro == datamodel.CustomizedImageKata ||
