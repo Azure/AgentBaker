@@ -207,7 +207,7 @@ replace_azurednsip_in_corefile() {
 
     # Export forward IPs to .prom file for metrics exporter
     # This avoids parsing the corefile on every metrics scrape
-    FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+    local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
 
     # Parse forward IPs from the updated corefile we just created
     # VnetDNS uses bind 169.254.10.10, KubeDNS uses bind 169.254.10.11
