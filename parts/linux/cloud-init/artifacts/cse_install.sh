@@ -296,6 +296,115 @@ downloadSecureTLSBootstrapClient() {
     echo "aks-secure-tls-bootstrap-client installed successfully"
 }
 
+# installWALinuxAgent queries the Azure wireserver to get the WALinuxAgent manifest,
+# finds the zip URL for the specified version, downloads it, and installs it
+# under /var/lib/waagent/WALinuxAgent-<version>/.
+# This allows the existing waagent service to pick up the newer version from disk
+# without needing network-based auto-updates at runtime.
+installWALinuxAgent() {
+    local downloadDir=$1
+    local version=$2
+
+    echo "Installing WALinuxAgent version ${version} from wireserver manifest..."
+
+    local WIRESERVER="http://168.63.129.16:80"
+
+    # Step 1: Get the goalstate to find the ExtensionsConfig URL
+    local goalstate
+    goalstate=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${WIRESERVER}/machine/?comp=goalstate") || {
+        echo "ERROR: Failed to fetch goalstate from wireserver"
+        return 1
+    }
+
+    # Step 2: Extract and decode the ExtensionsConfig URL
+    local extensions_config_url
+    extensions_config_url=$(echo "${goalstate}" | grep -oP '<ExtensionsConfig>\K[^<]+') || {
+        echo "ERROR: Failed to extract ExtensionsConfig URL from goalstate"
+        return 1
+    }
+    # URL-decode and fix XML-escaped ampersands
+    extensions_config_url=$(echo "${extensions_config_url}" | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))" | sed 's/&amp;/\&/g')
+
+    # Step 3: Fetch the extensions config to find the GAFamily manifest URI
+    local extensions_config
+    extensions_config=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${extensions_config_url}") || {
+        echo "ERROR: Failed to fetch extensions config"
+        return 1
+    }
+
+    # Step 4: Extract the first manifest URI from the GAFamily element
+    local manifest_url
+    manifest_url=$(echo "${extensions_config}" | grep -A 100 '<GAFamily>' | grep -oP '<Uri>\K[^<]+' | head -n 1)
+    if [ -z "${manifest_url}" ]; then
+        echo "ERROR: No GAFamily manifest URI found in extensions config"
+        return 1
+    fi
+
+    # Step 5: Fetch the manifest
+    local manifest
+    manifest=$(curl -s "${manifest_url}") || {
+        echo "ERROR: Failed to fetch manifest from ${manifest_url}"
+        return 1
+    }
+
+    # Step 6: Find the zip URL for the target version by parsing the manifest XML
+    local zip_url
+    zip_url=$(echo "${manifest}" | python3 -c "
+import sys
+import xml.etree.ElementTree as ET
+content = sys.stdin.read()
+root = ET.fromstring(content)
+target = '${version}'
+for plugin in root.findall('.//Plugin'):
+    ver = plugin.find('Version')
+    if ver is not None and ver.text == target:
+        uri = plugin.find('.//Uri')
+        if uri is not None:
+            print(uri.text)
+            sys.exit(0)
+sys.exit(1)
+") || {
+        echo "ERROR: Version ${version} not found in WALinuxAgent manifest"
+        return 1
+    }
+
+    if [ -z "${zip_url}" ]; then
+        echo "ERROR: No download URL found for WALinuxAgent version ${version}"
+        return 1
+    fi
+
+    echo "Found WALinuxAgent ${version} zip at: ${zip_url}"
+
+    # Step 7: Download the zip
+    local tmpDir
+    tmpDir=$(mktemp -d)
+    local zipFile="${tmpDir}/WALinuxAgent-${version}.zip"
+
+    retrycmd_curl_file 10 5 60 "${zipFile}" "${zip_url}" || {
+        echo "ERROR: Failed to download WALinuxAgent zip from ${zip_url}"
+        rm -rf "${tmpDir}"
+        return 1
+    }
+
+    # Step 8: Install the agent zip under /var/lib/waagent/WALinuxAgent-<version>/
+    local installDir="/var/lib/waagent/WALinuxAgent-${version}"
+    mkdir -p "${installDir}"
+    unzip -o "${zipFile}" -d "${installDir}" || {
+        echo "ERROR: Failed to extract WALinuxAgent zip to ${installDir}"
+        rm -rf "${tmpDir}"
+        return 1
+    }
+
+    echo "WALinuxAgent ${version} installed successfully to ${installDir}"
+
+    # Store the zip in the download directory for provenance tracking
+    mkdir -p "${downloadDir}"
+    cp "${zipFile}" "${downloadDir}/" 2>/dev/null || true
+
+    # Clean up temporary files
+    rm -rf "${tmpDir}"
+}
+
 evalPackageDownloadURL() {
     local url=${1:-}
     if [ -n "$url" ]; then

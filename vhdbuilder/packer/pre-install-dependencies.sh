@@ -67,6 +67,18 @@ if isFlatcar "$OS"; then
 fi
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
+
+# Configure WALinuxAgent auto-update settings:
+# - AutoUpdate.Enabled=y allows the older agent to pick up the latest version already installed on disk
+# - AutoUpdate.UpdateToLatestVersion=n prevents the agent from downloading further updates from the network
+sed -i 's/AutoUpdate.Enabled=n/AutoUpdate.Enabled=y/g' /etc/waagent.conf
+if ! grep -q '^AutoUpdate.Enabled=' /etc/waagent.conf; then
+    echo 'AutoUpdate.Enabled=y' >> /etc/waagent.conf
+fi
+sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
+if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
+    echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
+fi
 systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
