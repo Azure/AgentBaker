@@ -1470,6 +1470,26 @@ func Test_AzureLinuxV3LocalDns_ExporterMetrics(t *testing.T) {
 	})
 }
 
+func Test_FlatcarLocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a Flatcar node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
 
 func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
