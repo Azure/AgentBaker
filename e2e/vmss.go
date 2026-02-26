@@ -220,6 +220,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
+
+	if s.Config.UseNVMe {
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	}
 	return model
 }
 
