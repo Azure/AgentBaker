@@ -52,65 +52,6 @@ fi
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
-echo "Converting $sig_resource_id to $disk_resource_id"
-if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
-  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
-    \"properties\": { \
-      \"osType\": \"$OS_TYPE\", \
-      \"securityProfile\": { \
-        \"securityType\": \"TrustedLaunch\" \
-      }, \
-      \"creationData\": { \
-        \"createOption\": \"FromImage\", \
-        \"galleryImageReference\": { \
-          \"id\": \"${sig_resource_id}\" \
-        } \
-      } \
-    } \
-  }"
-elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-  az resource create --id $disk_resource_id --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
-    \"properties\": { \
-      \"osType\": \"$OS_TYPE\", \
-      \"securityProfile\": { \
-        \"securityType\": \"ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey\" \
-      }, \
-      \"creationData\": { \
-        \"createOption\": \"FromImage\", \
-        \"galleryImageReference\": { \
-          \"id\": \"${sig_resource_id}\" \
-        } \
-      } \
-    } \
-  }"
-elif [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  echo "GB200: Creating standard disk from SIG image"
-  # GB200 uses standard disk creation for now, but can be customized in the future if needed
-  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
-    \"properties\": { \
-      \"osType\": \"$OS_TYPE\", \
-      \"creationData\": { \
-        \"createOption\": \"FromImage\", \
-        \"galleryImageReference\": { \
-          \"id\": \"${sig_resource_id}\" \
-        } \
-      } \
-    } \
-  }"
-else
-  az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
-    \"properties\": { \
-      \"osType\": \"$OS_TYPE\", \
-      \"creationData\": { \
-        \"createOption\": \"FromImage\", \
-        \"galleryImageReference\": { \
-          \"id\": \"${sig_resource_id}\" \
-        } \
-      } \
-    } \
-  }"
-fi
-echo "Converted $sig_resource_id to $disk_resource_id"
 capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 
 echo "Granting access to $disk_resource_id for 1 hour"
