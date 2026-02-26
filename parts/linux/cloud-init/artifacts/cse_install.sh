@@ -296,16 +296,16 @@ downloadSecureTLSBootstrapClient() {
     echo "aks-secure-tls-bootstrap-client installed successfully"
 }
 
-# installWALinuxAgent queries the Azure wireserver to get the WALinuxAgent manifest,
-# finds the zip URL for the specified version, downloads it, and installs it
-# under /var/lib/waagent/WALinuxAgent-<version>/.
-# This allows the existing waagent service to pick up the newer version from disk
-# without needing network-based auto-updates at runtime.
+# installWALinuxAgent queries the Azure wireserver to get the WALinuxAgent GAFamily
+# version and manifest, downloads the zip for that version, and installs it under
+# /var/lib/waagent/WALinuxAgent-<version>/.
+# The GAFamily version is the exact version the waagent daemon targets during
+# auto-update. Pre-caching it on disk lets the daemon pick it up locally without
+# downloading from the network at provisioning time.
 installWALinuxAgent() {
     local downloadDir=$1
-    local version=$2
 
-    echo "Installing WALinuxAgent version ${version} from wireserver manifest..."
+    echo "Installing WALinuxAgent from wireserver GAFamily manifest..."
 
     local WIRESERVER="http://168.63.129.16:80"
 
@@ -325,14 +325,23 @@ installWALinuxAgent() {
     # URL-decode and fix XML-escaped ampersands
     extensions_config_url=$(echo "${extensions_config_url}" | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))" | sed 's/&amp;/\&/g')
 
-    # Step 3: Fetch the extensions config to find the GAFamily manifest URI
+    # Step 3: Fetch the extensions config to find the GAFamily version and manifest URI
     local extensions_config
     extensions_config=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${extensions_config_url}") || {
         echo "ERROR: Failed to fetch extensions config"
         return 1
     }
 
-    # Step 4: Extract the first manifest URI from the GAFamily element
+    # Step 4: Extract the GAFamily version — this is the version the waagent daemon targets
+    local version
+    version=$(echo "${extensions_config}" | grep -A 10 '<GAFamily>' | grep -oP '<Version>\K[^<]+' | head -n 1)
+    if [ -z "${version}" ]; then
+        echo "ERROR: No GAFamily version found in extensions config"
+        return 1
+    fi
+    echo "GAFamily version: ${version}"
+
+    # Step 5: Extract the first manifest URI from the GAFamily element
     local manifest_url
     manifest_url=$(echo "${extensions_config}" | grep -A 100 '<GAFamily>' | grep -oP '<Uri>\K[^<]+' | head -n 1)
     if [ -z "${manifest_url}" ]; then
@@ -340,14 +349,14 @@ installWALinuxAgent() {
         return 1
     fi
 
-    # Step 5: Fetch the manifest
+    # Step 6: Fetch the manifest
     local manifest
     manifest=$(curl -s "${manifest_url}") || {
         echo "ERROR: Failed to fetch manifest from ${manifest_url}"
         return 1
     }
 
-    # Step 6: Find the zip URL for the target version by parsing the manifest XML
+    # Step 7: Find the zip URL for the GAFamily version by parsing the manifest XML
     local zip_url
     zip_url=$(echo "${manifest}" | python3 -c "
 import sys
@@ -375,7 +384,7 @@ sys.exit(1)
 
     echo "Found WALinuxAgent ${version} zip at: ${zip_url}"
 
-    # Step 7: Download the zip
+    # Step 8: Download the zip
     local tmpDir
     tmpDir=$(mktemp -d)
     local zipFile="${tmpDir}/WALinuxAgent-${version}.zip"
@@ -386,7 +395,7 @@ sys.exit(1)
         return 1
     }
 
-    # Step 8: Install the agent zip under /var/lib/waagent/WALinuxAgent-<version>/
+    # Step 9: Install the agent zip under /var/lib/waagent/WALinuxAgent-<version>/
     local installDir="/var/lib/waagent/WALinuxAgent-${version}"
     mkdir -p "${installDir}"
     # Use python3 zipfile module instead of unzip, which may not be installed on all build VMs
