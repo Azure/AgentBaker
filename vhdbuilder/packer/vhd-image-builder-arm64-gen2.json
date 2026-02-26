@@ -125,6 +125,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-pcap.service",
+      "destination": "/home/packer/aks-pcap.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-pcap.sh",
+      "destination": "/home/packer/aks-pcap.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
       "destination": "/home/packer/provision_installs.sh"
     },

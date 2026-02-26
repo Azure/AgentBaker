@@ -142,6 +142,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 
 ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
 
+ERR_AKS_PCAP_START_FAILURE=221 # Error starting aks-pcap service
+
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download

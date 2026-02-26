@@ -531,6 +531,10 @@ Environment="BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}"
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
 EOF
+    # start the PCAP service (not supported on Flatcar or AzureLinux OS Guard)
+    if ! isFlatcar "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        systemctlEnableAndStartNoBlock aks-pcap 30 || exit $ERR_AKS_PCAP_START_FAILURE
+    fi
 
     # explicitly start secure TLS bootstrapping ahead of kubelet
     systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
