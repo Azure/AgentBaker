@@ -475,6 +475,12 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "walinuxagent")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        installWALinuxAgent "${downloadDir}" "${version}"
+        echo "  - walinuxagent version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.

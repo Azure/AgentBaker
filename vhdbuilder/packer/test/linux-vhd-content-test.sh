@@ -243,6 +243,11 @@ testPackagesInstalled() {
         testContainerNetworkingPluginsInstalled
         continue
         ;;
+      "walinuxagent")
+        # walinuxagent is installed from the wireserver manifest, not via the standard download URL
+        testWALinuxAgentInstalled
+        continue
+        ;;
     esac
 
     resolve_packages_source_url
@@ -1485,6 +1490,65 @@ testBccTools () {
   done
   echo "$test: BCC tools were successfully installed"
   return 0
+}
+
+# testWALinuxAgentInstalled verifies that the WALinuxAgent was downloaded from the
+# wireserver manifest and installed under /var/lib/waagent/WALinuxAgent-<version>/.
+# It checks the install directory exists and contains the expected artifacts
+# (the egg file, HandlerManifest.json, and manifest.xml).
+testWALinuxAgentInstalled() {
+  local test="testWALinuxAgentInstalled"
+  echo "$test:Start"
+
+  # Get the expected version from components.json
+  local expectedVersion
+  expectedVersion=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "$COMPONENTS_FILEPATH")
+  if [ -z "$expectedVersion" ]; then
+    err "$test" "Failed to get walinuxagent version from components.json"
+    return 1
+  fi
+
+  local installDir="/var/lib/waagent/WALinuxAgent-${expectedVersion}"
+  local downloadDir
+  downloadDir=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' "$COMPONENTS_FILEPATH")
+
+  # Check the install directory exists
+  if [ ! -d "$installDir" ]; then
+    err "$test" "WALinuxAgent install directory ${installDir} does not exist"
+    return 1
+  fi
+  echo "$test: WALinuxAgent install directory ${installDir} exists"
+
+  # Check expected artifacts in the install directory
+  local expectedFiles=("HandlerManifest.json" "manifest.xml")
+  for f in "${expectedFiles[@]}"; do
+    if [ ! -f "${installDir}/${f}" ]; then
+      err "$test" "Expected file ${f} not found in ${installDir}, contents: $(ls -al "${installDir}")"
+      return 1
+    fi
+    echo "$test: Found expected file ${installDir}/${f}"
+  done
+
+  # Check that the egg file exists (WALinuxAgent-<version>.egg)
+  local eggFile
+  eggFile=$(find "${installDir}" -maxdepth 1 -name "WALinuxAgent-*.egg" -print -quit 2>/dev/null) || eggFile=""
+  if [ -z "${eggFile}" ]; then
+    err "$test" "WALinuxAgent egg file not found in ${installDir}, contents: $(ls -al "${installDir}")"
+    return 1
+  fi
+  echo "$test: Found egg file ${eggFile}"
+
+  # Check the zip was copied to the download dir for provenance tracking
+  if [ -n "$downloadDir" ] && [ "$downloadDir" != "null" ]; then
+    local zipFile="${downloadDir}/WALinuxAgent-${expectedVersion}.zip"
+    if [ ! -f "$zipFile" ]; then
+      err "$test" "WALinuxAgent zip not found at ${zipFile} for provenance tracking"
+    else
+      echo "$test: WALinuxAgent zip exists at ${zipFile}"
+    fi
+  fi
+
+  echo "$test:Finish"
 }
 
 testAKSNodeControllerBinary () {
