@@ -24,29 +24,127 @@ fi
 echo "distribution is $distribution"
 echo "Running on $NAME"
 
-# http://168.63.129.16 is a constant for the host's wireserver endpoint
-certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+# The purpose of RCV 1P is to reliably distribute root and intermediate certificates at scale to
+# only Microsoft 1st party (1P) virtual machines (VM) and virtual machine scale sets (VMSS).
+# This is critical for initiatives such as Microsoft PKI. RCV 1P ensures that these certificates
+# are installed on the node at creation time. This eliminates the need for your VM to be connected
+# to the internet and ping an endpoint to receive certificate packages. The feature also eliminates
+# the dependency on updates to AzSecPack to receive the latest root and intermediate certs.
+# RCV 1P is designed to work completely autonomously from the user perspective on all Azure 1st
+# party VMs.
+
+# Below code calls the wireserver to get the list of CA certs for this cloud and saves them to /root/AzureCACertificates. Then it copies them to the appropriate location based on distro and updates the CA bundle.
+
+# Function to process certificate operations from a given endpoint
+process_cert_operations() {
+    local endpoint_type="$1"
+    local operation_response
+
+    echo "Retrieving certificate operations for type: $endpoint_type"
+    operation_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json")
+    local request_status=$?
+    if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
+        echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json"
+        return
+    fi
+
+    # Extract ResourceFileName values from the JSON response
+    local cert_filenames
+    mapfile -t cert_filenames < <(echo "$operation_response" | grep -oP '(?<="ResouceFileName": ")[^"]*')
+
+    if [ ${#cert_filenames[@]} -eq 0 ]; then
+        echo "No certificate filenames found in response for $endpoint_type"
+        return
+    fi
+
+    # Process each certificate file
+    for cert_filename in "${cert_filenames[@]}"; do
+        echo "Processing certificate file: $cert_filename"
+
+        # Extract filename and extension
+        local filename="${cert_filename%.*}"
+        local extension="${cert_filename##*.}"
+
+        echo "Downloading certificate: filename=$filename, extension=$extension"
+
+        # Retrieve the actual certificate content with retry logic
+        local cert_content
+        cert_content=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension")
+        local request_status=$?
+        if [ -z "$cert_content" ] || [ $request_status -ne 0 ]; then
+            echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
+            continue
+        fi
+
+        if [ -n "$cert_content" ]; then
+            # Save the certificate to the appropriate location
+            echo "$cert_content" > "/root/AzureCACertificates/$cert_filename"
+            echo "Successfully saved certificate: $cert_filename"
+        else
+            echo "Warning: Failed to retrieve certificate content for $cert_filename"
+        fi
+    done
+}
+
 IFS_backup=$IFS
 IFS=$'\r\n'
-certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-ext=".crt"
-if [ "$IS_FLATCAR" -eq 1 ]; then
-    ext=".pem"
+
+# First check via curl "http://168.63.129.16/acms/isOptedInForRootCerts" and JSON response for
+# {"IsOptedInForRootCerts":true}. The value captured in optInCheck indicates whether THIS VM
+# is opted in for the RCV 1P PKI setup described above. If not opted in, skip the RCV 1P pull
+# path and use the default cert retrieval flow instead. This check can be removed if you want to
+# attempt to pull certs regardless of opt-in status, but it may result in errors in the logs if
+# not opted in.
+# https://eng.ms/docs/products/onecert-certificates-key-vault-and-dsms/onecert-customer-guide/autorotationandecr/rcv1ptsg
+
+optInCheck=""
+if optInCheck=$(curl -sS --fail "http://168.63.129.16/acms/isOptedInForRootCerts"); then
+    :
+else
+    echo "Warning: failed to query root cert opt-in status; defaulting to non-opt-in flow"
 fi
-for i in ${!certBodies[@]}; do
-    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed "s/.cer/.${ext}/g")"
-done
+
+if echo "$optInCheck" | grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]]*true'; then
+    echo "Opted in for root certs, proceeding with CA cert pull and install"
+    # Process root certificates
+    process_cert_operations "operationrequestsroot"
+
+    # Process intermediate certificates
+    process_cert_operations "operationrequestsintermediate"
+    echo "successfully pulled in root certs"
+else
+    echo "Not opted in for root certs, skipping CA cert pull and install"
+    # http://168.63.129.16 is a constant for the host's wireserver endpoint
+    certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+    certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
+    certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+    ext=".crt"
+    if [ "$IS_FLATCAR" -eq 1 ]; then
+        ext=".pem"
+    fi
+    for i in ${!certBodies[@]}; do
+        echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed "s/.cer/.${ext}/g")"
+    done
+    echo "successfully pulled in default certs"
+fi
+
 IFS=$IFS_backup
 
-if [ "$IS_FLATCAR" -eq 0 ]; then
+if [ "${IS_FLATCAR}" -eq 0 ]; then
+    # Copy all certificate files to the system certificate directory
     cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
+
+    # Update the system certificate store
     update-ca-certificates
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used
     cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
 else
-    cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
+    for cert in /root/AzureCACertificates/*.crt; do
+        destcert="${cert##*/}"
+        destcert="${destcert%.*}.pem"
+        cp "$cert" /etc/ssl/certs/"$destcert"
+    done
     update-ca-certificates
 fi
 
