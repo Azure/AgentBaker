@@ -52,7 +52,7 @@ parameters:
   - name: dryrun
     displayName: Dry run
     type: boolean
-    default: False
+    default: True
   - name: vhddebug
     displayName: VHD Debug
     type: boolean
