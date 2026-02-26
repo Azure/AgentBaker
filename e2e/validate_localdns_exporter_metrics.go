@@ -82,7 +82,7 @@ echo ""
 
 # Extract and validate VnetDNS forward IP
 echo "7. Extracting VnetDNS forward IP..."
-VNETDNS_LINE=$(echo "$METRICS" | grep "localdns_vnetdns_forward_info" | head -n 1)
+VNETDNS_LINE=$(echo "$METRICS" | grep "^localdns_vnetdns_forward_info{" | head -n 1)
 echo "   Raw metric: $VNETDNS_LINE"
 
 VNETDNS_STATUS=$(echo "$VNETDNS_LINE" | sed -n 's/.*status="\([^"]*\)".*/\1/p')
@@ -129,7 +129,7 @@ echo ""
 
 # Extract and validate KubeDNS forward IP
 echo "8. Extracting KubeDNS forward IP..."
-KUBEDNS_LINE=$(echo "$METRICS" | grep "localdns_kubedns_forward_info" | head -n 1)
+KUBEDNS_LINE=$(echo "$METRICS" | grep "^localdns_kubedns_forward_info{" | head -n 1)
 echo "   Raw metric: $KUBEDNS_LINE"
 
 KUBEDNS_STATUS=$(echo "$KUBEDNS_LINE" | sed -n 's/.*status="\([^"]*\)".*/\1/p')
