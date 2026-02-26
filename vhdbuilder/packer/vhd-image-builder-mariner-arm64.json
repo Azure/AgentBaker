@@ -697,12 +697,6 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
-      "type": "shell",
-      "inline": [
-        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -eux /home/packer/list-images.sh"
-      ]
-    },
-    {
       "type": "file",
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
