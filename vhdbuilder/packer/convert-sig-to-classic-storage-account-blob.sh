@@ -54,9 +54,9 @@ capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 
-echo "Granting access to $disk_resource_id for 1 hour"
+echo "Granting access to $DISK_RESOURCE_ID for 1 hour"
 # shellcheck disable=SC2102
-sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
+sas=$(az disk grant-access --ids $DISK_RESOURCE_ID --duration-in-seconds 3600 --query [accessSas] -o tsv)
 if [ "$sas" = "None" ]; then
  echo "sas token empty. Trying alternative query string"
 # shellcheck disable=SC2102
