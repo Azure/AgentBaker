@@ -1522,6 +1522,18 @@ oom_score = -999
 				Expect(exist).To(BeFalse())
 			},
 		),
+		Entry("CustomizedImageLinuxGuard write_files should not target /usr/ paths", "CustomizedImageLinuxGuard", "1.24.2",
+			func(c *datamodel.NodeBootstrappingConfiguration) {
+				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageLinuxGuard
+			}, func(o *nodeBootstrappingOutput) {
+				for path := range o.files {
+					Expect(path).NotTo(HavePrefix("/usr/"), "OSGuard has /usr/ read-only (dm-verity), write_files must not target /usr/ paths: %s", path)
+				}
+			},
+		),
 		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = datamodel.OSSKUFlatcar
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
