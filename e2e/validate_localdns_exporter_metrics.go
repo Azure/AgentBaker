@@ -16,9 +16,9 @@ echo ""
 
 # Check if socket is listening
 echo "1. Checking if port 9353 is listening..."
-if ! ss -tlnp | grep -q ':9353'; then
+if ! ss -tln | grep -q ':9353'; then
     echo "   ❌ ERROR: Port 9353 not listening"
-    ss -tlnp | grep -E ':(9353|53)' || true
+    ss -tln | grep -E ':(9353|53)' || true
     exit 1
 fi
 echo "   ✓ Port 9353 is listening"
