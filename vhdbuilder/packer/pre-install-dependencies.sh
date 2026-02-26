@@ -138,6 +138,17 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
+  elif [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+    # Pin to 5.15.0-1102-azure to avoid regression in 5.15.0-1103-azure
+    KERNEL_IMAGE="linux-image-5.15.0-1102-azure"
+    KERNEL_PACKAGES=(
+      "linux-image-5.15.0-1102-azure"
+      "linux-tools-5.15.0-1102-azure"
+      "linux-cloud-tools-5.15.0-1102-azure"
+      "linux-headers-5.15.0-1102-azure"
+      "linux-modules-extra-5.15.0-1102-azure"
+    )
+    echo "Installing pinned LTS kernel 5.15.0-1102-azure for Ubuntu 22.04 (regression in 1103)"
   else
     # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
