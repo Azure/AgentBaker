@@ -9,15 +9,24 @@ StandardInput=socket
 StandardOutput=socket
 StandardError=journal
 
-# Security hardening
-User=root
-Group=root
+# Security hardening - run as unprivileged dynamic user
+# Exporter only reads systemd properties and world-readable .prom file
+DynamicUser=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
 ReadOnlyPaths=/
-ReadWritePaths=/run
 NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+PrivateMounts=yes
 
 [Install]
 WantedBy=multi-user.target
