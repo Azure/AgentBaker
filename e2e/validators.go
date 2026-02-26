@@ -566,6 +566,10 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
 
+	if s.VHD.Flatcar {
+		unitFailureAllowList["coreos-metadata-sshkeys@core.service"] = true
+	}
+
 	type systemdUnit struct {
 		Name string `json:"unit,omitempty"`
 	}
