@@ -56,4 +56,22 @@ Describe 'localdns_exporter.sh HTTP request routing'
         The status should be success
         The output should equal ""
     End
+
+    It 'should return 200 and Prometheus metrics for /metrics path'
+        When run bash -c "echo 'GET /metrics HTTP/1.1' | $SCRIPT_PATH"
+        The status should be success
+        The output should include "HTTP/1.1 200 OK"
+        The output should include "Content-Type: text/plain; version=0.0.4"
+        # Verify metric type declarations are present
+        The output should include "# TYPE localdns_service_status gauge"
+        The output should include "# TYPE localdns_memory_usage_mb gauge"
+        The output should include "# TYPE localdns_cpu_usage_seconds_total counter"
+        # Verify metric names are present (values will vary)
+        The output should include "localdns_service_status"
+        The output should include "localdns_memory_usage_mb"
+        The output should include "localdns_cpu_usage_seconds_total"
+        # Verify forward-info metrics are present (either actual metrics or fallback)
+        The output should include "localdns_vnetdns_forward_info"
+        The output should include "localdns_kubedns_forward_info"
+    End
 End
