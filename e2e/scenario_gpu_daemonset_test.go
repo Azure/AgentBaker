@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -14,7 +13,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests that a GPU node can function correctly
@@ -65,20 +63,26 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 // nvidiaDevicePluginDaemonset returns the NVIDIA device plugin DaemonSet spec
 // based on the official upstream deployment from:
 // https://github.com/NVIDIA/k8s-device-plugin/blob/main/deployments/static/nvidia-device-plugin.yml
+//
+// The DaemonSet name includes the node name to avoid collisions when multiple
+// GPU tests run against the same shared cluster.
 func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
+	// Use node name in DaemonSet name to avoid collisions in shared cluster
+	dsName := fmt.Sprintf("nvidia-device-plugin-%s", nodeName)
+
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "DaemonSet",
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "nvidia-device-plugin-daemonset",
+			Name:      dsName,
 			Namespace: "kube-system",
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"name": "nvidia-device-plugin-ds",
+					"name": dsName,
 				},
 			},
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
@@ -87,7 +91,7 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"name": "nvidia-device-plugin-ds",
+						"name": dsName,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -105,7 +109,11 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 					PriorityClassName: "system-node-critical",
 					Containers: []corev1.Container{
 						{
-							Name:  "nvidia-device-plugin-ctr",
+							Name: "nvidia-device-plugin-ctr",
+							// Using upstream NVIDIA device plugin image from MCR.
+							// This is intentionally different from components.json which tracks
+							// the systemd-packaged version. This test validates the upstream
+							// container-based deployment model.
 							Image: "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2",
 							Env: []corev1.EnvVar{
 								{
@@ -114,10 +122,10 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: to.Ptr(false),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
+								// Privileged mode is required for the device plugin to access
+								// GPU devices and register with kubelet's device plugin framework.
+								// This matches the upstream NVIDIA device plugin deployment spec.
+								Privileged: to.Ptr(true),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -144,6 +152,7 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 }
 
 // deployNvidiaDevicePluginDaemonset creates the NVIDIA device plugin DaemonSet in the cluster
+// and registers cleanup to delete it when the test finishes.
 func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("Deploying NVIDIA device plugin as DaemonSet...")
@@ -152,46 +161,37 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) {
 	err := s.Runtime.Cluster.Kube.CreateDaemonset(ctx, ds)
 	require.NoError(s.T, err, "failed to create NVIDIA device plugin DaemonSet")
 
-	s.T.Logf("NVIDIA device plugin DaemonSet created successfully")
+	s.T.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
+
+	// Register cleanup to delete the DaemonSet when the test finishes
+	s.T.Cleanup(func() {
+		s.T.Logf("Cleaning up NVIDIA device plugin DaemonSet %s/%s...", ds.Namespace, ds.Name)
+		deleteErr := s.Runtime.Cluster.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
+			context.Background(),
+			ds.Name,
+			metav1.DeleteOptions{},
+		)
+		if deleteErr != nil {
+			s.T.Logf("Failed to delete NVIDIA device plugin DaemonSet %s/%s: %v", ds.Namespace, ds.Name, deleteErr)
+		}
+	})
 }
 
-// waitForNvidiaDevicePluginDaemonsetReady waits for the NVIDIA device plugin pod to be running on the test node
+// waitForNvidiaDevicePluginDaemonsetReady waits for the NVIDIA device plugin pod to be running on the test node.
+// Uses the existing WaitUntilPodRunning helper which handles CrashLoopBackOff and other failure states.
 func waitForNvidiaDevicePluginDaemonsetReady(ctx context.Context, s *Scenario) {
 	s.T.Helper()
+
+	dsName := fmt.Sprintf("nvidia-device-plugin-%s", s.Runtime.VM.KubeName)
 	s.T.Logf("Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
 
-	// Wait for the pod to be running
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		pods, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{
-			LabelSelector: "name=nvidia-device-plugin-ds",
-			FieldSelector: fmt.Sprintf("spec.nodeName=%s", s.Runtime.VM.KubeName),
-		})
-		if err != nil {
-			return false, err
-		}
-
-		if len(pods.Items) == 0 {
-			s.T.Logf("No NVIDIA device plugin pod found yet on node %s", s.Runtime.VM.KubeName)
-			return false, nil
-		}
-
-		pod := &pods.Items[0]
-		s.T.Logf("NVIDIA device plugin pod %s is in phase %s", pod.Name, pod.Status.Phase)
-
-		if pod.Status.Phase == corev1.PodRunning {
-			// Check if all containers are ready
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if !containerStatus.Ready {
-					s.T.Logf("Container %s is not ready yet", containerStatus.Name)
-					return false, nil
-				}
-			}
-			return true, nil
-		}
-
-		return false, nil
-	})
-
+	_, err := s.Runtime.Cluster.Kube.WaitUntilPodRunning(
+		ctx,
+		"kube-system",
+		fmt.Sprintf("name=%s", dsName),
+		fmt.Sprintf("spec.nodeName=%s", s.Runtime.VM.KubeName),
+	)
 	require.NoError(s.T, err, "timed out waiting for NVIDIA device plugin DaemonSet pod to be ready")
+
 	s.T.Logf("NVIDIA device plugin DaemonSet pod is ready")
 }
