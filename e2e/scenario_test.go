@@ -203,6 +203,9 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "azurelinuxv3 scenario on a cluster configured with Azure CNI",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -313,6 +316,9 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -359,6 +365,9 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
@@ -384,6 +393,9 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,
@@ -1714,6 +1726,9 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 func Test_Ubuntu2404Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
