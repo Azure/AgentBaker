@@ -309,9 +309,6 @@ copyPackerFiles() {
   LOCALDNS_EXPORTER_SERVICE_SRC=/home/packer/localdns-exporter@.service
   LOCALDNS_EXPORTER_SERVICE_DEST=/etc/systemd/system/localdns-exporter@.service
   cpAndMode $LOCALDNS_EXPORTER_SERVICE_SRC $LOCALDNS_EXPORTER_SERVICE_DEST 0644
-
-  # Enable the exporter socket so it starts automatically on boot
-  systemctl enable localdns-exporter.socket
 # ---------------------------------------------------------------------------------------
 
 # ------------------------- Files related to azure-network ------------------------------
