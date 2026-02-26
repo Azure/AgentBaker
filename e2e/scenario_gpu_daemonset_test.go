@@ -51,7 +51,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 				waitForNvidiaDevicePluginDaemonsetReady(ctx, s)
 
 				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 1)
