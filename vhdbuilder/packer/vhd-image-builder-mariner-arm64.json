@@ -684,32 +684,6 @@
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
       ]
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/list-images.sh",
-      "destination": "/home/packer/list-images.sh"
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo rm /opt/azure/vhd-build-performance-data.json",
-        "sudo rm /opt/azure/vhd-grid-compatibility-data.json"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
-      ]
     }
-  ],
-  "error-cleanup-provisioner": {
-    "type": "shell",
-    "inline": [
-      "sudo /bin/bash /home/packer/generate-disk-usage.sh"
-    ]
-  }
+  ]
 }
