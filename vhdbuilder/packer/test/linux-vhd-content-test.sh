@@ -1496,31 +1496,29 @@ testBccTools () {
 }
 
 # testWALinuxAgentInstalled verifies that the WALinuxAgent was downloaded from the
-# wireserver manifest and installed under /var/lib/waagent/WALinuxAgent-<version>/.
-# It checks the install directory exists and contains the expected artifacts
+# wireserver GAFamily manifest and installed under /var/lib/waagent/WALinuxAgent-<version>/.
+# The version is determined dynamically from wireserver at VHD build time, so this test
+# finds any WALinuxAgent-* directory and checks it contains the expected artifacts
 # (the egg file, HandlerManifest.json, and manifest.xml).
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
 
-  # Get the expected version from components.json
-  local expectedVersion
-  expectedVersion=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "$COMPONENTS_FILEPATH")
-  if [ -z "$expectedVersion" ]; then
-    err "$test" "Failed to get walinuxagent version from components.json"
+  # Expect exactly 2 WALinuxAgent-* directories: the OS-packaged version and the
+  # GAFamily version we pre-cached from the wireserver manifest at VHD build time.
+  local -a dirs
+  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort)
+  local dirCount=${#dirs[@]}
+  if [ "$dirCount" -ne 2 ]; then
+    err "$test" "Expected 2 WALinuxAgent directories (OS-packaged + pre-cached), found ${dirCount}: ${dirs[*]}"
     return 1
   fi
+  echo "$test: Found ${dirCount} WALinuxAgent directories as expected: ${dirs[*]}"
 
-  local installDir="/var/lib/waagent/WALinuxAgent-${expectedVersion}"
-  local downloadDir
-  downloadDir=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' "$COMPONENTS_FILEPATH")
-
-  # Check the install directory exists
-  if [ ! -d "$installDir" ]; then
-    err "$test" "WALinuxAgent install directory ${installDir} does not exist"
-    return 1
-  fi
-  echo "$test: WALinuxAgent install directory ${installDir} exists"
+  # The pre-cached (newer) directory is the one we validate artifacts in.
+  # Sort puts them in version order; pick the last one (highest version).
+  local installDir="${dirs[-1]}"
+  echo "$test: Validating pre-cached agent directory ${installDir}"
 
   # Check expected artifacts in the install directory
   local expectedFiles=("HandlerManifest.json" "manifest.xml")
@@ -1541,11 +1539,14 @@ testWALinuxAgentInstalled() {
   fi
   echo "$test: Found egg file ${eggFile}"
 
-  # Check the zip was copied to the download dir for provenance tracking
+  # Check the download dir has the zip for provenance tracking
+  local downloadDir
+  downloadDir=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' "$COMPONENTS_FILEPATH")
   if [ -n "$downloadDir" ] && [ "$downloadDir" != "null" ]; then
-    local zipFile="${downloadDir}/WALinuxAgent-${expectedVersion}.zip"
-    if [ ! -f "$zipFile" ]; then
-      err "$test" "WALinuxAgent zip not found at ${zipFile} for provenance tracking"
+    local zipFile
+    zipFile=$(find "${downloadDir}" -maxdepth 1 -name "WALinuxAgent-*.zip" -print -quit 2>/dev/null) || zipFile=""
+    if [ -z "$zipFile" ]; then
+      err "$test" "WALinuxAgent zip not found in ${downloadDir} for provenance tracking"
     else
       echo "$test: WALinuxAgent zip exists at ${zipFile}"
     fi

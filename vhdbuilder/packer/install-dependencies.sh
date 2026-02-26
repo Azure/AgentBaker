@@ -480,10 +480,19 @@ while IFS= read -r p; do
       if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         echo "  - walinuxagent skipped for ${OS}" >> ${VHD_LOGS_FILEPATH}
       else
-        for version in ${PACKAGE_VERSIONS[@]}; do
-          installWALinuxAgent "${downloadDir}" "${version}"
-          echo "  - walinuxagent version ${version}" >> ${VHD_LOGS_FILEPATH}
-        done
+        installWALinuxAgent "${downloadDir}"
+        echo "  - walinuxagent (GAFamily version from wireserver)" >> ${VHD_LOGS_FILEPATH}
+        # Configure waagent.conf to pick up the pre-cached agent from disk:
+        # - AutoUpdate.Enabled=y tells the daemon to look for newer agent versions on disk
+        # - AutoUpdate.UpdateToLatestVersion=n prevents downloading updates from the network
+        sed -i 's/AutoUpdate.Enabled=n/AutoUpdate.Enabled=y/g' /etc/waagent.conf
+        if ! grep -q '^AutoUpdate.Enabled=' /etc/waagent.conf; then
+            echo 'AutoUpdate.Enabled=y' >> /etc/waagent.conf
+        fi
+        sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
+        if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
+            echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
+        fi
       fi
       ;;
     *)
