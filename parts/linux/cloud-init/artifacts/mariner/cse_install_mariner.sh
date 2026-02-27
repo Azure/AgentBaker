@@ -119,6 +119,22 @@ should_use_nvidia_open_drivers() {
     return 0
 }
 
+downloadGridDrivers() {
+    # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) require NVIDIA GRID (vGPU guest)
+    # drivers instead of CUDA drivers. These sizes use a "converged" driver to support
+    # both CUDA and GRID workloads — installing vanilla CUDA drivers will fail.
+    #
+    # TODO(mitchzhu): GRID driver RPM is not yet available on PMC (packages.microsoft.com).
+    # Once published, replace with:
+    #   GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
+    #       grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    #   dnf_install 30 1 600 ${GRID_PACKAGE}
+    local grid_rpm="nvidia-vgpu-guest-driver-570.195.03-1_${KERNEL_VERSION}.x86_64.rpm"
+    local grid_url="https://github.com/miz060/AgentBaker/releases/download/grid-driver-v570.195.03/nvidia-vgpu-guest-driver-570.195.03-1_6.6.121.1.1.azl3.x86_64.rpm"
+    echo "Installing GRID driver: ${grid_rpm}"
+    dnf_install 5 10 600 "${grid_url}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -128,15 +144,25 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
-    # VM SKU is retrieved from IMDS to determine which driver to use.
+    # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
+    # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
+    #
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
+    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+    VM_SKU=$(get_compute_sku)
+
+    # Converged GPU sizes use GRID drivers instead of CUDA drivers
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA GRID driver (converged)"
+        downloadGridDrivers
+        return
+    fi
 
     local driver_ret
     should_use_nvidia_open_drivers
     driver_ret=$?
-    # Get VM SKU for logging (export already done by should_use_nvidia_open_drivers)
-    VM_SKU=$(get_compute_sku)
     if [ "$driver_ret" -eq 2 ]; then
         echo "Failed to determine GPU driver type"
         exit $ERR_MISSING_CUDA_PACKAGE
