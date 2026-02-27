@@ -1261,4 +1261,343 @@ EOF
             The stdout should include "DNS configuration refreshed successfully"
         End
     End
+
+
+# This section tests - annotate_node_with_hosts_plugin_status
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'annotate_node_with_hosts_plugin_status'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest-$$"
+            KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
+            UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/opt/azure/containers/localdns/updated.localdns.corefile"
+            LOCALDNS_HOSTS_FILE="${TEST_DIR}/etc/localdns/hosts"
+
+            # Create test directories
+            mkdir -p "$(dirname "$KUBECONFIG")"
+            mkdir -p "$(dirname "$UPDATED_LOCALDNS_CORE_FILE")"
+            mkdir -p "$(dirname "$LOCALDNS_HOSTS_FILE")"
+
+            # Mock hostname command
+            hostname() {
+                echo "TestNode123"
+            }
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        #------------------------- annotate_node_with_hosts_plugin_status ----------------------------------------------
+        It 'should skip annotation if corefile does not exist'
+            rm -f "$UPDATED_LOCALDNS_CORE_FILE"
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns corefile not found"
+            The stdout should include "skipping annotation."
+        End
+
+        It 'should skip annotation if corefile does not contain hosts plugin block'
+            # Create corefile without hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns corefile does not contain hosts plugin block, skipping annotation."
+        End
+
+        It 'should skip annotation if hosts file does not exist'
+            # Create corefile with hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            rm -f "$LOCALDNS_HOSTS_FILE"
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Hosts file does not exist"
+            The stdout should include "skipping annotation despite corefile having hosts plugin."
+        End
+
+        It 'should skip annotation if hosts file has no IP mappings'
+            # Create corefile with hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            # Create empty hosts file
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# Empty hosts file
+EOF
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Hosts file exists but has no IP mappings, skipping annotation."
+        End
+
+        It 'should skip annotation if kubectl binary is not found'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 packages.aks.azure.com
+EOF
+
+            command() {
+                if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
+                    return 1
+                fi
+            }
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
+        End
+
+        It 'should timeout and skip annotation if kubeconfig does not exist after waiting'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+
+            command() {
+                if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
+                    return 0
+                fi
+            }
+            rm -f "$KUBECONFIG"
+            # Use short timeout for testing (2 attempts = 6 seconds)
+            KUBECONFIG_WAIT_ATTEMPTS=2
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for TLS bootstrapping to complete"
+            The stdout should include "Timeout waiting for kubeconfig"
+        End
+
+        It 'should set annotation successfully when using corefile with hosts plugin'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# AKS critical FQDN addresses
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 packages.aks.azure.com
+10.0.0.3 management.azure.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary in system path
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "annotate" && "$2" == "--overwrite" && "$3" == "node" ]]; then
+    echo "node/testnode123 annotated"
+    exit 0
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns is using hosts plugin and hosts file has 3 entries."
+            The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
+            The stdout should include "Successfully set hosts plugin annotation."
+        End
+
+        It 'should handle kubectl annotation failure gracefully (non-fatal)'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that fails
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "annotate" ]]; then
+    echo "Error: failed to annotate node" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
+            The stdout should include "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+        End
+
+        It 'should convert hostname to lowercase for node name'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that verifies lowercase node name
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "annotate" && "$3" == "node" && "$4" == "testnode123" ]]; then
+    echo "node/testnode123 annotated (lowercase verified)"
+    exit 0
+else
+    echo "Error: Expected lowercase node name 'testnode123' but got '$4'" >&2
+    exit 1
+fi
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Successfully set hosts plugin annotation."
+        End
+
+        It 'should wait for node to be registered before annotating'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that simulates node not registered initially
+            mkdir -p /opt/bin
+
+            # Create a counter file to track attempts
+            ATTEMPT_FILE="${TEST_DIR}/attempt_count"
+            echo "0" > "$ATTEMPT_FILE"
+
+            cat > /opt/bin/kubectl <<KUBECTL_EOF
+#!/bin/bash
+ATTEMPT_FILE="${ATTEMPT_FILE}"
+count=\$(cat "\$ATTEMPT_FILE")
+count=\$((count + 1))
+echo "\$count" > "\$ATTEMPT_FILE"
+
+# Simulate node not ready for first 2 attempts
+if [[ "\$1" == "get" && "\$2" == "node" && \$count -le 2 ]]; then
+    echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
+    exit 1
+elif [[ "\$1" == "get" && "\$2" == "node" ]]; then
+    # Node is now registered
+    exit 0
+elif [[ "\$1" == "annotate" ]]; then
+    echo "node/testnode123 annotated"
+    exit 0
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            # Use short timeout for testing
+            NODE_REGISTRATION_WAIT_ATTEMPTS=5
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for node testnode123 to be registered in the cluster"
+            The stdout should include "Node testnode123 is registered in the cluster"
+            The stdout should include "Successfully set hosts plugin annotation"
+        End
+
+        It 'should timeout and skip annotation if node never registers'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl that always fails to find node
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            # Use very short timeout for testing
+            NODE_REGISTRATION_WAIT_ATTEMPTS=2
+
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for node registration"
+            The stdout should include "Timeout waiting for node testnode123 to be registered"
+        End
+    End
 End

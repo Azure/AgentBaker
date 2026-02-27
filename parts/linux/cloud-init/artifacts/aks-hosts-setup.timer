@@ -1,0 +1,16 @@
+[Unit]
+Description=Run AKS hosts setup periodically
+Before=localdns.service
+
+[Timer]
+# Run immediately on boot
+OnBootSec=0
+# Run 15 minutes after the last activation (AKS critical FQDN IPs don't change frequently)
+OnUnitActiveSec=15min
+# Timer accuracy (how much systemd can delay)
+AccuracySec=1s
+# Add randomization to avoid thundering herd if multiple nodes boot simultaneously
+RandomizedDelaySec=60s
+
+[Install]
+WantedBy=timers.target

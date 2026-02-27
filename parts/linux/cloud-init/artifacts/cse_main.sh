@@ -294,9 +294,49 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Run aks-hosts-setup unconditionally so the timer/service are always installed,
+    # then use the result to decide which localdns corefile to select.
+
+    # hosts file produced (handle nxdomain and no record)
+    # npd - detect if the /etc/localdns/hosts is stale for x hours
+    # keep a record of the refresh heartbeat of the /etc/localdns/hosts file
+
+    # live-patching controller (yao/yamur, updates the annotation from the systemd unit)
+    logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup
+
+    # Determine which localdns corefile to use based on hosts plugin setup success/failure.
+    # This follows the same dual-config pattern used for containerd GPU/no-GPU configs:
+    # two corefiles are generated at Go template time, and the shell picks at provisioning time.
+    # We check the actual file content rather than the return value of enableAKSHostsSetup,
+    # since that is the ground truth for whether the hosts plugin has entries to serve.
+    # A valid hosts file contains lines like "10.0.0.1 mcr.microsoft.com" — we grep for
+    # at least one IP-to-hostname mapping to confirm it was properly populated.
+    echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}"
+    LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}"
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        echo "Hosts plugin is enabled, checking /etc/localdns/hosts for content..."
+        if [ -f "/etc/localdns/hosts" ]; then
+            echo "/etc/localdns/hosts exists, checking for IP mappings..."
+            if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' /etc/localdns/hosts; then
+                echo "aks-hosts-setup produced hosts file with IP mappings, using corefile with hosts plugin"
+                LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE}"
+            else
+                echo "Warning: /etc/localdns/hosts exists but has no IP mappings, falling back to corefile without hosts plugin"
+                LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}"
+            fi
+        else
+            echo "Warning: /etc/localdns/hosts does not exist, falling back to corefile without hosts plugin"
+            LOCALDNS_COREFILE_TO_USE="${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}"
+        fi
+    else
+        echo "Hosts plugin is not enabled (SHOULD_ENABLE_HOSTS_PLUGIN != 'true'), using corefile without hosts plugin"
+    fi
+    echo "Selected corefile variant: $(echo "${LOCALDNS_COREFILE_TO_USE}" | base64 -d | head -n1 | grep -o 'hosts /etc/localdns/hosts' && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
+
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
+        # Start LocalDNS with the chosen corefile (with or without hosts plugin)
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS "${LOCALDNS_COREFILE_TO_USE}" || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then

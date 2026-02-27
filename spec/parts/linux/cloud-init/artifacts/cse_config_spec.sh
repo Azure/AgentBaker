@@ -819,7 +819,7 @@ providers:
         End
     End
 
-    Describe 'shouldEnableLocalDns'
+    Describe 'enableLocalDNSForScriptless'
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
@@ -879,6 +879,177 @@ providers:
             The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+        End
+    End
+
+    Describe 'enableAKSHostsSetup'
+        setup() {
+            # Create temporary test directories and files
+            TEST_TEMP_DIR=$(mktemp -d)
+            AKS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
+            AKS_HOSTS_SETUP_SCRIPT="${TEST_TEMP_DIR}/aks-hosts-setup.sh"
+            AKS_HOSTS_SETUP_SERVICE="${TEST_TEMP_DIR}/aks-hosts-setup.service"
+            AKS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-hosts-setup.timer"
+            AKS_CLOUD_ENV_FILE="${TEST_TEMP_DIR}/cloud-env"
+
+            # Create fake script that simulates successful hosts file creation
+            cat > "$AKS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
+#!/bin/bash
+echo "# test hosts file" > "${AKS_HOSTS_FILE}"
+SETUP_EOF
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+
+            # Create dummy service and timer files
+            touch "$AKS_HOSTS_SETUP_SERVICE"
+            touch "$AKS_HOSTS_SETUP_TIMER"
+
+            # Set up test environment
+            TARGET_CLOUD="AzurePublicCloud"
+
+            # Mock systemctl function
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 0
+            }
+
+            # Export variables so the real function can use them
+            export AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
+            export AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
+        }
+
+        cleanup() {
+            rm -rf "$TEST_TEMP_DIR"
+            unset AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
+            unset AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should enable aks-hosts-setup timer successfully'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-hosts-setup timer..."
+            The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
+            The output should include "aks-hosts-setup timer enabled successfully."
+        End
+
+        It 'should call systemctlEnableAndStart with correct parameters'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
+        End
+
+        It 'should run initial aks-hosts-setup for live DNS resolution'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Running initial aks-hosts-setup to resolve DNS..."
+        End
+
+        It 'should skip when setup script is missing'
+            rm -f "$AKS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should skip when timer unit is missing'
+            rm -f "$AKS_HOSTS_SETUP_TIMER"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should print warning when systemctlEnableAndStart fails'
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 1
+            }
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-hosts-setup timer..."
+            The output should include "Warning: Failed to enable aks-hosts-setup timer"
+            The output should not include "aks-hosts-setup timer enabled successfully."
+        End
+
+        It 'should skip when service unit is missing'
+            rm -f "$AKS_HOSTS_SETUP_SERVICE"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should skip when setup script is not executable'
+            chmod -x "$AKS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "is not executable, skipping aks-hosts-setup"
+        End
+
+        It 'should warn when initial hosts setup script fails'
+            echo '#!/bin/bash
+exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Warning: Initial hosts setup failed"
+            The output should include "Enabling aks-hosts-setup timer..."
+        End
+
+        It 'should create cloud-env file with TARGET_CLOUD value'
+            TARGET_CLOUD="AzurePublicCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The file "$AKS_CLOUD_ENV_FILE" should be exist
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzurePublicCloud"
+        End
+
+        It 'should write correct cloud-env for AzureChinaCloud'
+            TARGET_CLOUD="AzureChinaCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureChinaCloud"
+        End
+
+        It 'should write correct cloud-env for AzureUSGovernmentCloud'
+            TARGET_CLOUD="AzureUSGovernmentCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
+        End
+
+        It 'should set 0644 permissions on cloud-env file'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The file "$AKS_CLOUD_ENV_FILE" should be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unset'
+            unset TARGET_CLOUD
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: TARGET_CLOUD is not set"
+            The output should include "Cannot run aks-hosts-setup without knowing cloud environment"
+            The output should include "Skipping aks-hosts-setup"
+        End
+
+        It 'should skip when TARGET_CLOUD is empty string'
+            TARGET_CLOUD=""
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: TARGET_CLOUD is not set"
+            The output should include "Skipping aks-hosts-setup"
+        End
+
+        It 'should log TARGET_CLOUD value when set'
+            TARGET_CLOUD="AzurePublicCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Setting TARGET_CLOUD=AzurePublicCloud for aks-hosts-setup"
         End
     End
 

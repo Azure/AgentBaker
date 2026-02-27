@@ -2431,6 +2431,7 @@ const (
 // LocalDNSProfile represents localdns configuration for agentpool nodes.
 type LocalDNSProfile struct {
 	EnableLocalDNS       bool                          `json:"enableLocalDNS,omitempty"`
+	EnableHostsPlugin    bool                          `json:"enableHostsPlugin,omitempty"`
 	CPULimitInMilliCores *int32                        `json:"cpuLimitInMilliCores,omitempty"`
 	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
@@ -2439,10 +2440,11 @@ type LocalDNSProfile struct {
 
 type LocalDNSCoreFileData struct {
 	LocalDNSProfile
-	NodeListenerIP    string
-	ClusterListenerIP string
-	CoreDNSServiceIP  string
-	AzureDNSIP        string
+	NodeListenerIP     string
+	ClusterListenerIP  string
+	CoreDNSServiceIP   string
+	AzureDNSIP         string
+	IncludeHostsPlugin bool
 }
 
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
@@ -2465,6 +2467,13 @@ type LocalDNSOverrides struct {
 // If this function returns true only then we generate localdns systemd unit and corefile.
 func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
 	return a != nil && a.LocalDNSProfile != nil && a.LocalDNSProfile.EnableLocalDNS
+}
+
+// ShouldEnableHostsPlugin returns true if LocalDNS is enabled and the hosts plugin
+// is explicitly enabled. When true, the localdns Corefile will include a hosts plugin
+// block that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
+func (a *AgentPoolProfile) ShouldEnableHostsPlugin() bool {
+	return a.ShouldEnableLocalDNS() && a.LocalDNSProfile.EnableHostsPlugin
 }
 
 // GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
