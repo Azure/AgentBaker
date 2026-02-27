@@ -8,7 +8,7 @@ rm -f /var/log/cloud-init.log /var/log/cloud-init-output.log
 rm -rf /var/log/stunnel4/ /etc/logrotate.d/stunnel4
 rm -f /etc/machine-id
 # touch /etc/machine-id
-chmod 644 /etc/machine-id
+# chmod 644 /etc/machine-id
 # Cleanup disk usage diagnostics file (created by generate-disk-usage.sh)
 rm -f /opt/azure/disk-usage.txt
 # Cleanup IMDS instance metadata cache file
