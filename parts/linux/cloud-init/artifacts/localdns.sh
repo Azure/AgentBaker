@@ -370,17 +370,35 @@ wait_for_localdns_ready() {
 
 # Set node annotation to indicate hosts plugin is in use if the hosts file has contents.
 annotate_node_with_hosts_plugin_status() {
-    # Check if the hosts plugin file exists and has IP mappings
-    # This matches the check in cse_main.sh for determining which corefile to use
-    if [ ! -f "/etc/localdns/hosts" ]; then
-        echo "Hosts plugin file /etc/localdns/hosts does not exist, skipping annotation."
+    # Check if the running localdns corefile actually contains the hosts plugin block.
+    # This is the ground truth - we check the actual corefile being used by the service,
+    # not just what was selected during CSE, in case the file was modified or regenerated.
+    local corefile_path="${UPDATED_LOCALDNS_CORE_FILE:-/opt/azure/containers/localdns/updated.localdns.corefile}"
+
+    if [ ! -f "${corefile_path}" ]; then
+        echo "Localdns corefile not found at ${corefile_path}, skipping annotation."
         return 0
     fi
 
-    if ! grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' /etc/localdns/hosts; then
-        echo "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
+    # Check if the corefile contains the hosts plugin block
+    if ! grep -q "hosts /etc/localdns/hosts" "${corefile_path}"; then
+        echo "Localdns corefile does not contain hosts plugin block, skipping annotation."
         return 0
     fi
+
+    # Additionally verify that the hosts file exists and has content
+    local hosts_file="/etc/localdns/hosts"
+    if [ ! -f "${hosts_file}" ]; then
+        echo "Hosts file does not exist at ${hosts_file}, skipping annotation despite corefile having hosts plugin."
+        return 0
+    fi
+
+    if ! grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}"; then
+        echo "Hosts file exists but has no IP mappings, skipping annotation."
+        return 0
+    fi
+
+    echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null || echo 0) entries."
 
     # Only proceed if we have the necessary kubectl binary and configuration
     if ! command -v /opt/bin/kubectl >/dev/null 2>&1; then
