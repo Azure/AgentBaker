@@ -46,11 +46,11 @@ systemd:
 # explicitly via storage.links to bypass the broken preset mechanism entirely.
 # This is safe on upstream Flatcar too — overwrite: true handles the case
 # where presets work and the symlinks already exist.
-storage:
-  links:
-    - path: /etc/systemd/system/sysinit.target.wants/ignition-file-extract.service
-      target: /etc/systemd/system/ignition-file-extract.service
-      overwrite: true
-    - path: /etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service
-      target: /etc/systemd/system/ignition-bootcmds.service
-      overwrite: true
+# storage:
+#   links:
+#     - path: /etc/systemd/system/sysinit.target.wants/ignition-file-extract.service
+#       target: /etc/systemd/system/ignition-file-extract.service
+#       overwrite: true
+#     - path: /etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service
+#       target: /etc/systemd/system/ignition-bootcmds.service
+#       overwrite: true
