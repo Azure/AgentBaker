@@ -26,7 +26,7 @@ sas=$(az storage blob generate-sas --account-name $STORAGE_ACCOUNT_NAME --contai
 az storage blob copy start \
   --destination-blob "${BLOB_NAME}" \
   --destination-container "${VHD_STAGING_CONTAINER_NAME}" \
-  --account-name "${STORAGE_ACCOUNT_NAME}" \
+  --account-name "${TME_STORAGE_ACCOUNT_NAME}" \
   --source-uri "${sas}" \
   --auth-mode login
 
