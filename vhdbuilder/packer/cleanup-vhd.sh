@@ -27,6 +27,17 @@ if [ "$OS_ID" != "FLATCAR" ] && [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
 # Post-deprovision WALinuxAgent install script.
 # Sources the provisioning helpers and installs the GAFamily agent from wireserver,
 # then configures waagent.conf to use the pre-cached agent from disk.
+
+# After deprovision, DNS may be broken on some distros (e.g., Azure Linux)
+# because 'waagent -deprovision' clears /etc/resolv.conf. Wireserver calls
+# use IP 168.63.129.16 directly, but the manifest download needs DNS to
+# resolve blob storage hostnames. Azure DNS at 168.63.129.16 is always
+# available on Azure VMs.
+if [ ! -s /etc/resolv.conf ] || ! grep -q nameserver /etc/resolv.conf; then
+    echo "nameserver 168.63.129.16" > /etc/resolv.conf
+    echo "Restored DNS resolution using Azure DNS after deprovision"
+fi
+
 source /opt/azure/containers/provision_source.sh
 source /opt/azure/containers/provision_installs.sh
 

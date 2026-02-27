@@ -348,10 +348,12 @@ installWALinuxAgent() {
         echo "ERROR: No GAFamily manifest URI found in extensions config"
         return 1
     fi
+    # Fix XML-escaped ampersands in SAS query parameters (same issue as extensions config URL)
+    manifest_url=$(echo "${manifest_url}" | sed 's/&amp;/\&/g')
 
     # Step 6: Fetch the manifest
     local manifest
-    manifest=$(curl -s "${manifest_url}") || {
+    manifest=$(curl -s -f "${manifest_url}") || {
         echo "ERROR: Failed to fetch manifest from ${manifest_url}"
         return 1
     }

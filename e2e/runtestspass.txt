@@ -1,0 +1,1771 @@
+2026-02-27T17:44:30.7688137Z ##[section]Starting: Test, Scan, and Cleanup
+2026-02-27T17:44:30.7698815Z ==============================================================================
+2026-02-27T17:44:30.7699296Z Task         : Azure CLI
+2026-02-27T17:44:30.7699558Z Description  : Run Azure CLI commands against an Azure subscription in a PowerShell Core/Shell script when running on Linux agent or PowerShell/PowerShell Core/Batch script when running on Windows agent.
+2026-02-27T17:44:30.7700005Z Version      : 2.270.0
+2026-02-27T17:44:30.7700237Z Author       : Microsoft Corporation
+2026-02-27T17:44:30.7700455Z Help         : https://docs.microsoft.com/azure/devops/pipelines/tasks/deploy/azure-cli
+2026-02-27T17:44:30.7700752Z ==============================================================================
+2026-02-27T17:44:31.1244118Z [command]/usr/bin/az version
+2026-02-27T17:44:33.5316786Z {
+2026-02-27T17:44:33.5317679Z   "azure-cli": "2.77.0",
+2026-02-27T17:44:33.5318247Z   "azure-cli-core": "2.77.0",
+2026-02-27T17:44:33.5318893Z   "azure-cli-telemetry": "1.1.0",
+2026-02-27T17:44:33.5319424Z   "extensions": {
+2026-02-27T17:44:33.5319894Z     "azure-devops": "1.0.2"
+2026-02-27T17:44:33.5320327Z   }
+2026-02-27T17:44:33.5320724Z }
+2026-02-27T17:44:33.5339109Z Setting AZURE_CONFIG_DIR env variable to: /mnt/vss/_work/_temp/.azclitask
+2026-02-27T17:44:33.5344961Z Setting active cloud to: AzureCloud
+2026-02-27T17:44:33.5349773Z [command]/usr/bin/az cloud set -n AzureCloud
+2026-02-27T17:44:34.3165460Z [command]/usr/bin/az login --service-principal -u *** --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47 --allow-no-subscriptions --federated-token ***
+2026-02-27T17:44:35.4420474Z [
+2026-02-27T17:44:35.4422367Z   {
+2026-02-27T17:44:35.4423004Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4425080Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4425726Z     "id": "4be8920b-2978-43d7-ab14-04d8549c1d05",
+2026-02-27T17:44:35.4426163Z     "isDefault": true,
+2026-02-27T17:44:35.4426700Z     "managedByTenants": [],
+2026-02-27T17:44:35.4427234Z     "name": "AKS Dev Infra",
+2026-02-27T17:44:35.4427604Z     "state": "Enabled",
+2026-02-27T17:44:35.4428026Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4428387Z     "user": {
+2026-02-27T17:44:35.4429095Z       "name": "***",
+2026-02-27T17:44:35.4429503Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4429863Z     }
+2026-02-27T17:44:35.4430200Z   },
+2026-02-27T17:44:35.4430553Z   {
+2026-02-27T17:44:35.4430888Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4431691Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4432153Z     "id": "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
+2026-02-27T17:44:35.4432554Z     "isDefault": false,
+2026-02-27T17:44:35.4432962Z     "managedByTenants": [
+2026-02-27T17:44:35.4433284Z       {
+2026-02-27T17:44:35.4433673Z         "tenantId": "1380f944-a410-47c1-b4ff-2ed76692603e"
+2026-02-27T17:44:35.4434064Z       },
+2026-02-27T17:44:35.4434406Z       {
+2026-02-27T17:44:35.4434790Z         "tenantId": "b5ce0030-ec42-4a62-bc94-3025993e790c"
+2026-02-27T17:44:35.4435204Z       }
+2026-02-27T17:44:35.4435550Z     ],
+2026-02-27T17:44:35.4435961Z     "name": "Azure Container Service - Test (AKS Standalone)",
+2026-02-27T17:44:35.4436356Z     "state": "Enabled",
+2026-02-27T17:44:35.4436774Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4437188Z     "user": {
+2026-02-27T17:44:35.4437684Z       "name": "***",
+2026-02-27T17:44:35.4438103Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4438626Z     }
+2026-02-27T17:44:35.4439029Z   },
+2026-02-27T17:44:35.4439377Z   {
+2026-02-27T17:44:35.4439745Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4440204Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4440661Z     "id": "c4c3550e-a965-4993-a50c-628fd38cd3e1",
+2026-02-27T17:44:35.4441085Z     "isDefault": false,
+2026-02-27T17:44:35.4441478Z     "managedByTenants": [],
+2026-02-27T17:44:35.4441861Z     "name": "AKS Node SIG",
+2026-02-27T17:44:35.4442207Z     "state": "Enabled",
+2026-02-27T17:44:35.4442862Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4443256Z     "user": {
+2026-02-27T17:44:35.4453741Z       "name": "***",
+2026-02-27T17:44:35.4454540Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4455010Z     }
+2026-02-27T17:44:35.4455472Z   },
+2026-02-27T17:44:35.4455917Z   {
+2026-02-27T17:44:35.4456382Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4456927Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4459623Z     "id": "1c8c4edc-b188-4199-9580-3173033d75f7",
+2026-02-27T17:44:35.4460131Z     "isDefault": false,
+2026-02-27T17:44:35.4461148Z     "managedByTenants": [],
+2026-02-27T17:44:35.4461719Z     "name": "CoreOS_DPLAT_WCCT_Demo",
+2026-02-27T17:44:35.4462247Z     "state": "Enabled",
+2026-02-27T17:44:35.4462769Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4463251Z     "user": {
+2026-02-27T17:44:35.4463804Z       "name": "***",
+2026-02-27T17:44:35.4464322Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4464718Z     }
+2026-02-27T17:44:35.4465084Z   },
+2026-02-27T17:44:35.4465478Z   {
+2026-02-27T17:44:35.4465937Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4466453Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4466930Z     "id": "3be1ff13-7eef-458c-b1ef-97a01af1b2f4",
+2026-02-27T17:44:35.4467385Z     "isDefault": false,
+2026-02-27T17:44:35.4467831Z     "managedByTenants": [],
+2026-02-27T17:44:35.4468261Z     "name": "AzCoreLinux Flatcar community & CI",
+2026-02-27T17:44:35.4468887Z     "state": "Enabled",
+2026-02-27T17:44:35.4469389Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4469878Z     "user": {
+2026-02-27T17:44:35.4470452Z       "name": "***",
+2026-02-27T17:44:35.4471133Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4471637Z     }
+2026-02-27T17:44:35.4472084Z   },
+2026-02-27T17:44:35.4472552Z   {
+2026-02-27T17:44:35.4473097Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4473699Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4474321Z     "id": "a15c116e-99e3-4c59-aebc-8f864929b4a0",
+2026-02-27T17:44:35.4474863Z     "isDefault": false,
+2026-02-27T17:44:35.4475389Z     "managedByTenants": [],
+2026-02-27T17:44:35.4475869Z     "name": "AKS VHD Image Release",
+2026-02-27T17:44:35.4476397Z     "state": "Enabled",
+2026-02-27T17:44:35.4476941Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4477411Z     "user": {
+2026-02-27T17:44:35.4478236Z       "name": "***",
+2026-02-27T17:44:35.4478929Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4479460Z     }
+2026-02-27T17:44:35.4479934Z   },
+2026-02-27T17:44:35.4480387Z   {
+2026-02-27T17:44:35.4480878Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4481690Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4482275Z     "id": "035db282-f1c8-4ce7-b78f-2a7265d5398c",
+2026-02-27T17:44:35.4482855Z     "isDefault": false,
+2026-02-27T17:44:35.4483371Z     "managedByTenants": [],
+2026-02-27T17:44:35.4483949Z     "name": "EdgeOS_Mariner_Platform_AKS_test",
+2026-02-27T17:44:35.4484496Z     "state": "Enabled",
+2026-02-27T17:44:35.4484999Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4485559Z     "user": {
+2026-02-27T17:44:35.4486165Z       "name": "***",
+2026-02-27T17:44:35.4487230Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4487756Z     }
+2026-02-27T17:44:35.4488233Z   },
+2026-02-27T17:44:35.4488815Z   {
+2026-02-27T17:44:35.4489295Z     "cloudName": "AzureCloud",
+2026-02-27T17:44:35.4489806Z     "homeTenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4490468Z     "id": "b8f169b2-5b23-444a-ae4b-19a31b5e3652",
+2026-02-27T17:44:35.4490916Z     "isDefault": false,
+2026-02-27T17:44:35.4491356Z     "managedByTenants": [],
+2026-02-27T17:44:35.4491833Z     "name": "EdgeOS_Mariner_Platform_dev",
+2026-02-27T17:44:35.4492314Z     "state": "Enabled",
+2026-02-27T17:44:35.4492813Z     "tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+2026-02-27T17:44:35.4493570Z     "user": {
+2026-02-27T17:44:35.4494141Z       "name": "***",
+2026-02-27T17:44:35.4494603Z       "type": "servicePrincipal"
+2026-02-27T17:44:35.4495068Z     }
+2026-02-27T17:44:35.4495489Z   }
+2026-02-27T17:44:35.4495891Z ]
+2026-02-27T17:44:35.4496385Z [command]/usr/bin/az account set --subscription c4c3550e-a965-4993-a50c-628fd38cd3e1
+2026-02-27T17:44:35.9631928Z [command]/usr/bin/bash /mnt/vss/_work/_temp/azureclitaskscript1772214271116.sh
+2026-02-27T17:44:35.9740844Z Using the subscription c4c3550e-a965-4993-a50c-628fd38cd3e1
+2026-02-27T17:44:36.4974550Z Present working directory: /mnt/vss/_work/1/s
+2026-02-27T17:44:36.4979185Z Using GALLERY_SUBSCRIPTION_ID: c4c3550e-a965-4993-a50c-628fd38cd3e1
+2026-02-27T17:44:37.8811039Z
+2026-02-27T17:44:37.8812498Z ENVIRONMENT test, OS_VERSION 22.04, SKIP_SCANNING: false
+2026-02-27T17:44:37.8813214Z Running scanning step
+2026-02-27T17:44:38.8006991Z Obtained storage token that expires at 2026-02-28 17:44:37.000000
+2026-02-27T17:44:38.8021434Z
+2026-02-27T17:44:38.8032081Z Running the following scripts: ./vhdbuilder/packer/cleanup.sh ./vhdbuilder/packer/test/run-test.sh ./vhdbuilder/packer/vhd-scanning.sh
+2026-02-27T17:44:38.8033283Z
+2026-02-27T17:44:38.8033857Z
+2026-02-27T17:44:38.8039749Z Checking exit codes for each script...
+2026-02-27T17:46:56.8150901Z ##[group]run-test
+2026-02-27T17:46:56.8155764Z Running ./vhdbuilder/packer/test/run-test.sh with 2 retries
+2026-02-27T17:46:56.8156403Z + : false
+2026-02-27T17:46:56.8156957Z + source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+2026-02-27T17:46:56.8157413Z +++ date +%s
+2026-02-27T17:46:56.8157878Z ++ script_start_stopwatch=1772214278
+2026-02-27T17:46:56.8158349Z +++ date +%s
+2026-02-27T17:46:56.8158950Z ++ section_start_stopwatch=1772214278
+2026-02-27T17:46:56.8159429Z +++ basename ./vhdbuilder/packer/test/run-test.sh .sh
+2026-02-27T17:46:56.8159793Z ++ SCRIPT_NAME=run-test
+2026-02-27T17:46:56.8160124Z ++ SCRIPT_NAME=run_test
+2026-02-27T17:46:56.8160468Z ++ benchmarks=()
+2026-02-27T17:46:56.8160783Z ++ declare -A benchmarks
+2026-02-27T17:46:56.8161124Z ++ benchmarks_order=()
+2026-02-27T17:46:56.8161462Z ++ declare -a benchmarks_order
+2026-02-27T17:46:56.8161813Z + PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
+2026-02-27T17:46:56.8162359Z + LINUX_SCRIPT_PATH=linux-vhd-content-test.sh
+2026-02-27T17:46:56.8162812Z + WIN_SCRIPT_PATH=windows-vhd-content-test.ps1
+2026-02-27T17:46:56.8163258Z + TEST_RESOURCE_PREFIX=vhd-test
+2026-02-27T17:46:56.8163946Z + TEST_VM_ADMIN_USERNAME=azureuser
+2026-02-27T17:46:56.8164587Z + '[' -z /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2fipscontainerd/versions/1.1772212157.9678 ']'
+2026-02-27T17:46:56.8165495Z + echo 'SIG image version ID from packer output: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2fipscontainerd/versions/1.1772212157.9678'
+2026-02-27T17:46:56.8166368Z SIG image version ID from packer output: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2fipscontainerd/versions/1.1772212157.9678
+2026-02-27T17:46:56.8166982Z + set +x
+2026-02-27T17:46:56.8167387Z + '[' linux = linux ']'
+2026-02-27T17:46:56.8167762Z + '[' -z westus3 ']'
+2026-02-27T17:46:56.8168189Z + AZURE_LOCATION=westus3
+2026-02-27T17:46:56.8168823Z + '[' linux = linux ']'
+2026-02-27T17:46:56.8169109Z ++ date +%s
+2026-02-27T17:46:56.8169367Z + TEST_VM_RESOURCE_GROUP_NAME=vhd-test-1772214278-3456
+2026-02-27T17:46:56.8169629Z ++ date +%s
+2026-02-27T17:46:56.8169953Z + az group create --name vhd-test-1772214278-3456 --location westus3 --tags source=AgentBaker now=1772214278 branch=refs/heads/markibrahim/install-waagent-via-manifest
+2026-02-27T17:46:56.8170277Z {
+2026-02-27T17:46:56.8170560Z   "id": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-test-1772214278-3456",
+2026-02-27T17:46:56.8171033Z   "location": "westus3",
+2026-02-27T17:46:56.8171270Z   "managedBy": null,
+2026-02-27T17:46:56.8171526Z   "name": "vhd-test-1772214278-3456",
+2026-02-27T17:46:56.8171756Z   "properties": {
+2026-02-27T17:46:56.8172104Z     "provisioningState": "Succeeded"
+2026-02-27T17:46:56.8172502Z   },
+2026-02-27T17:46:56.8172788Z   "tags": {
+2026-02-27T17:46:56.8173094Z     "branch": "refs/heads/markibrahim/install-waagent-via-manifest",
+2026-02-27T17:46:56.8173386Z     "now": "1772214278",
+2026-02-27T17:46:56.8173654Z     "source": "AgentBaker"
+2026-02-27T17:46:56.8173903Z   },
+2026-02-27T17:46:56.8174157Z   "type": "Microsoft.Resources/resourceGroups"
+2026-02-27T17:46:56.8174415Z }
+2026-02-27T17:46:56.8174663Z + trap cleanup EXIT
+2026-02-27T17:46:56.8174910Z + VM_NAME=vhd-test-vm
+2026-02-27T17:46:56.8175206Z + capture_benchmark run_test_set_variables_and_create_test_resource_group
+2026-02-27T17:46:56.8175526Z + local title=run_test_set_variables_and_create_test_resource_group
+2026-02-27T17:46:56.8175846Z + title=run_test_set_variables_and_create_test_resource_group
+2026-02-27T17:46:56.8176164Z + title=run_test_set_variables_and_create_test_resource_group
+2026-02-27T17:46:56.8176444Z + local is_final_section=false
+2026-02-27T17:46:56.8176713Z + local current_time
+2026-02-27T17:46:56.8176961Z ++ date +%s
+2026-02-27T17:46:56.8177203Z + current_time=1772214280
+2026-02-27T17:46:56.8177465Z + '[' false = true ']'
+2026-02-27T17:46:56.8177734Z + local start_time=1772214278
+2026-02-27T17:46:56.8177992Z + local total_time_elapsed
+2026-02-27T17:46:56.8178283Z ++ date -d@2 -u +%H:%M:%S
+2026-02-27T17:46:56.8179205Z + total_time_elapsed=00:00:02
+2026-02-27T17:46:56.8180013Z + benchmarks[$title]=00:00:02
+2026-02-27T17:46:56.8180520Z + benchmarks_order+=($title)
+2026-02-27T17:46:56.8180948Z ++ date +%s
+2026-02-27T17:46:56.8181412Z + section_start_stopwatch=1772214280
+2026-02-27T17:46:56.8181813Z + set -x
+2026-02-27T17:46:56.8182211Z + TARGET_COMMAND_STRING=
+2026-02-27T17:46:56.8182620Z + '[' x86_64 = arm64 ']'
+2026-02-27T17:46:56.8182913Z + TARGET_COMMAND_STRING='--size Standard_D2ds_v5'
+2026-02-27T17:46:56.8183212Z + '[' Linux = Linux ']'
+2026-02-27T17:46:56.8183485Z + '[' False = True ']'
+2026-02-27T17:46:56.8183741Z + '[' Linux = Linux ']'
+2026-02-27T17:46:56.8184007Z + grep -q cvm
+2026-02-27T17:46:56.8184271Z + '[' Linux = Linux ']'
+2026-02-27T17:46:56.8184531Z + grep -q GB200
+2026-02-27T17:46:56.8184800Z + '[' linux = linux ']'
+2026-02-27T17:46:56.8185361Z + PACKER_SUBNET_ID=/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/packer
+2026-02-27T17:46:56.8185916Z ++ az network vnet subnet show --ids /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/packer
+2026-02-27T17:46:56.8186327Z ++ jq -r .id
+2026-02-27T17:46:56.8186725Z + '[' -z /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/packer ']'
+2026-02-27T17:46:56.8187121Z ++ jq -r .NewNIC.id
+2026-02-27T17:46:56.8187379Z +++ date +%s
+2026-02-27T17:46:56.8187998Z ++ az network nic create --resource-group vhd-test-1772214278-3456 --name testing177221428122170 --subnet /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/packer
+2026-02-27T17:46:56.8188941Z + TESTING_NIC_ID=/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-test-1772214278-3456/providers/Microsoft.Network/networkInterfaces/testing177221428122170
+2026-02-27T17:46:56.8189482Z + '[' -z /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-test-1772214278-3456/providers/Microsoft.Network/networkInterfaces/testing177221428122170 ']'
+2026-02-27T17:46:56.8190324Z + az vm create --resource-group vhd-test-1772214278-3456 --name vhd-test-vm --image /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2fipscontainerd/versions/1.1772212157.9678 --admin-username azureuser --admin-password TestVM@1772214278 --nics /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-test-1772214278-3456/providers/Microsoft.Network/networkInterfaces/testing177221428122170 --size Standard_D2ds_v5
+2026-02-27T17:46:56.8191050Z WARNING: The default value of '--size' will be changed to 'Standard_D2s_v5' from 'Standard_DS1_v2' in a future release.
+2026-02-27T17:46:56.8191364Z {
+2026-02-27T17:46:56.8191623Z   "fqdns": "",
+2026-02-27T17:46:56.8191988Z   "id": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-test-1772214278-3456/providers/Microsoft.Compute/virtualMachines/vhd-test-vm",
+2026-02-27T17:46:56.8192349Z   "location": "westus3",
+2026-02-27T17:46:56.8192634Z   "macAddress": "7C-ED-8D-7F-24-65",
+2026-02-27T17:46:56.8192932Z   "powerState": "VM running",
+2026-02-27T17:46:56.8193260Z   "privateIpAddress": "172.2.0.119",
+2026-02-27T17:46:56.8193637Z   "publicIpAddress": "",
+2026-02-27T17:46:56.8193936Z   "resourceGroup": "vhd-test-1772214278-3456"
+2026-02-27T17:46:56.8194199Z }
+2026-02-27T17:46:56.8194496Z + echo 'VHD test VM username: azureuser, password: TestVM@1772214278'
+2026-02-27T17:46:56.8194835Z VHD test VM username: azureuser, password: TestVM@1772214278
+2026-02-27T17:46:56.8195154Z + az vm wait -g vhd-test-1772214278-3456 -n vhd-test-vm --created
+2026-02-27T17:46:56.8195323Z
+2026-02-27T17:46:56.8195572Z real	0m1.181s
+2026-02-27T17:46:56.8195843Z user	0m0.954s
+2026-02-27T17:46:56.8196106Z sys	0m0.130s
+2026-02-27T17:46:56.8196379Z + capture_benchmark run_test_create_test_vm
+2026-02-27T17:46:56.8196687Z + local title=run_test_create_test_vm
+2026-02-27T17:46:56.8196986Z + title=run_test_create_test_vm
+2026-02-27T17:46:56.8197264Z + title=run_test_create_test_vm
+2026-02-27T17:46:56.8197556Z + local is_final_section=false
+2026-02-27T17:46:56.8197838Z + local current_time
+2026-02-27T17:46:56.8198092Z ++ date +%s
+2026-02-27T17:46:56.8198364Z + current_time=1772214319
+2026-02-27T17:46:56.8199423Z + '[' false = true ']'
+2026-02-27T17:46:56.8199710Z + local start_time=1772214280
+2026-02-27T17:46:56.8200000Z + local total_time_elapsed
+2026-02-27T17:46:56.8200285Z ++ date -d@39 -u +%H:%M:%S
+2026-02-27T17:46:56.8200716Z + total_time_elapsed=00:00:39
+2026-02-27T17:46:56.8201023Z + benchmarks[$title]=00:00:39
+2026-02-27T17:46:56.8201305Z + benchmarks_order+=($title)
+2026-02-27T17:46:56.8201582Z ++ date +%s
+2026-02-27T17:46:56.8201854Z + section_start_stopwatch=1772214319
+2026-02-27T17:46:56.8202130Z + set -x
+2026-02-27T17:46:56.8202417Z ++ realpath ./vhdbuilder/packer/test/run-test.sh
+2026-02-27T17:46:56.8202728Z + FULL_PATH=/mnt/vss/_work/1/s/vhdbuilder/packer/test/run-test.sh
+2026-02-27T17:46:56.8203065Z ++ dirname /mnt/vss/_work/1/s/vhdbuilder/packer/test/run-test.sh
+2026-02-27T17:46:56.8203384Z + CDIR=/mnt/vss/_work/1/s/vhdbuilder/packer/test
+2026-02-27T17:46:56.8203663Z + '[' linux = linux ']'
+2026-02-27T17:46:56.8203940Z + '[' -z True ']'
+2026-02-27T17:46:56.8204411Z + GIT_BRANCH=refs/heads/markibrahim/install-waagent-via-manifest
+2026-02-27T17:46:56.8204715Z ++ git rev-parse HEAD
+2026-02-27T17:46:56.8205030Z + GIT_COMMIT_HASH=b5b93f1de9ce21fa6cae1d6c620a302c5d6680fa
+2026-02-27T17:46:56.8205382Z + SCRIPT_PATH=/mnt/vss/_work/1/s/vhdbuilder/packer/test/linux-vhd-content-test.sh
+2026-02-27T17:46:56.8205700Z ++ seq 1 3
+2026-02-27T17:46:56.8205976Z + for i in $(seq 1 3)
+2026-02-27T17:46:56.8206473Z ++ az vm run-command invoke --command-id RunShellScript --name vhd-test-vm --resource-group vhd-test-1772214278-3456 --scripts @/mnt/vss/_work/1/s/vhdbuilder/packer/test/linux-vhd-content-test.sh --parameters 22.04 True Ubuntu refs/heads/markibrahim/install-waagent-via-manifest 22_04-lts-gen2 None b5b93f1de9ce21fa6cae1d6c620a302c5d6680fa
+2026-02-27T17:46:56.8207418Z ERROR: (VMExtensionProvisioningError) VM has reported a failure when processing extension 'RunCommandLinux' (publisher 'Microsoft.CPlat.Core' and type 'RunCommandLinux'). Error message: 'Enable failed: failed to get configuration: error reading extension configuration: failed to parse protected settings: decrypting protected settings with smime command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8208173Z 802BCCD9E17F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8208901Z 802BCCD9E17F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8209399Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8209845Z : decrypting protected settings with cms command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8210388Z 807B6A613A7F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8210954Z 807B6A613A7F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8211396Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8211682Z
+2026-02-27T17:46:56.8212033Z  now decrypting with smime command'. More information on troubleshooting is available at https://aka.ms/RunCommandActionLinux.
+2026-02-27T17:46:56.8212390Z Code: VMExtensionProvisioningError
+2026-02-27T17:46:56.8213023Z Message: VM has reported a failure when processing extension 'RunCommandLinux' (publisher 'Microsoft.CPlat.Core' and type 'RunCommandLinux'). Error message: 'Enable failed: failed to get configuration: error reading extension configuration: failed to parse protected settings: decrypting protected settings with smime command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8213831Z 802BCCD9E17F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8214394Z 802BCCD9E17F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8214846Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8215464Z : decrypting protected settings with cms command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8216029Z 807B6A613A7F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8216619Z 807B6A613A7F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8217274Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8217565Z
+2026-02-27T17:46:56.8217897Z  now decrypting with smime command'. More information on troubleshooting is available at https://aka.ms/RunCommandActionLinux.
+2026-02-27T17:46:56.8218406Z + ret=
+2026-02-27T17:46:56.8218942Z + echo '1: retrying az vm run-command'
+2026-02-27T17:46:56.8219366Z 1: retrying az vm run-command
+2026-02-27T17:46:56.8219659Z + for i in $(seq 1 3)
+2026-02-27T17:46:56.8220169Z ++ az vm run-command invoke --command-id RunShellScript --name vhd-test-vm --resource-group vhd-test-1772214278-3456 --scripts @/mnt/vss/_work/1/s/vhdbuilder/packer/test/linux-vhd-content-test.sh --parameters 22.04 True Ubuntu refs/heads/markibrahim/install-waagent-via-manifest 22_04-lts-gen2 None b5b93f1de9ce21fa6cae1d6c620a302c5d6680fa
+2026-02-27T17:46:56.8221023Z ERROR: (VMExtensionProvisioningError) VM has reported a failure when processing extension 'RunCommandLinux' (publisher 'Microsoft.CPlat.Core' and type 'RunCommandLinux'). Error message: 'Enable failed: failed to get configuration: error reading extension configuration: failed to parse protected settings: decrypting protected settings with smime command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8221781Z 802B8553FB7F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8222337Z 802B8553FB7F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8222800Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8223241Z : decrypting protected settings with cms command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8223779Z 80FB36D6167F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8224338Z 80FB36D6167F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8224778Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8225063Z
+2026-02-27T17:46:56.8225416Z  now decrypting with smime command'. More information on troubleshooting is available at https://aka.ms/RunCommandActionLinux.
+2026-02-27T17:46:56.8225765Z Code: VMExtensionProvisioningError
+2026-02-27T17:46:56.8226485Z Message: VM has reported a failure when processing extension 'RunCommandLinux' (publisher 'Microsoft.CPlat.Core' and type 'RunCommandLinux'). Error message: 'Enable failed: failed to get configuration: error reading extension configuration: failed to parse protected settings: decrypting protected settings with smime command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8227345Z 802B8553FB7F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8227865Z 802B8553FB7F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8228286Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8228793Z : decrypting protected settings with cms command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8229293Z 80FB36D6167F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8229807Z 80FB36D6167F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8230300Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8230561Z
+2026-02-27T17:46:56.8230866Z  now decrypting with smime command'. More information on troubleshooting is available at https://aka.ms/RunCommandActionLinux.
+2026-02-27T17:46:56.8231178Z + ret=
+2026-02-27T17:46:56.8231442Z + echo '2: retrying az vm run-command'
+2026-02-27T17:46:56.8231707Z 2: retrying az vm run-command
+2026-02-27T17:46:56.8231981Z + for i in $(seq 1 3)
+2026-02-27T17:46:56.8232449Z ++ az vm run-command invoke --command-id RunShellScript --name vhd-test-vm --resource-group vhd-test-1772214278-3456 --scripts @/mnt/vss/_work/1/s/vhdbuilder/packer/test/linux-vhd-content-test.sh --parameters 22.04 True Ubuntu refs/heads/markibrahim/install-waagent-via-manifest 22_04-lts-gen2 None b5b93f1de9ce21fa6cae1d6c620a302c5d6680fa
+2026-02-27T17:46:56.8233226Z ERROR: (VMExtensionProvisioningError) VM has reported a failure when processing extension 'RunCommandLinux' (publisher 'Microsoft.CPlat.Core' and type 'RunCommandLinux'). Error message: 'Enable failed: failed to get configuration: error reading extension configuration: failed to parse protected settings: decrypting protected settings with smime command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8233913Z 80DBFA52DD7F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8234431Z 80DBFA52DD7F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8234838Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8235238Z : decrypting protected settings with cms command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8235731Z 800B50F1477F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8236248Z 800B50F1477F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8236723Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8236972Z
+2026-02-27T17:46:56.8237292Z  now decrypting with smime command'. More information on troubleshooting is available at https://aka.ms/RunCommandActionLinux.
+2026-02-27T17:46:56.8237634Z Code: VMExtensionProvisioningError
+2026-02-27T17:46:56.8238195Z Message: VM has reported a failure when processing extension 'RunCommandLinux' (publisher 'Microsoft.CPlat.Core' and type 'RunCommandLinux'). Error message: 'Enable failed: failed to get configuration: error reading extension configuration: failed to parse protected settings: decrypting protected settings with smime command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8239019Z 80DBFA52DD7F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8239547Z 80DBFA52DD7F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8239970Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8240375Z : decrypting protected settings with cms command failed: error=exit status 2 stderr=Could not open file or uri for loading recipient certificate file from /var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt
+2026-02-27T17:46:56.8240946Z 800B50F1477F0000:error:16000069:STORE routines:ossl_store_get0_loader_int:unregistered scheme:../crypto/store/store_register.c:237:scheme=file
+2026-02-27T17:46:56.8241465Z 800B50F1477F0000:error:80000002:system library:file_open:No such file or directory:../providers/implementations/storemgmt/file_store.c:267:calling stat(/var/lib/waagent/55488BF4007F88E01A489D22329B35D7AA7F938D.crt)
+2026-02-27T17:46:56.8241896Z Unable to load recipient certificate file
+2026-02-27T17:46:56.8242330Z
+2026-02-27T17:46:56.8242654Z  now decrypting with smime command'. More information on troubleshooting is available at https://aka.ms/RunCommandActionLinux.
+2026-02-27T17:46:56.8242983Z + ret=
+2026-02-27T17:46:56.8243265Z + echo '3: retrying az vm run-command'
+2026-02-27T17:46:56.8243546Z 3: retrying az vm run-command
+2026-02-27T17:46:56.8243820Z +++ echo ''
+2026-02-27T17:46:56.8244095Z +++ jq '.value[] | .message'
+2026-02-27T17:46:56.8244372Z +++ grep -oP '(?<=stderr]).*(?=\\n")'
+2026-02-27T17:46:56.8244655Z ++ echo -e ''
+2026-02-27T17:46:56.8244914Z + errMsg=
+2026-02-27T17:46:56.8245173Z + [[ '' == *\:\E\r\r\o\r\:* ]]
+2026-02-27T17:46:56.8245462Z + '[' linux = windows ']'
+2026-02-27T17:46:56.8245758Z + capture_benchmark run_test_run_az_test_command
+2026-02-27T17:46:56.8246078Z + local title=run_test_run_az_test_command
+2026-02-27T17:46:56.8246392Z + title=run_test_run_az_test_command
+2026-02-27T17:46:56.8246683Z + title=run_test_run_az_test_command
+2026-02-27T17:46:56.8246981Z + local is_final_section=false
+2026-02-27T17:46:56.8247279Z + local current_time
+2026-02-27T17:46:56.8247534Z ++ date +%s
+2026-02-27T17:46:56.8247813Z + current_time=1772214415
+2026-02-27T17:46:56.8248098Z + '[' false = true ']'
+2026-02-27T17:46:56.8248365Z + local start_time=1772214319
+2026-02-27T17:46:56.8248805Z + local total_time_elapsed
+2026-02-27T17:46:56.8249086Z ++ date -d@96 -u +%H:%M:%S
+2026-02-27T17:46:56.8249388Z + total_time_elapsed=00:01:36
+2026-02-27T17:46:56.8249693Z + benchmarks[$title]=00:01:36
+2026-02-27T17:46:56.8249973Z + benchmarks_order+=($title)
+2026-02-27T17:46:56.8250248Z ++ date +%s
+2026-02-27T17:46:56.8250534Z + section_start_stopwatch=1772214415
+2026-02-27T17:46:56.8250823Z + echo -e 'Test Script Completed\n\n\n'
+2026-02-27T17:46:56.8251114Z Test Script Completed
+2026-02-27T17:46:56.8251260Z
+2026-02-27T17:46:56.8251378Z
+2026-02-27T17:46:56.8251507Z
+2026-02-27T17:46:56.8251861Z + capture_benchmark run_test_overall true
+2026-02-27T17:46:56.8252165Z + local title=run_test_overall
+2026-02-27T17:46:56.8252456Z + title=run_test_overall
+2026-02-27T17:46:56.8252727Z + title=run_test_overall
+2026-02-27T17:46:56.8253018Z + local is_final_section=true
+2026-02-27T17:46:56.8253305Z + local current_time
+2026-02-27T17:46:56.8253560Z ++ date +%s
+2026-02-27T17:46:56.8253839Z + current_time=1772214415
+2026-02-27T17:46:56.8254106Z + '[' true = true ']'
+2026-02-27T17:46:56.8254389Z + local start_time=1772214278
+2026-02-27T17:46:56.8254681Z + local total_time_elapsed
+2026-02-27T17:46:56.8254959Z ++ date -d@137 -u +%H:%M:%S
+2026-02-27T17:46:56.8255260Z + total_time_elapsed=00:02:17
+2026-02-27T17:46:56.8255560Z + benchmarks[$title]=00:02:17
+2026-02-27T17:46:56.8255846Z + benchmarks_order+=($title)
+2026-02-27T17:46:56.8256122Z ++ date +%s
+2026-02-27T17:46:56.8256390Z + section_start_stopwatch=1772214415
+2026-02-27T17:46:56.8256685Z + process_benchmarks
+2026-02-27T17:46:56.8256982Z + '[' -z vhd-build-performance-data.json ']'
+2026-02-27T17:46:56.8257284Z + '[' '!' -f vhd-build-performance-data.json ']'
+2026-02-27T17:46:56.8257585Z + check_array_size benchmarks
+2026-02-27T17:46:56.8257882Z + declare -n array_name=benchmarks
+2026-02-27T17:46:56.8258154Z + local array_size=4
+2026-02-27T17:46:56.8258429Z + '[' 4 -gt 0 ']'
+2026-02-27T17:46:56.8258827Z + last_index=3
+2026-02-27T17:46:56.8259090Z + (( i=0 ))
+2026-02-27T17:46:56.8259346Z + (( i<4 ))
+2026-02-27T17:46:56.8259636Z + section_name=run_test_set_variables_and_create_test_resource_group
+2026-02-27T17:46:56.8260204Z ++ jq -n --arg section_name run_test_set_variables_and_create_test_resource_group --arg total_time_elapsed 00:00:02 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:46:56.8260597Z + section_object='{
+2026-02-27T17:46:56.8260894Z   "run_test_set_variables_and_create_test_resource_group": "00:00:02"
+2026-02-27T17:46:56.8261187Z }'
+2026-02-27T17:46:56.8261439Z + jq '. += {
+2026-02-27T17:46:56.8261734Z   "run_test_set_variables_and_create_test_resource_group": "00:00:02"
+2026-02-27T17:46:56.8262157Z }' vhd-build-performance-data.json
+2026-02-27T17:46:56.8262453Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:46:56.8262718Z + (( i+=1 ))
+2026-02-27T17:46:56.8262961Z + (( i<4 ))
+2026-02-27T17:46:56.8263212Z + section_name=run_test_create_test_vm
+2026-02-27T17:46:56.8263575Z ++ jq -n --arg section_name run_test_create_test_vm --arg total_time_elapsed 00:00:39 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:46:56.8263923Z + section_object='{
+2026-02-27T17:46:56.8264183Z   "run_test_create_test_vm": "00:00:39"
+2026-02-27T17:46:56.8264444Z }'
+2026-02-27T17:46:56.8264686Z + jq '. += {
+2026-02-27T17:46:56.8264939Z   "run_test_create_test_vm": "00:00:39"
+2026-02-27T17:46:56.8265223Z }' vhd-build-performance-data.json
+2026-02-27T17:46:56.8265518Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:46:56.8265785Z + (( i+=1 ))
+2026-02-27T17:46:56.8266030Z + (( i<4 ))
+2026-02-27T17:46:56.8266294Z + section_name=run_test_run_az_test_command
+2026-02-27T17:46:56.8266714Z ++ jq -n --arg section_name run_test_run_az_test_command --arg total_time_elapsed 00:01:36 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:46:56.8267068Z + section_object='{
+2026-02-27T17:46:56.8267347Z   "run_test_run_az_test_command": "00:01:36"
+2026-02-27T17:46:56.8267597Z }'
+2026-02-27T17:46:56.8267839Z + jq '. += {
+2026-02-27T17:46:56.8268098Z   "run_test_run_az_test_command": "00:01:36"
+2026-02-27T17:46:56.8268385Z }' vhd-build-performance-data.json
+2026-02-27T17:46:56.8268835Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:46:56.8269108Z + (( i+=1 ))
+2026-02-27T17:46:56.8269357Z + (( i<4 ))
+2026-02-27T17:46:56.8269624Z + section_name=run_test_overall
+2026-02-27T17:46:56.8269967Z ++ jq -n --arg section_name run_test_overall --arg total_time_elapsed 00:02:17 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:46:56.8270308Z + section_object='{
+2026-02-27T17:46:56.8270580Z   "run_test_overall": "00:02:17"
+2026-02-27T17:46:56.8270920Z }'
+2026-02-27T17:46:56.8271167Z + jq '. += {
+2026-02-27T17:46:56.8271422Z   "run_test_overall": "00:02:17"
+2026-02-27T17:46:56.8271707Z }' vhd-build-performance-data.json
+2026-02-27T17:46:56.8272008Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:46:56.8272274Z + (( i+=1 ))
+2026-02-27T17:46:56.8272522Z + (( i<4 ))
+2026-02-27T17:46:56.8272791Z + chmod 755 vhd-build-performance-data.json
+2026-02-27T17:46:56.8273046Z + cleanup
+2026-02-27T17:46:56.8273302Z + '[' False = True ']'
+2026-02-27T17:46:56.8273581Z + echo 'Deleting resource group vhd-test-1772214278-3456'
+2026-02-27T17:46:56.8273900Z Deleting resource group vhd-test-1772214278-3456
+2026-02-27T17:46:56.8274212Z + az group delete --name vhd-test-1772214278-3456 --yes --no-wait
+2026-02-27T17:46:56.8274497Z ##[endgroup]run-test
+2026-02-27T17:49:15.7880511Z ##[group]cleanup
+2026-02-27T17:49:15.7881455Z Running ./vhdbuilder/packer/cleanup.sh with 2 retries
+2026-02-27T17:49:15.7882189Z + source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+2026-02-27T17:49:15.7882684Z +++ date +%s
+2026-02-27T17:49:15.7883075Z ++ script_start_stopwatch=1772214278
+2026-02-27T17:49:15.7883483Z +++ date +%s
+2026-02-27T17:49:15.7883861Z ++ section_start_stopwatch=1772214278
+2026-02-27T17:49:15.7884265Z +++ basename ./vhdbuilder/packer/cleanup.sh .sh
+2026-02-27T17:49:15.7884644Z ++ SCRIPT_NAME=cleanup
+2026-02-27T17:49:15.7885094Z ++ SCRIPT_NAME=cleanup
+2026-02-27T17:49:15.7885532Z ++ benchmarks=()
+2026-02-27T17:49:15.7886300Z ++ declare -A benchmarks
+2026-02-27T17:49:15.7886722Z ++ benchmarks_order=()
+2026-02-27T17:49:15.7887169Z ++ declare -a benchmarks_order
+2026-02-27T17:49:15.7887655Z + EXPIRATION_IN_HOURS=168
+2026-02-27T17:49:15.7888145Z + ((  expirationInSecs = 168 * 60 * 60  ))
+2026-02-27T17:49:15.7888874Z ++ date +%s
+2026-02-27T17:49:15.7889413Z + ((  deadline=1772214278-604800  ))
+2026-02-27T17:49:15.7889876Z + '[' -z PackerSigGalleryEastUS ']'
+2026-02-27T17:49:15.7890347Z + '[' -n pkr-Resource-Group-m9j9fcayue ']'
+2026-02-27T17:49:15.7891023Z ++ az group show --name pkr-Resource-Group-m9j9fcayue
+2026-02-27T17:49:15.7891368Z ++ jq .id
+2026-02-27T17:49:15.7891760Z ERROR: (ResourceGroupNotFound) Resource group 'pkr-Resource-Group-m9j9fcayue' could not be found.
+2026-02-27T17:49:15.7892332Z Code: ResourceGroupNotFound
+2026-02-27T17:49:15.7892840Z Message: Resource group 'pkr-Resource-Group-m9j9fcayue' could not be found.
+2026-02-27T17:49:15.7893339Z + id=
+2026-02-27T17:49:15.7893756Z + '[' -n '' ']'
+2026-02-27T17:49:15.7894260Z + echo 'Packer resource group already successfully deleted'
+2026-02-27T17:49:15.7894748Z Packer resource group already successfully deleted
+2026-02-27T17:49:15.7895328Z + capture_benchmark cleanup_delete_packer_rg
+2026-02-27T17:49:15.7895760Z + local title=cleanup_delete_packer_rg
+2026-02-27T17:49:15.7896142Z + title=cleanup_delete_packer_rg
+2026-02-27T17:49:15.7896518Z + title=cleanup_delete_packer_rg
+2026-02-27T17:49:15.7896889Z + local is_final_section=false
+2026-02-27T17:49:15.7897311Z + local current_time
+2026-02-27T17:49:15.7897712Z ++ date +%s
+2026-02-27T17:49:15.7898067Z + current_time=1772214279
+2026-02-27T17:49:15.7898420Z + '[' false = true ']'
+2026-02-27T17:49:15.7898957Z + local start_time=1772214278
+2026-02-27T17:49:15.7899325Z + local total_time_elapsed
+2026-02-27T17:49:15.7899706Z ++ date -d@1 -u +%H:%M:%S
+2026-02-27T17:49:15.7900197Z + total_time_elapsed=00:00:01
+2026-02-27T17:49:15.7900813Z + benchmarks[$title]=00:00:01
+2026-02-27T17:49:15.7901243Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7901506Z ++ date +%s
+2026-02-27T17:49:15.7901767Z + section_start_stopwatch=1772214279
+2026-02-27T17:49:15.7902022Z ++ az group show --name
+2026-02-27T17:49:15.7902267Z ++ jq .id
+2026-02-27T17:49:15.7902547Z ERROR: argument --name/-n/--resource-group/-g: expected one argument
+2026-02-27T17:49:15.7902691Z
+2026-02-27T17:49:15.7902944Z Examples from AI knowledge base:
+2026-02-27T17:49:15.7903234Z az group show --resource-group myresourcegroup
+2026-02-27T17:49:15.7903510Z Gets a resource group. (autogenerated)
+2026-02-27T17:49:15.7903836Z
+2026-02-27T17:49:15.7904083Z az group list --query "[?location=='westus']"
+2026-02-27T17:49:15.7904376Z List all resource groups located in the West US region.
+2026-02-27T17:49:15.7904518Z
+2026-02-27T17:49:15.7904779Z https://docs.microsoft.com/en-US/cli/azure/group#az_group_show
+2026-02-27T17:49:15.7905084Z Read more about the command in reference docs
+2026-02-27T17:49:15.7905343Z + id=
+2026-02-27T17:49:15.7905568Z + '[' -n '' ']'
+2026-02-27T17:49:15.7905835Z + capture_benchmark cleanup_delete_test_vm_rg
+2026-02-27T17:49:15.7906124Z + local title=cleanup_delete_test_vm_rg
+2026-02-27T17:49:15.7906390Z + title=cleanup_delete_test_vm_rg
+2026-02-27T17:49:15.7906663Z + title=cleanup_delete_test_vm_rg
+2026-02-27T17:49:15.7906921Z + local is_final_section=false
+2026-02-27T17:49:15.7907180Z + local current_time
+2026-02-27T17:49:15.7907426Z ++ date +%s
+2026-02-27T17:49:15.7907664Z + current_time=1772214280
+2026-02-27T17:49:15.7907921Z + '[' false = true ']'
+2026-02-27T17:49:15.7908182Z + local start_time=1772214279
+2026-02-27T17:49:15.7909042Z + local total_time_elapsed
+2026-02-27T17:49:15.7909379Z ++ date -d@1 -u +%H:%M:%S
+2026-02-27T17:49:15.7909696Z + total_time_elapsed=00:00:01
+2026-02-27T17:49:15.7910016Z + benchmarks[$title]=00:00:01
+2026-02-27T17:49:15.7910338Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7910610Z ++ date +%s
+2026-02-27T17:49:15.7910901Z + section_start_stopwatch=1772214280
+2026-02-27T17:49:15.7911204Z + '[' -n aksvhdtestbuildrg ']'
+2026-02-27T17:49:15.7911629Z + '[' -n 2204gen2fipscontainerd-1.1772212157.9678 ']'
+2026-02-27T17:49:15.7911946Z + [[ x86_64 != \a\r\m\6\4 ]]
+2026-02-27T17:49:15.7912276Z ++ az image show -n 2204gen2fipscontainerd-1.1772212157.9678 -g aksvhdtestbuildrg
+2026-02-27T17:49:15.7912583Z ++ jq .id
+2026-02-27T17:49:15.7912975Z + id='"/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/images/2204gen2fipscontainerd-1.1772212157.9678"'
+2026-02-27T17:49:15.7913484Z + '[' -n '"/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/images/2204gen2fipscontainerd-1.1772212157.9678"' ']'
+2026-02-27T17:49:15.7913932Z + echo 'Deleting managed image 2204gen2fipscontainerd-1.1772212157.9678 under resource group aksvhdtestbuildrg'
+2026-02-27T17:49:15.7914347Z Deleting managed image 2204gen2fipscontainerd-1.1772212157.9678 under resource group aksvhdtestbuildrg
+2026-02-27T17:49:15.7914740Z + az image delete -n 2204gen2fipscontainerd-1.1772212157.9678 -g aksvhdtestbuildrg
+2026-02-27T17:49:15.7915090Z + capture_benchmark cleanup_delete_managed_image
+2026-02-27T17:49:15.7915398Z + local title=cleanup_delete_managed_image
+2026-02-27T17:49:15.7915707Z + title=cleanup_delete_managed_image
+2026-02-27T17:49:15.7916012Z + title=cleanup_delete_managed_image
+2026-02-27T17:49:15.7916303Z + local is_final_section=false
+2026-02-27T17:49:15.7916591Z + local current_time
+2026-02-27T17:49:15.7916853Z ++ date +%s
+2026-02-27T17:49:15.7917129Z + current_time=1772214313
+2026-02-27T17:49:15.7917416Z + '[' false = true ']'
+2026-02-27T17:49:15.7917688Z + local start_time=1772214280
+2026-02-27T17:49:15.7917980Z + local total_time_elapsed
+2026-02-27T17:49:15.7918276Z ++ date -d@33 -u +%H:%M:%S
+2026-02-27T17:49:15.7918814Z + total_time_elapsed=00:00:33
+2026-02-27T17:49:15.7919155Z + benchmarks[$title]=00:00:33
+2026-02-27T17:49:15.7919441Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7919722Z ++ date +%s
+2026-02-27T17:49:15.7920011Z + section_start_stopwatch=1772214313
+2026-02-27T17:49:15.7920292Z + '[' -n '' ']'
+2026-02-27T17:49:15.7920561Z + '[' -n '' ']'
+2026-02-27T17:49:15.7920831Z + '[' -n '' ']'
+2026-02-27T17:49:15.7921117Z + capture_benchmark cleanup_cleanup_imported_image
+2026-02-27T17:49:15.7921442Z + local title=cleanup_cleanup_imported_image
+2026-02-27T17:49:15.7921743Z + title=cleanup_cleanup_imported_image
+2026-02-27T17:49:15.7922052Z + title=cleanup_cleanup_imported_image
+2026-02-27T17:49:15.7922355Z + local is_final_section=false
+2026-02-27T17:49:15.7922758Z + local current_time
+2026-02-27T17:49:15.7923033Z ++ date +%s
+2026-02-27T17:49:15.7923311Z + current_time=1772214313
+2026-02-27T17:49:15.7923583Z + '[' false = true ']'
+2026-02-27T17:49:15.7923868Z + local start_time=1772214313
+2026-02-27T17:49:15.7924146Z + local total_time_elapsed
+2026-02-27T17:49:15.7924440Z ++ date -d@0 -u +%H:%M:%S
+2026-02-27T17:49:15.7924742Z + total_time_elapsed=00:00:00
+2026-02-27T17:49:15.7925034Z + benchmarks[$title]=00:00:00
+2026-02-27T17:49:15.7925340Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7925619Z ++ date +%s
+2026-02-27T17:49:15.7925892Z + section_start_stopwatch=1772214313
+2026-02-27T17:49:15.7926198Z + '[' linuxVhdMode = windowsVhdMode ']'
+2026-02-27T17:49:15.7926483Z + '[' -n '' ']'
+2026-02-27T17:49:15.7926770Z + capture_benchmark cleanup_cleanup_temp_storage
+2026-02-27T17:49:15.7927093Z + local title=cleanup_cleanup_temp_storage
+2026-02-27T17:49:15.7927390Z + title=cleanup_cleanup_temp_storage
+2026-02-27T17:49:15.7927695Z + title=cleanup_cleanup_temp_storage
+2026-02-27T17:49:15.7928002Z + local is_final_section=false
+2026-02-27T17:49:15.7928279Z + local current_time
+2026-02-27T17:49:15.7928705Z ++ date +%s
+2026-02-27T17:49:15.7928982Z + current_time=1772214313
+2026-02-27T17:49:15.7929258Z + '[' false = true ']'
+2026-02-27T17:49:15.7929550Z + local start_time=1772214313
+2026-02-27T17:49:15.7929831Z + local total_time_elapsed
+2026-02-27T17:49:15.7930126Z ++ date -d@0 -u +%H:%M:%S
+2026-02-27T17:49:15.7930430Z + total_time_elapsed=00:00:00
+2026-02-27T17:49:15.7930842Z + benchmarks[$title]=00:00:00
+2026-02-27T17:49:15.7931145Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7931424Z ++ date +%s
+2026-02-27T17:49:15.7931704Z + section_start_stopwatch=1772214313
+2026-02-27T17:49:15.7932011Z + [[ linuxVhdMode == \l\i\n\u\x\V\h\d\M\o\d\e ]]
+2026-02-27T17:49:15.7932300Z + [[ false == \t\r\u\e ]]
+2026-02-27T17:49:15.7932578Z + [[ linuxVhdMode == \l\i\n\u\x\V\h\d\M\o\d\e ]]
+2026-02-27T17:49:15.7932870Z + [[ -n aksvhdtestbuildrg ]]
+2026-02-27T17:49:15.7933139Z + [[ false == \f\a\l\s\e ]]
+2026-02-27T17:49:15.7933469Z + echo 'Looking for managed images in aksvhdtestbuildrg created over 168 hours ago...'
+2026-02-27T17:49:15.7933838Z Looking for managed images in aksvhdtestbuildrg created over 168 hours ago...
+2026-02-27T17:49:15.7934258Z + managed_image_ids=
+2026-02-27T17:49:15.7934538Z + sig_version_ids=
+2026-02-27T17:49:15.7934824Z ++ az image list -g aksvhdtestbuildrg
+2026-02-27T17:49:15.7935167Z ++ jq --arg dl 1771609478 '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|2004*|2204*")) | select(.tags.now < $dl).name'
+2026-02-27T17:49:15.7935510Z ++ head -n 25
+2026-02-27T17:49:15.7935771Z ++ tr -d '\"'
+2026-02-27T17:49:15.7936019Z + '[' -n '' ']'
+2026-02-27T17:49:15.7936316Z + echo 'Did not find any managed images eligible for deletion'
+2026-02-27T17:49:15.7936641Z Did not find any managed images eligible for deletion
+2026-02-27T17:49:15.7936915Z + '[' -n '' ']'
+2026-02-27T17:49:15.7937234Z + echo 'Did not find any SIG versions associated with old managed images eligible for deletion'
+2026-02-27T17:49:15.7937605Z Did not find any SIG versions associated with old managed images eligible for deletion
+2026-02-27T17:49:15.7937914Z + old_sig_version_ids=
+2026-02-27T17:49:15.7938183Z + set +x
+2026-02-27T17:49:15.7938789Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.315
+2026-02-27T17:49:15.7939453Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.317
+2026-02-27T17:49:15.7940024Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.318
+2026-02-27T17:49:15.7940725Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.319
+2026-02-27T17:49:15.7941306Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.322
+2026-02-27T17:49:15.7941895Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.323
+2026-02-27T17:49:15.7942475Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.324
+2026-02-27T17:49:15.7943242Z Will not consider garbage collection of image: /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2arm64gb200containerd/versions/1.1.326
+2026-02-27T17:49:15.7943707Z Attempting to delete 1 SIG image versions older than 168 hours:
+2026-02-27T17:49:15.7943885Z
+2026-02-27T17:49:15.7944352Z /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxOSGuardOSGuardV3gen2fipsTL/versions/1.1771608911.22579
+2026-02-27T17:49:15.7944808Z + capture_benchmark cleanup_delete_old_sig_versions
+2026-02-27T17:49:15.7945136Z + local title=cleanup_delete_old_sig_versions
+2026-02-27T17:49:15.7945443Z + title=cleanup_delete_old_sig_versions
+2026-02-27T17:49:15.7945767Z + title=cleanup_delete_old_sig_versions
+2026-02-27T17:49:15.7946074Z + local is_final_section=false
+2026-02-27T17:49:15.7946354Z + local current_time
+2026-02-27T17:49:15.7946631Z ++ date +%s
+2026-02-27T17:49:15.7946895Z + current_time=1772214553
+2026-02-27T17:49:15.7947178Z + '[' false = true ']'
+2026-02-27T17:49:15.7947466Z + local start_time=1772214313
+2026-02-27T17:49:15.7947745Z + local total_time_elapsed
+2026-02-27T17:49:15.7948055Z ++ date -d@240 -u +%H:%M:%S
+2026-02-27T17:49:15.7948357Z + total_time_elapsed=00:04:00
+2026-02-27T17:49:15.7948834Z + benchmarks[$title]=00:04:00
+2026-02-27T17:49:15.7949172Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7949463Z ++ date +%s
+2026-02-27T17:49:15.7949743Z + section_start_stopwatch=1772214553
+2026-02-27T17:49:15.7950055Z + '[' -z aksvhdtestbuildrg ']'
+2026-02-27T17:49:15.7950366Z + '[' linuxVhdMode '!=' linuxVhdMode ']'
+2026-02-27T17:49:15.7950665Z + STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=4
+2026-02-27T17:49:15.7950987Z + ((  storageAccountExpirationSecs = 4 * 60 * 60  ))
+2026-02-27T17:49:15.7951287Z ++ date +%s
+2026-02-27T17:49:15.7951570Z + ((  storageAccountDeadline=1772214553-14400  ))
+2026-02-27T17:49:15.7951880Z + old_storage_accounts=
+2026-02-27T17:49:15.7952200Z + echo 'Looking for storage accounts in aksvhdtestbuildrg created over 4 hours ago...'
+2026-02-27T17:49:15.7952574Z Looking for storage accounts in aksvhdtestbuildrg created over 4 hours ago...
+2026-02-27T17:49:15.7952901Z ++ date -d@1772200153
+2026-02-27T17:49:15.7953228Z + echo 'That is, those created before Fri Feb 27 13:49:13 UTC 2026 As shown below'
+2026-02-27T17:49:15.7953615Z That is, those created before Fri Feb 27 13:49:13 UTC 2026 As shown below
+2026-02-27T17:49:15.7953962Z + az storage account list -g aksvhdtestbuildrg
+2026-02-27T17:49:15.7954273Z + jq --arg dl 1772200153 '.[] | select(.tags.now < $dl).name'
+2026-02-27T17:49:15.7954570Z + tr -d '\"'
+2026-02-27T17:49:15.7954847Z vhdbuildereastustest
+2026-02-27T17:49:15.7955126Z testaccountvhdsigning
+2026-02-27T17:49:15.7955438Z ++ az storage account list -g aksvhdtestbuildrg
+2026-02-27T17:49:15.7955865Z ++ jq --arg dl 1772200153 '.[] | select(.tags.now < $dl).id'
+2026-02-27T17:49:15.7956153Z ++ tr -d '\"'
+2026-02-27T17:49:15.7956535Z + for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || "")
+2026-02-27T17:49:15.7957029Z + [[ /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest = *aksimages* ]]
+2026-02-27T17:49:15.7957517Z + for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || "")
+2026-02-27T17:49:15.7957992Z + [[ /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/testaccountvhdsigning = *aksimages* ]]
+2026-02-27T17:49:15.7958560Z + '[' -n '' ']'
+2026-02-27T17:49:15.7958874Z + echo 'did not find any old storage accounts eligible for deletion'
+2026-02-27T17:49:15.7959196Z did not find any old storage accounts eligible for deletion
+2026-02-27T17:49:15.7959533Z + capture_benchmark cleanup_cleanup_storage_accounts
+2026-02-27T17:49:15.7959857Z + local title=cleanup_cleanup_storage_accounts
+2026-02-27T17:49:15.7960155Z + title=cleanup_cleanup_storage_accounts
+2026-02-27T17:49:15.7960463Z + title=cleanup_cleanup_storage_accounts
+2026-02-27T17:49:15.7960759Z + local is_final_section=false
+2026-02-27T17:49:15.7961104Z + local current_time
+2026-02-27T17:49:15.7961374Z ++ date +%s
+2026-02-27T17:49:15.7961650Z + current_time=1772214555
+2026-02-27T17:49:15.7961919Z + '[' false = true ']'
+2026-02-27T17:49:15.7962197Z + local start_time=1772214553
+2026-02-27T17:49:15.7962475Z + local total_time_elapsed
+2026-02-27T17:49:15.7962765Z ++ date -d@2 -u +%H:%M:%S
+2026-02-27T17:49:15.7963088Z + total_time_elapsed=00:00:02
+2026-02-27T17:49:15.7963375Z + benchmarks[$title]=00:00:02
+2026-02-27T17:49:15.7963672Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7963945Z ++ date +%s
+2026-02-27T17:49:15.7964213Z + section_start_stopwatch=1772214555
+2026-02-27T17:49:15.7964524Z + echo -e 'Packer cleanup successfully completed\n\n\n'
+2026-02-27T17:49:15.7964823Z Packer cleanup successfully completed
+2026-02-27T17:49:15.7964980Z
+2026-02-27T17:49:15.7965111Z
+2026-02-27T17:49:15.7965224Z
+2026-02-27T17:49:15.7965501Z + capture_benchmark cleanup_overall true
+2026-02-27T17:49:15.7965794Z + local title=cleanup_overall
+2026-02-27T17:49:15.7966067Z + title=cleanup_overall
+2026-02-27T17:49:15.7966359Z + title=cleanup_overall
+2026-02-27T17:49:15.7966642Z + local is_final_section=true
+2026-02-27T17:49:15.7966911Z + local current_time
+2026-02-27T17:49:15.7967176Z ++ date +%s
+2026-02-27T17:49:15.7967435Z + current_time=1772214555
+2026-02-27T17:49:15.7967715Z + '[' true = true ']'
+2026-02-27T17:49:15.7967994Z + local start_time=1772214278
+2026-02-27T17:49:15.7968266Z + local total_time_elapsed
+2026-02-27T17:49:15.7968627Z ++ date -d@277 -u +%H:%M:%S
+2026-02-27T17:49:15.7968929Z + total_time_elapsed=00:04:37
+2026-02-27T17:49:15.7969215Z + benchmarks[$title]=00:04:37
+2026-02-27T17:49:15.7969510Z + benchmarks_order+=($title)
+2026-02-27T17:49:15.7969938Z ++ date +%s
+2026-02-27T17:49:15.7970223Z + section_start_stopwatch=1772214555
+2026-02-27T17:49:15.7970520Z + process_benchmarks
+2026-02-27T17:49:15.7970805Z + '[' -z vhd-build-performance-data.json ']'
+2026-02-27T17:49:15.7971124Z + '[' '!' -f vhd-build-performance-data.json ']'
+2026-02-27T17:49:15.7971431Z + check_array_size benchmarks
+2026-02-27T17:49:15.7971724Z + declare -n array_name=benchmarks
+2026-02-27T17:49:15.7972013Z + local array_size=8
+2026-02-27T17:49:15.7972292Z + '[' 8 -gt 0 ']'
+2026-02-27T17:49:15.7972552Z + last_index=7
+2026-02-27T17:49:15.7972823Z + (( i=0 ))
+2026-02-27T17:49:15.7973076Z + (( i<8 ))
+2026-02-27T17:49:15.7973366Z + section_name=cleanup_delete_packer_rg
+2026-02-27T17:49:15.7973768Z ++ jq -n --arg section_name cleanup_delete_packer_rg --arg total_time_elapsed 00:00:01 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7974219Z + section_object='{
+2026-02-27T17:49:15.7974524Z   "cleanup_delete_packer_rg": "00:00:01"
+2026-02-27T17:49:15.7974809Z }'
+2026-02-27T17:49:15.7975059Z + jq '. += {
+2026-02-27T17:49:15.7975351Z   "cleanup_delete_packer_rg": "00:00:01"
+2026-02-27T17:49:15.7975645Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7975965Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7976277Z + (( i+=1 ))
+2026-02-27T17:49:15.7976530Z + (( i<8 ))
+2026-02-27T17:49:15.7976827Z + section_name=cleanup_delete_test_vm_rg
+2026-02-27T17:49:15.7977229Z ++ jq -n --arg section_name cleanup_delete_test_vm_rg --arg total_time_elapsed 00:00:01 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7977593Z + section_object='{
+2026-02-27T17:49:15.7977895Z   "cleanup_delete_test_vm_rg": "00:00:01"
+2026-02-27T17:49:15.7978180Z }'
+2026-02-27T17:49:15.7978505Z + jq '. += {
+2026-02-27T17:49:15.7978924Z   "cleanup_delete_test_vm_rg": "00:00:01"
+2026-02-27T17:49:15.7979237Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7979566Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7979872Z + (( i+=1 ))
+2026-02-27T17:49:15.7980124Z + (( i<8 ))
+2026-02-27T17:49:15.7980420Z + section_name=cleanup_delete_managed_image
+2026-02-27T17:49:15.7980826Z ++ jq -n --arg section_name cleanup_delete_managed_image --arg total_time_elapsed 00:00:33 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7981300Z + section_object='{
+2026-02-27T17:49:15.7981609Z   "cleanup_delete_managed_image": "00:00:33"
+2026-02-27T17:49:15.7981897Z }'
+2026-02-27T17:49:15.7982156Z + jq '. += {
+2026-02-27T17:49:15.7982453Z   "cleanup_delete_managed_image": "00:00:33"
+2026-02-27T17:49:15.7982766Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7983078Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7983387Z + (( i+=1 ))
+2026-02-27T17:49:15.7983639Z + (( i<8 ))
+2026-02-27T17:49:15.7983938Z + section_name=cleanup_cleanup_imported_image
+2026-02-27T17:49:15.7984345Z ++ jq -n --arg section_name cleanup_cleanup_imported_image --arg total_time_elapsed 00:00:00 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7984716Z + section_object='{
+2026-02-27T17:49:15.7985022Z   "cleanup_cleanup_imported_image": "00:00:00"
+2026-02-27T17:49:15.7985307Z }'
+2026-02-27T17:49:15.7985555Z + jq '. += {
+2026-02-27T17:49:15.7985855Z   "cleanup_cleanup_imported_image": "00:00:00"
+2026-02-27T17:49:15.7986168Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7986480Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7986781Z + (( i+=1 ))
+2026-02-27T17:49:15.7987032Z + (( i<8 ))
+2026-02-27T17:49:15.7987328Z + section_name=cleanup_cleanup_temp_storage
+2026-02-27T17:49:15.7987730Z ++ jq -n --arg section_name cleanup_cleanup_temp_storage --arg total_time_elapsed 00:00:00 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7988108Z + section_object='{
+2026-02-27T17:49:15.7988398Z   "cleanup_cleanup_temp_storage": "00:00:00"
+2026-02-27T17:49:15.7988872Z }'
+2026-02-27T17:49:15.7989121Z + jq '. += {
+2026-02-27T17:49:15.7989413Z   "cleanup_cleanup_temp_storage": "00:00:00"
+2026-02-27T17:49:15.7989726Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7990036Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7990344Z + (( i+=1 ))
+2026-02-27T17:49:15.7990610Z + (( i<8 ))
+2026-02-27T17:49:15.7990896Z + section_name=cleanup_delete_old_sig_versions
+2026-02-27T17:49:15.7991316Z ++ jq -n --arg section_name cleanup_delete_old_sig_versions --arg total_time_elapsed 00:04:00 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7991703Z + section_object='{
+2026-02-27T17:49:15.7991998Z   "cleanup_delete_old_sig_versions": "00:04:00"
+2026-02-27T17:49:15.7992286Z }'
+2026-02-27T17:49:15.7992536Z + jq '. += {
+2026-02-27T17:49:15.7992840Z   "cleanup_delete_old_sig_versions": "00:04:00"
+2026-02-27T17:49:15.7993157Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7993577Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7993877Z + (( i+=1 ))
+2026-02-27T17:49:15.7994145Z + (( i<8 ))
+2026-02-27T17:49:15.7994429Z + section_name=cleanup_cleanup_storage_accounts
+2026-02-27T17:49:15.7994835Z ++ jq -n --arg section_name cleanup_cleanup_storage_accounts --arg total_time_elapsed 00:00:02 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7995266Z + section_object='{
+2026-02-27T17:49:15.7995612Z   "cleanup_cleanup_storage_accounts": "00:00:02"
+2026-02-27T17:49:15.7995964Z }'
+2026-02-27T17:49:15.7996239Z + jq '. += {
+2026-02-27T17:49:15.7996594Z   "cleanup_cleanup_storage_accounts": "00:00:02"
+2026-02-27T17:49:15.7997059Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.7997523Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.7997882Z + (( i+=1 ))
+2026-02-27T17:49:15.7998196Z + (( i<8 ))
+2026-02-27T17:49:15.7998631Z + section_name=cleanup_overall
+2026-02-27T17:49:15.7999091Z ++ jq -n --arg section_name cleanup_overall --arg total_time_elapsed 00:04:37 '{($section_name): $total_time_elapsed}'
+2026-02-27T17:49:15.7999578Z + section_object='{
+2026-02-27T17:49:15.7999946Z   "cleanup_overall": "00:04:37"
+2026-02-27T17:49:15.8000248Z }'
+2026-02-27T17:49:15.8000555Z + jq '. += {
+2026-02-27T17:49:15.8000979Z   "cleanup_overall": "00:04:37"
+2026-02-27T17:49:15.8001307Z }' vhd-build-performance-data.json
+2026-02-27T17:49:15.8001698Z + mv temp-perf-file.json vhd-build-performance-data.json
+2026-02-27T17:49:15.8002175Z + (( i+=1 ))
+2026-02-27T17:49:15.8002462Z + (( i<8 ))
+2026-02-27T17:49:15.8002883Z + chmod 755 vhd-build-performance-data.json
+2026-02-27T17:49:15.8003218Z ##[endgroup]cleanup
+2026-02-27T17:49:15.8003658Z ./vhdbuilder/packer/cleanup.sh exited with code 0
+2026-02-27T17:54:57.8049167Z ##[group]vhd-scanning
+2026-02-27T17:54:57.8054072Z Running ./vhdbuilder/packer/vhd-scanning.sh with 2 retries
+2026-02-27T17:54:57.8054710Z + source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+2026-02-27T17:54:57.8055475Z +++ date +%s
+2026-02-27T17:54:57.8056013Z ++ script_start_stopwatch=1772214278
+2026-02-27T17:54:57.8056469Z +++ date +%s
+2026-02-27T17:54:57.8056923Z ++ section_start_stopwatch=1772214278
+2026-02-27T17:54:57.8057444Z +++ basename ./vhdbuilder/packer/vhd-scanning.sh .sh
+2026-02-27T17:54:57.8057886Z ++ SCRIPT_NAME=vhd-scanning
+2026-02-27T17:54:57.8058320Z ++ SCRIPT_NAME=vhd_scanning
+2026-02-27T17:54:57.8058992Z ++ benchmarks=()
+2026-02-27T17:54:57.8059421Z ++ declare -A benchmarks
+2026-02-27T17:54:57.8060146Z ++ benchmarks_order=()
+2026-02-27T17:54:57.8060624Z ++ declare -a benchmarks_order
+2026-02-27T17:54:57.8065201Z + '[' -z westus3 ']'
+2026-02-27T17:54:57.8065766Z ++ date +%s
+2026-02-27T17:54:57.8066236Z + CURRENT_TIME=1772214278
+2026-02-27T17:54:57.8066589Z + TRIVY_SCRIPT_PATH=trivy-scan.sh
+2026-02-27T17:54:57.8066968Z + SCAN_RESOURCE_PREFIX=vhd-scanning
+2026-02-27T17:54:57.8067345Z + SCAN_VM_NAME=vhd-scanning-vm-1772214278-16319
+2026-02-27T17:54:57.8067906Z + VHD_IMAGE=/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2fipscontainerd/versions/1.1772212157.9678
+2026-02-27T17:54:57.8068656Z + SIG_CONTAINER_NAME=vhd-scans
+2026-02-27T17:54:57.8069776Z + SCAN_VM_ADMIN_USERNAME=azureuser
+2026-02-27T17:54:57.8070311Z + '[' test = tme ']'
+2026-02-27T17:54:57.8070907Z ++ pwd
+2026-02-27T17:54:57.8071464Z + RELEASE_NOTES_FILEPATH=/mnt/vss/_work/1/s/release-notes.txt
+2026-02-27T17:54:57.8072105Z + '[' '!' -f /mnt/vss/_work/1/s/release-notes.txt ']'
+2026-02-27T17:54:57.8072849Z + SCANNING_SUBNET_ID=/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/scanning
+2026-02-27T17:54:57.8073555Z ++ jq -r .id
+2026-02-27T17:54:57.8074281Z ++ az network vnet subnet show --ids /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/scanning
+2026-02-27T17:54:57.8075600Z + '[' -z /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/scanning ']'
+2026-02-27T17:54:57.8076361Z + BLOB_URL_REGEX='^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$'
+2026-02-27T17:54:57.8077333Z + [[ https://vhdbuildereastustest.blob.core.windows.net/vhd =~ ^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$ ]]
+2026-02-27T17:54:57.8077856Z ++ echo https://vhdbuildereastustest.blob.core.windows.net/vhd
+2026-02-27T17:54:57.8078339Z ++ sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|'
+2026-02-27T17:54:57.8079135Z + STORAGE_ACCOUNT_NAME=vhdbuildereastustest
+2026-02-27T17:54:57.8079513Z + set +x
+2026-02-27T17:54:57.8079904Z + RESOURCE_GROUP_NAME=vhd-scanning-1772214278-1069
+2026-02-27T17:54:57.8080561Z + az group create --name vhd-scanning-1772214278-1069 --location westus3 --tags source=AgentBaker now=1772214278 branch=refs/heads/markibrahim/install-waagent-via-manifest
+2026-02-27T17:54:57.8081245Z {
+2026-02-27T17:54:57.8081719Z   "id": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-scanning-1772214278-1069",
+2026-02-27T17:54:57.8082295Z   "location": "westus3",
+2026-02-27T17:54:57.8082638Z   "managedBy": null,
+2026-02-27T17:54:57.8083001Z   "name": "vhd-scanning-1772214278-1069",
+2026-02-27T17:54:57.8083353Z   "properties": {
+2026-02-27T17:54:57.8083926Z     "provisioningState": "Succeeded"
+2026-02-27T17:54:57.8084334Z   },
+2026-02-27T17:54:57.8084712Z   "tags": {
+2026-02-27T17:54:57.8085199Z     "branch": "refs/heads/markibrahim/install-waagent-via-manifest",
+2026-02-27T17:54:57.8085700Z     "now": "1772214278",
+2026-02-27T17:54:57.8086119Z     "source": "AgentBaker"
+2026-02-27T17:54:57.8086548Z   },
+2026-02-27T17:54:57.8086957Z   "type": "Microsoft.Resources/resourceGroups"
+2026-02-27T17:54:57.8087393Z }
+2026-02-27T17:54:57.8087801Z + trap cleanup EXIT
+2026-02-27T17:54:57.8088190Z + capture_benchmark vhd_scanning_set_variables_and_create_scan_resource_group
+2026-02-27T17:54:57.8088727Z + local title=vhd_scanning_set_variables_and_create_scan_resource_group
+2026-02-27T17:54:57.8089184Z + title=vhd_scanning_set_variables_and_create_scan_resource_group
+2026-02-27T17:54:57.8089587Z + title=vhd_scanning_set_variables_and_create_scan_resource_group
+2026-02-27T17:54:57.8089951Z + local is_final_section=false
+2026-02-27T17:54:57.8090304Z + local current_time
+2026-02-27T17:54:57.8090630Z ++ date +%s
+2026-02-27T17:54:57.8090952Z + current_time=1772214282
+2026-02-27T17:54:57.8091312Z + '[' false = true ']'
+2026-02-27T17:54:57.8091643Z + local start_time=1772214278
+2026-02-27T17:54:57.8091995Z + local total_time_elapsed
+2026-02-27T17:54:57.8092361Z ++ date -d@4 -u +%H:%M:%S
+2026-02-27T17:54:57.8092713Z + total_time_elapsed=00:00:04
+2026-02-27T17:54:57.8093076Z + benchmarks[$title]=00:00:04
+2026-02-27T17:54:57.8093432Z + benchmarks_order+=($title)
+2026-02-27T17:54:57.8093764Z ++ date +%s
+2026-02-27T17:54:57.8094278Z + section_start_stopwatch=1772214282
+2026-02-27T17:54:57.8094700Z + VM_SIZE=Standard_D8ds_v5
+2026-02-27T17:54:57.8095143Z + VM_OPTIONS='--size Standard_D8ds_v5'
+2026-02-27T17:54:57.8095502Z + [[ x86_64 == \a\r\m\6\4 ]]
+2026-02-27T17:54:57.8095848Z + '[' Linux = Linux ']'
+2026-02-27T17:54:57.8096204Z + '[' False = True ']'
+2026-02-27T17:54:57.8096547Z + '[' Linux = Linux ']'
+2026-02-27T17:54:57.8096870Z + grep -q cvm
+2026-02-27T17:54:57.8097218Z + '[' Linux = Linux ']'
+2026-02-27T17:54:57.8097545Z + grep -q GB200
+2026-02-27T17:54:57.8098096Z ++ az network nic create --resource-group vhd-scanning-1772214278-1069 --name scanning177221427828637 --subnet /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/nodesig-test-westus3-packer-vnet-rg/providers/Microsoft.Network/virtualNetworks/nodesig-packer-vnet-westus3/subnets/scanning
+2026-02-27T17:54:57.8098797Z ++ jq -r .NewNIC.id
+2026-02-27T17:54:57.8099383Z + SCANNING_NIC_ID=/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-scanning-1772214278-1069/providers/Microsoft.Network/networkInterfaces/scanning177221427828637
+2026-02-27T17:54:57.8100139Z + '[' -z /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-scanning-1772214278-1069/providers/Microsoft.Network/networkInterfaces/scanning177221427828637 ']'
+2026-02-27T17:54:57.8100602Z + '[' Ubuntu = Ubuntu ']'
+2026-02-27T17:54:57.8100960Z + '[' 22.04 = 22.04 ']'
+2026-02-27T17:54:57.8101312Z ++ printf %s True
+2026-02-27T17:54:57.8101656Z ++ tr '[:upper:]' '[:lower:]'
+2026-02-27T17:54:57.8102017Z + '[' true = true ']'
+2026-02-27T17:54:57.8102363Z ++ realpath ./vhdbuilder/packer/vhd-scanning.sh
+2026-02-27T17:54:57.8102761Z + FULL_PATH=/mnt/vss/_work/1/s/vhdbuilder/packer/vhd-scanning.sh
+2026-02-27T17:54:57.8103170Z ++ dirname /mnt/vss/_work/1/s/vhdbuilder/packer/vhd-scanning.sh
+2026-02-27T17:54:57.8103542Z + CDIR=/mnt/vss/_work/1/s/vhdbuilder/packer
+2026-02-27T17:54:57.8103927Z + source /mnt/vss/_work/1/s/vhdbuilder/packer/fips-helper.sh
+2026-02-27T17:54:57.8104313Z + ensure_fips_feature_registered
+2026-02-27T17:54:57.8104697Z + echo 'Detected Ubuntu 22.04 + FIPS scenario, enabling FIPS 140-3 compliance...'
+2026-02-27T17:54:57.8105126Z Detected Ubuntu 22.04 + FIPS scenario, enabling FIPS 140-3 compliance...
+2026-02-27T17:54:57.8105536Z + echo 'Checking FIPS 140-3 compliance feature registration...'
+2026-02-27T17:54:57.8105921Z Checking FIPS 140-3 compliance feature registration...
+2026-02-27T17:54:57.8106522Z ++ az feature show --namespace Microsoft.Compute --name OptInToFips1403Compliance --query properties.state -o tsv
+2026-02-27T17:54:57.8106955Z + FIPS_FEATURE_STATE=Registered
+2026-02-27T17:54:57.8107304Z + '[' Registered '!=' Registered ']'
+2026-02-27T17:54:57.8107686Z + echo 'FIPS 140-3 compliance feature already registered'
+2026-02-27T17:54:57.8108083Z FIPS 140-3 compliance feature already registered
+2026-02-27T17:54:57.8108554Z + create_fips_vm Standard_D8ds_v5
+2026-02-27T17:54:57.8108956Z + local vm_size=Standard_D8ds_v5
+2026-02-27T17:54:57.8109343Z + echo 'Creating VM with FIPS 140-3 encryption using REST API...'
+2026-02-27T17:54:57.8109733Z Creating VM with FIPS 140-3 encryption using REST API...
+2026-02-27T17:54:57.8110085Z + set +x
+2026-02-27T17:54:57.8110407Z {
+2026-02-27T17:54:57.8110721Z   "etag": "\"1\"",
+2026-02-27T17:54:57.8111178Z   "id": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-scanning-1772214278-1069/providers/Microsoft.Compute/virtualMachines/vhd-scanning-vm-1772214278-16319",
+2026-02-27T17:54:57.8111635Z   "identity": {
+2026-02-27T17:54:57.8111964Z     "type": "UserAssigned",
+2026-02-27T17:54:57.8112313Z     "userAssignedIdentities": {
+2026-02-27T17:54:57.8112764Z       "/subscriptions/4be8920b-2978-43d7-ab14-04d8549c1d05/resourceGroups/vuln-to-kusto/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vuln-to-kusto-pipeline-agentbaker": {}
+2026-02-27T17:54:57.8113199Z     }
+2026-02-27T17:54:57.8113513Z   },
+2026-02-27T17:54:57.8113842Z   "location": "westus3",
+2026-02-27T17:54:57.8114205Z   "name": "vhd-scanning-vm-1772214278-16319",
+2026-02-27T17:54:57.8114565Z   "properties": {
+2026-02-27T17:54:57.8114910Z     "additionalCapabilities": {
+2026-02-27T17:54:57.8115272Z       "enableFips1403Encryption": true
+2026-02-27T17:54:57.8115607Z     },
+2026-02-27T17:54:57.8115925Z     "hardwareProfile": {
+2026-02-27T17:54:57.8116383Z       "vmSize": "Standard_D8ds_v5"
+2026-02-27T17:54:57.8116705Z     },
+2026-02-27T17:54:57.8117016Z     "networkProfile": {
+2026-02-27T17:54:57.8117358Z       "networkInterfaces": [
+2026-02-27T17:54:57.8117662Z         {
+2026-02-27T17:54:57.8118097Z           "id": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/vhd-scanning-1772214278-1069/providers/Microsoft.Network/networkInterfaces/scanning177221427828637"
+2026-02-27T17:54:57.8118769Z         }
+2026-02-27T17:54:57.8119083Z       ]
+2026-02-27T17:54:57.8119401Z     },
+2026-02-27T17:54:57.8119726Z     "osProfile": {
+2026-02-27T17:54:57.8120067Z       "adminUsername": "azureuser",
+2026-02-27T17:54:57.8120579Z       "allowExtensionOperations": true,
+2026-02-27T17:54:57.8120978Z       "computerName": "vhd-scanning-vm-1772214278-16319",
+2026-02-27T17:54:57.8121337Z       "linuxConfiguration": {
+2026-02-27T17:54:57.8121707Z         "disablePasswordAuthentication": false,
+2026-02-27T17:54:57.8122050Z         "patchSettings": {
+2026-02-27T17:54:57.8122407Z           "assessmentMode": "ImageDefault",
+2026-02-27T17:54:57.8122769Z           "patchMode": "ImageDefault"
+2026-02-27T17:54:57.8123090Z         },
+2026-02-27T17:54:57.8123431Z         "provisionVMAgent": true
+2026-02-27T17:54:57.8123763Z       },
+2026-02-27T17:54:57.8124097Z       "requireGuestProvisionSignal": true,
+2026-02-27T17:54:57.8124453Z       "secrets": []
+2026-02-27T17:54:57.8124773Z     },
+2026-02-27T17:54:57.8125100Z     "provisioningState": "Creating",
+2026-02-27T17:54:57.8125455Z     "storageProfile": {
+2026-02-27T17:54:57.8125781Z       "dataDisks": [],
+2026-02-27T17:54:57.8126133Z       "diskControllerType": "SCSI",
+2026-02-27T17:54:57.8126488Z       "imageReference": {
+2026-02-27T17:54:57.8126834Z         "exactVersion": "1.1772212157.9678",
+2026-02-27T17:54:57.8127333Z         "id": "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2fipscontainerd/versions/1.1772212157.9678"
+2026-02-27T17:54:57.8127806Z       },
+2026-02-27T17:54:57.8128122Z       "osDisk": {
+2026-02-27T17:54:57.8128711Z         "caching": "ReadWrite",
+2026-02-27T17:54:57.8129099Z         "createOption": "FromImage",
+2026-02-27T17:54:57.8129445Z         "deleteOption": "Detach",
+2026-02-27T17:54:57.8129796Z         "diskSizeGB": 50,
+2026-02-27T17:54:57.8130136Z         "managedDisk": {
+2026-02-27T17:54:57.8130486Z           "storageAccountType": "Premium_LRS"
+2026-02-27T17:54:57.8130831Z         },
+2026-02-27T17:54:57.8131145Z         "osType": "Linux"
+2026-02-27T17:54:57.8131476Z       }
+2026-02-27T17:54:57.8131791Z     },
+2026-02-27T17:54:57.8132155Z     "timeCreated": "2026-02-27T17:44:46.4312497+00:00",
+2026-02-27T17:54:57.8132559Z     "vmId": "3ca3d91c-a227-43cd-8b3b-ad3d1a833b58"
+2026-02-27T17:54:57.8132913Z   },
+2026-02-27T17:54:57.8133223Z   "tags": {
+2026-02-27T17:54:57.8133604Z     "platformsettings.host_environment.service.platform_optedin_for_rootcerts": "true"
+2026-02-27T17:54:57.8133966Z   },
+2026-02-27T17:54:57.8134320Z   "type": "Microsoft.Compute/virtualMachines"
+2026-02-27T17:54:57.8134664Z }
+2026-02-27T17:54:57.8134979Z + '[' 0 -ne 0 ']'
+2026-02-27T17:54:57.8135331Z + echo 'Waiting for VM to be ready...'
+2026-02-27T17:54:57.8135700Z Waiting for VM to be ready...
+2026-02-27T17:54:57.8136115Z + az vm wait --created --name vhd-scanning-vm-1772214278-16319 --resource-group vhd-scanning-1772214278-1069 --timeout 600
+2026-02-27T17:54:57.8136538Z + local az_wait_exit_code=0
+2026-02-27T17:54:57.8136896Z + '[' 0 -ne 0 ']'
+2026-02-27T17:54:57.8137245Z + capture_benchmark vhd_scanning_create_scan_vm
+2026-02-27T17:54:57.8137633Z + local title=vhd_scanning_create_scan_vm
+2026-02-27T17:54:57.8137988Z + title=vhd_scanning_create_scan_vm
+2026-02-27T17:54:57.8138574Z + title=vhd_scanning_create_scan_vm
+2026-02-27T17:54:57.8139050Z + local is_final_section=false
+2026-02-27T17:54:57.8139452Z + local current_time
+2026-02-27T17:54:57.8139785Z ++ date +%s
+2026-02-27T17:54:57.8140117Z + current_time=1772214318
+2026-02-27T17:54:57.8140452Z + '[' false = true ']'
+2026-02-27T17:54:57.8140825Z + local start_time=1772214282
+2026-02-27T17:54:57.8141177Z + local total_time_elapsed
+2026-02-27T17:54:57.8141519Z ++ date -d@36 -u +%H:%M:%S
+2026-02-27T17:54:57.8141877Z + total_time_elapsed=00:00:36
+2026-02-27T17:54:57.8142218Z + benchmarks[$title]=00:00:36
+2026-02-27T17:54:57.8142572Z + benchmarks_order+=($title)
+2026-02-27T17:54:57.8142902Z ++ date +%s
+2026-02-27T17:54:57.8143228Z + section_start_stopwatch=1772214318
+2026-02-27T17:54:57.8143565Z + set +x
+2026-02-27T17:54:57.8143869Z {
+2026-02-27T17:54:57.8144184Z   "systemAssignedIdentity": "",
+2026-02-27T17:54:57.8144680Z   "userAssignedIdentities": {
+2026-02-27T17:54:57.8145120Z     "/subscriptions/4be8920b-2978-43d7-ab14-04d8549c1d05/resourceGroups/vuln-to-kusto/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vuln-to-kusto-pipeline-agentbaker": {
+2026-02-27T17:54:57.8145600Z       "clientId": "8de3f918-3836-48ac-906b-45a7f4484b36",
+2026-02-27T17:54:57.8145987Z       "principalId": "40c9a056-43c7-4b44-97de-647022eed47b"
+2026-02-27T17:54:57.8146324Z     },
+2026-02-27T17:54:57.8146765Z     "/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity": {
+2026-02-27T17:54:57.8147469Z       "clientId": "***",
+2026-02-27T17:54:57.8147823Z       "principalId": "b0d5ab26-baa6-459d-b189-1599555afdb8"
+2026-02-27T17:54:57.8148134Z     }
+2026-02-27T17:54:57.8148426Z   }
+2026-02-27T17:54:57.8148838Z }
+2026-02-27T17:54:57.8149178Z IMAGE_VERSION was not set, setting it to 202602.27.0 for trivy scan and Kusto ingestion
+2026-02-27T17:54:57.8149530Z {
+2026-02-27T17:54:57.8149813Z   "value": [
+2026-02-27T17:54:57.8150111Z     {
+2026-02-27T17:54:57.8150433Z       "code": "ProvisioningState/succeeded",
+2026-02-27T17:54:57.8150765Z       "displayStatus": "Provisioning succeeded",
+2026-02-27T17:54:57.8151100Z       "level": "Info",
+2026-02-27T17:54:57.8156508Z       "message": "Enable succeeded: \n[stdout]\nser\": {\n      \"assignedIdentityInfo\": \"MSIResource-/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\",\n      \"name\": \"userAssignedIdentity\",\n      \"type\": \"servicePrincipal\"\n    }\n  },\n  {\n    \"environmentName\": \"AzureCloud\",\n    \"homeTenantId\": \"72f988bf-86f1-41af-91ab-2d7cd011db47\",\n    \"id\": \"a15c116e-99e3-4c59-aebc-8f864929b4a0\",\n    \"isDefault\": false,\n    \"managedByTenants\": [],\n    \"name\": \"AKS VHD Image Release\",\n    \"state\": \"Enabled\",\n    \"tenantId\": \"72f988bf-86f1-41af-91ab-2d7cd011db47\",\n    \"user\": {\n      \"assignedIdentityInfo\": \"MSIResource-/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\",\n      \"name\": \"userAssignedIdentity\",\n      \"type\": \"servicePrincipal\"\n    }\n  },\n  {\n    \"environmentName\": \"AzureCloud\",\n    \"homeTenantId\": \"72f988bf-86f1-41af-91ab-2d7cd011db47\",\n    \"id\": \"035db282-f1c8-4ce7-b78f-2a7265d5398c\",\n    \"isDefault\": false,\n    \"managedByTenants\": [],\n    \"name\": \"EdgeOS_Mariner_Platform_AKS_test\",\n    \"state\": \"Enabled\",\n    \"tenantId\": \"72f988bf-86f1-41af-91ab-2d7cd011db47\",\n    \"user\": {\n      \"assignedIdentityInfo\": \"MSIResource-/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\",\n      \"name\": \"userAssignedIdentity\",\n      \"type\": \"servicePrincipal\"\n    }\n  },\n  {\n    \"environmentName\": \"AzureCloud\",\n    \"homeTenantId\": \"72f988bf-86f1-41af-91ab-2d7cd011db47\",\n    \"id\": \"b8f169b2-5b23-444a-ae4b-19a31b5e3652\",\n    \"isDefault\": false,\n    \"managedByTenants\": [],\n    \"name\": \"EdgeOS_Mariner_Platform_dev\",\n    \"state\": \"Enabled\",\n    \"tenantId\": \"72f988bf-86f1-41af-91ab-2d7cd011db47\",\n    \"user\": {\n      \"assignedIdentityInfo\": \"MSIResource-/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\",\n      \"name\": \"userAssignedIdentity\",\n      \"type\": \"servicePrincipal\"\n    }\n  }\n]\n{\n  \"client_request_id\": \"fc2b7fa3-1404-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"1B2M2Y8AsgTpgAmY7PhCfg==\",\n  \"date\": \"2026-02-27T17:51:47+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE7628E0BEBEF2\\\"\",\n  \"lastModified\": \"2026-02-27T17:51:47+00:00\",\n  \"request_id\": \"5d72544a-a01e-003c-1311-a8d821000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n{\n  \"client_request_id\": \"fcc7e415-1404-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"yqmGDfVGpyhJrqn7RGz4+Q==\",\n  \"date\": \"2026-02-27T17:51:48+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE7628E1A1EDBB\\\"\",\n  \"lastModified\": \"2026-02-27T17:51:48+00:00\",\n  \"request_id\": \"dab3a55a-501e-0081-3311-a8513c000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n{\n  \"client_request_id\": \"fdae0319-1404-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"I/JsBBQfSCtaJc62sxfwNg==\",\n  \"date\": \"2026-02-27T17:51:49+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE7628E2769DB6\\\"\",\n  \"lastModified\": \"2026-02-27T17:51:50+00:00\",\n  \"request_id\": \"d1ff1836-101e-0029-5911-a8cf92000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n{\n  \"client_request_id\": \"fe808a19-1404-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"1B2M2Y8AsgTpgAmY7PhCfg==\",\n  \"date\": \"2026-02-27T17:51:51+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE7628E30EC781\\\"\",\n  \"lastModified\": \"2026-02-27T17:51:51+00:00\",\n  \"request_id\": \"90657698-001e-0047-6311-a89abd000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n\n[stderr]\nge-gatekeeper:v3.20.1-4.json\n2026/02/27 17:51:44 DEBUG resolved from ADO pipeline component=environment-detector\n2026/02/27 17:51:44 DEBUG resolved build source from ADO pipeline component=build-source-detector\n2026/02/27 17:51:44 DEBUG ingesting entries component=ingestEntriesToKusto kusto.database=AKSShieldGuard kusto.table=AKSContainerCVEScanner entries.count=1\n2026/02/27 17:51:45 INFO ingested entries component=ingestEntriesToKusto kusto.database=AKSShieldGuard kusto.table=AKSContainerCVEScanner entries.count=1\n+ rm /opt/azure/containers/trivy-report-image-gatekeeper:v3.20.1-4.json\n+ ./vuln-to-kusto-vhd query-report query-diff 24h --vhd-vhdname=2204-fips-gen2-containerd --vhd-nodeimageversion=202602.27.0 --severity=HIGH --scan-resource-prefix=vhd-scanning --kusto-endpoint=https://aksdevinfra.westus2.kusto.windows.net/ --kusto-database=AKSShieldGuard --kusto-table=AKSContainerCVEScanner --kusto-managed-identity-client-id=8de3f918-3836-48ac-906b-45a7f4484b36\n+ ./vuln-to-kusto-vhd query-report query-list 24h --vhd-vhdname=2204-fips-gen2-containerd --vhd-nodeimageversion=202602.27.0 --severity=HIGH --scan-resource-prefix=vhd-scanning --kusto-endpoint=https://aksdevinfra.westus2.kusto.windows.net/ --kusto-database=AKSShieldGuard --kusto-table=AKSContainerCVEScanner --kusto-managed-identity-client-id=8de3f918-3836-48ac-906b-45a7f4484b36\n+ rm ./trivy\n+ chmod a+r /opt/azure/containers/cve-diff.txt\n+ chmod a+r /opt/azure/containers/trivy-report-rootfs.json\n+ chmod a+r /opt/azure/containers/trivy-report-images-table.txt\n+ chmod a+r /opt/azure/containers/cve-list.txt\n+ login_with_umsi_resource_id /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\n+ login_with_user_assigned_managed_identity --resource-id /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\n+ local TYPE_FLAG=--resource-id\n+ local ID=/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\n+ LOGIN_FLAGS='--identity --resource-id /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity'\n+ '[' false = true ']'\n+ echo 'logging into azure with flags: --identity --resource-id /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity'\n+ az login --identity --resource-id /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourcegroups/nodesig-test-pool-common/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-test-agent-identity\n+ az storage blob upload --file /opt/azure/containers/cve-diff.txt --container-name vhd-scans --name cve-diff-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login\n+ az storage blob upload --file /opt/azure/containers/trivy-report-rootfs.json --container-name vhd-scans --name trivy-report-154852773-1772214351665.json --account-name vhdbuildereastustest --auth-mode login\n\rAlive[################################################################]  100.0000%\rFinished[#############################################################]  100.0000%\n+ az storage blob upload --file /opt/azure/containers/trivy-report-images-table.txt --container-name vhd-scans --name trivy-table-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login\n\rAlive[################################################################]  100.0000%\rFinished[#############################################################]  100.0000%\n+ az storage blob upload --file /opt/azure/containers/cve-list.txt --container-name vhd-scans --name cve-list-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login\n",
+2026-02-27T17:54:57.8165992Z       "time": null
+2026-02-27T17:54:57.8166413Z     }
+2026-02-27T17:54:57.8166743Z   ]
+2026-02-27T17:54:57.8167098Z }
+2026-02-27T17:54:57.8167256Z
+2026-02-27T17:54:57.8167661Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8168097Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8168592Z {
+2026-02-27T17:54:57.8169019Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8169411Z   "content": "",
+2026-02-27T17:54:57.8169787Z   "contentMd5": null,
+2026-02-27T17:54:57.8170189Z   "deleted": false,
+2026-02-27T17:54:57.8170775Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8171247Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8171713Z   "encryptionScope": null,
+2026-02-27T17:54:57.8172181Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8172657Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8173137Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8173526Z     "expiryTime": null,
+2026-02-27T17:54:57.8173992Z     "policyMode": null
+2026-02-27T17:54:57.8174385Z   },
+2026-02-27T17:54:57.8174793Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8175257Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8175685Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8176117Z   "metadata": {},
+2026-02-27T17:54:57.8176595Z   "name": "trivy-report-154852773-1772214351665.json",
+2026-02-27T17:54:57.8177104Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8177604Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8178038Z   "properties": {
+2026-02-27T17:54:57.8178653Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8179139Z     "blobTier": null,
+2026-02-27T17:54:57.8179594Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8180060Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8180474Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8180905Z     "contentLength": 2172620,
+2026-02-27T17:54:57.8181334Z     "contentRange": "bytes None-None/2172620",
+2026-02-27T17:54:57.8181782Z     "contentSettings": {
+2026-02-27T17:54:57.8182193Z       "cacheControl": null,
+2026-02-27T17:54:57.8182828Z       "contentDisposition": null,
+2026-02-27T17:54:57.8183293Z       "contentEncoding": null,
+2026-02-27T17:54:57.8183687Z       "contentLanguage": null,
+2026-02-27T17:54:57.8184213Z       "contentMd5": "yqmGDfVGpyhJrqn7RGz4+Q==",
+2026-02-27T17:54:57.8184670Z       "contentType": "application/json"
+2026-02-27T17:54:57.8185068Z     },
+2026-02-27T17:54:57.8185435Z     "copy": {
+2026-02-27T17:54:57.8185841Z       "completionTime": null,
+2026-02-27T17:54:57.8186270Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8186691Z       "id": null,
+2026-02-27T17:54:57.8187081Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8187485Z       "progress": null,
+2026-02-27T17:54:57.8187898Z       "source": null,
+2026-02-27T17:54:57.8188321Z       "status": null,
+2026-02-27T17:54:57.8189753Z       "statusDescription": null
+2026-02-27T17:54:57.8190246Z     },
+2026-02-27T17:54:57.8190744Z     "creationTime": "2026-02-27T17:51:48+00:00",
+2026-02-27T17:54:57.8191280Z     "deletedTime": null,
+2026-02-27T17:54:57.8191744Z     "etag": "\"0x8DE7628E1A1EDBB\"",
+2026-02-27T17:54:57.8192322Z     "lastModified": "2026-02-27T17:51:48+00:00",
+2026-02-27T17:54:57.8192862Z     "lease": {
+2026-02-27T17:54:57.8193371Z       "duration": null,
+2026-02-27T17:54:57.8193886Z       "state": "available",
+2026-02-27T17:54:57.8194436Z       "status": "unlocked"
+2026-02-27T17:54:57.8194935Z     },
+2026-02-27T17:54:57.8195665Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8196268Z     "pageRanges": null,
+2026-02-27T17:54:57.8196816Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8197607Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8198180Z     "serverEncrypted": true
+2026-02-27T17:54:57.8198833Z   },
+2026-02-27T17:54:57.8199415Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8199982Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8200559Z   "snapshot": null,
+2026-02-27T17:54:57.8201081Z   "tagCount": null,
+2026-02-27T17:54:57.8201655Z   "tags": null,
+2026-02-27T17:54:57.8202182Z   "versionId": null
+2026-02-27T17:54:57.8202727Z }
+2026-02-27T17:54:57.8202983Z
+2026-02-27T17:54:57.8203542Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8204103Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8204584Z {
+2026-02-27T17:54:57.8205080Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8205575Z   "content": "",
+2026-02-27T17:54:57.8206070Z   "contentMd5": null,
+2026-02-27T17:54:57.8206600Z   "deleted": false,
+2026-02-27T17:54:57.8207149Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8207710Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8208260Z   "encryptionScope": null,
+2026-02-27T17:54:57.8208998Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8209542Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8210016Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8210541Z     "expiryTime": null,
+2026-02-27T17:54:57.8211087Z     "policyMode": null
+2026-02-27T17:54:57.8211588Z   },
+2026-02-27T17:54:57.8212116Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8212680Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8213211Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8213712Z   "metadata": {},
+2026-02-27T17:54:57.8214250Z   "name": "trivy-table-154852773-1772214351665.txt",
+2026-02-27T17:54:57.8214882Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8215495Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8216016Z   "properties": {
+2026-02-27T17:54:57.8216564Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8217193Z     "blobTier": null,
+2026-02-27T17:54:57.8217712Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8218228Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8218904Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8219425Z     "contentLength": 995312,
+2026-02-27T17:54:57.8219975Z     "contentRange": "bytes None-None/995312",
+2026-02-27T17:54:57.8220498Z     "contentSettings": {
+2026-02-27T17:54:57.8221022Z       "cacheControl": null,
+2026-02-27T17:54:57.8221690Z       "contentDisposition": null,
+2026-02-27T17:54:57.8222467Z       "contentEncoding": null,
+2026-02-27T17:54:57.8222992Z       "contentLanguage": null,
+2026-02-27T17:54:57.8223712Z       "contentMd5": "I/JsBBQfSCtaJc62sxfwNg==",
+2026-02-27T17:54:57.8224252Z       "contentType": "text/plain"
+2026-02-27T17:54:57.8224741Z     },
+2026-02-27T17:54:57.8225221Z     "copy": {
+2026-02-27T17:54:57.8225749Z       "completionTime": null,
+2026-02-27T17:54:57.8226390Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8226946Z       "id": null,
+2026-02-27T17:54:57.8227461Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8227995Z       "progress": null,
+2026-02-27T17:54:57.8228664Z       "source": null,
+2026-02-27T17:54:57.8229255Z       "status": null,
+2026-02-27T17:54:57.8229763Z       "statusDescription": null
+2026-02-27T17:54:57.8230304Z     },
+2026-02-27T17:54:57.8230878Z     "creationTime": "2026-02-27T17:51:50+00:00",
+2026-02-27T17:54:57.8231489Z     "deletedTime": null,
+2026-02-27T17:54:57.8232091Z     "etag": "\"0x8DE7628E2769DB6\"",
+2026-02-27T17:54:57.8232772Z     "lastModified": "2026-02-27T17:51:50+00:00",
+2026-02-27T17:54:57.8233378Z     "lease": {
+2026-02-27T17:54:57.8233955Z       "duration": null,
+2026-02-27T17:54:57.8234534Z       "state": "available",
+2026-02-27T17:54:57.8235052Z       "status": "unlocked"
+2026-02-27T17:54:57.8235582Z     },
+2026-02-27T17:54:57.8236120Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8236638Z     "pageRanges": null,
+2026-02-27T17:54:57.8237195Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8237967Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8238672Z     "serverEncrypted": true
+2026-02-27T17:54:57.8239260Z   },
+2026-02-27T17:54:57.8239793Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8240315Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8240871Z   "snapshot": null,
+2026-02-27T17:54:57.8241392Z   "tagCount": null,
+2026-02-27T17:54:57.8241902Z   "tags": null,
+2026-02-27T17:54:57.8242388Z   "versionId": null
+2026-02-27T17:54:57.8242880Z }
+2026-02-27T17:54:57.8243321Z {
+2026-02-27T17:54:57.8243855Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8244368Z   "content": "",
+2026-02-27T17:54:57.8244839Z   "contentMd5": null,
+2026-02-27T17:54:57.8245344Z   "deleted": false,
+2026-02-27T17:54:57.8245862Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8246387Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8246920Z   "encryptionScope": null,
+2026-02-27T17:54:57.8247425Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8247946Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8248607Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8249131Z     "expiryTime": null,
+2026-02-27T17:54:57.8249684Z     "policyMode": null
+2026-02-27T17:54:57.8250198Z   },
+2026-02-27T17:54:57.8250728Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8251278Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8251833Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8252314Z   "metadata": {},
+2026-02-27T17:54:57.8252699Z   "name": "cve-diff-154852773-1772214351665.txt",
+2026-02-27T17:54:57.8253086Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8253475Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8253840Z   "properties": {
+2026-02-27T17:54:57.8254227Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8254695Z     "blobTier": null,
+2026-02-27T17:54:57.8255201Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8255647Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8256165Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8256522Z     "contentLength": 0,
+2026-02-27T17:54:57.8256899Z     "contentRange": "bytes None-None/0",
+2026-02-27T17:54:57.8257279Z     "contentSettings": {
+2026-02-27T17:54:57.8257656Z       "cacheControl": null,
+2026-02-27T17:54:57.8258245Z       "contentDisposition": null,
+2026-02-27T17:54:57.8258894Z       "contentEncoding": null,
+2026-02-27T17:54:57.8259406Z       "contentLanguage": null,
+2026-02-27T17:54:57.8259756Z       "contentMd5": null,
+2026-02-27T17:54:57.8260084Z       "contentType": "text/plain"
+2026-02-27T17:54:57.8260572Z     },
+2026-02-27T17:54:57.8260903Z     "copy": {
+2026-02-27T17:54:57.8261223Z       "completionTime": null,
+2026-02-27T17:54:57.8261589Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8261929Z       "id": null,
+2026-02-27T17:54:57.8262263Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8262606Z       "progress": null,
+2026-02-27T17:54:57.8262941Z       "source": null,
+2026-02-27T17:54:57.8263309Z       "status": null,
+2026-02-27T17:54:57.8263693Z       "statusDescription": null
+2026-02-27T17:54:57.8264057Z     },
+2026-02-27T17:54:57.8264540Z     "creationTime": "2026-02-27T17:51:47+00:00",
+2026-02-27T17:54:57.8265028Z     "deletedTime": null,
+2026-02-27T17:54:57.8265485Z     "etag": "\"0x8DE7628E0BEBEF2\"",
+2026-02-27T17:54:57.8266006Z     "lastModified": "2026-02-27T17:51:47+00:00",
+2026-02-27T17:54:57.8266475Z     "lease": {
+2026-02-27T17:54:57.8266911Z       "duration": null,
+2026-02-27T17:54:57.8267364Z       "state": "available",
+2026-02-27T17:54:57.8267860Z       "status": "unlocked"
+2026-02-27T17:54:57.8268339Z     },
+2026-02-27T17:54:57.8268968Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8269462Z     "pageRanges": null,
+2026-02-27T17:54:57.8269970Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8270469Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8270977Z     "serverEncrypted": true
+2026-02-27T17:54:57.8271429Z   },
+2026-02-27T17:54:57.8271872Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8272377Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8272973Z   "snapshot": null,
+2026-02-27T17:54:57.8273423Z   "tagCount": null,
+2026-02-27T17:54:57.8273894Z   "tags": null,
+2026-02-27T17:54:57.8274353Z   "versionId": null
+2026-02-27T17:54:57.8274801Z }
+2026-02-27T17:54:57.8275235Z {
+2026-02-27T17:54:57.8275692Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8276176Z   "content": "",
+2026-02-27T17:54:57.8276631Z   "contentMd5": null,
+2026-02-27T17:54:57.8277115Z   "deleted": false,
+2026-02-27T17:54:57.8277607Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8278109Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8278729Z   "encryptionScope": null,
+2026-02-27T17:54:57.8279250Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8279739Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8280238Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8280676Z     "expiryTime": null,
+2026-02-27T17:54:57.8281312Z     "policyMode": null
+2026-02-27T17:54:57.8281998Z   },
+2026-02-27T17:54:57.8282268Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8282644Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8283015Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8283320Z   "metadata": {},
+2026-02-27T17:54:57.8283690Z   "name": "cve-list-154852773-1772214351665.txt",
+2026-02-27T17:54:57.8284176Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8284604Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8284974Z   "properties": {
+2026-02-27T17:54:57.8285289Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8285624Z     "blobTier": null,
+2026-02-27T17:54:57.8286092Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8286412Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8286784Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8287073Z     "contentLength": 0,
+2026-02-27T17:54:57.8313690Z     "contentRange": "bytes None-None/0",
+2026-02-27T17:54:57.8313957Z     "contentSettings": {
+2026-02-27T17:54:57.8314199Z       "cacheControl": null,
+2026-02-27T17:54:57.8314451Z       "contentDisposition": null,
+2026-02-27T17:54:57.8314705Z       "contentEncoding": null,
+2026-02-27T17:54:57.8314943Z       "contentLanguage": null,
+2026-02-27T17:54:57.8315182Z       "contentMd5": null,
+2026-02-27T17:54:57.8315425Z       "contentType": "text/plain"
+2026-02-27T17:54:57.8315645Z     },
+2026-02-27T17:54:57.8315862Z     "copy": {
+2026-02-27T17:54:57.8316086Z       "completionTime": null,
+2026-02-27T17:54:57.8316329Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8316567Z       "id": null,
+2026-02-27T17:54:57.8316797Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8317198Z       "progress": null,
+2026-02-27T17:54:57.8317433Z       "source": null,
+2026-02-27T17:54:57.8317657Z       "status": null,
+2026-02-27T17:54:57.8318121Z       "statusDescription": null
+2026-02-27T17:54:57.8318326Z     },
+2026-02-27T17:54:57.8318713Z     "creationTime": "2026-02-27T17:51:51+00:00",
+2026-02-27T17:54:57.8318971Z     "deletedTime": null,
+2026-02-27T17:54:57.8319192Z     "etag": "\"0x8DE7628E30EC781\"",
+2026-02-27T17:54:57.8319440Z     "lastModified": "2026-02-27T17:51:51+00:00",
+2026-02-27T17:54:57.8319674Z     "lease": {
+2026-02-27T17:54:57.8319881Z       "duration": null,
+2026-02-27T17:54:57.8320097Z       "state": "available",
+2026-02-27T17:54:57.8320310Z       "status": "unlocked"
+2026-02-27T17:54:57.8320512Z     },
+2026-02-27T17:54:57.8320727Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8320944Z     "pageRanges": null,
+2026-02-27T17:54:57.8321166Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8321401Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8321626Z     "serverEncrypted": true
+2026-02-27T17:54:57.8321838Z   },
+2026-02-27T17:54:57.8322048Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8322283Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8322682Z   "snapshot": null,
+2026-02-27T17:54:57.8322908Z   "tagCount": null,
+2026-02-27T17:54:57.8323169Z   "tags": null,
+2026-02-27T17:54:57.8323406Z   "versionId": null
+2026-02-27T17:54:57.8323612Z }
+2026-02-27T17:54:57.8323845Z Trivy Scan Script Completed
+2026-02-27T17:54:57.8324053Z
+2026-02-27T17:54:57.8324154Z
+2026-02-27T17:54:57.8324252Z
+2026-02-27T17:54:57.8324336Z
+2026-02-27T17:54:57.8324577Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8324843Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8325064Z {
+2026-02-27T17:54:57.8325318Z   "client_request_id": "074d5055-1405-11f1-8d40-c377cc9b5f36",
+2026-02-27T17:54:57.8325605Z   "content_md5": "OaFO23/89gJq7E07a7ndqQ==",
+2026-02-27T17:54:57.8325870Z   "date": "2026-02-27T17:52:09+00:00",
+2026-02-27T17:54:57.8326126Z   "encryption_key_sha256": null,
+2026-02-27T17:54:57.8326378Z   "encryption_scope": null,
+2026-02-27T17:54:57.8326619Z   "etag": "\"0x8DE7628EE7C66B8\"",
+2026-02-27T17:54:57.8326888Z   "lastModified": "2026-02-27T17:52:10+00:00",
+2026-02-27T17:54:57.8327174Z   "request_id": "116a8168-501e-005a-5d11-a89701000000",
+2026-02-27T17:54:57.8327624Z   "request_server_encrypted": true,
+2026-02-27T17:54:57.8327891Z   "version": "2022-11-02",
+2026-02-27T17:54:57.8328130Z   "version_id": null
+2026-02-27T17:54:57.8328365Z }
+2026-02-27T17:54:57.8329195Z {
+2026-02-27T17:54:57.8329420Z   "value": [
+2026-02-27T17:54:57.8329675Z     {
+2026-02-27T17:54:57.8329945Z       "code": "ProvisioningState/succeeded",
+2026-02-27T17:54:57.8330256Z       "displayStatus": "Provisioning succeeded",
+2026-02-27T17:54:57.8330541Z       "level": "Info",
+2026-02-27T17:54:57.8336094Z       "message": "Enable succeeded: \n[stdout]\nty........................................... Pass\n299/306: Ensure all groups in /etc/passwd exist in /etc/group....................................... Pass\n300/306: Ensure shadow group is empty............................................................... Pass\n301/306: Ensure no duplicate UIDs exist............................................................. Pass\n302/306: Ensure no duplicate GIDs exist............................................................. Pass\n303/306: Ensure no duplicate user names exist....................................................... Pass\n304/306: Ensure no duplicate group names exist...................................................... Pass\n305/306: Ensure local interactive user home directories are configured.............................. Pass\n306/306: Ensure local interactive user dot files access is configured............................... Pass\n\n-----------------------------------------------------------------------------\n ***** Assessment Results Summary *****\n-----------------------------------------------------------------------------\n   Total # of Results: 306\n Total Scored Results: 290\n           Total Pass: 228\n           Total Fail: 62\n          Total Error: 0\n        Total Unknown: 0\n Total Not Applicable: 0\n    Total Not Checked: 13\n   Total Not Selected: 0\n  Total Informational: 3\n-----------------------------------------------------------------------------\n ***** Assessment Scoring *****\n-----------------------------------------------------------------------------\n         Score Earned: 228.0\n    Maximum Available: 290.0\n                Total: 78.62%\n-----------------------------------------------------------------------------\n\n- Generating Checklist Results...\n\r\nEnding Assessment - Date & Time: 02-27-2026 17:54:12\nTotal Assessment Time: 42 seconds\n- Generating Asset Reporting Format.\n  - Generating Report Request.\n- Generating Data-Stream Collection.\n- Data-Stream Collection Generated.\n  - Collecting Checklist Results.\n  - Combining Results.\n  - Saving Results.\n- Asset Reporting Format Generated.\n\n ***** Writing Assessment Results ***** \n - Reports saving to /tmp/cisassessor/lib/app/reports\n -- vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z-ARF.xml\n -- vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html\n -- vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt\nAssessment Complete for Checklist: CIS Ubuntu Linux 22.04 LTS Benchmark\n-----------------------------------------------------------\nDisconnecting Session.\nFinished Assessment 1/1\nExiting; Exit Code: 0\n{\n  \"client_request_id\": \"5b081289-1405-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"vTeZQAoeaz6vRQp7+PWUvQ==\",\n  \"date\": \"2026-02-27T17:54:26+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE76293F9F7CFE\\\"\",\n  \"lastModified\": \"2026-02-27T17:54:26+00:00\",\n  \"request_id\": \"dab4bb35-501e-0081-0d12-a8513c000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n{\n  \"client_request_id\": \"5bab428d-1405-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"2NoNBtJmVHWGY/Z4CVyA0w==\",\n  \"date\": \"2026-02-27T17:54:26+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE762940416FD1\\\"\",\n  \"lastModified\": \"2026-02-27T17:54:27+00:00\",\n  \"request_id\": \"d716566f-201e-006f-5612-a8fb15000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n{\n  \"client_request_id\": \"5c4bb489-1405-11f1-b646-8397d94e8181\",\n  \"content_md5\": \"JrZjBmTUrQAqQ/KDRIXCnQ==\",\n  \"date\": \"2026-02-27T17:54:28+00:00\",\n  \"encryption_key_sha256\": null,\n  \"encryption_scope\": null,\n  \"etag\": \"\\\"0x8DE762941337298\\\"\",\n  \"lastModified\": \"2026-02-27T17:54:29+00:00\",\n  \"request_id\": \"e3491a88-f01e-0053-6012-a8d2d2000000\",\n  \"request_server_encrypted\": true,\n  \"structured_body\": null,\n  \"version\": \"2026-02-06\",\n  \"version_id\": null\n}\n/var/lib/waagent/run-command/download/1\n\n[stderr]\nAlive[#######################################################         ]  86.7185%\rAlive[########################################################        ]  89.0622%\rAlive[##########################################################      ]  91.4060%\rAlive[###########################################################     ]  93.7497%\rAlive[#############################################################   ]  96.0934%\rAlive[##############################################################  ]  97.6563%\rAlive[################################################################]  100.0000%\rFinished[#############################################################]  100.0000%\n+ '[' '!' -f /tmp/cisassessor.tar.gz ']'\n++ dirname /tmp/cisassessor.tar.gz\n+ pushd /tmp\n+ systemctl disable --now gcd.service\nRemoved /etc/systemd/system/multi-user.target.wants/gcd.service.\n+ find /var/log -type f -exec chmod 640 '{}' ';'\n+ tar xzf /tmp/cisassessor.tar.gz\n+ REPORT_DIR=cisassessor/lib/app/reports\n+ LEVEL=1\n+ cisassessor/launch-cis.sh\n++ latest_report '*.txt'\n++ local 'pattern=*.txt'\n++ find cisassessor/lib/app/reports -name '*.txt' -printf '%T@ %p\\n'\n++ sort -n\n++ tail -n1\n++ cut '-d ' -f2-\n+ L1_TXT_REPORT=cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt\n+ '[' -z cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt ']'\n+ '[' '!' -f cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt ']'\n+ LEVEL=2\n+ cisassessor/launch-cis.sh\n++ latest_report '*.txt'\n++ local 'pattern=*.txt'\n++ find cisassessor/lib/app/reports -name '*.txt' -printf '%T@ %p\\n'\n++ sort -n\n++ cut '-d ' -f2-\n++ tail -n1\n+ L2_TXT_REPORT=cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt\n+ '[' -z cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt ']'\n+ '[' '!' -f cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt ']'\n++ latest_report '*.html'\n++ local 'pattern=*.html'\n++ find cisassessor/lib/app/reports -name '*.html' -printf '%T@ %p\\n'\n++ sort -n\n++ tail -n1\n++ cut '-d ' -f2-\n+ L2_HTML_REPORT=cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html\n+ '[' -z cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html ']'\n+ '[' '!' -f cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html ']'\n+ az storage blob upload --container-name vhd-scans --file cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt --name cis-report-l1-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login\n\rAlive[################################################################]  100.0000%\rFinished[#############################################################]  100.0000%\n+ az storage blob upload --container-name vhd-scans --file cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt --name cis-report-l2-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login\n\rAlive[################################################################]  100.0000%\rFinished[#############################################################]  100.0000%\n+ az storage blob upload --container-name vhd-scans --file cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html --name cis-report-154852773-1772214351665.html --account-name vhdbuildereastustest --auth-mode login\n\rAlive[################################################################]  100.0000%\rFinished[#############################################################]  100.0000%\n+ popd\n",
+2026-02-27T17:54:57.8342091Z       "time": null
+2026-02-27T17:54:57.8342297Z     }
+2026-02-27T17:54:57.8342514Z   ]
+2026-02-27T17:54:57.8342748Z }
+2026-02-27T17:54:57.8342992Z Enable succeeded:
+2026-02-27T17:54:57.8343236Z [stdout]
+2026-02-27T17:54:57.8343509Z ty........................................... Pass
+2026-02-27T17:54:57.8343828Z 299/306: Ensure all groups in /etc/passwd exist in /etc/group....................................... Pass
+2026-02-27T17:54:57.8344204Z 300/306: Ensure shadow group is empty............................................................... Pass
+2026-02-27T17:54:57.8344575Z 301/306: Ensure no duplicate UIDs exist............................................................. Pass
+2026-02-27T17:54:57.8345042Z 302/306: Ensure no duplicate GIDs exist............................................................. Pass
+2026-02-27T17:54:57.8345397Z 303/306: Ensure no duplicate user names exist....................................................... Pass
+2026-02-27T17:54:57.8345764Z 304/306: Ensure no duplicate group names exist...................................................... Pass
+2026-02-27T17:54:57.8346129Z 305/306: Ensure local interactive user home directories are configured.............................. Pass
+2026-02-27T17:54:57.8346488Z 306/306: Ensure local interactive user dot files access is configured............................... Pass
+2026-02-27T17:54:57.8346672Z
+2026-02-27T17:54:57.8346961Z -----------------------------------------------------------------------------
+2026-02-27T17:54:57.8347271Z  ***** Assessment Results Summary *****
+2026-02-27T17:54:57.8347571Z -----------------------------------------------------------------------------
+2026-02-27T17:54:57.8347869Z    Total # of Results: 306
+2026-02-27T17:54:57.8348121Z  Total Scored Results: 290
+2026-02-27T17:54:57.8348376Z            Total Pass: 228
+2026-02-27T17:54:57.8348770Z            Total Fail: 62
+2026-02-27T17:54:57.8348989Z           Total Error: 0
+2026-02-27T17:54:57.8349217Z         Total Unknown: 0
+2026-02-27T17:54:57.8349446Z  Total Not Applicable: 0
+2026-02-27T17:54:57.8349671Z     Total Not Checked: 13
+2026-02-27T17:54:57.8349903Z    Total Not Selected: 0
+2026-02-27T17:54:57.8350123Z   Total Informational: 3
+2026-02-27T17:54:57.8350470Z -----------------------------------------------------------------------------
+2026-02-27T17:54:57.8350752Z  ***** Assessment Scoring *****
+2026-02-27T17:54:57.8351111Z -----------------------------------------------------------------------------
+2026-02-27T17:54:57.8351382Z          Score Earned: 228.0
+2026-02-27T17:54:57.8351619Z     Maximum Available: 290.0
+2026-02-27T17:54:57.8351839Z                 Total: 78.62%
+2026-02-27T17:54:57.8352111Z -----------------------------------------------------------------------------
+2026-02-27T17:54:57.8352261Z
+2026-02-27T17:54:57.8352477Z - Generating Checklist Results...
+2026-02-27T17:54:57.8352595Z
+2026-02-27T17:54:57.8352842Z Ending Assessment - Date & Time: 02-27-2026 17:54:12
+2026-02-27T17:54:57.8353099Z Total Assessment Time: 42 seconds
+2026-02-27T17:54:57.8353351Z - Generating Asset Reporting Format.
+2026-02-27T17:54:57.8353598Z   - Generating Report Request.
+2026-02-27T17:54:57.8353833Z - Generating Data-Stream Collection.
+2026-02-27T17:54:57.8354271Z - Data-Stream Collection Generated.
+2026-02-27T17:54:57.8354549Z   - Collecting Checklist Results.
+2026-02-27T17:54:57.8354812Z   - Combining Results.
+2026-02-27T17:54:57.8355110Z   - Saving Results.
+2026-02-27T17:54:57.8355370Z - Asset Reporting Format Generated.
+2026-02-27T17:54:57.8355496Z
+2026-02-27T17:54:57.8355750Z  ***** Writing Assessment Results *****
+2026-02-27T17:54:57.8356026Z  - Reports saving to /tmp/cisassessor/lib/app/reports
+2026-02-27T17:54:57.8356363Z  -- vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z-ARF.xml
+2026-02-27T17:54:57.8356736Z  -- vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html
+2026-02-27T17:54:57.8357091Z  -- vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt
+2026-02-27T17:54:57.8357435Z Assessment Complete for Checklist: CIS Ubuntu Linux 22.04 LTS Benchmark
+2026-02-27T17:54:57.8357756Z -----------------------------------------------------------
+2026-02-27T17:54:57.8358037Z Disconnecting Session.
+2026-02-27T17:54:57.8358297Z Finished Assessment 1/1
+2026-02-27T17:54:57.8358945Z Exiting; Exit Code: 0
+2026-02-27T17:54:57.8359304Z {
+2026-02-27T17:54:57.8359751Z   "client_request_id": "5b081289-1405-11f1-b646-8397d94e8181",
+2026-02-27T17:54:57.8360183Z   "content_md5": "vTeZQAoeaz6vRQp7+PWUvQ==",
+2026-02-27T17:54:57.8360721Z   "date": "2026-02-27T17:54:26+00:00",
+2026-02-27T17:54:57.8361257Z   "encryption_key_sha256": null,
+2026-02-27T17:54:57.8361741Z   "encryption_scope": null,
+2026-02-27T17:54:57.8362352Z   "etag": "\"0x8DE76293F9F7CFE\"",
+2026-02-27T17:54:57.8362787Z   "lastModified": "2026-02-27T17:54:26+00:00",
+2026-02-27T17:54:57.8363248Z   "request_id": "dab4bb35-501e-0081-0d12-a8513c000000",
+2026-02-27T17:54:57.8363715Z   "request_server_encrypted": true,
+2026-02-27T17:54:57.8364140Z   "structured_body": null,
+2026-02-27T17:54:57.8364572Z   "version": "2026-02-06",
+2026-02-27T17:54:57.8365055Z   "version_id": null
+2026-02-27T17:54:57.8365421Z }
+2026-02-27T17:54:57.8365739Z {
+2026-02-27T17:54:57.8366097Z   "client_request_id": "5bab428d-1405-11f1-b646-8397d94e8181",
+2026-02-27T17:54:57.8366512Z   "content_md5": "2NoNBtJmVHWGY/Z4CVyA0w==",
+2026-02-27T17:54:57.8366998Z   "date": "2026-02-27T17:54:26+00:00",
+2026-02-27T17:54:57.8367364Z   "encryption_key_sha256": null,
+2026-02-27T17:54:57.8367697Z   "encryption_scope": null,
+2026-02-27T17:54:57.8368044Z   "etag": "\"0x8DE762940416FD1\"",
+2026-02-27T17:54:57.8368411Z   "lastModified": "2026-02-27T17:54:27+00:00",
+2026-02-27T17:54:57.8368965Z   "request_id": "d716566f-201e-006f-5612-a8fb15000000",
+2026-02-27T17:54:57.8369343Z   "request_server_encrypted": true,
+2026-02-27T17:54:57.8369696Z   "structured_body": null,
+2026-02-27T17:54:57.8370256Z   "version": "2026-02-06",
+2026-02-27T17:54:57.8370606Z   "version_id": null
+2026-02-27T17:54:57.8370923Z }
+2026-02-27T17:54:57.8371248Z {
+2026-02-27T17:54:57.8371618Z   "client_request_id": "5c4bb489-1405-11f1-b646-8397d94e8181",
+2026-02-27T17:54:57.8372005Z   "content_md5": "JrZjBmTUrQAqQ/KDRIXCnQ==",
+2026-02-27T17:54:57.8372537Z   "date": "2026-02-27T17:54:28+00:00",
+2026-02-27T17:54:57.8372911Z   "encryption_key_sha256": null,
+2026-02-27T17:54:57.8373254Z   "encryption_scope": null,
+2026-02-27T17:54:57.8373608Z   "etag": "\"0x8DE762941337298\"",
+2026-02-27T17:54:57.8373993Z   "lastModified": "2026-02-27T17:54:29+00:00",
+2026-02-27T17:54:57.8374393Z   "request_id": "e3491a88-f01e-0053-6012-a8d2d2000000",
+2026-02-27T17:54:57.8374770Z   "request_server_encrypted": true,
+2026-02-27T17:54:57.8375124Z   "structured_body": null,
+2026-02-27T17:54:57.8375483Z   "version": "2026-02-06",
+2026-02-27T17:54:57.8375833Z   "version_id": null
+2026-02-27T17:54:57.8376146Z }
+2026-02-27T17:54:57.8376495Z /var/lib/waagent/run-command/download/1
+2026-02-27T17:54:57.8376662Z
+2026-02-27T17:54:57.8377018Z [stderr]
+2026-02-27T17:54:57.8377383Z Alive[#######################################################         ]  86.7185%
+2026-02-27T17:54:57.8377733Z Alive[########################################################        ]  89.0622%
+2026-02-27T17:54:57.8378093Z Alive[##########################################################      ]  91.4060%
+2026-02-27T17:54:57.8378556Z Alive[###########################################################     ]  93.7497%
+2026-02-27T17:54:57.8379029Z Alive[#############################################################   ]  96.0934%
+2026-02-27T17:54:57.8379398Z Alive[##############################################################  ]  97.6563%
+2026-02-27T17:54:57.8379781Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8380164Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8380528Z + '[' '!' -f /tmp/cisassessor.tar.gz ']'
+2026-02-27T17:54:57.8381018Z ++ dirname /tmp/cisassessor.tar.gz
+2026-02-27T17:54:57.8381380Z + pushd /tmp
+2026-02-27T17:54:57.8381731Z + systemctl disable --now gcd.service
+2026-02-27T17:54:57.8382128Z Removed /etc/systemd/system/multi-user.target.wants/gcd.service.
+2026-02-27T17:54:57.8382540Z + find /var/log -type f -exec chmod 640 '{}' ';'
+2026-02-27T17:54:57.8382904Z + tar xzf /tmp/cisassessor.tar.gz
+2026-02-27T17:54:57.8383290Z + REPORT_DIR=cisassessor/lib/app/reports
+2026-02-27T17:54:57.8383631Z + LEVEL=1
+2026-02-27T17:54:57.8383982Z + cisassessor/launch-cis.sh
+2026-02-27T17:54:57.8384341Z ++ latest_report '*.txt'
+2026-02-27T17:54:57.8384694Z ++ local 'pattern=*.txt'
+2026-02-27T17:54:57.8385080Z ++ find cisassessor/lib/app/reports -name '*.txt' -printf '%T@ %p\n'
+2026-02-27T17:54:57.8385763Z ++ sort -n
+2026-02-27T17:54:57.8386119Z ++ tail -n1
+2026-02-27T17:54:57.8386479Z ++ cut '-d ' -f2-
+2026-02-27T17:54:57.8386915Z + L1_TXT_REPORT=cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt
+2026-02-27T17:54:57.8387454Z + '[' -z cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt ']'
+2026-02-27T17:54:57.8387993Z + '[' '!' -f cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt ']'
+2026-02-27T17:54:57.8388557Z + LEVEL=2
+2026-02-27T17:54:57.8389013Z + cisassessor/launch-cis.sh
+2026-02-27T17:54:57.8389406Z ++ latest_report '*.txt'
+2026-02-27T17:54:57.8389787Z ++ local 'pattern=*.txt'
+2026-02-27T17:54:57.8390175Z ++ find cisassessor/lib/app/reports -name '*.txt' -printf '%T@ %p\n'
+2026-02-27T17:54:57.8390576Z ++ sort -n
+2026-02-27T17:54:57.8390942Z ++ cut '-d ' -f2-
+2026-02-27T17:54:57.8391287Z ++ tail -n1
+2026-02-27T17:54:57.8391731Z + L2_TXT_REPORT=cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt
+2026-02-27T17:54:57.8392256Z + '[' -z cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt ']'
+2026-02-27T17:54:57.8392769Z + '[' '!' -f cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt ']'
+2026-02-27T17:54:57.8393378Z ++ latest_report '*.html'
+2026-02-27T17:54:57.8393766Z ++ local 'pattern=*.html'
+2026-02-27T17:54:57.8394155Z ++ find cisassessor/lib/app/reports -name '*.html' -printf '%T@ %p\n'
+2026-02-27T17:54:57.8394547Z ++ sort -n
+2026-02-27T17:54:57.8394907Z ++ tail -n1
+2026-02-27T17:54:57.8395248Z ++ cut '-d ' -f2-
+2026-02-27T17:54:57.8395700Z + L2_HTML_REPORT=cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html
+2026-02-27T17:54:57.8396232Z + '[' -z cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html ']'
+2026-02-27T17:54:57.8396745Z + '[' '!' -f cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html ']'
+2026-02-27T17:54:57.8397385Z + az storage blob upload --container-name vhd-scans --file cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175311Z.txt --name cis-report-l1-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login
+2026-02-27T17:54:57.8397729Z
+2026-02-27T17:54:57.8398162Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8398614Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8399188Z + az storage blob upload --container-name vhd-scans --file cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.txt --name cis-report-l2-154852773-1772214351665.txt --account-name vhdbuildereastustest --auth-mode login
+2026-02-27T17:54:57.8399529Z
+2026-02-27T17:54:57.8399968Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8400334Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8400897Z + az storage blob upload --container-name vhd-scans --file cisassessor/lib/app/reports/vhd-scanning-vm-1772214278-16319-CIS_Ubuntu_Linux_22.04_LTS_Benchmark-20260227T175412Z.html --name cis-report-154852773-1772214351665.html --account-name vhdbuildereastustest --auth-mode login
+2026-02-27T17:54:57.8401239Z
+2026-02-27T17:54:57.8401667Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8402042Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8402518Z + popd
+2026-02-27T17:54:57.8402673Z
+2026-02-27T17:54:57.8403093Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8403478Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8403833Z {
+2026-02-27T17:54:57.8404173Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8404538Z   "content": "",
+2026-02-27T17:54:57.8404881Z   "contentMd5": null,
+2026-02-27T17:54:57.8405245Z   "deleted": false,
+2026-02-27T17:54:57.8405626Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8405990Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8406366Z   "encryptionScope": null,
+2026-02-27T17:54:57.8406734Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8407100Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8407471Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8407829Z     "expiryTime": null,
+2026-02-27T17:54:57.8408193Z     "policyMode": null
+2026-02-27T17:54:57.8408647Z   },
+2026-02-27T17:54:57.8409010Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8409394Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8409763Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8410119Z   "metadata": {},
+2026-02-27T17:54:57.8410510Z   "name": "cis-report-l1-154852773-1772214351665.txt",
+2026-02-27T17:54:57.8410907Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8411308Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8411695Z   "properties": {
+2026-02-27T17:54:57.8412060Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8412762Z     "blobTier": null,
+2026-02-27T17:54:57.8413135Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8413488Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8413852Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8414211Z     "contentLength": 15136,
+2026-02-27T17:54:57.8414570Z     "contentRange": "bytes None-None/15136",
+2026-02-27T17:54:57.8414936Z     "contentSettings": {
+2026-02-27T17:54:57.8415279Z       "cacheControl": null,
+2026-02-27T17:54:57.8415646Z       "contentDisposition": null,
+2026-02-27T17:54:57.8416010Z       "contentEncoding": null,
+2026-02-27T17:54:57.8416357Z       "contentLanguage": null,
+2026-02-27T17:54:57.8416734Z       "contentMd5": "vTeZQAoeaz6vRQp7+PWUvQ==",
+2026-02-27T17:54:57.8417107Z       "contentType": "text/plain"
+2026-02-27T17:54:57.8417442Z     },
+2026-02-27T17:54:57.8417779Z     "copy": {
+2026-02-27T17:54:57.8418113Z       "completionTime": null,
+2026-02-27T17:54:57.8418619Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8418997Z       "id": null,
+2026-02-27T17:54:57.8419319Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8419753Z       "progress": null,
+2026-02-27T17:54:57.8420068Z       "source": null,
+2026-02-27T17:54:57.8420368Z       "status": null,
+2026-02-27T17:54:57.8420696Z       "statusDescription": null
+2026-02-27T17:54:57.8420988Z     },
+2026-02-27T17:54:57.8421330Z     "creationTime": "2026-02-27T17:54:26+00:00",
+2026-02-27T17:54:57.8421671Z     "deletedTime": null,
+2026-02-27T17:54:57.8421990Z     "etag": "\"0x8DE76293F9F7CFE\"",
+2026-02-27T17:54:57.8422343Z     "lastModified": "2026-02-27T17:54:26+00:00",
+2026-02-27T17:54:57.8422671Z     "lease": {
+2026-02-27T17:54:57.8422968Z       "duration": null,
+2026-02-27T17:54:57.8423286Z       "state": "available",
+2026-02-27T17:54:57.8423583Z       "status": "unlocked"
+2026-02-27T17:54:57.8423884Z     },
+2026-02-27T17:54:57.8424202Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8424510Z     "pageRanges": null,
+2026-02-27T17:54:57.8424828Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8425156Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8425469Z     "serverEncrypted": true
+2026-02-27T17:54:57.8425780Z   },
+2026-02-27T17:54:57.8426071Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8426405Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8426726Z   "snapshot": null,
+2026-02-27T17:54:57.8427023Z   "tagCount": null,
+2026-02-27T17:54:57.8427336Z   "tags": null,
+2026-02-27T17:54:57.8427651Z   "versionId": null
+2026-02-27T17:54:57.8428059Z }
+2026-02-27T17:54:57.8428194Z
+2026-02-27T17:54:57.8428643Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8429060Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8429395Z {
+2026-02-27T17:54:57.8429710Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8430046Z   "content": "",
+2026-02-27T17:54:57.8430380Z   "contentMd5": null,
+2026-02-27T17:54:57.8430715Z   "deleted": false,
+2026-02-27T17:54:57.8431069Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8431406Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8431758Z   "encryptionScope": null,
+2026-02-27T17:54:57.8432101Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8432443Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8432784Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8433103Z     "expiryTime": null,
+2026-02-27T17:54:57.8433436Z     "policyMode": null
+2026-02-27T17:54:57.8433761Z   },
+2026-02-27T17:54:57.8434077Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8434435Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8434780Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8435100Z   "metadata": {},
+2026-02-27T17:54:57.8435454Z   "name": "cis-report-l2-154852773-1772214351665.txt",
+2026-02-27T17:54:57.8435823Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8436196Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8436544Z   "properties": {
+2026-02-27T17:54:57.8436878Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8437347Z     "blobTier": null,
+2026-02-27T17:54:57.8437702Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8438038Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8438382Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8438795Z     "contentLength": 19212,
+2026-02-27T17:54:57.8439140Z     "contentRange": "bytes None-None/19212",
+2026-02-27T17:54:57.8439489Z     "contentSettings": {
+2026-02-27T17:54:57.8439813Z       "cacheControl": null,
+2026-02-27T17:54:57.8440166Z       "contentDisposition": null,
+2026-02-27T17:54:57.8440519Z       "contentEncoding": null,
+2026-02-27T17:54:57.8440872Z       "contentLanguage": null,
+2026-02-27T17:54:57.8441227Z       "contentMd5": "2NoNBtJmVHWGY/Z4CVyA0w==",
+2026-02-27T17:54:57.8441590Z       "contentType": "text/plain"
+2026-02-27T17:54:57.8441903Z     },
+2026-02-27T17:54:57.8442229Z     "copy": {
+2026-02-27T17:54:57.8442543Z       "completionTime": null,
+2026-02-27T17:54:57.8442892Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8443244Z       "id": null,
+2026-02-27T17:54:57.8443561Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8443888Z       "progress": null,
+2026-02-27T17:54:57.8444212Z       "source": null,
+2026-02-27T17:54:57.8444526Z       "status": null,
+2026-02-27T17:54:57.8444845Z       "statusDescription": null
+2026-02-27T17:54:57.8445151Z     },
+2026-02-27T17:54:57.8445507Z     "creationTime": "2026-02-27T17:54:27+00:00",
+2026-02-27T17:54:57.8445854Z     "deletedTime": null,
+2026-02-27T17:54:57.8446177Z     "etag": "\"0x8DE762940416FD1\"",
+2026-02-27T17:54:57.8446532Z     "lastModified": "2026-02-27T17:54:27+00:00",
+2026-02-27T17:54:57.8446866Z     "lease": {
+2026-02-27T17:54:57.8447176Z       "duration": null,
+2026-02-27T17:54:57.8447496Z       "state": "available",
+2026-02-27T17:54:57.8447808Z       "status": "unlocked"
+2026-02-27T17:54:57.8448116Z     },
+2026-02-27T17:54:57.8448508Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8448867Z     "pageRanges": null,
+2026-02-27T17:54:57.8449205Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8449550Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8449876Z     "serverEncrypted": true
+2026-02-27T17:54:57.8450187Z   },
+2026-02-27T17:54:57.8450495Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8450841Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8451174Z   "snapshot": null,
+2026-02-27T17:54:57.8451484Z   "tagCount": null,
+2026-02-27T17:54:57.8451802Z   "tags": null,
+2026-02-27T17:54:57.8452128Z   "versionId": null
+2026-02-27T17:54:57.8452549Z }
+2026-02-27T17:54:57.8452688Z
+2026-02-27T17:54:57.8453075Z Alive[################################################################]  100.0000%
+2026-02-27T17:54:57.8453432Z Finished[#############################################################]  100.0000%
+2026-02-27T17:54:57.8453759Z {
+2026-02-27T17:54:57.8454079Z   "container": "vhd-scans",
+2026-02-27T17:54:57.8454413Z   "content": "",
+2026-02-27T17:54:57.8454743Z   "contentMd5": null,
+2026-02-27T17:54:57.8455066Z   "deleted": false,
+2026-02-27T17:54:57.8455403Z   "encryptedMetadata": null,
+2026-02-27T17:54:57.8455748Z   "encryptionKeySha256": null,
+2026-02-27T17:54:57.8456079Z   "encryptionScope": null,
+2026-02-27T17:54:57.8456420Z   "hasLegalHold": null,
+2026-02-27T17:54:57.8456744Z   "hasVersionsOnly": null,
+2026-02-27T17:54:57.8457084Z   "immutabilityPolicy": {
+2026-02-27T17:54:57.8457419Z     "expiryTime": null,
+2026-02-27T17:54:57.8457741Z     "policyMode": null
+2026-02-27T17:54:57.8458058Z   },
+2026-02-27T17:54:57.8458391Z   "isAppendBlobSealed": null,
+2026-02-27T17:54:57.8458791Z   "isCurrentVersion": null,
+2026-02-27T17:54:57.8459125Z   "lastAccessedOn": null,
+2026-02-27T17:54:57.8459426Z   "metadata": {},
+2026-02-27T17:54:57.8459764Z   "name": "cis-report-154852773-1772214351665.html",
+2026-02-27T17:54:57.8460123Z   "objectReplicationDestinationPolicy": null,
+2026-02-27T17:54:57.8460461Z   "objectReplicationSourceProperties": [],
+2026-02-27T17:54:57.8460791Z   "properties": {
+2026-02-27T17:54:57.8461116Z     "appendBlobCommittedBlockCount": null,
+2026-02-27T17:54:57.8461544Z     "blobTier": null,
+2026-02-27T17:54:57.8461871Z     "blobTierChangeTime": null,
+2026-02-27T17:54:57.8462181Z     "blobTierInferred": null,
+2026-02-27T17:54:57.8462504Z     "blobType": "BlockBlob",
+2026-02-27T17:54:57.8462826Z     "contentLength": 11146557,
+2026-02-27T17:54:57.8463146Z     "contentRange": "bytes None-None/11146557",
+2026-02-27T17:54:57.8463479Z     "contentSettings": {
+2026-02-27T17:54:57.8463793Z       "cacheControl": null,
+2026-02-27T17:54:57.8464103Z       "contentDisposition": null,
+2026-02-27T17:54:57.8464431Z       "contentEncoding": null,
+2026-02-27T17:54:57.8464749Z       "contentLanguage": null,
+2026-02-27T17:54:57.8465069Z       "contentMd5": "JrZjBmTUrQAqQ/KDRIXCnQ==",
+2026-02-27T17:54:57.8465397Z       "contentType": "text/html"
+2026-02-27T17:54:57.8465683Z     },
+2026-02-27T17:54:57.8465980Z     "copy": {
+2026-02-27T17:54:57.8466291Z       "completionTime": null,
+2026-02-27T17:54:57.8466600Z       "destinationSnapshot": null,
+2026-02-27T17:54:57.8466914Z       "id": null,
+2026-02-27T17:54:57.8467223Z       "incrementalCopy": null,
+2026-02-27T17:54:57.8467527Z       "progress": null,
+2026-02-27T17:54:57.8467838Z       "source": null,
+2026-02-27T17:54:57.8468132Z       "status": null,
+2026-02-27T17:54:57.8468531Z       "statusDescription": null
+2026-02-27T17:54:57.8468951Z     },
+2026-02-27T17:54:57.8469295Z     "creationTime": "2026-02-27T17:54:29+00:00",
+2026-02-27T17:54:57.8469654Z     "deletedTime": null,
+2026-02-27T17:54:57.8469995Z     "etag": "\"0x8DE762941337298\"",
+2026-02-27T17:54:57.8470352Z     "lastModified": "2026-02-27T17:54:29+00:00",
+2026-02-27T17:54:57.8470700Z     "lease": {
+2026-02-27T17:54:57.8471012Z       "duration": null,
+2026-02-27T17:54:57.8471344Z       "state": "available",
+2026-02-27T17:54:57.8471678Z       "status": "unlocked"
+2026-02-27T17:54:57.8471982Z     },
+2026-02-27T17:54:57.8472314Z     "pageBlobSequenceNumber": null,
+2026-02-27T17:54:57.8472654Z     "pageRanges": null,
+2026-02-27T17:54:57.8472979Z     "rehydrationStatus": null,
+2026-02-27T17:54:57.8473327Z     "remainingRetentionDays": null,
+2026-02-27T17:54:57.8473664Z     "serverEncrypted": true
+2026-02-27T17:54:57.8473974Z   },
+2026-02-27T17:54:57.8474302Z   "rehydratePriority": null,
+2026-02-27T17:54:57.8474633Z   "requestServerEncrypted": true,
+2026-02-27T17:54:57.8474974Z   "snapshot": null,
+2026-02-27T17:54:57.8475302Z   "tagCount": null,
+2026-02-27T17:54:57.8475615Z   "tags": null,
+2026-02-27T17:54:57.8476003Z   "versionId": null
+2026-02-27T17:54:57.8476434Z }
+2026-02-27T17:54:57.8476768Z CIS Report Script Completed
+2026-02-27T17:54:57.8476918Z
+2026-02-27T17:54:57.8477095Z
+2026-02-27T17:54:57.8477283Z
+2026-02-27T17:54:57.8477689Z Comparing CIS report against baseline
+2026-02-27T17:54:57.8478032Z CIS regressions detected: 2
+2026-02-27T17:54:57.8478403Z Regression details (rule_id|baseline->current):
+2026-02-27T17:54:57.8478889Z 5.1.18|pass->fail
+2026-02-27T17:54:57.8479133Z 5.1.6|pass->fail
+2026-02-27T17:54:57.8502641Z ##[error]CIS regressions detected (2). See cis-regressions.txt for details.
+2026-02-27T17:54:57.8510631Z Deleting resource group vhd-scanning-1772214278-1069
+2026-02-27T17:54:57.8511150Z ##[endgroup]vhd-scanning
+2026-02-27T17:54:57.8513021Z ./vhdbuilder/packer/vhd-scanning.sh exited with code 0
+2026-02-27T17:54:57.8513644Z ./vhdbuilder/packer/test/run-test.sh exited with code 0
+2026-02-27T17:54:57.8514061Z
+2026-02-27T17:54:57.8514649Z Test, Scan, and Cleanup script successfully completed.
+2026-02-27T17:54:57.8514855Z
+2026-02-27T17:54:57.8515169Z
+2026-02-27T17:54:57.8516652Z [command]/usr/bin/az account clear
+2026-02-27T17:54:58.3890429Z ##[section]Finishing: Test, Scan, and Cleanup
