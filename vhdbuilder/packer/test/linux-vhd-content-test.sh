@@ -1495,30 +1495,59 @@ testBccTools () {
   return 0
 }
 
-# testWALinuxAgentInstalled verifies WALinuxAgent configuration.
-# The actual GAFamily agent installation is deferred to post-deprovision (after
-# waagent -force -deprovision+user wipes /var/lib/waagent/). The install and
-# waagent.conf configuration are handled by the post-deprovision script written
-# by cleanup-vhd.sh and called from the packer inline block.
-# At VHD test time (pre-deprovision), we only verify the components.json config.
+# testWALinuxAgentInstalled verifies that the WALinuxAgent GAFamily version was
+# installed post-deprovision and that waagent.conf is configured to use it.
+# The test runs on a VM booted from the captured VHD image, so the post-deprovision
+# script has already executed and self-deleted. We verify its *results*:
+#   1. At least one WALinuxAgent-* directory exists under /var/lib/waagent/
+#   2. The directory contains the expected artifacts (egg, HandlerManifest.json, manifest.xml)
+#   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
 
-  # Verify walinuxagent is configured in components.json
-  local downloadDir
-  downloadDir=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' "$COMPONENTS_FILEPATH")
-  if [ -z "$downloadDir" ] || [ "$downloadDir" = "null" ]; then
-    err "$test" "WALinuxAgent downloadLocation not found in components.json"
+  # Check that at least one WALinuxAgent-* directory was installed
+  local -a dirs
+  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort)
+  local dirCount=${#dirs[@]}
+  if [ "$dirCount" -lt 1 ]; then
+    err "$test" "Expected at least 1 WALinuxAgent directory under /var/lib/waagent/, found ${dirCount}"
     return 1
   fi
-  echo "$test: WALinuxAgent configured in components.json (downloadDir=${downloadDir})"
+  echo "$test: Found ${dirCount} WALinuxAgent directories: ${dirs[*]}"
 
-  # Verify the post-deprovision install script was written by cleanup-vhd.sh
-  if [ -f /opt/azure/containers/post-deprovision-walinuxagent.sh ]; then
-    echo "$test: Post-deprovision install script exists at /opt/azure/containers/post-deprovision-walinuxagent.sh"
+  # Validate the newest directory (highest version) has expected artifacts
+  local installDir="${dirs[-1]}"
+  echo "$test: Validating pre-cached agent directory ${installDir}"
+
+  local expectedFiles=("HandlerManifest.json" "manifest.xml")
+  for f in "${expectedFiles[@]}"; do
+    if [ ! -f "${installDir}/${f}" ]; then
+      err "$test" "Expected file ${f} not found in ${installDir}, contents: $(ls -al "${installDir}")"
+      return 1
+    fi
+    echo "$test: Found expected file ${installDir}/${f}"
+  done
+
+  local eggFile
+  eggFile=$(find "${installDir}" -maxdepth 1 -name "WALinuxAgent-*.egg" -print -quit 2>/dev/null) || eggFile=""
+  if [ -z "${eggFile}" ]; then
+    err "$test" "WALinuxAgent egg file not found in ${installDir}, contents: $(ls -al "${installDir}")"
+    return 1
+  fi
+  echo "$test: Found egg file ${eggFile}"
+
+  # Verify waagent.conf has the expected AutoUpdate settings
+  if grep -q '^AutoUpdate.Enabled=y' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.Enabled=y"
   else
-    err "$test" "Post-deprovision WALinuxAgent install script not found — cleanup-vhd.sh may not have run yet"
+    err "$test" "waagent.conf missing AutoUpdate.Enabled=y"
+    return 1
+  fi
+  if grep -q '^AutoUpdate.UpdateToLatestVersion=n' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.UpdateToLatestVersion=n"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.UpdateToLatestVersion=n"
     return 1
   fi
 
