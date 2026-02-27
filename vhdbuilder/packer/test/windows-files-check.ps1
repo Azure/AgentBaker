@@ -21,6 +21,7 @@ $SkipMapForSignature = @{
     "aks-windows-cse-scripts-v0.0.32.zip"      = @();
     "azure-vnet-cni-windows-amd64-v1.6.21.zip" = @();
     "azure-vnet-cni-windows-amd64-v1.5.38.zip" = @();
+    "oras_1.3.0_windows_amd64.zip"             = @();
 }
 
 $SkipSignatureCheckForBinaries = @{
