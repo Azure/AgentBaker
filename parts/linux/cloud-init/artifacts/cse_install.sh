@@ -318,7 +318,15 @@ installWALinuxAgent() {
 
     # Step 2: Extract and decode the ExtensionsConfig URL
     local extensions_config_url
-    extensions_config_url=$(echo "${goalstate}" | grep -oP '<ExtensionsConfig>\K[^<]+') || {
+    extensions_config_url=$(echo "${goalstate}" | python3 -c "
+import sys, re
+content = sys.stdin.read()
+m = re.search(r'<ExtensionsConfig>([^<]+)</ExtensionsConfig>', content)
+if m:
+    print(m.group(1))
+else:
+    sys.exit(1)
+") || {
         echo "ERROR: Failed to extract ExtensionsConfig URL from goalstate"
         return 1
     }
@@ -332,22 +340,38 @@ installWALinuxAgent() {
         return 1
     }
 
-    # Step 4: Extract the GAFamily version — this is the version the waagent daemon targets
-    local version
-    version=$(echo "${extensions_config}" | grep -A 10 '<GAFamily>' | grep -oP '<Version>\K[^<]+' | head -n 1)
-    if [ -z "${version}" ]; then
-        echo "ERROR: No GAFamily version found in extensions config"
+    # Step 4: Extract the GAFamily version and first manifest URI using python3 regex.
+    # We use python3 instead of grep because:
+    # - grep -A N is fragile when the number of <Uri> entries varies by region
+    # - grep -oP (PCRE \K) has portability issues across distros/configurations
+    # - The GAFamily block can span many lines; python3 re.DOTALL handles this cleanly
+    local ga_family_info
+    ga_family_info=$(echo "${extensions_config}" | python3 -c "
+import sys, re
+content = sys.stdin.read()
+# Extract version from the GAFamily block
+vm = re.search(r'<GAFamily>.*?<Version>([^<]+)</Version>', content, re.DOTALL)
+if not vm:
+    print('ERROR: No GAFamily version found', file=sys.stderr)
+    sys.exit(1)
+# Extract first URI from the GAFamily block
+um = re.search(r'<GAFamily>.*?<Uri>([^<]+)</Uri>', content, re.DOTALL)
+if not um:
+    print('ERROR: No GAFamily manifest URI found', file=sys.stderr)
+    sys.exit(1)
+print(vm.group(1))
+print(um.group(1))
+") || {
+        echo "ERROR: Failed to parse GAFamily from extensions config"
         return 1
-    fi
+    }
+
+    local version
+    version=$(echo "${ga_family_info}" | head -n 1)
     echo "GAFamily version: ${version}"
 
-    # Step 5: Extract the first manifest URI from the GAFamily element
     local manifest_url
-    manifest_url=$(echo "${extensions_config}" | grep -A 100 '<GAFamily>' | grep -oP '<Uri>\K[^<]+' | head -n 1)
-    if [ -z "${manifest_url}" ]; then
-        echo "ERROR: No GAFamily manifest URI found in extensions config"
-        return 1
-    fi
+    manifest_url=$(echo "${ga_family_info}" | tail -n 1)
     # Fix XML-escaped ampersands in SAS query parameters (same issue as extensions config URL)
     manifest_url=$(echo "${manifest_url}" | sed 's/&amp;/\&/g')
 
