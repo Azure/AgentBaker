@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -18,12 +19,16 @@ import (
 )
 
 const (
-	// nvidiaDevicePluginImage is the upstream NVIDIA device plugin image from MCR.
-	// This is intentionally different from components.json which tracks the systemd-packaged version.
-	// This test validates the upstream container-based deployment model.
-	// renovate: datasource=docker depName=mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin
-	nvidiaDevicePluginImage = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2"
+	// nvidiaDevicePluginDownloadURL is the download URL pattern for the NVIDIA device plugin
+	// container image in components.json. The version is managed via Renovate.
+	nvidiaDevicePluginDownloadURL = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:*"
 )
+
+// getNvidiaDevicePluginImage returns the full container image URL for the NVIDIA device plugin
+// by reading the version from components.json GPUContainerImages section.
+func getNvidiaDevicePluginImage() string {
+	return components.GetGPUContainerImage(nvidiaDevicePluginDownloadURL)
+}
 
 // Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests that a GPU node can function correctly
 // with the NVIDIA device plugin deployed as a Kubernetes DaemonSet instead of a systemd service.
@@ -154,7 +159,7 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 					Containers: []corev1.Container{
 						{
 							Name:  "nvidia-device-plugin-ctr",
-							Image: nvidiaDevicePluginImage,
+							Image: getNvidiaDevicePluginImage(),
 							Env: []corev1.EnvVar{
 								{
 									Name:  "FAIL_ON_INIT_ERROR",

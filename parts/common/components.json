@@ -816,6 +816,13 @@
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
           "latestVersion": "550.144.06-20260126030228"
       }
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:*",
+      "gpuVersion": {
+        "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/nvidia/k8s-device-plugin",
+        "latestVersion": "v0.18.2-1"
+      }
     }
   ],
   "Packages": [
