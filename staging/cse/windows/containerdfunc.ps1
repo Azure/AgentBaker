@@ -243,14 +243,24 @@ function Set-BootstrapProfileRegistryContainerdHost {
     "mcr.microsoft.com"
   }
   $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $registryPath = Join-Path $rootRegistryPath $mcrRegistry
-  $hostsTomlPath = Join-Path $registryPath "hosts.toml"
+  $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
 
   $registryHost = [string]$global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
-  $registryHost = ($registryHost -replace '^https?://', '').TrimEnd('/').Split('/')[0]
-  $registryHost = "$registryHost/v2"
+  $registryHost = ($registryHost -replace '^https?://', '').TrimEnd('/')
 
-  Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
+  $registryHostParts = $registryHost.Split('/', 2)
+  $registryHostName = $registryHostParts[0]
+  $registryRepoPrefix = if ($registryHostParts.Length -gt 1) { $registryHostParts[1].Trim('/') } else { "" }
+
+  $registryHost = if ([string]::IsNullOrEmpty($registryRepoPrefix)) {
+    "$registryHostName/v2"
+  }
+  else {
+    "$registryHostName/v2/$registryRepoPrefix"
+  }
+
+  Create-Directory -FullPath $mcrRegistryPath -DirectoryUsage "storing containerd registry hosts config"
 
   $content = @"
 server = "https://$mcrRegistry"

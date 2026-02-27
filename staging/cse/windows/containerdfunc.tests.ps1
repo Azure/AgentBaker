@@ -339,6 +339,15 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
     }
     $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\my.mcr.mirror\hosts.toml"
     $script:capturedContent | Should -Match 'server = "https://my.mcr.mirror"'
-    $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2"\]'
+    $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2/some/path"\]'
+  }
+
+  It "Should map host with repository prefix to v2 path" {
+    $global:MCR_REPOSITORY_BASE = "mcr.microsoft.com"
+    $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "myacr.azurecr.io/aaa"
+
+    Set-BootstrapProfileRegistryContainerdHost
+
+    $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2/aaa"\]'
   }
 }
