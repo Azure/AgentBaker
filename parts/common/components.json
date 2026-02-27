@@ -1614,37 +1614,37 @@
               {
                 "k8sVersion": "1.28",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.28.101-6-azlinux3"
+                "latestVersion": "v1.34.1-6-azlinux3"
               },
               {
                 "k8sVersion": "1.29",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.29.100-3-azlinux3"
+                "latestVersion": "v1.34.1-3-azlinux3"
               },
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.30.100-3-azlinux3"
+                "latestVersion": "v1.34.1-3-azlinux3"
               },
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.31.14-1-azlinux3"
+                "latestVersion": "v1.35.1-1-azlinux3"
               },
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.32.11-1-azlinux3"
+                "latestVersion": "v1.35.1-1-azlinux3"
               },
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.33.7-1-azlinux3"
+                "latestVersion": "v1.35.1-1-azlinux3"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.34.3-1-azlinux3"
+                "latestVersion": "v1.35.1-1-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
