@@ -380,7 +380,8 @@
     },
     {
       "matchPackageNames": [
-        "nvidia-device-plugin"
+        "nvidia-device-plugin",
+        "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin"
       ],
       "groupName": "nvidia-device-plugin",
       "assignees": [
@@ -682,6 +683,18 @@
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "update container image versions in e2e Go test files",
+      "managerFilePatterns": [
+        "/e2e/.*\\.go/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "//\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*\\S+\\s*=\\s*\"(?<depName2>[^:]+):(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "customDatasources": {
