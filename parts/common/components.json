@@ -879,19 +879,19 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.30.10"
+                "latestVersion": "1.30.15"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.31.4"
+                "latestVersion": "1.31.9"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.32.3"
+                "latestVersion": "1.32.8"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.33.2"
+                "latestVersion": "1.33.3"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
