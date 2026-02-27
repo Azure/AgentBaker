@@ -1027,6 +1027,29 @@ exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
             The output should include "aks-hosts-setup timer enabled successfully."
             The file "$AKS_CLOUD_ENV_FILE" should be exist
         End
+
+        It 'should fail when TARGET_CLOUD is unset'
+            unset TARGET_CLOUD
+            When call enableAKSHostsSetup
+            The status should be failure
+            The output should include "ERROR: TARGET_CLOUD is not set"
+            The output should include "Cannot run aks-hosts-setup without knowing cloud environment"
+        End
+
+        It 'should fail when TARGET_CLOUD is empty string'
+            TARGET_CLOUD=""
+            When call enableAKSHostsSetup
+            The status should be failure
+            The output should include "ERROR: TARGET_CLOUD is not set"
+            The output should include "Cannot run aks-hosts-setup without knowing cloud environment"
+        End
+
+        It 'should log TARGET_CLOUD value when set'
+            TARGET_CLOUD="AzurePublicCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Setting TARGET_CLOUD=AzurePublicCloud for aks-hosts-setup"
+        End
     End
 
     Describe 'configureAndStartSecureTLSBootstrapping'
