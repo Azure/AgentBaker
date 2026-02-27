@@ -22,6 +22,12 @@ package components
 	gpuVersion:   #VersionV2
 }
 
+#E2EContainerImage: {
+	name:        string
+	downloadURL: string
+	version:     #VersionV2
+}
+
 #WindowsVersion: {
 	comment?:                string
 	k8sVersion?:             string
@@ -33,6 +39,7 @@ package components
 
 #Images: [...#ContainerImage]
 #GPUImages: [...#GPUContainerImage]
+#E2EImages: [...#E2EContainerImage]
 #Packages: [...#Package]
 #OCIArtifacts: [...#OCIArtifact]
 #VersionV2: {
@@ -113,6 +120,7 @@ package components
 	ContainerImages: #Images
 	Packages:        #Packages
 	GPUContainerImages?: #GPUImages
+	E2EContainerImages?: #E2EImages
 	OCIArtifacts?: #OCIArtifacts
 }
 

@@ -19,15 +19,15 @@ import (
 )
 
 const (
-	// nvidiaDevicePluginDownloadURL is the download URL pattern for the NVIDIA device plugin
-	// container image in components.json. The version is managed via Renovate.
-	nvidiaDevicePluginDownloadURL = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:*"
+	// nvidiaDevicePluginImageName is the name of the NVIDIA device plugin container image
+	// in components.json E2EContainerImages section. The version is managed via Renovate.
+	nvidiaDevicePluginImageName = "nvidia-k8s-device-plugin"
 )
 
 // getNvidiaDevicePluginImage returns the full container image URL for the NVIDIA device plugin
-// by reading the version from components.json GPUContainerImages section.
+// by reading the version from components.json E2EContainerImages section.
 func getNvidiaDevicePluginImage() string {
-	return components.GetGPUContainerImage(nvidiaDevicePluginDownloadURL)
+	return components.GetE2EContainerImage(nvidiaDevicePluginImageName)
 }
 
 // Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests that a GPU node can function correctly
