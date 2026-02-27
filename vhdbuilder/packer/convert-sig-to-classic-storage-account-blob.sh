@@ -27,7 +27,7 @@ az storage blob copy start \
   --destination-blob "${BLOB_NAME}" \
   --destination-container "${VHD_STAGING_CONTAINER_NAME}" \
   --account-name "${TME_STORAGE_ACCOUNT_NAME}" \
-  --source-uri "${sas}" \
+  --source-uri "${CLASSIC_BLOB}/${BLOB_NAME}?${sas}" \
   --auth-mode login
 
 if [ "${OS_TYPE,,}" = "windows" ]; then
