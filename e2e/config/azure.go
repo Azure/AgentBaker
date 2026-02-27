@@ -469,7 +469,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 
 	_, getImageError := imagesClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, &armcompute.GalleryImagesClientGetOptions{})
 	if getImageError != nil {
-		return "", fmt.Errorf("image does not exist in galery: %v", getImageError)
+		return "", fmt.Errorf("image does not exist in gallery: %v", getImageError)
 	}
 
 	imageVersionsClient, imageVersionsClientErr := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
