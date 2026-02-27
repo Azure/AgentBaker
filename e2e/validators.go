@@ -758,9 +758,9 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
 
-	if s.VHD.OS == config.OSACL {
-		unitFailureAllowList["update-ssh-keys-after-ignition.service"] = true
-	}
+	// if s.VHD.OS == config.OSACL {
+	// 	unitFailureAllowList["update-ssh-keys-after-ignition.service"] = true
+	// }
 
 	type systemdUnit struct {
 		Name string `json:"unit,omitempty"`

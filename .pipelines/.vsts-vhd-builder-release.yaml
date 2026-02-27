@@ -867,7 +867,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260225.1056821'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260227.1058255'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
