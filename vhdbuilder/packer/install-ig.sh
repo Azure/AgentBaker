@@ -4,34 +4,15 @@
 
 set -euo pipefail
 
-IG_DEFAULT_BUILD_ROOT="/opt/azure/ig"
 IG_SERVICE_NAME="ig-import-gadgets.service"
 IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 
-ig_extract_package_metadata() {
-    local package_json="$1"
-    local version="$2"
-
-    local revision
-    if ! revision=$(jq -r --arg version "${version}" '.downloadURIs.default.current.versionsV2[]? | select(.latestVersion == $version) | .revision // empty' <<<"${package_json}"); then
-        echo "[ig] Failed to parse revision for Inspektor Gadget from components metadata"
-        return 1
-    fi
-
-    if [[ -z "${revision}" || "${revision}" == "null" ]]; then
-        if ! revision=$(jq -r '.revision // empty' <<<"${package_json}"); then
-            echo "[ig] Failed to read fallback revision for Inspektor Gadget"
-            return 1
-        fi
-    fi
-
-    if [[ -z "${revision}" || "${revision}" == "null" ]]; then
-        echo "[ig] Unable to determine revision for Inspektor Gadget version ${version}"
-        return 1
-    fi
-
-    echo "${revision}"
-}
+# ig-gadgets is built independently from ig (separate Dalec specs), so versions
+# are managed separately here rather than derived from the ig version.
+# NOTE: ig-gadgets deb is only published to the 20.04 repo on PMC, even though
+# the project only builds 22.04 and 24.04 VHDs. The 20.04 deb is compatible.
+IG_GADGETS_DEB_VERSION="0.49.1-ubuntu20.04u1"
+IG_GADGETS_RPM_VERSION="0.49.1-1.azl3"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)
@@ -102,18 +83,17 @@ ig_import_gadgets() {
 }
 
 ig_install_deb_stack() {
-    local download_dir="${IG_BUILD_ROOT}/downloads"
-    mkdir -p "${download_dir}"
+    # ig deb was already downloaded via downloadPkgFromVersion to IG_BUILD_ROOT
+    local ig_deb="${IG_BUILD_ROOT}/ig_${IG_VERSION}_${IG_DEB_ARCH}.deb"
+    if [[ ! -f "${ig_deb}" ]]; then
+        echo "[ig] ig deb not found at ${ig_deb}"
+        return 1
+    fi
 
-    local ig_tag="${IG_VERSION}-ubuntu18.04u${IG_REVISION}"
-    local ig_deb="${download_dir}/ig_${ig_tag}_${IG_DEB_ARCH}.deb"
-    local ig_url="https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/i/ig/ig_${ig_tag}_${IG_DEB_ARCH}.deb"
+    # ig-gadgets: always from ubuntu 20.04 repo, version managed independently
+    local ig_gadgets_deb="${IG_BUILD_ROOT}/ig-gadgets_${IG_GADGETS_DEB_VERSION}_${IG_DEB_ARCH}.deb"
+    local ig_gadgets_url="https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/i/ig-gadgets/ig-gadgets_${IG_GADGETS_DEB_VERSION}_${IG_DEB_ARCH}.deb"
 
-    local ig_gadgets_tag="${IG_VERSION}-ubuntu20.04u${IG_REVISION}"
-    local ig_gadgets_deb="${download_dir}/ig-gadgets_${ig_gadgets_tag}_${IG_DEB_ARCH}.deb"
-    local ig_gadgets_url="https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/i/ig-gadgets/ig-gadgets_${ig_gadgets_tag}_${IG_DEB_ARCH}.deb"
-
-    ig_download_file "${ig_url}" "${ig_deb}" || return 1
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_deb}" || return 1
 
     if ! apt_get_install 30 1 600 "${ig_deb}" "${ig_gadgets_deb}"; then
@@ -127,26 +107,16 @@ ig_install_rpm_stack() {
     mkdir -p "${download_dir}"
 
     local rpm_arch_dir="${IG_RPM_ARCH}"
+    local rpm_repo="https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native"
 
-    local rpm_repo="https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native"
-    local gadgets_repo="https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native"
-    local rpm_suffix="cm2"
-
-    if [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
-        rpm_repo="https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native"
-        gadgets_repo="https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native"
-        rpm_suffix="azl3"
-    fi
-
-    local ig_version_tag="${IG_VERSION}-${IG_REVISION}.${rpm_suffix}"
-    local ig_rpm="${download_dir}/ig-${ig_version_tag}.${IG_RPM_ARCH}.rpm"
-    local ig_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-${ig_version_tag}.${IG_RPM_ARCH}.rpm"
+    # IG_VERSION is the full version tag from components.json (e.g. "0.45.0-1.azl3")
+    local ig_rpm="${download_dir}/ig-${IG_VERSION}.${IG_RPM_ARCH}.rpm"
+    local ig_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-${IG_VERSION}.${IG_RPM_ARCH}.rpm"
     ig_download_file "${ig_url}" "${ig_rpm}" || return 1
 
-    local ig_gadgets_repo_suffix="azl3"
-    local ig_gadgets_version_tag="${IG_VERSION}-${IG_REVISION}.${ig_gadgets_repo_suffix}"
-    local ig_gadgets_rpm="${download_dir}/ig-gadgets-${ig_gadgets_version_tag}.${IG_RPM_ARCH}.rpm"
-    local ig_gadgets_url="${gadgets_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${ig_gadgets_version_tag}.${IG_RPM_ARCH}.rpm"
+    # ig-gadgets: version managed independently from ig
+    local ig_gadgets_rpm="${download_dir}/ig-gadgets-${IG_GADGETS_RPM_VERSION}.${IG_RPM_ARCH}.rpm"
+    local ig_gadgets_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${IG_GADGETS_RPM_VERSION}.${IG_RPM_ARCH}.rpm"
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_rpm}" || return 1
 
     if ! dnf_install 30 1 600 "${ig_rpm}" "${ig_gadgets_rpm}"; then
@@ -163,44 +133,30 @@ ig_cleanup_build_artifacts() {
 
 ig_log_version() {
     if [[ -n "${VHD_LOGS_FILEPATH:-}" ]]; then
-        echo "  - ig version ${IG_VERSION}-${IG_REVISION}" >> "${VHD_LOGS_FILEPATH}"
+        echo "  - ig version ${IG_VERSION}" >> "${VHD_LOGS_FILEPATH}"
     fi
 }
 
 installIG() {
-    local package_json="$1"
-    local version="$2"
-    local download_dir="$3"
+    local version="$1"
+    local download_dir="$2"
 
     if [[ -z "${version}" || "${version}" == "null" ]]; then
         echo "[ig] Invalid or empty Inspektor Gadget version"
         return 1
     fi
 
-    local revision
-    if ! revision=$(ig_extract_package_metadata "${package_json}" "${version}"); then
-        return 1
-    fi
-
     IG_VERSION="${version}"
-    IG_REVISION="${revision}"
 
     IG_BUILD_ROOT="${download_dir}"
     if [[ -z "${IG_BUILD_ROOT}" || "${IG_BUILD_ROOT}" == "null" ]]; then
-        IG_BUILD_ROOT="${IG_DEFAULT_BUILD_ROOT}"
+        echo "[ig] download_dir is required"
+        return 1
     fi
 
     ig_detect_arch || return 1
 
     mkdir -p "${IG_BUILD_ROOT}"
-
-    # For Mariner, OSGuard, and Flatcar, skip IG installation entirely during VHD build
-    # install-ig.sh is only present for sourcing by install-dependencies.sh
-    if [[ "${OS}" == "${MARINER_OS_NAME}" || ("${OS}" == "${AZURELINUX_OS_NAME}" && "${OS_VARIANT}" == "${AZURELINUX_OSGUARD_OS_VARIANT}") || "${OS}" == "FLATCAR" ]]; then
-        echo "[ig] Skipping IG installation for ${OS} ${OS_VARIANT:-default} - no files will be staged in VHD"
-        ig_cleanup_build_artifacts
-        return 0
-    fi
 
     if [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
         echo "[ig] Installing IG via RPM"

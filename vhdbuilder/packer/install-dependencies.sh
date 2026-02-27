@@ -420,8 +420,14 @@ while IFS= read -r p; do
         echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
-        # installIG is defined in install-ig.sh
-        installIG "${p}" "${ig_version}" "${downloadDir}"
+        if isUbuntu "$OS"; then
+          # Ubuntu: download ig deb via apt; ig_install_deb_stack expects it at downloadDir
+          downloadPkgFromVersion "ig" "${ig_version}" "${downloadDir}"
+          installIG "${ig_version}" "${downloadDir}"
+        elif isAzureLinux "$OS"; then
+          # Azure Linux 3.0: ig_install_rpm_stack handles its own RPM downloads
+          installIG "${ig_version}" "${downloadDir}"
+        fi
       fi
       ;;
     "kubernetes-binaries")
