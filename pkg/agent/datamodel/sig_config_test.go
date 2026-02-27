@@ -12,7 +12,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSUbuntuFipsContainerd2004Gen2:       SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuFipsContainerd2204:           SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(),
 			AKSUbuntuFipsContainerd2204Gen2:       SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(),
-			AKSUbuntuFipsTLContainerd2204Gen2:     SIGUbuntuFipsTLContainerd2204Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd2204TLGen2:     SIGUbuntuFipsContainerd2204TLGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuArm64Containerd2204Gen2:      SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuArm64Containerd2404Gen2:      SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuArm64GB200Containerd2404Gen2: SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.WithOptions(),

@@ -58,16 +58,10 @@ type nodeBootstrappingOutput struct {
 }
 
 type decodedValue struct {
-	encoding cseVariableEncoding
+	encoding string
 	value    string
 	mode     int64
 }
-
-type cseVariableEncoding string
-
-const (
-	cseVariableEncodingGzip cseVariableEncoding = "gzip"
-)
 
 type outputValidator func(*nodeBootstrappingOutput)
 
@@ -1628,6 +1622,18 @@ oom_score = -999
 				Expect(exist).To(BeFalse())
 			},
 		),
+		Entry("CustomizedImageLinuxGuard write_files should not target /usr/ paths", "CustomizedImageLinuxGuard", "1.24.2",
+			func(c *datamodel.NodeBootstrappingConfiguration) {
+				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageLinuxGuard
+			}, func(o *nodeBootstrappingOutput) {
+				for path := range o.files {
+					Expect(path).NotTo(HavePrefix("/usr/"), "OSGuard has /usr/ read-only (dm-verity), write_files must not target /usr/ paths: %s", path)
+				}
+			},
+		),
 		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = datamodel.OSSKUFlatcar
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
@@ -2345,7 +2351,7 @@ func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
 		return nil, err
 	}
 	contents := decodeddata.Data
-	if input.Compression != nil && *input.Compression == "gzip" {
+	if input.Compression != nil && *input.Compression == encodingGZIP {
 		contents, err = getGzipDecodedValue(contents)
 		if err != nil {
 			return nil, err
@@ -2398,7 +2404,7 @@ func writeInnerCustomData(outputname, customData string) error {
 			"overwrite": true,
 			"mode":      entry.mode,
 			"contents": map[string]interface{}{
-				"compression": "gzip",
+				"compression": encodingGZIP,
 				"source":      "data:;base64," + base64.StdEncoding.EncodeToString(gzippedContents),
 			},
 		})
@@ -2484,17 +2490,17 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	var files = make(map[string]*decodedValue)
 
 	for _, val := range customData.WriteFiles {
-		var encoding cseVariableEncoding
+		var encoding string
 		maybeEncodedValue := val.Content
 
-		if strings.Contains(val.Encoding, "gzip") {
+		if strings.Contains(val.Encoding, encodingGZIP) {
 			if maybeEncodedValue != "" {
 				output, err := getGzipDecodedValue([]byte(maybeEncodedValue))
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode gzip value: %q with error %w", maybeEncodedValue, err)
 				}
 				maybeEncodedValue = string(output)
-				encoding = cseVariableEncodingGzip
+				encoding = encodingGZIP
 			}
 		}
 
@@ -3036,7 +3042,7 @@ var _ = Describe("cloudInitToButane", func() {
 			{
 				Path:        "/etc/test-gzip",
 				Permissions: "0644",
-				Encoding:    "gzip",
+				Encoding:    encodingGZIP,
 				Content:     string(gzipped),
 			},
 		}}
@@ -3115,7 +3121,7 @@ func decodeButaneResource(resource base0_5.Resource) ([]byte, error) {
 		return nil, err
 	}
 	contents := decodeddata.Data
-	if resource.Compression != nil && *resource.Compression == "gzip" {
+	if resource.Compression != nil && *resource.Compression == encodingGZIP {
 		contents, err = getGzipDecodedValue(contents)
 		if err != nil {
 			return nil, err

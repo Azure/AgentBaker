@@ -25,7 +25,6 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -204,6 +203,9 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "azurelinuxv3 scenario on a cluster configured with Azure CNI",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -314,6 +316,9 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -360,6 +365,9 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
@@ -385,6 +393,9 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,
@@ -1410,6 +1421,62 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_MA35D(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
+				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			},
+		},
+		// No MA35D GPU capacity in West US, so using East US
+		Location:         "eastus",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+	})
+}
+
+func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			},
+		},
+		// No MA35D GPU capacity in West US, so using East US
+		Location:         "eastus",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+	})
+}
+
 func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
@@ -1659,6 +1726,9 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 func Test_Ubuntu2404Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -1978,7 +2048,6 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {

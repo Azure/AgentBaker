@@ -86,6 +86,8 @@ installKubeletKubectlFromBootstrapProfileRegistry() {
 
 installCredentialProviderFromPkg() {
     if mergeSysexts azure-acr-credential-provider "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/azure-acr-credential-provider-sysext "$1"; then
+        mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+        chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
         ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
     else
         installCredentialProviderFromUrl
