@@ -1270,12 +1270,14 @@ EOF
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
             TEST_DIR="/tmp/localdnstest-$$"
-            HOSTS_FILE="/etc/localdns/hosts"
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
+            UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/opt/azure/containers/localdns/updated.localdns.corefile"
+            LOCALDNS_HOSTS_FILE="${TEST_DIR}/etc/localdns/hosts"
 
             # Create test directories
-            mkdir -p "$(dirname "$HOSTS_FILE")"
             mkdir -p "$(dirname "$KUBECONFIG")"
+            mkdir -p "$(dirname "$UPDATED_LOCALDNS_CORE_FILE")"
+            mkdir -p "$(dirname "$LOCALDNS_HOSTS_FILE")"
 
             # Mock hostname command
             hostname() {
@@ -1284,41 +1286,82 @@ EOF
         }
         cleanup() {
             rm -rf "$TEST_DIR"
-            rm -rf "/etc/localdns"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
         #------------------------- annotate_node_with_hosts_plugin_status ----------------------------------------------
-        It 'should skip annotation if hosts file does not exist'
-            rm -f "$HOSTS_FILE"
+        It 'should skip annotation if corefile does not exist'
+            rm -f "$UPDATED_LOCALDNS_CORE_FILE"
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Hosts plugin file /etc/localdns/hosts does not exist, skipping annotation."
+            The stdout should include "Localdns corefile not found"
+            The stdout should include "skipping annotation."
         End
 
-        It 'should skip annotation if hosts file is empty'
-            > "$HOSTS_FILE"
+        It 'should skip annotation if corefile does not contain hosts plugin block'
+            # Create corefile without hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
+            The stdout should include "Localdns corefile does not contain hosts plugin block, skipping annotation."
+        End
+
+        It 'should skip annotation if hosts file does not exist'
+            # Create corefile with hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            rm -f "$LOCALDNS_HOSTS_FILE"
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Hosts file does not exist"
+            The stdout should include "skipping annotation despite corefile having hosts plugin."
         End
 
         It 'should skip annotation if hosts file has no IP mappings'
-            cat > "$HOSTS_FILE" <<EOF
-# This is a comment
-# Another comment line
+            # Create corefile with hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            # Create empty hosts file
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# Empty hosts file
 EOF
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
+            The stdout should include "Hosts file exists but has no IP mappings, skipping annotation."
         End
 
         It 'should skip annotation if kubectl binary is not found'
-            cat > "$HOSTS_FILE" <<EOF
-10.0.0.1 mcr.microsoft.com
-10.0.0.2 example.com
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
 EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 packages.aks.azure.com
+EOF
+
             command() {
                 if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
                     return 1
@@ -1330,10 +1373,19 @@ EOF
         End
 
         It 'should timeout and skip annotation if kubeconfig does not exist after waiting'
-            cat > "$HOSTS_FILE" <<EOF
-10.0.0.1 mcr.microsoft.com
-10.0.0.2 example.com
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
 EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+
             command() {
                 if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
                     return 0
@@ -1348,107 +1400,73 @@ EOF
             The stdout should include "Timeout waiting for kubeconfig"
         End
 
-        It 'should set annotation successfully when hosts file has IPv4 mappings'
-            cat > "$HOSTS_FILE" <<EOF
+        It 'should set annotation successfully when using corefile with hosts plugin'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# AKS critical FQDN addresses
 10.0.0.1 mcr.microsoft.com
-10.0.0.2 example.com
+10.0.0.2 packages.aks.azure.com
+10.0.0.3 management.azure.com
 EOF
             touch "$KUBECONFIG"
 
-            # Create mock kubectl binary
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
+            # Create mock kubectl binary in system path
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-if [[ "$1" == "annotate" && "$2" == "--overwrite" && "$3" == "node" ]]; then
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "annotate" && "$2" == "--overwrite" && "$3" == "node" ]]; then
     echo "node/testnode123 annotated"
     exit 0
 fi
 exit 1
 KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-
-            # Mock command to find kubectl
-            command() {
-                if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
-                    echo "$MOCK_KUBECTL_DIR/kubectl"
-                    return 0
-                fi
-                builtin command "$@"
-            }
-
-            # Override /opt/bin/kubectl path to use our mock
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
+            chmod +x /opt/bin/kubectl
 
             When run annotate_node_with_hosts_plugin_status
             The status should be success
+            The stdout should include "Localdns is using hosts plugin and hosts file has 3 entries."
             The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
             The stdout should include "Successfully set hosts plugin annotation."
         End
 
-        It 'should set annotation successfully when hosts file has IPv6 mappings'
-            cat > "$HOSTS_FILE" <<EOF
-2001:db8::1 ipv6.example.com
-2001:db8::2 another.example.com
-EOF
-            touch "$KUBECONFIG"
-
-            # Create mock kubectl binary
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
-#!/bin/bash
-echo "node/testnode123 annotated"
-exit 0
-KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
-
-            When run annotate_node_with_hosts_plugin_status
-            The status should be success
-            The stdout should include "Successfully set hosts plugin annotation."
-        End
-
-        It 'should set annotation successfully when hosts file has mixed IPv4 and IPv6 mappings'
-            cat > "$HOSTS_FILE" <<EOF
-10.0.0.1 mcr.microsoft.com
-2001:db8::1 ipv6.example.com
-10.0.0.2 example.com
-EOF
-            touch "$KUBECONFIG"
-
-            # Create mock kubectl binary
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
-#!/bin/bash
-echo "node/testnode123 annotated"
-exit 0
-KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
-
-            When run annotate_node_with_hosts_plugin_status
-            The status should be success
-            The stdout should include "Successfully set hosts plugin annotation."
-        End
-
         It 'should handle kubectl annotation failure gracefully (non-fatal)'
-            cat > "$HOSTS_FILE" <<EOF
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
 10.0.0.1 mcr.microsoft.com
 EOF
             touch "$KUBECONFIG"
 
             # Create mock kubectl binary that fails
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-echo "Error: failed to annotate node" >&2
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "annotate" ]]; then
+    echo "Error: failed to annotate node" >&2
+    exit 1
+fi
 exit 1
 KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
+            chmod +x /opt/bin/kubectl
 
             When run annotate_node_with_hosts_plugin_status
             The status should be success
@@ -1457,17 +1475,27 @@ KUBECTL_EOF
         End
 
         It 'should convert hostname to lowercase for node name'
-            cat > "$HOSTS_FILE" <<EOF
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
 10.0.0.1 mcr.microsoft.com
 EOF
             touch "$KUBECONFIG"
 
             # Create mock kubectl binary that verifies lowercase node name
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-if [[ "$3" == "node" && "$4" == "testnode123" ]]; then
+if [[ "$1" == "get" && "$2" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "annotate" && "$3" == "node" && "$4" == "testnode123" ]]; then
     echo "node/testnode123 annotated (lowercase verified)"
     exit 0
 else
@@ -1475,75 +1503,36 @@ else
     exit 1
 fi
 KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
+            chmod +x /opt/bin/kubectl
 
             When run annotate_node_with_hosts_plugin_status
             The status should be success
             The stdout should include "Successfully set hosts plugin annotation."
-        End
-
-        It 'should skip annotation if hosts file has only comments and whitespace'
-            cat > "$HOSTS_FILE" <<EOF
-# Comment line 1
-  # Comment line 2 with leading spaces
-
-# Comment line 3
-EOF
-            When run annotate_node_with_hosts_plugin_status
-            The status should be success
-            The stdout should include "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
-        End
-
-        It 'should detect valid IP mapping even with comments present'
-            cat > "$HOSTS_FILE" <<EOF
-# This is a comment
-10.0.0.1 mcr.microsoft.com
-# Another comment
-EOF
-            touch "$KUBECONFIG"
-
-            # Create mock kubectl binary
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
-#!/bin/bash
-echo "node/testnode123 annotated"
-exit 0
-KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
-
-            When run annotate_node_with_hosts_plugin_status
-            The status should be success
-            The stdout should include "Successfully set hosts plugin annotation."
-        End
-
-        It 'should skip annotation if hosts file has malformed entries'
-            cat > "$HOSTS_FILE" <<EOF
-not-an-ip hostname.com
-invalid entry here
-EOF
-            When run annotate_node_with_hosts_plugin_status
-            The status should be success
-            The stdout should include "Hosts plugin file /etc/localdns/hosts has no IP mappings, skipping annotation."
         End
 
         It 'should wait for node to be registered before annotating'
-            cat > "$HOSTS_FILE" <<EOF
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
 10.0.0.1 mcr.microsoft.com
 EOF
             touch "$KUBECONFIG"
 
             # Create mock kubectl binary that simulates node not registered initially
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
+            mkdir -p /opt/bin
 
             # Create a counter file to track attempts
             ATTEMPT_FILE="${TEST_DIR}/attempt_count"
             echo "0" > "$ATTEMPT_FILE"
 
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<KUBECTL_EOF
+            cat > /opt/bin/kubectl <<KUBECTL_EOF
 #!/bin/bash
 ATTEMPT_FILE="${ATTEMPT_FILE}"
 count=\$(cat "\$ATTEMPT_FILE")
@@ -1563,8 +1552,7 @@ elif [[ "\$1" == "annotate" ]]; then
 fi
 exit 1
 KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
+            chmod +x /opt/bin/kubectl
 
             # Use short timeout for testing
             NODE_REGISTRATION_WAIT_ATTEMPTS=5
@@ -1577,15 +1565,23 @@ KUBECTL_EOF
         End
 
         It 'should timeout and skip annotation if node never registers'
-            cat > "$HOSTS_FILE" <<EOF
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
 10.0.0.1 mcr.microsoft.com
 EOF
             touch "$KUBECONFIG"
 
             # Create mock kubectl that always fails to find node
-            MOCK_KUBECTL_DIR="${TEST_DIR}/opt/bin"
-            mkdir -p "$MOCK_KUBECTL_DIR"
-            cat > "$MOCK_KUBECTL_DIR/kubectl" <<'KUBECTL_EOF'
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
 if [[ "$1" == "get" && "$2" == "node" ]]; then
     echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
@@ -1593,8 +1589,7 @@ if [[ "$1" == "get" && "$2" == "node" ]]; then
 fi
 exit 1
 KUBECTL_EOF
-            chmod +x "$MOCK_KUBECTL_DIR/kubectl"
-            PATH="$MOCK_KUBECTL_DIR:$PATH"
+            chmod +x /opt/bin/kubectl
 
             # Use very short timeout for testing
             NODE_REGISTRATION_WAIT_ATTEMPTS=2

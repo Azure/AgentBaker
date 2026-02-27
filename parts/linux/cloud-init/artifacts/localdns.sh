@@ -387,7 +387,8 @@ annotate_node_with_hosts_plugin_status() {
     fi
 
     # Additionally verify that the hosts file exists and has content
-    local hosts_file="/etc/localdns/hosts"
+    # Allow overriding for testing via LOCALDNS_HOSTS_FILE environment variable
+    local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
     if [ ! -f "${hosts_file}" ]; then
         echo "Hosts file does not exist at ${hosts_file}, skipping annotation despite corefile having hosts plugin."
         return 0
