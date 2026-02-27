@@ -193,19 +193,25 @@ function Get-KubePackage {
             Write-Log "Did not find $global:KubeBinariesVersion in $mappingFile"
         }
     }
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $KubeBinariesSASURL"
-
     $zipfile = "c:\k.zip"
-    for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
-        if ($?) {
-            break
-        }
-        else {
-            Write-Log $Error[0].Exception.Message
+    if ($global:BootstrapProfileContainerRegistryServer) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinariesWithOras" -TaskMessage "Start to download kubelet binaries with oras. KubeBinariesVersion: $global:KubeBinariesVersion, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+        $global:OrasPath pull $global:BootstrapProfileContainerRegistryServer/aks/packages/kubernetes/windowszip:$global:KubeBinariesVersion --platform="windows/amd64" --registry-config=$global:OrasRegistryConfigFile --output $zipfile
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $KubeBinariesSASURL"
+
+
+        for ($i = 0; $i -le 10; $i++) {
+            DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
+            if ($?) {
+                break
+            }
+            else {
+                Write-Log $Error[0].Exception.Message
+            }
         }
     }
-    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\ 
+    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\
     Remove-Item $zipfile
 }
 

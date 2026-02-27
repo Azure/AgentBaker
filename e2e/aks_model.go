@@ -242,7 +242,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 				Port:         to.Ptr[int32](443),
 			},
 		},
-		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData)},
+		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData), to.Ptr("*")},
 	}
 
 	// Needed for access to download.microsoft.com

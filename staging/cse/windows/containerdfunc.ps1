@@ -161,7 +161,11 @@ function ProcessAndWriteContainerdConfig {
 
   # Set up registry mirrors
   Set-ContainerdRegistryConfig -Registry "docker.io" -RegistryHost "registry-1.docker.io"
-  Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+  if ((Test-Path variable:global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER) -and -not [string]::IsNullOrEmpty($global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER)) {
+    Set-BootstrapProfileRegistryContainerdHost
+  } else {
+    Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+  }
 
   if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
     # Remove annotations placeholders for older containerd versions
@@ -228,6 +232,36 @@ server = "https://$Registry"
 
   $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
+}
+
+function Set-BootstrapProfileRegistryContainerdHost {
+  $mcrRegistry = if ((Test-Path variable:global:MCR_REPOSITORY_BASE) -and
+      -not [string]::IsNullOrEmpty($global:MCR_REPOSITORY_BASE)) {
+    [string]$global:MCR_REPOSITORY_BASE
+  }
+  else {
+    "mcr.microsoft.com"
+  }
+  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
+  $registryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $hostsTomlPath = Join-Path $registryPath "hosts.toml"
+
+  $registryHost = [string]$global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+  $registryHost = ($registryHost -replace '^https?://', '').TrimEnd('/').Split('/')[0]
+  $registryHost = "$registryHost/v2"
+
+  Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
+
+  $content = @"
+server = "https://$mcrRegistry"
+
+[host."https://$registryHost"]
+  capabilities = ["pull", "resolve"]
+  override_path = true
+"@
+
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 
 function Install-Containerd {
