@@ -1160,6 +1160,13 @@ generateLocalDNSFiles() {
     chmod 0644 "${LOCALDNS_CORE_FILE}"
     echo "${corefile_content}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
+    # Log whether the generated corefile includes hosts plugin
+    if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
+        echo "Generated corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
+    else
+        echo "Generated corefile at ${LOCALDNS_CORE_FILE} DOES NOT include hosts plugin"
+    fi
+
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
@@ -1191,6 +1198,7 @@ EOF
 #                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 enableLocalDNS() {
     local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+    echo "enableLocalDNS called with corefile parameter: $(echo "${corefile_content}" | base64 -d | head -n1)"
     generateLocalDNSFiles "${corefile_content}"
 
     echo "localdns should be enabled."
@@ -1244,8 +1252,21 @@ enableAKSHostsSetup() {
     # immediately. The file will be populated by aks-hosts-setup.sh below.
     touch "${hosts_file}"
     chmod 0644 "${hosts_file}"
-    if ! "${hosts_setup_script}"; then
-        echo "Warning: Initial hosts setup failed"
+    echo "Running ${hosts_setup_script} to populate ${hosts_file}..."
+    if "${hosts_setup_script}"; then
+        echo "aks-hosts-setup script completed successfully"
+        if [ -f "${hosts_file}" ]; then
+            local entry_count=$(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" || echo "0")
+            echo "Hosts file ${hosts_file} now contains ${entry_count} DNS entries"
+            if [ "${entry_count}" -gt 0 ]; then
+                echo "Sample entries from ${hosts_file}:"
+                head -n 3 "${hosts_file}"
+            fi
+        else
+            echo "Warning: ${hosts_file} does not exist after running aks-hosts-setup"
+        fi
+    else
+        echo "Warning: Initial hosts setup failed with exit code $?"
     fi
 
     # Enable the timer for periodic refresh (every 15 minutes)
