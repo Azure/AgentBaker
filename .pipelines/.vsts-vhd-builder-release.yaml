@@ -863,7 +863,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl'
