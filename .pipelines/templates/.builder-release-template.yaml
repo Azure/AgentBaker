@@ -192,6 +192,34 @@ steps:
     displayName: Set Destination Storage Container to Staging
 
   - task: AzureCLI@2
+    displayName: Generate SAS
+    condition: succeeded()
+    retryCountOnTaskFailure: 3
+    inputs:
+      azureSubscription: $(TME_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo
+
+        az account set -s "$SUBSCRIPTION_ID"
+
+        expiry=$(date +"%Y-%m-%dT%H:%MZ" -d "+6 hour")
+        sas_token=$(az storage container generate-sas --account-name "$STORAGE_ACCOUNT_NAME" --name "$STORAGE_CONTAINER_NAME" --expiry "$expiry" --auth-mode login --permissions r --as-user | tr -d '"')
+        if [ -z "$sas_token" ]; then
+          echo "##vso[task.logissue type=error]ERROR: unable to generate user-delegation SAS token"
+          exit 1
+        fi
+
+        #TODO(cameissner): generate SAS in MSFT tenant and run copy within TME tenant, using AzCopy instead
+        echo "generated user-delegation SAS token"
+        echo "##vso[task.setvariable variable=sas_token;isSecret=true;]$sas_token"
+    env:
+      SUBSCRIPTION_ID: $(VHD_BUILD_SUBSCRIPTION_ID)
+      STORAGE_ACCOUNT_NAME: $(VHD_BUILD_STORAGE_ACCOUNT_NAME)
+      STORAGE_CONTAINER_NAME: $(VHD_BUILD_STORAGE_CONTAINER_NAME)
+
+  - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
       scriptType: bash
