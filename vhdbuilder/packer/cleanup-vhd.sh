@@ -22,7 +22,13 @@ rm -f /opt/azure/containers/imds_instance_metadata_cache.json
 OS_ID=$(. /etc/os-release 2>/dev/null && echo "${ID:-}" | tr '[:lower:]' '[:upper:]')
 OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:lower:]' '[:upper:]' | tr -d '"')
 if [ "$OS_ID" != "FLATCAR" ] && [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
-    cat > /opt/azure/containers/post-deprovision-walinuxagent.sh << 'WALINUXAGENT_SCRIPT'
+    # Read the download location from components.json rather than hardcoding it
+    WALINUXAGENT_DOWNLOAD_DIR=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' /opt/azure/components.json)
+    if [ -z "$WALINUXAGENT_DOWNLOAD_DIR" ] || [ "$WALINUXAGENT_DOWNLOAD_DIR" = "null" ]; then
+        echo "ERROR: walinuxagent downloadLocation not found in components.json"
+        exit 1
+    fi
+    cat > /opt/azure/containers/post-deprovision-walinuxagent.sh << WALINUXAGENT_SCRIPT
 #!/bin/bash -eux
 # Post-deprovision WALinuxAgent install script.
 # Sources the provisioning helpers and installs the GAFamily agent from wireserver,
@@ -42,7 +48,7 @@ source /opt/azure/containers/provision_source.sh
 source /opt/azure/containers/provision_installs.sh
 
 # Install WALinuxAgent from wireserver GAFamily manifest
-installWALinuxAgent /opt/walinuxagent/downloads
+installWALinuxAgent ${WALINUXAGENT_DOWNLOAD_DIR}
 
 # Configure waagent.conf to pick up the pre-cached agent from disk:
 # - AutoUpdate.Enabled=y tells the daemon to look for newer agent versions on disk
