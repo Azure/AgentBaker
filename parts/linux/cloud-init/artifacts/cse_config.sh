@@ -1263,9 +1263,10 @@ enableAKSHostsSetup() {
     if "${hosts_setup_script}"; then
         echo "aks-hosts-setup script completed successfully"
         if [ -f "${hosts_file}" ]; then
-            local entry_count=$(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" || echo "0")
+            local entry_count
+            entry_count=$(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null) || entry_count=0
             echo "Hosts file ${hosts_file} now contains ${entry_count} DNS entries"
-            if [ "${entry_count}" -gt 0 ]; then
+            if [ "${entry_count}" -gt 0 ] 2>/dev/null; then
                 echo "Sample entries from ${hosts_file}:"
                 head -n 3 "${hosts_file}"
             fi

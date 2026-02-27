@@ -230,8 +230,17 @@ EOF
         End
 
         It 'fails when TARGET_CLOUD is empty string'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "")
-            When run command bash "${TEST_SCRIPT}"
+            local test_script="${TEST_DIR}/aks-hosts-setup-test-empty.sh"
+            cat > "${test_script}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+HOSTS_FILE="${HOSTS_FILE}"
+export TARGET_CLOUD=""
+EOF
+            tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
+            chmod +x "${test_script}"
+
+            When run command bash "${test_script}"
             The status should be failure
             The output should include "ERROR: TARGET_CLOUD is not set"
             The output should include "Cannot determine which FQDNs to resolve"
