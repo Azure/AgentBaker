@@ -24,7 +24,7 @@
     "sig_source_resource_group": "acl",
     "sig_source_gallery_name": "acldevel",
     "sig_source_image_name": "acldevel",
-    "sig_source_image_version": "0.20260226.1057718",
+    "sig_source_image_version": "0.20260227.1058668",
     "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
