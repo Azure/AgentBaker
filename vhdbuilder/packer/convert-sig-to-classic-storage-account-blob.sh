@@ -21,7 +21,7 @@ do
     fi
 done
 
-sas=$(az storage blob generate-sas --account-name $STORAGE_ACCOUNT_NAME --container-name $VHD_CONTAINER_NAME --name $BLOB_NAME --permissions r --expiry $(date -u -d "1 hour" '+%Y-%m-%dT%H:%MZ') --https-only --auth-mode login)
+sas=$(az storage blob generate-sas --account-name $STORAGE_ACCOUNT_NAME --container-name $VHD_CONTAINER_NAME --name $BLOB_NAME --permissions r --expiry $(date -u -d "1 hour" '+%Y-%m-%dT%H:%MZ') --as-user --https-only --auth-mode login)
 
 az storage blob copy start \
   --destination-blob "${BLOB_NAME}" \
