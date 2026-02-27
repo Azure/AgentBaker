@@ -141,7 +141,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAC/yzMvQ3CQAwG0P6myALhJkgHPVJIFaWwzCdiIWzL5yBgesRP96o3Tyq5lD0ah3iK6XAkvtIF3eRnSnQj4i6MUua/lnJ6OgZTtNWyHB7gMSlyqOZZ6bUFKpsmiSJavVF80Puv7bdvu2vrOwAA//8tZX1QewAAAA==
+    H4sIAAAAAAAC/1TMsU4DMQzG8d1P0Rc4wsSWjYKqthIi16nqYKXW1SJnR46DgKdHd7B0+/SXvt/5JOwXeKaWjauzSnzD/IETbU71ik6bRPbJmQDO/+sC43elqELtpg7bL8rJ0TwGrR7wpxuFrOLIQtbCjLaMof6xQ1/Zh3YDGHkm7b6+E+X49DizAOy5lKNeKS6KaRkm017XnHgSLDHtXsft+xFeWLDc9/3ucIDfAAAA//8K+1qC1gAAAA==
 
 - path: /etc/systemd/system/snapshot-update.timer
   permissions: "0644"
