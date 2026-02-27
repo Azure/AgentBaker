@@ -965,6 +965,7 @@
     {
       "name": "oras",
       "downloadLocation": "/opt/bin",
+      "windowsDownloadLocation": "c:\\akse-cache\\oras\\",
       "downloadURIs": {
         "default": {
           "current": {
@@ -986,6 +987,17 @@
               }
             ]
           }
+        }
+      },
+      "windows": {
+        "default": {
+          "versionsV2": [
+            {
+              "renovateTag": "<DO_NOT_UPDATE>",
+              "latestVersion": "1.3.0"
+            }
+          ],
+          "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_windows_amd64.zip"
         }
       }
     },

@@ -220,6 +220,15 @@ $global:WindowsCiliumNetworkingConfiguration = "{{GetVariable "nextGenNetworking
 $global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
 $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
+# Network isolated cluster
+$global:BootstrapProfileContainerRegistryServer="{{GetBootstrapProfileContainerRegistryServer}}"
+$global:MCRRepositoryBase="{{GetMCRRepositoryBase}}"
+
+$global:OrasCacheDir="c:\\akse-cache\\oras\\"
+$global:OrasPath="c:\\aks-tools\\oras\\oras.exe"
+$global:OrasOutput="c:\\aks-tools\\oras\\oras_verbose.out"
+$global:OrasRegistryConfigFile="c:\\aks-tools\\oras\\config.yaml" # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 try {
@@ -328,6 +337,16 @@ function BasePrep {
     Configure-KubeletServingCertificateRotation
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    # oras login must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
+    if ($global:BootstrapProfileContainerRegistryServer) {
+        $registryDomainName = if ($global:MCRRepositoryBase) { $global:MCRRepositoryBase } else { "mcr.microsoft.com" }
+        $registryDomainName = $registryDomainName.TrimEnd("/")
+        if ($global:BootstrapProfileContainerRegistryServer) {
+            $registryDomainName = $global:BootstrapProfileContainerRegistryServer.Split("/")[0]
+        }
+        Oras-Login -Acr_Url $registryDomainName -ClientID $global:UserAssignedClientID -TenantID $global:TenantId
+    }
 
     # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {
