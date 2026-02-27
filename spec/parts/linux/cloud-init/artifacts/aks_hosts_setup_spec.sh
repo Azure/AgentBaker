@@ -211,7 +211,7 @@ MOCK_EOF
             The output should include "Resolving addresses for management.azure.com"
         End
 
-        It 'falls back to AzurePublicCloud when TARGET_CLOUD is unset'
+        It 'fails when TARGET_CLOUD is unset'
             local test_script="${TEST_DIR}/aks-hosts-setup-test-nocloud.sh"
             cat > "${test_script}" << EOF
 #!/usr/bin/env bash
@@ -223,9 +223,18 @@ EOF
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
-            The status should be success
-            The output should include "Detected cloud environment: AzurePublicCloud"
-            The output should include "Resolving addresses for mcr.microsoft.com"
+            The status should be failure
+            The output should include "ERROR: TARGET_CLOUD is not set"
+            The output should include "Cannot determine which FQDNs to resolve"
+            The output should include "Exiting without modifying hosts file"
+        End
+
+        It 'fails when TARGET_CLOUD is empty string'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: TARGET_CLOUD is not set"
+            The output should include "Cannot determine which FQDNs to resolve"
         End
 
         It 'includes packages.microsoft.com for all clouds (common FQDN)'
