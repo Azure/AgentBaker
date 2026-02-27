@@ -750,7 +750,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && sync && if [ -f /opt/azure/containers/post-deprovision-walinuxagent.sh ]; then /bin/bash -eux /opt/azure/containers/post-deprovision-walinuxagent.sh && rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh; fi' || exit 125"
       ]
     }
   ],

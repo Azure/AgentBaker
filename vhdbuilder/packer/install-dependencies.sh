@@ -475,6 +475,18 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "walinuxagent")
+      # WALinuxAgent GAFamily version is installed post-deprovision to survive the
+      # waagent -force -deprovision+user step that wipes /var/lib/waagent/.
+      # The install script is written by cleanup-vhd.sh and called from the packer
+      # inline block after deprovision completes.
+      # Skip on Flatcar and AzureLinuxOSGuard which use their OS-packaged version.
+      if isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        echo "  - walinuxagent skipped for ${OS}" >> ${VHD_LOGS_FILEPATH}
+      else
+        echo "  - walinuxagent (deferred to post-deprovision)" >> ${VHD_LOGS_FILEPATH}
+      fi
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.

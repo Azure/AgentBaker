@@ -296,6 +296,151 @@ downloadSecureTLSBootstrapClient() {
     echo "aks-secure-tls-bootstrap-client installed successfully"
 }
 
+# installWALinuxAgent queries the Azure wireserver to get the WALinuxAgent GAFamily
+# version and manifest, downloads the zip for that version, and installs it under
+# /var/lib/waagent/WALinuxAgent-<version>/.
+# The GAFamily version is the exact version the waagent daemon targets during
+# auto-update. Pre-caching it on disk lets the daemon pick it up locally without
+# downloading from the network at provisioning time.
+installWALinuxAgent() {
+    local downloadDir=$1
+
+    echo "Installing WALinuxAgent from wireserver GAFamily manifest..."
+
+    local WIRESERVER="http://168.63.129.16:80"
+
+    # Step 1: Get the goalstate to find the ExtensionsConfig URL
+    local goalstate
+    goalstate=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${WIRESERVER}/machine/?comp=goalstate") || {
+        echo "ERROR: Failed to fetch goalstate from wireserver"
+        return 1
+    }
+
+    # Step 2: Extract and decode the ExtensionsConfig URL
+    local extensions_config_url
+    extensions_config_url=$(echo "${goalstate}" | python3 -c "
+import sys, re
+content = sys.stdin.read()
+m = re.search(r'<ExtensionsConfig>([^<]+)</ExtensionsConfig>', content)
+if m:
+    print(m.group(1))
+else:
+    sys.exit(1)
+") || {
+        echo "ERROR: Failed to extract ExtensionsConfig URL from goalstate"
+        return 1
+    }
+    # URL-decode and fix XML-escaped ampersands
+    extensions_config_url=$(echo "${extensions_config_url}" | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))" | sed 's/&amp;/\&/g')
+
+    # Step 3: Fetch the extensions config to find the GAFamily version and manifest URI
+    local extensions_config
+    extensions_config=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${extensions_config_url}") || {
+        echo "ERROR: Failed to fetch extensions config"
+        return 1
+    }
+
+    # Step 4: Extract the GAFamily version and first manifest URI using python3 regex.
+    # We use python3 instead of grep because:
+    # - grep -A N is fragile when the number of <Uri> entries varies by region
+    # - grep -oP (PCRE \K) has portability issues across distros/configurations
+    # - The GAFamily block can span many lines; python3 re.DOTALL handles this cleanly
+    local ga_family_info
+    ga_family_info=$(echo "${extensions_config}" | python3 -c "
+import sys, re
+content = sys.stdin.read()
+# Extract version from the GAFamily block
+vm = re.search(r'<GAFamily>.*?<Version>([^<]+)</Version>', content, re.DOTALL)
+if not vm:
+    print('ERROR: No GAFamily version found', file=sys.stderr)
+    sys.exit(1)
+# Extract first URI from the GAFamily block
+um = re.search(r'<GAFamily>.*?<Uri>([^<]+)</Uri>', content, re.DOTALL)
+if not um:
+    print('ERROR: No GAFamily manifest URI found', file=sys.stderr)
+    sys.exit(1)
+print(vm.group(1))
+print(um.group(1))
+") || {
+        echo "ERROR: Failed to parse GAFamily from extensions config"
+        return 1
+    }
+
+    local version
+    version=$(echo "${ga_family_info}" | head -n 1)
+    echo "GAFamily version: ${version}"
+
+    local manifest_url
+    manifest_url=$(echo "${ga_family_info}" | tail -n 1)
+    # Fix XML-escaped ampersands in SAS query parameters (same issue as extensions config URL)
+    manifest_url=$(echo "${manifest_url}" | sed 's/&amp;/\&/g')
+
+    # Step 6: Fetch the manifest
+    local manifest
+    manifest=$(curl -s -f "${manifest_url}") || {
+        echo "ERROR: Failed to fetch manifest from ${manifest_url}"
+        return 1
+    }
+
+    # Step 7: Find the zip URL for the GAFamily version by parsing the manifest XML
+    local zip_url
+    zip_url=$(echo "${manifest}" | python3 -c "
+import sys
+import xml.etree.ElementTree as ET
+content = sys.stdin.read()
+root = ET.fromstring(content)
+target = '${version}'
+for plugin in root.findall('.//Plugin'):
+    ver = plugin.find('Version')
+    if ver is not None and ver.text == target:
+        uri = plugin.find('.//Uri')
+        if uri is not None:
+            print(uri.text)
+            sys.exit(0)
+sys.exit(1)
+") || {
+        echo "ERROR: Version ${version} not found in WALinuxAgent manifest"
+        return 1
+    }
+
+    if [ -z "${zip_url}" ]; then
+        echo "ERROR: No download URL found for WALinuxAgent version ${version}"
+        return 1
+    fi
+
+    echo "Found WALinuxAgent ${version} zip at: ${zip_url}"
+
+    # Step 8: Download the zip
+    local tmpDir
+    tmpDir=$(mktemp -d)
+    local zipFile="${tmpDir}/WALinuxAgent-${version}.zip"
+
+    retrycmd_curl_file 10 5 60 "${zipFile}" "${zip_url}" || {
+        echo "ERROR: Failed to download WALinuxAgent zip from ${zip_url}"
+        rm -rf "${tmpDir}"
+        return 1
+    }
+
+    # Step 9: Install the agent zip under /var/lib/waagent/WALinuxAgent-<version>/
+    local installDir="/var/lib/waagent/WALinuxAgent-${version}"
+    mkdir -p "${installDir}"
+    # Use python3 zipfile module instead of unzip, which may not be installed on all build VMs
+    python3 -m zipfile -e "${zipFile}" "${installDir}" || {
+        echo "ERROR: Failed to extract WALinuxAgent zip to ${installDir}"
+        rm -rf "${tmpDir}"
+        return 1
+    }
+
+    echo "WALinuxAgent ${version} installed successfully to ${installDir}"
+
+    # Store the zip in the download directory for provenance tracking
+    mkdir -p "${downloadDir}"
+    cp "${zipFile}" "${downloadDir}/" 2>/dev/null || true
+
+    # Clean up temporary files
+    rm -rf "${tmpDir}"
+}
+
 evalPackageDownloadURL() {
     local url=${1:-}
     if [ -n "$url" ]; then

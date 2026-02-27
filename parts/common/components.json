@@ -2055,6 +2055,10 @@
           }
         }
       }
+    },
+    {
+      "name": "walinuxagent",
+      "downloadLocation": "/opt/walinuxagent/downloads"
     }
   ],
   "OCIArtifacts": [
