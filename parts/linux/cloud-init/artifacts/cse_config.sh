@@ -1275,9 +1275,10 @@ enableAKSHostsSetup() {
     # can use $TARGET_CLOUD directly — both when called from CSE (already in env) and
     # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
     if [ -z "${TARGET_CLOUD:-}" ]; then
-        echo "ERROR: TARGET_CLOUD is not set. Cannot run aks-hosts-setup without knowing cloud environment."
+        echo "WARNING: TARGET_CLOUD is not set. Cannot run aks-hosts-setup without knowing cloud environment."
         echo "aks-hosts-setup requires TARGET_CLOUD to determine which FQDNs to resolve."
-        return 1
+        echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
+        return
     fi
     echo "Setting TARGET_CLOUD=${TARGET_CLOUD} for aks-hosts-setup"
     mkdir -p "$(dirname "${cloud_env_file}")"
