@@ -1236,6 +1236,18 @@ providers:
             fi
         }
 
+        mkdir() {
+            echo "mkdir $@"
+        }
+
+        touch() {
+            echo "touch $@"
+        }
+
+        rm() {
+            echo "rm $@"
+        }
+
         BeforeEach 'KUBELET_NODE_LABELS=""'
 
         It 'should not enable managed GPU experience if not GPU node'
@@ -1246,6 +1258,8 @@ providers:
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should not enable managed GPU experience when skip_nvidia_driver_install is true'
@@ -1258,6 +1272,8 @@ providers:
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should not enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is unspecified'
@@ -1270,6 +1286,7 @@ providers:
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
@@ -1283,6 +1300,8 @@ providers:
             The output should include "startNvidiaManagedExpServices called"
             The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
@@ -1296,6 +1315,7 @@ providers:
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
     End
 End

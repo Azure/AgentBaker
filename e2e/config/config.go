@@ -20,6 +20,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const (
+	DefaultV5VMSKU = "Standard_D2ds_v5"
+)
+
 var (
 	Config         = mustLoadConfig()
 	Azure          = mustNewAzureClient()
@@ -73,6 +77,7 @@ type Configuration struct {
 	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
+	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
