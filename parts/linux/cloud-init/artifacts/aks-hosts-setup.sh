@@ -14,8 +14,15 @@ mkdir -p "$(dirname "$HOSTS_FILE")"
 # Use TARGET_CLOUD directly. It's available from:
 #   1. CSE environment (initial run from enableAKSHostsSetup)
 #   2. Systemd EnvironmentFile (timer-triggered runs via aks-hosts-setup.service)
-# Falls back to AzurePublicCloud if unset (e.g. older CSE or missing env file).
-local_cloud="${TARGET_CLOUD:-AzurePublicCloud}"
+# If TARGET_CLOUD is not set, exit immediately - we must not guess the cloud environment
+# as this could cache incorrect DNS entries in the hosts file.
+if [ -z "${TARGET_CLOUD:-}" ]; then
+    echo "ERROR: TARGET_CLOUD is not set. Cannot determine which FQDNs to resolve."
+    echo "This likely means the cloud environment file is missing or CSE did not set TARGET_CLOUD."
+    echo "Exiting without modifying hosts file to avoid caching incorrect DNS entries."
+    exit 1
+fi
+local_cloud="${TARGET_CLOUD}"
 
 # Select critical FQDNs based on the cloud environment.
 # Each cloud has its own service endpoints for container registry, identity, ARM, and packages.
