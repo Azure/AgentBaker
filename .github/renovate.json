@@ -219,6 +219,17 @@
     },
     {
       "matchPackageNames": [
+        "node-exporter-kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "node-exporter-kubernetes"
+    },
+    {
+      "matchPackageNames": [
         "azure-cni",
         "containernetworking/azure-cni",
         "containernetworking/azure-ipam"

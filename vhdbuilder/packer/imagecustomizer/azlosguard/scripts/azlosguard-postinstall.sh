@@ -70,6 +70,7 @@ rm /home/packer/install-dependencies.sh
 rm /home/packer/provision_source_benchmarks.sh
 rm /home/packer/tool_installs.sh
 rm /home/packer/tool_installs_distro.sh
+rm /home/packer/install-node-exporter.sh
 rm /home/packer/lister
 rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
