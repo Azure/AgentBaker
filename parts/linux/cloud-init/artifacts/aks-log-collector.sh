@@ -53,17 +53,13 @@ for FILE in $(<<<"$CONFIG" jq -esRr 'try fromjson catch ("" | halt_error) | .fil
   GLOBS+=("${FILE}")
 done
 
-# Add extra_namespaces to the top to make sure those pod logs are included
-for NAMESPACE in $(<<<"$CONFIG" jq -esRr 'try fromjson catch ("" | halt_error) | .pod_log_namespaces[]'); do
-  GLOBS+=("/var/log/pods/${NAMESPACE}_*/**/*")
-done
-
 # AKS specific entries
-GLOBS+=(/etc/default/kubelet)
+GLOBS+=(/var/log/azure/aks/aks-node.pcap)
 GLOBS+=(/var/log/azure/*/*)
 GLOBS+=(/var/log/azure/*/*/*)
 GLOBS+=(/var/log/syslog*)
 GLOBS+=(/var/log/journal*)
+GLOBS+=(/etc/default/kubelet)
 
 ### END CONFIGURATION
 
@@ -124,22 +120,6 @@ zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|
 
 # Collect system information
 collectToZip collect/systemctl-status.txt systemctl status --all -fr
-
-# Collect network information
-collectToZip collect/conntrack.txt conntrack -L
-collectToZip collect/conntrack_stats.txt conntrack -S
-collectToZip collect/ip_4_addr.json ip -4 -d -j addr show
-collectToZip collect/ip_4_neighbor.json ip -4 -d -j neighbor show
-collectToZip collect/ip_4_route.json ip -4 -d -j route show
-collectToZip collect/ip_4_tcpmetrics.json ip -4 -d -j tcpmetrics show
-collectToZip collect/ip_6_addr.json ip -6 -d -j addr show table all
-collectToZip collect/ip_6_neighbor.json ip -6 -d -j neighbor show
-collectToZip collect/ip_6_route.json ip -6 -d -j route show table all
-collectToZip collect/ip_6_tcpmetrics.json ip -6 -d -j tcpmetrics show
-collectToZip collect/ip_link.json ip -d -j link show
-collectToZip collect/ip_netconf.json ip -d -j netconf show
-collectToZip collect/ip_netns.json ip -d -j netns show
-collectToZip collect/ip_rule.json ip -d -j rule show
 
 # Add each file sequentially to the zip archive. This is slightly less efficient then adding them
 # all at once, but allows us to easily check when we've exceeded the maximum file size and stop
