@@ -1529,13 +1529,12 @@ testWALinuxAgentInstalled() {
     echo "$test: Found expected file ${installDir}/${f}"
   done
 
-  local eggFile
-  eggFile=$(find "${installDir}" -maxdepth 1 -name "WALinuxAgent-*.egg" -print -quit 2>/dev/null) || eggFile=""
-  if [ -z "${eggFile}" ]; then
-    err "$test" "WALinuxAgent egg file not found in ${installDir}, contents: $(ls -al "${installDir}")"
+  # WALinuxAgent 2.15+ ships a bin/ directory instead of a .egg file
+  if [ ! -d "${installDir}/bin" ]; then
+    err "$test" "bin/ directory not found in ${installDir}, contents: $(ls -al "${installDir}")"
     return 1
   fi
-  echo "$test: Found egg file ${eggFile}"
+  echo "$test: Found bin/ directory in ${installDir}"
 
   # Verify waagent.conf has the expected AutoUpdate settings
   if grep -q '^AutoUpdate.Enabled=y' /etc/waagent.conf; then
