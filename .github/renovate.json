@@ -380,6 +380,30 @@
     },
     {
       "matchPackageNames": [
+        "node-problem-detector-kubernetes",
+        "node-problem-detector"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "enabled": true,
+      "groupName": "node-problem-detector"
+    },
+    {
+      "matchPackageNames": [
+        "node-problem-detector-kubernetes",
+        "node-problem-detector"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "node-problem-detector"
+    },
+    {
+      "matchPackageNames": [
         "nvidia-device-plugin"
       ],
       "groupName": "nvidia-device-plugin",

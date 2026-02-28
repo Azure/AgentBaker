@@ -2061,76 +2061,52 @@
       "downloadLocation": "/opt/node-problem-detector/downloads",
       "downloadURIs": {
         "ubuntu": {
-          "r2004": {
+          "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=node-problem-detector-kubernetes, repository=microsoft, os=ubuntu, release=18.04",
-                "latestVersion": "0.8.21"
+                "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.8.22-ubuntu24.04u1"
               }
-            ],
-            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6_${CPU_ARCH}.deb"
+            ]
           },
           "r2204": {
             "versionsV2": [
               {
-                "renovateTag": "name=node-problem-detector-kubernetes, repository=microsoft, os=ubuntu, release=18.04",
-                "latestVersion": "0.8.21"
+                "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "0.8.22-ubuntu22.04u4"
               }
-            ],
-            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6_${CPU_ARCH}.deb"
+            ]
           },
-          "r2404": {
+          "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=node-problem-detector-kubernetes, repository=microsoft, os=ubuntu, release=18.04",
-                "latestVersion": "0.8.21"
+                "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "0.8.22-ubuntu20.04u4"
               }
-            ],
-            "downloadURL": "https://packages.microsoft.com/ubuntu/18.04/prod/pool/main/n/node-problem-detector-kubernetes/node-problem-detector-kubernetes_${version}-ubuntu18.04u6_${CPU_ARCH}.deb"
-          }
-        },
-        "mariner": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=node-problem-detector-kubernetes, os=mariner, release=2.0",
-                "latestVersion": "0.8.21-6"
-              }
-            ],
-            "downloadURL": "https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-kubernetes-${version}.cm2.${CPU_ARCH_NPD}.rpm"
-          }
-        },
-        "marinerkata": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=node-problem-detector-kubernetes, os=mariner, release=2.0",
-                "latestVersion": "<SKIP>"
-              }
-            ],
-            "downloadURL": "https://packages.microsoft.com/cbl-mariner/2.0/prod/cloud-native/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-kubernetes-${version}.cm2.${CPU_ARCH_NPD}.rpm"
+            ]
           }
         },
         "azurelinux": {
           "v3.0": {
             "versionsV2": [
               {
-                "renovateTag": "name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "0.8.20-2"
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=node-problem-detector, os=azurelinux, release=3.0",
+                "latestVersion": "0.8.20-2.azl3"
               }
-            ],
-            "downloadURL": "https://packages.microsoft.com/azurelinux/3.0/prod/base/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-${version}.azl3.${CPU_ARCH_NPD}.rpm"
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
           }
         },
         "azurelinuxkata": {
           "v3.0": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
-                "latestVersion": "<SKIP>"
-              }
-            ],
-            "downloadURL": "https://packages.microsoft.com/azurelinux/3.0/prod/base/${CPU_ARCH_NPD}/Packages/n/node-problem-detector-${version}.azl3.${CPU_ARCH_NPD}.rpm"
+            "versionsV2": []
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": []
           }
         }
       }

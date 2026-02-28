@@ -8,6 +8,8 @@ After=kubelet.service
 [Service]
 ExecStart=/opt/bin/node-problem-detector-startup.sh
 
+TimeoutStartSec=360
+
 Restart=on-failure
 RestartSec=10
 

@@ -597,22 +597,14 @@ while IFS= read -r p; do
       done
       ;;
     "node-problem-detector")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        # Extract the package filename from the URL
-        npdName=$(basename "${evaluatedURL}")
-        #packagePath="${downloadDir}/${packageFile}"
-
-        if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-          echo "Skipping $name install on OS Guard"
-        elif [ "$IS_KATA" = "true" ]; then
-          echo "Skipping NPD install for kata VHD"
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ] || [ "${OS}" = "${AZURELINUX_OS_NAME}" ]; then
-          # installNodeProblemDetector over in install-npd.sh
-          installNodeProblemDetector "${downloadDir}" "${evaluatedURL}" "${npdName}"
-        fi
-        echo "  - node-problem-detector version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for flatcar, osguard, and kata. Explicit OS check as defense-in-depth.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping NPD installation for kata (IS_KATA=${IS_KATA})"
+      elif isUbuntu "$OS" || isAzureLinux "$OS"; then
+        installNodeProblemDetector "${PACKAGE_VERSIONS[0]}"
+      fi
+      echo "  - node-problem-detector version ${PACKAGE_VERSIONS[0]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."

@@ -123,6 +123,9 @@ function get_container_runtime_endpoint() {
 
 function get_sku() {
     # Azure Instance Metadata Service endpoint for compute information.
+    # TODO: consider reading from the CSE IMDS cache at
+    # /opt/azure/containers/imds_instance_metadata_cache.json instead of
+    # querying IMDS directly on every service start.
     IMDS_ENDPOINT="http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01"
     # Fetch IMDS response
     IMDS_TIMEOUT=10
