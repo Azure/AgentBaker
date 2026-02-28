@@ -792,6 +792,10 @@ providers:
                 echo "systemctlEnableAndStart $@"
                 return 0
             }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
         }
         cleanup() {
             rm -rf "$TMP_DIR"
@@ -805,6 +809,7 @@ providers:
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+            The output should include "Enable localdns-exporter.socket succeeded."
         End
 
         It 'should return error when systemctl fails to start localdns'
@@ -816,6 +821,19 @@ providers:
             When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
+        End
+
+        It 'should continue when localdns-exporter.socket fails to start'
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+            When run enableLocalDNS
+            The status should be success
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+            The output should include "WARNING: Failed to enable localdns-exporter.socket"
         End
     End
 
@@ -830,6 +848,10 @@ providers:
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
+                return 0
+            }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
                 return 0
             }
         }
