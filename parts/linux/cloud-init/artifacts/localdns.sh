@@ -205,6 +205,64 @@ replace_azurednsip_in_corefile() {
         return 1
     }
 
+    # Export forward IPs to .prom file for metrics exporter
+    # This avoids parsing the corefile on every metrics scrape
+    local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+
+    # Parse forward IPs from the updated corefile we just created
+    # VnetDNS uses bind 169.254.10.10, KubeDNS uses bind 169.254.10.11
+    # Capture all forward IPs (there can be multiple) as arrays
+    # CoreDNS syntax: forward . <ip1> <ip2> { ... }
+    # Filter tokens to only capture valid IPv4 addresses (skip '{', '}', and other non-IP tokens)
+    local vnetdns_ips kubedns_ips ip
+    vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print $i}'))
+    kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print $i}'))
+
+    # Write Prometheus metrics to temp file, then atomically rename
+    # This prevents the exporter from reading a partially-written file during scrapes
+    # Generate one metric line per IP (standard Prometheus practice for multi-valued labels)
+    local tmp
+    tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")" || {
+        echo "Failed to create temp file for ${FORWARD_IPS_PROM_FILE}"
+        return 1
+    }
+
+    {
+        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_vnetdns_forward_info gauge"
+        if [ ${#vnetdns_ips[@]} -eq 0 ]; then
+            echo 'localdns_vnetdns_forward_info{ip="unknown",status="missing"} 0'
+        else
+            for ip in "${vnetdns_ips[@]}"; do
+                echo "localdns_vnetdns_forward_info{ip=\"${ip}\",status=\"ok\"} 1"
+            done
+        fi
+        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_kubedns_forward_info gauge"
+        if [ ${#kubedns_ips[@]} -eq 0 ]; then
+            echo 'localdns_kubedns_forward_info{ip="unknown",status="missing"} 0'
+        else
+            for ip in "${kubedns_ips[@]}"; do
+                echo "localdns_kubedns_forward_info{ip=\"${ip}\",status=\"ok\"} 1"
+            done
+        fi
+    } > "$tmp"
+
+    chmod 0644 "$tmp" || {
+        echo "Failed to set permissions on temp file $tmp"
+        rm -f "$tmp"
+        return 1
+    }
+
+    # Atomic rename - ensures exporter never sees partial file
+    mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}" || {
+        echo "Failed to move temp file to ${FORWARD_IPS_PROM_FILE}"
+        rm -f "$tmp"
+        return 1
+    }
+
+    echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
+
     return 0
 }
 

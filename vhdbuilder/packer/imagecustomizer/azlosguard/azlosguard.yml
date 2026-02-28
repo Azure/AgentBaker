@@ -295,6 +295,16 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
+    # localdns exporter
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns_exporter.sh
+      destination: /opt/azure/containers/localdns/localdns_exporter.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-exporter.socket
+      destination: /etc/systemd/system/localdns-exporter.socket
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-exporter@.service
+      destination: /etc/systemd/system/localdns-exporter@.service
+      permissions: 644
     # azure network configuration (RxBuffer)
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/configure-azure-network.sh
       destination: /opt/azure-network/configure-azure-network.sh
