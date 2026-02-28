@@ -417,7 +417,7 @@ else
         # Step 15: Verify namespace isolation (RestrictNamespaces runtime enforcement)
         echo "15. Verifying namespace isolation..."
         if [ -d "/proc/$INSTANCE_PID/ns" ]; then
-            NS_COUNT=$(ls -1 /proc/$INSTANCE_PID/ns/ 2>/dev/null | wc -l)
+            NS_COUNT=$(find /proc/"$INSTANCE_PID"/ns/ -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
             if [ "$NS_COUNT" -lt 5 ]; then
                 echo "   ⚠️  WARNING: Only $NS_COUNT namespaces (expected 5+ for proper isolation)"
             else
