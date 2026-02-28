@@ -162,7 +162,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	return &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
-		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar(),
+		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar() || nbc.AgentPoolProfile.IsACL(),
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -748,6 +748,10 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 					GalleryName:   "aksflatcar",
 					ResourceGroup: "resourcegroup",
 				},
+				"AKSACL": {
+					GalleryName:   "aksacl",
+					ResourceGroup: "resourcegroup",
+				},
 			},
 		},
 		IsARM64:                   false,
@@ -955,6 +959,10 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				},
 				"AKSFlatcar": {
 					GalleryName:   "aksflatcar",
+					ResourceGroup: "resourcegroup",
+				},
+				"AKSACL": {
+					GalleryName:   "aksacl",
 					ResourceGroup: "resourcegroup",
 				},
 			},

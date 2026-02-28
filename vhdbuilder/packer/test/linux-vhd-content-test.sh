@@ -7,6 +7,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="ACL"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -43,8 +44,8 @@ SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-elif [ "$OS_SKU" = "Flatcar" ]; then
-  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
+  : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
   SKIP_GIT_CLONE=true
 else
@@ -207,6 +208,8 @@ testPackagesInstalled() {
     elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
       OS=$AZURELINUX_OS_NAME
       OS_VARIANT=OSGUARD
+    elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
+      OS=$ACL_OS_NAME
     else
       OS=${OS_SKU^^}
     fi
@@ -533,7 +536,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -688,7 +691,7 @@ testAutologinDisabled() {
   local os_sku=$1
   echo "$test:Start"
 
-  if [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
     local failed=0
 
     # Test 1: Check actual behavior using loginctl
@@ -745,7 +748,7 @@ testAutologinDisabled() {
     fi
 
   else
-    echo "$test: Skipping for non-Flatcar OS"
+    echo "$test: Skipping for non-Flatcar/ACL OS"
   fi
 
   echo "$test:Finish"
@@ -954,7 +957,7 @@ testPkgDownloaded() {
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
-    elif [ "$OS" = "$FLATCAR_OS_NAME" ]; then
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
       seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
       if [ -z "${seFile}" ]; then
         err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
@@ -1150,7 +1153,7 @@ testCronPermissions() {
   )
 
   # shellcheck disable=SC3010
-  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]]; then
+  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]] && [[ "${os_sku}" != "AzureContainerLinux" ]]; then
     echo "$test: Checking required paths"
     for path in "${!required_paths[@]}"; do
       checkPathPermissions $test $path ${required_paths[$path]} 1
@@ -1747,7 +1750,7 @@ testInspektorGadgetAssets() {
     is_kata=true
   fi
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
     echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
 
     # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
