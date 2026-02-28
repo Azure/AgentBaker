@@ -182,6 +182,7 @@ function Check-APIServerConnectivity {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Start to check API server connectivity."
     $retryCount=0
+    $lastExceptionMessage=$null
 
     do {
         $retryString="${retryCount}/${MaxRetryCount}"
@@ -201,9 +202,11 @@ function Check-APIServerConnectivity {
             }
             $tcpClient.Close()
         } catch [System.AggregateException] {
-            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
+            Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
+            $lastExceptionMessage = $_.Exception.ToString()
         } catch {
-            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
+            $lastExceptionMessage = "$_"
         }
 
         $retryCount++
@@ -211,7 +214,10 @@ function Check-APIServerConnectivity {
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
+    # Normalize any CR/LF in the exception message to spaces to keep ErrorMessage single-line.
+    $lastExceptionMessage = $lastExceptionMessage -replace "(`r|`n)+", " "
+
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
 
 function Get-CACertificates {
