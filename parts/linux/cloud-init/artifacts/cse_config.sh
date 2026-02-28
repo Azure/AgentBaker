@@ -1189,7 +1189,7 @@ enableLocalDNS() {
     # Enable localdns metrics exporter socket for Prometheus scraping
     # This is optional observability - don't block provisioning if it fails
     echo "Enabling localdns-exporter.socket for metrics collection."
-    if systemctlEnableAndStart localdns-exporter.socket 30; then
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
         echo "Enable localdns-exporter.socket succeeded."
     else
         echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
