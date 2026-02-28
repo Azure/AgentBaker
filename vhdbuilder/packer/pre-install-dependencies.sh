@@ -60,6 +60,68 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
+# Install WALinuxAgent from GitHub as specified in components.json
+# This ensures we run the version tracked in components.json rather than the OS package version
+if ! isFlatcar "$OS"; then
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "Error: jq is required to parse ${COMPONENTS_FILEPATH} for WALinuxAgent installation."
+    exit 1
+  fi
+  walinuxagentPackage=$(jq '.Packages[] | select(.name == "walinuxagent")' "${COMPONENTS_FILEPATH}" 2>/dev/null || true)
+  WAAGENT_DOWNLOADS_DIR=$(echo "$walinuxagentPackage" | jq -r '.downloadLocation // empty')
+  if [ -n "$walinuxagentPackage" ] && [ "$walinuxagentPackage" != "null" ]; then
+    WAAGENT_VERSION=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.versionsV2[0].latestVersion // empty')
+    if [ -n "$WAAGENT_VERSION" ] && [ "$WAAGENT_VERSION" != "null" ]; then
+      echo "Installing WALinuxAgent version ${WAAGENT_VERSION} from GitHub..."
+      WAAGENT_DOWNLOAD_URL_TEMPLATE=$(echo "$walinuxagentPackage" | jq -r '.downloadURIs.default.current.downloadURL // empty')
+      WAAGENT_DOWNLOAD_URL="${WAAGENT_DOWNLOAD_URL_TEMPLATE//\$\{version\}/${WAAGENT_VERSION}}"
+      mkdir -p "${WAAGENT_DOWNLOADS_DIR}"
+      WAAGENT_TARBALL="${WAAGENT_DOWNLOADS_DIR}/v${WAAGENT_VERSION}.tar.gz"
+      if ! retrycmd_curl_file 10 5 60 "${WAAGENT_TARBALL}" "${WAAGENT_DOWNLOAD_URL}"; then
+        exit 1
+      fi
+      if ! tar -xzf "${WAAGENT_TARBALL}" -C "${WAAGENT_DOWNLOADS_DIR}"; then
+        exit 1
+      fi
+      WAAGENT_EXTRACT_DIR="${WAAGENT_DOWNLOADS_DIR}/WALinuxAgent-${WAAGENT_VERSION}"
+      # Preserve the OS image's waagent.conf to avoid overwriting it with the GitHub default
+      cp /etc/waagent.conf /etc/waagent.conf.bak
+      if ! pushd "${WAAGENT_EXTRACT_DIR}" > /dev/null; then
+        exit 1
+      fi
+      if ! python3 setup.py install --register-service --install-lib=/usr/lib/python3/dist-packages --install-scripts=/usr/sbin; then
+        popd > /dev/null || exit 1
+        exit 1
+      fi
+      popd > /dev/null || exit 1
+      # Fix waagent scripts: setup.py installs them with "#!/usr/bin/env python"
+      # but some distros (e.g. Azure Linux V3) only have python3, not python.
+      for waagent_bin in /usr/bin/waagent /usr/sbin/waagent; do
+        if [ -f "${waagent_bin}" ] && head -1 "${waagent_bin}" | grep -q '#!/usr/bin/env python$'; then
+          sed -i '1s|#!/usr/bin/env python$|#!/usr/bin/env python3|' "${waagent_bin}"
+          echo "Patched ${waagent_bin} to use python3"
+        fi
+      done
+      # Restore the original waagent.conf from the OS image
+      mv /etc/waagent.conf.bak /etc/waagent.conf
+      rm -rf "${WAAGENT_DOWNLOADS_DIR}"
+      # Restart waagent service depending on the name of the service file, which varies
+      systemctl daemon-reload
+      if systemctl list-unit-files walinuxagent.service | grep -q walinuxagent; then
+        if ! systemctl restart walinuxagent.service; then
+          exit 1
+        fi
+      elif systemctl list-unit-files waagent.service | grep -q waagent; then
+        if ! systemctl restart waagent.service; then
+          exit 1
+        fi
+      fi
+      echo "Successfully installed WALinuxAgent ${WAAGENT_VERSION}"
+    fi
+  fi
+fi
+capture_benchmark "${SCRIPT_NAME}_install_walinuxagent"
+
 if isFlatcar "$OS"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}

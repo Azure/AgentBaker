@@ -243,6 +243,11 @@ testPackagesInstalled() {
         testContainerNetworkingPluginsInstalled
         continue
         ;;
+      "walinuxagent")
+        # only pass the latest version
+        testWaagentInstalled "${PACKAGE_VERSIONS[0]}"
+        continue
+        ;;
     esac
 
     resolve_packages_source_url
@@ -930,6 +935,30 @@ testKubeBinariesPresent() {
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
   done
+  echo "$test:Finish"
+}
+
+testWaagentInstalled() {
+  local test="testWaagentInstalled"
+  echo "$test:Start"
+  # walinuxagent is not installed from source on Flatcar or OS Guard
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+    echo "$test: Skipping for ${OS_SKU} as waagent is not installed from source"
+    echo "$test:Finish"
+    return
+  fi
+  local expectedVersion="$1"
+  # walinuxagent is installed from source during VHD build and the download artifacts are cleaned up,
+  # so we verify installation by checking the installed version matches what components.json specifies
+  local installedVersion
+  installedVersion=$(waagent --version 2>/dev/null | head -n1 | sed -n 's/.*WALinuxAgent-\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(\.[0-9][0-9]*\)*\).*/\1/p' || true)
+  if [ -z "$installedVersion" ]; then
+    err $test "walinuxagent is not installed or waagent --version failed"
+  elif [ "$installedVersion" != "$expectedVersion" ]; then
+    err $test "walinuxagent version mismatch: installed ${installedVersion}, expected ${expectedVersion}"
+  else
+    echo "$test walinuxagent version ${installedVersion} is installed correctly"
+  fi
   echo "$test:Finish"
 }
 
