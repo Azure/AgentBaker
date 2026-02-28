@@ -1,0 +1,65 @@
+name: auto-generate
+
+on: pull_request
+
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  auto-generate:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
+
+      - uses: azure/cli@v2
+        id: app-private-key
+        with:
+          azcliversion: latest
+          inlineScript: |
+              # https://github.com/actions/create-github-app-token?tab=readme-ov-file#inputs
+              private_key=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KV_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
+              echo "::add-mask::$private_key"
+              echo "private-key=$private_key" >> $GITHUB_OUTPUT
+
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ steps.app-private-key.outputs.private-key }}
+          repositories: AgentBaker
+
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ github.head_ref }}
+
+      - name: Run make generate
+        run: |
+          set -e
+          make generate
+
+      - if: env.changes_detected == 'true'
+        name: Commit changes
+        run: |
+          set -e
+          echo "committing changes..."
+          for file in $(git status --porcelain | awk '{print $2}'); do
+            CONTENT=$(base64 -w 0 $file)
+            FILENAME=$(basename $file)
+            SHA=$(curl -s \
+              -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
+              https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=$GITHUB_HEAD_REF | jq -r .sha)
+            if [ "$SHA" == "null" ]; then
+              echo "unable to get SHA of file $file on branch $GITHUB_HEAD_REF"
+              exit 1
+            fi
+            curl -s -X PUT \
+              -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
+              -d "{\"message\":\"chore: auto-generate\", \"content\":\"$CONTENT\", \"branch\":\"$GITHUB_HEAD_REF\", \"sha\":\"$SHA\"}" \
+              https://api.github.com/repos/${{ github.repository }}/contents/$file
+          done
