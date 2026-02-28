@@ -2067,6 +2067,11 @@
           "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "1.3.0",
           "windowsSkuMatch": "23H2*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1.3.0",
+          "windowsSkuMatch": "2025*"
         }
       ]
     }

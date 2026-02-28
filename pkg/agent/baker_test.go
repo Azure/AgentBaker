@@ -2240,6 +2240,27 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					NextGenNetworkingConfig:  to.StringPtr("{}"),
 				}
 			}),
+		Entry("AKSWindows2025Gen2 with NextGenNetworking", "AKSWindows2025Gen2+NextGenNetworking", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingConfig:  to.StringPtr("{}"),
+				}
+			}),
+		Entry("AKSWindows2025Gen2 with NextGenNetworking enabled but no config", "AKSWindows2025Gen2+NextGenNetworkingNoConfig", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingConfig:  nil,
+				}
+			}),
+		Entry("AKSWindows2025Gen2 with NextGenNetworking disabled", "AKSWindows2025Gen2+NextGenNetworkingDisabled", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+					NextGenNetworkingEnabled: to.BoolPtr(false),
+					NextGenNetworkingConfig:  to.StringPtr("{}"),
+				}
+			}),
 	)
 
 })
