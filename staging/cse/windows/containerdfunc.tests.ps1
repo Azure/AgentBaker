@@ -1,4 +1,8 @@
 BeforeAll {
+  if (-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name C -PSProvider FileSystem -Root ([System.IO.Path]::GetTempPath()) | Out-Null
+  }
+
   # Define mock functions before loading the scripts
   function Write-Log {
     param($Message)
@@ -285,5 +289,65 @@ Describe "Set-ContainerdRegistryConfig" {
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     $script:capturedEncoding | Should -Be "ascii"
+  }
+}
+
+Describe "Set-BootstrapProfileRegistryContainerdHost" {
+  BeforeEach {
+    Mock Create-Directory -MockWith {
+      param($FullPath, $DirectoryUsage)
+    }
+
+    $script:capturedFilePath = $null
+    $script:capturedEncoding = $null
+    $script:capturedContent = $null
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+      $script:capturedFilePath = $FilePath
+      $script:capturedEncoding = $Encoding
+      $script:capturedContent = $input
+    }
+  }
+
+  It "Should write hosts.toml for default mcr.microsoft.com when MCR_REPOSITORY_BASE is not set" {
+    $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "myacr.azurecr.io"
+    if (Test-Path variable:global:MCR_REPOSITORY_BASE) {
+      Remove-Variable -Name MCR_REPOSITORY_BASE -Scope Global
+    }
+
+    Set-BootstrapProfileRegistryContainerdHost
+
+    Assert-MockCalled -CommandName 'Create-Directory' -Exactly -Times 1 -ParameterFilter {
+      $FullPath -eq "C:\ProgramData\containerd\certs.d\mcr.microsoft.com" -and
+      $DirectoryUsage -eq "storing containerd registry hosts config"
+    }
+    $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml"
+    $script:capturedEncoding | Should -Be "ascii"
+    $script:capturedContent | Should -Match 'server = "https://mcr.microsoft.com"'
+    $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2"\]'
+    $script:capturedContent | Should -Match 'override_path = true'
+  }
+
+  It "Should sanitize bootstrap profile host and use custom mcr repository base" {
+    $global:MCR_REPOSITORY_BASE = "my.mcr.mirror"
+    $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "https://myacr.azurecr.io/some/path/"
+
+    Set-BootstrapProfileRegistryContainerdHost
+
+    Assert-MockCalled -CommandName 'Create-Directory' -Exactly -Times 1 -ParameterFilter {
+      $FullPath -eq "C:\ProgramData\containerd\certs.d\my.mcr.mirror"
+    }
+    $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\my.mcr.mirror\hosts.toml"
+    $script:capturedContent | Should -Match 'server = "https://my.mcr.mirror"'
+    $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2/some/path"\]'
+  }
+
+  It "Should map host with repository prefix to v2 path" {
+    $global:MCR_REPOSITORY_BASE = "mcr.microsoft.com"
+    $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "myacr.azurecr.io/aaa"
+
+    Set-BootstrapProfileRegistryContainerdHost
+
+    $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2/aaa"\]'
   }
 }
