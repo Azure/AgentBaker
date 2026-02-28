@@ -2070,5 +2070,15 @@
         }
       ]
     }
+  ],
+  "E2EContainerImages": [
+    {
+      "name": "nvidia-k8s-device-plugin",
+      "downloadURL": "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:*",
+      "version": {
+        "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/nvidia/k8s-device-plugin",
+        "latestVersion": "v0.18.2-1"
+      }
+    }
   ]
 }
