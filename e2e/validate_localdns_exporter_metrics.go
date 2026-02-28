@@ -194,16 +194,186 @@ echo ""
 echo "=== Security Hardening Validation ==="
 echo ""
 
-# Step 9: Trigger a new scrape to spawn an instance
-echo "9. Triggering scrape to spawn a worker instance..."
+# Step 9: Verify systemd security properties are configured FIRST (before spawning instances)
+# This is faster and doesn't require running processes
+echo "9. Verifying all 16 systemd security directives are configured..."
+echo ""
+
+# Fetch all security-related properties in batches (systemctl has limits)
+SECURITY_PROPS_1=$(systemctl show localdns-exporter@.service \
+    --property=DynamicUser,PrivateTmp,ProtectSystem,ProtectHome,ReadOnlyPaths,NoNewPrivileges \
+    2>/dev/null || true)
+SECURITY_PROPS_2=$(systemctl show localdns-exporter@.service \
+    --property=ProtectKernelTunables,ProtectKernelModules,ProtectControlGroups,RestrictAddressFamilies \
+    2>/dev/null || true)
+SECURITY_PROPS_3=$(systemctl show localdns-exporter@.service \
+    --property=RestrictNamespaces,LockPersonality,RestrictRealtime,RestrictSUIDSGID,RemoveIPC,PrivateMounts \
+    2>/dev/null || true)
+
+SECURITY_PROPS="$SECURITY_PROPS_1
+$SECURITY_PROPS_2
+$SECURITY_PROPS_3"
+
+echo "   Retrieved security properties:"
+echo "$SECURITY_PROPS" | sed 's/^/     /'
+echo ""
+
+# Check all 16 security directives
+FAILED_CHECKS=0
+
+# 1. DynamicUser=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^DynamicUser=yes$"; then
+    echo "   ❌ ERROR: DynamicUser not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ DynamicUser=yes"
+fi
+
+# 2. PrivateTmp=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^PrivateTmp=yes$"; then
+    echo "   ❌ ERROR: PrivateTmp not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ PrivateTmp=yes"
+fi
+
+# 3. ProtectSystem=strict
+if ! echo "$SECURITY_PROPS" | grep -q "^ProtectSystem=strict$"; then
+    echo "   ❌ ERROR: ProtectSystem not strict"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ ProtectSystem=strict"
+fi
+
+# 4. ProtectHome=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^ProtectHome=yes$"; then
+    echo "   ❌ ERROR: ProtectHome not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ ProtectHome=yes"
+fi
+
+# 5. ReadOnlyPaths=/ (exact match, not a prefix)
+if ! echo "$SECURITY_PROPS" | grep -qE "^ReadOnlyPaths=/$|^ReadOnlyPaths=/ "; then
+    echo "   ❌ ERROR: ReadOnlyPaths not set to /"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ ReadOnlyPaths=/"
+fi
+
+# 6. NoNewPrivileges=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^NoNewPrivileges=yes$"; then
+    echo "   ❌ ERROR: NoNewPrivileges not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ NoNewPrivileges=yes"
+fi
+
+# 7. ProtectKernelTunables=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^ProtectKernelTunables=yes$"; then
+    echo "   ❌ ERROR: ProtectKernelTunables not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ ProtectKernelTunables=yes"
+fi
+
+# 8. ProtectKernelModules=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^ProtectKernelModules=yes$"; then
+    echo "   ❌ ERROR: ProtectKernelModules not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ ProtectKernelModules=yes"
+fi
+
+# 9. ProtectControlGroups=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^ProtectControlGroups=yes$"; then
+    echo "   ❌ ERROR: ProtectControlGroups not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ ProtectControlGroups=yes"
+fi
+
+# 10. RestrictAddressFamilies - check for AF_UNIX (may be formatted different ways)
+if ! echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_UNIX"; then
+    echo "   ❌ ERROR: RestrictAddressFamilies does not include AF_UNIX"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    # Also verify AF_INET/AF_INET6 are NOT present
+    if echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_INET[^6]|RestrictAddressFamilies=.*AF_INET6"; then
+        echo "   ❌ ERROR: RestrictAddressFamilies includes AF_INET/AF_INET6 (should be AF_UNIX only)"
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+    else
+        echo "   ✓ RestrictAddressFamilies=AF_UNIX"
+    fi
+fi
+
+# 11. RestrictNamespaces=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^RestrictNamespaces=yes$"; then
+    echo "   ❌ ERROR: RestrictNamespaces not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ RestrictNamespaces=yes"
+fi
+
+# 12. LockPersonality=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^LockPersonality=yes$"; then
+    echo "   ❌ ERROR: LockPersonality not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ LockPersonality=yes"
+fi
+
+# 13. RestrictRealtime=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^RestrictRealtime=yes$"; then
+    echo "   ❌ ERROR: RestrictRealtime not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ RestrictRealtime=yes"
+fi
+
+# 14. RestrictSUIDSGID=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^RestrictSUIDSGID=yes$"; then
+    echo "   ❌ ERROR: RestrictSUIDSGID not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ RestrictSUIDSGID=yes"
+fi
+
+# 15. RemoveIPC=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^RemoveIPC=yes$"; then
+    echo "   ❌ ERROR: RemoveIPC not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ RemoveIPC=yes"
+fi
+
+# 16. PrivateMounts=yes
+if ! echo "$SECURITY_PROPS" | grep -q "^PrivateMounts=yes$"; then
+    echo "   ❌ ERROR: PrivateMounts not enabled"
+    FAILED_CHECKS=$((FAILED_CHECKS + 1))
+else
+    echo "   ✓ PrivateMounts=yes"
+fi
+
+echo ""
+if [ "$FAILED_CHECKS" -gt 0 ]; then
+    echo "=== ❌ Security Configuration Validation FAILED ==="
+    echo "$FAILED_CHECKS out of 16 security directives are not properly configured"
+    exit 1
+fi
+echo "✓ All 16 security directives are properly configured"
+echo ""
+
+# Step 10: Trigger a scrape to spawn an instance for runtime validation
+echo "10. Triggering scrape to spawn a worker instance for runtime validation..."
 curl -s http://localhost:9353/metrics > /dev/null &
 CURL_PID=$!
-sleep 1
+sleep 2  # Increased from 1 to 2 seconds for reliability
 echo "   ✓ Scrape triggered"
 echo ""
 
-# Step 10: Find active instance
-echo "10. Finding active localdns-exporter instance..."
+# Step 11: Find active instance
+echo "11. Finding active localdns-exporter instance..."
 ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
 if [ -z "$ACTIVE_INSTANCES" ]; then
     echo "   ⚠️  No active instances found (socket activation may be delayed)"
@@ -213,14 +383,15 @@ if [ -z "$ACTIVE_INSTANCES" ]; then
 fi
 
 if [ -z "$ACTIVE_INSTANCES" ]; then
-    echo "   ⚠️  No instances found after retry, skipping security validation"
+    echo "   ⚠️  No instances found after retry, skipping runtime validation"
+    echo "   (This may happen if socket activation is very slow or disabled)"
 else
     INSTANCE_NAME=$(echo "$ACTIVE_INSTANCES" | head -n 1)
     echo "   ✓ Found instance: $INSTANCE_NAME"
     echo ""
 
-    # Step 11: Get PID of the instance
-    echo "11. Getting PID of instance..."
+    # Step 12: Get PID of the instance
+    echo "12. Getting PID of instance..."
     INSTANCE_PID=$(systemctl show "$INSTANCE_NAME" --property=MainPID --value 2>/dev/null || echo "0")
 
     if [ "$INSTANCE_PID" = "0" ] || [ -z "$INSTANCE_PID" ]; then
@@ -229,35 +400,35 @@ else
         echo "   ✓ Instance PID: $INSTANCE_PID"
         echo ""
 
-        # Step 12: Verify not running as root (DynamicUser)
-        echo "12. Verifying DynamicUser (not running as root)..."
+        # Step 13: Verify not running as root (DynamicUser runtime enforcement)
+        echo "13. Verifying DynamicUser runtime enforcement (not running as root)..."
         INSTANCE_USER=$(ps -o user= -p "$INSTANCE_PID" 2>/dev/null || echo "unknown")
         if [ "$INSTANCE_USER" = "root" ]; then
-            echo "   ❌ ERROR: Instance running as root (should be DynamicUser)"
+            echo "   ❌ ERROR: Instance running as root (DynamicUser not enforced at runtime)"
             exit 1
         fi
         echo "   ✓ Running as dynamic user: $INSTANCE_USER"
         echo ""
 
-        # Step 13: Verify no network sockets (AF_UNIX only)
-        echo "13. Verifying RestrictAddressFamilies=AF_UNIX (no network sockets)..."
+        # Step 14: Verify no network sockets (RestrictAddressFamilies runtime enforcement)
+        echo "14. Verifying RestrictAddressFamilies runtime enforcement (no network sockets)..."
         NETWORK_SOCKETS=$(lsof -p "$INSTANCE_PID" 2>/dev/null | grep -c "IPv4\|IPv6" || echo "0")
         if [ "$NETWORK_SOCKETS" != "0" ]; then
-            echo "   ❌ ERROR: Instance has network sockets (should be AF_UNIX only)"
+            echo "   ❌ ERROR: Instance has network sockets (RestrictAddressFamilies not enforced)"
             lsof -p "$INSTANCE_PID" | grep "IPv" || true
             exit 1
         fi
-        echo "   ✓ No network sockets (AF_UNIX only)"
+        echo "   ✓ No network sockets (AF_UNIX only, restriction enforced)"
         echo ""
 
-        # Step 14: Verify namespace isolation
-        echo "14. Verifying namespace isolation..."
+        # Step 15: Verify namespace isolation (RestrictNamespaces runtime enforcement)
+        echo "15. Verifying namespace isolation..."
         if [ -d "/proc/$INSTANCE_PID/ns" ]; then
             NS_COUNT=$(ls -1 /proc/$INSTANCE_PID/ns/ 2>/dev/null | wc -l)
             if [ "$NS_COUNT" -lt 5 ]; then
-                echo "   ⚠️  WARNING: Only $NS_COUNT namespaces (expected 5+)"
+                echo "   ⚠️  WARNING: Only $NS_COUNT namespaces (expected 5+ for proper isolation)"
             else
-                echo "   ✓ Process has $NS_COUNT namespaces (isolated)"
+                echo "   ✓ Process has $NS_COUNT namespaces (properly isolated)"
             fi
         else
             echo "   ⚠️  Cannot verify namespaces (proc not accessible)"
@@ -269,34 +440,11 @@ fi
 # Wait for curl to finish
 wait $CURL_PID 2>/dev/null || true
 
-# Step 15: Verify systemd security properties are configured
-echo "15. Verifying systemd security directives..."
-SECURITY_PROPS=$(systemctl show localdns-exporter@.service --property=DynamicUser,PrivateTmp,ProtectSystem,ProtectHome,NoNewPrivileges,RestrictAddressFamilies 2>/dev/null || true)
-echo "   Security properties:"
-echo "$SECURITY_PROPS" | sed 's/^/     /'
-
-# Check for critical security directives
-if ! echo "$SECURITY_PROPS" | grep -q "DynamicUser=yes"; then
-    echo "   ❌ ERROR: DynamicUser not enabled"
-    exit 1
-fi
-echo "   ✓ DynamicUser=yes"
-
-if ! echo "$SECURITY_PROPS" | grep -q "ProtectSystem=strict"; then
-    echo "   ❌ ERROR: ProtectSystem not strict"
-    exit 1
-fi
-echo "   ✓ ProtectSystem=strict"
-
-if ! echo "$SECURITY_PROPS" | grep -q "RestrictAddressFamilies=AF_UNIX"; then
-    echo "   ❌ ERROR: RestrictAddressFamilies not AF_UNIX"
-    exit 1
-fi
-echo "   ✓ RestrictAddressFamilies=AF_UNIX"
-echo ""
-
 echo "=== ✓ Security Hardening Validation Passed ==="
-echo "All systemd security directives are properly configured"
+echo "Configuration: All 16 systemd security directives verified"
+if [ -n "$INSTANCE_PID" ] && [ "$INSTANCE_PID" != "0" ]; then
+    echo "Runtime: DynamicUser, RestrictAddressFamilies, and namespace isolation enforced"
+fi
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns exporter metrics validation failed")
