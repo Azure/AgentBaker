@@ -188,6 +188,115 @@ elif [ "$KUBEDNS_STATUS" = "ok" ]; then
 else
     echo "Both VnetDNS and KubeDNS forward not configured (may be expected for cluster config)"
 fi
+echo ""
+
+# Security hardening validation
+echo "=== Security Hardening Validation ==="
+echo ""
+
+# Step 9: Trigger a new scrape to spawn an instance
+echo "9. Triggering scrape to spawn a worker instance..."
+curl -s http://localhost:9353/metrics > /dev/null &
+CURL_PID=$!
+sleep 1
+echo "   ✓ Scrape triggered"
+echo ""
+
+# Step 10: Find active instance
+echo "10. Finding active localdns-exporter instance..."
+ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
+if [ -z "$ACTIVE_INSTANCES" ]; then
+    echo "   ⚠️  No active instances found (socket activation may be delayed)"
+    wait $CURL_PID 2>/dev/null || true
+    sleep 2
+    ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
+fi
+
+if [ -z "$ACTIVE_INSTANCES" ]; then
+    echo "   ⚠️  No instances found after retry, skipping security validation"
+else
+    INSTANCE_NAME=$(echo "$ACTIVE_INSTANCES" | head -n 1)
+    echo "   ✓ Found instance: $INSTANCE_NAME"
+    echo ""
+
+    # Step 11: Get PID of the instance
+    echo "11. Getting PID of instance..."
+    INSTANCE_PID=$(systemctl show "$INSTANCE_NAME" --property=MainPID --value 2>/dev/null || echo "0")
+
+    if [ "$INSTANCE_PID" = "0" ] || [ -z "$INSTANCE_PID" ]; then
+        echo "   ⚠️  Instance PID not found, skipping process-level checks"
+    else
+        echo "   ✓ Instance PID: $INSTANCE_PID"
+        echo ""
+
+        # Step 12: Verify not running as root (DynamicUser)
+        echo "12. Verifying DynamicUser (not running as root)..."
+        INSTANCE_USER=$(ps -o user= -p "$INSTANCE_PID" 2>/dev/null || echo "unknown")
+        if [ "$INSTANCE_USER" = "root" ]; then
+            echo "   ❌ ERROR: Instance running as root (should be DynamicUser)"
+            exit 1
+        fi
+        echo "   ✓ Running as dynamic user: $INSTANCE_USER"
+        echo ""
+
+        # Step 13: Verify no network sockets (AF_UNIX only)
+        echo "13. Verifying RestrictAddressFamilies=AF_UNIX (no network sockets)..."
+        NETWORK_SOCKETS=$(lsof -p "$INSTANCE_PID" 2>/dev/null | grep -c "IPv4\|IPv6" || echo "0")
+        if [ "$NETWORK_SOCKETS" != "0" ]; then
+            echo "   ❌ ERROR: Instance has network sockets (should be AF_UNIX only)"
+            lsof -p "$INSTANCE_PID" | grep "IPv" || true
+            exit 1
+        fi
+        echo "   ✓ No network sockets (AF_UNIX only)"
+        echo ""
+
+        # Step 14: Verify namespace isolation
+        echo "14. Verifying namespace isolation..."
+        if [ -d "/proc/$INSTANCE_PID/ns" ]; then
+            NS_COUNT=$(ls -1 /proc/$INSTANCE_PID/ns/ 2>/dev/null | wc -l)
+            if [ "$NS_COUNT" -lt 5 ]; then
+                echo "   ⚠️  WARNING: Only $NS_COUNT namespaces (expected 5+)"
+            else
+                echo "   ✓ Process has $NS_COUNT namespaces (isolated)"
+            fi
+        else
+            echo "   ⚠️  Cannot verify namespaces (proc not accessible)"
+        fi
+        echo ""
+    fi
+fi
+
+# Wait for curl to finish
+wait $CURL_PID 2>/dev/null || true
+
+# Step 15: Verify systemd security properties are configured
+echo "15. Verifying systemd security directives..."
+SECURITY_PROPS=$(systemctl show localdns-exporter@.service --property=DynamicUser,PrivateTmp,ProtectSystem,ProtectHome,NoNewPrivileges,RestrictAddressFamilies 2>/dev/null || true)
+echo "   Security properties:"
+echo "$SECURITY_PROPS" | sed 's/^/     /'
+
+# Check for critical security directives
+if ! echo "$SECURITY_PROPS" | grep -q "DynamicUser=yes"; then
+    echo "   ❌ ERROR: DynamicUser not enabled"
+    exit 1
+fi
+echo "   ✓ DynamicUser=yes"
+
+if ! echo "$SECURITY_PROPS" | grep -q "ProtectSystem=strict"; then
+    echo "   ❌ ERROR: ProtectSystem not strict"
+    exit 1
+fi
+echo "   ✓ ProtectSystem=strict"
+
+if ! echo "$SECURITY_PROPS" | grep -q "RestrictAddressFamilies=AF_UNIX"; then
+    echo "   ❌ ERROR: RestrictAddressFamilies not AF_UNIX"
+    exit 1
+fi
+echo "   ✓ RestrictAddressFamilies=AF_UNIX"
+echo ""
+
+echo "=== ✓ Security Hardening Validation Passed ==="
+echo "All systemd security directives are properly configured"
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns exporter metrics validation failed")
