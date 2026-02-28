@@ -17,7 +17,7 @@ if [ "${installed}" -ne 0 ]; then
         sudo apt-get install shellcheck -y
     elif [ "${DISTRO}" = "darwin" ]; then
         brew install cabal-install shellcheck
-    else 
+    else
         echo "distro ${DISTRO} not supported at this time. skipping shellcheck"
         exit 1
     fi
@@ -27,10 +27,12 @@ fi
 
 filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
 
-# Known bash-only scripts that intentionally use bash specific syntax.
+# Known bash-only scripts/directories that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./vhdbuilder/packer/install-ig.sh
 ./vhdbuilder/packer/install-npd.sh
+./parts/linux/cloud-init/artifacts/node-problem-detector-startup.sh
+./parts/linux/cloud-init/artifacts/node-problem-detector/
 EOF
 )
 
