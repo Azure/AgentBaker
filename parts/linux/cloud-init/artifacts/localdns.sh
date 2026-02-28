@@ -212,10 +212,11 @@ replace_azurednsip_in_corefile() {
     # Parse forward IPs from the updated corefile we just created
     # VnetDNS uses bind 169.254.10.10, KubeDNS uses bind 169.254.10.11
     # Capture all forward IPs (there can be multiple) as arrays
-    # CoreDNS syntax has only one 'forward .' line per bind block with space-separated IPs
+    # CoreDNS syntax: forward . <ip1> <ip2> { ... }
+    # Filter tokens to only capture valid IPv4 addresses (skip '{', '}', and other non-IP tokens)
     local vnetdns_ips kubedns_ips ip
-    vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i}'))
-    kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) print $i}'))
+    vnetdns_ips=($(awk '/bind 169.254.10.10/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print $i}'))
+    kubedns_ips=($(awk '/bind 169.254.10.11/,/^}/' "${UPDATED_LOCALDNS_CORE_FILE}" | awk '/forward \. / {for(i=3; i<=NF; i++) if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) print $i}'))
 
     # Write Prometheus metrics to temp file, then atomically rename
     # This prevents the exporter from reading a partially-written file during scrapes
