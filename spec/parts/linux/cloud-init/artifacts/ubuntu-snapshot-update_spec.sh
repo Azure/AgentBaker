@@ -17,8 +17,8 @@ Describe 'ubuntu-snapshot-update.sh'
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
-    Mock apt_get_update 
-        echo "apt_get_update mock called"
+    Mock apt_get_update_with_opts
+        echo "apt_get_update_with_opts mock called"
     End
     Mock unattended-upgrade
         echo "unattended-upgrade mock called"
@@ -26,7 +26,7 @@ Describe 'ubuntu-snapshot-update.sh'
 
     It 'should update successfully for regular cluster'
         Mock lsb_release
-            echo "jammy"     
+            echo "jammy"
         End
         sources_list=$(cat <<EOF
 deb https://snapshot.ubuntu.com/ubuntu/20250815T000000Z jammy main restricted
@@ -51,10 +51,10 @@ EOF
                 echo "20250815T000000Z"
             fi
         End
-        When run main 
+        When run main
         The status should be success
         The output should include 'live patching repo service is not set, use ubuntu snapshot repo'
-        The output should include 'apt_get_update mock called'
+        The output should include 'apt_get_update_with_opts mock called'
         The output should include 'unattended-upgrade mock called'
         The output should include 'Executed unattended upgrade 1 times'
         The output should include 'snapshot update completed successfully'
@@ -64,7 +64,7 @@ EOF
 
     It 'should update successfully for ni cluster'
         Mock lsb_release
-            echo "noble"     
+            echo "noble"
         End
         sources_list=$(cat <<EOF
 deb http://10.0.0.1/ubuntu noble main restricted
@@ -91,10 +91,10 @@ EOF
                 echo "10.0.0.1"
             fi
         End
-        When run main 
+        When run main
         The status should be success
         The output should include 'live patching repo service is: 10.0.0.1'
-        The output should include 'apt_get_update mock called'
+        The output should include 'apt_get_update_with_opts mock called'
         The output should include 'unattended-upgrade mock called'
         The output should include 'Executed unattended upgrade 1 times'
         The output should include 'snapshot update completed successfully'

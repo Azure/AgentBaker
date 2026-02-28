@@ -35,6 +35,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	VMSeriesCoverageTest   bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -187,6 +188,9 @@ type Config struct {
 
 	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
 	ReturnErrorOnVMSSCreation bool
+
+	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
+	UseNVMe bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

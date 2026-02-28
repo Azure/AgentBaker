@@ -52,6 +52,8 @@ ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started 
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_AMDAMA_DRIVER_NOT_FOUND=95 # AMD AMA driver package not found for current kernel version
+ERR_AMDAMA_INSTALL_FAIL=96 # Unable to install AMD AMA package
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
 ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
 ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
@@ -717,6 +719,13 @@ get_imds_vm_tag_value() {
     echo "${tag_value,,}"
 }
 
+isAmdAmaEnabledNode() {
+    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+        return 0
+    fi
+    return 1
+}
+
 should_skip_nvidia_drivers() {
     set -x
     # Case-insensitive match for both tag name and value
@@ -826,7 +835,7 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
@@ -1220,10 +1229,10 @@ extract_tarball() {
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
-            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
         *)
-            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
 }

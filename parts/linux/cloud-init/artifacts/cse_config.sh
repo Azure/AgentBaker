@@ -323,7 +323,7 @@ disableSystemdResolved() {
     if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
-        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        [ -f /run/systemd/resolve/resolv.conf ] && ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
@@ -975,6 +975,71 @@ ensureGPUDrivers() {
     fi
 }
 
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+dnf_install_amd_ama_core() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        # RPM_FRONTEND env variable needed to disable license agreement prompt
+        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+            dnf_makecache
+        fi
+    done
+    echo Executed dnf install AMD AMA core package $i times;
+}
+
+# Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install driver - currently version 1.3.0 is supported
+        if ! dnf_install 30 1 600 azurelinux-repos-amd; then
+          echo "Unable to install Azure Linux AMD package repo, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
+          echo "Unable to install AMD AMA driver package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install core package
+        if ! dnf_install 30 1 600 azurelinux-repos-extended libzip; then
+          echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        if ! dnf_install_amd_ama_core 30 1 600; then
+          echo "Unable to install AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install AKS device plugin
+        if ! dnf_install 30 1 600 amdama-device-plugin.x86_64; then
+          echo "Unable to install AMD AMA AKS device plugin package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        # Configure huge pages
+        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
+        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        if [ "$(systemctl is-active kubelet)" = "active" ]; then
+            systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
@@ -1017,14 +1082,14 @@ configureSSHPubkeyAuth() {
   ' "$SSHD_CONFIG" > "$TMP"
 
   # Validate the candidate config
-  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+  sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 644, owned by root)
-  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd
-  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path
@@ -1200,16 +1265,20 @@ configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
     fi
+    local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        mkdir -p "$(dirname "${managed_gpu_marker}")"
+        touch "${managed_gpu_marker}"
     else
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        rm -f "${managed_gpu_marker}"
     fi
 }
 

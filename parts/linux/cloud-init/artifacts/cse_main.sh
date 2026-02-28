@@ -56,16 +56,15 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    # Run synchronously to avoid apt lock contention with later apt operations (eg kubelet install)
-    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold
+    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
     UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
-        sudo apt-get -y autoremove chrony
+        apt-get -y autoremove chrony
         echo $?
-        sudo systemctl restart systemd-timesyncd
+        systemctl restart systemd-timesyncd
     fi
 
     # Eval proxy vars to ensure curl commands use proxy if configured.
@@ -415,6 +414,11 @@ function nodePrep {
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
+    fi
+
+    # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
+    if isAmdAmaEnabledNode; then
+        logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
     VALIDATION_ERR=0
