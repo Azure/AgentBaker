@@ -1,0 +1,36 @@
+{
+  "midway": [
+    {
+      "type": "file",
+      "source": "/var/log/bcc_installation.log",
+      "destination": "bcc-tools-installation.log"
+    },
+    {
+      "type": "file",
+      "source": "/opt/azure/disk-usage.txt",
+      "destination": "disk-usage.txt"
+    }
+  ],
+  "post-build": [
+    {
+      "type": "file",
+      "source": "/opt/azure/containers/image-bom.json",
+      "destination": "image-bom.json"
+    },
+    {
+      "type": "file",
+      "source": "/opt/azure/vhd-install.complete",
+      "destination": "release-notes.txt"
+    },
+    {
+      "type": "file",
+      "source": "/opt/azure/vhd-build-performance-data.json",
+      "destination": "vhd-build-performance-data.json"
+    },
+    {
+      "type": "file",
+      "source": "/opt/azure/vhd-grid-compatibility-data.json",
+      "destination": "vhd-grid-compatibility-data.json"
+    }
+  ]
+}
