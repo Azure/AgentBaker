@@ -1,0 +1,27 @@
+#!/bin/bash
+# Mock dig for DNS resolution failure
+case "$*" in
+    *kubernetes.default.svc.cluster.local*)
+        # Simulate DNS resolution failure
+        cat <<END >&2
+; <<>> DiG 9.16.1 <<>> kubernetes.default.svc.cluster.local @10.0.0.10
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: SERVFAIL, id: 54321
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+
+;; QUESTION SECTION:
+;kubernetes.default.svc.cluster.local. IN A
+
+;; Query time: 5000 msec
+;; SERVER: 10.0.0.10#53(10.0.0.10)
+;; WHEN: Mon Jul 15 10:00:00 UTC 2025
+;; MSG SIZE  rcvd: 63
+END
+        exit 9
+        ;;
+    *)
+        echo "Mock dig: unknown query: $*" >&2
+        exit 1
+        ;;
+esac

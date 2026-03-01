@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "nvidia-smi: command not found" >&2
+exit 127

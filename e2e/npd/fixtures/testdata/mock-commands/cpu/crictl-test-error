@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "ERRO[0000] validate service connection: CRI v1 runtime API is not implemented for endpoint" >&2
+exit 1

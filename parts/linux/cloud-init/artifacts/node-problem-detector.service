@@ -1,0 +1,17 @@
+[Unit]
+Description=Node Problem Detector
+Documentation=https://github.com/kubernetes/node-problem-detector
+# NPD requires kubelet's kubeconfig to connect to the API server
+Wants=kubelet.service
+After=kubelet.service
+
+[Service]
+ExecStart=/opt/bin/node-problem-detector-startup.sh
+
+TimeoutStartSec=360
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

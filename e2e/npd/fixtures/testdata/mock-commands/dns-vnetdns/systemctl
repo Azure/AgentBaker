@@ -1,0 +1,11 @@
+#!/bin/bash
+# systemctl dispatcher for DNS vnetdns tests
+SCENARIO="${SYSTEMCTL_SCENARIO:-active}"
+
+# Look for scenario-specific mock
+if [ -f "/mock-commands/dns-vnetdns/systemctl-$SCENARIO" ]; then
+    exec "/mock-commands/dns-vnetdns/systemctl-$SCENARIO" "$@"
+fi
+
+# Default to active scenario
+exec "/mock-commands/dns-vnetdns/systemctl-active" "$@"

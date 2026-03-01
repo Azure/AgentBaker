@@ -1,0 +1,11 @@
+#!/bin/bash
+# mpstat dispatcher for CPU tests
+SCENARIO="${CPU_SCENARIO:-normal}"
+
+# Look for scenario-specific mock in cpu directory
+if [ -f "/mock-commands/cpu/mpstat-$SCENARIO" ]; then
+    exec "/mock-commands/cpu/mpstat-$SCENARIO"
+fi
+
+# Default to normal scenario
+exec "/mock-commands/cpu/mpstat-normal"

@@ -1,0 +1,28 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "20s",
+    "max_output_length": 200,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "custom-plugin-ib-link-flapping",
+  "metricsReporting": false,
+  "conditions": [
+    {
+      "type": "IBLinkFlapping",
+      "reason": "NoIBLinkFlapping",
+      "message": "IB link is stable"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "IBLinkFlapping",
+      "reason": "IBLinkFlapping",
+      "path": "/etc/node-problem-detector.d/plugin/check_ib_link_flapping.sh",
+      "timeout": "20s"
+    }
+  ]
+}

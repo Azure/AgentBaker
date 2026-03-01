@@ -1,0 +1,17 @@
+#!/bin/bash
+if [[ "$*" == *"nvlink"* && "$*" == *"--status"* ]]; then
+    # Output the "not supported" message to stdout (not stderr) so it can be captured
+    echo "NVLink is not supported on device"
+    exit 0  # Exit successfully so the output can be processed
+else
+    # Regular nvidia-smi works but no NVLink
+    cat <<'NVIDIA_EOF'
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 525.125.06   Driver Version: 525.125.06   CUDA Version: 12.0     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+|   0  GeForce RTX 3070    Off  | 00000000:01:00.0  On |                  N/A |
++-----------------------------------------------------------------------------+
+NVIDIA_EOF
+fi
+exit 0

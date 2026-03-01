@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock for missing dig command
+exec /mock-commands/dns-vnetdns/command-not-found dig

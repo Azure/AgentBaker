@@ -1,0 +1,17 @@
+#!/bin/bash
+# Mock dig that simulates timeout
+case "$*" in
+    *kubernetes.default.svc.cluster.local*)
+        # Simulate DNS timeout failure
+        cat <<END >&2
+; <<>> DiG 9.16.1 <<>> kubernetes.default.svc.cluster.local @10.0.0.10
+;; global options: +cmd
+;; connection timed out; no servers could be reached
+END
+        exit 9
+        ;;
+    *)
+        echo "Mock dig: unknown query: $*" >&2
+        exit 1
+        ;;
+esac

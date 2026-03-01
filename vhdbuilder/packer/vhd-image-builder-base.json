@@ -358,6 +358,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/post-install-dependencies.sh",
       "destination": "/home/packer/post-install-dependencies.sh"
     },
@@ -680,6 +685,27 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/99-azure-network.rules",
       "destination": "/home/packer/99-azure-network.rules"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-problem-detector-startup.sh",
+      "destination": "/home/packer/node-problem-detector-startup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-problem-detector.service",
+      "destination": "/home/packer/node-problem-detector.service"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "mkdir -p /home/packer/node-problem-detector"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-problem-detector/",
+      "destination": "/home/packer/node-problem-detector/"
     },
     {
       "type": "shell",

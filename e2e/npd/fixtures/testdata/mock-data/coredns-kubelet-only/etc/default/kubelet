@@ -1,0 +1,2 @@
+KUBELET_FLAGS=--kubeconfig=/var/lib/kubelet/kubeconfig --cluster-dns=10.0.0.20 --cluster-domain=cluster.local --node-labels=kubernetes.io/role=agent
+KUBELET_REGISTER_SCHEDULABLE=true

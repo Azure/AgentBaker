@@ -30,9 +30,24 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
+source /home/packer/install-npd.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
+
+# packages.microsoft.com for NPD uses x86_64 instead of amd64 in some cases
+# as well as aarch64 instead of arm64.
+# I don't make the rules on their silly naming inconsistencies.
+# components.json handles when to use CPU_ARCH or CPU_ARCH_NPD.
+CPU_ARCH_NPD=$(
+  if [ "$CPU_ARCH" = "amd64" ]; then
+    echo "x86_64"
+  elif [ "$CPU_ARCH" = "arm64" ]; then
+    echo "aarch64"
+  else
+    echo "$CPU_ARCH"
+  fi
+)
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
@@ -233,7 +248,6 @@ unpackTgzToCNIDownloadsDIR() {
   mkdir -p "${download_dir}/${cni_dir_tmp}"
   extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
   rm -rf "${download_dir:?}/${cni_tgz_tmp}"
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
@@ -388,6 +402,8 @@ while IFS= read -r p; do
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
+        elif isFlatcar "$OS"; then
+          installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -474,6 +490,16 @@ while IFS= read -r p; do
         downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      ;;
+    "node-problem-detector")
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for flatcar, osguard, and kata. Explicit OS check as defense-in-depth.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping NPD installation for kata (IS_KATA=${IS_KATA})"
+      elif isUbuntu "$OS" || isAzureLinux "$OS"; then
+        installNodeProblemDetector "${PACKAGE_VERSIONS[0]}"
+      fi
+      echo "  - node-problem-detector version ${PACKAGE_VERSIONS[0]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
@@ -1022,7 +1048,6 @@ collect_grid_compatibility_data() {
 }
 
 collect_grid_compatibility_data
-
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
 # The installation logic during provisioning time will use the cached rpm/deb files
 # to install extra packages required for the managed gpu experience.

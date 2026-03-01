@@ -1,0 +1,25 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "60s",
+    "timeout": "30s",
+    "max_output_length": 80,
+    "concurrency": 1
+  },
+  "source": "gpu-count-check",
+  "conditions": [
+    {
+      "type": "GPUProblem",
+      "reason": "GPUCountMismatch",
+      "message": "GPU count does not match expected count"
+    }
+  ],
+  "rules": [
+    {
+      "type": "permanent",
+      "condition": "GPUProblem",
+      "reason": "GPUCountMismatch",
+      "path": "/etc/node-problem-detector.d/plugin/check_gpu_count.sh"
+    }
+  ]
+}

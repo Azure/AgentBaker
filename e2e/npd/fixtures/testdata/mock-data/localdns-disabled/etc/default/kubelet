@@ -1,0 +1,5 @@
+KUBELET_FLAGS=--address=0.0.0.0 --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --kubeconfig=/var/lib/kubelet/kubeconfig --pod-manifest-path=/etc/kubernetes/manifests
+KUBELET_REGISTER_SCHEDULABLE=true
+NETWORK_POLICY=
+KUBELET_IMAGE=
+KUBELET_NODE_LABELS=agentpool=userpool,kubernetes.azure.com/agentpool=userpool,kubernetes.azure.com/localdns-state=disabled,kubernetes.azure.com/mode=user,kubernetes.azure.com/role=agent

@@ -1,0 +1,10 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[INVALID.TIMESTAMP] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) 
+Memory: 4096000K/4194304K available
+[abc.def] Out of memory: Kill process 1234 (test-app) score 500 or sacrifice child
+[ 3590.xyz] systemd[1]: Started some-service.service.
+[    ] Out of memory: Kill process 5678 (another-app) score 400 or sacrifice child
+Out of memory: Kill process 9999 (no-timestamp-app) score 200 or sacrifice child
+[ 3595.789012] systemd[1]: Reached target multi-user.target.
+DMESG_EOF

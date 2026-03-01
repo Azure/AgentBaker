@@ -1,0 +1,7 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[INVALID] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) 
+Memory: 8192000K/8388608K available
+Out of memory: Kill process 1234 (chrome) score 850 or sacrifice child
+[ 3590.abc] systemd[1]: Started some-service.service.
+DMESG_EOF

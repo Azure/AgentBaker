@@ -1,0 +1,15 @@
+#!/bin/bash
+# Mock kubectl that returns RBAC permission error
+case "$*" in
+    *"get pods"*)
+        echo 'Error from server (Forbidden): pods is forbidden: User "system:node:aks-le64i4f-29427988-vmss000028" cannot list resource "pods" in API group "" in the namespace "kube-system": can only list/watch pods with spec.nodeName field selector' >&2
+        exit 1
+        ;;
+    *"config view"*)
+        echo "https://test-cluster-api.hcp.eastus.azmk8s.io:443"
+        ;;
+    *)
+        echo "Mock kubectl: unknown command: $*" >&2
+        exit 1
+        ;;
+esac

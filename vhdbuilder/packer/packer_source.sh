@@ -325,6 +325,19 @@ copyPackerFiles() {
   fi
 # ---------------------------------------------------------------------------------------
 
+# ------------------------- Files related to node-problem-detector -----------------------
+  NPD_STARTUP_SCRIPT_SRC=/home/packer/node-problem-detector-startup.sh
+  NPD_STARTUP_SCRIPT_DEST=/opt/bin/node-problem-detector-startup.sh
+  NPD_SERVICE_SRC=/home/packer/node-problem-detector.service
+  NPD_SERVICE_DEST=/etc/systemd/system/node-problem-detector.service
+
+  # Skip for Mariner, OSGuard, and Flatcar - NPD is only installed on Ubuntu and Azure Linux 3
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS"; }; then
+    cpAndMode $NPD_STARTUP_SCRIPT_SRC $NPD_STARTUP_SCRIPT_DEST 755
+    cpAndMode $NPD_SERVICE_SRC $NPD_SERVICE_DEST 644
+  fi
+# ---------------------------------------------------------------------------------------
+
   # Install AKS diagnostic
   cpAndMode $AKS_DIAGNOSTIC_SCRIPT_SRC $AKS_DIAGNOSTIC_SCRIPT_DEST 755
 

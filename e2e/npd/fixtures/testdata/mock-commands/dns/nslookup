@@ -1,0 +1,11 @@
+#!/bin/bash
+# nslookup dispatcher for DNS tests
+SCENARIO="${NSLOOKUP_SCENARIO:-success}"
+
+# Look for scenario-specific mock in dns directory
+if [ -f "/mock-commands/dns/nslookup-$SCENARIO" ]; then
+    exec "/mock-commands/dns/nslookup-$SCENARIO" "$@"
+fi
+
+# Default to success scenario
+exec "/mock-commands/dns/nslookup-success" "$@"

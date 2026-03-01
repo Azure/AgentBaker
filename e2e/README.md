@@ -116,6 +116,58 @@ Important `go test` flags:
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
+## Node Problem Detector (NPD) Testing
+
+AgentBaker includes a comprehensive testing framework for Node Problem Detector (NPD) functionality, located in the `e2e/npd/` directory. This framework validates NPD plugin scripts and configurations using Docker-based testing with mock system conditions.
+
+### NPD Test Overview
+
+The NPD test framework:
+- **Tests NPD plugin scripts** from `parts/linux/cloud-init/artifacts/node-problem-detector/`
+- **Validates monitoring logic** for CPU pressure, memory pressure, DNS issues, XID errors, and RX buffer problems
+- **Uses Docker containers** with privileged access to simulate system conditions
+- **Provides mock data injection** to test various failure scenarios
+- **Includes integration tests** for NPD startup scripts and common utilities
+
+### Running NPD Tests
+
+To run the complete NPD test suite locally:
+
+```bash
+cd e2e/npd
+make test
+```
+
+To run specific NPD test categories:
+
+```bash
+# Test CPU pressure monitoring
+make test-check-cpu-pressure
+
+# Test memory pressure monitoring  
+make test-check-memory-pressure
+
+# Test DNS issue detection
+make test-check-dns-issues
+
+# Test NPD startup script
+make test-check-npd-startup
+
+# Test shared utility functions
+make test-pressure-common
+```
+
+### NPD Test Structure
+
+- **`docker/`** - Docker container setup with AgentBaker NPD files
+- **`fixtures/`** - Test scripts and mock data templates
+- **`Makefile`** - Test orchestration and targets
+- **`README.md`** - Detailed NPD testing documentation
+
+The NPD test framework is **standalone** and independent of the main AgentBaker E2E tests. It provides focused validation of NPD functionality without requiring full cluster integration.
+
+For detailed NPD testing documentation, see [`e2e/npd/README.md`](npd/README.md).
+
 ## IDE Configuration
 
 ### Global Settings

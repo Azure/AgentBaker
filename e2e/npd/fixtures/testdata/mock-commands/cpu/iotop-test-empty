@@ -1,0 +1,3 @@
+#!/bin/bash
+# Return empty output
+exit 0

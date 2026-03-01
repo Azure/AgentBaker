@@ -1,0 +1,20 @@
+{
+    "plugin": "custom",
+    "pluginConfig": {
+      "invoke_interval": "1m",
+      "timeout": "30s",
+      "max_output_length": 80,
+      "concurrency": 1
+    },
+    "source": "localdns-problem-monitor",
+    "metricsReporting": true,
+    "conditions": [],
+    "rules": [
+      {
+        "type": "temporary",
+        "reason": "LocalDNSError",
+        "path": "/etc/node-problem-detector.d/plugin/check_dns_to_localdns.sh",
+        "timeout": "30s"
+      }
+    ]
+}

@@ -1,0 +1,13 @@
+#!/bin/bash
+cat <<'DMESG_EOF'
+[    0.000000] Linux version 5.4.0-1064-azure (buildd@lcy02-amd64-112) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.1) ) #69~20.04.1-Ubuntu SMP Wed Jan 12 22:28:45 UTC 2022
+[    1.234567] Memory: 4096000K/4194304K available (12288K kernel code, 2048K rwdata, 4096K rodata, 1536K init, 1024K bss, 98304K reserved, 0K cma-reserved)
+[   10.123456] systemd[1]: Started Kernel Logging Service.
+[ 3200.567890] chrome invoked oom-killer: gfp_mask=0x6200ca(GFP_HIGHUSER_MOVABLE), order=0, oom_score_adj=300
+[ 3200.567891] Out of memory: Kill process 1234 (chrome) score 850 or sacrifice child
+[ 3200.567892] Killed process 1234 (chrome) total-vm:2345678kB, anon-rss:1234567kB, file-rss:0kB, shmem-rss:0kB
+[ 3220.789012] oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=/,mems_allowed=0,global_oom,task_memcg=/user.slice/user-1000.slice/session-2.scope,task=node,pid=5678,uid=1000
+[ 3220.789013] Out of memory: Kill process 5678 (node) score 500 or sacrifice child
+[ 3590.123456] systemd[1]: Started some-service.service.
+[ 3595.789012] systemd[1]: Reached target multi-user.target.
+DMESG_EOF

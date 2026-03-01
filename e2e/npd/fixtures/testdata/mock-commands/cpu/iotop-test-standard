@@ -1,0 +1,9 @@
+#!/bin/bash
+cat <<'IOTOP_OUTPUT'
+Total DISK READ: 15.67 B/s | Total DISK WRITE: 8.90 K/s
+Current DISK READ: 5.23 M/s | Current DISK WRITE: 3.45 G/s
+    TID  PRIO  USER     DISK READ  DISK WRITE  SWAPIN      IO    COMMAND
+ 1234    be/4 root      10.50 M/s    4.20 M/s  ?unavailable?  [kworker/u16:2]
+ 5678    be/4 postgres   3.17 M/s    2.70 M/s  ?unavailable?  postgres: writer process
+ 9012    be/4 mysql      2.00 M/s    2.00 M/s  ?unavailable?  mysqld --defaults-file=/etc/mysql/my.cnf
+IOTOP_OUTPUT

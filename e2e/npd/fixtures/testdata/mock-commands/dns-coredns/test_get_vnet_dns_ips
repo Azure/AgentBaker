@@ -1,0 +1,11 @@
+#!/bin/bash
+# Test wrapper script for get_vnet_dns_ips function
+set -uo pipefail
+
+# Source the common DNS functions
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+source "/etc/node-problem-detector.d/plugin/check_dns_common.sh"
+
+# Call the get_vnet_dns_ips function and output results
+get_vnet_dns_ips
+exit 0

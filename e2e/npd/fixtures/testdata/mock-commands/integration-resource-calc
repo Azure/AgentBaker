@@ -1,0 +1,44 @@
+#!/bin/bash
+# This script supports both systemd-cgtop and crictl for resource calculation testing
+COMMAND_NAME=$(basename "$0")
+
+case "$COMMAND_NAME" in
+    "systemd-cgtop")
+        cat <<'CGTOP_EOF'
+Control Group                                            Tasks   %CPU   Memory  Input/s Output/s
+/                                                         1234   45.7     6.2G        -        -
+/system.slice/docker.service                               123   78.3     2.1G        -        -
+/system.slice/kubelet.service                               89   65.2     1.8G        -        -
+CGTOP_EOF
+        ;;
+    "crictl")
+        cat <<'CRICTL_EOF'
+{
+  "stats": [
+    {
+      "attributes": {
+        "id": "resource-calc-container",
+        "metadata": {
+          "name": "resource-test"
+        },
+        "labels": {
+          "io.kubernetes.pod.namespace": "resource-calc",
+          "io.kubernetes.pod.name": "resource-calc-pod"
+        }
+      },
+      "cpu": {
+        "usageNanoCores": {
+          "value": "1500000000"
+        }
+      },
+      "memory": {
+        "workingSetBytes": {
+          "value": "2147483648"
+        }
+      }
+    }
+  ]
+}
+CRICTL_EOF
+        ;;
+esac

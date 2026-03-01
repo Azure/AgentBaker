@@ -1,0 +1,14 @@
+#!/bin/bash
+if [[ "$*" == *"cat kubelet"* ]]; then
+    cat <<'SYSTEMCTL_EOF'
+[Service]
+ExecStart=/usr/local/bin/kubelet \
+  --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf \
+  --kubeconfig=/var/lib/kubelet/kubeconfig \
+  --config=/var/lib/kubelet/config.yaml \
+  --pod-infra-container-image=mcr.microsoft.com/oss/kubernetes/pause:3.6 \
+  --v=2
+SYSTEMCTL_EOF
+else
+    exit 0
+fi
