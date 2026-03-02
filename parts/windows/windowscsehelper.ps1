@@ -79,9 +79,16 @@ $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED=72
 $global:WINDOWS_CSE_ERROR_EXTRACT_ZIP=73
 $global:WINDOWS_CSE_ERROR_LOAD_METADATA=74
 $global:WINDOWS_CSE_ERROR_PARSE_METADATA=75
+$global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND=76 # exit code for not finding oras in the expected path, which is a prerequisite for pulling packages from registry for network isolated cluster
+$global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT=77 # exit code for timeout waiting for IMDS response
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_NETWORK_TIMEOUT=78 # exit code for error pulling oras when login
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED=79 # exit code for error pulling artifact with oras from registry with authorization issue
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL=80 # exit code for error pulling kubelet kubectl artifact with oras from registry
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER=81 # exit code for error pulling credential provider artifact with oras from registry
+$global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER=82 # exit code for error pulling pause image with oras from registry
 # WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
 # Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
-$global:WINDOWS_CSE_ERROR_MAX_CODE=76
+$global:WINDOWS_CSE_ERROR_MAX_CODE=83
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -160,7 +167,14 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED",
     "WINDOWS_CSE_ERROR_EXTRACT_ZIP",
     "WINDOWS_CSE_ERROR_LOAD_METADATA",
-    "WINDOWS_CSE_ERROR_PARSE_METADATA"
+    "WINDOWS_CSE_ERROR_PARSE_METADATA",
+    "WINDOWS_CSE_ERROR_ORAS_NOT_FOUND",
+    "WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT",
+    "WINDOWS_CSE_ERROR_ORAS_PULL_NETWORK_TIMEOUT",
+    "WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED",
+    "WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL",
+    "WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER"
 )
 
 # The package domain to be used
@@ -635,3 +649,4 @@ function Resolve-Error ($ErrorRecord=$Error[0])
        $Exception |Format-List * -Force
    }
 }
+
