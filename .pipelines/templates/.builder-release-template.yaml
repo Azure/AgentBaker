@@ -196,7 +196,7 @@ steps:
     condition: succeeded()
     retryCountOnTaskFailure: 3
     inputs:
-      azureSubscription: $(TME_ARM_SERVICE_CONNECTION)
+      azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
@@ -343,7 +343,7 @@ steps:
   # TODO(cameissner): remove when running prefetch optimization + VHD blob conversion by default
   - task: AzureCLI@2
     inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      azureSubscription: $(TME_ARM_SERVICE_CONNECTION)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
@@ -353,6 +353,7 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       DISK_RESOURCE_ID: $(disk_resource_id)
+      SAS_TOKEN: $(sas_token)
 
   - task: AzureCLI@2
     inputs:
