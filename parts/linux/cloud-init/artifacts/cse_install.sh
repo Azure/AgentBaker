@@ -299,19 +299,18 @@ downloadSecureTLSBootstrapClient() {
 # installWALinuxAgent queries the Azure wireserver to get the WALinuxAgent GAFamily
 # version and manifest, downloads the zip for that version, and installs it under
 # /var/lib/waagent/WALinuxAgent-<version>/.
-# The GAFamily version is the exact version the waagent daemon targets during
-# auto-update. Pre-caching it on disk lets the daemon pick it up locally without
+# GAFamily is the exact version the waagent daemon targets during auto-update.
+# Installing it during VHD build lets the daemon pick it up locally without
 # downloading from the network at provisioning time.
 installWALinuxAgent() {
     local downloadDir=$1
+    local wireserverURL=$2
 
     echo "Installing WALinuxAgent from wireserver GAFamily manifest..."
 
-    local WIRESERVER="http://168.63.129.16:80"
-
     # Step 1: Get the goalstate to find the ExtensionsConfig URL
     local goalstate
-    goalstate=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${WIRESERVER}/machine/?comp=goalstate") || {
+    goalstate=$(retrycmd_if_failure 10 5 60 curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${wireserverURL}/machine/?comp=goalstate") || {
         echo "ERROR: Failed to fetch goalstate from wireserver"
         return 1
     }
@@ -335,7 +334,7 @@ else:
 
     # Step 3: Fetch the extensions config to find the GAFamily version and manifest URI
     local extensions_config
-    extensions_config=$(curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${extensions_config_url}") || {
+    extensions_config=$(retrycmd_if_failure 10 5 60 curl -s -H "x-ms-agent-name: WALinuxAgent" -H "x-ms-version: 2012-11-30" "${extensions_config_url}") || {
         echo "ERROR: Failed to fetch extensions config"
         return 1
     }
@@ -376,9 +375,10 @@ print(um.group(1))
     manifest_url=$(echo "${manifest_url}" | sed 's/&amp;/\&/g')
 
     # Step 6: Fetch the manifest
+    # Use retrycmd_silent to avoid logging the full URL (contains SAS token).
     local manifest
-    manifest=$(curl -s -f "${manifest_url}") || {
-        echo "ERROR: Failed to fetch manifest from ${manifest_url}"
+    manifest=$(retrycmd_silent 10 5 60 curl -s -f "${manifest_url}") || {
+        echo "ERROR: Failed to fetch manifest from ${manifest_url%%\?*}"
         return 1
     }
 
@@ -408,15 +408,17 @@ sys.exit(1)
         return 1
     fi
 
-    echo "Found WALinuxAgent ${version} zip at: ${zip_url}"
+    # Log the URL without query parameters to avoid leaking SAS tokens in build logs
+    echo "Found WALinuxAgent ${version} zip at: ${zip_url%%\?*}"
 
     # Step 8: Download the zip
+    # Use retrycmd_silent to avoid logging the full URL (contains SAS token).
     local tmpDir
     tmpDir=$(mktemp -d)
     local zipFile="${tmpDir}/WALinuxAgent-${version}.zip"
 
-    retrycmd_curl_file 10 5 60 "${zipFile}" "${zip_url}" || {
-        echo "ERROR: Failed to download WALinuxAgent zip from ${zip_url}"
+    retrycmd_silent 10 5 60 curl -sf -o "${zipFile}" "${zip_url}" || {
+        echo "ERROR: Failed to download WALinuxAgent zip from ${zip_url%%\?*}"
         rm -rf "${tmpDir}"
         return 1
     }

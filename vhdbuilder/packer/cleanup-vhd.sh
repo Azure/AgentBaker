@@ -22,15 +22,22 @@ rm -f /opt/azure/containers/imds_instance_metadata_cache.json
 OS_ID=$(. /etc/os-release 2>/dev/null && echo "${ID:-}" | tr '[:lower:]' '[:upper:]')
 OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:lower:]' '[:upper:]' | tr -d '"')
 if [ "$OS_ID" != "FLATCAR" ] && [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
-    # Read the download location from components.json rather than hardcoding it
+    # Read the download location and wireserver URL from components.json
     WALINUXAGENT_DOWNLOAD_DIR=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' /opt/azure/components.json)
     if [ -z "$WALINUXAGENT_DOWNLOAD_DIR" ] || [ "$WALINUXAGENT_DOWNLOAD_DIR" = "null" ]; then
         echo "ERROR: walinuxagent downloadLocation not found in components.json"
         exit 1
     fi
+    WALINUXAGENT_WIRESERVER_URL=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .wireserverURL' /opt/azure/components.json)
+    if [ -z "$WALINUXAGENT_WIRESERVER_URL" ] || [ "$WALINUXAGENT_WIRESERVER_URL" = "null" ]; then
+        echo "ERROR: walinuxagent wireserverURL not found in components.json"
+        exit 1
+    fi
     cat > /opt/azure/containers/post-deprovision-walinuxagent.sh << WALINUXAGENT_SCRIPT
-#!/bin/bash -eux
+#!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
+# NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
+# wireserver manifest/blob URLs in packer build logs.
 # Sources the provisioning helpers and installs the GAFamily agent from wireserver,
 # then configures waagent.conf to use the pre-cached agent from disk.
 
@@ -48,7 +55,7 @@ source /opt/azure/containers/provision_source.sh
 source /opt/azure/containers/provision_installs.sh
 
 # Install WALinuxAgent from wireserver GAFamily manifest
-installWALinuxAgent ${WALINUXAGENT_DOWNLOAD_DIR}
+installWALinuxAgent ${WALINUXAGENT_DOWNLOAD_DIR} ${WALINUXAGENT_WIRESERVER_URL}
 
 # Configure waagent.conf to pick up the pre-cached agent from disk:
 # - AutoUpdate.Enabled=y tells the daemon to look for newer agent versions on disk

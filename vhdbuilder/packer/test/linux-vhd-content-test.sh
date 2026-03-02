@@ -244,7 +244,7 @@ testPackagesInstalled() {
         continue
         ;;
       "walinuxagent")
-        # walinuxagent is installed from the wireserver manifest, not via the standard download URL
+        # walinuxagent is installed from the wireserver manifest
         # Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version of WALinuxAgent
         if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
           testWALinuxAgentInstalled
@@ -1515,7 +1515,7 @@ testBccTools () {
 # The test runs on a VM booted from the captured VHD image, so the post-deprovision
 # script has already executed and self-deleted. We verify its *results*:
 #   1. At least one WALinuxAgent-* directory exists under /var/lib/waagent/
-#   2. The directory contains the expected artifacts (egg, HandlerManifest.json, manifest.xml)
+#   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
@@ -1523,7 +1523,7 @@ testWALinuxAgentInstalled() {
 
   # Check that at least one WALinuxAgent-* directory was installed
   local -a dirs
-  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort)
+  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort -V)
   local dirCount=${#dirs[@]}
   if [ "$dirCount" -lt 1 ]; then
     err "$test" "Expected at least 1 WALinuxAgent directory under /var/lib/waagent/, found ${dirCount}"
@@ -1544,7 +1544,6 @@ testWALinuxAgentInstalled() {
     echo "$test: Found expected file ${installDir}/${f}"
   done
 
-  # WALinuxAgent 2.15+ ships a bin/ directory instead of a .egg file
   if [ ! -d "${installDir}/bin" ]; then
     err "$test" "bin/ directory not found in ${installDir}, contents: $(ls -al "${installDir}")"
     return 1
