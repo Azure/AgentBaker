@@ -302,10 +302,10 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
     $script:capturedEncoding = $null
     $script:capturedContent = $null
     Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
+      param($InputObject, $FilePath, $Encoding)
       $script:capturedFilePath = $FilePath
       $script:capturedEncoding = $Encoding
-      $script:capturedContent = $input
+      $script:capturedContent = $InputObject
     }
   }
 
