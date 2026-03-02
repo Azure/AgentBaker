@@ -172,6 +172,15 @@ activateNfConntrack() {
     echo nf_conntrack >> /etc/modules-load.d/contrack.conf
 }
 
+# Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0.
+# The AzureLinux 3.0 kernel has an OOT patch that automatically enables
+# lockdown when secure boot is detected.
+disableKernelLockdownCmdline() {
+    echo "Removing lockdown=integrity from kernel cmdline..."
+    dnf_install 120 5 25 grubby || exit $ERR_APT_INSTALL_TIMEOUT
+    grubby --update-kernel=ALL --remove-args="lockdown"
+}
+
 installFIPS() {
 
     echo "Installing FIPS..."
