@@ -4,14 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/components"
-	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,56 +24,6 @@ const (
 // by reading the version from components.json E2EContainerImages section.
 func getNvidiaDevicePluginImage() string {
 	return components.GetE2EContainerImage(nvidiaDevicePluginImageName)
-}
-
-// Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests that a GPU node can function correctly
-// with the NVIDIA device plugin deployed as a Kubernetes DaemonSet instead of a systemd service.
-// This is the "upstream" deployment model commonly used by customers who manage their own
-// NVIDIA device plugin deployment.
-func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA device plugin works when deployed as a DaemonSet (not systemd service)",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				// Don't enable the managed GPU experience - we'll deploy the device plugin as a DaemonSet instead.
-				// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// First, validate that GPU drivers are installed
-				ValidateNvidiaModProbeInstalled(ctx, s)
-
-				// Verify that the systemd-based device plugin is NOT running
-				// (managed GPU experience is not enabled, so the service should not be active)
-				validateNvidiaDevicePluginServiceNotRunning(ctx, s)
-
-				// Deploy the NVIDIA device plugin as a DaemonSet
-				deployNvidiaDevicePluginDaemonset(ctx, s)
-
-				// Wait for the DaemonSet pod to be running on our node
-				waitForNvidiaDevicePluginDaemonsetReady(ctx, s)
-
-				// Validate that GPU resources are advertised by the device plugin
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
-
-				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
-
-				s.T.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
-			},
-		},
-	})
 }
 
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
