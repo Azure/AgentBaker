@@ -41,14 +41,16 @@ if [ "$OS_ID" != "FLATCAR" ] && [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
 # Sources the provisioning helpers and installs the GAFamily agent from wireserver,
 # then configures waagent.conf to use the pre-cached agent from disk.
 
-# After deprovision, DNS may be broken on some distros (e.g., Azure Linux)
-# because 'waagent -deprovision' clears /etc/resolv.conf. Wireserver calls
-# use IP 168.63.129.16 directly, but the manifest download needs DNS to
-# resolve blob storage hostnames. Azure DNS at 168.63.129.16 is always
-# available on Azure VMs.
+# DNS will be broken on AzLinux after deprovision because
+# 'waagent -deprovision' clears /etc/resolv.conf.
+# Temporarily restore Azure DNS for manifest download
+# and then remove before the VHD is finalized to keep the image clean.
+RESOLV_CONF_BAK=""
 if [ ! -s /etc/resolv.conf ] || ! grep -q nameserver /etc/resolv.conf; then
+    cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
+    RESOLV_CONF_BAK="/etc/resolv.conf.bak"
     echo "nameserver 168.63.129.16" > /etc/resolv.conf
-    echo "Restored DNS resolution using Azure DNS after deprovision"
+    echo "Temporarily set DNS to Azure DNS for manifest download"
 fi
 
 source /opt/azure/containers/provision_source.sh
@@ -67,6 +69,12 @@ fi
 sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
 if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
     echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
+fi
+
+# Restore resolv.conf to its post-deprovision state so the VHD ships clean
+if [ -n "\${RESOLV_CONF_BAK}" ] && [ -f "\${RESOLV_CONF_BAK}" ]; then
+    mv "\${RESOLV_CONF_BAK}" /etc/resolv.conf
+    echo "Restored /etc/resolv.conf to post-deprovision state"
 fi
 
 echo "WALinuxAgent installed and waagent.conf configured post-deprovision"
