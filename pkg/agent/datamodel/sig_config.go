@@ -362,8 +362,6 @@ const (
 	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
 	AKSFlatcarGalleryName          string = "AKSFlatcar"
 	AKSFlatcarResourceGroup        string = "AKS-Flatcar"
-	AKSACLGalleryName              string = "AKSACL"
-	AKSACLResourceGroup            string = "AKS-ACL"
 )
 
 const (
@@ -750,8 +748,8 @@ var (
 	}
 
 	SIGACLGen2TLImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSACLResourceGroup,
-		Gallery:       AKSACLGalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "aclgen2TL",
 		Version:       LinuxSIGImageVersion,
 	}
@@ -996,7 +994,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
 
 	// TODO: use withACSConfig when the gallery config is available within SIGConfig (ACSConfig) provided by the resource provider.
-	fromACSACL := withACSSIGConfigWithDefaults(sigConfig, "AKSACL", AKSACLGalleryName, AKSACLResourceGroup)
+	fromACSACL := withACSSIGConfigWithDefaults(sigConfig, "AKSACL", AKSAzureLinuxGalleryName, AKSAzureLinuxResourceGroup)
 	c.SigACLImageConfig = getSigACLImageConfigMapWithOpts(fromACSACL)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
