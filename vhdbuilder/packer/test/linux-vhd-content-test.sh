@@ -243,14 +243,7 @@ testPackagesInstalled() {
         testContainerNetworkingPluginsInstalled
         continue
         ;;
-      "walinuxagent")
-        # walinuxagent is installed from the wireserver manifest
-        # Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version of WALinuxAgent
-        if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
-          testWALinuxAgentInstalled
-        fi
-        continue
-        ;;
+
     esac
 
     resolve_packages_source_url
@@ -1973,6 +1966,11 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+# WALinuxAgent is installed post-deprovision (not via components.json),
+# so test it separately. Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+  testWALinuxAgentInstalled
+fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
 testImagesCompleted
 testPodSandboxImagePinned

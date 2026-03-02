@@ -16,29 +16,20 @@ rm -f /opt/azure/containers/imds_instance_metadata_cache.json
 
 # Write post-deprovision WALinuxAgent install script.
 # The deprovision step (waagent -force -deprovision+user) clears /var/lib/waagent/,
-# so we install the GAFamily agent AFTER deprovision. This script is called from the
+# so we install the latest agent AFTER deprovision. This script is called from the
 # packer inline block after the deprovision command completes.
 # Skip on Flatcar and AzureLinux OSGuard which use their OS-packaged version.
 OS_ID=$(. /etc/os-release 2>/dev/null && echo "${ID:-}" | tr '[:lower:]' '[:upper:]')
 OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:lower:]' '[:upper:]' | tr -d '"')
 if [ "$OS_ID" != "FLATCAR" ] && [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
-    # Read the download location and wireserver URL from components.json
-    WALINUXAGENT_DOWNLOAD_DIR=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadLocation' /opt/azure/components.json)
-    if [ -z "$WALINUXAGENT_DOWNLOAD_DIR" ] || [ "$WALINUXAGENT_DOWNLOAD_DIR" = "null" ]; then
-        echo "ERROR: walinuxagent downloadLocation not found in components.json"
-        exit 1
-    fi
-    WALINUXAGENT_WIRESERVER_URL=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .wireserverURL' /opt/azure/components.json)
-    if [ -z "$WALINUXAGENT_WIRESERVER_URL" ] || [ "$WALINUXAGENT_WIRESERVER_URL" = "null" ]; then
-        echo "ERROR: walinuxagent wireserverURL not found in components.json"
-        exit 1
-    fi
+    WALINUXAGENT_DOWNLOAD_DIR="/opt/walinuxagent/downloads"
+    WALINUXAGENT_WIRESERVER_URL="http://168.63.129.16:80"
     cat > /opt/azure/containers/post-deprovision-walinuxagent.sh << WALINUXAGENT_SCRIPT
 #!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
-# Sources the provisioning helpers and installs the GAFamily agent from wireserver,
+# Sources the provisioning helpers and installs the latest agent from wireserver,
 # then configures waagent.conf to use the pre-cached agent from disk.
 
 # DNS will be broken on AzLinux after deprovision because

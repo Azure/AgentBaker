@@ -2055,11 +2055,6 @@
           }
         }
       }
-    },
-    {
-      "name": "walinuxagent",
-      "downloadLocation": "/opt/walinuxagent/downloads",
-      "wireserverURL": "http://168.63.129.16:80"
     }
   ],
   "OCIArtifacts": [
