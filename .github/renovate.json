@@ -380,7 +380,8 @@
     },
     {
       "matchPackageNames": [
-        "nvidia-device-plugin"
+        "nvidia-device-plugin",
+        "oss/v2/nvidia/k8s-device-plugin"
       ],
       "groupName": "nvidia-device-plugin",
       "assignees": [
