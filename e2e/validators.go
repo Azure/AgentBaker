@@ -1534,8 +1534,12 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	// Step 3: Create an EMPTY Private DNS zone for the container registry FQDN
 	// This simulates a scenario where a Private DNS zone exists but has no records
-	s.T.Logf("Creating empty Private DNS zone for %s...", privateZoneName)
-	_, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName)
+	// Tag it as e2e-test-created so we can safely identify and clean it up
+	s.T.Logf("Creating empty Private DNS zone for %s (with e2e test tag)...", privateZoneName)
+	_, err = createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, map[string]*string{
+		"e2e-test": to.Ptr("true"),
+		"test-id":  to.Ptr(s.Runtime.VMSSName),
+	})
 	require.NoError(s.T, err, "failed to create Private DNS zone")
 	defer func() {
 		s.T.Logf("Cleaning up Private DNS zone for %s...", privateZoneName)
