@@ -195,6 +195,38 @@ oom_score = -999
 				assert.Equal(t, "true", vars["NEEDS_CGROUPV2"])
 			},
 		},
+		{
+			name:       "AKSUbuntu2204 with LocalDNS and hosts plugin enabled",
+			folder:     "AKSUbuntu2204+LocalDNS+HostsPlugin",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true,
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with LocalDNS enabled but hosts plugin disabled",
+			folder:     "AKSUbuntu2204+LocalDNS",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false,
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
+				assert.Equal(t, "false", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -785,6 +785,14 @@ func shouldEnableLocalDns(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return fmt.Sprintf("%v", aksnodeconfig != nil && aksnodeconfig.GetLocalDnsProfile() != nil && aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns())
 }
 
+// shouldEnableHostsPlugin returns true if LocalDNS is enabled and the hosts plugin
+// is explicitly enabled. When true, the localdns Corefile will include a hosts plugin
+// block that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
+func shouldEnableHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	return fmt.Sprintf("%v", shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetEnableHostsPlugin())
+}
+
+
 // getLocalDnsCpuLimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
 func getLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetCpuLimitInMilliCores() != 0 {
