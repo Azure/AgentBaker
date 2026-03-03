@@ -1490,43 +1490,79 @@ fi
 func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Use a fake FQDN that doesn't exist in public DNS and a TEST-NET-3 IP (RFC 5737)
-	// If this resolves, it MUST be coming from the hosts file
-	fakeFQDN := "fake-mcr.microsoft.com"
-	fakeIP := "203.0.113.42"
+	// Step 1: Verify the node has the hosts plugin annotation
+	s.T.Log("Verifying node has localdns-hosts-plugin annotation...")
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
+	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
+	annotationValue, exists := node.Annotations[annotationKey]
+	require.True(s.T, exists, "node %q should have annotation %q", s.Runtime.VM.KubeName, annotationKey)
+	require.Equal(s.T, "enabled", annotationValue, "annotation %q should be 'enabled', got %q", annotationKey, annotationValue)
+	s.T.Logf("✓ Node annotation %s=%s verified", annotationKey, annotationValue)
+
+	// Step 2: Get cluster infrastructure info
+	nodeResourceGroup := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	vnet, err := getClusterVNet(ctx, nodeResourceGroup)
+	require.NoError(s.T, err, "failed to get cluster VNet")
+
+	// Step 3: Create an EMPTY Private DNS zone for "microsoft.com"
+	// This simulates a scenario where a Private DNS zone exists but has no records
+	s.T.Log("Creating empty Private DNS zone for microsoft.com...")
+	privateZoneName := "microsoft.com"
+	_, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName)
+	require.NoError(s.T, err, "failed to create Private DNS zone")
+	defer func() {
+		s.T.Log("Cleaning up Private DNS zone...")
+		cleanupPrivateDNSZone(ctx, nodeResourceGroup, privateZoneName)
+	}()
+
+	// Step 4: Link Private DNS zone to VNET
+	s.T.Log("Linking Private DNS zone to VNET...")
+	err = createPrivateDNSLink(ctx, vnet, nodeResourceGroup, privateZoneName)
+	require.NoError(s.T, err, "failed to link Private DNS zone to VNET")
+
+	// Step 5: Add an entry to the hosts file (not to the Private DNS zone)
+	// This tests that the hosts plugin bypasses the empty Private DNS zone
+	testFQDN := "mcr.microsoft.com"
+	testIP := "203.0.113.42" // TEST-NET-3 IP (RFC 5737)
+
+	s.T.Logf("Testing hosts plugin bypass with empty Private DNS zone for %s", testFQDN)
 	script := fmt.Sprintf(`set -euo pipefail
-fake_fqdn=%q
-fake_ip=%q
+test_fqdn=%q
+test_ip=%q
 hosts_file="/etc/localdns/hosts"
 
-echo "=== Testing localdns hosts plugin bypass ==="
-echo "Injecting fake entry: $fake_ip $fake_fqdn"
+echo "=== Testing localdns hosts plugin bypass with empty Private DNS zone ==="
+echo "Private DNS zone 'microsoft.com' exists but is EMPTY (no A records)"
+echo "Adding entry to hosts file: $test_ip $test_fqdn"
 
-# Add fake entry to hosts file
-echo "$fake_ip $fake_fqdn" | sudo tee -a "$hosts_file" > /dev/null
+# Add test entry to hosts file
+echo "$test_ip $test_fqdn" | sudo tee -a "$hosts_file" > /dev/null
 
-echo "Current hosts file contents:"
-sudo cat "$hosts_file"
+echo ""
+echo "Current hosts file contents (last 10 lines):"
+sudo tail -10 "$hosts_file"
 
 # Give localdns time to pick up the change (hosts plugin reloads periodically).
-# Poll for up to 30 seconds to avoid flakes due to reload interval variance.
+# Poll for up to 60 seconds to account for both DNS propagation and hosts plugin reload.
 echo ""
-echo "Polling localdns for fake FQDN: $fake_fqdn (up to 30s)"
-echo "If this resolves to $fake_ip, it proves the hosts plugin is working"
+echo "Polling localdns for $test_fqdn (up to 60s)"
+echo "Expected: $test_ip (from hosts file, bypassing empty Private DNS zone)"
 
-for i in $(seq 1 30); do
+for i in $(seq 1 60); do
     echo "Attempt $i:"
 
     # Query localdns at the cluster listener IP
-    result=$(dig "$fake_fqdn" @169.254.10.10 +short +timeout=5 +tries=2 2>/dev/null || true)
+    result=$(dig "$test_fqdn" @169.254.10.10 +short +timeout=5 +tries=2 2>/dev/null || true)
     echo "DNS response: $result"
 
-    # Check if the fake IP is in the response
-    if echo "$result" | grep -q "$fake_ip"; then
+    # Check if the test IP is in the response
+    if echo "$result" | grep -q "$test_ip"; then
         echo ""
-        echo "SUCCESS: localdns resolved fake FQDN $fake_fqdn to $fake_ip from hosts file!"
-        echo "This proves the hosts plugin is correctly bypassing upstream DNS."
+        echo "SUCCESS: localdns resolved $test_fqdn to $test_ip from hosts file!"
+        echo "This proves the hosts plugin correctly bypasses the empty Private DNS zone."
+        echo "Without the hosts plugin, this query would fail (no record in Private DNS)."
         exit 0
     fi
 
@@ -1534,19 +1570,22 @@ for i in $(seq 1 30); do
 done
 
 echo ""
-echo "ERROR: Expected fake IP $fake_ip not found in response for $fake_fqdn after polling"
-echo "The hosts plugin may not be working correctly."
+echo "ERROR: Expected IP $test_ip not found in response for $test_fqdn after polling"
+echo "The hosts plugin may not be working correctly, or the Private DNS zone is interfering."
 echo ""
 echo "Full dig output:"
-dig "$fake_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+dig "$test_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
 echo ""
 echo "localdns service status:"
 systemctl status localdns --no-pager -n 10 || true
+echo ""
+echo "Verify hosts file entry exists:"
+sudo grep "$test_fqdn" "$hosts_file" || echo "Entry not found in hosts file!"
 exit 1
-`, fakeFQDN, fakeIP)
+`, testFQDN, testIP)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should resolve fake FQDN from hosts file (proving hosts plugin bypass)")
+		"localdns should resolve FQDN from hosts file even when Private DNS zone is empty")
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
