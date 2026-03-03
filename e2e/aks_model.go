@@ -984,6 +984,37 @@ func cleanupPrivateDNSZone(ctx context.Context, resourceGroup, zoneName string) 
 
 	toolkit.Logf(cleanupCtx, "Deleting Private DNS zone %s in resource group %s", zoneName, resourceGroup)
 
+	// First, delete all VNET links (required before zone deletion)
+	linkPager := config.Azure.VirutalNetworkLinksClient.NewListPager(resourceGroup, zoneName, nil)
+	for linkPager.More() {
+		linkPage, err := linkPager.NextPage(cleanupCtx)
+		if err != nil {
+			toolkit.Logf(cleanupCtx, "Failed to list VNET links for zone %s: %v", zoneName, err)
+			break
+		}
+
+		for _, link := range linkPage.Value {
+			if link == nil || link.Name == nil {
+				continue
+			}
+
+			toolkit.Logf(cleanupCtx, "Deleting VNET link %s from zone %s...", *link.Name, zoneName)
+			linkPoller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, *link.Name, nil)
+			if err != nil {
+				toolkit.Logf(cleanupCtx, "Failed to start deletion of VNET link %s: %v", *link.Name, err)
+				continue
+			}
+
+			_, err = linkPoller.PollUntilDone(cleanupCtx, nil)
+			if err != nil {
+				toolkit.Logf(cleanupCtx, "Failed to delete VNET link %s: %v", *link.Name, err)
+				continue
+			}
+			toolkit.Logf(cleanupCtx, "Deleted VNET link %s", *link.Name)
+		}
+	}
+
+	// Now delete the Private DNS zone itself
 	poller, err := config.Azure.PrivateZonesClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, nil)
 	if err != nil {
 		toolkit.Logf(cleanupCtx, "Failed to start deletion of Private DNS zone %s: %v", zoneName, err)
