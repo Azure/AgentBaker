@@ -792,7 +792,6 @@ func shouldEnableHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration) strin
 	return fmt.Sprintf("%v", shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetEnableHostsPlugin())
 }
 
-
 // getLocalDnsCpuLimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
 func getLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetCpuLimitInMilliCores() != 0 {

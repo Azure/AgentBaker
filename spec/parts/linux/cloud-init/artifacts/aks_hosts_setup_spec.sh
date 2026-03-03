@@ -201,14 +201,14 @@ MOCK_EOF
             The output should not include "Resolving addresses for login.microsoftonline.com"
         End
 
-        It 'falls back to AzurePublicCloud for unknown cloud values'
+        It 'exits with error for unknown cloud values'
             TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "SomeUnknownCloud")
             When run command bash "${TEST_SCRIPT}"
-            The status should be success
+            The status should be failure
             The output should include "Detected cloud environment: SomeUnknownCloud"
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for login.microsoftonline.com"
-            The output should include "Resolving addresses for management.azure.com"
+            The output should include "ERROR: Unrecognized cloud environment: SomeUnknownCloud"
+            The output should include "Cannot determine which FQDNs to resolve for hosts file"
+            The output should include "Exiting without modifying hosts file"
         End
 
         It 'fails when TARGET_CLOUD is unset'
