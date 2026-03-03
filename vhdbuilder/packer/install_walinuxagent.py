@@ -196,7 +196,6 @@ def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
 
     # Step 4: Extract GAFamily version and manifest URI
     version, manifest_url = extract_ga_family_info(extensions_config)
-
     # Validate version is a safe string (e.g. "2.9.1.1") before using in paths.
     # WALinuxAgent versions are dot-separated digits only.
     if not re.match(r"^[0-9]+(\.[0-9]+)*$", version):
