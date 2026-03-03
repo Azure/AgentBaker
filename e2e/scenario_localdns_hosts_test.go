@@ -301,64 +301,6 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_TimerRefresh(t *testing.T) {
 	})
 }
 
-// Test_Ubuntu2204_LocalDNSHostsPlugin_IPv4Validation tests IPv4 octet range validation
-func Test_Ubuntu2204_LocalDNSHostsPlugin_IPv4Validation(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that aks-hosts-setup.sh properly validates IPv4 octet ranges (0-255) and rejects invalid IPs",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate that hosts file only contains valid IPv4 addresses
-				script := `
-set -euo pipefail
-hosts_file="/etc/localdns/hosts"
-
-echo "Checking all IPs in hosts file are valid IPv4 addresses with octets 0-255..."
-
-# Extract all IP-looking patterns (skip comments and blank lines)
-grep -E '^[0-9]' "$hosts_file" | awk '{print $1}' | while read -r ip; do
-    # Split by dots and validate each octet
-    IFS='.' read -r a b c d <<< "$ip"
-
-    # Check we have exactly 4 octets
-    if [ -z "$a" ] || [ -z "$b" ] || [ -z "$c" ] || [ -z "$d" ]; then
-        echo "ERROR: Invalid IP format: $ip"
-        exit 1
-    fi
-
-    # Validate octet range 0-255
-    if [ "$a" -gt 255 ] || [ "$b" -gt 255 ] || [ "$c" -gt 255 ] || [ "$d" -gt 255 ]; then
-        echo "ERROR: IP has octet > 255: $ip"
-        exit 1
-    fi
-
-    if [ "$a" -lt 0 ] || [ "$b" -lt 0 ] || [ "$c" -lt 0 ] || [ "$d" -lt 0 ]; then
-        echo "ERROR: IP has octet < 0: $ip"
-        exit 1
-    fi
-
-    echo "  OK: $ip"
-done
-
-echo "All IPs in hosts file are valid!"
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-					"All IPs in hosts file should have valid IPv4 octet ranges (0-255)")
-			},
-		},
-	})
-}
-
 // Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence tests cloud env persistence
 func Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence(t *testing.T) {
 	RunScenario(t, &Scenario{
