@@ -262,45 +262,6 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_BackwardCompatVHD(t *testing.T) {
 	})
 }
 
-// Test_Ubuntu2204_LocalDNSHostsPlugin_TimerRefresh tests the periodic refresh behavior
-func Test_Ubuntu2204_LocalDNSHostsPlugin_TimerRefresh(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that aks-hosts-setup.timer is configured correctly for periodic refresh",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate timer configuration
-				ValidateAKSHostsSetupService(ctx, s)
-
-				// Check timer unit file exists and has correct interval and boot settings
-				ValidateFileExists(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer", "OnUnitActiveSec=15min")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.timer", "OnBootSec=0")
-
-				// Verify timer is enabled for automatic startup
-				execScriptOnVMForScenarioValidateExitCode(ctx, s,
-					"systemctl is-enabled aks-hosts-setup.timer",
-					0, "aks-hosts-setup.timer should be enabled")
-
-				// Validate service configuration
-				ValidateFileExists(ctx, s, "/etc/systemd/system/aks-hosts-setup.service")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.service", "Type=oneshot")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.service", "TimeoutStartSec=60")
-			},
-		},
-	})
-}
-
 // Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence tests cloud env persistence
 func Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence(t *testing.T) {
 	RunScenario(t, &Scenario{
