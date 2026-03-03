@@ -1286,6 +1286,12 @@ EOF
         }
         cleanup() {
             rm -rf "$TEST_DIR"
+            # Clean up mock kubectl symlink to prevent state leaking across specs
+            rm -f /opt/bin/kubectl
+            # Remove /opt/bin if it's empty and we created it
+            if [ -d /opt/bin ] && [ -z "$(ls -A /opt/bin 2>/dev/null)" ]; then
+                rmdir /opt/bin 2>/dev/null || true
+            fi
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -1418,21 +1424,30 @@ EOF
 EOF
             touch "$KUBECONFIG"
 
-            # Create mock kubectl binary in system path
-            mkdir -p /opt/bin
+            # Create mock kubectl in /opt/bin (must exist in container filesystem)
+            # First verify we can write to /opt
+            if [ ! -d /opt ]; then
+                Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
+            fi
+
+            mkdir -p /opt/bin || Skip "Cannot create /opt/bin directory"
+
             cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-if [[ "$1" == "get" && "$2" == "node" ]]; then
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
     exit 0
-elif [[ "$1" == "annotate" && "$2" == "--overwrite" && "$3" == "node" ]]; then
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" && "$4" == "--overwrite" && "$5" == "node" ]]; then
     echo "node/testnode123 annotated"
     exit 0
 fi
 exit 1
 KUBECTL_EOF
-            chmod +x /opt/bin/kubectl
+            chmod +x /opt/bin/kubectl || Skip "Cannot make /opt/bin/kubectl executable"
 
-            When run annotate_node_with_hosts_plugin_status
+            # Verify the mock was created
+            [ -x /opt/bin/kubectl ] || Skip "Mock kubectl was not created successfully"
+
+            When call annotate_node_with_hosts_plugin_status
             The status should be success
             The stdout should include "Localdns is using hosts plugin and hosts file has 3 entries."
             The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
@@ -1454,13 +1469,13 @@ EOF
 EOF
             touch "$KUBECONFIG"
 
-            # Create mock kubectl binary that fails
+            # Create mock kubectl binary that fails annotation
             mkdir -p /opt/bin
             cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-if [[ "$1" == "get" && "$2" == "node" ]]; then
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
     exit 0
-elif [[ "$1" == "annotate" ]]; then
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" ]]; then
     echo "Error: failed to annotate node" >&2
     exit 1
 fi
@@ -1468,10 +1483,11 @@ exit 1
 KUBECTL_EOF
             chmod +x /opt/bin/kubectl
 
-            When run annotate_node_with_hosts_plugin_status
+            When call annotate_node_with_hosts_plugin_status
             The status should be success
             The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
             The stdout should include "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+            The stderr should include "Error: failed to annotate node"
         End
 
         It 'should convert hostname to lowercase for node name'
@@ -1493,19 +1509,19 @@ EOF
             mkdir -p /opt/bin
             cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-if [[ "$1" == "get" && "$2" == "node" ]]; then
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
     exit 0
-elif [[ "$1" == "annotate" && "$3" == "node" && "$4" == "testnode123" ]]; then
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" && "$4" == "--overwrite" && "$5" == "node" && "$6" == "testnode123" ]]; then
     echo "node/testnode123 annotated (lowercase verified)"
     exit 0
 else
-    echo "Error: Expected lowercase node name 'testnode123' but got '$4'" >&2
+    echo "Error: Expected lowercase node name 'testnode123' but got '$6'" >&2
     exit 1
 fi
 KUBECTL_EOF
             chmod +x /opt/bin/kubectl
 
-            When run annotate_node_with_hosts_plugin_status
+            When call annotate_node_with_hosts_plugin_status
             The status should be success
             The stdout should include "Successfully set hosts plugin annotation."
         End
@@ -1526,12 +1542,11 @@ EOF
             touch "$KUBECONFIG"
 
             # Create mock kubectl binary that simulates node not registered initially
-            mkdir -p /opt/bin
-
             # Create a counter file to track attempts
             ATTEMPT_FILE="${TEST_DIR}/attempt_count"
             echo "0" > "$ATTEMPT_FILE"
 
+            mkdir -p /opt/bin
             cat > /opt/bin/kubectl <<KUBECTL_EOF
 #!/bin/bash
 ATTEMPT_FILE="${ATTEMPT_FILE}"
@@ -1540,13 +1555,13 @@ count=\$((count + 1))
 echo "\$count" > "\$ATTEMPT_FILE"
 
 # Simulate node not ready for first 2 attempts
-if [[ "\$1" == "get" && "\$2" == "node" && \$count -le 2 ]]; then
+if [[ "\$1" == "--kubeconfig" && "\$3" == "get" && "\$4" == "node" && \$count -le 2 ]]; then
     echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
     exit 1
-elif [[ "\$1" == "get" && "\$2" == "node" ]]; then
+elif [[ "\$1" == "--kubeconfig" && "\$3" == "get" && "\$4" == "node" ]]; then
     # Node is now registered
     exit 0
-elif [[ "\$1" == "annotate" ]]; then
+elif [[ "\$1" == "--kubeconfig" && "\$3" == "annotate" ]]; then
     echo "node/testnode123 annotated"
     exit 0
 fi
@@ -1557,7 +1572,7 @@ KUBECTL_EOF
             # Use short timeout for testing
             NODE_REGISTRATION_WAIT_ATTEMPTS=5
 
-            When run annotate_node_with_hosts_plugin_status
+            When call annotate_node_with_hosts_plugin_status
             The status should be success
             The stdout should include "Waiting for node testnode123 to be registered in the cluster"
             The stdout should include "Node testnode123 is registered in the cluster"
@@ -1583,7 +1598,7 @@ EOF
             mkdir -p /opt/bin
             cat > /opt/bin/kubectl <<'KUBECTL_EOF'
 #!/bin/bash
-if [[ "$1" == "get" && "$2" == "node" ]]; then
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
     echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
     exit 1
 fi
@@ -1594,7 +1609,7 @@ KUBECTL_EOF
             # Use very short timeout for testing
             NODE_REGISTRATION_WAIT_ATTEMPTS=2
 
-            When run annotate_node_with_hosts_plugin_status
+            When call annotate_node_with_hosts_plugin_status
             The status should be success
             The stdout should include "Waiting for node registration"
             The stdout should include "Timeout waiting for node testnode123 to be registered"

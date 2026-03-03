@@ -87,6 +87,7 @@ case "${local_cloud}" in
         ;;
     *)
         # Unrecognized cloud environment - exit with error
+        echo "Detected cloud environment: ${local_cloud}"
         echo "ERROR: Unrecognized cloud environment: ${local_cloud}"
         echo "Supported clouds: AzureChinaCloud, AzureUSGovernmentCloud, USNatCloud, USSecCloud, AzureStackCloud, AzurePublicCloud, AzureGermanCloud, AzureGermanyCloud, AzureBleuCloud"
         echo "Cannot determine which FQDNs to resolve for hosts file."
