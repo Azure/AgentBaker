@@ -407,25 +407,24 @@ annotate_node_with_hosts_plugin_status() {
         return 0
     fi
 
-    KUBECONFIG="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
     # Wait for kubelet to finish TLS bootstrapping and create the kubeconfig file
     # This is necessary because localdns starts in basePrep(), before kubelet starts in nodePrep()
     local wait_count=0
     local max_wait="${KUBECONFIG_WAIT_ATTEMPTS:-60}"  # Default: wait up to 3 minutes (60 * 3 seconds), but configurable for testing
-    while [ ! -f "${KUBECONFIG}" ]; do
+    while [ ! -f "${kubeconfig}" ]; do
         if [ $wait_count -ge $max_wait ]; then
-            echo "Timeout waiting for kubeconfig at ${KUBECONFIG} after ${max_wait} attempts, skipping annotation."
+            echo "Timeout waiting for kubeconfig at ${kubeconfig} after ${max_wait} attempts, skipping annotation."
             return 0
         fi
         echo "Waiting for TLS bootstrapping to complete (attempt $((wait_count + 1))/${max_wait})..."
         sleep 3
         wait_count=$((wait_count + 1))
     done
-    echo "Kubeconfig found at ${KUBECONFIG}"
-
-    KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
+    echo "Kubeconfig found at ${kubeconfig}"
 
     # Get node name
+    local node_name
     node_name=$(hostname)
     if [ -z "${node_name}" ]; then
         echo "Cannot get node name, skipping annotation."
@@ -441,7 +440,7 @@ annotate_node_with_hosts_plugin_status() {
     local node_wait_count=0
     local max_node_wait="${NODE_REGISTRATION_WAIT_ATTEMPTS:-30}"  # Default: wait up to 90 seconds (30 * 3 seconds)
     while [ $node_wait_count -lt $max_node_wait ]; do
-        if $KUBECTL get node "${node_name}" >/dev/null 2>&1; then
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" >/dev/null 2>&1; then
             echo "Node ${node_name} is registered in the cluster."
             break
         fi
@@ -458,7 +457,7 @@ annotate_node_with_hosts_plugin_status() {
 
     # Set annotation to indicate hosts plugin is in use
     echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
-    if $KUBECTL annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
+    if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
         echo "Successfully set hosts plugin annotation."
     else
         echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
