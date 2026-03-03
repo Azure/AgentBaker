@@ -742,11 +742,10 @@ func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerser
 	defer toolkit.LogStepCtx(ctx, "collecting garbage Private DNS zones")()
 	rg := *cluster.Properties.NodeResourceGroup
 
-	// Only clean up VNET links created by e2e tests, never delete the zones themselves.
-	// Private DNS zones may be used by production infrastructure or other tests.
-	// We only delete links that:
-	// 1. Have a name pattern matching e2e test links (link-* pattern from VMSS names)
-	// 2. Are in zones commonly used by LocalDNS hosts plugin tests
+	// Clean up Private DNS zones created by e2e tests (identified by tags).
+	// Only delete zones that:
+	// 1. Have the "e2e-test=true" tag (created by LocalDNS hosts plugin tests)
+	// 2. Are in zones commonly used by e2e tests (additional safety check)
 	testManagedZonePatterns := []string{
 		"mcr.microsoft.com",
 		"mcr.azure.cn",
@@ -767,7 +766,7 @@ func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerser
 
 			zoneName := *zone.Name
 
-			// Only process zones that match our test patterns
+			// Safety check 1: Only process zones that match our test patterns
 			isTestZone := false
 			for _, pattern := range testManagedZonePatterns {
 				if zoneName == pattern {
@@ -780,9 +779,15 @@ func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerser
 				continue
 			}
 
-			toolkit.Logf(ctx, "checking Private DNS zone %q for orphaned test links...", zoneName)
+			// Safety check 2: Only delete zones with e2e-test tag
+			if zone.Tags == nil || zone.Tags["e2e-test"] == nil || *zone.Tags["e2e-test"] != "true" {
+				toolkit.Logf(ctx, "skipping Private DNS zone %q (not tagged as e2e test)", zoneName)
+				continue
+			}
 
-			// Delete only VNET links that match e2e test patterns (not the zone itself)
+			toolkit.Logf(ctx, "found e2e test Private DNS zone %q (tagged), cleaning up...", zoneName)
+
+			// Delete all VNET links first (required before zone deletion)
 			linkPager := config.Azure.VirutalNetworkLinksClient.NewListPager(rg, zoneName, nil)
 			for linkPager.More() {
 				linkPage, err := linkPager.NextPage(ctx)
@@ -797,18 +802,7 @@ func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerser
 					}
 
 					linkName := *link.Name
-
-					// Only delete links that match e2e test naming pattern
-					// E2e tests create links with pattern: link-{vmss-name}
-					// VMSS names follow pattern: {hash}-{date}-{testname}
-					// Skip:
-					// - link-ABE2ETests (legacy default name, might be in use)
-					// - Any link not starting with "link-"
-					if linkName == "link-ABE2ETests" || !strings.HasPrefix(linkName, "link-") {
-						continue
-					}
-
-					toolkit.Logf(ctx, "deleting orphaned e2e test VNET link %q from zone %q...", linkName, zoneName)
+					toolkit.Logf(ctx, "deleting VNET link %q from e2e test zone %q...", linkName, zoneName)
 					poller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(ctx, rg, zoneName, linkName, nil)
 					if err != nil {
 						toolkit.Logf(ctx, "failed to start deletion of VNET link %q: %s", linkName, err)
@@ -820,13 +814,24 @@ func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerser
 						toolkit.Logf(ctx, "failed to delete VNET link %q: %s", linkName, err)
 						continue
 					}
-					toolkit.Logf(ctx, "deleted orphaned e2e test VNET link %q", linkName)
+					toolkit.Logf(ctx, "deleted VNET link %q", linkName)
 				}
 			}
 
-			// DO NOT delete the Private DNS zone itself - it may be used by production
-			// infrastructure or other running tests. The zone will be cleaned up when
-			// the resource group is deleted.
+			// Now delete the e2e test Private DNS zone itself
+			toolkit.Logf(ctx, "deleting e2e test Private DNS zone %q...", zoneName)
+			poller, err := config.Azure.PrivateZonesClient.BeginDelete(ctx, rg, zoneName, nil)
+			if err != nil {
+				toolkit.Logf(ctx, "failed to start deletion of Private DNS zone %q: %s", zoneName, err)
+				continue
+			}
+
+			_, err = poller.PollUntilDone(ctx, nil)
+			if err != nil {
+				toolkit.Logf(ctx, "failed to delete Private DNS zone %q: %s", zoneName, err)
+				continue
+			}
+			toolkit.Logf(ctx, "deleted e2e test Private DNS zone %q", zoneName)
 		}
 	}
 

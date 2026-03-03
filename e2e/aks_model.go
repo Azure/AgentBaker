@@ -857,6 +857,10 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 }
 
 func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
+	return createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, nil)
+}
+
+func createPrivateZoneWithTags(ctx context.Context, nodeResourceGroup, privateZoneName string, tags map[string]*string) (*armprivatedns.PrivateZone, error) {
 	pzResp, err := config.Azure.PrivateZonesClient.Get(
 		ctx,
 		nodeResourceGroup,
@@ -868,6 +872,7 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 	}
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
+		Tags:     tags,
 	}
 	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
 		ctx,
