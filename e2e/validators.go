@@ -1506,10 +1506,15 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	vnet, err := getClusterVNet(ctx, nodeResourceGroup)
 	require.NoError(s.T, err, "failed to get cluster VNet")
 
-	// Step 3: Create an EMPTY Private DNS zone for "microsoft.com"
+	// Step 2.5: Clean up any lingering Private DNS zones from previous failed test runs
+	// This ensures we start with a clean state before creating our test Private DNS zone
+	privateZoneName := "mcr.microsoft.com"
+	s.T.Log("Cleaning up any existing Private DNS zone from previous runs...")
+	cleanupPrivateDNSZone(ctx, nodeResourceGroup, privateZoneName)
+
+	// Step 3: Create an EMPTY Private DNS zone for "mcr.microsoft.com"
 	// This simulates a scenario where a Private DNS zone exists but has no records
-	s.T.Log("Creating empty Private DNS zone for microsoft.com...")
-	privateZoneName := "microsoft.com"
+	s.T.Log("Creating empty Private DNS zone for mcr.microsoft.com...")
 	_, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName)
 	require.NoError(s.T, err, "failed to create Private DNS zone")
 	defer func() {
@@ -1522,55 +1527,69 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	err = createPrivateDNSLink(ctx, vnet, nodeResourceGroup, privateZoneName)
 	require.NoError(s.T, err, "failed to link Private DNS zone to VNET")
 
-	// Step 5: Add an entry to the hosts file (not to the Private DNS zone)
+	// Step 5: Test that localdns resolves FQDN from hosts file
 	// This tests that the hosts plugin bypasses the empty Private DNS zone
 	testFQDN := "mcr.microsoft.com"
-	testIP := "203.0.113.42" // TEST-NET-3 IP (RFC 5737)
 
 	s.T.Logf("Testing hosts plugin bypass with empty Private DNS zone for %s", testFQDN)
 	script := fmt.Sprintf(`set -euo pipefail
 test_fqdn=%q
-test_ip=%q
 hosts_file="/etc/localdns/hosts"
 
 echo "=== Testing localdns hosts plugin bypass with empty Private DNS zone ==="
-echo "Private DNS zone 'microsoft.com' exists but is EMPTY (no A records)"
-echo "Adding entry to hosts file: $test_ip $test_fqdn"
-
-# Add test entry to hosts file
-echo "$test_ip $test_fqdn" | sudo tee -a "$hosts_file" > /dev/null
-
+echo "Private DNS zone 'mcr.microsoft.com' exists but is EMPTY (no A records)"
 echo ""
-echo "Current hosts file contents (last 10 lines):"
-sudo tail -10 "$hosts_file"
 
-# Give localdns time to pick up the change (hosts plugin reloads periodically).
-# Poll for up to 60 seconds to account for both DNS propagation and hosts plugin reload.
+# First, get all IPs for the FQDN from the hosts file (IPv4 only)
+echo "Getting expected IPs from hosts file for $test_fqdn..."
+expected_ips=$(sudo grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ +${test_fqdn}( |$)" "$hosts_file" | awk '{print $1}' || true)
+
+if [ -z "$expected_ips" ]; then
+    echo "ERROR: No IPv4 entries found for $test_fqdn in hosts file"
+    sudo grep "$test_fqdn" "$hosts_file" || echo "No entries at all for $test_fqdn"
+    exit 1
+fi
+
+# Store expected IPs in an associative array (set) for O(1) lookup
+declare -A expected_ip_set
+for ip in $expected_ips; do
+    expected_ip_set["$ip"]=1
+done
+
+echo "Expected IPs from hosts file:"
+echo "$expected_ips"
 echo ""
+
+# Give localdns time to pick up the hosts file (it may need to reload).
+# Poll for up to 60 seconds.
 echo "Polling localdns for $test_fqdn (up to 60s)"
-echo "Expected: $test_ip (from hosts file, bypassing empty Private DNS zone)"
+echo "Expected: ANY IP from hosts file (proves hosts plugin is working)"
 
 for i in $(seq 1 60); do
     echo "Attempt $i:"
 
-    # Query localdns at the cluster listener IP
-    result=$(dig "$test_fqdn" @169.254.10.10 +short +timeout=5 +tries=2 2>/dev/null || true)
+    # Query localdns at the cluster listener IP (IPv4 only with -t A)
+    result=$(dig "$test_fqdn" @169.254.10.10 +short -t A +timeout=5 +tries=2 2>/dev/null || true)
     echo "DNS response: $result"
 
-    # Check if the test IP is in the response
-    if echo "$result" | grep -q "$test_ip"; then
-        echo ""
-        echo "SUCCESS: localdns resolved $test_fqdn to $test_ip from hosts file!"
-        echo "This proves the hosts plugin correctly bypasses the empty Private DNS zone."
-        echo "Without the hosts plugin, this query would fail (no record in Private DNS)."
-        exit 0
+    # Check if ANY of the returned IPs is in our expected set
+    if [ -n "$result" ]; then
+        for returned_ip in $result; do
+            if [ -n "${expected_ip_set[$returned_ip]:-}" ]; then
+                echo ""
+                echo "SUCCESS: localdns resolved $test_fqdn to $returned_ip from hosts file!"
+                echo "This proves the hosts plugin correctly bypasses the empty Private DNS zone."
+                echo "Without the hosts plugin, this query would fail (no record in Private DNS)."
+                exit 0
+            fi
+        done
     fi
 
     sleep 1
 done
 
 echo ""
-echo "ERROR: Expected IP $test_ip not found in response for $test_fqdn after polling"
+echo "ERROR: None of the expected IPs from hosts file found in DNS response for $test_fqdn after polling"
 echo "The hosts plugin may not be working correctly, or the Private DNS zone is interfering."
 echo ""
 echo "Full dig output:"
@@ -1579,10 +1598,10 @@ echo ""
 echo "localdns service status:"
 systemctl status localdns --no-pager -n 10 || true
 echo ""
-echo "Verify hosts file entry exists:"
-sudo grep "$test_fqdn" "$hosts_file" || echo "Entry not found in hosts file!"
+echo "Hosts file entries for $test_fqdn:"
+sudo grep "$test_fqdn" "$hosts_file" || echo "No entries found in hosts file!"
 exit 1
-`, testFQDN, testIP)
+`, testFQDN)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"localdns should resolve FQDN from hosts file even when Private DNS zone is empty")

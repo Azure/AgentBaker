@@ -126,6 +126,12 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
+	// Clean up orphaned Private DNS zones from failed tests
+	// These can interfere with DNS resolution during VM provisioning
+	if err := collectGarbagePrivateDNSZones(ctx, cluster); err != nil {
+		return nil, fmt.Errorf("collect garbage private dns zones: %w", err)
+	}
+
 	clusterParams, err := extractClusterParameters(ctx, kube, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
@@ -726,6 +732,76 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 				continue
 			}
 			toolkit.Logf(ctx, "deleted vmss %q (age: %v)", *vmss.ID, time.Since(*vmss.Properties.TimeCreated))
+		}
+	}
+
+	return nil
+}
+
+func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	defer toolkit.LogStepCtx(ctx, "collecting garbage Private DNS zones")()
+	rg := *cluster.Properties.NodeResourceGroup
+
+	// List all Private DNS zones in the node resource group
+	pager := config.Azure.PrivateZonesClient.NewListByResourceGroupPager(rg, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get next page of Private DNS zones: %w", err)
+		}
+
+		for _, zone := range page.Value {
+			if zone == nil || zone.Name == nil {
+				continue
+			}
+
+			zoneName := *zone.Name
+			toolkit.Logf(ctx, "found Private DNS zone %q, attempting cleanup...", zoneName)
+
+			// Delete all VNET links first (required before zone deletion)
+			linkPager := config.Azure.VirutalNetworkLinksClient.NewListPager(rg, zoneName, nil)
+			for linkPager.More() {
+				linkPage, err := linkPager.NextPage(ctx)
+				if err != nil {
+					toolkit.Logf(ctx, "failed to list VNET links for zone %q: %s", zoneName, err)
+					break
+				}
+
+				for _, link := range linkPage.Value {
+					if link == nil || link.Name == nil {
+						continue
+					}
+
+					toolkit.Logf(ctx, "deleting VNET link %q from zone %q...", *link.Name, zoneName)
+					poller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(ctx, rg, zoneName, *link.Name, nil)
+					if err != nil {
+						toolkit.Logf(ctx, "failed to start deletion of VNET link %q: %s", *link.Name, err)
+						continue
+					}
+
+					_, err = poller.PollUntilDone(ctx, nil)
+					if err != nil {
+						toolkit.Logf(ctx, "failed to delete VNET link %q: %s", *link.Name, err)
+						continue
+					}
+					toolkit.Logf(ctx, "deleted VNET link %q", *link.Name)
+				}
+			}
+
+			// Now delete the Private DNS zone itself
+			toolkit.Logf(ctx, "deleting Private DNS zone %q...", zoneName)
+			poller, err := config.Azure.PrivateZonesClient.BeginDelete(ctx, rg, zoneName, nil)
+			if err != nil {
+				toolkit.Logf(ctx, "failed to start deletion of Private DNS zone %q: %s", zoneName, err)
+				continue
+			}
+
+			_, err = poller.PollUntilDone(ctx, nil)
+			if err != nil {
+				toolkit.Logf(ctx, "failed to delete Private DNS zone %q: %s", zoneName, err)
+				continue
+			}
+			toolkit.Logf(ctx, "deleted Private DNS zone %q", zoneName)
 		}
 	}
 
