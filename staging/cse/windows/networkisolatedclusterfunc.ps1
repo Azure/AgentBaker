@@ -1,4 +1,9 @@
+# functions for network isolated cluster
+
+# unpackage and install oras from cache
+# Oras is used for pulling windows binaries, e.g. windowszip, from private container registry when it is network isolated cluster.
 function Ensure-Oras {
+    # If oras already installed, directly return
     if (Test-Path $global:OrasPath) {
         return
     }
