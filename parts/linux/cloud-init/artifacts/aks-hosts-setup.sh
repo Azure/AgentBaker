@@ -72,7 +72,7 @@ case "${local_cloud}" in
             "mcr.microsoft.com"                 # Container registry
         )
         ;;
-    AzurePublicCloud|AzureGermanCloud|AzureGermanyCloud|AzureBleuCloud|*)
+    AzurePublicCloud|AzureGermanCloud|AzureGermanyCloud|AzureBleuCloud)
         # AzurePublicCloud: standard public endpoints.
         # AzureGermanCloud (legacy): retired, uses public endpoints.
         # AzureGermanyCloud (Delos) / AzureBleuCloud: EU sovereign clouds,
@@ -84,6 +84,14 @@ case "${local_cloud}" in
             "management.azure.com"              # ARM
             "packages.aks.azure.com"            # AKS packages
         )
+        ;;
+    *)
+        # Unrecognized cloud environment - exit with error
+        echo "ERROR: Unrecognized cloud environment: ${local_cloud}"
+        echo "Supported clouds: AzureChinaCloud, AzureUSGovernmentCloud, USNatCloud, USSecCloud, AzureStackCloud, AzurePublicCloud, AzureGermanCloud, AzureGermanyCloud, AzureBleuCloud"
+        echo "Cannot determine which FQDNs to resolve for hosts file."
+        echo "Exiting without modifying hosts file to avoid caching incorrect DNS entries."
+        exit 1
         ;;
 esac
 
