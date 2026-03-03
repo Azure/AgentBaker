@@ -243,7 +243,6 @@ testPackagesInstalled() {
         testContainerNetworkingPluginsInstalled
         continue
         ;;
-
     esac
 
     resolve_packages_source_url
