@@ -375,7 +375,10 @@ function Install-RCV1PCertificateFile {
 function Invoke-RCV1PCertificateRefresh {
     try {
         Write-RCV1PLog "Starting RCV1P certificate refresh"
-        Create-Directory -FullPath $global:RCV1PCertificatesDirectory -DirectoryUsage "storing RCV1P certificates"
+        if (-not (Test-Path -Path $global:RCV1PCertificatesDirectory)) {
+            Write-RCV1PLog "Creating directory $($global:RCV1PCertificatesDirectory) for storing RCV1P certificates"
+            New-Item -ItemType Directory -Path $global:RCV1PCertificatesDirectory -Force | Out-Null
+        }
 
         $certificates = @()
         if (Get-RCV1POptInStatus) {
