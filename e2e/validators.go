@@ -1483,6 +1483,22 @@ fi
 		"aks-hosts-setup.timer should be active for periodic hosts file refresh")
 }
 
+// getContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the NBC's ContainerService.Location field. This mirrors the logic in
+// GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+func getContainerRegistryFQDN(s *Scenario) string {
+	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
+		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+		// usgovvirginia, usgovarizona, usdodeast, usdodcentral -> AzureUSGovernmentCloud
+		// but US Government still uses mcr.microsoft.com for container registry
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
+}
+
 // ValidateLocalDNSHostsPluginBypass verifies that localdns resolves FQDNs from /etc/localdns/hosts
 // without querying the upstream DNS server. This confirms the hosts plugin is working correctly.
 // It injects a fake FQDN (that doesn't exist in public DNS) into the hosts file and verifies
@@ -1501,6 +1517,10 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, "enabled", annotationValue, "annotation %q should be 'enabled', got %q", annotationKey, annotationValue)
 	s.T.Logf("✓ Node annotation %s=%s verified", annotationKey, annotationValue)
 
+	// Determine the container registry FQDN based on the cloud environment
+	testFQDN := getContainerRegistryFQDN(s)
+	s.T.Logf("Using cloud-specific container registry FQDN: %s", testFQDN)
+
 	// Step 2: Get cluster infrastructure info
 	nodeResourceGroup := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 	vnet, err := getClusterVNet(ctx, nodeResourceGroup)
@@ -1508,17 +1528,17 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	// Step 2.5: Clean up any lingering Private DNS zones from previous failed test runs
 	// This ensures we start with a clean state before creating our test Private DNS zone
-	privateZoneName := "mcr.microsoft.com"
-	s.T.Log("Cleaning up any existing Private DNS zone from previous runs...")
+	privateZoneName := testFQDN
+	s.T.Logf("Cleaning up any existing Private DNS zone for %s from previous runs...", privateZoneName)
 	cleanupPrivateDNSZone(ctx, nodeResourceGroup, privateZoneName)
 
-	// Step 3: Create an EMPTY Private DNS zone for "mcr.microsoft.com"
+	// Step 3: Create an EMPTY Private DNS zone for the container registry FQDN
 	// This simulates a scenario where a Private DNS zone exists but has no records
-	s.T.Log("Creating empty Private DNS zone for mcr.microsoft.com...")
+	s.T.Logf("Creating empty Private DNS zone for %s...", privateZoneName)
 	_, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName)
 	require.NoError(s.T, err, "failed to create Private DNS zone")
 	defer func() {
-		s.T.Log("Cleaning up Private DNS zone...")
+		s.T.Logf("Cleaning up Private DNS zone for %s...", privateZoneName)
 		cleanupPrivateDNSZone(ctx, nodeResourceGroup, privateZoneName)
 	}()
 
@@ -1529,15 +1549,13 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	// Step 5: Test that localdns resolves FQDN from hosts file
 	// This tests that the hosts plugin bypasses the empty Private DNS zone
-	testFQDN := "mcr.microsoft.com"
-
 	s.T.Logf("Testing hosts plugin bypass with empty Private DNS zone for %s", testFQDN)
 	script := fmt.Sprintf(`set -euo pipefail
 test_fqdn=%q
 hosts_file="/etc/localdns/hosts"
 
 echo "=== Testing localdns hosts plugin bypass with empty Private DNS zone ==="
-echo "Private DNS zone 'mcr.microsoft.com' exists but is EMPTY (no A records)"
+echo "Private DNS zone '$test_fqdn' exists but is EMPTY (no A records)"
 echo ""
 
 # First, get all IPs for the FQDN from the hosts file (IPv4 only)
