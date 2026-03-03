@@ -1711,6 +1711,71 @@ func Test_shouldEnableLocalDns(t *testing.T) {
 	}
 }
 
+func Test_shouldEnableHostsPlugin(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil config",
+			args: args{aksnodeconfig: nil},
+			want: "false",
+		},
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: "false",
+		},
+		{
+			name: "LocalDns disabled, HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: true},
+			}},
+			want: "false",
+		},
+		{
+			name: "LocalDns enabled, HostsPlugin disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+		{
+			name: "both LocalDns and HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true},
+			}},
+			want: "true",
+		},
+		{
+			name: "both disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnableHostsPlugin(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("shouldEnableHostsPlugin() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
