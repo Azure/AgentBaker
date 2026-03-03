@@ -238,27 +238,3 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback(t *testing.T) {
 	})
 }
 
-// Test_Ubuntu2204_LocalDNSHostsPlugin_BackwardCompatVHD tests backward compatibility
-// with older VHDs that don't have aks-hosts-setup artifacts
-func Test_Ubuntu2204_LocalDNSHostsPlugin_BackwardCompatVHD(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that older VHD without aks-hosts-setup artifacts still provisions successfully",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			// Use an older VHD without aks-hosts-setup (PrivateKubePkg has UnsupportedLocalDns=true)
-			VHD: config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Older VHD has UnsupportedLocalDns=true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Check that aks-hosts-setup artifacts don't exist
-				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-hosts-setup.sh")
-
-				// Validate node still provisions successfully despite missing hosts plugin
-				// This confirms backward compatibility
-			},
-		},
-	})
-}
-
