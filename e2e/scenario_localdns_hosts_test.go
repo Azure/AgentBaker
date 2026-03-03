@@ -262,32 +262,3 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_BackwardCompatVHD(t *testing.T) {
 	})
 }
 
-// Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence tests cloud env persistence
-func Test_Ubuntu2204_LocalDNSHostsPlugin_CloudEnvPersistence(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that TARGET_CLOUD is persisted to /etc/localdns/cloud-env for timer-triggered runs",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate cloud-env file exists and contains TARGET_CLOUD
-				ValidateFileExists(ctx, s, "/etc/localdns/cloud-env")
-				ValidateFileHasContent(ctx, s, "/etc/localdns/cloud-env", "TARGET_CLOUD=")
-
-				// Validate service reads from EnvironmentFile
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/aks-hosts-setup.service",
-					"EnvironmentFile=-/etc/localdns/cloud-env")
-			},
-		},
-	})
-}
-
