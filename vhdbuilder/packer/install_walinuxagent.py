@@ -34,6 +34,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
 from html import unescape as html_unescape
+from typing import Optional, Tuple
 
 # Retry configuration for wireserver requests
 MAX_RETRIES = 10
@@ -52,7 +53,7 @@ def strip_sas_token(url: str) -> str:
     return url.split("?")[0]
 
 
-def fetch_url(url: str, headers: dict | None = None, silent: bool = False) -> str:
+def fetch_url(url: str, headers: Optional[dict] = None, silent: bool = False) -> str:
     """Fetch a URL with retry logic. Returns the response body as a string.
 
     Args:
@@ -124,7 +125,7 @@ def extract_extensions_config_url(goalstate_xml: str) -> str:
     return url
 
 
-def extract_ga_family_info(extensions_config_xml: str) -> tuple[str, str]:
+def extract_ga_family_info(extensions_config_xml: str) -> Tuple[str, str]:
     """Extract the GAFamily version and first manifest URI from extensions config.
 
     Returns:
@@ -195,6 +196,12 @@ def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
 
     # Step 4: Extract GAFamily version and manifest URI
     version, manifest_url = extract_ga_family_info(extensions_config)
+
+    # Validate version is a safe string (e.g. "2.9.1.1") before using in paths.
+    # WALinuxAgent versions are dot-separated digits only.
+    if not re.match(r"^[0-9]+(\.[0-9]+)*$", version):
+        raise RuntimeError(f"GAFamily version contains unexpected characters: {version!r}")
+
     print(f"GAFamily version: {version}")
 
     # Step 5: Fetch the manifest (silent to avoid logging SAS token)
@@ -217,6 +224,14 @@ def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
         os.makedirs(install_dir, exist_ok=True)
 
         with zipfile.ZipFile(zip_path, "r") as zf:
+            # Guard against path traversal by verifying every entry resolves inside install_dir.
+            resolved_base = os.path.realpath(install_dir)
+            for member in zf.namelist():
+                resolved = os.path.realpath(os.path.join(install_dir, member))
+                if not resolved.startswith(resolved_base + os.sep) and resolved != resolved_base:
+                    raise RuntimeError(
+                        f"Zip entry {member!r} would extract outside {install_dir} (zip-slip)"
+                    )
             zf.extractall(install_dir)
 
         print(f"WALinuxAgent {version} installed successfully to {install_dir}")
