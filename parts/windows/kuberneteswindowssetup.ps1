@@ -220,6 +220,10 @@ $global:WindowsCiliumNetworkingConfiguration = "{{GetVariable "nextGenNetworking
 $global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPath 'wcn'
 $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
+# Network isolated cluster
+$global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{GetBootstrapProfileContainerRegistryServer}}"
+$global:MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 try {
