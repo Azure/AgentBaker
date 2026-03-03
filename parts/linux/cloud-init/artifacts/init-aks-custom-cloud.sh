@@ -38,6 +38,38 @@ echo "Running on $NAME"
 
 # Below code calls the wireserver to get the list of CA certs for this cloud and saves them to /root/AzureCACertificates. Then it copies them to the appropriate location based on distro and updates the CA bundle.
 
+# http://168.63.129.16 is a constant for the host's wireserver endpoint
+WIRESERVER_ENDPOINT="http://168.63.129.16"
+
+# Function to make HTTP request with retry logic for rate limiting
+make_request_with_retry() {
+    local url="$1"
+    local max_retries=10
+    local retry_delay=3
+    local attempt=1
+
+    local response
+    while [ $attempt -le $max_retries ]; do
+        response=$(curl -f --no-progress-meter "$url")
+        local request_status=$?
+
+        if echo "$response" | grep -q "RequestRateLimitExceeded"; then
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))
+            attempt=$((attempt + 1))
+        elif [ $request_status -ne 0 ]; then
+            sleep $retry_delay
+            attempt=$((attempt + 1))
+        else
+            echo "$response"
+            return 0
+        fi
+    done
+
+    echo "exhausted all retries, last response: $response"
+    return 1
+}
+
 # Function to process certificate operations from a given endpoint
 process_cert_operations() {
     local endpoint_type="$1"
@@ -100,11 +132,11 @@ IFS=$'\r\n'
 # not opted in.
 # https://eng.ms/docs/products/onecert-certificates-key-vault-and-dsms/onecert-customer-guide/autorotationandecr/rcv1ptsg
 
-optInCheck=""
-if optInCheck=$(curl -sS --fail "http://168.63.129.16/acms/isOptedInForRootCerts"); then
-    :
-else
-    echo "Warning: failed to query root cert opt-in status; defaulting to non-opt-in flow"
+optInCurlStatus=0
+optInCheck=$(curl -sS --fail "http://168.63.129.16/acms/isOptedInForRootCerts" 2>/dev/null) || optInCurlStatus=$?
+if [ "$optInCurlStatus" -ne 0 ]; then
+    echo "Warning: failed to query root cert opt-in status (curl exit code $optInCurlStatus); defaulting to non-opt-in flow"
+    optInCheck=""
 fi
 
 if echo "$optInCheck" | grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]]*true'; then
