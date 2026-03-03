@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -973,6 +974,29 @@ func addRecordSetToPrivateDNSZone(ctx context.Context, privateEndpoint *armnetwo
 
 	toolkit.Logf(ctx, "Record Set created or updated")
 	return nil
+}
+
+// cleanupPrivateDNSZone deletes a Private DNS zone (best effort cleanup for tests)
+func cleanupPrivateDNSZone(ctx context.Context, resourceGroup, zoneName string) {
+	// Create a new context with timeout for cleanup
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+
+	toolkit.Logf(cleanupCtx, "Deleting Private DNS zone %s in resource group %s", zoneName, resourceGroup)
+
+	poller, err := config.Azure.PrivateZonesClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, nil)
+	if err != nil {
+		toolkit.Logf(cleanupCtx, "Failed to start deletion of Private DNS zone %s: %v", zoneName, err)
+		return
+	}
+
+	_, err = poller.PollUntilDone(cleanupCtx, nil)
+	if err != nil {
+		toolkit.Logf(cleanupCtx, "Failed to complete deletion of Private DNS zone %s: %v", zoneName, err)
+		return
+	}
+
+	toolkit.Logf(cleanupCtx, "Successfully deleted Private DNS zone %s", zoneName)
 }
 
 func addDNSZoneGroup(ctx context.Context, privateZone *armprivatedns.PrivateZone, nodeResourceGroup, privateZoneName, endpointName string) error {
