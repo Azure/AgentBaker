@@ -1058,6 +1058,31 @@ update_base_url() {
   echo "$initial_url"
 }
 
+assert_oras_binary() {
+    if ! command -v oras > /dev/null 2>&1; then
+        echo "ERROR: oras binary not found in PATH=$PATH"
+        echo "Checking known locations:"
+        local oras_path
+        for oras_path in /usr/local/bin/oras /usr/bin/oras /opt/bin/oras; do
+            if [ -f "$oras_path" ]; then
+                echo "  found at $oras_path (not in PATH)"
+            else
+                echo "  not found at $oras_path"
+            fi
+        done
+        echo "OS information:"
+        cat /etc/os-release 2>/dev/null || true
+        echo "Installed oras packages:"
+        if command -v rpm > /dev/null 2>&1; then
+            rpm -qa | grep -i oras || echo "  no oras package found via rpm"
+        elif command -v dpkg > /dev/null 2>&1; then
+            dpkg -l | grep -i oras || echo "  no oras package found via dpkg"
+        fi
+        return $ERR_ORAS_BINARY_NOT_FOUND
+    fi
+    return 0
+}
+
 assert_refresh_token() {
     local refresh_token=$1
     shift
@@ -1102,27 +1127,7 @@ oras_login_with_kubelet_identity() {
     local tenant_id=$3
 
     # Pre-flight check: verify oras binary is available before attempting login
-    if ! command -v oras > /dev/null 2>&1; then
-        echo "ERROR: oras binary not found in PATH=$PATH"
-        echo "Checking known locations:"
-        local oras_path
-        for oras_path in /usr/local/bin/oras /usr/bin/oras /opt/bin/oras; do
-            if [ -f "$oras_path" ]; then
-                echo "  found at $oras_path (not in PATH)"
-            else
-                echo "  not found at $oras_path"
-            fi
-        done
-        echo "OS information:"
-        cat /etc/os-release 2>/dev/null || true
-        echo "Installed oras packages:"
-        if command -v rpm > /dev/null 2>&1; then
-            rpm -qa | grep -i oras || echo "  no oras package found via rpm"
-        elif command -v dpkg > /dev/null 2>&1; then
-            dpkg -l | grep -i oras || echo "  no oras package found via dpkg"
-        fi
-        return $ERR_ORAS_BINARY_NOT_FOUND
-    fi
+    assert_oras_binary || return $?
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
