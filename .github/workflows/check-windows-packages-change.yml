@@ -27,22 +27,17 @@ jobs:
         run: |
           cd pr
           $DIFF_DIR="vhd_files"
-          $BASE_VERSIONS_DIR="base_versions"
+          $BASE_VERSIONS_FILE="${DIFF_DIR}/base_versions.json"
 
           mkdir -Force "${DIFF_DIR}"
-          mkdir -Force "${BASE_VERSIONS_DIR}"
 
           # Generate cached stuff from main
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 ../main/vhdbuilder/packer/windows/windows_settings.json ../main/parts/common/components.json
 
-          # Generate base versions info from main
-          pwsh -c "
-            . 'vhdbuilder/packer/windows/components_json_helpers.ps1'
-            `$settings = Get-Content '../main/vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json
-            `$info = GetAllWindowsBaseVersionsInfo `$settings
-            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/base_versions.txt'
-          "
-          git add "${DIFF_DIR}" "${BASE_VERSIONS_DIR}"
+          # Extract base versions from main
+          (Get-Content '../main/vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json).WindowsBaseVersions | ConvertTo-Json -Depth 10 | Set-Content $BASE_VERSIONS_FILE
+
+          git add "${DIFF_DIR}"
           git config user.email "you@example.com"
           git config user.name "Your Name"
           git commit -m "versions of files from main"
@@ -50,15 +45,11 @@ jobs:
           # Generate cached stuff from PR
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json
 
-          # Generate base versions info from PR
-          pwsh -c "
-            . 'vhdbuilder/packer/windows/components_json_helpers.ps1'
-            `$settings = Get-Content 'vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json
-            `$info = GetAllWindowsBaseVersionsInfo `$settings
-            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/base_versions.txt'
-          "
+          # Extract base versions from PR
+          (Get-Content 'vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json).WindowsBaseVersions | ConvertTo-Json -Depth 10 | Set-Content $BASE_VERSIONS_FILE
+
           $diffFile = "../diff.md"
-          git diff --quiet -- "${DIFF_DIR}" "${BASE_VERSIONS_DIR}"
+          git diff --quiet -- "${DIFF_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
             # This line is commented out to reduce noise in the PRs
             # Write-Output "No changes to Windows VHD configuration" > $diffFile
@@ -68,31 +59,34 @@ jobs:
             Write-Output "" >> $diffFile
 
             # Check for base versions changes
-            git diff --quiet -- "${BASE_VERSIONS_DIR}"
+            git diff --quiet -- $BASE_VERSIONS_FILE
             if ( $LASTEXITCODE -ne "0" ) {
               Write-Output "#### Windows Base Versions Changes" >> $diffFile
               Write-Output "The following shows changes to Windows base image versions and other SKU-level settings." >> $diffFile
               Write-Output '```diff' >> $diffFile
-              git diff --unified=3 -- "${BASE_VERSIONS_DIR}" >> $diffFile
+              git diff --unified=3 -- $BASE_VERSIONS_FILE >> $diffFile
               Write-Output '```' >> $diffFile
               Write-Output "" >> $diffFile
             }
 
             # Check for cached components changes
-            git diff --quiet -- "${DIFF_DIR}"
+            git diff --quiet -- "${DIFF_DIR}" ":(exclude)${BASE_VERSIONS_FILE}"
             if ( $LASTEXITCODE -ne "0" ) {
               Write-Output "#### Cached Components/Packages Changes" >> $diffFile
               Write-Output "The following shows any additions or deletions from what will be cached on windows VHDs organised by VHD type." >> $diffFile
               Write-Output "* Additions are new things cached." >> $diffFile
               Write-Output "* Deletions are things no longer cached." >> $diffFile
               Write-Output '```diff' >> $diffFile
-              git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
+              git diff --unified=0 -- "${DIFF_DIR}" ":(exclude)${BASE_VERSIONS_FILE}" >> $diffFile
               Write-Output '```' >> $diffFile
             }
 
             dir $diffFile
             Get-Content $diffFile
           }
+
+          # Clean up temp files
+          Remove-Item -Recurse -Force "${DIFF_DIR}"
 
       - name: remove comment from PR
         # Removing and then adding the comment means that the comment will always appear at the bottom of the PR.
