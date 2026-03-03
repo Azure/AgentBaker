@@ -21,7 +21,9 @@
 #WindowsBaseVersion: {
   comment?:           string
   os_disk_size:      string
-  base_image_sku:     string,
+  publisherID?:        string
+  offerID?:            string
+  base_image_sku:     string
   base_image_version: string
   windows_image_name: string
   patches_to_apply:   #WindowsPatches
