@@ -68,7 +68,7 @@ steps:
       echo "GOPATH is currently set to $GOPATH"
       export PATH="$PATH:$GOPATH/bin"
       pushd /tmp
-      GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
+      GO111MODULE=on go install cuelang.org/go/cmd/cue@v0.15.4
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
