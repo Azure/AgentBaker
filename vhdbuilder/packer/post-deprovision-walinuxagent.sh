@@ -61,3 +61,7 @@ fi
 # Self-delete: these scripts are only needed during VHD build
 rm -f /opt/azure/containers/install_walinuxagent.py
 rm -f "${BASH_SOURCE[0]}"
+
+# Flush all pending filesystem writes (including deprovision and above operations)
+# to disk before VHD capture. This is the very last operation in the VHD build.
+sync
