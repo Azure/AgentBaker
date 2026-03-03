@@ -1543,8 +1543,10 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	}()
 
 	// Step 4: Link Private DNS zone to VNET
-	s.T.Log("Linking Private DNS zone to VNET...")
-	err = createPrivateDNSLink(ctx, vnet, nodeResourceGroup, privateZoneName)
+	// Use VMSS name to create a unique link name to avoid conflicts when tests run in parallel
+	linkName := fmt.Sprintf("link-%s", s.Runtime.VMSSName)
+	s.T.Logf("Linking Private DNS zone to VNET with link name: %s...", linkName)
+	err = createPrivateDNSLinkWithName(ctx, vnet, nodeResourceGroup, privateZoneName, linkName)
 	require.NoError(s.T, err, "failed to link Private DNS zone to VNET")
 
 	// Step 5: Test that localdns resolves FQDN from hosts file

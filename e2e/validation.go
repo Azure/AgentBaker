@@ -105,14 +105,18 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
-		// Validate aks-hosts-setup service ran successfully and timer is active
-		ValidateAKSHostsSetupService(ctx, s)
-		// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
-		// Get cloud-specific FQDNs for validation
-		fqdnsToValidate := getDefaultFQDNsForValidation(s)
-		ValidateLocalDNSHostsFile(ctx, s, fqdnsToValidate)
-		// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
-		ValidateLocalDNSHostsPluginBypass(ctx, s)
+
+		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
+		if s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin() {
+			// Validate aks-hosts-setup service ran successfully and timer is active
+			ValidateAKSHostsSetupService(ctx, s)
+			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
+			// Get cloud-specific FQDNs for validation
+			fqdnsToValidate := getDefaultFQDNsForValidation(s)
+			ValidateLocalDNSHostsFile(ctx, s, fqdnsToValidate)
+			// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
+			ValidateLocalDNSHostsPluginBypass(ctx, s)
+		}
 	}
 
 	ValidateInspektorGadget(ctx, s)

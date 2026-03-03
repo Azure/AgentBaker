@@ -889,7 +889,10 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 }
 
 func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
-	networkLinkName := "link-ABE2ETests"
+	return createPrivateDNSLinkWithName(ctx, vnet, nodeResourceGroup, privateZoneName, "link-ABE2ETests")
+}
+
+func createPrivateDNSLinkWithName(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName, networkLinkName string) error {
 	_, err := config.Azure.VirutalNetworkLinksClient.Get(
 		ctx,
 		nodeResourceGroup,
