@@ -412,38 +412,3 @@ function GetAllCachedThings {
 
     return ($items | Sort-Object -Unique )
 }
-
-function GetAllWindowsBaseVersionsInfo {
-    Param(
-        [Parameter(Mandatory = $true)][Object]
-        $windowsSettingsContent
-    )
-
-    $items = New-Object System.Collections.ArrayList
-
-    foreach ($skuName in $windowsSettingsContent.WindowsBaseVersions.PSObject.Properties.Name) {
-        $sku = $windowsSettingsContent.WindowsBaseVersions.$skuName
-
-        $items += "[SKU: $skuName]"
-
-        # Sort properties to ensure consistent output for diffing
-        $propertyNames = @($sku.PSObject.Properties.Name) | Sort-Object
-
-        foreach ($propName in $propertyNames) {
-            $propValue = $sku.$propName
-
-            # Handle different property types
-            if ($propValue -is [System.Collections.IEnumerable] -and $propValue -isnot [string]) {
-                # for arrays like patches_to_apply, output as JSON for consistency
-                $jsonValue = $propValue | ConvertTo-Json -Compress
-                $items += "  $propName`: $jsonValue"
-            } else {
-                $items += "  $propName`: $propValue"
-            }
-        }
-
-        $items += ""  # blank line for readability between SKUs
-    }
-
-    return $items
-}
