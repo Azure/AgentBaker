@@ -27,35 +27,70 @@ jobs:
         run: |
           cd pr
           $DIFF_DIR="vhd_files"
+          $BASE_VERSIONS_DIR="base_versions"
 
           mkdir -Force "${DIFF_DIR}"
+          mkdir -Force "${BASE_VERSIONS_DIR}"
 
+          # Generate cached stuff from main
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 ../main/vhdbuilder/packer/windows/windows_settings.json ../main/parts/common/components.json
 
-          git add "${DIFF_DIR}"
+          # Generate base versions info from main
+          pwsh -c "
+            . 'vhdbuilder/packer/windows/components_json_helpers.ps1'
+            `$settings = Get-Content '../main/vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json
+            `$info = GetAllWindowsBaseVersionsInfo `$settings
+            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/main.txt'
+          "
+
+          git add "${DIFF_DIR}" "${BASE_VERSIONS_DIR}"
           git config user.email "you@example.com"
           git config user.name "Your Name"
           git commit -m "versions of files from main"
 
+          # Generate cached stuff from PR
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json
 
+          # Generate base versions info from PR
+          pwsh -c "
+            . 'vhdbuilder/packer/windows/components_json_helpers.ps1'
+            `$settings = Get-Content 'vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json
+            `$info = GetAllWindowsBaseVersionsInfo `$settings
+            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/pr.txt'
+          "
+
           $diffFile = "../diff.md"
-          git diff --quiet -- "${DIFF_DIR}"
+          git diff --quiet -- "${DIFF_DIR}" "${BASE_VERSIONS_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
             # This line is commented out to reduce noise in the PRs
-            # Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
+            # Write-Output "No changes to Windows VHD configuration" > $diffFile
           } else {
-            Write-Output "### Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "### Changes to Windows VHD Configuration" > $diffFile
             Write-Output "Please get a Windows SIG member to approve." >> $diffFile
             Write-Output "" >> $diffFile
-            Write-Output "The following dif file shows any additions or deletions from what will be cached on windows VHDs organised by VHD type." >> $diffFile
-            Write-Output "* Additions are new things cached." >> $diffFile
-            Write-Output "* Deletions are things no longer cached." >> $diffFile
-            Write-Output "" >> $diffFile
-            Write-Output "" >> $diffFile
-            Write-Output '```diff' >> $diffFile
-            git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
-            Write-Output '```' >> $diffFile
+
+            # Check for base versions changes
+            git diff --quiet -- "${BASE_VERSIONS_DIR}"
+            if ( $LASTEXITCODE -ne "0" ) {
+              Write-Output "#### Windows Base Versions Changes" >> $diffFile
+              Write-Output "The following shows changes to Windows base image versions and other SKU-level settings." >> $diffFile
+              Write-Output '```diff' >> $diffFile
+              git diff --unified=3 -- "${BASE_VERSIONS_DIR}" >> $diffFile
+              Write-Output '```' >> $diffFile
+              Write-Output "" >> $diffFile
+            }
+
+            # Check for cached components changes
+            git diff --quiet -- "${DIFF_DIR}"
+            if ( $LASTEXITCODE -ne "0" ) {
+              Write-Output "#### Cached Components/Packages Changes" >> $diffFile
+              Write-Output "The following shows any additions or deletions from what will be cached on windows VHDs organised by VHD type." >> $diffFile
+              Write-Output "* Additions are new things cached." >> $diffFile
+              Write-Output "* Deletions are things no longer cached." >> $diffFile
+              Write-Output '```diff' >> $diffFile
+              git diff --unified=0 -- "${DIFF_DIR}" >> $diffFile
+              Write-Output '```' >> $diffFile
+            }
 
             dir $diffFile
             Get-Content $diffFile
