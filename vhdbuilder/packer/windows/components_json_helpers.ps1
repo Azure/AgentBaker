@@ -445,5 +445,5 @@ function GetAllWindowsBaseVersionsInfo {
         $items += ""  # blank line for readability between SKUs
     }
 
-    return ($items | Sort-Object)
+    return $items
 }

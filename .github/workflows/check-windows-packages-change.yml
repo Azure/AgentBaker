@@ -40,9 +40,8 @@ jobs:
             . 'vhdbuilder/packer/windows/components_json_helpers.ps1'
             `$settings = Get-Content '../main/vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json
             `$info = GetAllWindowsBaseVersionsInfo `$settings
-            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/main.txt'
+            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/base_versions.txt'
           "
-
           git add "${DIFF_DIR}" "${BASE_VERSIONS_DIR}"
           git config user.email "you@example.com"
           git config user.name "Your Name"
@@ -56,9 +55,8 @@ jobs:
             . 'vhdbuilder/packer/windows/components_json_helpers.ps1'
             `$settings = Get-Content 'vhdbuilder/packer/windows/windows_settings.json' | ConvertFrom-Json
             `$info = GetAllWindowsBaseVersionsInfo `$settings
-            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/pr.txt'
+            `$info | Out-String | Set-Content '${BASE_VERSIONS_DIR}/base_versions.txt'
           "
-
           $diffFile = "../diff.md"
           git diff --quiet -- "${DIFF_DIR}" "${BASE_VERSIONS_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
