@@ -77,10 +77,6 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 				GalleryName:   "aksflatcar",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSACL": {
-				GalleryName:   "aksacl",
-				ResourceGroup: "resourcegroup",
-			},
 		}
 		config = SIGConfig{
 			TenantID:       "sometenantid",
@@ -106,7 +102,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(17))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(18))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -376,11 +372,9 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2404TLGen2Containerd.Definition).To(Equal("2404gen2TLcontainerd"))
 		Expect(aksUbuntu2404TLGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
 
-		Expect(len(sigConfig.SigACLImageConfig)).To(Equal(1))
-
-		aclGen2 := sigConfig.SigACLImageConfig[AKSACLGen2TL]
+		aclGen2 := sigConfig.SigAzureLinuxImageConfig[AKSACLGen2TL]
 		Expect(aclGen2.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(aclGen2.Gallery).To(Equal("aksacl"))
+		Expect(aclGen2.Gallery).To(Equal("aksazurelinux"))
 		Expect(aclGen2.Definition).To(Equal("aclgen2TL"))
 		Expect(aclGen2.Version).To(Equal(LinuxSIGImageVersion))
 	})

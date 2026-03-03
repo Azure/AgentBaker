@@ -304,7 +304,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			marinerDistros    []datamodel.Distro
 			azureLinuxDistros []datamodel.Distro
 			flatcarDistros    []datamodel.Distro
-			aclDistros        []datamodel.Distro
+			aclDistros        = []datamodel.Distro{datamodel.AKSACLGen2TL}
 			allLinuxDistros   []datamodel.Distro
 		)
 
@@ -350,6 +350,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSAzureLinuxV2Gen2TL,
 				datamodel.AKSAzureLinuxV3Arm64Gen2FIPS,
 				datamodel.AKSAzureLinuxV3CVMGen2,
+				datamodel.AKSACLGen2TL,
 			}
 
 			flatcarDistros = []datamodel.Distro{
@@ -357,15 +358,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSFlatcarArm64Gen2,
 			}
 
-			aclDistros = []datamodel.Distro{
-				datamodel.AKSACLGen2TL,
-			}
-
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)
 			allLinuxDistros = append(allLinuxDistros, marinerDistros...)
 			allLinuxDistros = append(allLinuxDistros, azureLinuxDistros...)
 			allLinuxDistros = append(allLinuxDistros, flatcarDistros...)
-			allLinuxDistros = append(allLinuxDistros, aclDistros...)
 		})
 
 		It("should return correct value for all existing distros", func() {
@@ -411,7 +407,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			for _, distro := range aclDistros {
 				config := configs[distro]
-				Expect(config.Gallery).To(Equal("aksacl"))
+				Expect(config.Gallery).To(Equal("aksazurelinux"))
 			}
 		})
 
@@ -488,7 +484,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			for _, distro := range aclDistros {
 				config := configs[distro]
-				Expect(config.Gallery).To(Equal("aksacl"))
+				Expect(config.Gallery).To(Equal("aksazurelinux"))
 				Expect(config.Version).To(Equal(aclOverrideVersion))
 			}
 		})

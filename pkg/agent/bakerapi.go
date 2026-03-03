@@ -164,14 +164,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 		allDistros[distro] = sigConfig
 	}
 
-	for distro, sigConfig := range allAzureSigConfig.SigACLImageConfig {
-		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
-		if imageVersion != "" {
-			sigConfig.Version = imageVersion
-		}
-		allDistros[distro] = sigConfig
-	}
-
 	return allDistros, nil
 }
 
@@ -192,9 +184,6 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigFlatcarImageConfig[distro]; ok {
-		return &imageConfig
-	}
-	if imageConfig, ok := sigConfig.SigACLImageConfig[distro]; ok {
 		return &imageConfig
 	}
 

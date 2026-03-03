@@ -25,7 +25,7 @@ type SIGAzureEnvironmentSpecConfig struct {
 	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
 	SigFlatcarImageConfig        map[Distro]SigImageConfig `json:"sigFlatcarImageConfig,omitempty"`
-	SigACLImageConfig            map[Distro]SigImageConfig `json:"sigACLImageConfig,omitempty"`
+
 	// TODO(adadilli) add PIR constants as well
 }
 
@@ -836,7 +836,6 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 		getSigCBLMarinerImageConfigMapWithOpts(),
 		getSigAzureLinuxImageConfigMapWithOpts(),
 		getSigFlatcarImageConfigMapWithOpts(),
-		getSigACLImageConfigMapWithOpts(),
 	}
 
 	maintained := map[Distro]SigImageConfig{}
@@ -908,6 +907,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3CVMGen2:           SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3OSGuardGen2FIPSTL: SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
+		AKSACLGen2TL:                     SIGACLGen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -915,12 +915,6 @@ func getSigFlatcarImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 	return map[Distro]SigImageConfig{
 		AKSFlatcarGen2:      SIGFlatcarGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSFlatcarArm64Gen2: SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(opts...),
-	}
-}
-
-func getSigACLImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
-	return map[Distro]SigImageConfig{
-		AKSACLGen2TL: SIGACLGen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -993,10 +987,6 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	fromACSFlatcar := withACSSIGConfigWithDefaults(sigConfig, "AKSFlatcar", AKSFlatcarGalleryName, AKSFlatcarResourceGroup)
 	c.SigFlatcarImageConfig = getSigFlatcarImageConfigMapWithOpts(fromACSFlatcar)
 
-	// TODO: use withACSConfig when the gallery config is available within SIGConfig (ACSConfig) provided by the resource provider.
-	fromACSACL := withACSSIGConfigWithDefaults(sigConfig, "AKSACL", AKSAzureLinuxGalleryName, AKSAzureLinuxResourceGroup)
-	c.SigACLImageConfig = getSigACLImageConfigMapWithOpts(fromACSACL)
-
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
@@ -1023,7 +1013,6 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:        getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigACLImageConfig:            getSigACLImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
 }
 
