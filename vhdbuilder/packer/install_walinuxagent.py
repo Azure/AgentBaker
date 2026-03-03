@@ -53,6 +53,14 @@ def strip_sas_token(url: str) -> str:
     return url.split("?")[0]
 
 
+def sanitize_error(err: Exception) -> str:
+    """Return a string representation of an exception with any embedded URLs stripped of query strings.
+    """
+    msg = str(err)
+    # Strip query strings from any https:// or http:// URLs embedded in the message.
+    return re.sub(r'(https?://[^\s"\'<>]*?)\?[^\s"\'>]*', r'\1?<redacted>', msg)
+
+
 def fetch_url(url: str, headers: Optional[dict] = None, silent: bool = False) -> str:
     """Fetch a URL with retry logic. Returns the response body as a string.
 
@@ -77,7 +85,9 @@ def fetch_url(url: str, headers: Optional[dict] = None, silent: bool = False) ->
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_WAIT_SECONDS)
 
-    raise RuntimeError(f"Failed to fetch {safe_url} after {MAX_RETRIES} attempts: {last_error}")
+    raise RuntimeError(
+        f"Failed to fetch {safe_url} after {MAX_RETRIES} attempts: {sanitize_error(last_error)}"
+    )
 
 
 def download_file(url: str, dest_path: str, silent: bool = False) -> None:
@@ -106,7 +116,9 @@ def download_file(url: str, dest_path: str, silent: bool = False) -> None:
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_WAIT_SECONDS)
 
-    raise RuntimeError(f"Failed to download {safe_url} after {MAX_RETRIES} attempts: {last_error}")
+    raise RuntimeError(
+        f"Failed to download {safe_url} after {MAX_RETRIES} attempts: {sanitize_error(last_error)}"
+    )
 
 
 def extract_extensions_config_url(goalstate_xml: str) -> str:
@@ -190,9 +202,9 @@ def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
     # Step 2: Extract ExtensionsConfig URL
     extensions_config_url = extract_extensions_config_url(goalstate)
 
-    # Step 3: Fetch extensions config
+    # Step 3: Fetch extensions config (silent to avoid logging query params)
     print("Fetching extensions config...")
-    extensions_config = fetch_url(extensions_config_url, headers=WIRESERVER_HEADERS)
+    extensions_config = fetch_url(extensions_config_url, headers=WIRESERVER_HEADERS, silent=True)
 
     # Step 4: Extract GAFamily version and manifest URI
     version, manifest_url = extract_ga_family_info(extensions_config)
