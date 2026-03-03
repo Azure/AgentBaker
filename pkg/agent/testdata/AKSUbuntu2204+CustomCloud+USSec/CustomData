@@ -279,7 +279,7 @@ write_files:
   encoding: base64
   owner: root
   content: |
-    
+
 
 - path: /opt/azure/containers/setup-custom-search-domains.sh
   permissions: "0744"
