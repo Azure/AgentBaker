@@ -8,6 +8,16 @@
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
 
+# Ensure cleanup and sync always run, even if the script errors (bash -e).
+# This guarantees the VHD build files are removed and writes are flushed
+# before VHD capture regardless of success or failure.
+cleanup() {
+    rm -f /opt/azure/containers/install_walinuxagent.py
+    rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
+    sync
+}
+trap cleanup EXIT
+
 # Skip on AzureLinux OSGuard which uses its OS-packaged waagent version.
 # Flatcar is excluded at the packer config level (its JSON does not call this).
 OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:lower:]' '[:upper:]' | tr -d '"')
@@ -58,10 +68,4 @@ else
     echo "Skipping WALinuxAgent manifest install on AzureLinux OSGuard"
 fi
 
-# Self-delete: these scripts are only needed during VHD build
-rm -f /opt/azure/containers/install_walinuxagent.py
-rm -f "${BASH_SOURCE[0]}"
-
-# Flush all pending filesystem writes (including deprovision and above operations)
-# to disk before VHD capture. This is the very last operation in the VHD build.
-sync
+# Cleanup and sync are handled by the EXIT trap defined at the top of this script.
