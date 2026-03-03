@@ -270,13 +270,11 @@ function prepare_windows_vhd() {
 	OS_DISK_SIZE=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" <$CDIR/windows/windows_settings.json)
 
 	local sku_publisher
-	sku_publisher=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json)
-	if [ "${sku_publisher}" != "null" ]; then
+	if sku_publisher=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json); then
 		WINDOWS_IMAGE_PUBLISHER="${sku_publisher}"
 	fi
 	local sku_offer
-	sku_offer=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json)
-	if [ "${sku_offer}" != "null" ]; then
+	if sku_offer=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json); then
 		WINDOWS_IMAGE_OFFER="${sku_offer}"
 	fi
 
