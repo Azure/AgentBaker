@@ -17,6 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// pkgDir is the directory of this test file, used to locate the package for go build.
+var pkgDir = func() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("runtime.Caller failed")
+	}
+	return filepath.Dir(file)
+}()
+
 type testExitError struct {
 	Code int
 }
@@ -38,14 +47,6 @@ func newTestApp(t *testing.T, runFunc func(*exec.Cmd) error) *App {
 		cmdRun:      runFunc,
 		eventLogger: helpers.NewEventLogger(t.TempDir()),
 	}
-}
-
-// testFilePath returns the absolute path of the current test source file.
-func testFilePath(t *testing.T) string {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(1)
-	require.True(t, ok)
-	return file
 }
 
 // TestApp_Run covers top-level dispatch, exit code propagation, and event logging.
@@ -373,7 +374,7 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 func TestProvisionWait_Stdout(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "aks-node-controller")
 	buildCmd := exec.Command("go", "build", "-o", bin, ".")
-	buildCmd.Dir = filepath.Dir(testFilePath(t))
+	buildCmd.Dir = pkgDir
 	require.NoError(t, buildCmd.Run())
 
 	dir := t.TempDir()
