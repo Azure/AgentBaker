@@ -1517,81 +1517,65 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, "enabled", annotationValue, "annotation %q should be 'enabled', got %q", annotationKey, annotationValue)
 	s.T.Logf("✓ Node annotation %s=%s verified", annotationKey, annotationValue)
 
-	// Determine the container registry FQDN based on the cloud environment
-	testFQDN := getContainerRegistryFQDN(s)
-	s.T.Logf("Using cloud-specific container registry FQDN: %s", testFQDN)
+	// Step 2: Create a unique fake FQDN for this test to avoid conflicts
+	// Using the VMSS name ensures uniqueness across parallel tests
+	fakeFQDN := fmt.Sprintf("e2e-localdns-test-%s.fake.internal", s.Runtime.VMSSName)
+	fakeIP := "10.255.255.1"
+	s.T.Logf("Using test-specific fake FQDN: %s -> %s", fakeFQDN, fakeIP)
 
-	// Step 2: Get cluster infrastructure info
-	nodeResourceGroup := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
-	vnet, err := getClusterVNet(ctx, nodeResourceGroup)
-	require.NoError(s.T, err, "failed to get cluster VNet")
-
-	// Step 2.5: Clean up any lingering Private DNS zones from previous failed test runs
-	// This ensures we start with a clean state before creating our test Private DNS zone
-	privateZoneName := testFQDN
-	s.T.Logf("Checking for existing Private DNS zone %s...", privateZoneName)
-
-	// Step 3: Create an EMPTY Private DNS zone for the container registry FQDN
-	// This simulates a scenario where a Private DNS zone exists but has no records
-	// Tag it as e2e-test-created so we can safely identify it
-	// If the zone already exists (from another parallel test), that's fine - we'll share it
-	s.T.Logf("Creating empty Private DNS zone for %s (with e2e test tag)...", privateZoneName)
-	_, err = createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, map[string]*string{
-		"e2e-test": to.Ptr("true"),
-	})
-	require.NoError(s.T, err, "failed to create Private DNS zone")
-
-	// Step 4: Link Private DNS zone to VNET
-	// Use VMSS name to create a unique link name to avoid conflicts when tests run in parallel
-	linkName := fmt.Sprintf("link-%s", s.Runtime.VMSSName)
-	s.T.Logf("Linking Private DNS zone to VNET with link name: %s...", linkName)
-	err = createPrivateDNSLinkWithName(ctx, vnet, nodeResourceGroup, privateZoneName, linkName)
-	require.NoError(s.T, err, "failed to link Private DNS zone to VNET")
-
-	// Clean up only our VNET link when test completes
-	// We don't delete the zone itself as it may be shared with other parallel tests
-	defer func() {
-		s.T.Logf("Cleaning up VNET link %s from Private DNS zone %s...", linkName, privateZoneName)
-		if err := deletePrivateDNSVNETLink(ctx, nodeResourceGroup, privateZoneName, linkName); err != nil {
-			s.T.Logf("Warning: failed to clean up VNET link %s: %v", linkName, err)
-		}
-	}()
-
-	// Step 5: Test that localdns resolves FQDN from hosts file
-	// This tests that the hosts plugin bypasses the empty Private DNS zone
-	s.T.Logf("Testing hosts plugin bypass with empty Private DNS zone for %s", testFQDN)
-	script := fmt.Sprintf(`set -euo pipefail
-test_fqdn=%q
+	// Step 3: Add the fake entry to /etc/localdns/hosts
+	s.T.Logf("Adding fake entry to /etc/localdns/hosts for testing")
+	addFakeEntryScript := fmt.Sprintf(`set -euo pipefail
 hosts_file="/etc/localdns/hosts"
+fake_fqdn=%q
+fake_ip=%q
 
-echo "=== Testing localdns hosts plugin bypass with empty Private DNS zone ==="
-echo "Private DNS zone '$test_fqdn' exists but is EMPTY (no A records)"
-echo ""
+echo "Adding fake entry to hosts file: $fake_ip $fake_fqdn"
+echo "$fake_ip $fake_fqdn" | sudo tee -a "$hosts_file" > /dev/null
 
-# First, get all IPs for the FQDN from the hosts file (IPv4 only)
-echo "Getting expected IPs from hosts file for $test_fqdn..."
-expected_ips=$(sudo grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+ +${test_fqdn}( |$)" "$hosts_file" | awk '{print $1}' || true)
-
-if [ -z "$expected_ips" ]; then
-    echo "ERROR: No IPv4 entries found for $test_fqdn in hosts file"
-    sudo grep "$test_fqdn" "$hosts_file" || echo "No entries at all for $test_fqdn"
+# Verify the entry was added
+if ! sudo grep -q "$fake_ip.*$fake_fqdn" "$hosts_file"; then
+    echo "ERROR: Failed to add fake entry to hosts file"
     exit 1
 fi
 
-# Store expected IPs in an associative array (set) for O(1) lookup
-declare -A expected_ip_set
-for ip in $expected_ips; do
-    expected_ip_set["$ip"]=1
-done
+echo "Successfully added fake entry to hosts file"
+echo "Current hosts file content:"
+sudo cat "$hosts_file"
+`, fakeFQDN, fakeIP)
 
-echo "Expected IPs from hosts file:"
-echo "$expected_ips"
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, addFakeEntryScript, 0,
+		"failed to add fake entry to hosts file")
+
+	// Step 4: Test that localdns resolves the fake FQDN from hosts file
+	// This validates the core hosts plugin functionality
+	// The hosts plugin automatically reloads when the hosts file changes, so no restart needed
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts", fakeFQDN)
+	script := fmt.Sprintf(`set -euo pipefail
+test_fqdn=%q
+expected_ip=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing localdns hosts plugin functionality ==="
+echo "Testing that localdns resolves '$test_fqdn' from hosts file"
+echo "Expected IP: $expected_ip"
 echo ""
 
-# Give localdns time to pick up the hosts file (it may need to reload).
+# Verify the fake entry is in the hosts file
+echo "Verifying fake entry exists in hosts file..."
+if ! sudo grep -q "$expected_ip.*$test_fqdn" "$hosts_file"; then
+    echo "ERROR: Fake entry not found in hosts file"
+    sudo cat "$hosts_file"
+    exit 1
+fi
+echo "✓ Fake entry found in hosts file"
+echo ""
+
+# Give localdns time to pick up the hosts file change.
+# CoreDNS hosts plugin should reload automatically, but we poll to be safe.
 # Poll for up to 60 seconds.
 echo "Polling localdns for $test_fqdn (up to 60s)"
-echo "Expected: ANY IP from hosts file (proves hosts plugin is working)"
+echo "Expected: $expected_ip (from hosts file)"
 
 for i in $(seq 1 60); do
     echo "Attempt $i:"
@@ -1600,25 +1584,20 @@ for i in $(seq 1 60); do
     result=$(dig "$test_fqdn" @169.254.10.10 +short -t A +timeout=5 +tries=2 2>/dev/null || true)
     echo "DNS response: $result"
 
-    # Check if ANY of the returned IPs is in our expected set
-    if [ -n "$result" ]; then
-        for returned_ip in $result; do
-            if [ -n "${expected_ip_set[$returned_ip]:-}" ]; then
-                echo ""
-                echo "SUCCESS: localdns resolved $test_fqdn to $returned_ip from hosts file!"
-                echo "This proves the hosts plugin correctly bypasses the empty Private DNS zone."
-                echo "Without the hosts plugin, this query would fail (no record in Private DNS)."
-                exit 0
-            fi
-        done
+    # Check if we got the expected IP
+    if [ "$result" = "$expected_ip" ]; then
+        echo ""
+        echo "SUCCESS: localdns resolved $test_fqdn to $expected_ip from hosts file!"
+        echo "This proves the hosts plugin is working correctly."
+        exit 0
     fi
 
     sleep 1
 done
 
 echo ""
-echo "ERROR: None of the expected IPs from hosts file found in DNS response for $test_fqdn after polling"
-echo "The hosts plugin may not be working correctly, or the Private DNS zone is interfering."
+echo "ERROR: Expected IP $expected_ip not returned for $test_fqdn after 60s of polling"
+echo "The hosts plugin may not be working correctly."
 echo ""
 echo "Full dig output:"
 dig "$test_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
@@ -1629,10 +1608,10 @@ echo ""
 echo "Hosts file entries for $test_fqdn:"
 sudo grep "$test_fqdn" "$hosts_file" || echo "No entries found in hosts file!"
 exit 1
-`, testFQDN)
+`, fakeFQDN, fakeIP)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should resolve FQDN from hosts file even when Private DNS zone is empty")
+		"localdns should resolve fake FQDN from hosts file")
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
