@@ -46,7 +46,7 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 
 	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
 	if err != nil {
-		// nolint: gosec
+		//nolint: gosec
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -59,6 +59,6 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
-	// nolint: gosec
+	//nolint: gosec
 	fmt.Fprint(w, string(result))
 }

@@ -466,7 +466,7 @@ type CertificateProfile struct {
 // ServicePrincipalProfile contains the client and secret used by the cluster for Azure Resource CRUD.
 type ServicePrincipalProfile struct {
 	ClientID          string             `json:"clientId"`
-	Secret            string             `json:"secret,omitempty" conform:"redact"` // nolint: gosec
+	Secret            string             `json:"secret,omitempty" conform:"redact"` //nolint: gosec
 	ObjectID          string             `json:"objectId,omitempty"`
 	KeyvaultSecretRef *KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
 }

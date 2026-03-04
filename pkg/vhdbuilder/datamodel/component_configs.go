@@ -41,7 +41,7 @@ type DockerKubeProxyImages struct {
 }
 
 func loadJSONFromFile(path string, v any) error {
-	// nolint: gosec
+	//nolint: gosec
 	configFile, err := os.Open(path)
 	if err != nil {
 		return err
