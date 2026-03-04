@@ -514,7 +514,7 @@ function WaitForNetworkAdapterToBeReady {
         [Parameter(Mandatory = $true)][string]
         $AdapterName,
         [Parameter(Mandatory = $false)][int]
-        $MaxWaitTimeSeconds = 60,
+        $MaxWaitTimeSeconds = 120,
         [Parameter(Mandatory = $false)][int]
         $RetryDelayMilliseconds = 500
     )
