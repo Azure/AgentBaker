@@ -35,7 +35,7 @@ BeforeAll {
     }
 
     # this often doesn't exist in test environment, so create it here so we can mock it later.
-    function New-HnsNetwork {}
+    function New-HNSNetwork {}
 
     Mock Write-Host -MockWith { } -Verifiable
     Mock Start-Sleep -MockWith { } -Verifiable
@@ -50,6 +50,10 @@ BeforeAll {
     }
 }
 "@ | Out-File -FilePath $global:KubeClusterConfigPath
+}
+
+AfterAll {
+    Remove-Item -Path $global:KubeClusterConfigPath -ErrorAction Ignore
 }
 
 Describe 'GetBroadestRangesForEachAddress' {
@@ -2219,7 +2223,12 @@ Describe 'New-ExternalHnsNetwork' {
 
             $script:gateCallCount = 0
             Mock Get-NetIPAddress -MockWith {
-                param($InterfaceAlias, $AddressFamily, $ErrorAction, $IPAddress)
+                param(
+                    [string]$InterfaceAlias,
+                    [string]$AddressFamily,
+                    [System.Management.Automation.ActionPreference]$ErrorAction,
+                    [string]$IPAddress
+                )
                 $script:gateCallCount++
                 # Return APIPA for first 2 gate checks, then return stable IP
                 if ($InterfaceAlias -eq "Ethernet" -and $script:gateCallCount -le 2) {
@@ -2244,7 +2253,12 @@ Describe 'New-ExternalHnsNetwork' {
             Mock New-HNSNetwork -MockWith {} -Verifiable
 
             Mock Get-NetIPAddress -MockWith {
-                param($InterfaceAlias, $AddressFamily, $ErrorAction, $IPAddress)
+                param(
+                    [string]$InterfaceAlias,
+                    [string]$AddressFamily,
+                    [System.Management.Automation.ActionPreference]$ErrorAction,
+                    [string]$IPAddress
+                )
                 # Gate checks (with InterfaceAlias): always return APIPA to simulate timeout
                 if ($InterfaceAlias -eq "Ethernet") {
                     return $apipaIP
