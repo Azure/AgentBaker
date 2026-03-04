@@ -544,7 +544,7 @@ function WaitForNetworkAdapterToBeReady {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $AdapterName has stable Preferred IPv4 address: $($stableAdapterIP.IPAddress). Proceeding with HNS network creation."
     }
     else {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Warning: Timed out waiting for stable non-APIPA IPv4 on adapter $AdapterName after $($gateMaxRetries * $gateRetryDelayMs / 1000) seconds. Proceeding with HNS network creation."
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Warning: Timed out waiting for stable non-APIPA IPv4 on adapter $AdapterName after $MaxWaitTimeSeconds seconds. Proceeding with HNS network creation."
     }
 }
 
