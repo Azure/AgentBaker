@@ -25,6 +25,8 @@
     },
     "2022-containerd-gen2": {
       "os_disk_size": "35",
+      "base_image_publisher": "MicrosoftWindowsServer",
+      "base_image_offer": "windowsserver2022",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2022-containerd",
       "base_image_version": "20348.4773.260206",
