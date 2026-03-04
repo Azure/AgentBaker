@@ -131,15 +131,30 @@ func TestApp_ProvisionWait(t *testing.T) {
 
 // TestApp_ProvisionThenWait is an integration test covering the full provision → provision-wait flow
 // using custom paths, verifying both commands agree on the same files.
-// Note: in production, the CSE shell script writes provision.json and provision.complete on completion.
-// On error, writeCompleteFileOnError writes them eagerly so provision-wait can unblock.
-// In tests we simulate the CSE writing provision.complete after a successful run.
+// Note: in production, provision-wait runs concurrently with provision at an unknown start time.
+// On error, writeCompleteFileOnError writes provision.json + provision.complete eagerly so provision-wait unblocks.
+// On success, the CSE shell script writes those files; we simulate that with a goroutine.
 func TestApp_ProvisionThenWait(t *testing.T) {
-	t.Run("provision success → provision-wait succeeds", func(t *testing.T) {
+	t.Run("provision success → provision-wait succeeds (concurrent)", func(t *testing.T) {
 		dir := t.TempDir()
 		jsonFile := filepath.Join(dir, "provision.json")
 		completeFile := filepath.Join(dir, "provision.complete")
 
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		// Start provision-wait first, before provision runs — simulates the race in production
+		waitDone := make(chan int, 1)
+		go func() {
+			waitApp := newTestApp(t, nil)
+			waitDone <- waitApp.Run(ctx, []string{
+				"aks-node-controller", "provision-wait",
+				"--provision-json-file=" + jsonFile,
+				"--provision-complete-file=" + completeFile,
+			})
+		}()
+
+		// Run provision
 		provisionApp := newTestApp(t, nil)
 		require.Equal(t, 0, provisionApp.Run(context.Background(), []string{
 			"aks-node-controller", "provision",
@@ -148,27 +163,34 @@ func TestApp_ProvisionThenWait(t *testing.T) {
 			"--provision-complete-file=" + completeFile,
 		}))
 
-		// Simulate what the CSE shell script does on success: write provision.json + provision.complete
+		// Simulate CSE writing provision.json + provision.complete on success
 		require.NoError(t, os.WriteFile(jsonFile, []byte(`{"ExitCode":"0","Output":"ok","Error":""}`), 0644))
 		_, err := os.Create(completeFile)
 		require.NoError(t, err)
 
-		waitApp := newTestApp(t, nil)
-		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-		defer cancel()
-		assert.Equal(t, 0, waitApp.Run(ctx, []string{
-			"aks-node-controller", "provision-wait",
-			"--provision-json-file=" + jsonFile,
-			"--provision-complete-file=" + completeFile,
-		}))
+		assert.Equal(t, 0, <-waitDone)
 	})
 
-	t.Run("provision failure → provision-wait unblocks with error", func(t *testing.T) {
+	t.Run("provision failure → provision-wait unblocks with error (concurrent)", func(t *testing.T) {
 		dir := t.TempDir()
 		jsonFile := filepath.Join(dir, "provision.json")
 		completeFile := filepath.Join(dir, "provision.complete")
 
-		// writeCompleteFileOnError writes provision.json + provision.complete eagerly on failure
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		// Start provision-wait before provision runs
+		waitDone := make(chan int, 1)
+		go func() {
+			waitApp := newTestApp(t, nil)
+			waitDone <- waitApp.Run(ctx, []string{
+				"aks-node-controller", "provision-wait",
+				"--provision-json-file=" + jsonFile,
+				"--provision-complete-file=" + completeFile,
+			})
+		}()
+
+		// Run provision — writeCompleteFileOnError writes the sentinel files eagerly on failure
 		provisionApp := newTestApp(t, func(*exec.Cmd) error { return &testExitError{Code: 1} })
 		provisionApp.Run(context.Background(), []string{
 			"aks-node-controller", "provision",
@@ -177,14 +199,7 @@ func TestApp_ProvisionThenWait(t *testing.T) {
 			"--provision-complete-file=" + completeFile,
 		})
 
-		waitApp := newTestApp(t, nil)
-		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-		defer cancel()
-		assert.Equal(t, 1, waitApp.Run(ctx, []string{
-			"aks-node-controller", "provision-wait",
-			"--provision-json-file=" + jsonFile,
-			"--provision-complete-file=" + completeFile,
-		}))
+		assert.Equal(t, 1, <-waitDone)
 	})
 }
 
