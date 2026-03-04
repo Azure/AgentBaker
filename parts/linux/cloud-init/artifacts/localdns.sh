@@ -205,8 +205,9 @@ replace_azurednsip_in_corefile() {
         return 1
     }
 
-    # Export forward IPs to .prom file for metrics exporter
+    # Export forward IPs to .prom file for metrics exporter (best-effort)
     # This avoids parsing the corefile on every metrics scrape
+    # Metrics export is non-fatal - if it fails, log warning and continue so DNS service isn't affected
     local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
 
     # Parse forward IPs from the updated corefile we just created
@@ -222,12 +223,9 @@ replace_azurednsip_in_corefile() {
     # This prevents the exporter from reading a partially-written file during scrapes
     # Generate one metric line per IP (standard Prometheus practice for multi-valued labels)
     local tmp
-    tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")" || {
-        echo "Failed to create temp file for ${FORWARD_IPS_PROM_FILE}"
-        return 1
-    }
-
-    {
+    if ! tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")"; then
+        echo "WARNING: Failed to create temp file for ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
+    elif ! {
         echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
         echo "# TYPE localdns_vnetdns_forward_info gauge"
         if [ ${#vnetdns_ips[@]} -eq 0 ]; then
@@ -246,22 +244,18 @@ replace_azurednsip_in_corefile() {
                 echo "localdns_kubedns_forward_info{ip=\"${ip}\",status=\"ok\"} 1"
             done
         fi
-    } > "$tmp"
-
-    chmod 0644 "$tmp" || {
-        echo "Failed to set permissions on temp file $tmp"
+    } > "$tmp"; then
+        echo "WARNING: Failed to write metrics to temp file $tmp. Metrics export skipped."
         rm -f "$tmp"
-        return 1
-    }
-
-    # Atomic rename - ensures exporter never sees partial file
-    mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}" || {
-        echo "Failed to move temp file to ${FORWARD_IPS_PROM_FILE}"
+    elif ! chmod 0644 "$tmp"; then
+        echo "WARNING: Failed to set permissions on temp file $tmp. Metrics export skipped."
         rm -f "$tmp"
-        return 1
-    }
-
-    echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
+    elif ! mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}"; then
+        echo "WARNING: Failed to move temp file to ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
+        rm -f "$tmp"
+    else
+        echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
+    fi
 
     return 0
 }
