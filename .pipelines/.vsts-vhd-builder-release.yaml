@@ -865,8 +865,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACLPUBLISHACG'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]AzureContainerLinux'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260302.1060348'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
