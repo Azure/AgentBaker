@@ -1,0 +1,54 @@
+{
+  "files": [
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh",
+      "destination": "/home/packer/provision_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
+      "destination": "/home/packer/provision_source_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh",
+      "destination": "/home/packer/mariner-package-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
+      "destination": "/home/packer/snapshot-update.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/package-update.timer",
+      "destination": "/home/packer/snapshot-update.timer"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/scripts/linux/mariner/tool_installs_mariner.sh",
+      "destination": "/home/packer/tool_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/pam-d-system-auth",
+      "destination": "/home/packer/pam-d-system-auth"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/pam-d-system-password",
+      "destination": "/home/packer/pam-d-system-password"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    }
+  ]
+}

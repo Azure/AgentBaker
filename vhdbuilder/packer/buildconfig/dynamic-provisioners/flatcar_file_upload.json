@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh",
+      "destination": "/home/packer/provision_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh",
+      "destination": "/home/packer/provision_source_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/scripts/linux/flatcar/tool_installs_flatcar.sh",
+      "destination": "/home/packer/tool_installs_distro.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/flatcar/update_certs.service",
+      "destination": "/home/packer/update_certs.service"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/notice_flatcar.txt",
+      "destination": "/home/packer/NOTICE_FLATCAR.txt"
+    }
+  ]
+}
