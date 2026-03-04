@@ -293,14 +293,14 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isAirgap bool, privateACRName string) error {
-	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isNetworkIsolated bool, privateACRName string) error {
+	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isNetworkIsolated)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
+	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isNetworkIsolated)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
@@ -358,11 +358,11 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secr
 	return nil
 }
 
-func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isNetworkIsolated bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
-	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
+	if isNetworkIsolated {
+		image = fmt.Sprintf("%s.azurecr.io/aks-managed-repository/cbl-mariner/base/core:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
 	toolkit.Logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)

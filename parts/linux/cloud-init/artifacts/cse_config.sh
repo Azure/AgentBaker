@@ -323,7 +323,7 @@ disableSystemdResolved() {
     if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
-        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        [ -f /run/systemd/resolve/resolv.conf ] && ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
@@ -539,27 +539,22 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
+    # Install kubelet and kubectl binaries from URL:
+    # 1. For Custom Kube binary or Private Kube binary.
+    # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+    # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
+       { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+    then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-    # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
-    elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+    elif [ "$(type -t installKubeletKubectlFromPkg)" = function ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     else
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
-        elif isMarinerOrAzureLinux "$OS"; then
-            if [ "$OS_VERSION" = "2.0" ]; then
-                # we do not publish packages to PMC for azurelinux V2
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-            else
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-            fi
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-        fi
+        echo "installKubeletKubectlFromPkg is not defined for this OS"
+        exit $ERR_K8S_INSTALL_ERR
     fi
 }
 
@@ -754,23 +749,21 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+        # Install credential provider from URL:
+        # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+        # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+        if { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+           { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+        then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+        elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            # For network isolated clusters, try distro packages first and fallback to binary installation
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+        elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
         else
-            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-                # For network isolated clusters, try distro packages first and fallback to binary installation
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
-            elif isMarinerOrAzureLinux "$OS"; then
-                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-                else
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                fi
-            elif isFlatcar "$OS"; then # Flatcar cannot use PMC. It will use sysext soon.
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-            else
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-            fi
+            echo "installCredentialProviderFromPkg is not defined for this OS"
+            exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
         fi
     fi
 
@@ -982,6 +975,71 @@ ensureGPUDrivers() {
     fi
 }
 
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+dnf_install_amd_ama_core() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        # RPM_FRONTEND env variable needed to disable license agreement prompt
+        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+            dnf_makecache
+        fi
+    done
+    echo Executed dnf install AMD AMA core package $i times;
+}
+
+# Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install driver - currently version 1.3.0 is supported
+        if ! dnf_install 30 1 600 azurelinux-repos-amd; then
+          echo "Unable to install Azure Linux AMD package repo, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
+          echo "Unable to install AMD AMA driver package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install core package
+        if ! dnf_install 30 1 600 azurelinux-repos-extended libzip; then
+          echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        if ! dnf_install_amd_ama_core 30 1 600; then
+          echo "Unable to install AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install AKS device plugin
+        if ! dnf_install 30 1 600 amdama-device-plugin.x86_64; then
+          echo "Unable to install AMD AMA AKS device plugin package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        # Configure huge pages
+        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
+        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        if [ "$(systemctl is-active kubelet)" = "active" ]; then
+            systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
@@ -1005,7 +1063,7 @@ configureSSHPubkeyAuth() {
 
   # AAD SSH extension will append following section to the end of sshd_config,
   # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
-  # Match User *@*,????????-????-????-????-????????????    # Added by aadsshlogin installer
+  # Match User *@*,????????-????-????-????-???????????? # Added by aadsshlogin installer
   # AuthenticationMethods publickey
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
@@ -1024,14 +1082,14 @@ configureSSHPubkeyAuth() {
   ' "$SSHD_CONFIG" > "$TMP"
 
   # Validate the candidate config
-  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+  sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 644, owned by root)
-  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd
-  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path
@@ -1198,16 +1256,20 @@ configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
     fi
+    local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        mkdir -p "$(dirname "${managed_gpu_marker}")"
+        touch "${managed_gpu_marker}"
     else
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        rm -f "${managed_gpu_marker}"
     fi
 }
 

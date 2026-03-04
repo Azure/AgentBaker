@@ -1,12 +1,12 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+FLATCAR_OS_NAME="FLATCAR"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -224,13 +224,14 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "azure-acr-credential-provider-pmc"|\
       "kubelet"|\
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
       "cni-plugins")
@@ -609,18 +610,33 @@ testLtsKernel() {
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
-    if [ "$os_version" = "22.04" ]; then
-      expected_kernel="5.15"
-    elif [ "$os_version" = "24.04" ]; then
-      expected_kernel="6.8"
+    # CVM builds use linux-image-azure-fde-lts-* (different flavor), skip exact pin check
+    local is_cvm=false
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+      is_cvm=true
+    fi
+
+    if [ "$os_version" = "22.04" ] && [ "$is_cvm" = "false" ]; then
+      # Pinned to exact version to avoid regression in 5.15.0-1103-azure
+      expected_kernel="5.15.0-1102-azure"
+    elif [ "$os_version" = "22.04" ] || [ "$os_version" = "24.04" ]; then
+      expected_kernel=$([ "$os_version" = "22.04" ] && echo "5.15" || echo "6.8")
     else
-      echo "LTS kernel not installed for: $os_version"
+      echo "LTS kernel not installed for: $os_version, skipping check"
+      echo "$test:Finish"
+      return
     fi
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
     # shellcheck disable=SC3010
-    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+    if [ "$os_version" = "22.04" ] && [ "$is_cvm" = "false" ]; then
+      if [[ "$kernel" == "$expected_kernel" ]]; then
+        echo "Kernel version matches pinned version ($expected_kernel)."
+      else
+        err $test "Kernel version does not match pinned version. Expected exactly $expected_kernel, found $kernel."
+      fi
+    elif [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
       err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
@@ -920,9 +936,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  downloadLocation="/opt/${packageName}/downloads"
+  local seArch seFile
+  seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
@@ -936,6 +953,11 @@ testPkgDownloaded() {
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ]; then
+      seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
+      if [ -z "${seFile}" ]; then
+        err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
       fi
     fi
 

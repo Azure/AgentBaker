@@ -4,7 +4,7 @@ stub() {
     echo "${FUNCNAME[1]} stub"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
 	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
@@ -67,7 +67,7 @@ downloadPkgFromVersion() {
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then

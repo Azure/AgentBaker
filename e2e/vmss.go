@@ -220,6 +220,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
+
+	if s.Config.UseNVMe {
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	}
 	return model
 }
 
@@ -864,7 +868,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
 						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
 						DiffDiskSettings: &armcompute.DiffDiskSettings{
-							Option: to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Option:    to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Placement: to.Ptr(armcompute.DiffDiskPlacementResourceDisk),
 						},
 					},
 				},

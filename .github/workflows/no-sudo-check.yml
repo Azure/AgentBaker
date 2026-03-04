@@ -1,0 +1,26 @@
+name: Check for sudo in CSE scripts
+on: pull_request
+
+jobs:
+  no-sudo:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Ensure no sudo command invocations in provisioning scripts
+      run: |
+        # Search for 'sudo ' as a command invocation in shell scripts and service/timer files,
+        # excluding comment lines. These scripts run as root so sudo is unnecessary.
+        SEARCH_DIR="parts/linux/cloud-init/artifacts"
+        matches=$(grep -rn --include='*.sh' --include='*.service' --include='*.timer' 'sudo ' "$SEARCH_DIR" \
+          | grep -v ':[[:space:]]*#' \
+          | grep -v 'sudo\.log' \
+          | grep -v 'sudoers' \
+          | grep -v 'logrotate\.d/sudo' || true)
+        if [ -n "$matches" ]; then
+          echo "::error::Found sudo command invocations in CSE provisioning scripts."
+          echo "These scripts already run as root, so sudo is unnecessary."
+          echo ""
+          echo "$matches"
+          exit 1
+        fi
+        echo "No sudo command invocations found in CSE scripts."

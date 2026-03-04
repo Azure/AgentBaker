@@ -25,7 +25,6 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -181,32 +180,6 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_AirGap(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
-		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
-					},
-				}
-				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
@@ -227,40 +200,12 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 	})
 }
 
-func Test_AzureLinuxV3_AirGap_Package_Install(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
-		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeNone
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
-					},
-				}
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "azurelinuxv3 scenario on a cluster configured with Azure CNI",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -371,6 +316,9 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -417,6 +365,9 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
@@ -442,6 +393,9 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,
@@ -571,49 +525,22 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_AirGap(t *testing.T) {
+func Test_AzureLinuxV3_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
-					},
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
-// TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
-// or deprecate anonymous ACR airgap tests once it is unsupported
-func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
-		Tags: Tags{
-			Airgap:          true,
+			NetworkIsolated: true,
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgapNonAnon,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
@@ -624,7 +551,6 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
@@ -633,27 +559,101 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
+func Test_AzureLinuxV3_NetworkIsolated_Package_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeNone
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is network isolated can be properly bootstrapped",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NoneCached(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
+		Tags: Tags{
+			NetworkIsolated: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
 					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.EnableScriptlessCSECmd = false
@@ -662,22 +662,22 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.T) {
+func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCached(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
 		Tags: Tags{
-			Airgap:          true,
+			NetworkIsolated: true,
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgapNonAnon,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -685,7 +685,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
 					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
@@ -694,8 +694,54 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached(t *testing.
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 				nbc.EnableScriptlessCSECmd = false
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCached_InstallPackage(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				// intentionally using private acr url to get kube binaries
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
+					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				nbc.EnableScriptlessCSECmd = false
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
@@ -1375,6 +1421,62 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_MA35D(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
+				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			},
+		},
+		// No MA35D GPU capacity in West US, so using East US
+		Location:         "eastus",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+	})
+}
+
+func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NM16ads_MA35D"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
+				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
+				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
+			},
+		},
+		// No MA35D GPU capacity in West US, so using East US
+		Location:         "eastus",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+	})
+}
+
 func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
@@ -1624,6 +1726,9 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 func Test_Ubuntu2404Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -1935,53 +2040,6 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_ContainerdAirgappedNonAnonymousK8sNotCached_InstallPackage(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
-		Tags: Tags{
-			Airgap:          true,
-			NonAnonymousACR: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenetAirgapNonAnon,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
-					},
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
-				// intentionally using private acr url to get kube binaries
-				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
-					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
-					"1.32.3",
-					"1.32.3") // has to use specific version because when k8s < 1.34, most credential provider versions are missing.
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-				nbc.EnableScriptlessCSECmd = false
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
 func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Azure Linux V3 OS Guard VHD and install kube pkgs from PMC can be properly bootstrapped",
@@ -1990,7 +2048,6 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			VHD:     config.VHDAzureLinux3OSGuard,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -2147,21 +2204,20 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding in network isolated (NI) clusters",
 		Tags: Tags{
-			Airgap:          true,
+			NetworkIsolated: true,
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenetAirgapNonAnon,
+			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
-				nbc.OutboundType = datamodel.OutboundTypeBlock
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
@@ -2175,7 +2231,6 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
 				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Verify credential provider config file exists

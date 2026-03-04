@@ -37,8 +37,8 @@ while true; do
   if grep -q "$clusterIP $clusterFQDN" /etc/hosts; then
     echo -n ""
   else
-    sudo sed -i "/$clusterFQDN/d" /etc/hosts
-    echo "$clusterIP $clusterFQDN" | sudo tee -a /etc/hosts > /dev/null
+    sed -i "/$clusterFQDN/d" /etc/hosts
+    echo "$clusterIP $clusterFQDN" | tee -a /etc/hosts > /dev/null
     echo "Updated $clusterFQDN to $clusterIP"
   fi
   sleep "${SLEEP_SECONDS}"

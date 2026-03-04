@@ -3,14 +3,14 @@
 set -o nounset
 set -e
 
-# Global constants used in this file. 
+# Global constants used in this file.
 # -------------------------------------------------------------------------------------------------
 SECURITY_PATCH_CONFIG_DIR=/var/lib/security-patch
 KUBECONFIG="/var/lib/kubelet/kubeconfig"
 KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 DEFAULT_ENDPOINT="snapshot.ubuntu.com"
 
-# Function definitions used in this file. 
+# Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh.
 # -------------------------------------------------------------------------------------------------
@@ -128,8 +128,9 @@ main() {
 
     export APT_CONFIG="${SECURITY_PATCH_CONFIG_DIR}/apt.conf"
 
-    if ! apt_get_update; then
-        echo "apt_get_update failed"
+    local apt_opts="-o Acquire::http::Timeout=300 -o Acquire::https::Timeout=300 -o Acquire::Retries=3"
+    if ! apt_get_update_with_opts "${apt_opts}"; then
+        echo "apt_get_update_with_opts failed"
         exit 1
     fi
     if ! unattended_upgrade; then

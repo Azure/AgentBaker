@@ -69,7 +69,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
+	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")

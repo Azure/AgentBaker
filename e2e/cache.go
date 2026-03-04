@@ -160,25 +160,25 @@ func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, erro
 	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v4", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
-var ClusterKubenetAirgap = cachedFunc(clusterKubenetAirgap)
-
-// clusterKubenetAirgap creates an airgapped kubenet cluster (no internet access)
-func clusterKubenetAirgap(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-airgap-v3", request.Location, request.K8sSystemPoolSKU), true, false)
-}
-
-var ClusterKubenetAirgapNonAnon = cachedFunc(clusterKubenetAirgapNonAnon)
-
-// clusterKubenetAirgapNonAnon creates an airgapped kubenet cluster with non-anonymous image pulls
-func clusterKubenetAirgapNonAnon(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap-v3", request.Location, request.K8sSystemPoolSKU), true, true)
-}
-
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
 
 // clusterAzureNetwork creates a cluster with Azure CNI networking
 func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+}
+
+var ClusterAzureBootstrapProfileCache = cachedFunc(clusterAzureBootstrapProfileCache)
+
+// clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
+func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU), false, true)
+}
+
+var ClusterAzureNetworkIsolated = cachedFunc(clusterAzureNetworkIsolated)
+
+// clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
+func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-networkisolated-v1", request.Location, request.K8sSystemPoolSKU), true, false)
 }
 
 var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
@@ -227,3 +227,21 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
 var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
+
+// VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
+type VMSizeSKURequest struct {
+	Location string
+	VMSize   string
+}
+
+// CachedVMSizeSupportsNVMe caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size supports the NVMe disk controller type.
+var CachedVMSizeSupportsNVMe = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.VMSizeSupportsNVMe(ctx, req.Location, req.VMSize)
+})
+
+// CachedIsVMSizeGen2Only caches the result of querying the Azure Resource SKUs API
+// to determine if a VM size only supports the Gen2 hypervisor.
+var CachedIsVMSizeGen2Only = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.IsVMSizeGen2Only(ctx, req.Location, req.VMSize)
+})
