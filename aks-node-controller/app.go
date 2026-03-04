@@ -32,7 +32,7 @@ type App struct {
 // commandMetadata holds all metadata for a command in one place.
 type commandMetadata struct {
 	taskName string
-	handler  func(*App, context.Context, []string) error
+	handler  func(*App, context.Context, []string) (func(), error)
 }
 
 // getCommandRegistry returns the command registry mapping command names to their metadata.
@@ -41,25 +41,38 @@ func getCommandRegistry() map[string]commandMetadata {
 	return map[string]commandMetadata{
 		"provision": {
 			taskName: "Provision",
-			handler: func(a *App, ctx context.Context, args []string) error {
-				provisionResult, err := a.runProvision(ctx, args[2:])
+			handler: func(a *App, ctx context.Context, args []string) (func(), error) {
+				flags, cleanup, err := parseProvisionFlags(args)
+				if err != nil {
+					return cleanup, err
+				}
+				if a.eventLogger == nil {
+					a.eventLogger = helpers.NewEventLogger(flags.EventsDir)
+				}
+				if flags.DryRun {
+					a.cmdRun = cmdRunnerDryRun
+				}
+				provisionResult, err := a.Provision(ctx, flags)
 				// Always notify after provisioning attempt (success is a no-op inside notifier)
-				a.writeCompleteFileOnError(provisionResult, err)
-				return err
+				a.writeCompleteFileOnError(flags.ProvisionStatusFiles, provisionResult, err)
+				return cleanup, err
 			},
 		},
 		"provision-wait": {
 			taskName: "ProvisionWait",
-			handler: func(a *App, ctx context.Context, args []string) error {
-				provisionStatusFiles := ProvisionStatusFiles{
-					ProvisionJSONFile:     provisionJSONFilePath,
-					ProvisionCompleteFile: provisionCompleteFilePath,
+			handler: func(a *App, ctx context.Context, args []string) (func(), error) {
+				flags, cleanup, err := parseProvisionWaitFlags(args)
+				if err != nil {
+					return cleanup, err
 				}
-				provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+				if a.eventLogger == nil {
+					a.eventLogger = helpers.NewEventLogger(flags.EventsDir)
+				}
+				provisionOutput, err := a.ProvisionWait(ctx, flags.ProvisionStatusFiles)
 				//nolint:forbidigo // stdout is part of the interface
 				fmt.Println(provisionOutput)
 				slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-				return err
+				return cleanup, err
 			},
 		},
 	}
@@ -82,12 +95,73 @@ func cmdRunnerDryRun(cmd *exec.Cmd) error {
 }
 
 type ProvisionFlags struct {
-	ProvisionConfig string
+	ProvisionConfig      string
+	DryRun               bool
+	EventsDir            string
+	ProvisionStatusFiles ProvisionStatusFiles
+}
+
+type ProvisionWaitFlags struct {
+	EventsDir            string
+	ProvisionStatusFiles ProvisionStatusFiles
 }
 
 type ProvisionStatusFiles struct {
 	ProvisionJSONFile     string
 	ProvisionCompleteFile string
+}
+
+func parseProvisionFlags(args []string) (ProvisionFlags, func(), error) {
+	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
+	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
+	logPath := fs.String("log-path", defaultLogPath, "path to the log file")
+	eventsDir := fs.String("events-dir", defaultEventsDir, "path to the events directory")
+	provisionJSONFile := fs.String("provision-json-file", defaultProvisionJSONFilePath, "path to the provision.json status file")
+	provisionCompleteFile := fs.String("provision-complete-file", defaultProvisionCompleteFilePath, "path to the provision.complete sentinel file")
+
+	noop := func() {}
+	if err := fs.Parse(args); err != nil {
+		return ProvisionFlags{}, noop, fmt.Errorf("parse args: %w", err)
+	}
+	if *provisionConfig == "" {
+		return ProvisionFlags{}, noop, errors.New("--provision-config is required")
+	}
+
+	cleanup := configureLogging(*logPath)
+
+	return ProvisionFlags{
+		ProvisionConfig: *provisionConfig,
+		DryRun:          *dryRun,
+		EventsDir:       *eventsDir,
+		ProvisionStatusFiles: ProvisionStatusFiles{
+			ProvisionJSONFile:     *provisionJSONFile,
+			ProvisionCompleteFile: *provisionCompleteFile,
+		},
+	}, cleanup, nil
+}
+
+func parseProvisionWaitFlags(args []string) (ProvisionWaitFlags, func(), error) {
+	fs := flag.NewFlagSet("provision-wait", flag.ContinueOnError)
+	logPath := fs.String("log-path", defaultLogPath, "path to the log file")
+	eventsDir := fs.String("events-dir", defaultEventsDir, "path to the events directory")
+	provisionJSONFile := fs.String("provision-json-file", defaultProvisionJSONFilePath, "path to the provision.json status file")
+	provisionCompleteFile := fs.String("provision-complete-file", defaultProvisionCompleteFilePath, "path to the provision.complete sentinel file")
+
+	noop := func() {}
+	if err := fs.Parse(args); err != nil {
+		return ProvisionWaitFlags{}, noop, fmt.Errorf("parse args: %w", err)
+	}
+
+	cleanup := configureLogging(*logPath)
+
+	return ProvisionWaitFlags{
+		EventsDir: *eventsDir,
+		ProvisionStatusFiles: ProvisionStatusFiles{
+			ProvisionJSONFile:     *provisionJSONFile,
+			ProvisionCompleteFile: *provisionCompleteFile,
+		},
+	}, cleanup, nil
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
@@ -117,15 +191,23 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 
 	startTime := time.Now()
-	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 
-	err := cmd.handler(a, ctx, args)
+	cleanup, err := func() (func(), error) {
+		return cmd.handler(a, ctx, args[2:])
+	}()
+	if cleanup != nil {
+		defer cleanup()
+	}
+
 	endTime := time.Now()
-	if err != nil {
-		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
-		a.eventLogger.LogEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
-	} else {
-		a.eventLogger.LogEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+	if a.eventLogger != nil {
+		a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
+		if err != nil {
+			message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+			a.eventLogger.LogEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
+		} else {
+			a.eventLogger.LogEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+		}
 	}
 	return err
 }
@@ -187,70 +269,33 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
-// runProvision encapsulates argument parsing and execution for the "provision" subcommand.
-// It returns an error describing any failure; callers should pass that error to
-// writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult, error) {
-	// Handle panics gracefully to ensure we always return a valid result
-	provisionResult := &ProvisionResult{}
-	var err error
-
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("panic recovered in runProvision", "panic", r)
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
-			err = fmt.Errorf("panic during provisioning: %v", r)
-			a.writeCompleteFileOnError(provisionResult, err)
-		}
-	}()
-
-	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
-	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
-	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-	if parseErr := fs.Parse(args); parseErr != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
-		return provisionResult, errors.New(provisionResult.Error)
-	}
-	if *provisionConfig == "" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = "--provision-config is required"
-		return provisionResult, errors.New(provisionResult.Error)
-	}
-	if *dryRun {
-		a.cmdRun = cmdRunnerDryRun
-	}
-	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
-}
-
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
 // allowing provision-wait mode to unblock early on fail-fast validation errors.
-func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err error) {
+func (a *App) writeCompleteFileOnError(filepaths ProvisionStatusFiles, provisionResult *ProvisionResult, err error) {
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+	if _, statErr := os.Stat(filepaths.ProvisionJSONFile); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
 		data, err := json.Marshal(provisionResult)
 		if err != nil {
 			slog.Error("failed to marshal provision result", "error", err)
 		}
-		baseDir := filepath.Dir(provisionJSONFilePath)
+		baseDir := filepath.Dir(filepaths.ProvisionJSONFile)
 		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
 			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
 		}
-		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
+		if writeErr := os.WriteFile(filepaths.ProvisionJSONFile, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", filepaths.ProvisionJSONFile, "error", writeErr)
 		}
 	}
-	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
+	if _, statErr := os.Stat(filepaths.ProvisionCompleteFile); statErr == nil {
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
+		slog.Error("failed to stat provision.complete file", "path", filepaths.ProvisionCompleteFile, "error", statErr)
 		return
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+	if writeErr := os.WriteFile(filepaths.ProvisionCompleteFile, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", filepaths.ProvisionCompleteFile, "error", writeErr)
 	}
 }
 

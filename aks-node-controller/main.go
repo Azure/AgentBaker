@@ -7,34 +7,26 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
 func main() {
-	// defer calls are not executed on os.Exit
-	logCleanup := configureLogging()
 	app := App{
-		cmdRun:      cmdRunner,
-		eventLogger: helpers.NewEventLogger("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),
+		cmdRun: cmdRunner,
 	}
-
 	exitCode := app.Run(context.Background(), os.Args)
-	logCleanup()
-
 	os.Exit(exitCode)
 }
 
-func configureLogging() func() {
-	logPath := setupLogPath()
+func configureLogging(logPath string) func() {
+	resolvedPath := resolveLogPath(logPath)
 
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0755); err != nil {
 		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to create log directory: %s\n", err)
 		os.Exit(1)
 	}
 
-	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := os.OpenFile(resolvedPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to open log file: %s\n", err)
@@ -52,11 +44,10 @@ func configureLogging() func() {
 	}
 }
 
-func setupLogPath() string {
-	// Try to create production directory first
+func resolveLogPath(logPath string) string {
+	// Try to create the requested log directory; fall back to current directory on failure.
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err == nil {
 		return logPath
 	}
-	// If directory creation fails, fallback to current directory
 	return "aks-node-controller.log"
 }
