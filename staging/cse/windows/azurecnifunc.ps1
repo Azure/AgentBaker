@@ -512,17 +512,21 @@ function GetMetadataContent {
 function WaitForNetworkAdapterToBeReady {
     param (
         [Parameter(Mandatory = $true)][string]
-        $AdapterName
+        $AdapterName,
+        [Parameter(Mandatory = $false)][int]
+        $MaxWaitTimeSeconds = 60,
+        [Parameter(Mandatory = $false)][int]
+        $RetryDelayMilliseconds = 500
     )
+
+    $Retries = $MaxWaitTimeSeconds * 1000 / $RetryDelayMilliseconds
 
     # Pre-create readiness gate: wait for the adapter to have a stable, non-APIPA IPv4 address
     # in Preferred state before calling New-HNSNetwork. This prevents HNS from latching an
     # APIPA (169.254/16) ProviderAddress if the NIC is still transitioning at creation time.
-    $gateMaxRetries = 240
-    $gateRetryDelayMs = 500
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Waiting for adapter $AdapterName to have a stable, non-APIPA IPv4 address before creating HNS network"
     $stableAdapterIP = $null
-    for ($j = 0; $j -lt $gateMaxRetries; $j++) {
+    for ($j = 0; $j -lt $Retries; $j++) {
         $adapterIPs = Get-NetIPAddress -InterfaceAlias $AdapterName -AddressFamily IPv4 -ErrorAction SilentlyContinue
         $stableAdapterIP = $adapterIPs | Where-Object {
             $_.AddressState -eq "Preferred" -and -not $_.IPAddress.StartsWith("169.254.")
@@ -532,9 +536,9 @@ function WaitForNetworkAdapterToBeReady {
         }
         if ($j % 20 -eq 0) {
             $currentIPs = ($adapterIPs | ForEach-Object { "$($_.IPAddress) ($($_.AddressState))" }) -join ", "
-            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $AdapterName IPs: [$currentIPs]. Waiting for stable non-APIPA address. Attempt $($j + 1) of $gateMaxRetries."
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $AdapterName IPs: [$currentIPs]. Waiting for stable non-APIPA address. Attempt $($j + 1) of $Retries."
         }
-        Start-Sleep -Milliseconds $gateRetryDelayMs
+        Start-Sleep -Milliseconds $RetryDelayMilliseconds
     }
     if ($stableAdapterIP) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $AdapterName has stable Preferred IPv4 address: $($stableAdapterIP.IPAddress). Proceeding with HNS network creation."
@@ -564,7 +568,7 @@ function New-ExternalHnsNetwork {
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
 
-    WaitForNetworkAdapterToBeReady -AdapterName $adapterName
+    WaitForNetworkAdapterToBeReady -AdapterName $adapterName -MaxWaitTimeSeconds 60 -RetryDelayMilliseconds 500
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
     if ($IsDualStackEnabled) {

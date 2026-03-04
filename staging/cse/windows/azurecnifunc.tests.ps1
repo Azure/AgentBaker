@@ -2245,7 +2245,7 @@ Describe 'New-ExternalHnsNetwork' {
             Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 2
         }
 
-        It "Should proceed with HNS creation (with warning) when gate times out without a stable non-APIPA IP" {
+        It "Should proceed with HNS creation when gate times out without a stable non-APIPA IP" {
             $mockAdapter = [PSCustomObject]@{ Name = "Ethernet" }
             $apipaIP = [PSCustomObject]@{ IPAddress = "169.254.1.1"; AddressState = "Preferred" }
             $stableIP = [PSCustomObject]@{ IPAddress = "10.0.0.4"; AddressState = "Preferred" }
