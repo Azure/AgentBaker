@@ -2166,3 +2166,98 @@ Describe 'GetMetadataContent' {
         }
     }
 }
+
+Describe 'New-ExternalHnsNetwork' {
+    BeforeEach {
+        Mock Set-ExitCode -MockWith {
+            param($ExitCode, $ErrorMessage)
+            throw $ErrorMessage
+        } -Verifiable
+        Mock Logs-To-Event -MockWith {} -Verifiable
+        Mock Get-NetIPConfiguration -MockWith {} -Verifiable
+        Mock Get-DnsClientServerAddress -MockWith { return $null } -Verifiable
+        Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.4" } -Verifiable
+        Mock Get-AKS-NodeIPs -MockWith { return "10.0.0.4" } -Verifiable
+    }
+
+    Context 'Pre-create readiness gate' {
+        It "Should call New-HNSNetwork immediately when adapter already has a stable Preferred non-APIPA IP" {
+            $mockAdapter = [PSCustomObject]@{ Name = "Ethernet" }
+            $stableIP = [PSCustomObject]@{ IPAddress = "10.0.0.4"; AddressState = "Preferred" }
+
+            Mock Get-AKS-NetworkAdaptor -MockWith { return $mockAdapter } -Verifiable
+            Mock Get-NetIPAddress -MockWith { return $stableIP } -Verifiable
+            Mock New-HNSNetwork -MockWith {} -Verifiable
+
+            New-ExternalHnsNetwork -IsDualStackEnabled $false
+
+            Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 0
+        }
+
+        It "Should wait in the gate when adapter has only APIPA IP, then proceed when stable IP appears" {
+            $mockAdapter = [PSCustomObject]@{ Name = "Ethernet" }
+            $apipaIP = [PSCustomObject]@{ IPAddress = "169.254.1.1"; AddressState = "Preferred" }
+            $stableIP = [PSCustomObject]@{ IPAddress = "10.0.0.4"; AddressState = "Preferred" }
+
+            Mock Get-AKS-NetworkAdaptor -MockWith { return $mockAdapter } -Verifiable
+            Mock New-HNSNetwork -MockWith {} -Verifiable
+
+            $script:gateCallCount = 0
+            Mock Get-NetIPAddress -MockWith {
+                param($InterfaceAlias, $AddressFamily, $ErrorAction, $IPAddress)
+                $script:gateCallCount++
+                # Return APIPA for first 2 gate checks, then return stable IP
+                if ($InterfaceAlias -eq "Ethernet" -and $script:gateCallCount -le 2) {
+                    return $apipaIP
+                }
+                return $stableIP
+            } -Verifiable
+
+            New-ExternalHnsNetwork -IsDualStackEnabled $false
+
+            Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1
+            # Gate should have retried at least once for the APIPA address
+            Assert-MockCalled -CommandName "Start-Sleep" -AtLeast -Times 1
+        }
+
+        It "Should proceed with HNS creation (with warning) when gate times out without a stable non-APIPA IP" {
+            $mockAdapter = [PSCustomObject]@{ Name = "Ethernet" }
+            $apipaIP = [PSCustomObject]@{ IPAddress = "169.254.1.1"; AddressState = "Preferred" }
+            $stableIP = [PSCustomObject]@{ IPAddress = "10.0.0.4"; AddressState = "Preferred" }
+
+            Mock Get-AKS-NetworkAdaptor -MockWith { return $mockAdapter } -Verifiable
+            Mock New-HNSNetwork -MockWith {} -Verifiable
+
+            Mock Get-NetIPAddress -MockWith {
+                param($InterfaceAlias, $AddressFamily, $ErrorAction, $IPAddress)
+                # Gate checks (with InterfaceAlias): always return APIPA to simulate timeout
+                if ($InterfaceAlias -eq "Ethernet") {
+                    return $apipaIP
+                }
+                # Post-create checks (by IP): return stable IP so function completes
+                return $stableIP
+            } -Verifiable
+
+            # Should not throw even though the gate timed out
+            { New-ExternalHnsNetwork -IsDualStackEnabled $false } | Should -Not -Throw
+
+            Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1
+        }
+
+        It "Should call New-HNSNetwork with dual-stack address prefixes when IsDualStackEnabled is true" {
+            $mockAdapter = [PSCustomObject]@{ Name = "Ethernet" }
+            $stableIP = [PSCustomObject]@{ IPAddress = "10.0.0.4"; AddressState = "Preferred" }
+
+            Mock Get-AKS-NetworkAdaptor -MockWith { return $mockAdapter } -Verifiable
+            Mock Get-NetIPAddress -MockWith { return $stableIP } -Verifiable
+            Mock New-HNSNetwork -MockWith {} -Verifiable
+
+            New-ExternalHnsNetwork -IsDualStackEnabled $true
+
+            Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1 -ParameterFilter {
+                $AddressPrefix -is [array] -and $AddressPrefix.Count -eq 2
+            }
+        }
+    }
+}
