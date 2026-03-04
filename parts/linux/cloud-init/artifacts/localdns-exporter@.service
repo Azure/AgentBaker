@@ -27,6 +27,3 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RemoveIPC=yes
 PrivateMounts=yes
-
-[Install]
-WantedBy=multi-user.target
