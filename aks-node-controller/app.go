@@ -221,6 +221,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 	return cmd.handler(a, ctx, args[2:])
 }
 
+// Provision runs the provisioning logic, recovering from any panic so the result is
+// always a structured ProvisionResult. Named returns are required for the recover defer.
+//
+//nolint:nonamedreturns // named returns are required: the recover defer must assign result and err to affect the return values
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *ProvisionResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {
