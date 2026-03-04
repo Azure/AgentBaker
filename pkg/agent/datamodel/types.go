@@ -743,6 +743,38 @@ type CustomKubeletConfig struct {
 	SeccompDefault        *bool     `json:"seccompDefault,omitempty"`
 }
 
+// Valid values for TransparentHugePageEnabled, corresponding to
+// /sys/kernel/mm/transparent_hugepage/enabled.
+const (
+	TransparentHugePageAlways  = "always"
+	TransparentHugePageMadvise = "madvise"
+	TransparentHugePageNever   = "never"
+)
+
+// Valid values for TransparentHugePageDefrag, corresponding to
+// /sys/kernel/mm/transparent_hugepage/defrag.
+const (
+	TransparentHugePageDefragAlways       = "always"
+	TransparentHugePageDefragDefer        = "defer"
+	TransparentHugePageDefragDeferMadvise = "defer+madvise"
+	TransparentHugePageDefragMadvise      = "madvise"
+	TransparentHugePageDefragNever        = "never"
+)
+
+var validTransparentHugePageEnabled = map[string]bool{
+	TransparentHugePageAlways:  true,
+	TransparentHugePageMadvise: true,
+	TransparentHugePageNever:   true,
+}
+
+var validTransparentHugePageDefrag = map[string]bool{
+	TransparentHugePageDefragAlways:       true,
+	TransparentHugePageDefragDefer:        true,
+	TransparentHugePageDefragDeferMadvise: true,
+	TransparentHugePageDefragMadvise:      true,
+	TransparentHugePageDefragNever:        true,
+}
+
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
 type CustomLinuxOSConfig struct {
 	Sysctls                    *SysctlConfig `json:"sysctls,omitempty"`
@@ -750,6 +782,20 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
 	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
+}
+
+// ValidateTHPConfig checks that TransparentHugePageEnabled and TransparentHugePageDefrag contain valid kernel values when set.
+func (c *CustomLinuxOSConfig) ValidateTHPConfig() error {
+	if c == nil {
+		return nil
+	}
+	if c.TransparentHugePageEnabled != "" && !validTransparentHugePageEnabled[c.TransparentHugePageEnabled] {
+		return fmt.Errorf("invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never", c.TransparentHugePageEnabled)
+	}
+	if c.TransparentHugePageDefrag != "" && !validTransparentHugePageDefrag[c.TransparentHugePageDefrag] {
+		return fmt.Errorf("invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never", c.TransparentHugePageDefrag)
+	}
+	return nil
 }
 
 func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
