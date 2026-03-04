@@ -84,7 +84,7 @@ parameters:
   - name: build2404arm64gb200gen2containerd
     displayName: Build 2404 ARM64 GB200 Gen2 Containerd
     type: boolean
-    default: true
+    default: false
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean

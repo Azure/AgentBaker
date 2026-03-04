@@ -55,7 +55,7 @@ The operational goals of this project are:
 
 When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
 
-One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder. 
+One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder.
 
 The SRE guidelines ground other coding guidelines and practices.
 
@@ -109,15 +109,21 @@ Analyze PRs for these compatibility scenarios:
     - Only allowed runtime downloads: packages.aks.azure.com or other explicitly allowed sources in CSE
   - **Function signature changes**: Parameters, return values, exit codes that break callers
   - **Missing test coverage**: Changes to provisioning logic without corresponding e2e tests
+  - **Forward and backward compatibility**: Keep compatibility across the 6-month VHD support window in both directions.
+    - **Backward**: Newer VHDs must still work with older CSE scripts delivered via CRP custom data.
+      - Example: PR #7866 restored `cni-plugins` dependency + install logic after a removal caused provisioning failures (exit 206) when old scripts ran on newer VHDs.
+    - **Forward**: Newer CSE script changes must not require components/features that exist only on newer VHDs, unless the logic to detect and handle missing features is implemented.
+
 
 **2. Windows Bidirectional Compatibility**
 - **Context**: Windows VHD and CSE scripts release on different cadences with no guaranteed order
-- **What to check**: Changes to `staging/cse/windows/` (CSE scripts) or `vhdbuilder/packer/windows/` (VHD scripts)
+- **What to check**: Changes to `staging/cse/windows/` (CSE scripts) or `vhdbuilder/packer/windows/` (VHD scripts).
 - **Breaking signals**:
-  - New CSE scripts assuming capabilities that old VHDs don't have
-  - New VHD scripts expecting features that old CSE versions don't provide
+  - New CSE scripts using features in the VHD Scripts that aren't present before this PR.
+  - New VHD scripts expecting features in the CSE scripts that aren't present before this PR.
   - Changes to shared state (registry keys, files, environment variables) that break coordination
   - Removing PowerShell functions or cmdlets that the other component might call
+  - Incompatibilities between newer versions of the CSE scripts and older versions of the VHD scripts are critical to detect as they can cause production outages.
 
 **3. aks-node-controller Migration (Dual-Mode Support)**
 - **Context**: Transitioning from uploading scripts during both VHD build and CSE to only uploading aks-node-controller during VHD build

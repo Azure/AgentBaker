@@ -473,7 +473,6 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 }
 
 func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
-	t.Skip("skipping test for Windows Cilium Networking (WCN) on Windows 23H2 Gen2, as it needs a reboot after provisioning - and that is not working yet")
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
 		Config: Config{
@@ -547,6 +546,33 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 				ValidateFileHasContent(ctx, s,
 					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
 					`https://mcr.azk8s.cn`)
+			},
+		},
+	})
+}
+
+func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that Windows nodes in network isolated clusters configure containerd to use the bootstrap profile container registry for MCR images",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureBootstrapProfileCache,
+			VHD:     config.VHDWindows2025Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify mcr.microsoft.com host config exist
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml`)
+				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
 			},
 		},
 	})

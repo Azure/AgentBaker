@@ -237,6 +237,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
+	if config.Config.EnableScriptlessCSECmd {
+		nbc.EnableScriptlessCSECmd = true
+	}
+
 	if s.IsWindows() {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
 	}
@@ -264,6 +268,29 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	require.NoError(s.T, err)
+
+	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   config.Config.DefaultVMSKU,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", config.Config.DefaultVMSKU)
+	if gen2Only && s.Config.VHD.UnsupportedGen2 {
+		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
+		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+	}
+	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   config.Config.DefaultVMSKU,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", config.Config.DefaultVMSKU)
+	if supportsNVMe {
+		if s.Config.VHD.UnsupportedNVMe {
+			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
+			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		} else {
+			s.Config.UseNVMe = true
+		}
+	}
 
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)

@@ -58,16 +58,10 @@ type nodeBootstrappingOutput struct {
 }
 
 type decodedValue struct {
-	encoding cseVariableEncoding
+	encoding string
 	value    string
 	mode     int64
 }
-
-type cseVariableEncoding string
-
-const (
-	cseVariableEncodingGzip cseVariableEncoding = "gzip"
-)
 
 type outputValidator func(*nodeBootstrappingOutput)
 
@@ -300,14 +294,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
-			// Expect an error if LocalDNSProfile is nil and GenerateLocalDNSCoreFile is invoked somehow.
-			It("returns an error when LocalDNSProfile is nil", func() {
-				config.AgentPoolProfile.LocalDNSProfile = nil
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("localdns profile is nil"))
-			})
-
 			// Expect an error from GenerateLocalDNSCoreFile if template is invalid.
 			It("returns an error when template parsing fails", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -323,20 +309,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(err.Error()).To(ContainSubstring("failed to execute localdns corefile template"))
 			})
 
-			// Expect an error from GenerateLocalDNSCoreFile if it is invoked when EnableLocalDNS is set to false.
-			It("returns an error when EnableLocalDNS is set to false", func() {
-				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					EnableLocalDNS:       false,
-					CPULimitInMilliCores: to.Int32Ptr(2008),
-					MemoryLimitInMB:      to.Int32Ptr(128),
-					VnetDNSOverrides:     nil,
-					KubeDNSOverrides:     nil,
-				}
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("EnableLocalDNS is set to false, corefile will not be generated"))
-			})
-
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -346,20 +318,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     nil,
 					KubeDNSOverrides:     nil,
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
@@ -371,20 +333,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 					KubeDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
@@ -438,19 +390,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						},
 					},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
 				expectedlocalDNSCorefile := `
 # ***********************************************************************************
@@ -552,7 +494,7 @@ testdomain456.com:53 {
     }
 }
 `
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
 
 			// Expect no error and correct localdns corefile.
@@ -626,19 +568,9 @@ testdomain456.com:53 {
 						},
 					},
 				}
-				localDNSCoreFileGzippedBase64Encoded, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Encoded).ToNot(BeEmpty())
-
-				// Decode the gzipped base64 encoded string.
-				localDNSCoreFileGzippedBase64Decoded, err := getBase64DecodedValue([]byte(localDNSCoreFileGzippedBase64Encoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCoreFileGzippedBase64Decoded).ToNot(BeEmpty())
-
-				// Decompress the gzipped data.
-				localDNSCorefile, err := getGzipDecodedValue([]byte(localDNSCoreFileGzippedBase64Decoded))
-				Expect(err).To(BeNil())
-				Expect(localDNSCorefile).ToNot(BeEmpty())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
 				expectedlocalDNSCorefile := `
 # ***********************************************************************************
@@ -776,7 +708,7 @@ testdomain567.com:53 {
     prometheus :9253
 }
 `
-				Expect(localDNSCorefile).To(ContainSubstring(expectedlocalDNSCorefile))
+				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
 		})
 	})
@@ -1590,6 +1522,18 @@ oom_score = -999
 				Expect(exist).To(BeFalse())
 			},
 		),
+		Entry("CustomizedImageLinuxGuard write_files should not target /usr/ paths", "CustomizedImageLinuxGuard", "1.24.2",
+			func(c *datamodel.NodeBootstrappingConfiguration) {
+				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageLinuxGuard
+			}, func(o *nodeBootstrappingOutput) {
+				for path := range o.files {
+					Expect(path).NotTo(HavePrefix("/usr/"), "OSGuard has /usr/ read-only (dm-verity), write_files must not target /usr/ paths: %s", path)
+				}
+			},
+		),
 		Entry("Flatcar", "Flatcar", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = datamodel.OSSKUFlatcar
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSFlatcarGen2
@@ -2307,7 +2251,7 @@ func ignitionDecodeFileContents(input ign3_4.Resource) ([]byte, error) {
 		return nil, err
 	}
 	contents := decodeddata.Data
-	if input.Compression != nil && *input.Compression == "gzip" {
+	if input.Compression != nil && *input.Compression == encodingGZIP {
 		contents, err = getGzipDecodedValue(contents)
 		if err != nil {
 			return nil, err
@@ -2360,7 +2304,7 @@ func writeInnerCustomData(outputname, customData string) error {
 			"overwrite": true,
 			"mode":      entry.mode,
 			"contents": map[string]interface{}{
-				"compression": "gzip",
+				"compression": encodingGZIP,
 				"source":      "data:;base64," + base64.StdEncoding.EncodeToString(gzippedContents),
 			},
 		})
@@ -2446,17 +2390,17 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	var files = make(map[string]*decodedValue)
 
 	for _, val := range customData.WriteFiles {
-		var encoding cseVariableEncoding
+		var encoding string
 		maybeEncodedValue := val.Content
 
-		if strings.Contains(val.Encoding, "gzip") {
+		if strings.Contains(val.Encoding, encodingGZIP) {
 			if maybeEncodedValue != "" {
 				output, err := getGzipDecodedValue([]byte(maybeEncodedValue))
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode gzip value: %q with error %w", maybeEncodedValue, err)
 				}
 				maybeEncodedValue = string(output)
-				encoding = cseVariableEncodingGzip
+				encoding = encodingGZIP
 			}
 		}
 
@@ -2998,7 +2942,7 @@ var _ = Describe("cloudInitToButane", func() {
 			{
 				Path:        "/etc/test-gzip",
 				Permissions: "0644",
-				Encoding:    "gzip",
+				Encoding:    encodingGZIP,
 				Content:     string(gzipped),
 			},
 		}}
@@ -3077,7 +3021,7 @@ func decodeButaneResource(resource base0_5.Resource) ([]byte, error) {
 		return nil, err
 	}
 	contents := decodeddata.Data
-	if resource.Compression != nil && *resource.Compression == "gzip" {
+	if resource.Compression != nil && *resource.Compression == encodingGZIP {
 		contents, err = getGzipDecodedValue(contents)
 		if err != nil {
 			return nil, err
