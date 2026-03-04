@@ -1871,7 +1871,10 @@ func GenerateLocalDNSCoreFile(
 	}
 	localDNSCoreFileData := profile.GetLocalDNSCoreFileData()
 	localDNSCoreFileData.IncludeHostsPlugin = includeHostsPlugin
-	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(localDNSCoreFileTemplateString))
+	localDNSCorefileTemplate, err := template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(localDNSCoreFileTemplateString)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse localdns corefile template: %w", err)
+	}
 
 	// Generate the Corefile content.
 	var corefileBuffer bytes.Buffer
