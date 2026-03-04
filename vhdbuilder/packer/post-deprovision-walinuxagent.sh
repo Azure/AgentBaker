@@ -9,11 +9,9 @@
 # wireserver manifest/blob URLs in packer build logs.
 
 # ---- resolv.conf state tracking (read by the EXIT trap) ----
-RESOLV_CONF_MODIFIED=false
-RESOLV_CONF_ORIGINAL_STATE=""      # "symlink", "file", or "absent"
+RESOLV_CONF_ORIGINAL_STATE=""      # "symlink", "file", or "absent"; empty = not modified
 RESOLV_CONF_SYMLINK_RAW=""         # raw symlink value (preserves relative paths for ln -sf)
-RESOLV_CONF_SYMLINK_RESOLVED=""    # fully resolved target path (for reading/writing content)
-RESOLV_CONF_TARGET_EXISTED=false   # whether the symlink target file existed (for dangling symlinks)
+RESOLV_CONF_SYMLINK_RESOLVED=""    # resolved target path (for reading/writing content)
 RESOLV_CONF_BAK="/etc/resolv.conf.pre-waagent-install"
 
 # Ensure cleanup and sync always run, even if the script errors (bash -e).
@@ -21,18 +19,15 @@ RESOLV_CONF_BAK="/etc/resolv.conf.pre-waagent-install"
 # and writes are flushed before VHD capture regardless of success or failure.
 cleanup() {
     # Restore /etc/resolv.conf to its exact pre-script state so the VHD ships clean.
-    if [ "${RESOLV_CONF_MODIFIED}" = "true" ]; then
+    if [ -n "${RESOLV_CONF_ORIGINAL_STATE}" ]; then
         case "${RESOLV_CONF_ORIGINAL_STATE}" in
             symlink)
                 # Restore the symlink target's content.
                 if [ -f "${RESOLV_CONF_BAK}" ]; then
                     cp "${RESOLV_CONF_BAK}" "${RESOLV_CONF_SYMLINK_RESOLVED}" 2>/dev/null || true
-                elif [ "${RESOLV_CONF_TARGET_EXISTED}" = "true" ]; then
+                else
                     # Target existed but was empty before — truncate back to empty.
                     : > "${RESOLV_CONF_SYMLINK_RESOLVED}" 2>/dev/null || true
-                else
-                    # Dangling symlink — target did not exist before; remove what we created.
-                    rm -f "${RESOLV_CONF_SYMLINK_RESOLVED}"
                 fi
                 # Reconstruct the symlink with its original raw value, in case anything
                 # replaced it with a regular file during the script run.
@@ -41,12 +36,7 @@ cleanup() {
                 echo "Restored /etc/resolv.conf symlink -> ${RESOLV_CONF_SYMLINK_RAW}"
                 ;;
             file)
-                if [ -f "${RESOLV_CONF_BAK}" ]; then
-                    mv "${RESOLV_CONF_BAK}" /etc/resolv.conf
-                else
-                    # File existed but backup failed — restore as empty.
-                    : > /etc/resolv.conf
-                fi
+                mv "${RESOLV_CONF_BAK}" /etc/resolv.conf
                 echo "Restored /etc/resolv.conf (regular file)"
                 ;;
             absent)
@@ -83,24 +73,20 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
             RESOLV_CONF_ORIGINAL_STATE="symlink"
             RESOLV_CONF_SYMLINK_RAW=$(readlink /etc/resolv.conf)
             RESOLV_CONF_SYMLINK_RESOLVED=$(readlink -f /etc/resolv.conf)
-            # Track whether the target file actually exists (handles dangling symlinks).
-            if [ -e "${RESOLV_CONF_SYMLINK_RESOLVED}" ]; then
-                RESOLV_CONF_TARGET_EXISTED=true
-                cp "${RESOLV_CONF_SYMLINK_RESOLVED}" "${RESOLV_CONF_BAK}" 2>/dev/null || true
-            fi
+            # Back up the content of the symlink target (not the link itself).
+            cp "${RESOLV_CONF_SYMLINK_RESOLVED}" "${RESOLV_CONF_BAK}" 2>/dev/null || true
             # Write temporary nameserver to the target file, preserving the symlink.
             echo "nameserver 168.63.129.16" > "${RESOLV_CONF_SYMLINK_RESOLVED}"
         elif [ -e /etc/resolv.conf ]; then
             # Regular file (possibly empty).
             RESOLV_CONF_ORIGINAL_STATE="file"
-            cp /etc/resolv.conf "${RESOLV_CONF_BAK}" 2>/dev/null || true
+            cp /etc/resolv.conf "${RESOLV_CONF_BAK}"
             echo "nameserver 168.63.129.16" > /etc/resolv.conf
         else
             # File does not exist at all.
             RESOLV_CONF_ORIGINAL_STATE="absent"
             echo "nameserver 168.63.129.16" > /etc/resolv.conf
         fi
-        RESOLV_CONF_MODIFIED=true
         echo "Temporarily set DNS to Azure DNS for manifest download"
     fi
 
