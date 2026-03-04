@@ -179,7 +179,7 @@ func mustGetNewRSAKeyPair() ([]byte, []byte, string) {
 
 	privateKeyFileName, err := writePrivateKeyToTempFile(privatePEMBytes)
 	if err != nil {
-		panic(fmt.Sprintf("failed to write private key to temp file: %w", err))
+		panic(fmt.Errorf("failed to write private key to temp file: %w", err).Error())
 	}
 
 	return privatePEMBytes, publicKeyBytes, privateKeyFileName
