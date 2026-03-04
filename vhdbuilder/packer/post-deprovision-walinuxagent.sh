@@ -8,10 +8,26 @@
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
 
+# Track resolv.conf state so it can be restored in the EXIT trap.
+# These must be declared before the trap so the cleanup function can read them.
+RESOLV_CONF_BAK=""
+RESOLV_CONF_MODIFIED=false
+
 # Ensure cleanup and sync always run, even if the script errors (bash -e).
-# This guarantees the VHD build files are removed and writes are flushed
-# before VHD capture regardless of success or failure.
+# This guarantees resolv.conf is restored, VHD build files are removed,
+# and writes are flushed before VHD capture regardless of success or failure.
 cleanup() {
+    # Restore resolv.conf to its post-deprovision state so the VHD ships clean.
+    if [ "${RESOLV_CONF_MODIFIED}" = "true" ]; then
+        if [ -n "${RESOLV_CONF_BAK}" ] && [ -f "${RESOLV_CONF_BAK}" ]; then
+            mv "${RESOLV_CONF_BAK}" /etc/resolv.conf
+            echo "Restored /etc/resolv.conf to post-deprovision state"
+        else
+            # Original file didn't exist or backup failed — remove the file we created
+            rm -f /etc/resolv.conf
+            echo "Removed /etc/resolv.conf (original did not exist before script ran)"
+        fi
+    fi
     rm -f /opt/azure/containers/install_walinuxagent.py
     rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
     sync
@@ -31,10 +47,10 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
     # 'waagent -deprovision' clears /etc/resolv.conf.
     # Temporarily restore Azure DNS for manifest download
     # and then remove before the VHD is finalized to keep the image clean.
-    RESOLV_CONF_BAK=""
     if [ ! -s /etc/resolv.conf ] || ! grep -q nameserver /etc/resolv.conf; then
         cp /etc/resolv.conf /etc/resolv.conf.bak 2>/dev/null || true
         RESOLV_CONF_BAK="/etc/resolv.conf.bak"
+        RESOLV_CONF_MODIFIED=true
         echo "nameserver 168.63.129.16" > /etc/resolv.conf
         echo "Temporarily set DNS to Azure DNS for manifest download"
     fi
@@ -54,12 +70,6 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
     sed -i 's/AutoUpdate.UpdateToLatestVersion=y/AutoUpdate.UpdateToLatestVersion=n/g' /etc/waagent.conf
     if ! grep -q '^AutoUpdate.UpdateToLatestVersion=' /etc/waagent.conf; then
         echo 'AutoUpdate.UpdateToLatestVersion=n' >> /etc/waagent.conf
-    fi
-
-    # Restore resolv.conf to its post-deprovision state so the VHD ships clean
-    if [ -n "${RESOLV_CONF_BAK}" ] && [ -f "${RESOLV_CONF_BAK}" ]; then
-        mv "${RESOLV_CONF_BAK}" /etc/resolv.conf
-        echo "Restored /etc/resolv.conf to post-deprovision state"
     fi
 
     echo "WALinuxAgent installed and waagent.conf configured post-deprovision"
