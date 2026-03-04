@@ -473,6 +473,41 @@ echo "trace_exec gadget ran successfully"
 	s.T.Logf("Inspektor Gadget functional validation passed")
 }
 
+func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/node-problem-detector.d/skip_vhd_npd"
+	configDir := "/etc/node-problem-detector.d"
+
+	// Check if NPD is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have NPD pre-installed.
+	// Older VHDs do not have NPD installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping node-problem-detector validation: sentinel file %s not found (VHD does not have NPD installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_npd sentinel file found, validating node-problem-detector installation")
+
+	ValidateSystemdUnitIsRunning(ctx, s, "node-problem-detector.service")
+	ValidateSystemdUnitIsNotFailed(ctx, s, "node-problem-detector")
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, "/opt/bin/node-problem-detector-startup.sh")
+
+	// Validate NPD config directories are present
+	ValidateDirectoryContent(ctx, s, configDir, []string{
+		"custom-plugin-monitor",
+		"plugin",
+		"system-log-monitor",
+		"system-stats-monitor",
+	})
+
+	// Validate plugin directory contains actual plugin scripts
+	ValidateNonEmptyDirectory(ctx, s, configDir+"/plugin")
+
+	s.T.Logf("Node Problem Detector validation passed")
+}
+
 func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if !fileExist(ctx, s, fileName) {
@@ -1394,15 +1429,6 @@ func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName stri
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("expected content '%s' not found in %s service logs", expectedContent, serviceName))
-}
-
-func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
-	command := []string{
-		"set -ex",
-		// Verify node-problem-detector service is running
-		"systemctl is-active node-problem-detector",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
 }
 
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {

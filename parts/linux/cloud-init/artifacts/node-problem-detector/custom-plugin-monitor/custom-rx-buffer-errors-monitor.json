@@ -1,0 +1,21 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "15m",
+    "timeout": "30s",
+    "max_output_length": 1000,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "node-rx-buffer-errors-monitor",
+  "metricsReporting": false,
+  "conditions": [],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "RxOutOfBufferDiagnostics",
+      "path": "/etc/node-problem-detector.d/plugin/check_rx_buffer_errors_wrapper.sh",
+      "timeout": "30s"
+    }
+  ]
+} 

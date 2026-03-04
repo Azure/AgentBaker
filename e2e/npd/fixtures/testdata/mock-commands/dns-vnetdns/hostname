@@ -1,0 +1,3 @@
+#!/bin/bash
+# Mock hostname command
+echo "aks-test-node-12345"

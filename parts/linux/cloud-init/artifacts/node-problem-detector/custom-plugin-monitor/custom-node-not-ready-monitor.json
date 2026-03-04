@@ -1,0 +1,21 @@
+{
+  "plugin": "custom",
+  "pluginConfig": {
+    "invoke_interval": "5m",
+    "timeout": "120s",
+    "max_output_length": 1000,
+    "concurrency": 1,
+    "enable_message_change_based_condition_update": false
+  },
+  "source": "node-not-ready-monitor",
+  "metricsReporting": false,
+  "conditions": [],
+  "rules": [
+    {
+      "type": "temporary",
+      "reason": "NodeNotReadyDiagnostics",
+      "path": "/etc/node-problem-detector.d/plugin/check_node_not_ready_wrapper.sh",
+      "timeout": "120s"
+    }
+  ]
+} 

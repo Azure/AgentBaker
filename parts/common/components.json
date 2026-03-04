@@ -2055,6 +2055,61 @@
           }
         }
       }
+    },
+    {
+      "name": "node-problem-detector",
+      "downloadLocation": "/opt/node-problem-detector/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.8.22-ubuntu24.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "0.8.22-ubuntu22.04u4"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "0.8.22-ubuntu20.04u4"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=node-problem-detector, os=azurelinux, release=3.0",
+                "latestVersion": "0.8.20-2.azl3"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": []
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": []
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [

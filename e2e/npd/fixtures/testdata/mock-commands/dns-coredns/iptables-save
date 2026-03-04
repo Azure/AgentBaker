@@ -1,0 +1,14 @@
+#!/bin/bash
+# iptables-save dispatcher for CoreDNS tests
+SCENARIO="${IPTABLES_SCENARIO:-success}"
+
+# Find the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Look for scenario-specific mock
+if [ -f "$SCRIPT_DIR/iptables-save-$SCENARIO" ]; then
+    exec "$SCRIPT_DIR/iptables-save-$SCENARIO" "$@"
+fi
+
+# Default to success scenario
+exec "$SCRIPT_DIR/iptables-save-success" "$@"

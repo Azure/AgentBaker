@@ -1,0 +1,11 @@
+#!/bin/bash
+# systemctl dispatcher for LocalDNS tests
+SCENARIO="${SYSTEMCTL_SCENARIO:-active}"
+
+# Look for scenario-specific mock
+if [ -f "/mock-commands/dns-localdns/systemctl-$SCENARIO" ]; then
+    exec "/mock-commands/dns-localdns/systemctl-$SCENARIO" "$@"
+fi
+
+# Default to active scenario
+exec "/mock-commands/dns-localdns/systemctl-active" "$@"

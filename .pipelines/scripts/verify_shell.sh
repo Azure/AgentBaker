@@ -17,7 +17,7 @@ if [ "${installed}" -ne 0 ]; then
         sudo apt-get install shellcheck -y
     elif [ "${DISTRO}" = "darwin" ]; then
         brew install cabal-install shellcheck
-    else 
+    else
         echo "distro ${DISTRO} not supported at this time. skipping shellcheck"
         exit 1
     fi
@@ -27,9 +27,12 @@ fi
 
 filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
 
-# Known bash-only scripts that intentionally use bash specific syntax.
+# Known bash-only scripts/directories that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./vhdbuilder/packer/install-ig.sh
+./vhdbuilder/packer/install-npd.sh
+./parts/linux/cloud-init/artifacts/node-problem-detector-startup.sh
+./parts/linux/cloud-init/artifacts/node-problem-detector/
 EOF
 )
 
@@ -100,6 +103,7 @@ shellcheck $(printf -- "-e %s " $IGNORED) $(printf '%s\n' $filesToCheck)
 # Checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
 # Checking SC3014 that == in place of = is undefined in POSIX.
 # We can add more checks if needed.
+# Note: Exclude node-problem-detector scripts as they are bash scripts with bash-specific syntax
 POSIX_CHECKS="
 SC3010
 SC3014
