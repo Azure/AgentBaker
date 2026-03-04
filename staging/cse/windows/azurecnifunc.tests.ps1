@@ -40,7 +40,7 @@ BeforeAll {
     Mock Write-Host -MockWith { } -Verifiable
     Mock Start-Sleep -MockWith { } -Verifiable
 
-    $global:KubeBinariesVersion = "v1.35.0"
+    $global:KubeBinariesVersion = "1.35.0"
     $global:KubeClusterConfigPath = [System.IO.Path]::GetTempFileName()
     Write-Output @"
 {
