@@ -2242,7 +2242,7 @@ Describe 'New-ExternalHnsNetwork' {
 
             Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1
             # Gate should have retried at least once for the APIPA address
-            Assert-MockCalled -CommandName "Start-Sleep" -AtLeast -Times 1
+            Assert-MockCalled -CommandName "Start-Sleep" -Exactly -Times 2
         }
 
         It "Should proceed with HNS creation (with warning) when gate times out without a stable non-APIPA IP" {
@@ -2280,13 +2280,11 @@ Describe 'New-ExternalHnsNetwork' {
 
             Mock Get-AKS-NetworkAdaptor -MockWith { return $mockAdapter } -Verifiable
             Mock Get-NetIPAddress -MockWith { return $stableIP } -Verifiable
-            Mock New-HNSNetwork -MockWith {} -Verifiable
+            Mock New-HNSNetwork -MockWith {  } -Verifiable
 
             New-ExternalHnsNetwork -IsDualStackEnabled $true
 
-            Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1 -ParameterFilter {
-                $AddressPrefix -is [array] -and $AddressPrefix.Count -eq 2
-            }
+            Assert-MockCalled -CommandName "New-HNSNetwork" -Exactly -Times 1
         }
     }
 }

@@ -509,6 +509,41 @@ function GetMetadataContent {
     throw "No IPv4 address found in metadata."
 }
 
+function WaitForNetworkAdaptorToBeReady {
+    param (
+        [Parameter(Mandatory = $true)][string]
+        $AdapterName
+    )
+
+    # Pre-create readiness gate: wait for the adapter to have a stable, non-APIPA IPv4 address
+    # in Preferred state before calling New-HNSNetwork. This prevents HNS from latching an
+    # APIPA (169.254/16) ProviderAddress if the NIC is still transitioning at creation time.
+    $gateMaxRetries = 240
+    $gateRetryDelayMs = 500
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Waiting for adapter $AdapterName to have a stable, non-APIPA IPv4 address before creating HNS network"
+    $stableAdapterIP = $null
+    for ($j = 0; $j -lt $gateMaxRetries; $j++) {
+        $adapterIPs = Get-NetIPAddress -InterfaceAlias $AdapterName -AddressFamily IPv4 -ErrorAction SilentlyContinue
+        $stableAdapterIP = $adapterIPs | Where-Object {
+            $_.AddressState -eq "Preferred" -and -not $_.IPAddress.StartsWith("169.254.")
+        } | Select-Object -First 1
+        if ($stableAdapterIP) {
+            break
+        }
+        if ($j % 20 -eq 0) {
+            $currentIPs = ($adapterIPs | ForEach-Object { "$($_.IPAddress) ($($_.AddressState))" }) -join ", "
+            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $AdapterName IPs: [$currentIPs]. Waiting for stable non-APIPA address. Attempt $($j + 1) of $gateMaxRetries."
+        }
+        Start-Sleep -Milliseconds $gateRetryDelayMs
+    }
+    if ($stableAdapterIP) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $AdapterName has stable Preferred IPv4 address: $($stableAdapterIP.IPAddress). Proceeding with HNS network creation."
+    }
+    else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Warning: Timed out waiting for stable non-APIPA IPv4 on adapter $AdapterName after $($gateMaxRetries * $gateRetryDelayMs / 1000) seconds. Proceeding with HNS network creation."
+    }
+}
+
 function New-ExternalHnsNetwork {
     param (
         [Parameter(Mandatory = $true)][bool]
@@ -526,36 +561,10 @@ function New-ExternalHnsNetwork {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage  "Creating new HNS network `"${externalNetwork}`""
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage  "Using adapter $adapterName with IP address $ipv4Address"
 
-    # Pre-create readiness gate: wait for the adapter to have a stable, non-APIPA IPv4 address
-    # in Preferred state before calling New-HNSNetwork. This prevents HNS from latching an
-    # APIPA (169.254/16) ProviderAddress if the NIC is still transitioning at creation time.
-    $gateMaxRetries = 240
-    $gateRetryDelayMs = 500
-    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Waiting for adapter $adapterName to have a stable, non-APIPA IPv4 address before creating HNS network"
-    $stableAdapterIP = $null
-    for ($j = 0; $j -lt $gateMaxRetries; $j++) {
-        $adapterIPs = Get-NetIPAddress -InterfaceAlias $adapterName -AddressFamily IPv4 -ErrorAction SilentlyContinue
-        $stableAdapterIP = $adapterIPs | Where-Object {
-            $_.AddressState -eq "Preferred" -and -not $_.IPAddress.StartsWith("169.254.")
-        } | Select-Object -First 1
-        if ($stableAdapterIP) {
-            break
-        }
-        if ($j % 20 -eq 0) {
-            $currentIPs = ($adapterIPs | ForEach-Object { "$($_.IPAddress) ($($_.AddressState))" }) -join ", "
-            Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $adapterName IPs: [$currentIPs]. Waiting for stable non-APIPA address. Attempt $($j + 1) of $gateMaxRetries."
-        }
-        Start-Sleep -Milliseconds $gateRetryDelayMs
-    }
-    if ($stableAdapterIP) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Adapter $adapterName has stable Preferred IPv4 address: $($stableAdapterIP.IPAddress). Proceeding with HNS network creation."
-    }
-    else {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Warning: Timed out waiting for stable non-APIPA IPv4 on adapter $adapterName after $($gateMaxRetries * $gateRetryDelayMs / 1000) seconds. Proceeding with HNS network creation."
-    }
-
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
+
+    WaitForNetworkAdaptorToBeReady -AdapterName $adapterName
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
     if ($IsDualStackEnabled) {
