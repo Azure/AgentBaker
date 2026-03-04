@@ -390,8 +390,8 @@ function GetAllCachedThings {
     $packages = GetPackagesFromComponentsJson $componentsJsonContent
     $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
-    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku"
     $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku"
 
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
     $items += "Windows ${windowsSku} base image sku: $($baseVersionBlock.base_image_sku)"
