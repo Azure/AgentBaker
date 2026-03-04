@@ -1,7 +1,7 @@
 #!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
 # Called by packer inline block AFTER 'waagent -force -deprovision+user',
-# which clears /var/lib/waagent/. This script re-installs the latest
+# which clears /var/lib/waagent/. This script installs the latest
 # WALinuxAgent from the wireserver GAFamily manifest so the agent daemon
 # can pick it up locally without downloading at provisioning time.
 #
@@ -9,10 +9,6 @@
 # wireserver manifest/blob URLs in packer build logs.
 
 # ---- resolv.conf state tracking (read by the EXIT trap) ----
-# On Ubuntu, /etc/resolv.conf is often a symlink (e.g. -> /run/systemd/resolve/resolv.conf).
-# We must preserve the exact original state: the raw symlink value, the target's content,
-# or the file's absence. Writing through a symlink mutates its target, and mv-ing a regular
-# file over a symlink destroys the link — both would silently regress DNS on the captured VHD.
 RESOLV_CONF_MODIFIED=false
 RESOLV_CONF_ORIGINAL_STATE=""      # "symlink", "file", or "absent"
 RESOLV_CONF_SYMLINK_RAW=""         # raw symlink value (preserves relative paths for ln -sf)
@@ -78,7 +74,6 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
     # DNS will be broken on AzLinux after deprovision because
     # 'waagent -deprovision' clears /etc/resolv.conf.
     # Temporarily restore Azure DNS for manifest download.
-    # Restoration is handled by the EXIT trap.
     #
     # We snapshot the exact state of /etc/resolv.conf (symlink with raw value,
     # regular file, or absent) so the cleanup trap can reconstruct it precisely.
