@@ -1497,244 +1497,99 @@ func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Ubuntu2204 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
 
-func Test_AzureLinuxV3LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that an AzureLinuxV3 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
+// Test_LocalDns_ExporterMetrics is a table-driven test that validates localdns metrics
+// exporter functionality across all supported VHD images.
+func Test_LocalDns_ExporterMetrics(t *testing.T) {
+	tests := []struct {
+		name        string
+		description string
+		vhd         *config.VHDConfig
+	}{
+		{
+			name:        "Ubuntu2204",
+			description: "Tests that a Ubuntu2204 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDUbuntu2204Gen2Containerd,
 		},
-	})
-}
+		{
+			name:        "AzureLinuxV3",
+			description: "Tests that an AzureLinuxV3 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDAzureLinuxV3Gen2,
+		},
+		{
+			name:        "Flatcar",
+			description: "Tests that a Flatcar node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDFlatcarGen2,
+		},
+		{
+			name:        "Ubuntu2404",
+			description: "Tests that a Ubuntu2404 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDUbuntu2404Gen2Containerd,
+		},
+		{
+			name:        "AzureLinuxV2",
+			description: "Tests that an AzureLinuxV2 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDAzureLinuxV2Gen2,
+		},
+		{
+			name:        "MarinerV2",
+			description: "Tests that a CBLMarinerV2 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDCBLMarinerV2Gen2,
+		},
+		{
+			name:        "Ubuntu2204Arm64",
+			description: "Tests that a Ubuntu2204 ARM64 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDUbuntu2204Gen2Arm64Containerd,
+		},
+		{
+			name:        "Ubuntu2404Gen1",
+			description: "Tests that a Ubuntu2404 Gen1 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDUbuntu2404Gen1Containerd,
+		},
+		{
+			name:        "Ubuntu2404Arm64",
+			description: "Tests that a Ubuntu2404 ARM64 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDUbuntu2404ArmContainerd,
+		},
+		{
+			name:        "AzureLinuxV2Arm64",
+			description: "Tests that an AzureLinuxV2 ARM64 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDAzureLinuxV2Gen2Arm64,
+		},
+		{
+			name:        "MarinerV2Arm64",
+			description: "Tests that a CBLMarinerV2 ARM64 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDCBLMarinerV2Gen2Arm64,
+		},
+		{
+			name:        "FlatcarArm64",
+			description: "Tests that a Flatcar ARM64 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDFlatcarGen2Arm64,
+		},
+	}
 
-func Test_FlatcarLocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Flatcar node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDFlatcarGen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Ubuntu2404 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that an AzureLinuxV2 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_MarinerV2LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a CBLMarinerV2 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204Arm64LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Ubuntu2204 ARM64 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404Gen1LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Ubuntu2404 Gen1 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2404Gen1Containerd,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404Arm64LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Ubuntu2404 ARM64 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2404ArmContainerd,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2Arm64LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that an AzureLinuxV2 ARM64 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_MarinerV2Arm64LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a CBLMarinerV2 ARM64 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_FlatcarArm64LocalDns_ExporterMetrics(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a Flatcar ARM64 node with localdns enabled exports metrics correctly",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDFlatcarGen2Arm64,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns: true,
-				}
-			},
-			SkipDefaultValidation: true,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateLocalDNSService(ctx, s, "enabled")
-				ValidateLocalDNSExporterMetrics(ctx, s)
-			},
-		},
-	})
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			RunScenario(t, &Scenario{
+				Description: tt.description,
+				Config: Config{
+					Cluster: ClusterAzureNetwork,
+					VHD:     tt.vhd,
+					AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+						config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+							EnableLocalDns: true,
+						}
+					},
+					SkipDefaultValidation: true,
+					Validator: func(ctx context.Context, s *Scenario) {
+						ValidateLocalDNSService(ctx, s, "enabled")
+						ValidateLocalDNSExporterMetrics(ctx, s)
+					},
+				},
+			})
+		})
+	}
 }
 
 
