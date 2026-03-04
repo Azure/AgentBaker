@@ -262,6 +262,30 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should return an error for invalid TransparentHugePageEnabled", func() {
+			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				TransparentHugePageEnabled: "false",
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid TransparentHugePageEnabled"))
+		})
+
+		It("should return an error for invalid TransparentHugePageDefrag", func() {
+			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				TransparentHugePageDefrag: "true",
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid TransparentHugePageDefrag"))
+		})
 	})
 
 	Context("GetLatestSigImageConfig", func() {
