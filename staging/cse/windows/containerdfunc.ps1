@@ -235,9 +235,9 @@ server = "https://$Registry"
 }
 
 function Set-BootstrapProfileRegistryContainerdHost {
-  $mcrRegistry = if ((Test-Path variable:global:MCR_REPOSITORY_BASE) -and
-      -not [string]::IsNullOrEmpty($global:MCR_REPOSITORY_BASE)) {
-    [string]$global:MCR_REPOSITORY_BASE
+  $mcrRegistry = if ((Test-Path variable:global:mcrRepositoryBase) -and
+      -not [string]::IsNullOrEmpty($global:mcrRepositoryBase)) {
+    [string]$global:mcrRepositoryBase
   }
   else {
     "mcr.microsoft.com"

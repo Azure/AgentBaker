@@ -311,7 +311,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
 
   It "Should write hosts.toml for default mcr.microsoft.com when MCR_REPOSITORY_BASE is not set" {
     $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "myacr.azurecr.io"
-    if (Test-Path variable:global:MCR_REPOSITORY_BASE) {
+    if (Test-Path variable:global:mcrRepositoryBase) {
       Remove-Variable -Name MCR_REPOSITORY_BASE -Scope Global
     }
 
@@ -329,7 +329,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
   }
 
   It "Should sanitize bootstrap profile host and use custom mcr repository base" {
-    $global:MCR_REPOSITORY_BASE = "my.mcr.mirror"
+    $global:mcrRepositoryBase = "my.mcr.mirror"
     $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "https://myacr.azurecr.io/some/path/"
 
     Set-BootstrapProfileRegistryContainerdHost
@@ -343,7 +343,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
   }
 
   It "Should map host with repository prefix to v2 path" {
-    $global:MCR_REPOSITORY_BASE = "mcr.microsoft.com"
+    $global:mcrRepositoryBase = "mcr.microsoft.com"
     $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER = "myacr.azurecr.io/aaa"
 
     Set-BootstrapProfileRegistryContainerdHost
