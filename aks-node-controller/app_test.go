@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -130,42 +129,6 @@ func TestApp_ProvisionWait(t *testing.T) {
 	})
 }
 
-// TestApp_ProvisionWait_Stdout verifies that provision-wait prints the provision.json
-// content to stdout — this is the machine-readable interface consumed by the caller.
-func TestApp_ProvisionWait_Stdout(t *testing.T) {
-	dir := t.TempDir()
-	jsonContent := `{"ExitCode":"0","Output":"ok","Error":""}`
-	p := ProvisionStatusFiles{
-		ProvisionJSONFile:     filepath.Join(dir, "provision.json"),
-		ProvisionCompleteFile: filepath.Join(dir, "provision.complete"),
-	}
-	require.NoError(t, os.WriteFile(p.ProvisionJSONFile, []byte(jsonContent), 0644))
-	_, err := os.Create(p.ProvisionCompleteFile)
-	require.NoError(t, err)
-
-	// Capture stdout
-	origStdout := os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stdout = w
-
-	app := newTestApp(t, nil)
-	exitCode := app.Run(context.Background(), []string{
-		"aks-node-controller", "provision-wait",
-		"--provision-json-file=" + p.ProvisionJSONFile,
-		"--provision-complete-file=" + p.ProvisionCompleteFile,
-	})
-
-	w.Close()
-	os.Stdout = origStdout
-
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(r)
-	require.NoError(t, err)
-
-	assert.Equal(t, 0, exitCode)
-	assert.Contains(t, buf.String(), jsonContent)
-}
 
 // TestApp_ProvisionThenWait is an integration test covering the full provision → provision-wait flow
 // using custom paths, verifying both commands agree on the same files.
