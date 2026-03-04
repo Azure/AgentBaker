@@ -40,6 +40,14 @@ func newTestApp(t *testing.T, runFunc func(*exec.Cmd) error) *App {
 	}
 }
 
+// testFilePath returns the absolute path of the current test source file.
+func testFilePath(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(1)
+	require.True(t, ok)
+	return file
+}
+
 // TestApp_Run covers top-level dispatch, exit code propagation, and event logging.
 func TestApp_Run(t *testing.T) {
 	t.Run("missing command", func(t *testing.T) {
@@ -363,12 +371,10 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 // Using a subprocess avoids os.Stdout mutation races present in in-process capture.
 // The sentinel files are written after a short delay to exercise the fsnotify event path.
 func TestProvisionWait_Stdout(t *testing.T) {
-	_, testFile, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	pkgDir := filepath.Dir(testFile)
-
 	bin := filepath.Join(t.TempDir(), "aks-node-controller")
-	require.NoError(t, exec.Command("go", "build", "-o", bin, pkgDir).Run())
+	buildCmd := exec.Command("go", "build", "-o", bin, ".")
+	buildCmd.Dir = filepath.Dir(testFilePath(t))
+	require.NoError(t, buildCmd.Run())
 
 	dir := t.TempDir()
 	jsonContent := `{"ExitCode":"0","Output":"ok","Error":""}`
