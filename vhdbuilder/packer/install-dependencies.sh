@@ -484,6 +484,28 @@ while IFS= read -r p; do
   capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
 
+# Process OCIArtifacts entries that have a Linux downloadLocation and linuxVersions
+while IFS= read -r artifact; do
+  [ -z "${artifact}" ] && continue
+  name=$(echo "${artifact}" | jq -r '.name')
+  registry_template=$(echo "${artifact}" | jq -r '.registry')
+  download_location=$(echo "${artifact}" | jq -r '.downloadLocation // empty')
+  if [ -z "${download_location}" ]; then
+    echo "INFO: No Linux downloadLocation for OCI artifact ${name}, skipping."
+    continue
+  fi
+  mkdir -p "${download_location}"
+  while IFS= read -r version_entry; do
+    [ -z "${version_entry}" ] && continue
+    version=$(echo "${version_entry}" | jq -r '.latestVersion')
+    registry=$(echo "${registry_template}" | sed "s/\${version}/${version}/g" | sed "s/\${CPU_ARCH}/${CPU_ARCH}/g")
+    echo "In components.json, pulling OCI artifact \"${name}\" version \"${version}\" from \"${registry}\""
+    retrycmd_pull_from_registry_with_oras 120 5 "${download_location}" "${registry}" || exit $ERR_ORAS_DOWNLOAD_ERROR
+    echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+  done < <(echo "${artifact}" | jq -c '.linuxVersions // [] | .[]')
+  capture_benchmark "${SCRIPT_NAME}_pull_oci_artifact_${name}"
+done < <(jq -c '.OCIArtifacts // [] | .[]' "${COMPONENTS_FILEPATH}")
+
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1

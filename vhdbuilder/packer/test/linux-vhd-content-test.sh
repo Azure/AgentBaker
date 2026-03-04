@@ -1892,6 +1892,35 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testOCIArtifactsInstalled() {
+  local test="testOCIArtifactsInstalled"
+  echo "$test:Start"
+
+  while IFS= read -r artifact; do
+    [ -z "${artifact}" ] && continue
+    name=$(echo "${artifact}" | jq -r '.name')
+    download_location=$(echo "${artifact}" | jq -r '.downloadLocation // empty')
+    if [ -z "${download_location}" ]; then
+      continue
+    fi
+    if [ ! -d "${download_location}" ]; then
+      err $test "OCI artifact ${name}: download location ${download_location} does not exist"
+      continue
+    fi
+    while IFS= read -r version_entry; do
+      [ -z "${version_entry}" ] && continue
+      version=$(echo "${version_entry}" | jq -r '.latestVersion')
+      if [ -z "$(ls -A "${download_location}" 2>/dev/null)" ]; then
+        err $test "OCI artifact ${name} version ${version}: download location ${download_location} is empty"
+      else
+        echo "$test [INFO] OCI artifact ${name} version ${version} found in ${download_location}"
+      fi
+    done < <(echo "${artifact}" | jq -c '.linuxVersions // [] | .[]')
+  done < <(jq -c '.OCIArtifacts // [] | .[]' "${COMPONENTS_FILEPATH}")
+
+  echo "$test:Finish"
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1908,6 +1937,7 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+testOCIArtifactsInstalled
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
 testImagesCompleted
 testPodSandboxImagePinned
