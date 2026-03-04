@@ -1529,22 +1529,17 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	// Step 2.5: Clean up any lingering Private DNS zones from previous failed test runs
 	// This ensures we start with a clean state before creating our test Private DNS zone
 	privateZoneName := testFQDN
-	s.T.Logf("Cleaning up any existing Private DNS zone for %s from previous runs...", privateZoneName)
-	cleanupPrivateDNSZone(ctx, nodeResourceGroup, privateZoneName)
+	s.T.Logf("Checking for existing Private DNS zone %s...", privateZoneName)
 
 	// Step 3: Create an EMPTY Private DNS zone for the container registry FQDN
 	// This simulates a scenario where a Private DNS zone exists but has no records
-	// Tag it as e2e-test-created so we can safely identify and clean it up
+	// Tag it as e2e-test-created so we can safely identify it
+	// If the zone already exists (from another parallel test), that's fine - we'll share it
 	s.T.Logf("Creating empty Private DNS zone for %s (with e2e test tag)...", privateZoneName)
 	_, err = createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, map[string]*string{
 		"e2e-test": to.Ptr("true"),
-		"test-id":  to.Ptr(s.Runtime.VMSSName),
 	})
 	require.NoError(s.T, err, "failed to create Private DNS zone")
-	defer func() {
-		s.T.Logf("Cleaning up Private DNS zone for %s...", privateZoneName)
-		cleanupPrivateDNSZone(ctx, nodeResourceGroup, privateZoneName)
-	}()
 
 	// Step 4: Link Private DNS zone to VNET
 	// Use VMSS name to create a unique link name to avoid conflicts when tests run in parallel
@@ -1552,6 +1547,15 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	s.T.Logf("Linking Private DNS zone to VNET with link name: %s...", linkName)
 	err = createPrivateDNSLinkWithName(ctx, vnet, nodeResourceGroup, privateZoneName, linkName)
 	require.NoError(s.T, err, "failed to link Private DNS zone to VNET")
+
+	// Clean up only our VNET link when test completes
+	// We don't delete the zone itself as it may be shared with other parallel tests
+	defer func() {
+		s.T.Logf("Cleaning up VNET link %s from Private DNS zone %s...", linkName, privateZoneName)
+		if err := deletePrivateDNSVNETLink(ctx, nodeResourceGroup, privateZoneName, linkName); err != nil {
+			s.T.Logf("Warning: failed to clean up VNET link %s: %v", linkName, err)
+		}
+	}()
 
 	// Step 5: Test that localdns resolves FQDN from hosts file
 	// This tests that the hosts plugin bypasses the empty Private DNS zone

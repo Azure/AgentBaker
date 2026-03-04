@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1036,6 +1037,35 @@ func cleanupPrivateDNSZone(ctx context.Context, resourceGroup, zoneName string) 
 	}
 
 	toolkit.Logf(cleanupCtx, "Successfully deleted Private DNS zone %s", zoneName)
+}
+
+// deletePrivateDNSVNETLink deletes a specific VNET link from a Private DNS zone.
+// This is used to clean up individual test resources without affecting other parallel tests.
+func deletePrivateDNSVNETLink(ctx context.Context, resourceGroup, zoneName, linkName string) error {
+	// Create a new context with timeout for cleanup
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
+
+	toolkit.Logf(cleanupCtx, "Deleting VNET link %s from Private DNS zone %s in resource group %s", linkName, zoneName, resourceGroup)
+
+	linkPoller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, linkName, nil)
+	if err != nil {
+		// If the link doesn't exist, that's fine (already cleaned up or never created)
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
+			toolkit.Logf(cleanupCtx, "VNET link %s not found (already deleted or never existed)", linkName)
+			return nil
+		}
+		return fmt.Errorf("failed to start deletion of VNET link %s: %w", linkName, err)
+	}
+
+	_, err = linkPoller.PollUntilDone(cleanupCtx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to complete deletion of VNET link %s: %w", linkName, err)
+	}
+
+	toolkit.Logf(cleanupCtx, "Successfully deleted VNET link %s from zone %s", linkName, zoneName)
+	return nil
 }
 
 func addDNSZoneGroup(ctx context.Context, privateZone *armprivatedns.PrivateZone, nodeResourceGroup, privateZoneName, endpointName string) error {
