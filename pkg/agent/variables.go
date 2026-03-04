@@ -14,7 +14,7 @@ import (
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
-	cloudInitFiles := map[string]interface{}{
+	cloudInitFiles := map[string]any{
 		"cloudInitData": paramsMap{
 			"provisionStartScript":                  getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":                       getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
@@ -115,7 +115,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		agentPoolProfileWindows = &datamodel.AgentPoolWindowsProfile{}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"tenantID":                               config.TenantID,
 		"subscriptionId":                         config.SubscriptionID,
 		"resourceGroup":                          config.ResourceGroupName,

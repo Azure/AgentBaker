@@ -63,7 +63,7 @@ func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedClu
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
-	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
+	cluster.Name = new(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 	cluster, err := getOrCreateCluster(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get or create cluster: %w", err)
@@ -179,9 +179,9 @@ func assignACRPullToIdentity(ctx context.Context, privateACRName, principalID st
 	uid := uuid.New().String()
 	_, err := config.Azure.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
-			PrincipalID: to.Ptr(principalID),
+			PrincipalID: new(principalID),
 			// ACR-Pull role definition ID
-			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"),
+			RoleDefinitionID: new("/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"),
 			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
 		},
 	}, nil)
@@ -392,7 +392,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 	maxRetries := 10
 	retryInterval := 30 * time.Second
 	var lastErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		if attempt > 0 {
 			toolkit.Logf(ctx, "Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName(*cluster.Location))
 		}
@@ -442,12 +442,12 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 			MaintenanceWindow: &armcontainerservice.MaintenanceWindow{
 				NotAllowedDates: []*armcontainerservice.DateSpan{ // no maintenance till 2100
 					{
-						End:   to.Ptr(func() time.Time { t, _ := time.Parse("2006-01-02", "2100-01-01"); return t }()),
-						Start: to.Ptr(func() time.Time { t, _ := time.Parse("2006-01-02", "2000-01-01"); return t }()),
+						End:   new(func() time.Time { t, _ := time.Parse("2006-01-02", "2100-01-01"); return t }()),
+						Start: new(func() time.Time { t, _ := time.Parse("2006-01-02", "2000-01-01"); return t }()),
 					}},
 				DurationHours: to.Ptr[int32](4),
-				StartTime:     to.Ptr("00:00"),  //PST
-				UTCOffset:     to.Ptr("+08:00"), //PST
+				StartTime:     new("00:00"),  //PST
+				UTCOffset:     new("+08:00"), //PST
 				Schedule: &armcontainerservice.Schedule{
 					Weekly: &armcontainerservice.WeeklySchedule{
 						DayOfWeek:     to.Ptr(armcontainerservice.WeekDayMonday),
@@ -514,7 +514,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 		toolkit.Logf(ctx, "creating subnet %s in VNet %s (rg %s)", bastionSubnetName, vnet.name, nodeRG)
 		subnetParams := armnetwork.Subnet{
 			Properties: &armnetwork.SubnetPropertiesFormat{
-				AddressPrefix: to.Ptr(bastionSubnetPrefix),
+				AddressPrefix: new(bastionSubnetPrefix),
 			},
 		}
 		subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, nodeRG, vnet.name, bastionSubnetName, subnetParams, nil)
@@ -532,7 +532,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 
 	// Public IP for Bastion
 	pipParams := armnetwork.PublicIPAddress{
-		Location: to.Ptr(location),
+		Location: new(location),
 		SKU: &armnetwork.PublicIPAddressSKU{
 			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
 		},
@@ -555,19 +555,19 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	bastionHost := armnetwork.BastionHost{
-		Location: to.Ptr(location),
+		Location: new(location),
 		SKU: &armnetwork.SKU{
 			Name: to.Ptr(armnetwork.BastionHostSKUNameStandard),
 		},
 		Properties: &armnetwork.BastionHostPropertiesFormat{
 			// Native client support is enabled via tunneling.
-			EnableTunneling: to.Ptr(true),
+			EnableTunneling: new(true),
 			IPConfigurations: []*armnetwork.BastionHostIPConfiguration{
 				{
-					Name: to.Ptr("bastion-ipcfg"),
+					Name: new("bastion-ipcfg"),
 					Properties: &armnetwork.BastionHostIPConfigurationPropertiesFormat{
 						Subnet: &armnetwork.SubResource{
-							ID: to.Ptr(bastionSubnetID),
+							ID: new(bastionSubnetID),
 						},
 						PublicIPAddress: &armnetwork.SubResource{
 							ID: pipResp.ID,
@@ -719,7 +719,7 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 			}
 
 			_, err := config.Azure.VMSS.BeginDelete(ctx, rg, *vmss.Name, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
-				ForceDeletion: to.Ptr(true),
+				ForceDeletion: new(true),
 			})
 			if err != nil {
 				toolkit.Logf(ctx, "failed to delete vmss %q: %s", *vmss.Name, err)
@@ -738,8 +738,8 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 		ctx,
 		resourceGroupName,
 		armresources.ResourceGroup{
-			Location: to.Ptr(location),
-			Name:     to.Ptr(resourceGroupName),
+			Location: new(location),
+			Name:     new(resourceGroupName),
 		},
 		nil)
 

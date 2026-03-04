@@ -114,7 +114,7 @@ func (c *Configuration) GalleryResourceID() string {
 func (c *Configuration) String() string {
 	data := make([]string, 0)
 	v := reflect.ValueOf(c)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	t := v.Type()

@@ -366,8 +366,8 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 	}
 
 	udc, err := a.Blob.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
-		Expiry: to.Ptr(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
-		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
+		Expiry: new(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
+		Start:  new(time.Now().UTC().Format(sas.TimeFormat)),
 	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("get user delegation credential: %w", err)
@@ -376,7 +376,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 	sig, err := sas.BlobSignatureValues{
 		Protocol:      sas.ProtocolHTTPS,
 		ExpiryTime:    time.Now().Add(time.Hour).UTC(),
-		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
+		Permissions:   new(sas.BlobPermissions{Read: true}).String(),
 		ContainerName: Config.BlobContainer,
 		BlobName:      blobName,
 	}.SignWithUserDelegation(udc)
@@ -389,7 +389,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocation string) (string, error) {
 	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName(identityLocation), VMIdentityName, armmsi.Identity{
-		Location: to.Ptr(identityLocation),
+		Location: new(identityLocation),
 	}, nil)
 	if err != nil {
 		return "", fmt.Errorf("create managed identity: %w", err)
@@ -415,13 +415,13 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocat
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
-		Location: to.Ptr(Config.DefaultLocation),
+		Location: new(Config.DefaultLocation),
 		SKU: &armstorage.SKU{
 			Name: to.Ptr(armstorage.SKUNameStandardLRS),
 		},
 		Properties: &armstorage.AccountPropertiesCreateParameters{
-			AllowBlobPublicAccess: to.Ptr(false),
-			AllowSharedKeyAccess:  to.Ptr(false),
+			AllowBlobPublicAccess: new(false),
+			AllowSharedKeyAccess:  new(false),
 		},
 	}, nil)
 	if err != nil {
@@ -451,7 +451,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 			PrincipalID: principalID,
 			// built-in "Storage Blob Data Contributor" role
 			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
-			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
+			RoleDefinitionID: new("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
 		},
 	}, nil)
 	var respError *azcore.ResponseError

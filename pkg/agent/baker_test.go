@@ -968,7 +968,7 @@ testdomain567.com:53 {
 				config.KubeletConfig["--rotate-server-certificates"] = "false"
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
 					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuota:           new(false),
 					CPUCfsQuotaPeriod:     "200ms",
 					ImageGcHighThreshold:  to.Int32Ptr(90),
 					ImageGcLowThreshold:   to.Int32Ptr(70),
@@ -994,7 +994,7 @@ testdomain567.com:53 {
 				config.KubeletConfig["--rotate-server-certificates"] = "true"
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
 					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuota:           new(false),
 					CPUCfsQuotaPeriod:     "200ms",
 					ImageGcHighThreshold:  to.Int32Ptr(90),
 					ImageGcLowThreshold:   to.Int32Ptr(70),
@@ -1655,7 +1655,7 @@ oom_score = -999
 				var netCoreSomaxconn int32 = 1638499
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
 					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuota:           new(false),
 					CPUCfsQuotaPeriod:     "200ms",
 					ImageGcHighThreshold:  to.Int32Ptr(90),
 					ImageGcLowThreshold:   to.Int32Ptr(70),
@@ -1665,7 +1665,7 @@ oom_score = -999
 					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 					ContainerLogMaxFiles:  to.Int32Ptr(99),
 					PodMaxPids:            to.Int32Ptr(12345),
-					SeccompDefault:        to.BoolPtr(true),
+					SeccompDefault:        new(true),
 				}
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -1691,7 +1691,7 @@ oom_score = -999
 				var kubeletConfigFile datamodel.AKSKubeletConfiguration
 				err = json.Unmarshal([]byte(kubeletConfigFileContent), &kubeletConfigFile)
 				Expect(err).To(BeNil())
-				Expect(kubeletConfigFile.SeccompDefault).To(Equal(to.BoolPtr(true)))
+				Expect(kubeletConfigFile.SeccompDefault).To(Equal(new(true)))
 
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
 				Expect(err).To(BeNil())
@@ -1716,7 +1716,7 @@ oom_score = -999
 				config.KubeletConfig["--serialize-image-pulls"] = "false"
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
 					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuota:           new(false),
 					CPUCfsQuotaPeriod:     "200ms",
 					ImageGcHighThreshold:  to.Int32Ptr(90),
 					ImageGcLowThreshold:   to.Int32Ptr(70),
@@ -1890,9 +1890,9 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						NetworkPlugin:        "azure",
 						DockerBridgeSubnet:   "172.17.0.1/16",
 						ServiceCIDR:          "10.0.0.0/16",
-						EnableRbac:           to.BoolPtr(true),
-						EnableSecureKubelet:  to.BoolPtr(true),
-						UseInstanceMetadata:  to.BoolPtr(true),
+						EnableRbac:           new(true),
+						EnableSecureKubelet:  new(true),
+						UseInstanceMetadata:  new(true),
 						DNSServiceIP:         "10.0.0.10",
 					},
 				},
@@ -2095,7 +2095,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}),
 		Entry("AKSWindows2019 with k8s version 1.19 + CSI", "AKSWindows2019+K8S119+CSI", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz"
-			config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = to.BoolPtr(true)
+			config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = new(true)
 		}),
 		Entry("AKSWindows2019 with CustomVnet", "AKSWindows2019+CustomVnet", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ClusterSubnet = "172.17.0.0/24"
@@ -2110,7 +2110,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UserAssignedID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/k8s-agentpool" //nolint:lll
 		}),
 		Entry("AKSWindows2019 with custom cloud", "AKSWindows2019+CustomCloud", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = new(true)
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name:                         "akscustom",
 				McrURL:                       "mcr.microsoft.fakecustomcloud",
@@ -2149,14 +2149,14 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				cs := config.ContainerService
 				if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
-					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: new(true)}
 				} else {
-					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = new(true)
 				}
 			}),
 		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+				config.KubeletClientTLSBootstrapToken = new("07401b.f395accd246ae52d")
 			}),
 		Entry("AKSWindows2019 with kubelet serving certificate rotation enabled", "AKSWindows2019+KubeletServingCertificateRotation", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -2176,13 +2176,13 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				}
 			}),
 		Entry("AKSWindows2019 with out of tree credential provider", "AKSWindows2019+ootcredentialprovider", "1.29.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = new(true)
 			config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
 			config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
 		}),
 		Entry("AKSWindows2019 with custom cloud and out of tree credential provider", "AKSWindows2019+CustomCloud+ootcredentialprovider", "1.29.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+				config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = new(true)
 				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 					Name:                         "akscustom",
 					McrURL:                       "mcr.microsoft.fakecustomcloud",
@@ -2222,22 +2222,22 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows23H2Gen2 with NextGenNetworking", "AKSWindows23H2Gen2+NextGenNetworking", "1.29.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
-					NextGenNetworkingEnabled: to.BoolPtr(true),
-					NextGenNetworkingConfig:  to.StringPtr("{}"),
+					NextGenNetworkingEnabled: new(true),
+					NextGenNetworkingConfig:  new("{}"),
 				}
 			}),
 		Entry("AKSWindows23H2Gen2 with NextGenNetworking enabled but no config", "AKSWindows23H2Gen2+NextGenNetworkingNoConfig", "1.29.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
-					NextGenNetworkingEnabled: to.BoolPtr(true),
+					NextGenNetworkingEnabled: new(true),
 					NextGenNetworkingConfig:  nil,
 				}
 			}),
 		Entry("AKSWindows23H2Gen2 with NextGenNetworking disabled", "AKSWindows23H2Gen2+NextGenNetworkingDisabled", "1.29.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
-					NextGenNetworkingEnabled: to.BoolPtr(false),
-					NextGenNetworkingConfig:  to.StringPtr("{}"),
+					NextGenNetworkingEnabled: new(false),
+					NextGenNetworkingConfig:  new("{}"),
 				}
 			}),
 	)
@@ -2284,7 +2284,7 @@ func writeInnerCustomData(outputname, customData string) error {
 		return os.WriteFile(outputname, ignitionIndented, 0644)
 	}
 
-	ignitionMap := map[string]interface{}{}
+	ignitionMap := map[string]any{}
 	if err := json.Unmarshal(ignition, &ignitionMap); err != nil {
 		return err
 	}
@@ -2292,27 +2292,27 @@ func writeInnerCustomData(outputname, customData string) error {
 	if err != nil {
 		return err
 	}
-	files := []map[string]interface{}{}
+	files := []map[string]any{}
 	decodedFiles, err := decodeTarFiles(contents)
 	if err != nil {
 		return err
 	}
 	for _, entry := range decodedFiles {
 		gzippedContents := getGzippedBufferFromBytes([]byte(entry.value))
-		files = append(files, map[string]interface{}{
+		files = append(files, map[string]any{
 			"path":      entry.path,
 			"overwrite": true,
 			"mode":      entry.mode,
-			"contents": map[string]interface{}{
+			"contents": map[string]any{
 				"compression": encodingGZIP,
 				"source":      "data:;base64," + base64.StdEncoding.EncodeToString(gzippedContents),
 			},
 		})
 	}
 
-	storage, ok := ignitionMap["storage"].(map[string]interface{})
+	storage, ok := ignitionMap["storage"].(map[string]any)
 	if !ok {
-		storage = map[string]interface{}{}
+		storage = map[string]any{}
 		ignitionMap["storage"] = storage
 	}
 	storage["files"] = files
@@ -2454,14 +2454,14 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 		Expect(normalizeResourceGroupNameForLabel("hel(lo")).To(Equal("hel-lo"))
 		Expect(normalizeResourceGroupNameForLabel("hel)lo")).To(Equal("hel-lo"))
 		var s string
-		for i := 0; i < 63; i++ {
+		for range 63 {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s)).To(Equal(s))
 		Expect(normalizeResourceGroupNameForLabel(s + "1")).To(Equal(s))
 
 		s = ""
-		for i := 0; i < 62; i++ {
+		for range 62 {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "(")).To(Equal(s + "z"))
@@ -2476,7 +2476,7 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 		Expect(normalizeResourceGroupNameForLabel("-")).To(Equal("-z"))
 
 		s = ""
-		for i := 0; i < 61; i++ {
+		for range 61 {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
@@ -2667,7 +2667,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 	})
 
 	It("should handle TLS bootstrapping configuration", func() {
-		baseConfig.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+		baseConfig.KubeletClientTLSBootstrapToken = new("07401b.f395accd246ae52d")
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
 

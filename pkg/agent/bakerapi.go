@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
@@ -120,9 +121,7 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
-	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
-		allDistros[distro] = sigConfig
-	}
+	maps.Copy(allDistros, allAzureSigConfig.SigWindowsImageConfig)
 
 	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
 		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)

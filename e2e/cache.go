@@ -60,9 +60,9 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 	}
 	// If the gallery does not exist, create it.
 	poller, err := config.Azure.Galleries.BeginCreateOrUpdate(ctx, request.ResourceGroup, galleryName, armcompute.Gallery{
-		Location: to.Ptr(request.Location),
+		Location: new(request.Location),
 		Properties: &armcompute.GalleryProperties{
-			Description: to.Ptr("E2E test gallery for two-stage kubelet configuration"),
+			Description: new("E2E test gallery for two-stage kubelet configuration"),
 		},
 	}, nil)
 	if err != nil {
@@ -102,7 +102,7 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to get gallery image: %w", err)
 	}
 	poller, err := config.Azure.GalleryImages.BeginCreateOrUpdate(ctx, request.ResourceGroup, request.GalleryName, imageName, armcompute.GalleryImage{
-		Location: to.Ptr(request.Location),
+		Location: new(request.Location),
 		Properties: &armcompute.GalleryImageProperties{
 			Architecture: func() *armcompute.Architecture {
 				if request.Arch == "arm64" {
@@ -119,9 +119,9 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 			OSState: to.Ptr(armcompute.OperatingSystemStateTypesGeneralized),
 			Identifier: &armcompute.GalleryImageIdentifier{
 				// Combination of these 3 fields must be unique for each image
-				Publisher: to.Ptr("akse2e"),
-				Offer:     to.Ptr("akse2e"),
-				SKU:       to.Ptr(imageName),
+				Publisher: new("akse2e"),
+				Offer:     new("akse2e"),
+				SKU:       new(imageName),
 			},
 			HyperVGeneration: request.HyperVGeneration, // IMPORTANT, INCORRECT VALUE CAUSES VM PROVISIONING TO FAIL WITHOUT CLEAR ERROR MESSAGE
 		},

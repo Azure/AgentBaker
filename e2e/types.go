@@ -15,7 +15,6 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
@@ -60,9 +59,9 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	}
 
 	v := reflect.ValueOf(t)
-	filterPairs := strings.Split(filters, ",")
+	filterPairs := strings.SplitSeq(filters, ",")
 
-	for _, pair := range filterPairs {
+	for pair := range filterPairs {
 		kv := strings.SplitN(pair, "=", 2)
 		if len(kv) != 2 {
 			return false, fmt.Errorf("invalid filter format: %s", pair)
@@ -220,14 +219,14 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(resourceID)),
+		ID: new(string(resourceID)),
 	}
 
 	// Override OS disk size if the VHD requires a non-default size.
 	if s.VHD.OSDiskSizeGB > 0 {
 		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
 		if osDisk != nil {
-			osDisk.DiskSizeGB = to.Ptr(s.VHD.OSDiskSizeGB)
+			osDisk.DiskSizeGB = new(s.VHD.OSDiskSizeGB)
 		}
 	}
 
@@ -334,7 +333,7 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 
 	// don't clean up VMSS in other tests
 	if config.Config.KeepVMSS {
-		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
+		vmss.Tags["KEEP_VMSS"] = new("true")
 	}
 
 	if config.Config.BuildID != "" {
@@ -348,7 +347,7 @@ func (s *Scenario) updateTags(ctx context.Context, vmss *armcompute.VirtualMachi
 			owner = "unknown"
 		}
 	}
-	vmss.Tags["owner"] = to.Ptr(owner)
+	vmss.Tags["owner"] = new(owner)
 }
 
 func getLoggedInAzUser() (string, error) {

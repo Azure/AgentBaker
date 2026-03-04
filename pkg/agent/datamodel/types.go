@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"math/rand"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -282,40 +284,20 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
-	for _, distro := range AKSDistrosAvailableOnVHD {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2404Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2404Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
-	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
 func (d Distro) IsKataDistro() bool {
@@ -323,21 +305,11 @@ func (d Distro) IsKataDistro() bool {
 }
 
 func (d Distro) IsFlatcarDistro() bool {
-	for _, distro := range AvailableFlatcarDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableFlatcarDistros, d)
 }
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
-	for _, distro := range AvailableAzureLinuxOSGuardDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
 }
 
 /*
@@ -408,7 +380,7 @@ type CustomCloudEnv struct {
 	ContainerRegistryDNSSuffix   string              `json:"containerRegistryDNSSuffix,omitempty"`
 	CosmosDBDNSSuffix            string              `json:"cosmosDBDNSSuffix,omitempty"`
 	TokenAudience                string              `json:"tokenAudience,omitempty"`
-	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
+	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers"`
 }
 
 // FeatureFlags defines feature-flag restricted functionality.
@@ -1570,9 +1542,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
 			config := kubeletCustomConfiguration.Config
-			for k, v := range config {
-				kubeletConfig[k] = v
-			}
+			maps.Copy(kubeletConfig, config)
 		}
 	}
 
@@ -1624,9 +1594,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	kubeProxyCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(ComponentkubeProxy)
 	if kubeProxyCustomConfiguration != nil {
 		customConfig := kubeProxyCustomConfiguration.Config
-		for k, v := range customConfig {
-			kubeproxyConfig[k] = v
-		}
+		maps.Copy(kubeproxyConfig, customConfig)
 	}
 	keys := []string{}
 	for key := range kubeproxyConfig {

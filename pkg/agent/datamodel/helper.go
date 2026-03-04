@@ -86,7 +86,7 @@ func IndentString(original string, spaces int) string {
 	out := bytes.NewBuffer(nil)
 	scanner := bufio.NewScanner(strings.NewReader(original))
 	for scanner.Scan() {
-		for i := 0; i < spaces; i++ {
+		for range spaces {
 			out.WriteString(" ")
 		}
 		out.WriteString(scanner.Text())

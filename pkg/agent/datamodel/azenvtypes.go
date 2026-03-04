@@ -6,8 +6,8 @@ package datamodel
 // AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 type AzureEnvironmentSpecConfig struct {
 	CloudName            string                        `json:"cloudName,omitempty"`
-	KubernetesSpecConfig KubernetesSpecConfig          `json:"kubernetesSpecConfig,omitempty"`
-	EndpointConfig       AzureEndpointConfig           `json:"endpointConfig,omitempty"`
+	KubernetesSpecConfig KubernetesSpecConfig          `json:"kubernetesSpecConfig"`
+	EndpointConfig       AzureEndpointConfig           `json:"endpointConfig"`
 	OSImageConfig        map[Distro]AzureOSImageConfig `json:"osImageConfig,omitempty"`
 }
 

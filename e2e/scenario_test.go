@@ -100,7 +100,7 @@ func Test_Flatcar_ARM64(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+				vmss.SKU.Name = new("Standard_D2pds_V5")
 			},
 		},
 	})
@@ -347,7 +347,7 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
-					EnableFips1403Encryption: to.Ptr(true),
+					EnableFips1403Encryption: new(true),
 				}
 				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
 				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
@@ -375,7 +375,7 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
-					EnableFips1403Encryption: to.Ptr(true),
+					EnableFips1403Encryption: new(true),
 				}
 				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
 				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
@@ -404,7 +404,7 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
-					EnableFips1403Encryption: to.Ptr(true),
+					EnableFips1403Encryption: new(true),
 				}
 				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
 				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
@@ -451,7 +451,7 @@ func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.DisablePubkeyAuth = to.Ptr(true)
+				config.DisablePubkeyAuth = new(true)
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
 			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
@@ -590,7 +590,7 @@ func Test_AzureLinuxV3_NetworkIsolated_Package_Install(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
@@ -741,7 +741,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCache
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
@@ -761,7 +761,7 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+				vmss.SKU.Name = new("Standard_D2pds_V5")
 			},
 		},
 	})
@@ -921,10 +921,10 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetNetfilterNfConntrackMax:     new(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: new(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
 						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+						NetIpv4TcpkeepaliveIntvl:       new(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
 						MaxLockedMemory: "75000",
@@ -961,14 +961,14 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				customLinuxOsConfig := &aksnodeconfigv1.CustomLinuxOsConfig{
 					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
-						NetIpv4IpLocalPortRange:        to.Ptr(customSysctls["net.ipv4.ip_local_port_range"]),
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+						NetNetfilterNfConntrackMax:     new(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: new(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        new(customSysctls["net.ipv4.ip_local_port_range"]),
+						NetIpv4TcpkeepaliveIntvl:       new(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &aksnodeconfigv1.UlimitConfig{
-						MaxLockedMemory: to.Ptr(customContainerdUlimits["LimitMEMLOCK"]),
-						NoFile:          to.Ptr(customContainerdUlimits["LimitNOFILE"]),
+						MaxLockedMemory: new(customContainerdUlimits["LimitMEMLOCK"]),
+						NoFile:          new(customContainerdUlimits["LimitNOFILE"]),
 					},
 				}
 				config.CustomLinuxOsConfig = customLinuxOsConfig
@@ -1010,7 +1010,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.SKU.Name = new(vmSize)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
@@ -1038,7 +1038,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.SKU.Name = new(vmSize)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
@@ -1062,7 +1062,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = new("Standard_NV6ads_A10_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
@@ -1074,7 +1074,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 				config.VmSize = "Standard_NV6ads_A10_v5"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
-				config.GpuConfig.EnableNvidia = to.Ptr(true)
+				config.GpuConfig.EnableNvidia = new(true)
 			},
 		},
 	})
@@ -1096,7 +1096,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = new("Standard_NV6ads_A10_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
@@ -1125,9 +1125,9 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Tags = map[string]*string{
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
-					"SkipGPUDriverInstall": to.Ptr("true"),
+					"SkipGPUDriverInstall": new("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
@@ -1149,15 +1149,15 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 				config.VmSize = "Standard_NC6s_v3"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
-				config.GpuConfig.EnableNvidia = to.Ptr(true)
+				config.GpuConfig.EnableNvidia = new(true)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				// this vmss tag is needed since there is a logic in cse_main.sh otherwise the test will fail
 				vmss.Tags = map[string]*string{
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
-					"SkipGPUDriverInstall": to.Ptr("true"),
+					"SkipGPUDriverInstall": new("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
@@ -1254,7 +1254,7 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+				vmss.Tags["SkipBinaryCleanup"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateMultipleKubeProxyVersionsExist(ctx, s)
@@ -1274,7 +1274,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = new("true")
 			},
 		},
 	})
@@ -1289,7 +1289,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					FailSwapOn:           to.Ptr(true),
+					FailSwapOn:           new(true),
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
@@ -1298,7 +1298,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = new("true")
 			},
 		},
 	})
@@ -1312,7 +1312,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.KubeletConfig.EnableKubeletConfigFile = true
-				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = new(true)
 				config.KubeletConfig.KubeletConfigFileConfig.AllowedUnsafeSysctls = []string{"kernel.msg*", "net.ipv4.route.min_pmtu"}
 				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = true
 				config.KubeletConfig.KubeletConfigFileConfig.FeatureGates = map[string]bool{"RotateKubeletServerCertificate": true}
@@ -1322,7 +1322,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = new("true")
 			},
 		},
 	})
@@ -1340,7 +1340,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = new("true")
 			},
 		},
 	})
@@ -1355,7 +1355,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// to force kubelet config file
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					FailSwapOn:           to.Ptr(true),
+					FailSwapOn:           new(true),
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
@@ -1364,7 +1364,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = new("true")
 			},
 		},
 	})
@@ -1432,7 +1432,7 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.SKU.Name = new("Standard_NM16ads_MA35D")
 				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1461,7 +1461,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 				config.VmSize = "Standard_NM16ads_MA35D"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+				vmss.SKU.Name = new("Standard_NM16ads_MA35D")
 				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1517,10 +1517,10 @@ func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetNetfilterNfConntrackMax:     new(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: new(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
 						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+						NetIpv4TcpkeepaliveIntvl:       new(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
 						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
@@ -1550,7 +1550,7 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.Ptr(true),
+					SeccompDefault: new(true),
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
@@ -1577,7 +1577,7 @@ func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v3-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v3-gen2"
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.Ptr(true),
+					SeccompDefault: new(true),
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
@@ -1630,7 +1630,7 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -1656,7 +1656,7 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -1678,10 +1678,10 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 				config.VmSize = "Standard_NC6s_v3"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
-				config.GpuConfig.EnableNvidia = to.Ptr(true)
+				config.GpuConfig.EnableNvidia = new(true)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -1705,13 +1705,13 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.Ptr(true),
+					SeccompDefault: new(true),
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+				vmss.SKU.Name = new("Standard_D2pds_V5")
 			},
 
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1762,7 +1762,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
+				vmss.Tags["E2EMockAzureChinaCloud"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"})
@@ -1786,7 +1786,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
+				vmss.Tags["E2EMockAzureChinaCloud"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
@@ -1859,9 +1859,9 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Tags = map[string]*string{
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
-					"SkipGPUDriverInstall": to.Ptr("true"),
+					"SkipGPUDriverInstall": new("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
@@ -1902,7 +1902,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+				vmss.SKU.Name = new("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
@@ -1942,7 +1942,7 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.SKU.Name = new(vmSize)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
@@ -2003,7 +2003,7 @@ func Test_AzureLinux3_PMC_Install(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -2029,7 +2029,7 @@ func Test_Ubuntu2204_PMC_Install(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
@@ -2055,7 +2055,7 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = new("true")
 			},
 		},
 	})

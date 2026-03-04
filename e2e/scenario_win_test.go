@@ -41,9 +41,9 @@ func DualStackVMConfigMutator(set *armcompute.VirtualMachineScaleSet) {
 	ip4Config := set.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations[0]
 
 	ip6Config := &armcompute.VirtualMachineScaleSetIPConfiguration{
-		Name: to.Ptr(fmt.Sprintf("%s_1", *ip4Config.Name)),
+		Name: new(fmt.Sprintf("%s_1", *ip4Config.Name)),
 		Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-			Primary:                 to.Ptr(false),
+			Primary:                 new(false),
 			PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv6),
 			Subnet: &armcompute.APIEntityReference{
 				ID: ip4Config.Properties.Subnet.ID,
@@ -388,7 +388,7 @@ func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testin
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = new("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
@@ -483,8 +483,8 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
 					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
 				}
-				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
-				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = new(true)
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = new("")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
