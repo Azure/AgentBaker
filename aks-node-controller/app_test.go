@@ -54,6 +54,24 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, newTestApp(t, nil).Run(context.Background(), []string{"aks-node-controller", "provision"}))
 	})
 
+	t.Run("provision: flag-parse error writes sentinel files", func(t *testing.T) {
+		dir := t.TempDir()
+		jsonFile := filepath.Join(dir, "provision.json")
+		completeFile := filepath.Join(dir, "provision.complete")
+		app := newTestApp(t, nil)
+		exitCode := app.Run(context.Background(), []string{
+			"aks-node-controller", "provision",
+			"--provision-json-file=" + jsonFile,
+			"--provision-complete-file=" + completeFile,
+			// no --provision-config → parse validation error
+		})
+		assert.Equal(t, 1, exitCode)
+		_, err := os.Stat(jsonFile)
+		assert.NoError(t, err, "provision.json should be written on flag-parse error")
+		_, err = os.Stat(completeFile)
+		assert.NoError(t, err, "provision.complete should be written on flag-parse error")
+	})
+
 	t.Run("provision: success emits Starting+Completed events", func(t *testing.T) {
 		app := newTestApp(t, nil)
 		exitCode := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
@@ -130,7 +148,6 @@ func TestApp_ProvisionWait(t *testing.T) {
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 }
-
 
 // TestApp_ProvisionThenWait is an integration test covering the full provision → provision-wait flow
 // using custom paths, verifying both commands agree on the same files.
@@ -209,7 +226,7 @@ func TestApp_ProvisionThenWait(t *testing.T) {
 // Test_parseFlags covers flag parsing defaults, custom values, and required-field validation.
 func Test_parseFlags(t *testing.T) {
 	t.Run("provision defaults", func(t *testing.T) {
-		flags, err := parseProvisionFlags([]string{"--provision-config=foo.json"})
+		_, flags, err := parseProvisionFlags([]string{"--provision-config=foo.json"})
 		require.NoError(t, err)
 		assert.Equal(t, "foo.json", flags.ProvisionConfig)
 		assert.False(t, flags.DryRun)
@@ -219,7 +236,7 @@ func Test_parseFlags(t *testing.T) {
 	})
 
 	t.Run("provision custom paths", func(t *testing.T) {
-		flags, err := parseProvisionFlags([]string{
+		_, flags, err := parseProvisionFlags([]string{
 			"--provision-config=foo.json",
 			"--events-dir=/tmp/e",
 			"--provision-json-file=/tmp/p.json",
@@ -232,7 +249,7 @@ func Test_parseFlags(t *testing.T) {
 	})
 
 	t.Run("provision missing --provision-config", func(t *testing.T) {
-		_, err := parseProvisionFlags([]string{})
+		_, _, err := parseProvisionFlags([]string{})
 		assert.ErrorContains(t, err, "--provision-config is required")
 	})
 

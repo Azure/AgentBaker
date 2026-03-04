@@ -42,19 +42,30 @@ func getCommandRegistry() map[string]commandMetadata {
 		"provision": {
 			taskName: "Provision",
 			handler: func(a *App, ctx context.Context, args []string) error {
-				flags, err := parseProvisionFlags(args)
+				statusFiles, flags, err := parseProvisionFlags(args)
 				if err != nil {
+					a.writeCompleteFileOnError(statusFiles, &ProvisionResult{ExitCode: "240", Error: err.Error()}, err)
 					return err
 				}
 				if a.eventLogger == nil {
 					a.eventLogger = helpers.NewEventLogger(flags.EventsDir)
 				}
+				const taskName = "Provision"
+				startTime := time.Now()
+				a.eventLogger.LogEvent(taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 				if flags.DryRun {
 					a.cmdRun = cmdRunnerDryRun
 				}
 				provisionResult, err := a.Provision(ctx, flags)
 				// Always notify after provisioning attempt (success is a no-op inside notifier)
 				a.writeCompleteFileOnError(flags.ProvisionStatusFiles, provisionResult, err)
+				endTime := time.Now()
+				if err != nil {
+					message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+					a.eventLogger.LogEvent(taskName, message, helpers.EventLevelError, startTime, endTime)
+				} else {
+					a.eventLogger.LogEvent(taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+				}
 				return err
 			},
 		},
@@ -68,10 +79,20 @@ func getCommandRegistry() map[string]commandMetadata {
 				if a.eventLogger == nil {
 					a.eventLogger = helpers.NewEventLogger(flags.EventsDir)
 				}
+				const taskName = "ProvisionWait"
+				startTime := time.Now()
+				a.eventLogger.LogEvent(taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 				provisionOutput, err := a.ProvisionWait(ctx, flags.ProvisionStatusFiles)
 				//nolint:forbidigo // stdout is part of the interface
 				fmt.Println(provisionOutput)
 				slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+				endTime := time.Now()
+				if err != nil {
+					message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+					a.eventLogger.LogEvent(taskName, message, helpers.EventLevelError, startTime, endTime)
+				} else {
+					a.eventLogger.LogEvent(taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+				}
 				return err
 			},
 		},
@@ -111,7 +132,7 @@ type ProvisionStatusFiles struct {
 	ProvisionCompleteFile string
 }
 
-func parseProvisionFlags(args []string) (ProvisionFlags, error) {
+func parseProvisionFlags(args []string) (ProvisionStatusFiles, ProvisionFlags, error) {
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
 	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
@@ -120,16 +141,25 @@ func parseProvisionFlags(args []string) (ProvisionFlags, error) {
 	provisionJSONFile := fs.String("provision-json-file", defaultProvisionJSONFilePath, "path to the provision.json status file")
 	provisionCompleteFile := fs.String("provision-complete-file", defaultProvisionCompleteFilePath, "path to the provision.complete sentinel file")
 
+	// statusFiles is always populated with at least defaults, even on error,
+	// so the caller can write sentinel files before returning the parse error.
+	statusFiles := func() ProvisionStatusFiles {
+		return ProvisionStatusFiles{
+			ProvisionJSONFile:     *provisionJSONFile,
+			ProvisionCompleteFile: *provisionCompleteFile,
+		}
+	}
+
 	if err := fs.Parse(args); err != nil {
-		return ProvisionFlags{}, fmt.Errorf("parse args: %w", err)
+		return statusFiles(), ProvisionFlags{}, fmt.Errorf("parse args: %w", err)
 	}
 	if *provisionConfig == "" {
-		return ProvisionFlags{}, errors.New("--provision-config is required")
+		return statusFiles(), ProvisionFlags{}, errors.New("--provision-config is required")
 	}
 
 	configureLogging(*logPath)
 
-	return ProvisionFlags{
+	return statusFiles(), ProvisionFlags{
 		ProvisionConfig: *provisionConfig,
 		DryRun:          *dryRun,
 		EventsDir:       *eventsDir,
@@ -188,21 +218,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unknown command: %s", command)
 	}
 
-	startTime := time.Now()
-
-	err := cmd.handler(a, ctx, args[2:])
-
-	endTime := time.Now()
-	if a.eventLogger != nil {
-		a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
-		if err != nil {
-			message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
-			a.eventLogger.LogEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
-		} else {
-			a.eventLogger.LogEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
-		}
-	}
-	return err
+	return cmd.handler(a, ctx, args[2:])
 }
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
@@ -285,6 +301,11 @@ func (a *App) writeCompleteFileOnError(filepaths ProvisionStatusFiles, provision
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
 		slog.Error("failed to stat provision.complete file", "path", filepaths.ProvisionCompleteFile, "error", statErr)
+		return
+	}
+	completeDir := filepath.Dir(filepaths.ProvisionCompleteFile)
+	if writeErr := os.MkdirAll(completeDir, 0755); writeErr != nil {
+		slog.Error("failed to create directory for provision.complete file", "path", completeDir, "error", writeErr)
 		return
 	}
 	if writeErr := os.WriteFile(filepaths.ProvisionCompleteFile, []byte{}, 0600); writeErr != nil {
