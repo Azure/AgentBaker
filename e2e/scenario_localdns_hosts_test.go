@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
@@ -373,6 +374,42 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback(t *testing.T) {
 
 				// Validate node still provisions successfully (graceful fallback)
 				// The standard validation should pass
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless tests the localdns hosts plugin on scriptless path
+func Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description:      "Tests that localdns hosts plugin works correctly on Ubuntu 22.04 scriptless path (aks-node-controller)",
+		K8sSystemPoolSKU: "Standard_D4s_v3",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				// Enable localdns and hosts plugin via AKSNodeConfig (scriptless path)
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true,
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate aks-hosts-setup service ran successfully and timer is active
+				ValidateAKSHostsSetupService(ctx, s)
+
+				// Validate hosts file contains resolved IPs for public cloud FQDNs
+				ValidateLocalDNSHostsFile(ctx, s, []string{
+					"mcr.microsoft.com",
+					"login.microsoftonline.com",
+					"acs-mirror.azureedge.net",
+					"management.azure.com",
+					"packages.aks.azure.com",
+					"packages.microsoft.com",
+				})
+
+				// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
+				ValidateLocalDNSHostsPluginBypass(ctx, s)
 			},
 		},
 	})
