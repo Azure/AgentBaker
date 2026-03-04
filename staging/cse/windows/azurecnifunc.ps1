@@ -509,7 +509,7 @@ function GetMetadataContent {
     throw "No IPv4 address found in metadata."
 }
 
-function WaitForNetworkAdaptorToBeReady {
+function WaitForNetworkAdapterToBeReady {
     param (
         [Parameter(Mandatory = $true)][string]
         $AdapterName
@@ -553,7 +553,7 @@ function New-ExternalHnsNetwork {
 
     $ipv4Address = Get-Node-Ipv4-Address
     $nodeIps = Get-AKS-NodeIPs
-    $na = Get-AKS-NetworkAdaptor
+    $na = Get-AKS-NetworkAdapter
 
     $adapterName = $na.Name
     $externalNetwork = "ext"
@@ -564,7 +564,7 @@ function New-ExternalHnsNetwork {
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
 
-    WaitForNetworkAdaptorToBeReady -AdapterName $adapterName
+    WaitForNetworkAdapterToBeReady -AdapterName $adapterName
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
     if ($IsDualStackEnabled) {
@@ -718,7 +718,7 @@ function Invoke-WithRetry {
     }
 }
 
-function Get-AKS-NetworkAdaptor {
+function Get-AKS-NetworkAdapter {
     $ipv4Address = Get-Node-Ipv4-Address
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
@@ -728,24 +728,24 @@ function Get-AKS-NetworkAdaptor {
     }
     catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address ${ipv4Address}: $($_.Exception.Message). Reverting to old way to configure network"
-        return Get-NetworkAdaptor-Fallback
+        return Get-NetworkAdapter-Fallback
     }
 
     try {
         $na = Invoke-WithRetry -Command { Get-NetAdapter -IncludeHidden -ifindex $netIP.ifIndex -ErrorAction stop } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 300 -DelaySeconds 1
         if (!$na) {
             Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
-            return Get-NetworkAdaptor-Fallback
+            return Get-NetworkAdapter-Fallback
         }
         return $na
     }
     catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Error thrown while getting network adapter info: $($_.Exception.Message)"
-        return Get-NetworkAdaptor-Fallback
+        return Get-NetworkAdapter-Fallback
     }
 }
 
-function Get-NetworkAdaptor-Fallback {
+function Get-NetworkAdapter-Fallback {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     $nas = @(Get-NetAdapter -Physical)
