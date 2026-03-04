@@ -222,7 +222,7 @@ $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworki
 
 # Network isolated cluster
 $global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{GetBootstrapProfileContainerRegistryServer}}"
-$global:mcrRepositoryBase="{{GetMCRRepositoryBase}}"
+$global:MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
