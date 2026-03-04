@@ -25,7 +25,7 @@ installRPMPackageFromFile() {
 
     url=$(dnf repoquery --location ${packageName}-${fullPackageVersion} 2>/dev/null | head -1)
     filename=$(basename "$url")
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${filename}" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${filename}" -print -quit 2>/dev/null | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ] && { [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; } && fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
         echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
         rm -rf ${downloadDir}
@@ -40,7 +40,7 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${filename}" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${filename}" -print -quit 2>/dev/null | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
