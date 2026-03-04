@@ -1518,10 +1518,16 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	s.T.Logf("✓ Node annotation %s=%s verified", annotationKey, annotationValue)
 
 	// Step 2: Create a unique fake FQDN for this test to avoid conflicts
-	// Using the VMSS name ensures uniqueness across parallel tests
-	fakeFQDN := fmt.Sprintf("e2e-localdns-test-%s.fake.internal", s.Runtime.VMSSName)
+	// Using the VMSS name ensures uniqueness across parallel tests.
+	// Take first 8 characters of VMSS name to keep DNS label under 63 char limit (RFC 1035).
+	// VMSS names are like "7v65-2026-03-04-ubuntu2204localdnshostsplugin", so first 8 chars are unique.
+	shortVMSSID := s.Runtime.VMSSName
+	if len(shortVMSSID) > 8 {
+		shortVMSSID = shortVMSSID[:8]
+	}
+	fakeFQDN := fmt.Sprintf("e2e-test-%s.fake.internal", shortVMSSID)
 	fakeIP := "10.255.255.1"
-	s.T.Logf("Using test-specific fake FQDN: %s -> %s", fakeFQDN, fakeIP)
+	s.T.Logf("Using test-specific fake FQDN: %s -> %s (shortened from VMSS: %s)", fakeFQDN, fakeIP, s.Runtime.VMSSName)
 
 	// Step 3: Add the fake entry to /etc/localdns/hosts
 	s.T.Logf("Adding fake entry to /etc/localdns/hosts for testing")
