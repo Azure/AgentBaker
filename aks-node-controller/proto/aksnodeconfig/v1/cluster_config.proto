@@ -28,6 +28,9 @@ message ClusterConfig {
 
   // Specifiy if it uses instance metadata
   bool use_instance_metadata = 8; // default to false
+
+  // Cloud provider config for cloud-provider-azure
+  CloudProviderConfig cloud_provider_config = 9;
 }
 
 enum VmType {
@@ -68,6 +71,41 @@ message LoadBalancerConfig {
 
   // Disable outbound SNAT (Source Network Address Translation) for load balancer, default to false
   bool disable_outbound_snat = 4;
+}
+
+message CloudProviderConfig {
+  // Enable cloud provider backoff
+  optional bool backoff = 1;
+
+  // Backoff mode (e.g. "v2")
+  string backoff_mode = 2;
+
+  // Backoff retries
+  optional int32 backoff_retries = 3;
+
+  // Backoff exponent
+  optional double backoff_exponent = 4;
+
+  // Backoff duration in seconds
+  optional int32 backoff_duration = 5;
+
+  // Backoff jitter
+  optional double backoff_jitter = 6;
+
+  // Enable cloud provider rate limit
+  optional bool rate_limit = 7;
+
+  // Cloud provider rate limit QPS
+  optional double rate_limit_qps = 8;
+
+  // Cloud provider rate limit QPS for write
+  optional double rate_limit_qps_write = 9;
+
+  // Cloud provider rate limit bucket
+  optional int32 rate_limit_bucket = 10;
+
+  // Cloud provider rate limit bucket for write
+  optional int32 rate_limit_bucket_write = 11;
 }
 
 enum LoadBalancerSku {
