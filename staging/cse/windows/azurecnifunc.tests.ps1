@@ -8,15 +8,6 @@ BeforeAll {
         $script:capturedContent = $Value
     } -Verifiable
 
-    Mock Set-ItemProperty -MockWith {
-        Param(
-            $Path,
-            $Name,
-            $Type,
-            $Value
-        )
-    } -Verifiable
-
     function Invoke-WebRequest {
         return  @"
             [
@@ -37,8 +28,17 @@ BeforeAll {
     # this often doesn't exist in test environment, so create it here so we can mock it later.
     function New-HNSNetwork {}
 
-    Mock Write-Host -MockWith { } -Verifiable
-    Mock Start-Sleep -MockWith { } -Verifiable
+    # overwrite Start-Sleep and Write-Host to avoid unnecessary waiting and output during tests.
+    function Start-Sleep {}
+    function Write-Host {}
+    function Set-ItemProperty {
+        Param(
+            $Path,
+            $Name,
+            $Type,
+            $Value
+        )
+    }
 
     $global:KubeBinariesVersion = "1.35.0"
     $global:KubeClusterConfigPath = [System.IO.Path]::GetTempFileName()
@@ -211,6 +211,7 @@ Describe 'Set-AzureCNIConfig' {
         Context "WS2019 should replace OutboundNAT with LoopbackDSR and update regkey HNSControlFlag" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "1809" }
+                Mock Set-ItemProperty -MockWith { } -Verifiable
                 Mock Get-ItemProperty -MockWith {
                     Param(
                         $Path,
@@ -275,7 +276,7 @@ Describe 'Set-AzureCNIConfig' {
         Context "WS2022 should replace OutboundNAT with LoopbackDSR and update regkey SourcePortPreservationForHostPort" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
-
+                Mock Set-ItemProperty -MockWith { } -Verifiable
             }
 
             It "Should update SourcePortPreservationForHostPort to 0" {
@@ -2188,6 +2189,7 @@ Describe 'GetMetadataContent' {
 
 Describe 'New-ExternalHnsNetwork' {
     BeforeEach {
+        Mock Start-Sleep -MockWith { } -Verifiable
         Mock Set-ExitCode -MockWith {
             param($ExitCode, $ErrorMessage)
             throw $ErrorMessage
