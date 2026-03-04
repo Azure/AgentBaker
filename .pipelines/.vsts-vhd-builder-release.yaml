@@ -16,7 +16,7 @@ parameters:
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
@@ -24,63 +24,63 @@ parameters:
   - name: buildAzureLinuxV3gen1fips
     displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3gen2fips
     displayName: Build AzureLinuxV3 Gen2 FIPS
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3gen2kata
     displayName: Build AzureLinuxV3 Gen2 Kata
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3ARM64gen2fips
     displayName: Build AzureLinuxV3 Gen2 - FIPS+ARM64
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3gen2TrustedLaunch
     displayName: Build AzureLinuxV3 Gen2 - Trusted Launch
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxV3cvmgen2
     displayName: Build AzureLinuxV3 CVM Gen2
     type: boolean
-    default: false
+    default: true
   - name: buildAzureLinuxOSGuardV3gen2fipsTL
     displayName: Build AzureLinuxOSGuardV3 Gen2 FIPS - Trusted Launch
     type: boolean
-    default: false
+    default: true
   - name: build2004fipscontainerd
     displayName: Build 2004 FIPS containerd
     type: boolean
-    default: false
+    default: true
   - name: build2004fipsgen2containerd
     displayName: Build 2004 FIPS Gen2 containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204fipscontainerd
     displayName: Build 2204 FIPS containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204fipsgen2containerd
     displayName: Build 2204 FIPS Gen2 containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204fipstlgen2containerd
     displayName: Build 2204 FIPS Gen2 containerd - Trusted Launch
     type: boolean
-    default: false
+    default: true
   - name: build2204arm64gen2containerd
     displayName: Build 2204 ARM64 Gen2 containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404arm64gen2containerd
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404arm64gb200gen2containerd
     displayName: Build 2404 ARM64 GB200 Gen2 Containerd
     type: boolean
@@ -88,7 +88,7 @@ parameters:
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204gen2containerd
     displayName: Build 2204 Gen2 Containerd
     type: boolean
@@ -96,11 +96,11 @@ parameters:
   - name: build2404containerd
     displayName: Build 2404 Gen1 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404cvmgen2containerd
     displayName: Build 2404 CVM Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404gen2containerd
     displayName: Build 2404 Gen2 Containerd
     type: boolean
@@ -108,15 +108,15 @@ parameters:
   - name: build2404tlgen2containerd
     displayName: Build 2404 TL Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2004cvmgen2containerd
     displayName: Build 2004 CVM Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204tlgen2containerd
     displayName: Build 2204 TL Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204minimalgen1containerd
     displayName: Build 2204 Minimal Gen1 Containerd
     type: boolean
@@ -128,11 +128,11 @@ parameters:
   - name: buildflatcargen2
     displayName: Build Flatcar Gen2
     type: boolean
-    default: false
+    default: true
   - name: buildflatcargen2arm64
     displayName: Build Flatcar Gen2 ARM64
     type: boolean
-    default: false
+    default: true
 
 variables:
   - name: MODE
@@ -871,7 +871,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gb200-gen2-containerd
   - stage: e2e
-    condition: and(succeededOrFailed(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: "os=windows"
