@@ -7,10 +7,19 @@ set -euo pipefail
 IG_SERVICE_NAME="ig-import-gadgets.service"
 IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 
-# ig-gadgets is built independently from ig (separate Dalec specs), so versions
-# are managed separately here rather than derived from the ig version.
-# NOTE: ig-gadgets deb is only published to the 20.04 repo on PMC, even though
-# the project only builds 22.04 and 24.04 VHDs. The 20.04 deb is compatible.
+# ig-gadgets is built independently from ig (separate Dalec specs).
+# The gadgets are eBPF programs for ig, agnostic to OS version.
+# Debs are only published to the 20.04 repo on PMC; the 20.04 deb is compatible
+# with 22.04 and 24.04. Maintainers: ebpf-tools within Azure org on GitHub.
+#
+# Dependency constraints differ by OS (defined in the ig-gadgets Dalec spec):
+#   Ubuntu (deb-based): ig >= <gadgets_version>  — ig can be newer than gadgets
+#   AzureLinux (azl3):  ig == <gadgets_version>  — ig must match gadgets exactly
+# This means on AzureLinux, ig and ig-gadgets MUST be bumped together or the
+# RPM install will fail with "conflicting requests".
+# Since ig-gadgets is NOT in components.json (no Renovate coverage), its version
+# must be updated manually here whenever ig is bumped for AzureLinux.
+# testInspektorGadgetAssets should catch this behavior if we're off.
 IG_GADGETS_DEB_VERSION="0.49.1-ubuntu20.04u1"
 IG_GADGETS_RPM_VERSION="0.49.1-1.azl3"
 

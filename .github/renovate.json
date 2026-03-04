@@ -385,9 +385,15 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      "automerge": true,
+      "automerge": false,
       "enabled": true,
-      "groupName": "inspektor-gadget"
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
+      ]
     },
     {
       "matchPackageNames": [
@@ -398,7 +404,13 @@
       ],
       "automerge": false,
       "enabled": true,
-      "groupName": "inspektor-gadget"
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
+      ]
     },
     {
       "matchPackageNames": [
