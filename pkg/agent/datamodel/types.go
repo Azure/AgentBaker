@@ -761,20 +761,6 @@ const (
 	TransparentHugePageDefragNever        = "never"
 )
 
-var validTransparentHugePageEnabled = map[string]bool{
-	TransparentHugePageAlways:  true,
-	TransparentHugePageMadvise: true,
-	TransparentHugePageNever:   true,
-}
-
-var validTransparentHugePageDefrag = map[string]bool{
-	TransparentHugePageDefragAlways:       true,
-	TransparentHugePageDefragDefer:        true,
-	TransparentHugePageDefragDeferMadvise: true,
-	TransparentHugePageDefragMadvise:      true,
-	TransparentHugePageDefragNever:        true,
-}
-
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
 type CustomLinuxOSConfig struct {
 	Sysctls                    *SysctlConfig `json:"sysctls,omitempty"`
@@ -789,10 +775,22 @@ func (c *CustomLinuxOSConfig) ValidateTHPConfig() error {
 	if c == nil {
 		return nil
 	}
-	if c.TransparentHugePageEnabled != "" && !validTransparentHugePageEnabled[c.TransparentHugePageEnabled] {
+	validEnabled := map[string]bool{
+		TransparentHugePageAlways:  true,
+		TransparentHugePageMadvise: true,
+		TransparentHugePageNever:   true,
+	}
+	validDefrag := map[string]bool{
+		TransparentHugePageDefragAlways:       true,
+		TransparentHugePageDefragDefer:        true,
+		TransparentHugePageDefragDeferMadvise: true,
+		TransparentHugePageDefragMadvise:      true,
+		TransparentHugePageDefragNever:        true,
+	}
+	if c.TransparentHugePageEnabled != "" && !validEnabled[c.TransparentHugePageEnabled] {
 		return fmt.Errorf("invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never", c.TransparentHugePageEnabled)
 	}
-	if c.TransparentHugePageDefrag != "" && !validTransparentHugePageDefrag[c.TransparentHugePageDefrag] {
+	if c.TransparentHugePageDefrag != "" && !validDefrag[c.TransparentHugePageDefrag] {
 		return fmt.Errorf("invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never", c.TransparentHugePageDefrag)
 	}
 	return nil
