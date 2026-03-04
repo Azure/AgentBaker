@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -18,29 +17,25 @@ func main() {
 }
 
 func configureLogging(logPath string) {
-	resolvedPath := resolveLogPath(logPath)
-
-	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0755); err != nil {
-		//nolint:forbidigo // there is no other way to communicate the error
-		fmt.Printf("failed to create log directory: %s\n", err)
-		os.Exit(1)
-	}
-
-	logFile, err := os.OpenFile(resolvedPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := openLogFile(logPath)
 	if err != nil {
-		//nolint:forbidigo // there is no other way to communicate the error
-		fmt.Printf("failed to open log file: %s\n", err)
-		os.Exit(1)
+		// Fall back to stderr-only logging if we can't open any log file.
+		slog.Warn("failed to open log file, logging to stderr only", "error", err)
+		return
 	}
 	mw := io.MultiWriter(logFile, os.Stderr)
 	logger := slog.New(slog.NewJSONHandler(mw, nil))
 	slog.SetDefault(logger)
 }
 
-func resolveLogPath(logPath string) string {
-	// Try to create the requested log directory; fall back to current directory on failure.
+// openLogFile tries to open logPath, falling back to a local file if the path is not writable.
+func openLogFile(logPath string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err == nil {
-		return logPath
+		if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+			return f, nil
+		}
 	}
-	return "aks-node-controller.log"
+	// Fall back to current directory.
+	fallback := "aks-node-controller.log"
+	return os.OpenFile(fallback, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
