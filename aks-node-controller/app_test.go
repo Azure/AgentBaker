@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -322,4 +323,39 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 		_, err := readAndEvaluateProvision(write(t, `not-json`))
 		assert.Error(t, err)
 	})
+}
+
+// TestProvisionWait_Stdout runs provision-wait as a subprocess and verifies that
+// provision.json content is printed to stdout — the machine-readable interface.
+// Using a subprocess avoids os.Stdout mutation races present in in-process capture.
+// The sentinel files are written after a short delay to exercise the fsnotify event path.
+func TestProvisionWait_Stdout(t *testing.T) {
+	_, testFile, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	pkgDir := filepath.Dir(testFile)
+
+	bin := filepath.Join(t.TempDir(), "aks-node-controller")
+	require.NoError(t, exec.Command("go", "build", "-o", bin, pkgDir).Run())
+
+	dir := t.TempDir()
+	jsonContent := `{"ExitCode":"0","Output":"ok","Error":""}`
+	jsonFile := filepath.Join(dir, "provision.json")
+	completeFile := filepath.Join(dir, "provision.complete")
+
+	// Write sentinel files after a delay — binary is already built, so the delay
+	// reliably fires after the process has started, exercising the fsnotify event path.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		_ = os.WriteFile(jsonFile, []byte(jsonContent), 0644)
+		_, _ = os.Create(completeFile)
+	}()
+
+	cmd := exec.Command(bin, "provision-wait",
+		"--provision-json-file="+jsonFile,
+		"--provision-complete-file="+completeFile,
+		"--log-path="+filepath.Join(dir, "test.log"),
+	)
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), jsonContent)
 }
