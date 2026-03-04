@@ -138,7 +138,7 @@ type ClusterConfig struct {
 	PrimaryAvailabilitySet string `protobuf:"bytes,6,opt,name=primary_availability_set,json=primaryAvailabilitySet,proto3" json:"primary_availability_set,omitempty"`
 	// Primary scale set name
 	PrimaryScaleSet string `protobuf:"bytes,7,opt,name=primary_scale_set,json=primaryScaleSet,proto3" json:"primary_scale_set,omitempty"`
-	// Specifiy if it uses instance metadata
+	// Specify if it uses instance metadata
 	UseInstanceMetadata bool `protobuf:"varint,8,opt,name=use_instance_metadata,json=useInstanceMetadata,proto3" json:"use_instance_metadata,omitempty"` // default to false
 	// Cloud provider config for cloud-provider-azure
 	CloudProviderConfig *CloudProviderConfig `protobuf:"bytes,9,opt,name=cloud_provider_config,json=cloudProviderConfig,proto3" json:"cloud_provider_config,omitempty"`

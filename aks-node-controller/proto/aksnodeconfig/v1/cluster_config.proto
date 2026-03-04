@@ -26,7 +26,7 @@ message ClusterConfig {
   // Primary scale set name
   string primary_scale_set = 7;
 
-  // Specifiy if it uses instance metadata
+  // Specify if it uses instance metadata
   bool use_instance_metadata = 8; // default to false
 
   // Cloud provider config for cloud-provider-azure
