@@ -231,3 +231,103 @@ func TestMarshalUnmarshalWithPopulatedConfig(t *testing.T) {
 		assert.Equal(t, original, restored)
 	})
 }
+
+func TestValidateTHPConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *aksnodeconfigv1.Configuration
+		wantErr string
+	}{
+		{
+			name: "nil custom_linux_os_config passes",
+			cfg:  &aksnodeconfigv1.Configuration{},
+		},
+		{
+			name: "empty THP values pass",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{},
+			},
+		},
+		{
+			name: "valid transparent_hugepage_support=always",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: "always",
+				},
+			},
+		},
+		{
+			name: "valid transparent_hugepage_support=madvise",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: "madvise",
+				},
+			},
+		},
+		{
+			name: "valid transparent_hugepage_support=never",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: "never",
+				},
+			},
+		},
+		{
+			name: "invalid transparent_hugepage_support",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: "invalid",
+				},
+			},
+			wantErr: `invalid transparent_hugepage_support value "invalid"`,
+		},
+		{
+			name: "valid transparent_defrag=defer+madvise",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentDefrag: "defer+madvise",
+				},
+			},
+		},
+		{
+			name: "invalid transparent_defrag",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentDefrag: "invalid",
+				},
+			},
+			wantErr: `invalid transparent_defrag value "invalid"`,
+		},
+		{
+			name: "both valid values pass",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: "never",
+					TransparentDefrag:          "always",
+				},
+			},
+		},
+		{
+			name: "valid support but invalid defrag fails",
+			cfg: &aksnodeconfigv1.Configuration{
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: "always",
+					TransparentDefrag:          "invalid",
+				},
+			},
+			wantErr: `invalid transparent_defrag value "invalid"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTHPConfig(tt.cfg)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

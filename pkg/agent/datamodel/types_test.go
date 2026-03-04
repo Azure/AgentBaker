@@ -3252,18 +3252,18 @@ func TestCustomLinuxOSConfig_ValidateTHPConfig(t *testing.T) {
 		},
 		{
 			name:    "invalid THP enabled value",
-			config:  &CustomLinuxOSConfig{TransparentHugePageEnabled: "false"},
-			wantErr: `invalid TransparentHugePageEnabled value "false"`,
+			config:  &CustomLinuxOSConfig{TransparentHugePageEnabled: "invalid"},
+			wantErr: `invalid TransparentHugePageEnabled value "invalid"`,
 		},
 		{
 			name:    "invalid THP defrag value",
-			config:  &CustomLinuxOSConfig{TransparentHugePageDefrag: "true"},
-			wantErr: `invalid TransparentHugePageDefrag value "true"`,
+			config:  &CustomLinuxOSConfig{TransparentHugePageDefrag: "invalid"},
+			wantErr: `invalid TransparentHugePageDefrag value "invalid"`,
 		},
 		{
 			name:    "invalid THP enabled checked before defrag",
-			config:  &CustomLinuxOSConfig{TransparentHugePageEnabled: "bad", TransparentHugePageDefrag: "bad"},
-			wantErr: `invalid TransparentHugePageEnabled value "bad"`,
+			config:  &CustomLinuxOSConfig{TransparentHugePageEnabled: "invalid", TransparentHugePageDefrag: "invalid"},
+			wantErr: `invalid TransparentHugePageEnabled value "invalid"`,
 		},
 	}
 	for _, tt := range tests {

@@ -265,7 +265,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return an error for invalid TransparentHugePageEnabled", func() {
 			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
-				TransparentHugePageEnabled: "false",
+				TransparentHugePageEnabled: "invalid",
 			}
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
@@ -277,7 +277,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return an error for invalid TransparentHugePageDefrag", func() {
 			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
-				TransparentHugePageDefrag: "true",
+				TransparentHugePageDefrag: "invalid",
 			}
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())

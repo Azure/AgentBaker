@@ -65,3 +65,33 @@ func Validate(cfg *aksnodeconfigv1.Configuration) error {
 	}
 	return nil
 }
+
+// ValidateTHPConfig checks that TransparentHugepageSupport and TransparentDefrag
+// contain valid kernel values when set.
+func ValidateTHPConfig(cfg *aksnodeconfigv1.Configuration) error {
+	osConfig := cfg.GetCustomLinuxOsConfig()
+	if osConfig == nil {
+		return nil
+	}
+
+	validEnabled := map[string]bool{
+		"always":  true,
+		"madvise": true,
+		"never":   true,
+	}
+	validDefrag := map[string]bool{
+		"always":          true,
+		"defer":           true,
+		"defer+madvise":   true,
+		"madvise":         true,
+		"never":           true,
+	}
+
+	if v := osConfig.GetTransparentHugepageSupport(); v != "" && !validEnabled[v] {
+		return fmt.Errorf("invalid transparent_hugepage_support value %q, must be one of: always, madvise, never", v)
+	}
+	if v := osConfig.GetTransparentDefrag(); v != "" && !validDefrag[v] {
+		return fmt.Errorf("invalid transparent_defrag value %q, must be one of: always, defer, defer+madvise, madvise, never", v)
+	}
+	return nil
+}
