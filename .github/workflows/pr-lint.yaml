@@ -108,9 +108,9 @@ jobs:
 
             Your PR title doesn't follow the expected format due to:
 
-            ```
+            \`\`\`
             ${{ steps.lint_pr_title.outputs.error_message }}
-            ```
+            \`\`\`
 
             Please update your PR title to follow one of these patterns:
 
