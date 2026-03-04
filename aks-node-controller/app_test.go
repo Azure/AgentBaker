@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -357,5 +358,5 @@ func TestProvisionWait_Stdout(t *testing.T) {
 	)
 	out, err := cmd.Output()
 	require.NoError(t, err)
-	assert.Contains(t, string(out), jsonContent)
+	assert.JSONEq(t, jsonContent, strings.TrimSpace(string(out)))
 }
