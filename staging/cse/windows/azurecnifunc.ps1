@@ -579,7 +579,7 @@ function New-ExternalHnsNetwork {
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
 
-    WaitForNetworkAdapterToBeReady -AdapterName $adapterName -MaxWaitTimeSeconds 60 -RetryDelayMilliseconds 500
+    WaitForNetworkAdapterToBeReady -AdapterName $adapterName -MaxWaitTimeSeconds 120 -RetryDelayMilliseconds 500
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
     if ($IsDualStackEnabled) {

@@ -2199,6 +2199,13 @@ Describe 'New-ExternalHnsNetwork' {
         Mock Get-DnsClientServerAddress -MockWith { return $null } -Verifiable
         Mock Get-Node-Ipv4-Address -MockWith { return "10.0.0.4" } -Verifiable
         Mock Get-AKS-NodeIPs -MockWith { return "10.0.0.4" } -Verifiable
+
+        $mockNetAdapter = [PSCustomObject]@{
+            Name    = "Ethernet"
+            ifIndex = 5
+            Status  = "Up"
+        }
+        Mock Get-NetAdapter -MockWith { return $mockNetAdapter } -Verifiable
     }
 
     Context 'Pre-create readiness gate' {
