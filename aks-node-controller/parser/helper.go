@@ -719,7 +719,7 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 	}
 }
 
-// getLocalDnsCorefileBase64 returns the base64 encoded LocalDns corefile.
+// getLocalDnsCorefileBase64 returns the base64 encoded LocalDns corefile WITH hosts plugin.
 // base64 encoded corefile returned from this function will decoded and written
 // to /opt/azure/containers/localdns/localdns.corefile in cse_config.sh
 // and then used by localdns systemd unit to start localdns systemd unit.
@@ -737,17 +737,53 @@ func getLocalDnsCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 		return ""
 	}
 
-	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig)
+	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, true)
 	if err != nil {
 		return fmt.Sprintf("error getting localdns corfile from aks node config: %v", err)
 	}
 	return base64.StdEncoding.EncodeToString([]byte(localDnsConfig))
 }
 
+// getLocalDnsCorefileNoHostsBase64 returns the base64 encoded LocalDns corefile WITHOUT hosts plugin.
+// This is a fallback config used when enableAKSHostsSetup fails or when older VHDs don't have
+// aks-hosts-setup artifacts. The returned corefile is written to a separate path and selected
+// at runtime by cse_main.sh based on the availability of /etc/localdns/hosts.
+func getLocalDnsCorefileNoHostsBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig == nil {
+		return ""
+	}
+	// If LocalDnsProfile is nil or EnableLocalDns is false, return empty string.
+	// This means localdns is not enabled for the agent pool.
+	// In this case we don't need to generate localdns corefile.
+	if aksnodeconfig.GetLocalDnsProfile() == nil {
+		return ""
+	}
+	if !aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns() {
+		return ""
+	}
+
+	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, false)
+	if err != nil {
+		return fmt.Sprintf("error getting localdns corfile (no hosts) from aks node config: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString([]byte(localDnsConfig))
+}
+
+// localDnsCorefileTemplateData wraps the AKS node config with additional template control flags.
+type localDnsCorefileTemplateData struct {
+	Config             *aksnodeconfigv1.Configuration
+	IncludeHostsPlugin bool
+}
+
 // Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
-func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+// includeHostsPlugin controls whether the hosts plugin block is included in the generated Corefile.
+func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
 	var corefileBuffer bytes.Buffer
-	if err := localDnsCorefileTemplate.Execute(&corefileBuffer, aksnodeconfig); err != nil {
+	templateData := localDnsCorefileTemplateData{
+		Config:             aksnodeconfig,
+		IncludeHostsPlugin: includeHostsPlugin,
+	}
+	if err := localDnsCorefileTemplate.Execute(&corefileBuffer, templateData); err != nil {
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 	return corefileBuffer.String(), nil
