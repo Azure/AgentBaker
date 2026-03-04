@@ -478,7 +478,7 @@ func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
 
 	// we are sorting the keys for deterministic output for readability and testing.
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	buf := &bytes.Buffer{}
 	i := 0
 	for _, key := range keys {
 		i++
@@ -486,7 +486,7 @@ func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
 		if i == len(keys) {
 			delimiter = ""
 		}
-		buf.WriteString(fmt.Sprintf("%s=%v%s", key, m[key], delimiter))
+		fmt.Fprintf(buf, "%s=%v%s", key, m[key], delimiter)
 	}
 	return buf.String()
 }

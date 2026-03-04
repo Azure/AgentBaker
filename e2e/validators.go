@@ -1922,7 +1922,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		var summary strings.Builder
 		summary.WriteString("Critical kernel issues detected:\n")
 		for category, issues := range issuesFound {
-			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
+			fmt.Fprintf(&summary, "\n[%s]:\n%s\n", category, issues)
 		}
 		s.T.Fatalf("%s", summary.String())
 	}

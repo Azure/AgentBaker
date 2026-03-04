@@ -1141,7 +1141,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
+		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1203,8 +1203,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+	fmt.Fprintf(&buf, "agentpool=%s", a.Name)
+	fmt.Fprintf(&buf, ",kubernetes.azure.com/agentpool=%s", a.Name)
 
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
@@ -1212,7 +1212,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		fmt.Fprintf(&buf, ",%s=%s", key, a.CustomNodeLabels[key])
 	}
 	return buf.String()
 }
@@ -1564,7 +1564,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1603,7 +1603,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
