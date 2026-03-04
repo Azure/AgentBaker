@@ -2007,6 +2007,126 @@ func Test_MarinerV2LocalDns_ExporterMetrics(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204Arm64LocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a Ubuntu2204 ARM64 node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen1LocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a Ubuntu2404 Gen1 node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2404Gen1Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Arm64LocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a Ubuntu2404 ARM64 node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2Arm64LocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV2 ARM64 node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_MarinerV2Arm64LocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a CBLMarinerV2 ARM64 node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_FlatcarArm64LocalDns_ExporterMetrics(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a Flatcar ARM64 node with localdns enabled exports metrics correctly",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDFlatcarGen2Arm64,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				}
+			},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, "enabled")
+				ValidateLocalDNSExporterMetrics(ctx, s)
+			},
+		},
+	})
+}
+
 
 func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
