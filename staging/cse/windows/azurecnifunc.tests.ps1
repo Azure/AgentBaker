@@ -34,8 +34,22 @@ BeforeAll {
 "@
     }
 
+    # this often doesn't exist in test environment, so create it here so we can mock it later.
+    function New-HnsNetwork {}
+
     Mock Write-Host -MockWith { } -Verifiable
     Mock Start-Sleep -MockWith { } -Verifiable
+
+    $global:KubeClusterConfigPath = [System.IO.Path]::GetTempFileName()
+    Write-Output @"
+{
+    "Kubernetes": {
+        "Kubelet": {
+            "ConfigArgs": ""
+        }
+    }
+}
+"@ | Out-File -FilePath $global:KubeClusterConfigPath
 }
 
 Describe 'GetBroadestRangesForEachAddress' {
