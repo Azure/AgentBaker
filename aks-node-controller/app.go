@@ -222,7 +222,6 @@ func (a *App) run(ctx context.Context, args []string) error {
 }
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *ProvisionResult, err error) {
-	result = &ProvisionResult{}
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("panic recovered in Provision", "panic", r)
@@ -230,11 +229,16 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *Prov
 			err = fmt.Errorf("%s", result.Error)
 		}
 	}()
+	return a.provision(ctx, flags)
+}
+
+func (a *App) provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
+	provisionResult := &ProvisionResult{}
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		result.ExitCode = strconv.Itoa(240)
-		result.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
-		return result, errors.New(result.Error)
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
@@ -254,9 +258,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *Prov
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
 	if config.Version != "v0" && config.Version != "v1" {
-		result.ExitCode = strconv.Itoa(240)
-		result.Error = fmt.Sprintf("unsupported version: %s", config.Version)
-		return result, errors.New(result.Error)
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 
 	if config.Version == "v0" {
@@ -265,9 +269,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *Prov
 
 	cmd, err := parser.BuildCSECmd(ctx, config)
 	if err != nil {
-		result.ExitCode = strconv.Itoa(240)
-		result.Error = fmt.Sprintf("build CSE command: %v", err)
-		return result, errors.New(result.Error)
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
+		return provisionResult, errors.New(provisionResult.Error)
 	}
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
@@ -279,10 +283,10 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *Prov
 	}
 
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
-	result.ExitCode = strconv.Itoa(exitCode)
-	result.Error = fmt.Sprintf("%v", err)
-	result.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
-	return result, err
+	provisionResult.ExitCode = strconv.Itoa(exitCode)
+	provisionResult.Error = fmt.Sprintf("%v", err)
+	provisionResult.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
+	return provisionResult, err
 }
 
 // notifyProvisionComplete writes the provision.json and provision.complete sentinel files,
