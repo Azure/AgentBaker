@@ -31,9 +31,11 @@ installNodeExporter() {
 
     # Reload systemd to pick up service files copied by packer_source.sh, then disable node-exporter.
     # It will be enabled and started by CSE during provisioning via configureNodeExporter()
+    # Note: node-exporter-restart.service has no [Install] section (it's activated by the .path unit),
+    # so we only disable the .service and .path units here.
     echo "[node-exporter] Disabling node-exporter services. Gets systemctlEnableAndStart in CSE"
     systemctl daemon-reload
-    systemctl disable node-exporter.service node-exporter-restart.service node-exporter-restart.path || exit 1
+    systemctl disable node-exporter.service node-exporter-restart.path || exit 1
 
     # Create skip sentinel file to indicate node-exporter was installed from VHD
     mkdir -p /etc/node-exporter.d

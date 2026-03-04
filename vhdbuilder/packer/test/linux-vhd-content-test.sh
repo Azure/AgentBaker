@@ -1565,43 +1565,51 @@ testWALinuxAgentInstalled() {
 testNodeExporter () {
   local test="NodeExporterInstallTest"
   local os_sku="${1}"
+  local skip_file="/etc/node-exporter.d/skip_vhd_node_exporter"
 
   echo "$test: checking if node-exporter was successfully installed"
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
   # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
   if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
-    local skip_file_check="/etc/node-exporter.d/skip_vhd_node_exporter"
-    if [ -f "$skip_file_check" ]; then
-      err "$test" "Skip file $skip_file_check should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
+    if [ -f "$skip_file" ]; then
+      err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
     fi
     echo "$test: Verified skip file does not exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS) - node-exporter correctly not installed"
     return 0
   fi
 
-  # Check for the skip sentinel file - this is essential for e2e testing
-  # If this file doesn't exist, e2e tests will silently skip node-exporter validation. Which is bad.
-  local skip_file="/etc/node-exporter.d/skip_vhd_node_exporter"
+  # At this point we're on Ubuntu or AzureLinux 3.0, both of which have node-exporter installed.
+  # The skip file better exist at this point or we're sad.
   if [ ! -f "$skip_file" ]; then
-    err "$test" "Skip sentinel file $skip_file does not exist - e2e tests will silently skip validation!"
+    err "$test" "Skip sentinel file $skip_file does not exist on $os_sku — install-node-exporter.sh may have failed"
     return 1
   fi
-  echo "$test: Skip sentinel file $skip_file exists (required for e2e test detection)"
+  echo "$test: skip sentinel file exists at $skip_file"
 
-  # Check that the binary exists
+  # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
+  # We then create a symlink at /opt/bin/node-exporter for consistency with
+  # other binaries (kubelet, kubectl) that live in /opt/bin.
+  # Both paths are verified: the real binary and the symlink.
   if [ ! -f "/usr/bin/node-exporter" ]; then
-    err "$test" "node-exporter binary does not exist at /usr/bin/node-exporter"
+    err "$test" "node-exporter binary does not exist at /usr/bin/node-exporter (installed by package manager)"
     return 1
   fi
-  echo "$test: node-exporter binary exists"
+  echo "$test: node-exporter binary exists at /usr/bin/node-exporter"
 
-  # Check that the symlink to /opt/bin exists (consistency with other binaries like kubelet)
   if [ ! -L "/opt/bin/node-exporter" ]; then
     err "$test" "node-exporter symlink does not exist at /opt/bin/node-exporter"
     return 1
   fi
-  echo "$test: node-exporter symlink exists at /opt/bin/node-exporter"
+  # Verify the symlink actually points back to the package-managed binary
+  local symlink_target
+  symlink_target=$(readlink -f /opt/bin/node-exporter)
+  if [ "$symlink_target" != "/usr/bin/node-exporter" ]; then
+    err "$test" "/opt/bin/node-exporter symlink points to $symlink_target, expected /usr/bin/node-exporter"
+    return 1
+  fi
+  echo "$test: node-exporter symlink at /opt/bin/node-exporter -> /usr/bin/node-exporter"
 
   # Check that the startup script exists
   if [ ! -f "/opt/bin/node-exporter-startup.sh" ]; then
