@@ -25,12 +25,21 @@ Describe 'localdns.sh'
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
-            echo ".:5353 {" >> "$LOCALDNS_CORE_FILE"
-            echo "    forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
-            echo "}" >> "$LOCALDNS_CORE_FILE"
-            echo ".:5353 {" >> "$UPDATED_LOCALDNS_CORE_FILE"
-            echo "    forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
-            echo "}" >> "$UPDATED_LOCALDNS_CORE_FILE"
+            # Use production-realistic corefile format with brace syntax
+            cat > "$LOCALDNS_CORE_FILE" <<'EOF'
+.:5353 {
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:5353 {
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -211,6 +220,8 @@ EOF
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            # Ensure brace is NOT captured as an IP in the prom file
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
         End
 
         It 'should create forward_ips.prom file when corefile is updated'
@@ -218,6 +229,8 @@ EOF
             The status should be success
             The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+            # Ensure brace is NOT captured as an IP in the prom file
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
         End
 
         It 'should export VnetDNS forward IP to prom file with correct format'
