@@ -95,6 +95,22 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 		assert.Equal(t, reflect.ValueOf(cmdRunnerDryRun).Pointer(), reflect.ValueOf(app.cmdRun).Pointer())
 	})
+
+	t.Run("provision: panic writes sentinel files and returns error", func(t *testing.T) {
+		dir := t.TempDir()
+		jsonFile := filepath.Join(dir, "provision.json")
+		completeFile := filepath.Join(dir, "provision.complete")
+		app := newTestApp(t, func(*exec.Cmd) error { panic("test panic") })
+		exitCode := app.Run(context.Background(), []string{
+			"aks-node-controller", "provision",
+			"--provision-config=parser/testdata/test_aksnodeconfig.json",
+			"--provision-json-file=" + jsonFile,
+			"--provision-complete-file=" + completeFile,
+		})
+		assert.Equal(t, 1, exitCode)
+		_, err := os.Stat(completeFile)
+		assert.NoError(t, err, "provision.complete should be written after panic")
+	})
 }
 
 // TestApp_ProvisionWait covers the file-watching logic.
@@ -152,8 +168,8 @@ func TestApp_ProvisionWait(t *testing.T) {
 // TestApp_ProvisionThenWait is an integration test covering the full provision → provision-wait flow
 // using custom paths, verifying both commands agree on the same files.
 // Note: in production, provision-wait runs concurrently with provision at an unknown start time.
-// On error, writeCompleteFileOnError writes provision.json + provision.complete eagerly so provision-wait unblocks.
-// On success, the CSE shell script writes those files; we simulate that with a goroutine.
+// On any outcome (success or failure), notifyProvisionComplete writes provision.json + provision.complete
+// so provision-wait unblocks.
 func TestApp_ProvisionThenWait(t *testing.T) {
 	t.Run("provision success → provision-wait succeeds (concurrent)", func(t *testing.T) {
 		dir := t.TempDir()
@@ -174,19 +190,24 @@ func TestApp_ProvisionThenWait(t *testing.T) {
 			})
 		}()
 
-		// Run provision
-		provisionApp := newTestApp(t, nil)
+		// Run provision with a real command so ProcessState is populated and ExitCode is 0.
+		// notifyProvisionComplete writes provision.json + provision.complete on completion,
+		// unblocking provision-wait without any extra goroutine.
+		provisionApp := newTestApp(t, func(cmd *exec.Cmd) error {
+			// Run a no-op subprocess so cmd.ProcessState is set with ExitCode 0.
+			noop := exec.Command("true")
+			if err := noop.Run(); err != nil {
+				return err
+			}
+			cmd.ProcessState = noop.ProcessState
+			return nil
+		})
 		require.Equal(t, 0, provisionApp.Run(context.Background(), []string{
 			"aks-node-controller", "provision",
 			"--provision-config=parser/testdata/test_aksnodeconfig.json",
 			"--provision-json-file=" + jsonFile,
 			"--provision-complete-file=" + completeFile,
 		}))
-
-		// Simulate CSE writing provision.json + provision.complete on success
-		require.NoError(t, os.WriteFile(jsonFile, []byte(`{"ExitCode":"0","Output":"ok","Error":""}`), 0644))
-		_, err := os.Create(completeFile)
-		require.NoError(t, err)
 
 		assert.Equal(t, 0, <-waitDone)
 	})
@@ -274,36 +295,30 @@ func Test_parseFlags(t *testing.T) {
 	})
 }
 
-// Test_writeCompleteFileOnError covers the sentinel file writing behaviour.
-func Test_writeCompleteFileOnError(t *testing.T) {
-	t.Run("no-op on success", func(t *testing.T) {
-		app := newTestApp(t, nil)
-		dir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:     filepath.Join(dir, "provision.json"),
-			ProvisionCompleteFile: filepath.Join(dir, "provision.complete"),
-		}
-		app.writeCompleteFileOnError(p, &ProvisionResult{}, nil)
-		_, err := os.Stat(p.ProvisionCompleteFile)
-		assert.True(t, os.IsNotExist(err))
-	})
-
-	t.Run("writes both files on error, does not overwrite existing provision.json", func(t *testing.T) {
-		app := newTestApp(t, nil)
+// Test_notifyProvisionComplete covers the sentinel file writing behaviour.
+func Test_notifyProvisionComplete(t *testing.T) {
+	t.Run("writes both files", func(t *testing.T) {
 		dir := t.TempDir()
 		p := ProvisionStatusFiles{
 			ProvisionJSONFile:     filepath.Join(dir, "custom", "prov.json"),
 			ProvisionCompleteFile: filepath.Join(dir, "custom", "prov.complete"),
 		}
-		app.writeCompleteFileOnError(p, &ProvisionResult{ExitCode: "240", Error: "fail"}, assert.AnError)
+		p.notifyProvisionComplete(&ProvisionResult{ExitCode: "240", Error: "fail"})
 		_, err := os.Stat(p.ProvisionJSONFile)
 		assert.NoError(t, err)
 		_, err = os.Stat(p.ProvisionCompleteFile)
 		assert.NoError(t, err)
+	})
 
-		// Write again — existing provision.json must not be overwritten
+	t.Run("idempotent: second call does not overwrite provision.json", func(t *testing.T) {
+		dir := t.TempDir()
+		p := ProvisionStatusFiles{
+			ProvisionJSONFile:     filepath.Join(dir, "custom", "prov.json"),
+			ProvisionCompleteFile: filepath.Join(dir, "custom", "prov.complete"),
+		}
+		p.notifyProvisionComplete(&ProvisionResult{ExitCode: "240", Error: "fail"})
 		original, _ := os.ReadFile(p.ProvisionJSONFile)
-		app.writeCompleteFileOnError(p, &ProvisionResult{ExitCode: "1"}, assert.AnError)
+		p.notifyProvisionComplete(&ProvisionResult{ExitCode: "1"})
 		after, _ := os.ReadFile(p.ProvisionJSONFile)
 		assert.Equal(t, original, after)
 	})

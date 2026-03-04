@@ -44,7 +44,7 @@ func getCommandRegistry() map[string]commandMetadata {
 			handler: func(a *App, ctx context.Context, args []string) error {
 				statusFiles, flags, err := parseProvisionFlags(args)
 				if err != nil {
-					a.writeCompleteFileOnError(statusFiles, &ProvisionResult{ExitCode: "240", Error: err.Error()}, err)
+					statusFiles.notifyProvisionComplete(&ProvisionResult{ExitCode: "240", Error: err.Error()})
 					return err
 				}
 				if a.eventLogger == nil {
@@ -57,8 +57,7 @@ func getCommandRegistry() map[string]commandMetadata {
 					a.cmdRun = cmdRunnerDryRun
 				}
 				provisionResult, err := a.Provision(ctx, flags)
-				// Always notify after provisioning attempt (success is a no-op inside notifier)
-				a.writeCompleteFileOnError(flags.ProvisionStatusFiles, provisionResult, err)
+				flags.ProvisionStatusFiles.notifyProvisionComplete(provisionResult)
 				endTime := time.Now()
 				if err != nil {
 					message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
@@ -153,11 +152,12 @@ func parseProvisionFlags(args []string) (ProvisionStatusFiles, ProvisionFlags, e
 	if err := fs.Parse(args); err != nil {
 		return statusFiles(), ProvisionFlags{}, fmt.Errorf("parse args: %w", err)
 	}
+
+	configureLogging(*logPath)
+
 	if *provisionConfig == "" {
 		return statusFiles(), ProvisionFlags{}, errors.New("--provision-config is required")
 	}
-
-	configureLogging(*logPath)
 
 	return statusFiles(), ProvisionFlags{
 		ProvisionConfig: *provisionConfig,
@@ -221,13 +221,20 @@ func (a *App) run(ctx context.Context, args []string) error {
 	return cmd.handler(a, ctx, args[2:])
 }
 
-func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
-	provisionResult := &ProvisionResult{}
+func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (result *ProvisionResult, err error) {
+	result = &ProvisionResult{}
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic recovered in Provision", "panic", r)
+			result = &ProvisionResult{ExitCode: "240", Error: fmt.Sprintf("panic during provisioning: %v", r)}
+			err = fmt.Errorf("%s", result.Error)
+		}
+	}()
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
-		return provisionResult, errors.New(provisionResult.Error)
+		result.ExitCode = strconv.Itoa(240)
+		result.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
+		return result, errors.New(result.Error)
 	}
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
@@ -247,9 +254,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
 	if config.Version != "v0" && config.Version != "v1" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
-		return provisionResult, errors.New(provisionResult.Error)
+		result.ExitCode = strconv.Itoa(240)
+		result.Error = fmt.Sprintf("unsupported version: %s", config.Version)
+		return result, errors.New(result.Error)
 	}
 
 	if config.Version == "v0" {
@@ -258,9 +265,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 
 	cmd, err := parser.BuildCSECmd(ctx, config)
 	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
-		return provisionResult, errors.New(provisionResult.Error)
+		result.ExitCode = strconv.Itoa(240)
+		result.Error = fmt.Sprintf("build CSE command: %v", err)
+		return result, errors.New(result.Error)
 	}
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
@@ -272,44 +279,41 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	}
 
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
-	provisionResult.ExitCode = strconv.Itoa(exitCode)
-	provisionResult.Error = fmt.Sprintf("%v", err)
-	provisionResult.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
-	return provisionResult, err
+	result.ExitCode = strconv.Itoa(exitCode)
+	result.Error = fmt.Sprintf("%v", err)
+	result.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
+	return result, err
 }
 
-// writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
-// allowing provision-wait mode to unblock early on fail-fast validation errors.
-func (a *App) writeCompleteFileOnError(filepaths ProvisionStatusFiles, provisionResult *ProvisionResult, err error) {
-	if err == nil {
-		return
-	}
-	if _, statErr := os.Stat(filepaths.ProvisionJSONFile); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
-		data, err := json.Marshal(provisionResult)
+// notifyProvisionComplete writes the provision.json and provision.complete sentinel files,
+// unblocking provision-wait. Both writes are idempotent: existing files are not overwritten.
+func (sf ProvisionStatusFiles) notifyProvisionComplete(result *ProvisionResult) {
+	if _, statErr := os.Stat(sf.ProvisionJSONFile); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+		data, err := json.Marshal(result)
 		if err != nil {
 			slog.Error("failed to marshal provision result", "error", err)
 		}
-		baseDir := filepath.Dir(filepaths.ProvisionJSONFile)
+		baseDir := filepath.Dir(sf.ProvisionJSONFile)
 		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
 			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
 		}
-		if writeErr := os.WriteFile(filepaths.ProvisionJSONFile, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", filepaths.ProvisionJSONFile, "error", writeErr)
+		if writeErr := os.WriteFile(sf.ProvisionJSONFile, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", sf.ProvisionJSONFile, "error", writeErr)
 		}
 	}
-	if _, statErr := os.Stat(filepaths.ProvisionCompleteFile); statErr == nil {
+	if _, statErr := os.Stat(sf.ProvisionCompleteFile); statErr == nil {
 		return // already exists
-	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", filepaths.ProvisionCompleteFile, "error", statErr)
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		slog.Error("failed to stat provision.complete file", "path", sf.ProvisionCompleteFile, "error", statErr)
 		return
 	}
-	completeDir := filepath.Dir(filepaths.ProvisionCompleteFile)
+	completeDir := filepath.Dir(sf.ProvisionCompleteFile)
 	if writeErr := os.MkdirAll(completeDir, 0755); writeErr != nil {
 		slog.Error("failed to create directory for provision.complete file", "path", completeDir, "error", writeErr)
 		return
 	}
-	if writeErr := os.WriteFile(filepaths.ProvisionCompleteFile, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", filepaths.ProvisionCompleteFile, "error", writeErr)
+	if writeErr := os.WriteFile(sf.ProvisionCompleteFile, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", sf.ProvisionCompleteFile, "error", writeErr)
 	}
 }
 
