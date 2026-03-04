@@ -2225,10 +2225,10 @@ Describe 'New-ExternalHnsNetwork' {
             $script:gateCallCount = 0
             Mock Get-NetIPAddress -MockWith {
                 param(
+                    [string]$IPAddress,
                     [string]$InterfaceAlias,
                     [string]$AddressFamily,
-                    [System.Management.Automation.ActionPreference]$ErrorAction,
-                    [string]$IPAddress
+                    [System.Management.Automation.ActionPreference]$ErrorAction
                 )
                 $script:gateCallCount++
                 # Return APIPA for first 2 gate checks, then return stable IP
@@ -2255,10 +2255,10 @@ Describe 'New-ExternalHnsNetwork' {
 
             Mock Get-NetIPAddress -MockWith {
                 param(
+                    [string]$IPAddress,
                     [string]$InterfaceAlias,
                     [string]$AddressFamily,
-                    [System.Management.Automation.ActionPreference]$ErrorAction,
-                    [string]$IPAddress
+                    [System.Management.Automation.ActionPreference]$ErrorAction
                 )
                 # Gate checks (with InterfaceAlias): always return APIPA to simulate timeout
                 if ($InterfaceAlias -eq "Ethernet") {
