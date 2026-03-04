@@ -408,8 +408,22 @@ else
 
         # Use /proc filesystem for portability (works on all distros without lsof)
         # Check socket types by examining /proc/$PID/fd and using ss to inspect socket details
+        #
+        # Note: Socket-activated services inherit the accepted connection as stdin/stdout (fd 0/1).
+        # This inherited socket is AF_INET but is expected and allowed. We only care about
+        # NEW sockets the service creates, not the inherited activation socket.
         NETWORK_SOCKETS=0
+        INHERITED_SOCKET_INODE=""
+
         if [ -d "/proc/$INSTANCE_PID/fd" ]; then
+            # Find the stdin socket inode (the inherited activation socket)
+            if [ -L "/proc/$INSTANCE_PID/fd/0" ]; then
+                STDIN_TARGET=$(readlink "/proc/$INSTANCE_PID/fd/0" 2>/dev/null || echo "")
+                if [[ "$STDIN_TARGET" =~ ^socket:\[([0-9]+)\]$ ]]; then
+                    INHERITED_SOCKET_INODE="${BASH_REMATCH[1]}"
+                fi
+            fi
+
             # Iterate through file descriptors to find sockets
             for fd in /proc/"$INSTANCE_PID"/fd/*; do
                 if [ -L "$fd" ]; then
@@ -417,11 +431,17 @@ else
                     # Check if it's a socket (starts with "socket:[")
                     if [[ "$FD_TARGET" =~ ^socket:\[([0-9]+)\]$ ]]; then
                         SOCKET_INODE="${BASH_REMATCH[1]}"
+
+                        # Skip the inherited stdin/stdout socket from socket activation
+                        if [ -n "$INHERITED_SOCKET_INODE" ] && [ "$SOCKET_INODE" = "$INHERITED_SOCKET_INODE" ]; then
+                            continue
+                        fi
+
                         # Use ss to check if this socket is TCP/UDP (network socket)
                         # ss -xpn shows unix sockets, ss -tupn shows TCP/UDP sockets
                         if ss -tupn 2>/dev/null | grep -q "inode:$SOCKET_INODE"; then
                             NETWORK_SOCKETS=$((NETWORK_SOCKETS + 1))
-                            echo "   Found network socket: inode=$SOCKET_INODE"
+                            echo "   Found unexpected network socket: inode=$SOCKET_INODE"
                         fi
                     fi
                 fi
@@ -431,10 +451,10 @@ else
         fi
 
         if [ "$NETWORK_SOCKETS" != "0" ]; then
-            echo "   ❌ ERROR: Instance has $NETWORK_SOCKETS network socket(s) (RestrictAddressFamilies not enforced)"
+            echo "   ❌ ERROR: Instance has $NETWORK_SOCKETS unexpected network socket(s) (RestrictAddressFamilies not enforced)"
             exit 1
         fi
-        echo "   ✓ No network sockets (AF_UNIX only, restriction enforced)"
+        echo "   ✓ No unexpected network sockets (AF_UNIX only, restriction enforced)"
         echo ""
 
         # Step 15: Verify namespace isolation (RestrictNamespaces runtime enforcement)
