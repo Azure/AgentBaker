@@ -32,7 +32,7 @@ type App struct {
 // commandMetadata holds all metadata for a command in one place.
 type commandMetadata struct {
 	taskName string
-	handler  func(*App, context.Context, []string) (func(), error)
+	handler  func(*App, context.Context, []string) error
 }
 
 // getCommandRegistry returns the command registry mapping command names to their metadata.
@@ -41,10 +41,10 @@ func getCommandRegistry() map[string]commandMetadata {
 	return map[string]commandMetadata{
 		"provision": {
 			taskName: "Provision",
-			handler: func(a *App, ctx context.Context, args []string) (func(), error) {
-				flags, cleanup, err := parseProvisionFlags(args)
+			handler: func(a *App, ctx context.Context, args []string) error {
+				flags, err := parseProvisionFlags(args)
 				if err != nil {
-					return cleanup, err
+					return err
 				}
 				if a.eventLogger == nil {
 					a.eventLogger = helpers.NewEventLogger(flags.EventsDir)
@@ -55,15 +55,15 @@ func getCommandRegistry() map[string]commandMetadata {
 				provisionResult, err := a.Provision(ctx, flags)
 				// Always notify after provisioning attempt (success is a no-op inside notifier)
 				a.writeCompleteFileOnError(flags.ProvisionStatusFiles, provisionResult, err)
-				return cleanup, err
+				return err
 			},
 		},
 		"provision-wait": {
 			taskName: "ProvisionWait",
-			handler: func(a *App, ctx context.Context, args []string) (func(), error) {
-				flags, cleanup, err := parseProvisionWaitFlags(args)
+			handler: func(a *App, ctx context.Context, args []string) error {
+				flags, err := parseProvisionWaitFlags(args)
 				if err != nil {
-					return cleanup, err
+					return err
 				}
 				if a.eventLogger == nil {
 					a.eventLogger = helpers.NewEventLogger(flags.EventsDir)
@@ -72,7 +72,7 @@ func getCommandRegistry() map[string]commandMetadata {
 				//nolint:forbidigo // stdout is part of the interface
 				fmt.Println(provisionOutput)
 				slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-				return cleanup, err
+				return err
 			},
 		},
 	}
@@ -111,7 +111,7 @@ type ProvisionStatusFiles struct {
 	ProvisionCompleteFile string
 }
 
-func parseProvisionFlags(args []string) (ProvisionFlags, func(), error) {
+func parseProvisionFlags(args []string) (ProvisionFlags, error) {
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
 	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
@@ -120,15 +120,14 @@ func parseProvisionFlags(args []string) (ProvisionFlags, func(), error) {
 	provisionJSONFile := fs.String("provision-json-file", defaultProvisionJSONFilePath, "path to the provision.json status file")
 	provisionCompleteFile := fs.String("provision-complete-file", defaultProvisionCompleteFilePath, "path to the provision.complete sentinel file")
 
-	noop := func() {}
 	if err := fs.Parse(args); err != nil {
-		return ProvisionFlags{}, noop, fmt.Errorf("parse args: %w", err)
+		return ProvisionFlags{}, fmt.Errorf("parse args: %w", err)
 	}
 	if *provisionConfig == "" {
-		return ProvisionFlags{}, noop, errors.New("--provision-config is required")
+		return ProvisionFlags{}, errors.New("--provision-config is required")
 	}
 
-	cleanup := configureLogging(*logPath)
+	configureLogging(*logPath)
 
 	return ProvisionFlags{
 		ProvisionConfig: *provisionConfig,
@@ -138,22 +137,21 @@ func parseProvisionFlags(args []string) (ProvisionFlags, func(), error) {
 			ProvisionJSONFile:     *provisionJSONFile,
 			ProvisionCompleteFile: *provisionCompleteFile,
 		},
-	}, cleanup, nil
+	}, nil
 }
 
-func parseProvisionWaitFlags(args []string) (ProvisionWaitFlags, func(), error) {
+func parseProvisionWaitFlags(args []string) (ProvisionWaitFlags, error) {
 	fs := flag.NewFlagSet("provision-wait", flag.ContinueOnError)
 	logPath := fs.String("log-path", defaultLogPath, "path to the log file")
 	eventsDir := fs.String("events-dir", defaultEventsDir, "path to the events directory")
 	provisionJSONFile := fs.String("provision-json-file", defaultProvisionJSONFilePath, "path to the provision.json status file")
 	provisionCompleteFile := fs.String("provision-complete-file", defaultProvisionCompleteFilePath, "path to the provision.complete sentinel file")
 
-	noop := func() {}
 	if err := fs.Parse(args); err != nil {
-		return ProvisionWaitFlags{}, noop, fmt.Errorf("parse args: %w", err)
+		return ProvisionWaitFlags{}, fmt.Errorf("parse args: %w", err)
 	}
 
-	cleanup := configureLogging(*logPath)
+	configureLogging(*logPath)
 
 	return ProvisionWaitFlags{
 		EventsDir: *eventsDir,
@@ -161,7 +159,7 @@ func parseProvisionWaitFlags(args []string) (ProvisionWaitFlags, func(), error) 
 			ProvisionJSONFile:     *provisionJSONFile,
 			ProvisionCompleteFile: *provisionCompleteFile,
 		},
-	}, cleanup, nil
+	}, nil
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
@@ -192,12 +190,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 
 	startTime := time.Now()
 
-	cleanup, err := func() (func(), error) {
-		return cmd.handler(a, ctx, args[2:])
-	}()
-	if cleanup != nil {
-		defer cleanup()
-	}
+	err := cmd.handler(a, ctx, args[2:])
 
 	endTime := time.Now()
 	if a.eventLogger != nil {

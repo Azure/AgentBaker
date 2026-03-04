@@ -17,7 +17,7 @@ func main() {
 	os.Exit(exitCode)
 }
 
-func configureLogging(logPath string) func() {
+func configureLogging(logPath string) {
 	resolvedPath := resolveLogPath(logPath)
 
 	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0755); err != nil {
@@ -35,13 +35,6 @@ func configureLogging(logPath string) func() {
 	mw := io.MultiWriter(logFile, os.Stderr)
 	logger := slog.New(slog.NewJSONHandler(mw, nil))
 	slog.SetDefault(logger)
-	return func() {
-		err := logFile.Close()
-		if err != nil {
-			// stdout is important, don't pollute with non-important warnings
-			_, _ = fmt.Fprintf(os.Stderr, "failed to close log file: %s\n", err)
-		}
-	}
 }
 
 func resolveLogPath(logPath string) string {
