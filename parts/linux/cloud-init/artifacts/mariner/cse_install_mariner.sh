@@ -442,7 +442,7 @@ installRPMPackageFromFile() {
     downloadDir="$(getPackageDownloadDir "${packageName}")"
     local rpmPattern="${packageName}-${desiredVersion}"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" 2>/dev/null | sort -V | tail -n 1)
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
@@ -457,7 +457,7 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" 2>/dev/null | sort -V | tail -n 1)
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
@@ -479,7 +479,8 @@ installRPMPackageFromFile() {
 
       case "${cachedBaseName}" in
         ${packageName}-${desiredVersion}-*.rpm)
-          rpmArgs+=("${cachedRpm}")
+          # skip alternate release versions of the same package to avoid dnf conflicts
+          echo "Skipping duplicate release of ${packageName} rpm ${cachedBaseName}"
           continue
           ;;
         ${packageName}-*.rpm)

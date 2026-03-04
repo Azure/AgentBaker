@@ -78,6 +78,30 @@ Describe 'cse_install_mariner.sh'
             The output should include "dnf install 30 1 600 $kubeletRpm"
             The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
         End
+
+        It 'does not pass duplicate release versions to dnf causing conflicts'
+            desiredVersion="1.34.3"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            release1="$rpmDir/kubelet-1.34.3-1.azl3.x86_64.rpm"
+            release2="$rpmDir/kubelet-1.34.3-2.azl3.x86_64.rpm"
+            touch "$release1"
+            touch "$release2"
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+            # sort -V | tail -n 1 should pick the latest release as the primary RPM
+            The output should include "dnf install 30 1 600 $release2"
+            # the older release should be skipped, not added as a dependency
+            The output should include "Skipping duplicate release of kubelet rpm"
+            The output should not include "$release1"
+        End
+
+        It 'returns failure when no cached RPM is found and dnf list finds no version'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf() { echo ""; }
+            desiredVersion="1.99.0"
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+            The output should include "Failed to find valid kubelet version for 1.99.0"
+            The status should equal 1
+        End
     End
 
     Describe 'should_use_nvidia_open_drivers'
