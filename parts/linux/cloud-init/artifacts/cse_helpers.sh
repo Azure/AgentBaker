@@ -587,11 +587,7 @@ getSystemdArch() {
 }
 
 isARM64() {
-    if [ "$(getCPUArch)" = "arm64" ]; then
-        echo 1
-    else
-        echo 0
-    fi
+    [ "$(getCPUArch)" = "arm64" ]
 }
 
 isRegistryUrl() {
