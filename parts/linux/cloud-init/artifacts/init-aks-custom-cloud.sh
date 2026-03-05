@@ -1,5 +1,9 @@
 #!/bin/bash
 set -x
+
+# Running first-time or as a cron job?
+action=${1:-init}
+
 mkdir -p /root/AzureCACertificates
 
 IS_MARINER=0
@@ -176,15 +180,24 @@ IFS=$IFS_backup
 # hardening: ensure the ca trust store is empty initially and only the WIRESERVER is the source of truth
 if [ "${IS_MARINER}" -eq 1 ] || [ "${IS_AZURELINUX}" -eq 1 ] || [ "${IS_ACL}" -eq 1 ]; then
     if [ "$action" = "init" ]; then
+        echo "Clearing existing CA trust store to ensure only certs from wireserver are trusted"
         rm -rf /etc/pki/ca-trust/source/anchors/*
     fi
     # Keep Mariner/AzureLinux trust store behavior aligned with prior scripts.
     cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
     update-ca-trust
 elif [ "${IS_FLATCAR}" -eq 1 ]; then
+    if [ "$action" = "init" ]; then
+        echo "Clearing existing CA trust store to ensure only certs from wireserver are trusted"
+        rm -rf /etc/ssl/certs/*
+    fi
     cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
     update-ca-certificates
 else
+    if [ "$action" = "init" ]; then
+        echo "Clearing existing CA trust store to ensure only certs from wireserver are trusted"
+        rm -rf /usr/local/share/ca-certificates/*
+    fi
     cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
     update-ca-certificates
 
@@ -194,10 +207,10 @@ fi
 
 # This section creates a cron job to poll for refreshed CA certs daily
 # It can be removed if not needed or desired
-action=${1:-init}
 if [ "$action" = "ca-refresh" ]; then
     exit
 fi
+
 function init_mariner_repo_depot {
     local repodepot_endpoint=$1
     echo "Adding [extended] repo"
