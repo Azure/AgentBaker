@@ -423,7 +423,7 @@ function init_ubuntu_pmc_repo_depot {
     add_ms_keys $repodepot_endpoint
 }
 
-if { [[ "$IS_MARINER" -eq 1 ]] || [[ "$IS_AZURELINUX" -eq 1 ]]; }; then
+if [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
     marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
     if [ -z "$marinerRepoDepotEndpoint" ]; then
       >&2 echo "repo depot endpoint empty while running custom-cloud init script"
@@ -569,7 +569,7 @@ EOF
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
     systemctl restart chrony
-elif { [[ "$IS_MARINER" -eq 1 ]] || [[ "$IS_AZURELINUX" -eq 1 ]] || [[ "$IS_FLATCAR" -eq 1 ]]; }; then
+elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ] || [ "$IS_FLATCAR" -eq 1 ]; then
     systemctl restart chronyd
 fi
 fi # end of IS_ACL skip block
