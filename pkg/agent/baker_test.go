@@ -977,7 +977,7 @@ testdomain567.com:53 {
 		Expect(err).To(BeNil())
 
 		var customDataBytes []byte
-		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() {
+		if config.AgentPoolProfile.IsWindows() || config.IsFlatcar() || config.IsACL() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
@@ -1652,6 +1652,34 @@ oom_score = -999
 		}, nil),
 		Entry("Flatcar with custom cloud", "Flatcar+CustomCloud+USSec", "1.33.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "Flatcar"
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Location = "ussecwest"
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+		Entry("ACL", "ACL", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSACLGen2TL
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		}, nil),
+		Entry("ACL with custom cloud", "ACL+CustomCloud", "1.32.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSACLGen2TL
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+		}, nil),
+		Entry("ACL with custom cloud USSec", "ACL+CustomCloud+USSec", "1.33.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSACLGen2TL
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
@@ -2433,7 +2461,7 @@ func backfillCustomData(folder, customData string) {
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
-	if strings.Contains(folder, "Flatcar") {
+	if strings.Contains(folder, "Flatcar") || strings.Contains(folder, "ACL") {
 		err := writeInnerCustomData(fmt.Sprintf("testdata/%s/CustomData.inner", folder), customData)
 		Expect(err).To(BeNil())
 		return
