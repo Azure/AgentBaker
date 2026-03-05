@@ -2,7 +2,7 @@
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 FLATCAR_OS_NAME="FLATCAR"
-ACL_OS_NAME="ACL"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
