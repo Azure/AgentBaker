@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"math/rand"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -284,40 +286,20 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
-	for _, distro := range AKSDistrosAvailableOnVHD {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2404Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2404Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
-	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
 func (d Distro) IsKataDistro() bool {
@@ -325,12 +307,7 @@ func (d Distro) IsKataDistro() bool {
 }
 
 func (d Distro) IsFlatcarDistro() bool {
-	for _, distro := range AvailableFlatcarDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableFlatcarDistros, d)
 }
 
 func (d Distro) IsACLDistro() bool {
@@ -343,12 +320,7 @@ func (d Distro) IsACLDistro() bool {
 }
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
-	for _, distro := range AvailableAzureLinuxOSGuardDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
 }
 
 /*
@@ -419,7 +391,7 @@ type CustomCloudEnv struct {
 	ContainerRegistryDNSSuffix   string              `json:"containerRegistryDNSSuffix,omitempty"`
 	CosmosDBDNSSuffix            string              `json:"cosmosDBDNSSuffix,omitempty"`
 	TokenAudience                string              `json:"tokenAudience,omitempty"`
-	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers,omitempty"`
+	ResourceIdentifiers          ResourceIdentifiers `json:"resourceIdentifiers"`
 }
 
 // FeatureFlags defines feature-flag restricted functionality.
@@ -505,7 +477,7 @@ type CertificateProfile struct {
 // ServicePrincipalProfile contains the client and secret used by the cluster for Azure Resource CRUD.
 type ServicePrincipalProfile struct {
 	ClientID          string             `json:"clientId"`
-	Secret            string             `json:"secret,omitempty" conform:"redact"`
+	Secret            string             `json:"secret,omitempty" conform:"redact"` //nolint: gosec
 	ObjectID          string             `json:"objectId,omitempty"`
 	KeyvaultSecretRef *KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
 }
@@ -1180,7 +1152,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
+		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1246,8 +1218,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+	fmt.Fprintf(&buf, "agentpool=%s", a.Name)
+	fmt.Fprintf(&buf, ",kubernetes.azure.com/agentpool=%s", a.Name)
 
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
@@ -1255,7 +1227,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		fmt.Fprintf(&buf, ",%s=%s", key, a.CustomNodeLabels[key])
 	}
 	return buf.String()
 }
@@ -1585,9 +1557,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
 			config := kubeletCustomConfiguration.Config
-			for k, v := range config {
-				kubeletConfig[k] = v
-			}
+			maps.Copy(kubeletConfig, config)
 		}
 	}
 
@@ -1609,7 +1579,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1639,9 +1609,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	kubeProxyCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(ComponentkubeProxy)
 	if kubeProxyCustomConfiguration != nil {
 		customConfig := kubeProxyCustomConfiguration.Config
-		for k, v := range customConfig {
-			kubeproxyConfig[k] = v
-		}
+		maps.Copy(kubeproxyConfig, customConfig)
 	}
 	keys := []string{}
 	for key := range kubeproxyConfig {
@@ -1650,7 +1618,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }

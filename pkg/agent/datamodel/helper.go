@@ -66,7 +66,7 @@ func GetOrderedEscapedKeyValsString(config map[string]string) string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, config[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -86,7 +86,7 @@ func IndentString(original string, spaces int) string {
 	out := bytes.NewBuffer(nil)
 	scanner := bufio.NewScanner(strings.NewReader(original))
 	for scanner.Scan() {
-		for i := 0; i < spaces; i++ {
+		for range spaces {
 			out.WriteString(" ")
 		}
 		out.WriteString(scanner.Text())

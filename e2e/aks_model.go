@@ -78,7 +78,7 @@ func getLatestKubernetesVersionClusterModel(ctx context.Context, name, location,
 		return nil, fmt.Errorf("failed to get latest GA Kubernetes version: %w", err)
 	}
 	model := getBaseClusterModel(name, location, k8sSystemPoolSKU)
-	model.Properties.KubernetesVersion = to.Ptr(version)
+	model.Properties.KubernetesVersion = new(version)
 	return model, nil
 }
 
@@ -104,15 +104,15 @@ func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSK
 	}
 
 	networkProfile := model.Properties.NetworkProfile
-	networkProfile.PodCidr = to.Ptr("10.244.0.0/16")
+	networkProfile.PodCidr = new("10.244.0.0/16")
 	networkProfile.PodCidrs = []*string{
 		networkProfile.PodCidr,
-		to.Ptr("fd12:3456:789a::/64 "),
+		new("fd12:3456:789a::/64 "),
 	}
-	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidr = new("10.0.0.0/16")
 	networkProfile.ServiceCidrs = []*string{
 		networkProfile.ServiceCidr,
-		to.Ptr("fd12:3456:789a:1::/108"),
+		new("fd12:3456:789a:1::/108"),
 	}
 
 	networkProfile.PodCidr = nil
@@ -148,15 +148,15 @@ func getCiliumNetworkClusterModel(name, location, k8sSystemPoolSKU string) *armc
 
 func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcontainerservice.ManagedCluster {
 	return &armcontainerservice.ManagedCluster{
-		Name:     to.Ptr(clusterName),
-		Location: to.Ptr(location),
+		Name:     new(clusterName),
+		Location: new(location),
 		Properties: &armcontainerservice.ManagedClusterProperties{
-			DNSPrefix: to.Ptr(clusterName),
+			DNSPrefix: new(clusterName),
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
 				{
-					Name:         to.Ptr("nodepool1"),
+					Name:         new("nodepool1"),
 					Count:        to.Ptr[int32](1),
-					VMSize:       to.Ptr(k8sSystemPoolSKU),
+					VMSize:       new(k8sSystemPoolSKU),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
@@ -173,15 +173,15 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 			},
 			AddonProfiles: map[string]*armcontainerservice.ManagedClusterAddonProfile{
 				"omsagent": {
-					Enabled: to.Ptr(false),
+					Enabled: new(false),
 				},
 			},
 			LinuxProfile: &armcontainerservice.LinuxProfile{
-				AdminUsername: to.Ptr("azureuser"),
+				AdminUsername: new("azureuser"),
 				SSH: &armcontainerservice.SSHConfiguration{
 					PublicKeys: []*armcontainerservice.SSHPublicKey{
 						{
-							KeyData: to.Ptr(string(config.SysSSHPublicKey)),
+							KeyData: new(string(config.SysSSHPublicKey)),
 						},
 					},
 				},
@@ -201,8 +201,8 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 
 	// Application rule for AKS FQDN tags
 	aksAppRule := armnetwork.AzureFirewallApplicationRule{
-		Name:            to.Ptr("aks-fqdn"),
-		SourceAddresses: []*string{to.Ptr("*")},
+		Name:            new("aks-fqdn"),
+		SourceAddresses: []*string{new("*")},
 		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
 			{
 				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTP),
@@ -213,55 +213,55 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 				Port:         to.Ptr[int32](443),
 			},
 		},
-		FqdnTags: []*string{to.Ptr("AzureKubernetesService")},
+		FqdnTags: []*string{new("AzureKubernetesService")},
 	}
 
 	// needed for scriptless e2e hack
 	blobStorageFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
 	blobStorageAppRule := armnetwork.AzureFirewallApplicationRule{
-		Name:            to.Ptr("blob-storage-fqdn"),
-		SourceAddresses: []*string{to.Ptr("*")},
+		Name:            new("blob-storage-fqdn"),
+		SourceAddresses: []*string{new("*")},
 		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
 			{
 				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
 				Port:         to.Ptr[int32](443),
 			},
 		},
-		TargetFqdns: []*string{to.Ptr(blobStorageFqdn)},
+		TargetFqdns: []*string{new(blobStorageFqdn)},
 	}
 
 	// needed for Mock Azure China Cloud tests
 	mooncakeMAR := "mcr.azure.cn"
 	mooncakeMARData := "*.data.mcr.azure.cn"
 	mooncakeMARRule := armnetwork.AzureFirewallApplicationRule{
-		Name:            to.Ptr("mooncake-mar-fqdn"),
-		SourceAddresses: []*string{to.Ptr("*")},
+		Name:            new("mooncake-mar-fqdn"),
+		SourceAddresses: []*string{new("*")},
 		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
 			{
 				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
 				Port:         to.Ptr[int32](443),
 			},
 		},
-		TargetFqdns: []*string{to.Ptr(mooncakeMAR), to.Ptr(mooncakeMARData)},
+		TargetFqdns: []*string{new(mooncakeMAR), new(mooncakeMARData)},
 	}
 
 	// Needed for access to download.microsoft.com
 	// This is currently only needed by the Supernova (MA35D) SKU GPU tests
 	// Driver install code in setupAmdAma() depends on this
 	dmcRule := armnetwork.AzureFirewallApplicationRule{
-		Name:            to.Ptr("dmc-fqdn"),
-		SourceAddresses: []*string{to.Ptr("*")},
+		Name:            new("dmc-fqdn"),
+		SourceAddresses: []*string{new("*")},
 		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
 			{
 				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
 				Port:         to.Ptr[int32](443),
 			},
 		},
-		TargetFqdns: []*string{to.Ptr("download.microsoft.com")},
+		TargetFqdns: []*string{new("download.microsoft.com")},
 	}
 
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
-		Name: to.Ptr("aksfwar"),
+		Name: new("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
 			Priority: to.Ptr[int32](100),
 			Action: &armnetwork.AzureFirewallRCAction{
@@ -273,13 +273,13 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 
 	ipConfigurations := []*armnetwork.AzureFirewallIPConfiguration{
 		{
-			Name: to.Ptr("firewall-ip-config"),
+			Name: new("firewall-ip-config"),
 			Properties: &armnetwork.AzureFirewallIPConfigurationPropertiesFormat{
 				Subnet: &armnetwork.SubResource{
-					ID: to.Ptr(firewallSubnetID),
+					ID: new(firewallSubnetID),
 				},
 				PublicIPAddress: &armnetwork.SubResource{
-					ID: to.Ptr(publicIPID),
+					ID: new(publicIPID),
 				},
 			},
 		},
@@ -287,7 +287,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 
 	toolkit.Logf(ctx, "Firewall rules configured successfully")
 	return &armnetwork.AzureFirewall{
-		Location: to.Ptr(location),
+		Location: new(location),
 		Properties: &armnetwork.AzureFirewallPropertiesFormat{
 			ApplicationRuleCollections: []*armnetwork.AzureFirewallApplicationRuleCollection{&appRuleCollection},
 			NetworkRuleCollections:     netRuleCollections,
@@ -323,7 +323,7 @@ func addFirewallRules(
 	firewallSubnetName := "AzureFirewallSubnet"
 	firewallSubnetParams := armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("10.225.0.0/24"), // Use a different CIDR that doesn't overlap with 10.224.0.0/16
+			AddressPrefix: new("10.225.0.0/24"), // Use a different CIDR that doesn't overlap with 10.224.0.0/16
 		},
 	}
 
@@ -351,7 +351,7 @@ func addFirewallRules(
 	// Create public IP for the firewall
 	publicIPName := "abe2e-fw-pip"
 	publicIPParams := armnetwork.PublicIPAddress{
-		Location: to.Ptr(location),
+		Location: new(location),
 		SKU: &armnetwork.PublicIPAddressSKU{
 			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
 		},
@@ -405,28 +405,28 @@ func addFirewallRules(
 	}
 
 	routeTableParams := armnetwork.RouteTable{
-		Location: to.Ptr(location),
+		Location: new(location),
 		Properties: &armnetwork.RouteTablePropertiesFormat{
 			Routes: []*armnetwork.Route{
 				// Allow internal VNet traffic to bypass the firewall
 				{
-					Name: to.Ptr("vnet-local"),
+					Name: new("vnet-local"),
 					Properties: &armnetwork.RoutePropertiesFormat{
-						AddressPrefix: to.Ptr("10.224.0.0/16"), // AKS subnet CIDR
+						AddressPrefix: new("10.224.0.0/16"), // AKS subnet CIDR
 						NextHopType:   to.Ptr(armnetwork.RouteNextHopTypeVnetLocal),
 					},
 				},
 				// Route all other traffic (internet-bound) through the firewall
 				{
-					Name: to.Ptr("default-route-to-firewall"),
+					Name: new("default-route-to-firewall"),
 					Properties: &armnetwork.RoutePropertiesFormat{
-						AddressPrefix:    to.Ptr("0.0.0.0/0"),
+						AddressPrefix:    new("0.0.0.0/0"),
 						NextHopType:      to.Ptr(armnetwork.RouteNextHopTypeVirtualAppliance),
-						NextHopIPAddress: to.Ptr(firewallPrivateIP),
+						NextHopIPAddress: new(firewallPrivateIP),
 					},
 				},
 			},
-			DisableBgpRoutePropagation: to.Ptr(true),
+			DisableBgpRoutePropagation: new(true),
 		},
 	}
 
@@ -534,9 +534,9 @@ func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainers
 	}
 
 	subnetParameters := armnetwork.Subnet{
-		ID: to.Ptr(subnetId),
+		ID: new(subnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("10.224.0.0/16"),
+			AddressPrefix: new("10.224.0.0/16"),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID: nsg.ID,
 			},
@@ -557,29 +557,29 @@ func networkIsolatedSecurityGroup(location, clusterFQDN string) (armnetwork.Secu
 	}
 
 	allowVnet := &armnetwork.SecurityRule{
-		Name: to.Ptr("AllowVnetOutBound"),
+		Name: new("AllowVnetOutBound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-			SourceAddressPrefix:      to.Ptr("VirtualNetwork"),
-			SourcePortRange:          to.Ptr("*"),
-			DestinationAddressPrefix: to.Ptr("VirtualNetwork"),
-			DestinationPortRange:     to.Ptr("*"),
+			SourceAddressPrefix:      new("VirtualNetwork"),
+			SourcePortRange:          new("*"),
+			DestinationAddressPrefix: new("VirtualNetwork"),
+			DestinationPortRange:     new("*"),
 			Priority:                 to.Ptr[int32](2000),
 		},
 	}
 
 	blockOutbound := &armnetwork.SecurityRule{
-		Name: to.Ptr("block-all-outbound"),
+		Name: new("block-all-outbound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-			SourceAddressPrefix:      to.Ptr("*"),
-			SourcePortRange:          to.Ptr("*"),
-			DestinationAddressPrefix: to.Ptr("*"),
-			DestinationPortRange:     to.Ptr("*"),
+			SourceAddressPrefix:      new("*"),
+			SourcePortRange:          new("*"),
+			DestinationAddressPrefix: new("*"),
+			DestinationPortRange:     new("*"),
 			Priority:                 to.Ptr[int32](2001),
 		},
 	}
@@ -677,13 +677,13 @@ func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontai
 
 	toolkit.Logf(ctx, "ACR does not exist, creating...")
 	createParams := armcontainerregistry.Registry{
-		Location: to.Ptr(*cluster.Location),
+		Location: new(*cluster.Location),
 		SKU: &armcontainerregistry.SKU{
 			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
 		},
 		Properties: &armcontainerregistry.RegistryProperties{
-			AdminUserEnabled:     to.Ptr(isNonAnonymousPull),  // if non-anonymous pull is enabled, admin user must be enabled to be able to set credentials for the debug pods
-			AnonymousPullEnabled: to.Ptr(!isNonAnonymousPull), // required to pull images from the private ACR without authentication
+			AdminUserEnabled:     new(isNonAnonymousPull),  // if non-anonymous pull is enabled, admin user must be enabled to be able to set credentials for the debug pods
+			AnonymousPullEnabled: new(!isNonAnonymousPull), // required to pull images from the private ACR without authentication
 		},
 	}
 	pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
@@ -782,8 +782,8 @@ func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, resourceG
 
 	cacheParams := armcontainerregistry.CacheRule{
 		Properties: &armcontainerregistry.CacheRuleProperties{
-			SourceRepository: to.Ptr("mcr.microsoft.com/*"),
-			TargetRepository: to.Ptr(config.Config.AzureContainerRegistrytargetRepository),
+			SourceRepository: new("mcr.microsoft.com/*"),
+			TargetRepository: new(config.Config.AzureContainerRegistrytargetRepository),
 		},
 	}
 	cacheCreateResp, err := config.Azure.CacheRulesClient.BeginCreate(
@@ -819,17 +819,17 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName(location), privateACRName)
 
 	peParams := armnetwork.PrivateEndpoint{
-		Location: to.Ptr(location),
+		Location: new(location),
 		Properties: &armnetwork.PrivateEndpointProperties{
 			Subnet: &armnetwork.Subnet{
-				ID: to.Ptr(vnet.subnetId),
+				ID: new(vnet.subnetId),
 			},
 			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
 				{
-					Name: to.Ptr(privateEndpointName),
+					Name: new(privateEndpointName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
-						PrivateLinkServiceID: to.Ptr(acrID),
-						GroupIDs:             []*string{to.Ptr("registry")},
+						PrivateLinkServiceID: new(acrID),
+						GroupIDs:             []*string{new("registry")},
 					},
 				},
 			},
@@ -866,7 +866,7 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 		return &pzResp.PrivateZone, nil
 	}
 	dnsZoneParams := armprivatedns.PrivateZone{
-		Location: to.Ptr("global"),
+		Location: new("global"),
 	}
 	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
 		ctx,
@@ -907,12 +907,12 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 		return fmt.Errorf("failed to get vnet: %w", err)
 	}
 	linkParams := armprivatedns.VirtualNetworkLink{
-		Location: to.Ptr("global"),
+		Location: new("global"),
 		Properties: &armprivatedns.VirtualNetworkLinkProperties{
 			VirtualNetwork: &armprivatedns.SubResource{
 				ID: vnetForId.ID,
 			},
-			RegistrationEnabled: to.Ptr(false),
+			RegistrationEnabled: new(false),
 		},
 	}
 	poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
@@ -982,10 +982,10 @@ func addDNSZoneGroup(ctx context.Context, privateZone *armprivatedns.PrivateZone
 		return nil
 	}
 	dnsZonegroup := armnetwork.PrivateDNSZoneGroup{
-		Name: to.Ptr(fmt.Sprintf("%s/default", privateZoneName)),
+		Name: new(fmt.Sprintf("%s/default", privateZoneName)),
 		Properties: &armnetwork.PrivateDNSZoneGroupPropertiesFormat{
 			PrivateDNSZoneConfigs: []*armnetwork.PrivateDNSZoneConfig{{
-				Name: to.Ptr(groupName),
+				Name: new(groupName),
 				Properties: &armnetwork.PrivateDNSZonePropertiesFormat{
 					PrivateDNSZoneID: privateZone.ID,
 				},
@@ -1034,16 +1034,16 @@ func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, e
 
 func getSecurityRule(name, destinationAddressPrefix string, priority int32) *armnetwork.SecurityRule {
 	return &armnetwork.SecurityRule{
-		Name: to.Ptr(name),
+		Name: new(name),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-			SourceAddressPrefix:      to.Ptr("*"),
-			SourcePortRange:          to.Ptr("*"),
-			DestinationAddressPrefix: to.Ptr(destinationAddressPrefix),
-			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr(priority),
+			SourceAddressPrefix:      new("*"),
+			SourcePortRange:          new("*"),
+			DestinationAddressPrefix: new(destinationAddressPrefix),
+			DestinationPortRange:     new("*"),
+			Priority:                 new(priority),
 		},
 	}
 }

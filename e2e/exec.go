@@ -195,7 +195,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 	maxRetries := 3
 	retryDelay := 1 * time.Second
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		result, err := attemptExecOnPod(ctx, kube, namespace, podName, command)
 		if err == nil {
 			return result, nil

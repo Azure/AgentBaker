@@ -209,11 +209,11 @@ func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 
 	tarFile := base0_5.File{
 		Path:      ignitionFilesTarPath,
-		Mode:      to.IntPtr(0o600),
-		Overwrite: to.BoolPtr(true),
+		Mode:      new(0o600),
+		Overwrite: new(true),
 		Contents: base0_5.Resource{
-			Source:      to.StringPtr(dataURL),
-			Compression: to.StringPtr(encodingGZIP),
+			Source:      new(dataURL),
+			Compression: new(encodingGZIP),
 		},
 	}
 	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
@@ -343,7 +343,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template.
-func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
+func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile any, funcMap template.FuncMap, isLinux bool) (string, error) {
 	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap, isLinux)
 	if err != nil {
 		return "", err
@@ -355,7 +355,7 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 }
 
 // getSingleLine returns the file as a single line.
-func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
+func (t *TemplateGenerator) getSingleLine(textFilename string, profile any, funcMap template.FuncMap, isLinux bool) (string, error) {
 	b, err := parts.Templates.ReadFile(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
@@ -383,7 +383,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
-	funcMap["GetParameter"] = func(s string) interface{} {
+	funcMap["GetParameter"] = func(s string) any {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
 			if v["value"] == nil {
 				// return empty string so we don't get <no value> from go template
@@ -395,7 +395,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	// TODO: GetParameterPropertyLower
-	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
+	funcMap["GetParameterProperty"] = func(s, p string) any {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
 			//nolint:errcheck // this code been writen before linter was added
 			param := v["value"].(paramsMap)[p]
@@ -408,7 +408,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 		return ""
 	}
 
-	funcMap["GetVariable"] = func(s string) interface{} {
+	funcMap["GetVariable"] = func(s string) any {
 		if variables[s] == nil {
 			// return empty string so we don't get <no value> from go template
 			return ""
@@ -416,7 +416,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 		return variables[s]
 	}
 
-	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
+	funcMap["GetVariableProperty"] = func(v, p string) any {
 		if v, ok := variables[v].(paramsMap); ok && v != nil {
 			if v[p] == nil {
 				// return empty string so we don't get <no value> from go template
@@ -629,7 +629,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
 		},
-		"GetCustomSysctlConfigByName": func(fn string) interface{} {
+		"GetCustomSysctlConfigByName": func(fn string) any {
 			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
 				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
 				return v.FieldByName(fn).Interface()
@@ -674,13 +674,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var sb strings.Builder
 			sb.WriteString("[Service]\n")
 			if ulimitConfig.MaxLockedMemory != "" {
-				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+				fmt.Fprintf(&sb, "LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory)
 			}
 			if ulimitConfig.NoFile != "" {
 				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404 distro
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
 				if !profile.Is2404VHDDistro() {
-					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+					fmt.Fprintf(&sb, "LimitNOFILE=%s\n", ulimitConfig.NoFile)
 				}
 			}
 			return sb.String()

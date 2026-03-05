@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/blang/semver"
 	"github.com/samber/lo"
@@ -817,7 +816,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 		}
 	}()
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
-	for _, line := range strings.Split(execResult.stdout, "\n") {
+	for line := range strings.SplitSeq(execResult.stdout, "\n") {
 		if strings.Contains(line, component) && strings.Contains(line, version) {
 			s.T.Logf("found %s %s in the installed packages", component, version)
 			return
@@ -862,7 +861,7 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 
 	versions := bytes.NewBufferString(strings.TrimSpace(execResult.stdout))
 	versionMap := make(map[string]struct{})
-	for _, version := range strings.Split(versions.String(), "\n") {
+	for version := range strings.SplitSeq(versions.String(), "\n") {
 		if version != "" {
 			versionMap[version] = struct{}{}
 		}
@@ -1568,8 +1567,8 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+		CommandID: new("RunShellScript"),
+		Script: []*string{new(`#!/bin/bash
 # Determine the correct SSH service name based on the distro
 # Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
 if [ -f /etc/os-release ]; then
@@ -1930,7 +1929,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		var summary strings.Builder
 		summary.WriteString("Critical kernel issues detected:\n")
 		for category, issues := range issuesFound {
-			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
+			fmt.Fprintf(&summary, "\n[%s]:\n%s\n", category, issues)
 		}
 		s.T.Fatalf("%s", summary.String())
 	}

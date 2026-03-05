@@ -388,7 +388,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 	var lastErr error
 	for {
 		pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
-			Expand: to.Ptr("instanceView"),
+			Expand: new("instanceView"),
 		})
 
 		if pager.More() {
@@ -688,23 +688,23 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		"RunPowerShellScript",
 		armcompute.VirtualMachineRunCommand{
 			Properties: &armcompute.VirtualMachineRunCommandProperties{
-				TimeoutInSeconds: to.Ptr(runCommandTimeout), // 20 minutes should be enough
+				TimeoutInSeconds: new(runCommandTimeout), // 20 minutes should be enough
 				Source: &armcompute.VirtualMachineRunCommandScriptSource{
 					//CommandID: to.Ptr("RunPowerShellScript"),
-					Script: to.Ptr(uploadLogsPowershellScript),
+					Script: new(uploadLogsPowershellScript),
 				},
 				Parameters: []*armcompute.RunCommandInputParameter{
 					{
-						Name:  to.Ptr("arg1"),
-						Value: to.Ptr(blobUrl),
+						Name:  new("arg1"),
+						Value: new(blobUrl),
 					},
 					{
-						Name:  to.Ptr("arg2"),
-						Value: to.Ptr(s.Runtime.VMSSName),
+						Name:  new("arg2"),
+						Value: new(s.Runtime.VMSSName),
 					},
 					{
-						Name:  to.Ptr("arg3"),
-						Value: to.Ptr(config.Config.VMIdentityResourceID(s.Location)),
+						Name:  new("arg3"),
+						Value: new(config.Config.VMIdentityResourceID(s.Location)),
 					},
 				},
 			},
@@ -764,7 +764,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 		return
 	}
 	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
-		ForceDeletion: to.Ptr(true),
+		ForceDeletion: new(true),
 	})
 	if err != nil {
 		s.T.Logf("failed to delete vmss %q: %s", s.Runtime.VMSSName, err)
@@ -785,10 +785,10 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	var podIPConfigs []*armcompute.VirtualMachineScaleSetIPConfiguration
 	for i := 1; i <= maxPodsPerNode; i++ {
 		ipConfig := &armcompute.VirtualMachineScaleSetIPConfiguration{
-			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
+			Name: new(fmt.Sprintf("%s%d", vmssName, i)),
 			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 				Subnet: &armcompute.APIEntityReference{
-					ID: to.Ptr(cluster.SubnetID),
+					ID: new(cluster.SubnetID),
 				},
 			},
 		}
@@ -830,32 +830,32 @@ func generateVMSSName(s *Scenario) string {
 
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(s.Location),
+		Location: new(s.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr(config.Config.DefaultVMSKU),
+			Name:     new(config.Config.DefaultVMSKU),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
-			Overprovision: to.Ptr(false),
+			Overprovision: new(false),
 			UpgradePolicy: &armcompute.UpgradePolicy{
 				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
 				DiagnosticsProfile: &armcompute.DiagnosticsProfile{
 					BootDiagnostics: &armcompute.BootDiagnostics{
-						Enabled: to.Ptr(true),
+						Enabled: new(true),
 					},
 				},
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
-					ComputerNamePrefix: to.Ptr(s.Runtime.VMSSName),
-					AdminUsername:      to.Ptr("azureuser"),
+					ComputerNamePrefix: new(s.Runtime.VMSSName),
+					AdminUsername:      new("azureuser"),
 					CustomData:         &customData,
 					LinuxConfiguration: &armcompute.LinuxConfiguration{
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
 								{
-									KeyData: to.Ptr(string(config.VMSSHPublicKey)),
-									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
+									KeyData: new(string(config.VMSSHPublicKey)),
+									Path:    new("/home/azureuser/.ssh/authorized_keys"),
 								},
 							},
 						},
@@ -864,7 +864,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-						DiskSizeGB:   to.Ptr(int32(50)),
+						DiskSizeGB:   new(int32(50)),
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
 						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
 						DiffDiskSettings: &armcompute.DiffDiskSettings{
@@ -876,19 +876,19 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
 					NetworkInterfaceConfigurations: []*armcompute.VirtualMachineScaleSetNetworkConfiguration{
 						{
-							Name: to.Ptr(s.Runtime.VMSSName),
+							Name: new(s.Runtime.VMSSName),
 							Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
-								Primary:            to.Ptr(true),
-								EnableIPForwarding: to.Ptr(true),
+								Primary:            new(true),
+								EnableIPForwarding: new(true),
 								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
 									{
-										Name: to.Ptr(fmt.Sprintf("%s0", s.Runtime.VMSSName)),
+										Name: new(fmt.Sprintf("%s0", s.Runtime.VMSSName)),
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-											Primary:                 to.Ptr(true),
+											Primary:                 new(true),
 											PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
-													ID: to.Ptr(
+													ID: new(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
 															config.Config.SubscriptionID,
@@ -898,7 +898,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(s.Runtime.Cluster.SubnetID),
+												ID: new(s.Runtime.Cluster.SubnetID),
 											},
 										},
 									},
@@ -915,14 +915,14 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 				{
-					Name: to.Ptr("vmssCSE"),
+					Name: new("vmssCSE"),
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-						Type:                    to.Ptr("CustomScript"),
-						TypeHandlerVersion:      to.Ptr("2.1"),
-						AutoUpgradeMinorVersion: to.Ptr(true),
-						Settings:                map[string]interface{}{},
-						ProtectedSettings: map[string]interface{}{
+						Publisher:               new("Microsoft.Azure.Extensions"),
+						Type:                    new("CustomScript"),
+						TypeHandlerVersion:      new("2.1"),
+						AutoUpgradeMinorVersion: new(true),
+						Settings:                map[string]any{},
+						ProtectedSettings: map[string]any{
 							"commandToExecute": cseCmd,
 						},
 					},
@@ -939,11 +939,11 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		}
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.OSType = to.Ptr(armcompute.OperatingSystemTypesWindows)
 		model.Properties.VirtualMachineProfile.OSProfile.LinuxConfiguration = nil
-		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = to.Ptr("Microsoft.Compute")
-		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")
-		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
-		model.Properties.VirtualMachineProfile.OSProfile.AdminUsername = to.Ptr("azureuser")
-		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr(generateWindowsPassword())
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = new("Microsoft.Compute")
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = new("CustomScriptExtension")
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = new("1.10")
+		model.Properties.VirtualMachineProfile.OSProfile.AdminUsername = new("azureuser")
+		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = new(generateWindowsPassword())
 	}
 	return model
 }

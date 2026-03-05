@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 )
@@ -186,7 +185,6 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc // capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
@@ -252,11 +250,11 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = new("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+				vmss.Tags["EnableManagedGPUExperience"] = new("true")
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
@@ -327,11 +325,11 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = new("Standard_NV6ads_A10_v5")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+				vmss.Tags["EnableManagedGPUExperience"] = new("true")
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
@@ -401,11 +399,11 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = new("Standard_NC6s_v3")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
-				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+				vmss.Tags["EnableManagedGPUExperience"] = new("true")
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
@@ -475,7 +473,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				nbc.MigStrategy = "Single"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+				vmss.SKU.Name = new("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
@@ -550,7 +548,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				nbc.EnableManagedGPU = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = new("Standard_NV6ads_A10_v5")
 				// Explicitly DO NOT set the EnableManagedGPUExperience VMSS tag
 				// to test that NBC EnableManagedGPU field works independently
 

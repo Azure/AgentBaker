@@ -516,8 +516,8 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	if properties.VirtualMachineProfile.SecurityProfile.UefiSettings == nil {
 		properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
 	}
-	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(true)
-	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = new(true)
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = new(true)
 
 	return properties
 }
@@ -539,11 +539,11 @@ func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSe
 	// }
 
 	return &armcompute.VirtualMachineScaleSetExtension{
-		Name: to.Ptr(extensionName),
+		Name: new(extensionName),
 		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-			Publisher:          to.Ptr(publisher),
-			Type:               to.Ptr(extensionName),
-			TypeHandlerVersion: to.Ptr(extensionVersion),
+			Publisher:          new(publisher),
+			Type:               new(extensionName),
+			TypeHandlerVersion: new(extensionVersion),
 		},
 	}, nil
 }
@@ -562,11 +562,11 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
 		CommandID: func() *string {
 			if s.IsWindows() {
-				return to.Ptr("RunPowerShellScript")
+				return new("RunPowerShellScript")
 			}
-			return to.Ptr("RunShellScript")
+			return new("RunShellScript")
 		}(),
-		Script: []*string{to.Ptr(command)},
+		Script: []*string{new(command)},
 	}, nil)
 	if err != nil {
 		return armcompute.RunCommandResult{}, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
@@ -640,12 +640,12 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	// Create the image version directly from the disk
 	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
 	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
-		Location: to.Ptr(s.Location),
+		Location: new(s.Location),
 		Properties: &armcompute.GalleryImageVersionProperties{
 			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
 				OSDiskImage: &armcompute.GalleryOSDiskImage{
 					Source: &armcompute.GalleryDiskImageSource{
-						ID: to.Ptr(diskResourceID),
+						ID: new(diskResourceID),
 					},
 				},
 			},
@@ -653,7 +653,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 				ReplicationMode: to.Ptr(armcompute.ReplicationModeShallow),
 				TargetRegions: []*armcompute.TargetRegion{
 					{
-						Name:                 to.Ptr(s.Location),
+						Name:                 new(s.Location),
 						RegionalReplicaCount: to.Ptr[int32](1),
 						StorageAccountType:   to.Ptr(armcompute.StorageAccountTypePremiumLRS),
 					},
@@ -793,7 +793,7 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.SKU.Name = new(vmSize)
 
 				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
