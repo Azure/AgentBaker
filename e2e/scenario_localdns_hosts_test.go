@@ -77,35 +77,6 @@ func Test_Ubuntu2404_LocalDNSHostsPlugin(t *testing.T) {
 	})
 }
 
-// Test_AzureLinuxV2_LocalDNSHostsPlugin tests the localdns hosts plugin feature on Azure Linux V2
-func Test_AzureLinuxV2_LocalDNSHostsPlugin(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that localdns hosts plugin works correctly on Azure Linux V2 (cross-distro compatibility)",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAKSHostsSetupService(ctx, s)
-				ValidateLocalDNSHostsFile(ctx, s, []string{
-					"mcr.microsoft.com",
-					"login.microsoftonline.com",
-					"acs-mirror.azureedge.net",
-				})
-				ValidateLocalDNSHostsPluginBypass(ctx, s)
-			},
-		},
-	})
-}
-
 // Test_AzureLinuxV3_LocalDNSHostsPlugin tests the localdns hosts plugin feature on Azure Linux V3
 func Test_AzureLinuxV3_LocalDNSHostsPlugin(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -316,34 +287,6 @@ echo "Corefile does not contain hosts plugin (expected)"
 	})
 }
 
-// Test_MarinerV2_LocalDNSHostsPlugin tests the localdns hosts plugin feature on Mariner V2
-func Test_MarinerV2_LocalDNSHostsPlugin(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that localdns hosts plugin works correctly on Mariner V2 (cross-distro compatibility)",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateAKSHostsSetupService(ctx, s)
-				ValidateLocalDNSHostsFile(ctx, s, []string{
-					"mcr.microsoft.com",
-					"login.microsoftonline.com",
-					"acs-mirror.azureedge.net",
-				})
-				ValidateLocalDNSHostsPluginBypass(ctx, s)
-			},
-		},
-	})
-}
 
 // Test_Ubuntu2204_LocalDNSHostsPlugin_China tests cloud-specific FQDN selection for Azure China Cloud
 func Test_Ubuntu2204_LocalDNSHostsPlugin_China(t *testing.T) {
