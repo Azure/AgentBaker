@@ -192,7 +192,7 @@ func Test_ACL(t *testing.T) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=acl")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurecontainerlinux")
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 			},
 		},
