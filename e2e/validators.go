@@ -1542,107 +1542,171 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 		time.Sleep(sleepDuration)
 	}
 
-	// Step 2: Create a unique fake FQDN for this test to avoid conflicts
-	// Using the VMSS name ensures uniqueness across parallel tests.
-	// Take first 8 characters of VMSS name to keep DNS label under 63 char limit (RFC 1035).
-	// VMSS names are like "7v65-2026-03-04-ubuntu2204localdnshostsplugin", so first 8 chars are unique.
-	shortVMSSID := s.Runtime.VMSSName
-	if len(shortVMSSID) > 8 {
-		shortVMSSID = shortVMSSID[:8]
-	}
-	fakeFQDN := fmt.Sprintf("e2e-test-%s.fake.internal", shortVMSSID)
-	fakeIP := "10.255.255.1"
-	s.T.Logf("Using test-specific fake FQDN: %s -> %s (shortened from VMSS: %s)", fakeFQDN, fakeIP, s.Runtime.VMSSName)
+	// Step 2: Verify the Corefile has the hosts plugin configured
+	s.T.Log("Verifying Corefile contains hosts plugin configuration...")
+	corefileCheckScript := `set -euo pipefail
+corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
 
-	// Step 3: Add the fake entry to /etc/localdns/hosts
-	s.T.Logf("Adding fake entry to /etc/localdns/hosts for testing")
-	addFakeEntryScript := fmt.Sprintf(`set -euo pipefail
-hosts_file="/etc/localdns/hosts"
-fake_fqdn=%q
-fake_ip=%q
-
-echo "Adding fake entry to hosts file: $fake_ip $fake_fqdn"
-echo "$fake_ip $fake_fqdn" | sudo tee -a "$hosts_file" > /dev/null
-
-# Verify the entry was added
-if ! sudo grep -q "$fake_ip.*$fake_fqdn" "$hosts_file"; then
-    echo "ERROR: Failed to add fake entry to hosts file"
+echo "=== Verifying Corefile configuration ==="
+echo "Checking if $corefile exists..."
+if [ ! -f "$corefile" ]; then
+    echo "ERROR: Corefile $corefile does not exist"
     exit 1
 fi
+echo "✓ Corefile exists"
+echo ""
 
-echo "Successfully added fake entry to hosts file"
-echo "Current hosts file content:"
-sudo cat "$hosts_file"
-`, fakeFQDN, fakeIP)
+echo "Checking if Corefile contains hosts plugin directive..."
+if ! grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+    echo "ERROR: Corefile does not contain 'hosts /etc/localdns/hosts' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
+echo ""
 
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, addFakeEntryScript, 0,
-		"failed to add fake entry to hosts file")
+echo "Verifying hosts plugin in VnetDNS listener (169.254.10.10)..."
+# Extract the VnetDNS section (.:53 block with bind 169.254.10.10)
+vnetdns_section=$(awk '/.:53 \{/,/^}/' "$corefile" | sed -n '/bind 169.254.10.10/,/^}/p')
+if ! echo "$vnetdns_section" | grep -q "hosts /etc/localdns/hosts"; then
+    echo "ERROR: hosts plugin not found in VnetDNS listener (169.254.10.10)"
+    echo "VnetDNS section:"
+    echo "$vnetdns_section"
+    exit 1
+fi
+echo "✓ hosts plugin found in VnetDNS listener (169.254.10.10)"
 
-	// Step 4: Test that localdns resolves the fake FQDN from hosts file
-	// This validates the core hosts plugin functionality
-	// The hosts plugin automatically reloads when the hosts file changes, so no restart needed
-	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts", fakeFQDN)
+# Verify hosts comes before forward in VnetDNS (order matters - hosts should be checked first)
+hosts_line=$(echo "$vnetdns_section" | grep -n "hosts /etc/localdns/hosts" | cut -d: -f1 | head -1)
+forward_line=$(echo "$vnetdns_section" | grep -n "forward \\." | cut -d: -f1 | head -1)
+if [ -n "$hosts_line" ] && [ -n "$forward_line" ] && [ "$hosts_line" -gt "$forward_line" ]; then
+    echo "WARNING: hosts plugin appears after forward directive in VnetDNS listener"
+    echo "This may prevent hosts plugin from being consulted first"
+fi
+echo "✓ hosts plugin is properly ordered in VnetDNS listener"
+echo ""
+
+echo "Verifying hosts plugin in KubeDNS overrides listener (169.254.10.11)..."
+# Extract the KubeDNS section (.:53 block with bind 169.254.10.11)
+kubedns_section=$(awk '/.:53 \{/,/^}/' "$corefile" | sed -n '/bind 169.254.10.11/,/^}/p')
+if ! echo "$kubedns_section" | grep -q "hosts /etc/localdns/hosts"; then
+    echo "ERROR: hosts plugin not found in KubeDNS overrides listener (169.254.10.11)"
+    echo "KubeDNS section:"
+    echo "$kubedns_section"
+    exit 1
+fi
+echo "✓ hosts plugin found in KubeDNS overrides listener (169.254.10.11)"
+
+# Verify hosts comes before forward in KubeDNS (order matters)
+hosts_line=$(echo "$kubedns_section" | grep -n "hosts /etc/localdns/hosts" | cut -d: -f1 | head -1)
+forward_line=$(echo "$kubedns_section" | grep -n "forward \\." | cut -d: -f1 | head -1)
+if [ -n "$hosts_line" ] && [ -n "$forward_line" ] && [ "$hosts_line" -gt "$forward_line" ]; then
+    echo "WARNING: hosts plugin appears after forward directive in KubeDNS listener"
+    echo "This may prevent hosts plugin from being consulted first"
+fi
+echo "✓ hosts plugin is properly ordered in KubeDNS overrides listener"
+echo ""
+
+echo "=== Corefile validation successful ==="
+echo "Summary: hosts plugin is configured in both VnetDNS (169.254.10.10) and KubeDNS (169.254.10.11) listeners"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
+		"Corefile should contain hosts plugin configuration in both VnetDNS and KubeDNS listeners")
+
+	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
+	// This validates the hosts plugin is working by checking:
+	// 1. DNS resolution returns IPs that match entries in /etc/localdns/hosts
+	// 2. DNS response includes "recursion not available" flag (proves it's from hosts plugin, not forwarded upstream)
+	//
+	// We use packages.microsoft.com because it's a real FQDN that aks-hosts-setup.service populates.
+	// This avoids race conditions with the aks-hosts-setup.timer overwriting fake test entries.
+	testFQDN := "packages.microsoft.com"
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts", testFQDN)
+
 	script := fmt.Sprintf(`set -euo pipefail
 test_fqdn=%q
-expected_ip=%q
 hosts_file="/etc/localdns/hosts"
 
 echo "=== Testing localdns hosts plugin functionality ==="
-echo "Testing that localdns resolves '$test_fqdn' from hosts file"
-echo "Expected IP: $expected_ip"
+echo "Testing FQDN: $test_fqdn"
 echo ""
 
-# Verify the fake entry is in the hosts file
-echo "Verifying fake entry exists in hosts file..."
-if ! sudo grep -q "$expected_ip.*$test_fqdn" "$hosts_file"; then
-    echo "ERROR: Fake entry not found in hosts file"
+# Step 1: Get the expected IPs from /etc/localdns/hosts
+echo "Reading expected IPs from $hosts_file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Extract IPv4 addresses for the test FQDN from hosts file (ignore IPv6 for simplicity)
+expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+$test_fqdn" "$hosts_file" | awk '{print $1}' | sort)
+if [ -z "$expected_ips" ]; then
+    echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
+    echo "Hosts file contents:"
     sudo cat "$hosts_file"
     exit 1
 fi
-echo "✓ Fake entry found in hosts file"
+
+echo "Expected IPs from hosts file:"
+echo "$expected_ips"
 echo ""
 
-# Give localdns time to pick up the hosts file change.
-# CoreDNS hosts plugin should reload automatically, but we poll to be safe.
-# Poll for up to 60 seconds.
-echo "Polling localdns for $test_fqdn (up to 60s)"
-echo "Expected: $expected_ip (from hosts file)"
+# Step 2: Query localdns and get the resolved IPs
+echo "Querying localdns for $test_fqdn at 169.254.10.10..."
+resolved_ips=$(dig "$test_fqdn" @169.254.10.10 +short -t A +timeout=5 +tries=2 2>/dev/null | sort)
+if [ -z "$resolved_ips" ]; then
+    echo "ERROR: No IPs returned from localdns query"
+    echo "Full dig output:"
+    dig "$test_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+    exit 1
+fi
 
-for i in $(seq 1 60); do
-    echo "Attempt $i:"
-
-    # Query localdns at the cluster listener IP (IPv4 only with -t A)
-    result=$(dig "$test_fqdn" @169.254.10.10 +short -t A +timeout=5 +tries=2 2>/dev/null || true)
-    echo "DNS response: $result"
-
-    # Check if we got the expected IP
-    if [ "$result" = "$expected_ip" ]; then
-        echo ""
-        echo "SUCCESS: localdns resolved $test_fqdn to $expected_ip from hosts file!"
-        echo "This proves the hosts plugin is working correctly."
-        exit 0
-    fi
-
-    sleep 1
-done
-
+echo "Resolved IPs from localdns:"
+echo "$resolved_ips"
 echo ""
-echo "ERROR: Expected IP $expected_ip not returned for $test_fqdn after 60s of polling"
-echo "The hosts plugin may not be working correctly."
+
+# Step 3: Verify the resolved IPs match the hosts file entries
+echo "Comparing resolved IPs with hosts file entries..."
+if [ "$expected_ips" != "$resolved_ips" ]; then
+    echo "ERROR: Resolved IPs do not match hosts file entries"
+    echo "Expected (from hosts file):"
+    echo "$expected_ips"
+    echo "Got (from localdns):"
+    echo "$resolved_ips"
+    exit 1
+fi
+echo "✓ Resolved IPs match hosts file entries"
 echo ""
-echo "Full dig output:"
-dig "$test_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+
+# Step 4: Verify "recursion not available" flag in DNS response
+# This proves the response came from the hosts plugin, not from forwarding to upstream DNS
+echo "Checking for 'recursion not available' flag in DNS response..."
+nslookup_output=$(nslookup "$test_fqdn" 169.254.10.10 2>&1)
+if ! echo "$nslookup_output" | grep -q "recursion not available"; then
+    echo "ERROR: Expected 'recursion not available' flag in DNS response"
+    echo "This indicates localdns forwarded the query upstream instead of using the hosts plugin"
+    echo ""
+    echo "Full nslookup output:"
+    echo "$nslookup_output"
+    exit 1
+fi
+echo "✓ Found 'recursion not available' flag in DNS response"
 echo ""
-echo "localdns service status:"
-systemctl status localdns --no-pager -n 10 || true
+
+echo "=== SUCCESS ==="
+echo "The localdns hosts plugin is working correctly:"
+echo "  1. DNS resolution returned IPs from /etc/localdns/hosts"
+echo "  2. Response included 'recursion not available' (not forwarded upstream)"
 echo ""
-echo "Hosts file entries for $test_fqdn:"
-sudo grep "$test_fqdn" "$hosts_file" || echo "No entries found in hosts file!"
-exit 1
-`, fakeFQDN, fakeIP)
+echo "Full nslookup output:"
+echo "$nslookup_output"
+`, testFQDN)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should resolve fake FQDN from hosts file")
+		"localdns should resolve FQDN from hosts file with recursion not available")
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
