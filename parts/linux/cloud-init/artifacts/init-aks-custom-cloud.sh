@@ -173,7 +173,11 @@ IFS=$IFS_backup
 
 # Copy all certificate files to the system certificate directory
 # Update the system certificate store
-if [ "${IS_ACL}" -eq 1 ] || [ "${IS_MARINER}" -eq 1 ] || [ "${IS_AZURELINUX}" -eq 1 ]; then
+# hardening: ensure the ca trust store is empty initially and only the WIRESERVER is the source of truth
+if [ "${IS_MARINER}" -eq 1 ] || [ "${IS_AZURELINUX}" -eq 1 ] || [ "${IS_ACL}" -eq 1 ]; then
+    if [ "$action" = "init" ]; then
+        rm -rf /etc/pki/ca-trust/source/anchors/*
+    fi
     # Keep Mariner/AzureLinux trust store behavior aligned with prior scripts.
     cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
     update-ca-trust
