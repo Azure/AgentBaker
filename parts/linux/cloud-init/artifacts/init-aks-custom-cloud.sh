@@ -171,11 +171,13 @@ fi
 
 IFS=$IFS_backup
 
-if [ "$IS_ACL" -eq 1 ] || [ "${IS_MARINER}" -eq 1 ] || [ "${IS_AZURELINUX}" -eq 1 ]; then
+# Copy all certificate files to the system certificate directory
+# Update the system certificate store
+if [ "${IS_ACL}" -eq 1 ] || [ "${IS_MARINER}" -eq 1 ] || [ "${IS_AZURELINUX}" -eq 1 ]; then
     # Keep Mariner/AzureLinux trust store behavior aligned with prior scripts.
     cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
     update-ca-trust
-elif [ "$IS_FLATCAR" -eq 1 ]; then
+elif [ "${IS_FLATCAR}" -eq 1 ]; then
     cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
     update-ca-certificates
 else
