@@ -1088,11 +1088,8 @@ providers:
             End
 
             It 'should fallback to kube binary install when version uncached'
-                find() {
-                    return 1
-                }
-                ls () {
-                    return ""
+                ls() {
+                    echo ""
                 }
                 fallbackToKubeBinaryInstall() {
                     echo "fallbackToKubeBinaryInstall $1 $2"
