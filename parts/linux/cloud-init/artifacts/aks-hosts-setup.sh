@@ -1,5 +1,5 @@
 #!/bin/bash
-set -uo pipefail
+set -euo pipefail
 
 # aks-hosts-setup.sh
 # Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts.
@@ -182,8 +182,114 @@ fi
 # so CoreDNS (or any other reader) never sees a truncated/empty file.
 echo "Writing addresses to ${HOSTS_FILE}..."
 HOSTS_TMP="${HOSTS_FILE}.tmp.$$"
-echo "${HOSTS_CONTENT}" > "${HOSTS_TMP}"
-chmod 0644 "${HOSTS_TMP}"
-mv "${HOSTS_TMP}" "${HOSTS_FILE}"
+
+# Write content to temp file with explicit error checking
+if ! echo "${HOSTS_CONTENT}" > "${HOSTS_TMP}"; then
+    echo "ERROR: Failed to write to temporary file ${HOSTS_TMP}"
+    rm -f "${HOSTS_TMP}"  # Clean up temp file
+    exit 1
+fi
+
+# Set permissions with explicit error checking
+if ! chmod 0644 "${HOSTS_TMP}"; then
+    echo "ERROR: Failed to chmod temporary file ${HOSTS_TMP}"
+    rm -f "${HOSTS_TMP}"  # Clean up temp file
+    exit 1
+fi
+
+# Atomic rename with explicit error checking
+if ! mv "${HOSTS_TMP}" "${HOSTS_FILE}"; then
+    echo "ERROR: Failed to move temporary file to ${HOSTS_FILE}"
+    rm -f "${HOSTS_TMP}"  # Clean up temp file
+    exit 1
+fi
+
+# Verify the file was written and has content
+if [ ! -s "${HOSTS_FILE}" ]; then
+    echo "ERROR: Hosts file ${HOSTS_FILE} is empty or does not exist after write"
+    exit 1
+fi
+
+# Verify that every non-comment, non-empty line has the format: <IP> <FQDN>
+# This ensures we don't have any lines with FQDN but missing IP address
+echo "Validating hosts file entries format..."
+INVALID_LINES=()
+VALID_ENTRIES=0
+while IFS= read -r line; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]] && continue
+
+    # Check if line has at least two fields (IP and FQDN)
+    ip=$(echo "$line" | awk '{print $1}')
+    fqdn=$(echo "$line" | awk '{print $2}')
+
+    # Critical check: ensure we have both IP and FQDN (no empty IP mappings)
+    if [ -z "$ip" ] || [ -z "$fqdn" ]; then
+        echo "ERROR: Invalid entry found - missing IP or FQDN: '$line'"
+        INVALID_LINES+=("$line")
+        continue
+    fi
+
+    # Validate IP format (IPv4 or IPv6)
+    if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        # Valid IPv4
+        VALID_ENTRIES=$((VALID_ENTRIES + 1))
+    elif [[ "$ip" =~ : ]]; then
+        # Valid IPv6 (contains colon)
+        VALID_ENTRIES=$((VALID_ENTRIES + 1))
+    else
+        echo "ERROR: Invalid IP format: '$ip' in line: '$line'"
+        INVALID_LINES+=("$line")
+    fi
+done < "${HOSTS_FILE}"
+
+if [ ${#INVALID_LINES[@]} -gt 0 ]; then
+    echo "ERROR: Found ${#INVALID_LINES[@]} invalid entries in ${HOSTS_FILE}"
+    echo "Invalid entries:"
+    printf '%s\n' "${INVALID_LINES[@]}"
+    echo "This indicates FQDN to empty IP mappings or malformed entries"
+    exit 1
+fi
+
+if [ $VALID_ENTRIES -eq 0 ]; then
+    echo "ERROR: No valid IP address mappings found in ${HOSTS_FILE}"
+    echo "File content:"
+    cat "${HOSTS_FILE}"
+    exit 1
+fi
+
+echo "✓ All entries in ${HOSTS_FILE} are valid (IP FQDN format)"
+echo "Found ${VALID_ENTRIES} valid IP address mappings"
+
+# Verify that every non-comment, non-empty line has the format: <IP> <FQDN>
+# This ensures we don't have any lines with FQDN but missing IP address
+echo "Validating hosts file entries format..."
+INVALID_LINES=()
+while IFS= read -r line; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]] && continue
+
+    # Check if line has at least two fields (IP and FQDN)
+    ip=$(echo "$line" | awk '{print $1}')
+    fqdn=$(echo "$line" | awk '{print $2}')
+
+    if [ -z "$ip" ] || [ -z "$fqdn" ]; then
+        INVALID_LINES+=("$line")
+        continue
+    fi
+
+    # Validate IP format (IPv4 or IPv6)
+    if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && ! [[ "$ip" =~ : ]]; then
+        INVALID_LINES+=("$line")
+    fi
+done < "${HOSTS_FILE}"
+
+if [ ${#INVALID_LINES[@]} -gt 0 ]; then
+    echo "ERROR: Found invalid entries in ${HOSTS_FILE} (missing IP or invalid format):"
+    printf '%s\n' "${INVALID_LINES[@]}"
+    exit 1
+fi
+
+echo "✓ All entries in ${HOSTS_FILE} are valid (IP FQDN format)"
 
 echo "AKS critical FQDN hosts resolution completed at $(date)"
