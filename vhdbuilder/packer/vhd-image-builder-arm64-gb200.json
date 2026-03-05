@@ -120,6 +120,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb-nvme-setup.cfg",
+      "destination": "/home/packer/gb-nvme-setup.cfg"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
