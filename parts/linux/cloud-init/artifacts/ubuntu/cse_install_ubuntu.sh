@@ -278,9 +278,7 @@ installPkgWithAptGet() {
     packageVersion="${2}"
     downloadDir="/opt/${packageName}/downloads"
 
-    # if no deb file with desired version found then try fetching from packages.microsoft repo
-    filename=$(apt-get download --print-uris "${packageName}=${packageVersion}" | awk '{print $2}')
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${filename}" -print -quit 2>/dev/null | sort -V | tail -n 1) || debFile=""
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
             echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
@@ -291,20 +289,22 @@ installPkgWithAptGet() {
         # update pmc repo to get latest versions
         updatePMCRepository ${packageVersion}
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion} | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
-        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null | sort -V | tail -n 1) || debFile=""
+
+        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
         return 1
     fi
 
+    debFile="${downloadDir}/${debFile}"
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
     mkdir -p /opt/bin
