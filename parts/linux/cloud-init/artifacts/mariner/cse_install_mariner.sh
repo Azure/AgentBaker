@@ -141,11 +141,18 @@ sslverify=1
 EOF
     fi
 
+    # Try exact kernel match first, fall back to latest available
     GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
         grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
 
     if [ -z "$GRID_PACKAGE" ]; then
-        echo "No nvidia-vgpu-guest-driver package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        echo "No exact kernel match for ${KERNEL_VERSION}, falling back to latest available"
+        GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
+            grep -E "nvidia-vgpu-guest-driver-[0-9]+" | sort -V | tail -n 1)
+    fi
+
+    if [ -z "$GRID_PACKAGE" ]; then
+        echo "No nvidia-vgpu-guest-driver package found (vm_sku=${VM_SKU})"
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
 
