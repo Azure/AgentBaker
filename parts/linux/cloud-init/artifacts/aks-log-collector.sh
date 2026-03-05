@@ -54,7 +54,7 @@ for FILE in $(<<<"$CONFIG" jq -esRr 'try fromjson catch ("" | halt_error) | .fil
 done
 
 # AKS specific entries
-GLOBS+=(/var/log/azure/aks/aks-node.pcap)
+GLOBS+=(/var/log/azure/aks/aks-node.pcap.zip)
 GLOBS+=(/var/log/azure/*/*)
 GLOBS+=(/var/log/azure/*/*/*)
 GLOBS+=(/var/log/syslog*)
