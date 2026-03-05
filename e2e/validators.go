@@ -1683,8 +1683,9 @@ echo ""
 
 # Step 4: Verify "recursion not available" flag in DNS response
 # This proves the response came from the hosts plugin, not from forwarding to upstream DNS
+# Note: We use nslookup without explicit server IP to preserve the recursion flag message
 echo "Checking for 'recursion not available' flag in DNS response..."
-nslookup_output=$(nslookup "$test_fqdn" 169.254.10.10 2>&1)
+nslookup_output=$(nslookup "$test_fqdn" 2>&1)
 if ! echo "$nslookup_output" | grep -q "recursion not available"; then
     echo "ERROR: Expected 'recursion not available' flag in DNS response"
     echo "This indicates localdns forwarded the query upstream instead of using the hosts plugin"
