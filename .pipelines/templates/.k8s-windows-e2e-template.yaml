@@ -183,7 +183,7 @@ jobs:
 
             echo "##vso[task.setvariable variable=blobName]${blobName}"
         displayName: Upload parsed test results to Azure storage
-      - task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+      - task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@5
         inputs:
           targetType: 'inline'
           script: |
@@ -194,7 +194,7 @@ jobs:
           connectedServiceARM: 'agentbaker_kusto'
           continueOnError: false
         displayName: Publish test results into Kusto
-      - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+      - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@5
         displayName: 'ADX Query for test being run'
         inputs:
           targetType: 'inline'
@@ -208,7 +208,7 @@ jobs:
           connectedServiceARM: 'agentbaker_kusto'
           minThreshold: 5000
           maxThreshold: 30000
-      - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+      - task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@5
         displayName: 'ADX Query for test result'
         inputs:
           targetType: 'inline'

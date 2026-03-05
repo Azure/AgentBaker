@@ -38,7 +38,7 @@ steps:
     export ADDITIONAL_E2E_ARGS+=("--ginkgo.timeout=4h")
 
     FQDN=`az aks show -n ${{parameters.clusterName}} -g ${{parameters.resourceGroup}} --query fqdn -o tsv`
-    
+
     curl -L -O https://github.com/zylxjtu/kubernetes/releases/download/v1.0.0/e2e.test
     curl -L -O https://github.com/zylxjtu/kubernetes/releases/download/v1.0.0/ginkgo
 
@@ -48,7 +48,7 @@ steps:
     #git clone https://github.com/zylxjtu/kubernetes.git
     #cd Kubernetes
     #make WHAT="test/e2e/e2e.test vendor/github.com/onsi/ginkgo/ginkgo"
-    
+
     echo "beginning npm conformance test..."
 
     toRun="NetworkPolicy"
@@ -62,7 +62,7 @@ steps:
     namedPorts="named port"
     wrongK8sVersion="Netpol API"
     toSkip="\[LinuxOnly\]|$nomatch1|$nomatch2|$nomatch3|$nomatch4|$cidrExcept1|$cidrExcept2|$namedPorts|$wrongK8sVersion|SCTP"
-    
+
     # to debug with one test case, uncomment this
     #toRun="Netpol NetworkPolicy between server and client should deny ingress access to updated pod"
 
@@ -81,7 +81,7 @@ steps:
         --dump-logs-on-failure=true \
         --report-dir="${ARTIFACTS}" \
         --prepull-images=true \
-        --v=5 "${ADDITIONAL_E2E_ARGS[@]}" 
+        --v=5 "${ADDITIONAL_E2E_ARGS[@]}"
     set +x
   name: run_npm_test
   displayName: run npm test
@@ -108,9 +108,9 @@ steps:
       --file $(System.DefaultWorkingDirectory)/_artifacts/testresults.csv \
       --name ${blobName}
 
-      echo "##vso[task.setvariable variable=blobName]${blobName}" 
+      echo "##vso[task.setvariable variable=blobName]${blobName}"
   displayName: Upload parsed test results to Azure storage
-- task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@3
+- task: Azure-Kusto.ADXAdminCommands.PublishToADX.ADXAdminCommand@5
   inputs:
     targetType: 'inline'
     script: |
@@ -120,13 +120,13 @@ steps:
     kustoUrls: "${{parameters.kustoUrl}}:443?DatabaseName=${{parameters.kustoDataBaseName}}"
     connectedServiceARM: 'agentbaker_kusto'
   displayName: Publish test results into Kusto
-- task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@3
+- task: Azure-Kusto.ADXAdminCommands.ADXQuery.ADXQuery@5
   displayName: 'ADX Query for test result'
   inputs:
     targetType: 'inline'
     script: |
       let resourcegroup = "${{parameters.resourceGroup}}";
-      windowssigtestlogs 
+      windowssigtestlogs
         |where TIMESTAMP >= ago(2h)
         |where ResourceGroup == resourcegroup
         |where Level < 3
