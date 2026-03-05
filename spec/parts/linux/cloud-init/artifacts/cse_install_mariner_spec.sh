@@ -90,7 +90,7 @@ Describe 'cse_install_mariner.sh'
             # sort -V | tail -n 1 should pick the latest release as the primary RPM
             The output should include "dnf install 30 1 600 $release2"
             # the older release should be skipped, not added as a dependency
-            The output should include "Skipping duplicate release of kubelet rpm"
+            The output should include "Skipping cached kubelet rpm"
             The output should not include "$release1"
         End
 
@@ -119,7 +119,7 @@ Describe 'cse_install_mariner.sh'
         set_mock_sku() {
             MOCK_VM_SKU="$1"
         }
-        
+
         It 'returns false (1) for T4 GPU SKU Standard_NC4as_T4_v3'
             set_mock_sku "Standard_NC4as_T4_v3"
             When call should_use_nvidia_open_drivers

@@ -31,7 +31,7 @@ installRPMPackageFromFile() {
     fi
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             return 1

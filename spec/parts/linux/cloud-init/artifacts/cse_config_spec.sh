@@ -1091,6 +1091,9 @@ providers:
                 find() {
                     return 1
                 }
+                ls () {
+                    return ""
+                }
                 fallbackToKubeBinaryInstall() {
                     echo "fallbackToKubeBinaryInstall $1 $2"
                 }
