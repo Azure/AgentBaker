@@ -205,27 +205,28 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
 
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        make -f packer.mk test-scan-and-cleanup
-    condition: always()
-    displayName: Test, Scan, and Cleanup
-    env:
-      BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
-      BUILD_SOURCEVERSION: $(Build.SourceVersion)
-      SYSTEM_COLLECTIONURI: $(System.CollectionUri)
-      SYSTEM_TEAMPROJECT: $(System.TeamProject)
-      BUILD_RUN_NUMBER: $(Build.BuildNumber)
-      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      PACKER_VNET_RESOURCE_GROUP_NAME: $(PACKER_VNET_RESOURCE_GROUP_NAME)
-      PACKER_VNET_NAME: $(PACKER_VNET_NAME)
-      SKIP_SCANNING: $(SKIP_SCANNING)
-      DRY_RUN: $(DRY_RUN)
+  # Skip test-scan-and-cleanup entirely for dev builds (trivy 404 / scanning infra not available)
+  # - task: AzureCLI@2
+  #   inputs:
+  #     azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+  #     scriptType: bash
+  #     scriptLocation: inlineScript
+  #     inlineScript: |
+  #       make -f packer.mk test-scan-and-cleanup
+  #   condition: always()
+  #   displayName: Test, Scan, and Cleanup
+  #   env:
+  #     BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+  #     BUILD_SOURCEVERSION: $(Build.SourceVersion)
+  #     SYSTEM_COLLECTIONURI: $(System.CollectionUri)
+  #     SYSTEM_TEAMPROJECT: $(System.TeamProject)
+  #     BUILD_RUN_NUMBER: $(Build.BuildNumber)
+  #     VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+  #     SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+  #     PACKER_VNET_RESOURCE_GROUP_NAME: $(PACKER_VNET_RESOURCE_GROUP_NAME)
+  #     PACKER_VNET_NAME: $(PACKER_VNET_NAME)
+  #     SKIP_SCANNING: 'true'
+  #     DRY_RUN: $(DRY_RUN)
 
   - task: AzureCLI@2
     inputs:

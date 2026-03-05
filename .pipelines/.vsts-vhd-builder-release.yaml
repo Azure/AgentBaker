@@ -878,10 +878,7 @@ stages:
   - stage: e2e
     condition: and(or(eq('${{ parameters.skipAllBuilds }}', true), succeeded()), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      ${{ if eq(parameters.skipAllBuilds, true) }}:
-        VHD_BUILD_ID: '154812578'
-      ${{ else }}:
-        VHD_BUILD_ID: $(Build.BuildId)
+      VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml

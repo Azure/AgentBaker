@@ -207,6 +207,12 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     updateDnfWithNvidiaPkg
+    # Refresh and upgrade after adding NVIDIA repos so the kernel version
+    # required by nvidia-vgpu-guest-driver is installed on the VHD.
+    # The reboot after install-dependencies.sh will boot into this kernel.
+    echo "Running dnf update after NVIDIA repo setup for kernel upgrade"
+    dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+    dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps

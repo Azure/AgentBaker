@@ -47,6 +47,38 @@ enabled=1
 skip_if_unavailable=True
 sslverify=1
 EOF
+
+        # Preview base repo provides the kernel version (6.6.126+) required by
+        # nvidia-vgpu-guest-driver in the preview NVIDIA repo.
+        AZURELINUX_BASE_PREVIEW_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-base-preview.repo"
+        touch "${AZURELINUX_BASE_PREVIEW_REPO_FILEPATH}"
+        cat << EOF > "${AZURELINUX_BASE_PREVIEW_REPO_FILEPATH}"
+[azurelinux-official-base-preview]
+name=Azure Linux Official Base Preview 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/preview/base/x86_64/
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+
+        # Preview NVIDIA repo provides nvidia-vgpu-guest-driver for converged
+        # GPU sizes (A10, etc.)
+        AZURELINUX_NVIDIA_PREVIEW_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia-preview.repo"
+        touch "${AZURELINUX_NVIDIA_PREVIEW_REPO_FILEPATH}"
+        cat << EOF > "${AZURELINUX_NVIDIA_PREVIEW_REPO_FILEPATH}"
+[azurelinux-official-nvidia-preview]
+name=Azure Linux Official Nvidia Preview 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/x86_64/
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
     fi
 }
 

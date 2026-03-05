@@ -121,38 +121,13 @@ should_use_nvidia_open_drivers() {
 
 downloadGridDrivers() {
     # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) require NVIDIA GRID (vGPU guest)
-    # drivers instead of CUDA drivers. These sizes use a "converged" driver to support
-    # both CUDA and GRID workloads — installing vanilla CUDA drivers will fail.
-    #
-    # The nvidia-vgpu-guest-driver RPM is published in the AzureLinux 3.0 preview NVIDIA
-    # repo (packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/). The VHD ships the
-    # cloud-native-preview repo but not the NVIDIA preview repo, so we add it here.
-    if [ ! -f /etc/yum.repos.d/azurelinux-nvidia-preview.repo ]; then
-        tee /etc/yum.repos.d/azurelinux-nvidia-preview.repo > /dev/null <<'EOF'
-[azurelinux-official-nvidia-preview]
-name=Azure Linux Official Nvidia Preview 3.0 x86_64
-baseurl=https://packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/x86_64/
-gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
-gpgcheck=1
-repo_gpgcheck=1
-enabled=1
-skip_if_unavailable=True
-sslverify=1
-EOF
-    fi
-
-    # Try exact kernel match first, fall back to latest available
+    # drivers instead of CUDA drivers. The nvidia-vgpu-guest-driver RPM comes from the
+    # preview NVIDIA repo added during VHD build by addMarinerNvidiaRepo().
     GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
         grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
 
     if [ -z "$GRID_PACKAGE" ]; then
-        echo "No exact kernel match for ${KERNEL_VERSION}, falling back to latest available"
-        GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
-            grep -E "nvidia-vgpu-guest-driver-[0-9]+" | sort -V | tail -n 1)
-    fi
-
-    if [ -z "$GRID_PACKAGE" ]; then
-        echo "No nvidia-vgpu-guest-driver package found (vm_sku=${VM_SKU})"
+        echo "No nvidia-vgpu-guest-driver package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
 
