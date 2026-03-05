@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math/rand"
 	neturl "net/url"
 	"sort"
@@ -771,9 +772,10 @@ type CustomLinuxOSConfig struct {
 }
 
 // ValidateTHPConfig checks that TransparentHugePageEnabled and TransparentHugePageDefrag contain valid kernel values when set.
-func (c *CustomLinuxOSConfig) ValidateTHPConfig() error {
+// Invalid values are logged as warnings and reset to empty (kernel default).
+func (c *CustomLinuxOSConfig) ValidateTHPConfig() {
 	if c == nil {
-		return nil
+		return
 	}
 	validEnabled := map[string]bool{
 		TransparentHugePageAlways:  true,
@@ -787,13 +789,14 @@ func (c *CustomLinuxOSConfig) ValidateTHPConfig() error {
 		TransparentHugePageDefragMadvise:      true,
 		TransparentHugePageDefragNever:        true,
 	}
-	if c.TransparentHugePageEnabled != "" && !validEnabled[c.TransparentHugePageEnabled] {
-		return fmt.Errorf("invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never", c.TransparentHugePageEnabled)
+	if c.TransparentHugePageEnabled != "" && !validEnabled[strings.ToLower(c.TransparentHugePageEnabled)] {
+		log.Printf("WARNING: invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never; setting to default", c.TransparentHugePageEnabled)
+		c.TransparentHugePageEnabled = ""
 	}
-	if c.TransparentHugePageDefrag != "" && !validDefrag[c.TransparentHugePageDefrag] {
-		return fmt.Errorf("invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never", c.TransparentHugePageDefrag)
+	if c.TransparentHugePageDefrag != "" && !validDefrag[strings.ToLower(c.TransparentHugePageDefrag)] {
+		log.Printf("WARNING: invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never; setting to default", c.TransparentHugePageDefrag)
+		c.TransparentHugePageDefrag = ""
 	}
-	return nil
 }
 
 func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
