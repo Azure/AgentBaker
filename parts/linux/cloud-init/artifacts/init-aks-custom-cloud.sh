@@ -180,8 +180,6 @@ elif [ "$IS_FLATCAR" -eq 1 ]; then
     update-ca-certificates
 else
     cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
-
-    # Update the system certificate store
     update-ca-certificates
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used
