@@ -2,6 +2,8 @@
 set -x
 mkdir -p /root/AzureCACertificates
 
+IS_MARINER=0
+IS_AZURELINUX=0
 IS_FLATCAR=0
 IS_UBUNTU=0
 IS_ACL=0
@@ -9,7 +11,11 @@ IS_ACL=0
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
     # shellcheck disable=SC3010
-    if [[ $NAME == *"Ubuntu"* ]]; then
+    if [[ $NAME == *"Mariner"* ]]; then
+        IS_MARINER=1
+    elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
+        IS_AZURELINUX=1
+    elif [[ $NAME == *"Ubuntu"* ]]; then
         IS_UBUNTU=1
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
@@ -133,7 +139,7 @@ IFS=$'\r\n'
 # https://eng.ms/docs/products/onecert-certificates-key-vault-and-dsms/onecert-customer-guide/autorotationandecr/rcv1ptsg
 
 optInCurlStatus=0
-optInCheck=$(curl -sS --fail "http://168.63.129.16/acms/isOptedInForRootCerts" 2>/dev/null) || optInCurlStatus=$?
+optInCheck=$(curl -sS --fail "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts" 2>/dev/null) || optInCurlStatus=$?
 if [ "$optInCurlStatus" -ne 0 ]; then
     echo "Warning: failed to query root cert opt-in status (curl exit code $optInCurlStatus); defaulting to non-opt-in flow"
     optInCheck=""
@@ -150,7 +156,7 @@ if echo "$optInCheck" | grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]
 else
     echo "Not opted in for root certs, skipping CA cert pull and install"
     # http://168.63.129.16 is a constant for the host's wireserver endpoint
-    certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+    certs=$(curl "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
     certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
     certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
     ext=".crt"
@@ -165,7 +171,8 @@ fi
 
 IFS=$IFS_backup
 
-if [ "$IS_ACL" -eq 1 ]; then
+if [ "$IS_ACL" -eq 1 ] || [ "${IS_MARINER}" -eq 1 ] || [ "${IS_AZURELINUX}" -eq 1 ]; then
+    # Keep Mariner/AzureLinux trust store behavior aligned with prior scripts.
     cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
     update-ca-trust
 elif [ "$IS_FLATCAR" -eq 1 ]; then
@@ -187,6 +194,79 @@ action=${1:-init}
 if [ "$action" = "ca-refresh" ]; then
     exit
 fi
+function init_mariner_repo_depot {
+    local repodepot_endpoint=$1
+    echo "Adding [extended] repo"
+    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-extended.repo
+    sed -i -e "s|extras|extended|" /etc/yum.repos.d/mariner-extended.repo
+    sed -i -e "s|Extras|Extended|" /etc/yum.repos.d/mariner-extended.repo
+
+    echo "Adding [nvidia] repo"
+    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-nvidia.repo
+    sed -i -e "s|extras|nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
+    sed -i -e "s|Extras|Nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
+
+    echo "Adding [cloud-native] repo"
+    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-cloud-native.repo
+    sed -i -e "s|extras|cloud-native|" /etc/yum.repos.d/mariner-cloud-native.repo
+    sed -i -e "s|Extras|Cloud-Native|" /etc/yum.repos.d/mariner-cloud-native.repo
+
+    echo "Pointing Mariner repos at RepoDepot..."
+    for f in /etc/yum.repos.d/*.repo
+    do
+        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" $f
+        echo "$f modified."
+    done
+    echo "Mariner repo setup complete."
+}
+
+function init_azurelinux_repo_depot {
+    local repodepot_endpoint=$1
+    repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
+
+    # tbd maybe we do this a bit nicer
+    rm -f /etc/yum.repos.d/azurelinux*
+
+    for repo in "${repos[@]}"; do
+        output_file="/etc/yum.repos.d/azurelinux-${repo}.repo"
+        repo_content=(
+            "[azurelinux-official-$repo]"
+            "name=Azure Linux Official $repo \$releasever \$basearch"
+            "baseurl=$repodepot_endpoint/azurelinux/\$releasever/prod/$repo/\$basearch"
+            "gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY"
+            "gpgcheck=1"
+            "repo_gpgcheck=1"
+            "enabled=1"
+            "skip_if_unavailable=True"
+            "sslverify=1"
+        )
+
+        rm -f "$output_file"
+
+        for line in "${repo_content[@]}"; do
+            echo "$line" >> "$output_file"
+        done
+
+        echo "File '$output_file' has been created."
+    done
+    echo "Azure Linux repo setup complete."
+}
+
+dnf_makecache() {
+    local retries=10
+    local dnf_makecache_output=/tmp/dnf-makecache.out
+    local i
+    for i in $(seq 1 $retries); do
+        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_makecache_output && break || \
+        cat $dnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else sleep 5
+        fi
+    done
+    echo "Executed dnf makecache -y $i times"
+}
 
 function init_ubuntu_main_repo_depot {
     local repodepot_endpoint="$1"
@@ -326,7 +406,25 @@ function init_ubuntu_pmc_repo_depot {
     add_ms_keys $repodepot_endpoint
 }
 
-if [ "$IS_UBUNTU" -eq 1 ]; then
+if { [[ "$IS_MARINER" -eq 1 ]] || [[ "$IS_AZURELINUX" -eq 1 ]]; }; then
+    marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+    if [ -z "$marinerRepoDepotEndpoint" ]; then
+      >&2 echo "repo depot endpoint empty while running custom-cloud init script"
+    else
+      # logic taken from https://repodepot.azure.com/scripts/cloud-init/setup_repodepot.sh
+      if [ "$IS_MARINER" -eq 1 ]; then
+          echo "Initializing Mariner repo depot settings..."
+          init_mariner_repo_depot ${marinerRepoDepotEndpoint}
+          dnf_makecache || exit 1
+      elif [ "$IS_AZURELINUX" -eq 1 ]; then
+          echo "Initializing Azure Linux repo depot settings..."
+          init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
+          dnf_makecache || exit 1
+      else
+          echo "No customizations for distribution: $NAME"
+      fi
+    fi
+elif [ "$IS_UBUNTU" -eq 1 ]; then
     scriptPath=$0
     # Determine an absolute, canonical path to this script for use in cron.
     if command -v readlink >/dev/null 2>&1; then
@@ -454,7 +552,7 @@ EOF
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
     systemctl restart chrony
-elif [ "$IS_FLATCAR" -eq 1 ]; then
+elif { [[ "$IS_MARINER" -eq 1 ]] || [[ "$IS_AZURELINUX" -eq 1 ]] || [[ "$IS_FLATCAR" -eq 1 ]]; }; then
     systemctl restart chronyd
 fi
 fi # end of IS_ACL skip block
