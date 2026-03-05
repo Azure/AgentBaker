@@ -7,8 +7,6 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Test_Ubuntu2204_LocalDNSHostsPlugin tests the localdns hosts plugin feature on Ubuntu 22.04
@@ -181,112 +179,25 @@ func Test_AzureLinuxV3_LocalDNSHostsPlugin_Fairfax(t *testing.T) {
 	})
 }
 
-// Test_AzureLinuxV3_LocalDNSHostsPlugin_UnknownCloud tests that unknown/empty cloud environment
-// causes aks-hosts-setup to exit early and not enable hosts plugin on Azure Linux V3
-func Test_AzureLinuxV3_LocalDNSHostsPlugin_UnknownCloud(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that unknown cloud environment causes graceful fallback without hosts plugin on Azure Linux V3 (cross-distro)",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Tags: Tags{
-			MockUnknownCloud: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-				// Note: TARGET_CLOUD will be set to "UnsupportedCloudE2ETest" by vmss.go
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate that aks-hosts-setup.service failed gracefully (exit 1)
-				serviceScript := `set -euo pipefail
-svc="aks-hosts-setup.service"
-result=$(systemctl show -p Result "$svc" --value 2>/dev/null || echo "unknown")
-echo "aks-hosts-setup.service result: $result"
-if [ "$result" != "exit-code" ]; then
-    echo "ERROR: Expected aks-hosts-setup.service to fail with exit-code, got: $result"
-    systemctl status "$svc" --no-pager || true
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-
-# Verify the service exited with code 1 (graceful failure)
-exit_code=$(systemctl show -p ExecMainStatus "$svc" --value 2>/dev/null || echo "0")
-echo "aks-hosts-setup.service exit code: $exit_code"
-if [ "$exit_code" != "1" ]; then
-    echo "ERROR: Expected exit code 1, got: $exit_code"
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-
-# Verify error message in logs mentions unrecognized cloud
-if ! journalctl -u "$svc" --no-pager | grep -q "Unrecognized cloud environment"; then
-    echo "ERROR: Expected error message about unrecognized cloud environment"
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, serviceScript, 0,
-					"aks-hosts-setup.service should fail gracefully when cloud is unrecognized")
-
-				// Validate that /etc/localdns/hosts was not created (or is empty)
-				hostsCheckScript := `set -euo pipefail
-if [ ! -f "/etc/localdns/hosts" ]; then
-    echo "/etc/localdns/hosts does not exist (expected)"
-    exit 0
-fi
-
-# If file exists, it should be empty or have no IP mappings
-if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' /etc/localdns/hosts; then
-    echo "ERROR: /etc/localdns/hosts should not contain IP mappings"
-    cat /etc/localdns/hosts
-    exit 1
-fi
-
-echo "/etc/localdns/hosts is empty or has no mappings (expected)"
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, hostsCheckScript, 0,
-					"/etc/localdns/hosts should not be populated when cloud is unrecognized")
-
-				// Validate that the node annotation was NOT set
-				s.T.Log("Verifying node does NOT have localdns-hosts-plugin annotation...")
-				node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-				require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
-
-				annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
-				_, exists := node.Annotations[annotationKey]
-				require.False(s.T, exists,
-					"Node should NOT have annotation %q when cloud is unrecognized", annotationKey)
-				s.T.Logf("Confirmed node does not have annotation %q (expected for unrecognized cloud)", annotationKey)
-
-				// Validate that updated.localdns.corefile does NOT have hosts plugin
-				corefileCheckScript := `set -euo pipefail
-corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
-if [ ! -f "$corefile" ]; then
-    echo "ERROR: $corefile does not exist"
-    exit 1
-fi
-
-if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
-    echo "ERROR: Corefile should not contain hosts plugin when TARGET_CLOUD is unset"
-    cat "$corefile"
-    exit 1
-fi
-
-echo "Corefile does not contain hosts plugin (expected)"
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-					"updated.localdns.corefile should not contain hosts plugin when cloud is unrecognized")
-			},
-		},
-	})
-}
-
+// NOTE: UnknownCloud E2E tests have been removed because they cannot work in the E2E environment.
+// When TARGET_CLOUD is set to an unknown value, the CSE fails during the API server connectivity
+// check (exit code 52) before the node can join the cluster. This means aks-hosts-setup.service
+// never runs, and we cannot validate the graceful failure behavior.
+//
+// UnknownCloud scenarios are now covered by unit tests in:
+//   spec/parts/linux/cloud-init/artifacts/aks_hosts_setup_spec.sh
+//
+// The unit tests verify:
+// - Script exits with failure (exit 1) for unknown TARGET_CLOUD values
+// - Error message "Unrecognized cloud environment" is logged
+// - /etc/localdns/hosts is not created or modified
+// - Corefile does not include hosts plugin directive
+//
+// These unit tests provide better coverage than E2E tests for this scenario because they:
+// 1. Test the actual aks-hosts-setup.sh behavior directly
+// 2. Run much faster (no VM provisioning required)
+// 3. Are more reliable (no dependency on CSE or cluster state)
+// 4. Can test multiple edge cases easily (empty string, various invalid values)
 
 // Test_Ubuntu2204_LocalDNSHostsPlugin_China tests cloud-specific FQDN selection for Azure China Cloud
 func Test_Ubuntu2204_LocalDNSHostsPlugin_China(t *testing.T) {
@@ -360,114 +271,6 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_Fairfax(t *testing.T) {
 				})
 
 				ValidateLocalDNSHostsPluginBypass(ctx, s)
-			},
-		},
-	})
-}
-
-// Test_Ubuntu2204_LocalDNSHostsPlugin_UnknownCloud tests that unknown/empty cloud environment
-// causes aks-hosts-setup to exit early and not enable hosts plugin
-func Test_Ubuntu2204_LocalDNSHostsPlugin_UnknownCloud(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description:      "Tests that unknown cloud environment causes graceful fallback without hosts plugin",
-		K8sSystemPoolSKU: "Standard_D4s_v3",
-		Tags: Tags{
-			MockUnknownCloud: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
-				// Note: TARGET_CLOUD will be set to "UnsupportedCloudE2ETest" by vmss.go
-				// This tests the wildcard (*) case in aks-hosts-setup.sh which now exits with error
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate that aks-hosts-setup.service failed gracefully (exit 1)
-				// but the node still provisions successfully
-				serviceScript := `set -euo pipefail
-svc="aks-hosts-setup.service"
-result=$(systemctl show -p Result "$svc" --value 2>/dev/null || echo "unknown")
-echo "aks-hosts-setup.service result: $result"
-if [ "$result" != "exit-code" ]; then
-    echo "ERROR: Expected aks-hosts-setup.service to fail with exit-code, got: $result"
-    systemctl status "$svc" --no-pager || true
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-
-# Verify the service exited with code 1 (graceful failure)
-exit_code=$(systemctl show -p ExecMainStatus "$svc" --value 2>/dev/null || echo "0")
-echo "aks-hosts-setup.service exit code: $exit_code"
-if [ "$exit_code" != "1" ]; then
-    echo "ERROR: Expected exit code 1, got: $exit_code"
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-
-# Verify error message in logs mentions unrecognized cloud
-if ! journalctl -u "$svc" --no-pager | grep -q "Unrecognized cloud environment"; then
-    echo "ERROR: Expected error message about unrecognized cloud environment"
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, serviceScript, 0,
-					"aks-hosts-setup.service should fail gracefully when cloud is unrecognized")
-
-				// Validate that /etc/localdns/hosts was not created (or is empty)
-				hostsCheckScript := `set -euo pipefail
-if [ ! -f "/etc/localdns/hosts" ]; then
-    echo "/etc/localdns/hosts does not exist (expected)"
-    exit 0
-fi
-
-# If file exists, it should be empty or have no IP mappings
-if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' /etc/localdns/hosts; then
-    echo "ERROR: /etc/localdns/hosts should not contain IP mappings"
-    cat /etc/localdns/hosts
-    exit 1
-fi
-
-echo "/etc/localdns/hosts is empty or has no mappings (expected)"
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, hostsCheckScript, 0,
-					"/etc/localdns/hosts should not be populated when cloud is unrecognized")
-
-				// Validate that the node annotation was NOT set
-				s.T.Log("Verifying node does NOT have localdns-hosts-plugin annotation...")
-				node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-				require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
-
-				annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
-				_, exists := node.Annotations[annotationKey]
-				require.False(s.T, exists,
-					"Node should NOT have annotation %q when cloud is unrecognized", annotationKey)
-				s.T.Logf("Confirmed node does not have annotation %q (expected for unrecognized cloud)", annotationKey)
-
-				// Validate that updated.localdns.corefile does NOT have hosts plugin
-				corefileCheckScript := `set -euo pipefail
-corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
-if [ ! -f "$corefile" ]; then
-    echo "ERROR: $corefile does not exist"
-    exit 1
-fi
-
-if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
-    echo "ERROR: Corefile should not contain hosts plugin when TARGET_CLOUD is unset"
-    cat "$corefile"
-    exit 1
-fi
-
-echo "Corefile does not contain hosts plugin (expected)"
-`
-				execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-					"updated.localdns.corefile should not contain hosts plugin when cloud is unrecognized")
 			},
 		},
 	})
