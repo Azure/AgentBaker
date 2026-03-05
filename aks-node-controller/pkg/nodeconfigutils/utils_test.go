@@ -234,10 +234,10 @@ func TestMarshalUnmarshalWithPopulatedConfig(t *testing.T) {
 
 func TestValidateTHPConfig(t *testing.T) {
 	tests := []struct {
-		name                string
-		cfg                 *aksnodeconfigv1.Configuration
-		wantSupport         string
-		wantDefrag          string
+		name        string
+		cfg         *aksnodeconfigv1.Configuration
+		wantSupport string
+		wantDefrag  string
 	}{
 		{
 			name: "nil custom_linux_os_config passes",

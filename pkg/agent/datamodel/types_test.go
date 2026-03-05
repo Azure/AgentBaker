@@ -3199,10 +3199,10 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 
 func TestCustomLinuxOSConfig_ValidateTHPConfig(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *CustomLinuxOSConfig
-		wantEnabled    string
-		wantDefrag     string
+		name        string
+		config      *CustomLinuxOSConfig
+		wantEnabled string
+		wantDefrag  string
 	}{
 		{
 			name:   "nil config is valid",

@@ -263,7 +263,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should return an error for invalid TransparentHugePageEnabled", func() {
+		It("should reset invalid TransparentHugePageEnabled to empty", func() {
 			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 				TransparentHugePageEnabled: "invalid",
 			}
@@ -271,11 +271,11 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("invalid TransparentHugePageEnabled"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.AgentPoolProfile.CustomLinuxOSConfig.TransparentHugePageEnabled).To(Equal(""))
 		})
 
-		It("should return an error for invalid TransparentHugePageDefrag", func() {
+		It("should reset invalid TransparentHugePageDefrag to empty", func() {
 			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 				TransparentHugePageDefrag: "invalid",
 			}
@@ -283,8 +283,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("invalid TransparentHugePageDefrag"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.AgentPoolProfile.CustomLinuxOSConfig.TransparentHugePageDefrag).To(Equal(""))
 		})
 	})
 
