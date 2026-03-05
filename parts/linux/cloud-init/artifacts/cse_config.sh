@@ -1263,8 +1263,10 @@ EOF
 #                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 enableLocalDNS() {
     local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
-    echo "enableLocalDNS called with corefile parameter: $(echo "${corefile_content}" | base64 -d | head -n1)"
+    echo "enableLocalDNS called, generating corefile..."
     generateLocalDNSFiles "${corefile_content}"
+    # Log corefile variant after it's been successfully written
+    echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
