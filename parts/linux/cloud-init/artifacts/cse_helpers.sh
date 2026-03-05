@@ -1294,4 +1294,41 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
+
+# Selects the appropriate localdns corefile based on hosts plugin enablement and hosts file state
+# Usage: select_localdns_corefile <should_enable_hosts_plugin> <corefile_with_hosts> <corefile_no_hosts> <hosts_file_path>
+# Returns: The selected corefile (base64-encoded) via stdout
+# Logs: Decision messages to stderr
+select_localdns_corefile() {
+    local should_enable_hosts_plugin="${1}"
+    local corefile_with_hosts="${2}"
+    local corefile_no_hosts="${3}"
+    local hosts_file_path="${4}"
+
+    echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${should_enable_hosts_plugin:-<unset>}" >&2
+
+    if [ "${should_enable_hosts_plugin}" = "true" ]; then
+        echo "Hosts plugin is enabled, checking ${hosts_file_path} for content..." >&2
+        if [ -f "${hosts_file_path}" ]; then
+            echo "${hosts_file_path} exists, checking for IP mappings..." >&2
+            if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
+                echo "aks-hosts-setup produced hosts file with IP mappings, using corefile with hosts plugin" >&2
+                echo "${corefile_with_hosts}"
+                return 0
+            else
+                echo "Warning: ${hosts_file_path} exists but has no IP mappings, falling back to corefile without hosts plugin" >&2
+                echo "${corefile_no_hosts}"
+                return 0
+            fi
+        else
+            echo "Warning: ${hosts_file_path} does not exist, falling back to corefile without hosts plugin" >&2
+            echo "${corefile_no_hosts}"
+            return 0
+        fi
+    else
+        echo "Hosts plugin is not enabled (SHOULD_ENABLE_HOSTS_PLUGIN != 'true'), using corefile without hosts plugin" >&2
+        echo "${corefile_no_hosts}"
+        return 0
+    fi
+}
 #HELPERSEOF
