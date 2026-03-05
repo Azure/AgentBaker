@@ -124,15 +124,33 @@ downloadGridDrivers() {
     # drivers instead of CUDA drivers. These sizes use a "converged" driver to support
     # both CUDA and GRID workloads — installing vanilla CUDA drivers will fail.
     #
-    # TODO(mitchzhu): GRID driver RPM is not yet available on PMC (packages.microsoft.com).
-    # Once published, replace with:
-    #   GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
-    #       grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
-    #   dnf_install 30 1 600 ${GRID_PACKAGE}
-    local grid_rpm="nvidia-vgpu-guest-driver-570.195.03-1_${KERNEL_VERSION}.x86_64.rpm"
-    local grid_url="https://github.com/miz060/AgentBaker/releases/download/grid-driver-v570.195.03/nvidia-vgpu-guest-driver-570.195.03-1_6.6.121.1.1.azl3.x86_64.rpm"
-    echo "Installing GRID driver: ${grid_rpm}"
-    dnf_install 5 10 600 "${grid_url}" || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    # The nvidia-vgpu-guest-driver RPM is published in the AzureLinux 3.0 preview NVIDIA
+    # repo (packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/). The VHD ships the
+    # cloud-native-preview repo but not the NVIDIA preview repo, so we add it here.
+    if [ ! -f /etc/yum.repos.d/azurelinux-nvidia-preview.repo ]; then
+        tee /etc/yum.repos.d/azurelinux-nvidia-preview.repo > /dev/null <<'EOF'
+[azurelinux-official-nvidia-preview]
+name=Azure Linux Official Nvidia Preview 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/x86_64/
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+    fi
+
+    GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
+        grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+
+    if [ -z "$GRID_PACKAGE" ]; then
+        echo "No nvidia-vgpu-guest-driver package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    fi
+
+    echo "Installing: ${GRID_PACKAGE}"
+    dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
 downloadGPUDrivers() {
