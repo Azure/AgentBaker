@@ -224,10 +224,10 @@ $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworki
 $global:BootstrapProfileContainerRegistryServer="{{GetBootstrapProfileContainerRegistryServer}}"
 $global:MCRRepositoryBase="{{GetMCRRepositoryBase}}"
 
-$global:OrasCacheDir="c:\\aks-tools\\oras\\" # refer to components.json
-$global:OrasPath="c:\\aks-tools\\oras\\oras.exe"
-$global:OrasOutput="c:\\aks-tools\\oras\\oras_verbose.out"
-$global:OrasRegistryConfigFile="c:\\aks-tools\\oras\\config.yaml" # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
+$global:OrasCacheDir="c:\aks-tools\oras\" # refer to components.json
+$global:OrasPath="c:\aks-tools\oras\oras.exe"
+$global:OrasOutput="c:\aks-tools\oras\oras_verbose.out"
+$global:OrasRegistryConfigFile="c:\aks-tools\oras\config.yaml" # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
