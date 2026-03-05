@@ -1507,15 +1507,40 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	// Step 1: Verify the node has the hosts plugin annotation
-	s.T.Log("Verifying node has localdns-hosts-plugin annotation...")
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
-
+	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
+	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
+	s.T.Log("Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
 	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
-	annotationValue, exists := node.Annotations[annotationKey]
-	require.True(s.T, exists, "node %q should have annotation %q", s.Runtime.VM.KubeName, annotationKey)
-	require.Equal(s.T, "enabled", annotationValue, "annotation %q should be 'enabled', got %q", annotationKey, annotationValue)
-	s.T.Logf("✓ Node annotation %s=%s verified", annotationKey, annotationValue)
+
+	var node *corev1.Node
+	var err error
+	var annotationValue string
+	var exists bool
+	maxAttempts := 60 // 5 minutes with exponential backoff
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+		annotationValue, exists = node.Annotations[annotationKey]
+		if exists && annotationValue == "enabled" {
+			s.T.Logf("✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
+			break
+		}
+
+		if attempt == maxAttempts {
+			s.T.Fatalf("Timeout: node %q annotation %q not found or not 'enabled' after %d attempts (5 minutes). Current value: exists=%v, value=%q",
+				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+		}
+
+		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+		sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+		if sleepDuration > 10*time.Second {
+			sleepDuration = 10 * time.Second
+		}
+		s.T.Logf("Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
+		time.Sleep(sleepDuration)
+	}
 
 	// Step 2: Create a unique fake FQDN for this test to avoid conflicts
 	// Using the VMSS name ensures uniqueness across parallel tests.
