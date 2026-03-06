@@ -9,8 +9,6 @@ OnBootSec=0
 OnUnitActiveSec=15min
 # Timer accuracy (how much systemd can delay)
 AccuracySec=1s
-# Add randomization to avoid thundering herd if multiple nodes boot simultaneously
-RandomizedDelaySec=60s
 
 [Install]
 WantedBy=timers.target
