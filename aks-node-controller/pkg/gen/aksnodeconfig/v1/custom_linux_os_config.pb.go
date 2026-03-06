@@ -34,10 +34,10 @@ type CustomLinuxOsConfig struct {
 	EnableSwapConfig bool `protobuf:"varint,3,opt,name=enable_swap_config,json=enableSwapConfig,proto3" json:"enable_swap_config,omitempty"`
 	// The size in MB of a swap file that will be created on each node
 	SwapFileSize int32 `protobuf:"varint,4,opt,name=swap_file_size,json=swapFileSize,proto3" json:"swap_file_size,omitempty"`
-	// Valid values are "always", "defer", "defer+madvise", "madvise" and "never"
+	// Valid values are "always", "madvise" and "never"
 	// If it's unset or set to empty string, it will use the default value in the VHD "always"
 	TransparentHugepageSupport string `protobuf:"bytes,5,opt,name=transparent_hugepage_support,json=transparentHugepageSupport,proto3" json:"transparent_hugepage_support,omitempty"`
-	// Valid values are "always", "madvise" and "never"
+	// Valid values are "always", "defer", "defer+madvise", "madvise" and "never"
 	// If it's unset or set to empty string, it will use the default value in the VHD "madvise"
 	TransparentDefrag string `protobuf:"bytes,6,opt,name=transparent_defrag,json=transparentDefrag,proto3" json:"transparent_defrag,omitempty"`
 }

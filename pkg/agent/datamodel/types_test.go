@@ -3385,3 +3385,105 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 }
 
 // ----------------------- End of changes related to localdns ------------------------------------------.
+
+func TestCustomLinuxOSConfig_ValidateTHPConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *CustomLinuxOSConfig
+		wantEnabled string
+		wantDefrag  string
+	}{
+		{
+			name:   "nil config is valid",
+			config: nil,
+		},
+		{
+			name:   "empty fields are valid",
+			config: &CustomLinuxOSConfig{},
+		},
+		{
+			name:        "valid THP enabled 'always'",
+			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: TransparentHugePageAlways},
+			wantEnabled: TransparentHugePageAlways,
+		},
+		{
+			name:        "valid THP enabled 'madvise'",
+			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: TransparentHugePageMadvise},
+			wantEnabled: TransparentHugePageMadvise,
+		},
+		{
+			name:        "valid THP enabled 'never'",
+			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: TransparentHugePageNever},
+			wantEnabled: TransparentHugePageNever,
+		},
+		{
+			name:       "valid THP defrag 'always'",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: TransparentHugePageDefragAlways},
+			wantDefrag: TransparentHugePageDefragAlways,
+		},
+		{
+			name:       "valid THP defrag 'defer'",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: TransparentHugePageDefragDefer},
+			wantDefrag: TransparentHugePageDefragDefer,
+		},
+		{
+			name:       "valid THP defrag 'defer+madvise'",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: TransparentHugePageDefragDeferMadvise},
+			wantDefrag: TransparentHugePageDefragDeferMadvise,
+		},
+		{
+			name:       "valid THP defrag 'madvise'",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: TransparentHugePageDefragMadvise},
+			wantDefrag: TransparentHugePageDefragMadvise,
+		},
+		{
+			name:       "valid THP defrag 'never'",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: TransparentHugePageDefragNever},
+			wantDefrag: TransparentHugePageDefragNever,
+		},
+		{
+			name: "valid both fields set",
+			config: &CustomLinuxOSConfig{
+				TransparentHugePageEnabled: TransparentHugePageNever,
+				TransparentHugePageDefrag:  TransparentHugePageDefragDeferMadvise,
+			},
+			wantEnabled: TransparentHugePageNever,
+			wantDefrag:  TransparentHugePageDefragDeferMadvise,
+		},
+		{
+			name:        "case-insensitive THP enabled 'Always' normalized to lowercase",
+			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: "Always"},
+			wantEnabled: "always",
+		},
+		{
+			name:       "case-insensitive THP defrag 'NEVER' normalized to lowercase",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: "NEVER"},
+			wantDefrag: "never",
+		},
+		{
+			name:        "invalid THP enabled value resets to empty",
+			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: "invalid"},
+			wantEnabled: "",
+		},
+		{
+			name:       "invalid THP defrag value resets to empty",
+			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: "invalid"},
+			wantDefrag: "",
+		},
+		{
+			name:        "invalid THP enabled resets, invalid defrag resets",
+			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: "invalid", TransparentHugePageDefrag: "invalid"},
+			wantEnabled: "",
+			wantDefrag:  "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.config.ValidateTHPConfig()
+			if tt.config != nil {
+				assert.Equal(t, tt.wantEnabled, tt.config.TransparentHugePageEnabled)
+				assert.Equal(t, tt.wantDefrag, tt.config.TransparentHugePageDefrag)
+			}
+		})
+	}
+}

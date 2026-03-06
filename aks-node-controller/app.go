@@ -165,6 +165,8 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
+	nodeconfigutils.ValidateTHPConfig(config)
+
 	cmd, err := parser.BuildCSECmd(ctx, config)
 	if err != nil {
 		provisionResult.ExitCode = strconv.Itoa(240)

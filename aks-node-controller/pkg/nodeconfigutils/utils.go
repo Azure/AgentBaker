@@ -3,6 +3,8 @@ package nodeconfigutils
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
+	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -64,4 +66,46 @@ func Validate(cfg *aksnodeconfigv1.Configuration) error {
 		}
 	}
 	return nil
+}
+
+// ValidateTHPConfig checks that TransparentHugepageSupport and TransparentDefrag
+// contain valid kernel values when set. Invalid values are logged as warnings
+// and reset to empty (kernel default).
+func ValidateTHPConfig(cfg *aksnodeconfigv1.Configuration) {
+	osConfig := cfg.GetCustomLinuxOsConfig()
+	if osConfig == nil {
+		return
+	}
+
+	validEnabled := map[string]bool{
+		"always":  true,
+		"madvise": true,
+		"never":   true,
+	}
+	validDefrag := map[string]bool{
+		"always":        true,
+		"defer":         true,
+		"defer+madvise": true,
+		"madvise":       true,
+		"never":         true,
+	}
+
+	if v := osConfig.GetTransparentHugepageSupport(); v != "" {
+		lower := strings.ToLower(v)
+		if !validEnabled[lower] {
+			log.Printf("WARNING: invalid transparent_hugepage_support value %q, must be one of: always, madvise, never; resetting to default", v)
+			osConfig.TransparentHugepageSupport = ""
+		} else {
+			osConfig.TransparentHugepageSupport = lower
+		}
+	}
+	if v := osConfig.GetTransparentDefrag(); v != "" {
+		lower := strings.ToLower(v)
+		if !validDefrag[lower] {
+			log.Printf("WARNING: invalid transparent_defrag value %q, must be one of: always, defer, defer+madvise, madvise, never; resetting to default", v)
+			osConfig.TransparentDefrag = ""
+		} else {
+			osConfig.TransparentDefrag = lower
+		}
+	}
 }

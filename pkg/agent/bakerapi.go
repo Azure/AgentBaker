@@ -40,6 +40,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
+		config.AgentPoolProfile.CustomLinuxOSConfig.ValidateTHPConfig()
 		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 

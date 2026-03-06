@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math/rand"
 	neturl "net/url"
 	"sort"
@@ -754,6 +755,24 @@ type CustomKubeletConfig struct {
 	SeccompDefault        *bool     `json:"seccompDefault,omitempty"`
 }
 
+// Valid values for TransparentHugePageEnabled, corresponding to
+// /sys/kernel/mm/transparent_hugepage/enabled.
+const (
+	TransparentHugePageAlways  = "always"
+	TransparentHugePageMadvise = "madvise"
+	TransparentHugePageNever   = "never"
+)
+
+// Valid values for TransparentHugePageDefrag, corresponding to
+// /sys/kernel/mm/transparent_hugepage/defrag.
+const (
+	TransparentHugePageDefragAlways       = "always"
+	TransparentHugePageDefragDefer        = "defer"
+	TransparentHugePageDefragDeferMadvise = "defer+madvise"
+	TransparentHugePageDefragMadvise      = "madvise"
+	TransparentHugePageDefragNever        = "never"
+)
+
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
 type CustomLinuxOSConfig struct {
 	Sysctls                    *SysctlConfig `json:"sysctls,omitempty"`
@@ -761,6 +780,44 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
 	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
+}
+
+// ValidateTHPConfig checks that TransparentHugePageEnabled and TransparentHugePageDefrag contain valid kernel values when set.
+// Invalid values are logged as warnings and reset to empty (kernel default).
+func (c *CustomLinuxOSConfig) ValidateTHPConfig() {
+	if c == nil {
+		return
+	}
+	validEnabled := map[string]bool{
+		TransparentHugePageAlways:  true,
+		TransparentHugePageMadvise: true,
+		TransparentHugePageNever:   true,
+	}
+	validDefrag := map[string]bool{
+		TransparentHugePageDefragAlways:       true,
+		TransparentHugePageDefragDefer:        true,
+		TransparentHugePageDefragDeferMadvise: true,
+		TransparentHugePageDefragMadvise:      true,
+		TransparentHugePageDefragNever:        true,
+	}
+	if c.TransparentHugePageEnabled != "" {
+		lower := strings.ToLower(c.TransparentHugePageEnabled)
+		if !validEnabled[lower] {
+			log.Printf("WARNING: invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never; setting to default", c.TransparentHugePageEnabled)
+			c.TransparentHugePageEnabled = ""
+		} else {
+			c.TransparentHugePageEnabled = lower
+		}
+	}
+	if c.TransparentHugePageDefrag != "" {
+		lower := strings.ToLower(c.TransparentHugePageDefrag)
+		if !validDefrag[lower] {
+			log.Printf("WARNING: invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never; setting to default", c.TransparentHugePageDefrag)
+			c.TransparentHugePageDefrag = ""
+		} else {
+			c.TransparentHugePageDefrag = lower
+		}
+	}
 }
 
 func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
