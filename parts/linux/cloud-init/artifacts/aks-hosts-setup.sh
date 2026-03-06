@@ -261,35 +261,4 @@ fi
 echo "✓ All entries in ${HOSTS_FILE} are valid (IP FQDN format)"
 echo "Found ${VALID_ENTRIES} valid IP address mappings"
 
-# Verify that every non-comment, non-empty line has the format: <IP> <FQDN>
-# This ensures we don't have any lines with FQDN but missing IP address
-echo "Validating hosts file entries format..."
-INVALID_LINES=()
-while IFS= read -r line; do
-    # Skip comments and empty lines
-    [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]] && continue
-
-    # Check if line has at least two fields (IP and FQDN)
-    ip=$(echo "$line" | awk '{print $1}')
-    fqdn=$(echo "$line" | awk '{print $2}')
-
-    if [ -z "$ip" ] || [ -z "$fqdn" ]; then
-        INVALID_LINES+=("$line")
-        continue
-    fi
-
-    # Validate IP format (IPv4 or IPv6)
-    if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && ! [[ "$ip" =~ : ]]; then
-        INVALID_LINES+=("$line")
-    fi
-done < "${HOSTS_FILE}"
-
-if [ ${#INVALID_LINES[@]} -gt 0 ]; then
-    echo "ERROR: Found invalid entries in ${HOSTS_FILE} (missing IP or invalid format):"
-    printf '%s\n' "${INVALID_LINES[@]}"
-    exit 1
-fi
-
-echo "✓ All entries in ${HOSTS_FILE} are valid (IP FQDN format)"
-
 echo "AKS critical FQDN hosts resolution completed at $(date)"
