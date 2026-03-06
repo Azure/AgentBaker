@@ -1326,8 +1326,7 @@ select_localdns_corefile() {
 
         # Wait up to 30 seconds for the hosts file to be populated with IP mappings
         # aks-hosts-setup timer has OnBootSec=0 which triggers immediately when timer starts.
-        # The timer includes RandomizedDelaySec=60s to prevent thundering herd, but in practice
-        # the script often completes much faster (within 5-15 seconds).
+        # DNS resolution typically completes within 18-36 seconds (6 FQDNs × 3s timeout per query).
         # 30 seconds provides reasonable time for initial DNS resolution without blocking provisioning.
         local timeout=30
         local wait_interval=5
