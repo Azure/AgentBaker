@@ -91,6 +91,12 @@ func Test_AzureLinuxV3_LocalDNSHostsPlugin(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
 				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
+
+				// Set correct node-image-version label for Azure Linux V3
+				if nbc.AgentPoolProfile.CustomNodeLabels == nil {
+					nbc.AgentPoolProfile.CustomNodeLabels = make(map[string]string)
+				}
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/node-image-version"] = "AKSAzureLinuxV3gen2-202602.19.0"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAKSHostsSetupService(ctx, s)
