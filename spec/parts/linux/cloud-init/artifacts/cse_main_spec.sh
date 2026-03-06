@@ -38,7 +38,7 @@ Describe 'cse_main.sh corefile selection'
                 The output should equal "${COREFILE_WITH_HOSTS}"
                 The status should be success
                 The stderr should include "Hosts plugin is enabled"
-                The stderr should include "exists, checking for IP mappings"
+                The stderr should include "checking ${HOSTS_FILE} for content"
                 The stderr should include "using corefile with hosts plugin"
             End
 
