@@ -1505,6 +1505,63 @@ testBccTools () {
   return 0
 }
 
+# testWALinuxAgentInstalled verifies that the WALinuxAgent GAFamily version was
+# installed post-deprovision and that waagent.conf is configured to use it.
+# The test runs on a VM booted from the captured VHD image, so the post-deprovision
+# script has already executed and self-deleted. We verify its *results*:
+#   1. At least one WALinuxAgent-* directory exists under /var/lib/waagent/
+#   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
+#   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+testWALinuxAgentInstalled() {
+  local test="testWALinuxAgentInstalled"
+  echo "$test:Start"
+
+  # Check that at least one WALinuxAgent-* directory was installed
+  local -a dirs
+  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort -V)
+  local dirCount=${#dirs[@]}
+  if [ "$dirCount" -lt 1 ]; then
+    err "$test" "Expected at least 1 WALinuxAgent directory under /var/lib/waagent/, found ${dirCount}"
+    return 1
+  fi
+  echo "$test: Found ${dirCount} WALinuxAgent directories: ${dirs[*]}"
+
+  # Validate the newest directory (highest version) has expected artifacts
+  local installDir="${dirs[-1]}"
+  echo "$test: Validating pre-cached agent directory ${installDir}"
+
+  local expectedFiles=("HandlerManifest.json" "manifest.xml")
+  for f in "${expectedFiles[@]}"; do
+    if [ ! -f "${installDir}/${f}" ]; then
+      err "$test" "Expected file ${f} not found in ${installDir}, contents: $(ls -al "${installDir}")"
+      return 1
+    fi
+    echo "$test: Found expected file ${installDir}/${f}"
+  done
+
+  if [ ! -d "${installDir}/bin" ]; then
+    err "$test" "bin/ directory not found in ${installDir}, contents: $(ls -al "${installDir}")"
+    return 1
+  fi
+  echo "$test: Found bin/ directory in ${installDir}"
+
+  # Verify waagent.conf has the expected AutoUpdate settings
+  if grep -q '^AutoUpdate.Enabled=y' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.Enabled=y"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.Enabled=y"
+    return 1
+  fi
+  if grep -q '^AutoUpdate.UpdateToLatestVersion=n' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.UpdateToLatestVersion=n"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.UpdateToLatestVersion=n"
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
+
 testAKSNodeControllerBinary () {
   local test="testAKSNodeControllerBinary"
   local go_binary_path="/opt/azure/containers/aks-node-controller"
@@ -1911,6 +1968,11 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+# WALinuxAgent is installed post-deprovision (not via components.json),
+# so test it separately. Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+  testWALinuxAgentInstalled
+fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
 testImagesCompleted
 testPodSandboxImagePinned

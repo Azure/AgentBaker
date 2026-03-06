@@ -120,6 +120,16 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/post-deprovision-walinuxagent.sh",
+      "destination": "/home/packer/post-deprovision-walinuxagent.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install_walinuxagent.py",
+      "destination": "/home/packer/install_walinuxagent.py"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/packer_source.sh",
       "destination": "/home/packer/packer_source.sh"
     },
@@ -801,7 +811,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /bin/bash -c '/usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && /bin/bash -eu /opt/azure/containers/post-deprovision-walinuxagent.sh' || exit 125"
       ]
     }
   ],
