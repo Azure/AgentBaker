@@ -316,7 +316,7 @@ EOF
         "${LOCALDNS_GENERATED_COREFILE}" \
         "${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}" \
         "/etc/localdns/hosts")
-    echo "Selected corefile variant: $(echo "${LOCALDNS_COREFILE_TO_USE}" | base64 -d | head -n1 | grep -o 'hosts /etc/localdns/hosts' && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
+    echo "Selected corefile variant: $(echo "${LOCALDNS_COREFILE_TO_USE}" | base64 -d | grep -q 'hosts /etc/localdns/hosts' && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
 
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
