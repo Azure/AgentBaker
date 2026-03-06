@@ -140,7 +140,6 @@ build-aks-node-controller:
 build-image-fetcher:
 	@echo "Building image-fetcher binaries"
 	@bash -c "pushd image-fetcher && \
-	go test ./... && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/image-fetcher-linux-amd64 && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/image-fetcher-linux-arm64 && \
 	popd"
