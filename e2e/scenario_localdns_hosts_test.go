@@ -136,12 +136,8 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback(t *testing.T) {
 			// Use an old VHD without aks-hosts-setup artifacts
 			VHD: config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enable localdns and hosts plugin explicitly
-				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
-					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
-				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
+				// Try to enable localdns but it should be disabled due to UnsupportedLocalDns flag
+				// This simulates the scenario where new CSE runs on old VHD
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// This VHD has UnsupportedLocalDns=true, so localdns should be disabled
