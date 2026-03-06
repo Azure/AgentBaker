@@ -1319,35 +1319,16 @@ enableAKSHostsSetup() {
     echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
     chmod 0644 "${cloud_env_file}"
 
-    # Run the script once immediately to resolve live DNS before kubelet starts.
-    echo "Running initial aks-hosts-setup to resolve DNS..."
-    mkdir -p "$(dirname "${hosts_file}")"
     # Create an empty hosts file so the localdns hosts plugin can start watching it
-    # immediately. The file will be populated by aks-hosts-setup.sh below.
+    # immediately. The file will be populated by aks-hosts-setup timer asynchronously.
+    mkdir -p "$(dirname "${hosts_file}")"
     touch "${hosts_file}"
     chmod 0644 "${hosts_file}"
-    echo "Running ${hosts_setup_script} to populate ${hosts_file}..."
-    if "${hosts_setup_script}"; then
-        echo "aks-hosts-setup script completed successfully"
-        if [ -f "${hosts_file}" ]; then
-            local entry_count
-            entry_count=$(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null) || entry_count=0
-            echo "Hosts file ${hosts_file} now contains ${entry_count} DNS entries"
-            if [ "${entry_count}" -gt 0 ] 2>/dev/null; then
-                echo "Sample entries from ${hosts_file}:"
-                head -n 3 "${hosts_file}"
-            fi
-        else
-            echo "Warning: ${hosts_file} does not exist after running aks-hosts-setup"
-        fi
-    else
-        echo "Warning: Initial hosts setup failed with exit code $?"
-    fi
 
     # Enable the timer for periodic refresh (every 15 minutes)
     # This will update the hosts file with fresh IPs from live DNS
     echo "Enabling aks-hosts-setup timer..."
-    if systemctlEnableAndStart aks-hosts-setup.timer 30; then
+    if systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30; then
         echo "aks-hosts-setup timer enabled successfully."
     else
         echo "Warning: Failed to enable aks-hosts-setup timer"
