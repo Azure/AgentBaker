@@ -268,6 +268,20 @@ function prepare_windows_vhd() {
 	WINDOWS_IMAGE_VERSION=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" <$CDIR/windows/windows_settings.json)
 	WINDOWS_IMAGE_NAME=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" <$CDIR/windows/windows_settings.json)
 	OS_DISK_SIZE=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" <$CDIR/windows/windows_settings.json)
+
+	local sku_publisher
+	if sku_publisher=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sku_publisher}" ] && [ "${sku_publisher}" != "null" ]; then
+			WINDOWS_IMAGE_PUBLISHER="${sku_publisher}"
+		fi
+	fi
+	local sku_offer
+	if sku_offer=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sku_offer}" ] && [ "${sku_offer}" != "null" ]; then
+			WINDOWS_IMAGE_OFFER="${sku_offer}"
+		fi
+	fi
+
 	if [ "null" != "${OS_DISK_SIZE}" ]; then
 		echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
 		os_disk_size_gb=${OS_DISK_SIZE}
@@ -278,6 +292,8 @@ function prepare_windows_vhd() {
 	imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
 
 	echo "Got base image data: "
+	echo "  WINDOWS_IMAGE_PUBLISHER: ${WINDOWS_IMAGE_PUBLISHER}"
+	echo "  WINDOWS_IMAGE_OFFER: ${WINDOWS_IMAGE_OFFER}"
 	echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
 	echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
 	echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
