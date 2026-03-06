@@ -209,11 +209,9 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
@@ -347,11 +345,9 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
@@ -469,11 +465,9 @@
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
