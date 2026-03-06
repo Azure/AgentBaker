@@ -107,7 +107,15 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 
 		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
-		if s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin() {
+		// Check both NBC (traditional) and AKSNodeConfig (scriptless) paths
+		hostsPluginEnabled := false
+		if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+			hostsPluginEnabled = s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+		} else if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+			hostsPluginEnabled = s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+		}
+
+		if hostsPluginEnabled {
 			// Validate aks-hosts-setup service ran successfully and timer is active
 			ValidateAKSHostsSetupService(ctx, s)
 			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
