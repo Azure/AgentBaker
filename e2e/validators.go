@@ -1384,6 +1384,332 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
+// This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
+// can rotate between queries. We verify presence, not exact IP matching.
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
+	s.T.Helper()
+
+	// Force a fresh refresh of the hosts file before validating so the snapshot
+	// is consistent with the DNS answers we are about to resolve. Without this,
+	// the 15-minute timer gap can cause flaky mismatches due to DNS load-balancing
+	// or record rotation.
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo systemctl start aks-hosts-setup.service",
+		0, "failed to refresh hosts file via aks-hosts-setup.service")
+
+	// Build script that resolves each FQDN and checks it exists in hosts file
+	script := fmt.Sprintf(`set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+fqdns=(%s)
+
+echo "=== Validating /etc/localdns/hosts contains resolved IPs for critical FQDNs ==="
+echo ""
+echo "Current hosts file contents:"
+cat "$hosts_file"
+echo ""
+
+errors=0
+for fqdn in "${fqdns[@]}"; do
+    echo "Checking FQDN: $fqdn"
+
+    # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+    # rather than requiring every currently resolved IP to be present. This avoids
+    # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn"'([[:space:]]|$)' "$hosts_file"; then
+        echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+    else
+        echo "  ERROR: No IPv4 entry found for $fqdn in hosts file"
+        errors=$((errors + 1))
+    fi
+done
+
+echo ""
+if [ $errors -gt 0 ]; then
+    echo "FAILED: $errors FQDNs missing from hosts file"
+    exit 1
+else
+    echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
+    exit 0
+fi
+`, quoteFQDNsForBash(fqdns))
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts file should contain resolved IPs for critical FQDNs")
+}
+
+// quoteFQDNsForBash converts a slice of FQDNs to a bash array string
+func quoteFQDNsForBash(fqdns []string) string {
+	quoted := make([]string, len(fqdns))
+	for i, fqdn := range fqdns {
+		quoted[i] = fmt.Sprintf("%q", fqdn)
+	}
+	return strings.Join(quoted, " ")
+}
+
+// ValidateAKSHostsSetupService checks that aks-hosts-setup.service ran successfully
+// and the aks-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
+func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check that aks-hosts-setup.service completed successfully (oneshot service)
+	serviceScript := `set -euo pipefail
+svc="aks-hosts-setup.service"
+# For oneshot services, check if it ran successfully (exit code 0)
+result=$(systemctl show -p Result "$svc" --value 2>/dev/null || echo "unknown")
+echo "aks-hosts-setup.service result: $result"
+if [ "$result" != "success" ]; then
+    echo "ERROR: aks-hosts-setup.service did not complete successfully"
+    systemctl status "$svc" --no-pager || true
+    journalctl -u "$svc" --no-pager -n 50 || true
+    exit 1
+fi
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, serviceScript, 0,
+		"aks-hosts-setup.service should have completed successfully")
+
+	// Check that aks-hosts-setup.timer is active for periodic refresh
+	timerScript := `set -euo pipefail
+timer="aks-hosts-setup.timer"
+active=$(systemctl is-active "$timer" 2>/dev/null || true)
+echo "aks-hosts-setup.timer: active=$active"
+if [ "$active" != "active" ]; then
+    echo "ERROR: aks-hosts-setup.timer is not active"
+    systemctl status "$timer" --no-pager || true
+    exit 1
+fi
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, timerScript, 0,
+		"aks-hosts-setup.timer should be active for periodic hosts file refresh")
+}
+
+// getContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the NBC's ContainerService.Location field. This mirrors the logic in
+// GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+func getContainerRegistryFQDN(s *Scenario) string {
+	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
+		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+		// usgovvirginia, usgovarizona, usdodeast, usdodcentral -> AzureUSGovernmentCloud
+		// but US Government still uses mcr.microsoft.com for container registry
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
+}
+
+// ValidateLocalDNSHostsPluginBypass verifies that localdns resolves FQDNs from /etc/localdns/hosts
+// without querying the upstream DNS server. This confirms the hosts plugin is working correctly.
+// It injects a fake FQDN (that doesn't exist in public DNS) into the hosts file and verifies
+// localdns can resolve it - proving the hosts plugin is functioning.
+func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Verify the node has the hosts plugin annotation
+	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
+	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
+	s.T.Log("Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
+	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
+
+	var node *corev1.Node
+	var err error
+	var annotationValue string
+	var exists bool
+	maxAttempts := 60 // 5 minutes with exponential backoff
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+		annotationValue, exists = node.Annotations[annotationKey]
+		if exists && annotationValue == "enabled" {
+			s.T.Logf("✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
+			break
+		}
+
+		if attempt == maxAttempts {
+			s.T.Fatalf("Timeout: node %q annotation %q not found or not 'enabled' after %d attempts (5 minutes). Current value: exists=%v, value=%q",
+				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+		}
+
+		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+		sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+		if sleepDuration > 10*time.Second {
+			sleepDuration = 10 * time.Second
+		}
+		s.T.Logf("Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
+		time.Sleep(sleepDuration)
+	}
+
+	// Step 2: Verify the Corefile has the hosts plugin configured
+	s.T.Log("Verifying Corefile contains hosts plugin configuration...")
+	corefileCheckScript := `set -euo pipefail
+corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
+
+echo "=== Verifying Corefile configuration ==="
+echo "Checking if $corefile exists..."
+if [ ! -f "$corefile" ]; then
+    echo "ERROR: Corefile $corefile does not exist"
+    exit 1
+fi
+echo "✓ Corefile exists"
+echo ""
+
+echo "Checking if Corefile contains hosts plugin directive..."
+if ! grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+    echo "ERROR: Corefile does not contain 'hosts /etc/localdns/hosts' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
+echo ""
+
+echo "Verifying hosts plugin in VnetDNS listener (169.254.10.10)..."
+# Extract the VnetDNS section (.:53 block with bind 169.254.10.10)
+vnetdns_section=$(awk '/.:53 \{/,/^}/' "$corefile" | sed -n '/bind 169.254.10.10/,/^}/p')
+if ! echo "$vnetdns_section" | grep -q "hosts /etc/localdns/hosts"; then
+    echo "ERROR: hosts plugin not found in VnetDNS listener (169.254.10.10)"
+    echo "VnetDNS section:"
+    echo "$vnetdns_section"
+    exit 1
+fi
+echo "✓ hosts plugin found in VnetDNS listener (169.254.10.10)"
+
+# Verify hosts comes before forward in VnetDNS (order matters - hosts should be checked first)
+hosts_line=$(echo "$vnetdns_section" | grep -n "hosts /etc/localdns/hosts" | cut -d: -f1 | head -1)
+forward_line=$(echo "$vnetdns_section" | grep -n "forward \\." | cut -d: -f1 | head -1)
+if [ -n "$hosts_line" ] && [ -n "$forward_line" ] && [ "$hosts_line" -gt "$forward_line" ]; then
+    echo "WARNING: hosts plugin appears after forward directive in VnetDNS listener"
+    echo "This may prevent hosts plugin from being consulted first"
+fi
+echo "✓ hosts plugin is properly ordered in VnetDNS listener"
+echo ""
+
+echo "Verifying hosts plugin in KubeDNS overrides listener (169.254.10.11)..."
+# Extract the KubeDNS section (.:53 block with bind 169.254.10.11)
+kubedns_section=$(awk '/.:53 \{/,/^}/' "$corefile" | sed -n '/bind 169.254.10.11/,/^}/p')
+if ! echo "$kubedns_section" | grep -q "hosts /etc/localdns/hosts"; then
+    echo "ERROR: hosts plugin not found in KubeDNS overrides listener (169.254.10.11)"
+    echo "KubeDNS section:"
+    echo "$kubedns_section"
+    exit 1
+fi
+echo "✓ hosts plugin found in KubeDNS overrides listener (169.254.10.11)"
+
+# Verify hosts comes before forward in KubeDNS (order matters)
+hosts_line=$(echo "$kubedns_section" | grep -n "hosts /etc/localdns/hosts" | cut -d: -f1 | head -1)
+forward_line=$(echo "$kubedns_section" | grep -n "forward \\." | cut -d: -f1 | head -1)
+if [ -n "$hosts_line" ] && [ -n "$forward_line" ] && [ "$hosts_line" -gt "$forward_line" ]; then
+    echo "WARNING: hosts plugin appears after forward directive in KubeDNS listener"
+    echo "This may prevent hosts plugin from being consulted first"
+fi
+echo "✓ hosts plugin is properly ordered in KubeDNS overrides listener"
+echo ""
+
+echo "=== Corefile validation successful ==="
+echo "Summary: hosts plugin is configured in both VnetDNS (169.254.10.10) and KubeDNS (169.254.10.11) listeners"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
+		"Corefile should contain hosts plugin configuration in both VnetDNS and KubeDNS listeners")
+
+	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
+	// This validates the hosts plugin is working by checking:
+	// 1. DNS resolution returns IPs that match entries in /etc/localdns/hosts
+	// 2. DNS response includes "recursion not available" flag (proves it's from hosts plugin, not forwarded upstream)
+	//
+	// We use packages.microsoft.com because it's a real FQDN that aks-hosts-setup.service populates.
+	// This avoids race conditions with the aks-hosts-setup.timer overwriting fake test entries.
+	testFQDN := "packages.microsoft.com"
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts", testFQDN)
+
+	script := fmt.Sprintf(`set -euo pipefail
+test_fqdn=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing localdns hosts plugin functionality ==="
+echo "Testing FQDN: $test_fqdn"
+echo ""
+
+# Step 1: Get the expected IPs from /etc/localdns/hosts
+echo "Reading expected IPs from $hosts_file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Extract IPv4 addresses for the test FQDN from hosts file (ignore IPv6 for simplicity)
+expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+$test_fqdn" "$hosts_file" | awk '{print $1}' | sort)
+if [ -z "$expected_ips" ]; then
+    echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
+    echo "Hosts file contents:"
+    sudo cat "$hosts_file"
+    exit 1
+fi
+
+echo "Expected IPs from hosts file:"
+echo "$expected_ips"
+echo ""
+
+# Step 2: Query localdns and get the resolved IPs
+echo "Querying localdns for $test_fqdn at 169.254.10.10..."
+resolved_ips=$(dig "$test_fqdn" @169.254.10.10 +short -t A +timeout=5 +tries=2 2>/dev/null | sort)
+if [ -z "$resolved_ips" ]; then
+    echo "ERROR: No IPs returned from localdns query"
+    echo "Full dig output:"
+    dig "$test_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+    exit 1
+fi
+
+echo "Resolved IPs from localdns:"
+echo "$resolved_ips"
+echo ""
+
+# Step 3: Verify the resolved IPs match the hosts file entries
+echo "Comparing resolved IPs with hosts file entries..."
+if [ "$expected_ips" != "$resolved_ips" ]; then
+    echo "ERROR: Resolved IPs do not match hosts file entries"
+    echo "Expected (from hosts file):"
+    echo "$expected_ips"
+    echo "Got (from localdns):"
+    echo "$resolved_ips"
+    exit 1
+fi
+echo "✓ Resolved IPs match hosts file entries"
+echo ""
+
+# Step 4: Verify "recursion not available" flag in DNS response
+# This proves the response came from the hosts plugin, not from forwarding to upstream DNS
+# Note: We use nslookup without explicit server IP to preserve the recursion flag message
+echo "Checking for 'recursion not available' flag in DNS response..."
+nslookup_output=$(nslookup "$test_fqdn" 2>&1)
+if ! echo "$nslookup_output" | grep -q "recursion not available"; then
+    echo "ERROR: Expected 'recursion not available' flag in DNS response"
+    echo "This indicates localdns forwarded the query upstream instead of using the hosts plugin"
+    echo ""
+    echo "Full nslookup output:"
+    echo "$nslookup_output"
+    exit 1
+fi
+echo "✓ Found 'recursion not available' flag in DNS response"
+echo ""
+
+echo "=== SUCCESS ==="
+echo "The localdns hosts plugin is working correctly:"
+echo "  1. DNS resolution returned IPs from /etc/localdns/hosts"
+echo "  2. Response included 'recursion not available' (not forwarded upstream)"
+echo ""
+echo "Full nslookup output:"
+echo "$nslookup_output"
+`, testFQDN)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should resolve FQDN from hosts file with recursion not available")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()

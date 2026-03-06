@@ -1308,4 +1308,59 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
+
+# Selects the appropriate localdns corefile based on hosts plugin enablement and hosts file state
+# Usage: select_localdns_corefile <should_enable_hosts_plugin> <corefile_with_hosts> <corefile_no_hosts> <hosts_file_path>
+# Returns: The selected corefile (base64-encoded) via stdout
+# Logs: Decision messages to stderr
+select_localdns_corefile() {
+    local should_enable_hosts_plugin="${1}"
+    local corefile_with_hosts="${2}"
+    local corefile_no_hosts="${3}"
+    local hosts_file_path="${4}"
+
+    echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${should_enable_hosts_plugin:-<unset>}" >&2
+
+    if [ "${should_enable_hosts_plugin}" = "true" ]; then
+        echo "Hosts plugin is enabled, checking ${hosts_file_path} for content..." >&2
+
+        # Wait up to 30 seconds for the hosts file to be populated with IP mappings
+        # aks-hosts-setup timer has OnBootSec=0 which triggers immediately when timer starts.
+        # DNS resolution typically completes within 18-36 seconds (6 FQDNs × 3s timeout per query).
+        # 30 seconds provides reasonable time for initial DNS resolution without blocking provisioning.
+        local timeout=30
+        local wait_interval=5
+        local elapsed=0
+
+        while [ $elapsed -lt $timeout ]; do
+            if [ -f "${hosts_file_path}" ]; then
+                if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
+                    echo "aks-hosts-setup produced hosts file with IP mappings after ${elapsed}s, using corefile with hosts plugin" >&2
+                    echo "${corefile_with_hosts}"
+                    return 0
+                fi
+            fi
+
+            if [ $elapsed -eq 0 ]; then
+                echo "Waiting for aks-hosts-setup to populate ${hosts_file_path} (timeout: ${timeout}s)..." >&2
+            fi
+
+            sleep $wait_interval
+            elapsed=$((elapsed + wait_interval))
+        done
+
+        # Timeout reached - check final state and fall back
+        if [ -f "${hosts_file_path}" ]; then
+            echo "Warning: ${hosts_file_path} exists but has no IP mappings after ${timeout}s timeout, falling back to corefile without hosts plugin" >&2
+        else
+            echo "Warning: ${hosts_file_path} does not exist after ${timeout}s timeout, falling back to corefile without hosts plugin" >&2
+        fi
+        echo "${corefile_no_hosts}"
+        return 0
+    else
+        echo "Hosts plugin is not enabled (SHOULD_ENABLE_HOSTS_PLUGIN != 'true'), using corefile without hosts plugin" >&2
+        echo "${corefile_no_hosts}"
+        return 0
+    fi
+}
 #HELPERSEOF

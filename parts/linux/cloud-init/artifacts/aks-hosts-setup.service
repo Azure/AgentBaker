@@ -1,0 +1,14 @@
+[Unit]
+Description=Populate /etc/localdns/hosts with critical AKS FQDN addresses
+After=network-online.target
+Wants=network-online.target
+Before=kubelet.service localdns.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=60
+EnvironmentFile=-/etc/localdns/cloud-env
+ExecStart=/opt/azure/containers/aks-hosts-setup.sh
+
+[Install]
+WantedBy=multi-user.target kubelet.service

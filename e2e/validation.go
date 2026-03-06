@@ -17,6 +17,38 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// getDefaultFQDNsForValidation returns a minimal set of FQDNs to validate in the default validation.
+// This mirrors the logic in GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+// Returns a small subset of critical FQDNs that should always be present for basic validation.
+func getDefaultFQDNsForValidation(s *Scenario) []string {
+	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
+		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+		if strings.HasPrefix(location, "china") {
+			// China Cloud - validate China-specific FQDNs
+			return []string{
+				"mcr.azure.cn",                     // China container registry
+				"login.partner.microsoftonline.cn", // China Azure AD
+				"acs-mirror.azureedge.net",         // K8s binaries mirror (common)
+			}
+		}
+		if strings.HasPrefix(location, "usgov") || strings.HasPrefix(location, "usdod") {
+			// US Government Cloud - validate Fairfax-specific FQDNs
+			return []string{
+				"mcr.microsoft.com",            // Container registry (same as public)
+				"login.microsoftonline.us",     // Azure AD (US Gov)
+				"acs-mirror.azureedge.net",     // K8s binaries mirror (common)
+			}
+		}
+	}
+	// Default to public cloud FQDNs
+	return []string{
+		"mcr.microsoft.com",
+		"login.microsoftonline.com",
+		"acs-mirror.azureedge.net",
+	}
+}
+
+
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
 	var err error
 	for i := range maxRetries {
@@ -69,10 +101,30 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
+	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped, scriptless), network isolated VHDs, and AzureLinux OSGuard.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+
+		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
+		// Check both NBC (traditional) and AKSNodeConfig (scriptless) paths
+		hostsPluginEnabled := false
+		if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+			hostsPluginEnabled = s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+		} else if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+			hostsPluginEnabled = s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+		}
+
+		if hostsPluginEnabled {
+			// Validate aks-hosts-setup service ran successfully and timer is active
+			ValidateAKSHostsSetupService(ctx, s)
+			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
+			// Get cloud-specific FQDNs for validation
+			fqdnsToValidate := getDefaultFQDNsForValidation(s)
+			ValidateLocalDNSHostsFile(ctx, s, fqdnsToValidate)
+			// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
+			ValidateLocalDNSHostsPluginBypass(ctx, s)
+		}
 	}
 
 	ValidateInspektorGadget(ctx, s)
