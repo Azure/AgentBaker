@@ -90,12 +90,22 @@ func ValidateTHPConfig(cfg *aksnodeconfigv1.Configuration) {
 		"never":         true,
 	}
 
-	if v := osConfig.GetTransparentHugepageSupport(); v != "" && !validEnabled[strings.ToLower(v)] {
-		log.Printf("WARNING: invalid transparent_hugepage_support value %q, must be one of: always, madvise, never; resetting to default", v)
-		osConfig.TransparentHugepageSupport = ""
+	if v := osConfig.GetTransparentHugepageSupport(); v != "" {
+		lower := strings.ToLower(v)
+		if !validEnabled[lower] {
+			log.Printf("WARNING: invalid transparent_hugepage_support value %q, must be one of: always, madvise, never; resetting to default", v)
+			osConfig.TransparentHugepageSupport = ""
+		} else {
+			osConfig.TransparentHugepageSupport = lower
+		}
 	}
-	if v := osConfig.GetTransparentDefrag(); v != "" && !validDefrag[strings.ToLower(v)] {
-		log.Printf("WARNING: invalid transparent_defrag value %q, must be one of: always, defer, defer+madvise, madvise, never; resetting to default", v)
-		osConfig.TransparentDefrag = ""
+	if v := osConfig.GetTransparentDefrag(); v != "" {
+		lower := strings.ToLower(v)
+		if !validDefrag[lower] {
+			log.Printf("WARNING: invalid transparent_defrag value %q, must be one of: always, defer, defer+madvise, madvise, never; resetting to default", v)
+			osConfig.TransparentDefrag = ""
+		} else {
+			osConfig.TransparentDefrag = lower
+		}
 	}
 }

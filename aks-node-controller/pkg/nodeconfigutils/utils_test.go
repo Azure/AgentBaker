@@ -277,13 +277,13 @@ func TestValidateTHPConfig(t *testing.T) {
 			wantSupport: "never",
 		},
 		{
-			name: "case-insensitive transparent_hugepage_support=Always",
+			name: "case-insensitive transparent_hugepage_support=Always normalized to lowercase",
 			cfg: &aksnodeconfigv1.Configuration{
 				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
 					TransparentHugepageSupport: "Always",
 				},
 			},
-			wantSupport: "Always",
+			wantSupport: "always",
 		},
 		{
 			name: "invalid transparent_hugepage_support resets to empty",
@@ -304,13 +304,13 @@ func TestValidateTHPConfig(t *testing.T) {
 			wantDefrag: "defer+madvise",
 		},
 		{
-			name: "case-insensitive transparent_defrag=NEVER",
+			name: "case-insensitive transparent_defrag=NEVER normalized to lowercase",
 			cfg: &aksnodeconfigv1.Configuration{
 				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
 					TransparentDefrag: "NEVER",
 				},
 			},
-			wantDefrag: "NEVER",
+			wantDefrag: "never",
 		},
 		{
 			name: "invalid transparent_defrag resets to empty",

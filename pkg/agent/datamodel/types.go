@@ -789,13 +789,23 @@ func (c *CustomLinuxOSConfig) ValidateTHPConfig() {
 		TransparentHugePageDefragMadvise:      true,
 		TransparentHugePageDefragNever:        true,
 	}
-	if c.TransparentHugePageEnabled != "" && !validEnabled[strings.ToLower(c.TransparentHugePageEnabled)] {
-		log.Printf("WARNING: invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never; setting to default", c.TransparentHugePageEnabled)
-		c.TransparentHugePageEnabled = ""
+	if c.TransparentHugePageEnabled != "" {
+		lower := strings.ToLower(c.TransparentHugePageEnabled)
+		if !validEnabled[lower] {
+			log.Printf("WARNING: invalid TransparentHugePageEnabled value %q, must be one of: always, madvise, never; setting to default", c.TransparentHugePageEnabled)
+			c.TransparentHugePageEnabled = ""
+		} else {
+			c.TransparentHugePageEnabled = lower
+		}
 	}
-	if c.TransparentHugePageDefrag != "" && !validDefrag[strings.ToLower(c.TransparentHugePageDefrag)] {
-		log.Printf("WARNING: invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never; setting to default", c.TransparentHugePageDefrag)
-		c.TransparentHugePageDefrag = ""
+	if c.TransparentHugePageDefrag != "" {
+		lower := strings.ToLower(c.TransparentHugePageDefrag)
+		if !validDefrag[lower] {
+			log.Printf("WARNING: invalid TransparentHugePageDefrag value %q, must be one of: always, defer, defer+madvise, madvise, never; setting to default", c.TransparentHugePageDefrag)
+			c.TransparentHugePageDefrag = ""
+		} else {
+			c.TransparentHugePageDefrag = lower
+		}
 	}
 }
 

@@ -3262,14 +3262,14 @@ func TestCustomLinuxOSConfig_ValidateTHPConfig(t *testing.T) {
 			wantDefrag:  TransparentHugePageDefragDeferMadvise,
 		},
 		{
-			name:        "case-insensitive THP enabled 'Always'",
+			name:        "case-insensitive THP enabled 'Always' normalized to lowercase",
 			config:      &CustomLinuxOSConfig{TransparentHugePageEnabled: "Always"},
-			wantEnabled: "Always",
+			wantEnabled: "always",
 		},
 		{
-			name:       "case-insensitive THP defrag 'NEVER'",
+			name:       "case-insensitive THP defrag 'NEVER' normalized to lowercase",
 			config:     &CustomLinuxOSConfig{TransparentHugePageDefrag: "NEVER"},
-			wantDefrag: "NEVER",
+			wantDefrag: "never",
 		},
 		{
 			name:        "invalid THP enabled value resets to empty",
