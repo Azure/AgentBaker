@@ -7,6 +7,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
 
 // Test_Ubuntu2204_LocalDNSHostsPlugin tests the localdns hosts plugin feature on Ubuntu 22.04
@@ -135,8 +136,12 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback(t *testing.T) {
 			// Use an old VHD without aks-hosts-setup artifacts
 			VHD: config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Try to enable localdns but it should be disabled due to UnsupportedLocalDns flag
-				// This simulates the scenario where new CSE runs on old VHD
+				// Enable localdns and hosts plugin explicitly
+				if nbc.AgentPoolProfile.LocalDNSProfile == nil {
+					nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
+				}
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// This VHD has UnsupportedLocalDns=true, so localdns should be disabled
@@ -164,9 +169,76 @@ func Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				// Enable localdns and hosts plugin via AKSNodeConfig (scriptless path)
+				// Include DNS overrides to ensure corefile has health endpoint on port 8181
 				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-					EnableLocalDns:    true,
-					EnableHostsPlugin: true,
+					EnableLocalDns:       true,
+					EnableHostsPlugin:    true,
+					CpuLimitInMilliCores: to.Ptr(int32(2008)),
+					MemoryLimitInMb:      to.Ptr(int32(128)),
+					VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Ptr(int32(1000)),
+							CacheDurationInSeconds:      to.Ptr(int32(3600)),
+							ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Ptr(int32(1000)),
+							CacheDurationInSeconds:      to.Ptr(int32(3600)),
+							ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+							ServeStale:                  "Disable",
+						},
+						"testdomain456.com": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Ptr(int32(1000)),
+							CacheDurationInSeconds:      to.Ptr(int32(3600)),
+							ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+							ServeStale:                  "Verify",
+						},
+					},
+					KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Ptr(int32(1000)),
+							CacheDurationInSeconds:      to.Ptr(int32(3600)),
+							ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Ptr(int32(1000)),
+							CacheDurationInSeconds:      to.Ptr(int32(3600)),
+							ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+							ServeStale:                  "Disable",
+						},
+						"testdomain567.com": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Random",
+							MaxConcurrent:               to.Ptr(int32(1000)),
+							CacheDurationInSeconds:      to.Ptr(int32(3600)),
+							ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+							ServeStale:                  "Immediate",
+						},
+					},
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
