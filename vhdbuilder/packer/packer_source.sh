@@ -141,6 +141,10 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
+  POST_DEPROVISION_WALINUXAGENT_SRC=/home/packer/post-deprovision-walinuxagent.sh
+  POST_DEPROVISION_WALINUXAGENT_DEST=/opt/azure/containers/post-deprovision-walinuxagent.sh
+  INSTALL_WALINUXAGENT_PY_SRC=/home/packer/install_walinuxagent.py
+  INSTALL_WALINUXAGENT_PY_DEST=/opt/azure/containers/install_walinuxagent.py
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -449,6 +453,13 @@ copyPackerFiles() {
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
+
+  # Copy the post-deprovision WALinuxAgent install script and its Python helper
+  # Skip for Flatcar, which does not manually install WALinuxAgent
+  if ! isFlatcar "$OS"; then
+    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 644
+    cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
+  fi
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
