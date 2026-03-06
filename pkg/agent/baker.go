@@ -1867,7 +1867,7 @@ func GenerateLocalDNSCoreFile(
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
 
-	if profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
+	if profile == nil || profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
 		return "", nil
 	}
 
