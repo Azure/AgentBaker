@@ -178,8 +178,8 @@ if [ "${RESOLVED_ANY}" != "true" ]; then
 fi
 
 # Write the hosts file atomically: write to a temp file in the same directory,
-# then rename it over the target. rename(2) on the same filesystem is atomic,
-# so CoreDNS (or any other reader) never sees a truncated/empty file.
+# validate it, then rename it over the target. rename(2) on the same filesystem
+# is atomic, so CoreDNS (or any other reader) never sees invalid or truncated data.
 echo "Writing addresses to ${HOSTS_FILE}..."
 HOSTS_TMP="${HOSTS_FILE}.tmp.$$"
 
@@ -197,16 +197,11 @@ if ! chmod 0644 "${HOSTS_TMP}"; then
     exit 1
 fi
 
-# Atomic rename with explicit error checking
-if ! mv "${HOSTS_TMP}" "${HOSTS_FILE}"; then
-    echo "ERROR: Failed to move temporary file to ${HOSTS_FILE}"
-    rm -f "${HOSTS_TMP}"  # Clean up temp file
-    exit 1
-fi
-
+# Validate temp file BEFORE moving into place to ensure we never publish invalid data
 # Verify the file was written and has content
-if [ ! -s "${HOSTS_FILE}" ]; then
-    echo "ERROR: Hosts file ${HOSTS_FILE} is empty or does not exist after write"
+if [ ! -s "${HOSTS_TMP}" ]; then
+    echo "ERROR: Temporary hosts file ${HOSTS_TMP} is empty or does not exist after write"
+    rm -f "${HOSTS_TMP}"
     exit 1
 fi
 
@@ -241,24 +236,33 @@ while IFS= read -r line; do
         echo "ERROR: Invalid IP format: '$ip' in line: '$line'"
         INVALID_LINES+=("$line")
     fi
-done < "${HOSTS_FILE}"
+done < "${HOSTS_TMP}"
 
 if [ ${#INVALID_LINES[@]} -gt 0 ]; then
-    echo "ERROR: Found ${#INVALID_LINES[@]} invalid entries in ${HOSTS_FILE}"
+    echo "ERROR: Found ${#INVALID_LINES[@]} invalid entries in temporary hosts file"
     echo "Invalid entries:"
     printf '%s\n' "${INVALID_LINES[@]}"
     echo "This indicates FQDN to empty IP mappings or malformed entries"
+    rm -f "${HOSTS_TMP}"
     exit 1
 fi
 
 if [ $VALID_ENTRIES -eq 0 ]; then
-    echo "ERROR: No valid IP address mappings found in ${HOSTS_FILE}"
+    echo "ERROR: No valid IP address mappings found in temporary hosts file"
     echo "File content:"
-    cat "${HOSTS_FILE}"
+    cat "${HOSTS_TMP}"
+    rm -f "${HOSTS_TMP}"
     exit 1
 fi
 
-echo "✓ All entries in ${HOSTS_FILE} are valid (IP FQDN format)"
+echo "✓ All entries in temporary hosts file are valid (IP FQDN format)"
 echo "Found ${VALID_ENTRIES} valid IP address mappings"
+
+# Atomic rename with explicit error checking - only done after validation passes
+if ! mv "${HOSTS_TMP}" "${HOSTS_FILE}"; then
+    echo "ERROR: Failed to move temporary file to ${HOSTS_FILE}"
+    rm -f "${HOSTS_TMP}"  # Clean up temp file
+    exit 1
+fi
 
 echo "AKS critical FQDN hosts resolution completed at $(date)"
