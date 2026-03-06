@@ -907,8 +907,8 @@ SETUP_EOF
             TARGET_CLOUD="AzurePublicCloud"
 
             # Mock systemctl function
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
                 return 0
             }
 
@@ -930,14 +930,14 @@ SETUP_EOF
             When call enableAKSHostsSetup
             The status should be success
             The output should include "Enabling aks-hosts-setup timer..."
-            The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
+            The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
             The output should include "aks-hosts-setup timer enabled successfully."
         End
 
-        It 'should call systemctlEnableAndStart with correct parameters'
+        It 'should call systemctlEnableAndStartNoBlock with correct parameters'
             When call enableAKSHostsSetup
             The status should be success
-            The output should include "systemctlEnableAndStart aks-hosts-setup.timer 30"
+            The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
         End
 
         It 'should run initial aks-hosts-setup for live DNS resolution'
@@ -960,9 +960,9 @@ SETUP_EOF
             The output should include "not found on this VHD, skipping aks-hosts-setup"
         End
 
-        It 'should print warning when systemctlEnableAndStart fails'
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+        It 'should print warning when systemctlEnableAndStartNoBlock fails'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
                 return 1
             }
             When call enableAKSHostsSetup
