@@ -402,7 +402,7 @@ annotate_node_with_hosts_plugin_status() {
     echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null || echo 0) entries."
 
     # Only proceed if we have the necessary kubectl binary and configuration
-    if ! command -v /opt/bin/kubectl >/dev/null 2>&1; then
+    if [ ! -x /opt/bin/kubectl ]; then
         echo "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
         return 0
     fi
