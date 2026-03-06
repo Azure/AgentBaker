@@ -8,7 +8,7 @@ CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
 CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-TRIVY_VERSION="0.57.0"
+TRIVY_VERSION="0.69.2"
 TRIVY_ARCH=""
 
 MODULE_NAME="vuln-to-kusto-vhd"
