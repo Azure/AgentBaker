@@ -11,8 +11,12 @@ import (
 )
 
 const (
-	defaultSocket    = "/run/containerd/containerd.sock"
-	defaultNamespace = "k8s.io"
+	defaultSocket = "/run/containerd/containerd.sock"
+	defaultNS     = "k8s.io"
+	// images with compressed content size below this threshold are
+	// unpacked after fetch, effectively turning the operation into a
+	// full pull (~150 MiB compressed ≈ ~300 MiB unpacked).
+	pullSizeThreshold = 150 * 1024 * 1024 // 150 MiB
 )
 
 func main() {
@@ -28,7 +32,7 @@ func main() {
 	}
 	ns := os.Getenv("CONTAINERD_NAMESPACE")
 	if ns == "" {
-		ns = defaultNamespace
+		ns = defaultNS
 	}
 
 	client, err := containerd.New(socket)
@@ -58,20 +62,59 @@ func main() {
 //   - Creates an image record in the metadata database
 //   - Does NOT unpack layers into the snapshotter
 //
-// This is the Go API equivalent of "content fetch + images create" that
-// ctr CLI no longer exposes as a single operation in containerd 2.x.
+// If the total image content size is below pullSizeThreshold (300 MiB),
+// client.Pull() is called to additionally unpack the layers. Pull reuses
+// already-fetched content from the store and handles snapshotter resolution
+// internally (namespace label → platform default).
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
 	fmt.Printf("Fetching %s ...\n", ref)
 
 	platform := fmt.Sprintf("linux/%s", runtime.GOARCH)
 
-	image, err := client.Fetch(ctx, ref,
+	imageMeta, err := client.Fetch(ctx, ref,
 		containerd.WithPlatform(platform),
 	)
 	if err != nil {
 		return fmt.Errorf("fetch failed: %w", err)
 	}
 
-	fmt.Printf("OK    %s -> %s\n", image.Name, image.Target.Digest)
+	image := containerd.NewImage(client, imageMeta)
+
+	size, err := image.Size(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
+		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
+		return nil
+	}
+
+	if size < pullSizeThreshold {
+		// We use pull here instead of use unpack because some runtimes (e.g. containerd-shim-runsc-v1),
+		// require pull to trigger unpacking into the correct snapshotter based on the image's platform.
+		if _, err := client.Pull(ctx, ref,
+			containerd.WithPlatform(platform),
+			containerd.WithPullUnpack,
+		); err != nil {
+			return fmt.Errorf("pull failed: %w", err)
+		}
+		fmt.Printf("OK    %s -> %s (pulled, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+	} else {
+		fmt.Printf("OK    %s -> %s (fetched, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+	}
+
 	return nil
+}
+
+func formatSize(bytes int64) string {
+	const (
+		mib = 1024 * 1024
+		gib = 1024 * 1024 * 1024
+	)
+	switch {
+	case bytes >= gib:
+		return fmt.Sprintf("%.2f GiB", float64(bytes)/float64(gib))
+	case bytes >= mib:
+		return fmt.Sprintf("%.2f MiB", float64(bytes)/float64(mib))
+	default:
+		return fmt.Sprintf("%d bytes", bytes)
+	}
 }
