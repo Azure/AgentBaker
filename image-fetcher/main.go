@@ -8,6 +8,7 @@ import (
 
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
+	"github.com/containerd/platforms"
 )
 
 const (
@@ -62,7 +63,7 @@ func main() {
 //   - Creates an image record in the metadata database
 //   - Does NOT unpack layers into the snapshotter
 //
-// If the total image content size is below pullSizeThreshold (300 MiB),
+// If the total image content size is below pullSizeThreshold (150 MiB),
 // client.Pull() is called to additionally unpack the layers. Pull reuses
 // already-fetched content from the store and handles snapshotter resolution
 // internally (namespace label → platform default).
@@ -70,9 +71,14 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	fmt.Printf("Fetching %s ...\n", ref)
 
 	platform := fmt.Sprintf("linux/%s", runtime.GOARCH)
+	p, err := platforms.Parse(platform)
+	if err != nil {
+		return fmt.Errorf("parse platform %s: %w", platform, err)
+	}
+	platformMatcher := platforms.OnlyStrict(p)
 
 	imageMeta, err := client.Fetch(ctx, ref,
-		containerd.WithPlatform(platform),
+		containerd.WithPlatformMatcher(platformMatcher),
 	)
 	if err != nil {
 		return fmt.Errorf("fetch failed: %w", err)
@@ -91,7 +97,7 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 		// We use pull here instead of use unpack because some runtimes (e.g. containerd-shim-runsc-v1),
 		// require pull to trigger unpacking into the correct snapshotter based on the image's platform.
 		if _, err := client.Pull(ctx, ref,
-			containerd.WithPlatform(platform),
+			containerd.WithPlatformMatcher(platformMatcher),
 			containerd.WithPullUnpack,
 		); err != nil {
 			return fmt.Errorf("pull failed: %w", err)
