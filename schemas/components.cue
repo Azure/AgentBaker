@@ -41,7 +41,6 @@ package components
 	latestVersion:           string
 	previousLatestVersion?:  string
 	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
-	revision?:               string
 }
 
 #ReleaseDownloadURI: {
