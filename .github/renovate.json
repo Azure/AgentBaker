@@ -219,11 +219,8 @@
     },
     {
       "matchPackageNames": [
-        "azure-cni",
-        "containernetworking/azure-cni",
-        "containernetworking/azure-ipam"
+        "containernetworking/azure-cni"
       ],
-      "groupName": "azure-cni-cilium-ipam",
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -249,9 +246,10 @@
       "matchPackageNames": [
         "containernetworking/cilium/cilium",
         "containernetworking/cilium/cilium-distroless",
-        "containernetworking/cilium/cilium-distroless-init"
+        "containernetworking/cilium/cilium-distroless-init",
+        "containernetworking/azure-ipam"
       ],
-      "groupName": "azure-cni-cilium-ipam",
+      "groupName": "cilium-ipam",
       "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
       "ignoreUnstable": false,
       "reviewers": [
@@ -261,7 +259,10 @@
         "rbtr",
         "behzad-mir",
         "jpayne3506",
-        "QxBytes"
+        "QxBytes",
+        "camrynl",
+        "santhoshmprabhu",
+        "vipul-21"
       ]
     },
     {
@@ -376,6 +377,40 @@
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
       ]
     },
     {

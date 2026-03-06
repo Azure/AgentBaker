@@ -509,6 +509,56 @@ function GetMetadataContent {
     throw "No IPv4 address found in metadata."
 }
 
+function WaitForNetworkAdapterToBeReady {
+    param (
+        [Parameter(Mandatory = $true)][string]
+        $AdapterName,
+        [Parameter(Mandatory = $false)][int]
+        $MaxWaitTimeSeconds = 120,
+        [Parameter(Mandatory = $false)][int]
+        $RetryDelayMilliseconds = 500
+    )
+
+    if ($RetryDelayMilliseconds -le 0) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForNetworkAdapterToBeReady" -TaskMessage "RetryDelayMilliseconds must be > 0. It was $RetryDelayMilliseconds. Setting to default of 500"
+        $RetryDelayMilliseconds = 500
+    }
+
+    if (-not (Get-NetAdapter -Name $AdapterName -ErrorAction SilentlyContinue)) {
+       Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForNetworkAdapterToBeReady" -TaskMessage "Adapter $AdapterName not found. Cannot wait for readiness."
+       return
+   }
+
+    $Retries = [int]($MaxWaitTimeSeconds * 1000 / $RetryDelayMilliseconds)
+
+    # Pre-create readiness gate: wait for the adapter to have a stable, non-APIPA IPv4 address
+    # in Preferred state before calling New-HNSNetwork. This prevents HNS from latching an
+    # APIPA (169.254/16) ProviderAddress if the NIC is still transitioning at creation time.
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForNetworkAdapterToBeReady" -TaskMessage "Waiting for adapter $AdapterName to have a stable, non-APIPA IPv4 address before creating HNS network"
+    $stableAdapterIP = $null
+    for ($j = 0; $j -lt $Retries; $j++) {
+        $adapterIPs = Get-NetIPAddress -InterfaceAlias $AdapterName -AddressFamily IPv4 -ErrorAction SilentlyContinue
+        $stableAdapterIP = $adapterIPs | Where-Object {
+            $_.AddressState -eq "Preferred" -and -not $_.IPAddress.StartsWith("169.254.")
+        } | Select-Object -First 1
+        if ($stableAdapterIP) {
+            break
+        }
+        # log every 20 iterations - otherwise the logs get too spammy
+        if ($j % 20 -eq 19) {
+            $currentIPs = ($adapterIPs | ForEach-Object { "$($_.IPAddress) ($($_.AddressState))" }) -join ", "
+            Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForNetworkAdapterToBeReady" -TaskMessage "Adapter $AdapterName IPs: [$currentIPs]. Waiting for stable non-APIPA address. Attempt $($j + 1) of $Retries."
+        }
+        Start-Sleep -Milliseconds $RetryDelayMilliseconds
+    }
+    if ($stableAdapterIP) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForNetworkAdapterToBeReady" -TaskMessage "Adapter $AdapterName has stable Preferred IPv4 address: $($stableAdapterIP.IPAddress). Proceeding with HNS network creation."
+    }
+    else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.WaitForNetworkAdapterToBeReady" -TaskMessage "Warning: Timed out waiting for stable non-APIPA IPv4 on adapter $AdapterName after $MaxWaitTimeSeconds seconds. Proceeding with HNS network creation."
+    }
+}
+
 function New-ExternalHnsNetwork {
     param (
         [Parameter(Mandatory = $true)][bool]
@@ -518,7 +568,7 @@ function New-ExternalHnsNetwork {
 
     $ipv4Address = Get-Node-Ipv4-Address
     $nodeIps = Get-AKS-NodeIPs
-    $na = Get-AKS-NetworkAdaptor
+    $na = Get-AKS-NetworkAdapter
 
     $adapterName = $na.Name
     $externalNetwork = "ext"
@@ -528,6 +578,8 @@ function New-ExternalHnsNetwork {
 
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
+
+    WaitForNetworkAdapterToBeReady -AdapterName $adapterName -MaxWaitTimeSeconds 120 -RetryDelayMilliseconds 500
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
     if ($IsDualStackEnabled) {
@@ -681,7 +733,7 @@ function Invoke-WithRetry {
     }
 }
 
-function Get-AKS-NetworkAdaptor {
+function Get-AKS-NetworkAdapter {
     $ipv4Address = Get-Node-Ipv4-Address
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Found IPv4 address from metadata: $ipv4Address"
 
@@ -691,24 +743,24 @@ function Get-AKS-NetworkAdaptor {
     }
     catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find IP address info for ip address ${ipv4Address}: $($_.Exception.Message). Reverting to old way to configure network"
-        return Get-NetworkAdaptor-Fallback
+        return Get-NetworkAdapter-Fallback
     }
 
     try {
         $na = Invoke-WithRetry -Command { Get-NetAdapter -IncludeHidden -ifindex $netIP.ifIndex -ErrorAction stop } -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -MaxRetries 300 -DelaySeconds 1
         if (!$na) {
             Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Failed to find network adapter info for ip address index $($netIP.ifIndex) and ip address $ipv4Address. Reverting to old way to configure network"
-            return Get-NetworkAdaptor-Fallback
+            return Get-NetworkAdapter-Fallback
         }
         return $na
     }
     catch {
         Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Error thrown while getting network adapter info: $($_.Exception.Message)"
-        return Get-NetworkAdaptor-Fallback
+        return Get-NetworkAdapter-Fallback
     }
 }
 
-function Get-NetworkAdaptor-Fallback {
+function Get-NetworkAdapter-Fallback {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     $nas = @(Get-NetAdapter -Physical)

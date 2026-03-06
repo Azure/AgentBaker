@@ -7,6 +7,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="ACL"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -43,8 +44,8 @@ SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-elif [ "$OS_SKU" = "Flatcar" ]; then
-  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
+  : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
   SKIP_GIT_CLONE=true
 else
@@ -207,6 +208,8 @@ testPackagesInstalled() {
     elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
       OS=$AZURELINUX_OS_NAME
       OS_VARIANT=OSGUARD
+    elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
+      OS=$ACL_OS_NAME
     else
       OS=${OS_SKU^^}
     fi
@@ -533,7 +536,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -688,7 +691,7 @@ testAutologinDisabled() {
   local os_sku=$1
   echo "$test:Start"
 
-  if [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
     local failed=0
 
     # Test 1: Check actual behavior using loginctl
@@ -745,7 +748,7 @@ testAutologinDisabled() {
     fi
 
   else
-    echo "$test: Skipping for non-Flatcar OS"
+    echo "$test: Skipping for non-Flatcar/ACL OS"
   fi
 
   echo "$test:Finish"
@@ -954,7 +957,7 @@ testPkgDownloaded() {
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
-    elif [ "$OS" = "$FLATCAR_OS_NAME" ]; then
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
       seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
       if [ -z "${seFile}" ]; then
         err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
@@ -1150,7 +1153,7 @@ testCronPermissions() {
   )
 
   # shellcheck disable=SC3010
-  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]]; then
+  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]] && [[ "${os_sku}" != "AzureContainerLinux" ]]; then
     echo "$test: Checking required paths"
     for path in "${!required_paths[@]}"; do
       checkPathPermissions $test $path ${required_paths[$path]} 1
@@ -1502,6 +1505,63 @@ testBccTools () {
   return 0
 }
 
+# testWALinuxAgentInstalled verifies that the WALinuxAgent GAFamily version was
+# installed post-deprovision and that waagent.conf is configured to use it.
+# The test runs on a VM booted from the captured VHD image, so the post-deprovision
+# script has already executed and self-deleted. We verify its *results*:
+#   1. At least one WALinuxAgent-* directory exists under /var/lib/waagent/
+#   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
+#   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+testWALinuxAgentInstalled() {
+  local test="testWALinuxAgentInstalled"
+  echo "$test:Start"
+
+  # Check that at least one WALinuxAgent-* directory was installed
+  local -a dirs
+  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort -V)
+  local dirCount=${#dirs[@]}
+  if [ "$dirCount" -lt 1 ]; then
+    err "$test" "Expected at least 1 WALinuxAgent directory under /var/lib/waagent/, found ${dirCount}"
+    return 1
+  fi
+  echo "$test: Found ${dirCount} WALinuxAgent directories: ${dirs[*]}"
+
+  # Validate the newest directory (highest version) has expected artifacts
+  local installDir="${dirs[-1]}"
+  echo "$test: Validating pre-cached agent directory ${installDir}"
+
+  local expectedFiles=("HandlerManifest.json" "manifest.xml")
+  for f in "${expectedFiles[@]}"; do
+    if [ ! -f "${installDir}/${f}" ]; then
+      err "$test" "Expected file ${f} not found in ${installDir}, contents: $(ls -al "${installDir}")"
+      return 1
+    fi
+    echo "$test: Found expected file ${installDir}/${f}"
+  done
+
+  if [ ! -d "${installDir}/bin" ]; then
+    err "$test" "bin/ directory not found in ${installDir}, contents: $(ls -al "${installDir}")"
+    return 1
+  fi
+  echo "$test: Found bin/ directory in ${installDir}"
+
+  # Verify waagent.conf has the expected AutoUpdate settings
+  if grep -q '^AutoUpdate.Enabled=y' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.Enabled=y"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.Enabled=y"
+    return 1
+  fi
+  if grep -q '^AutoUpdate.UpdateToLatestVersion=n' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.UpdateToLatestVersion=n"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.UpdateToLatestVersion=n"
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
+
 testAKSNodeControllerBinary () {
   local test="testAKSNodeControllerBinary"
   local go_binary_path="/opt/azure/containers/aks-node-controller"
@@ -1747,7 +1807,7 @@ testInspektorGadgetAssets() {
     is_kata=true
   fi
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
     echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
 
     # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
@@ -1798,6 +1858,46 @@ testInspektorGadgetAssets() {
     err $test "Tracking file missing at $tracking_file - gadget import may have failed"
   elif [ ! -s "$tracking_file" ]; then
     err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  # Verify ig / ig-gadgets version dependency constraint (defined in ig-gadgets Dalec spec).
+  #   AzureLinux (azl3):  ig == ig-gadgets  — versions must match exactly
+  #   Ubuntu (deb-based): ig >= ig-gadgets  — ig can be newer than gadgets
+  # A mismatch on AzureLinux causes "conflicting requests" during RPM install,
+  # so catching it here prevents broken VHD builds from shipping.
+  if [ "$OS_SKU" = "AzureLinux" ]; then
+    local ig_ver ig_gadgets_ver
+    ig_ver=$(rpm -q --queryformat '%{VERSION}' ig 2>/dev/null || echo "")
+    ig_gadgets_ver=$(rpm -q --queryformat '%{VERSION}' ig-gadgets 2>/dev/null || echo "")
+
+    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
+      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
+    elif [ "$ig_ver" != "$ig_gadgets_ver" ]; then
+      err $test "AzureLinux requires ig == ig-gadgets (Dalec spec) but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
+    else
+      echo "$test: AzureLinux ig/ig-gadgets version constraint satisfied (both ${ig_ver})"
+    fi
+  else
+    local ig_ver ig_gadgets_ver ig_semver ig_gadgets_semver
+    ig_ver=$(dpkg-query -W -f '${Version}' ig 2>/dev/null || echo "")
+    ig_gadgets_ver=$(dpkg-query -W -f '${Version}' ig-gadgets 2>/dev/null || echo "")
+
+    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
+      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
+    else
+      # Extract base semver (e.g. "0.49.1" from "0.49.1-ubuntu22.04u1")
+      ig_semver=$(echo "$ig_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+      ig_gadgets_semver=$(echo "$ig_gadgets_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+
+      # sort -V: smallest version first; ig_gadgets_semver must be <= ig_semver
+      local oldest
+      oldest=$(printf '%s\n%s\n' "$ig_semver" "$ig_gadgets_semver" | sort -V | head -n1)
+      if [ "$oldest" != "$ig_gadgets_semver" ]; then
+        err $test "Ubuntu requires ig >= ig-gadgets (Dalec spec) but found ig=${ig_semver} ig-gadgets=${ig_gadgets_semver}"
+      else
+        echo "$test: Ubuntu ig/ig-gadgets version constraint satisfied (ig=${ig_semver} ig-gadgets=${ig_gadgets_semver})"
+      fi
+    fi
   fi
 
   echo "$test:Finish"
@@ -1908,6 +2008,11 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+# WALinuxAgent is installed post-deprovision (not via components.json),
+# so test it separately. Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+  testWALinuxAgentInstalled
+fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
 testImagesCompleted
 testPodSandboxImagePinned

@@ -162,7 +162,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	return &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
-		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar(),
+		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar() || nbc.AgentPoolProfile.IsACL(),
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -175,6 +175,19 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
 				Subnet:            cs.Properties.GetSubnetName(),
 				RouteTable:        cs.Properties.GetRouteTableName(),
+			},
+			CloudProviderConfig: &aksnodeconfigv1.CloudProviderConfig{
+				Backoff:              cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoff,
+				BackoffMode:          cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffMode,
+				BackoffRetries:       to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffRetries)),
+				BackoffExponent:      to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffExponent),
+				BackoffDuration:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffDuration)),
+				BackoffJitter:        to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffJitter),
+				RateLimit:            cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimit,
+				RateLimitQps:         to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS),
+				RateLimitQpsWrite:    to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite),
+				RateLimitBucket:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)),
+				RateLimitBucketWrite: to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)),
 			},
 			PrimaryScaleSet: nbc.PrimaryScaleSetName,
 		},

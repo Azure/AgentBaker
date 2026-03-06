@@ -31,20 +31,21 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 
 //nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
+	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                   "/var/log/azure/cluster-provision.log",
 		"MOBY_VERSION":                                       "",
-		"CLOUDPROVIDER_BACKOFF":                              "true",
-		"CLOUDPROVIDER_BACKOFF_MODE":                         "v2",
-		"CLOUDPROVIDER_BACKOFF_RETRIES":                      "6",
-		"CLOUDPROVIDER_BACKOFF_EXPONENT":                     "0",
-		"CLOUDPROVIDER_BACKOFF_DURATION":                     "5",
-		"CLOUDPROVIDER_BACKOFF_JITTER":                       "0",
-		"CLOUDPROVIDER_RATELIMIT":                            "true",
-		"CLOUDPROVIDER_RATELIMIT_QPS":                        "10",
-		"CLOUDPROVIDER_RATELIMIT_QPS_WRITE":                  "10",
-		"CLOUDPROVIDER_RATELIMIT_BUCKET":                     "100",
-		"CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE":               "100",
+		"CLOUDPROVIDER_BACKOFF":                              fmt.Sprintf("%v", cloudProviderSettings.backoff),
+		"CLOUDPROVIDER_BACKOFF_MODE":                         cloudProviderSettings.backoffMode,
+		"CLOUDPROVIDER_BACKOFF_RETRIES":                      fmt.Sprintf("%v", cloudProviderSettings.backoffRetries),
+		"CLOUDPROVIDER_BACKOFF_EXPONENT":                     fmt.Sprintf("%v", cloudProviderSettings.backoffExponent),
+		"CLOUDPROVIDER_BACKOFF_DURATION":                     fmt.Sprintf("%v", cloudProviderSettings.backoffDuration),
+		"CLOUDPROVIDER_BACKOFF_JITTER":                       fmt.Sprintf("%v", cloudProviderSettings.backoffJitter),
+		"CLOUDPROVIDER_RATELIMIT":                            fmt.Sprintf("%v", cloudProviderSettings.rateLimit),
+		"CLOUDPROVIDER_RATELIMIT_QPS":                        fmt.Sprintf("%v", cloudProviderSettings.rateLimitQps),
+		"CLOUDPROVIDER_RATELIMIT_QPS_WRITE":                  fmt.Sprintf("%v", cloudProviderSettings.rateLimitQpsWrite),
+		"CLOUDPROVIDER_RATELIMIT_BUCKET":                     fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucket),
+		"CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE":               fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucketWrite),
 		"CLI_TOOL":                                           "ctr",
 		"NETWORK_MODE":                                       "transparent",
 		"ADMINUSER":                                          getLinuxAdminUsername(config.GetLinuxAdminUsername()),
@@ -188,6 +189,81 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}
 	return env
+}
+
+type cloudProviderSettings struct {
+	backoff              bool
+	backoffMode          string
+	backoffRetries       int32
+	backoffExponent      float64
+	backoffDuration      int32
+	backoffJitter        float64
+	rateLimit            bool
+	rateLimitQps         float64
+	rateLimitQpsWrite    float64
+	rateLimitBucket      int32
+	rateLimitBucketWrite int32
+}
+
+func getCloudProviderSettings(config *aksnodeconfigv1.Configuration) cloudProviderSettings {
+	settings := cloudProviderSettings{
+		backoff:              true,
+		backoffMode:          "v2",
+		backoffRetries:       6,
+		backoffExponent:      0,
+		backoffDuration:      5,
+		backoffJitter:        0,
+		rateLimit:            true,
+		rateLimitQps:         10,
+		rateLimitQpsWrite:    10,
+		rateLimitBucket:      100,
+		rateLimitBucketWrite: 100,
+	}
+
+	if config == nil {
+		return settings
+	}
+
+	cloudProviderConfig := config.GetClusterConfig().GetCloudProviderConfig()
+	if cloudProviderConfig == nil {
+		return settings
+	}
+
+	if cloudProviderConfig.Backoff != nil {
+		settings.backoff = cloudProviderConfig.GetBackoff()
+	}
+	if cloudProviderConfig.BackoffMode != "" {
+		settings.backoffMode = cloudProviderConfig.GetBackoffMode()
+	}
+	if cloudProviderConfig.BackoffRetries != nil {
+		settings.backoffRetries = cloudProviderConfig.GetBackoffRetries()
+	}
+	if cloudProviderConfig.BackoffExponent != nil {
+		settings.backoffExponent = cloudProviderConfig.GetBackoffExponent()
+	}
+	if cloudProviderConfig.BackoffDuration != nil {
+		settings.backoffDuration = cloudProviderConfig.GetBackoffDuration()
+	}
+	if cloudProviderConfig.BackoffJitter != nil {
+		settings.backoffJitter = cloudProviderConfig.GetBackoffJitter()
+	}
+	if cloudProviderConfig.RateLimit != nil {
+		settings.rateLimit = cloudProviderConfig.GetRateLimit()
+	}
+	if cloudProviderConfig.RateLimitQps != nil {
+		settings.rateLimitQps = cloudProviderConfig.GetRateLimitQps()
+	}
+	if cloudProviderConfig.RateLimitQpsWrite != nil {
+		settings.rateLimitQpsWrite = cloudProviderConfig.GetRateLimitQpsWrite()
+	}
+	if cloudProviderConfig.RateLimitBucket != nil {
+		settings.rateLimitBucket = cloudProviderConfig.GetRateLimitBucket()
+	}
+	if cloudProviderConfig.RateLimitBucketWrite != nil {
+		settings.rateLimitBucketWrite = cloudProviderConfig.GetRateLimitBucketWrite()
+	}
+
+	return settings
 }
 
 func mapToEnviron(input map[string]string) []string {

@@ -2193,19 +2193,26 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		pattern string
 		exclude string // optional pattern to exclude false positives
 	}
+	// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+	// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
+	ioFSExclude := `sr[0-9]|Shutdown timeout set to`
+	if s.VHD != nil && s.VHD.OS == config.OSACL {
+		// ACL-only: exclude benign BTRFS udev race warnings ("duplicate device") and loop device I/O errors
+		// from sysext squashfs read-ahead overshooting the backing file boundary.
+		ioFSExclude += `|duplicate device|loop[0-9]`
+	}
+
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
 			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
-			// exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
-			exclude: `panic=`,
+			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot)
+			exclude: `panic[-=]`,
 		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
 		"IO/FS": {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
-			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
-			// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
-			exclude: `sr[0-9]|Shutdown timeout set to`,
+			exclude: ioFSExclude,
 		},
 	}
 

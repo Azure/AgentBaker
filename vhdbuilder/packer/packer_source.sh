@@ -141,6 +141,10 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
+  POST_DEPROVISION_WALINUXAGENT_SRC=/home/packer/post-deprovision-walinuxagent.sh
+  POST_DEPROVISION_WALINUXAGENT_DEST=/opt/azure/containers/post-deprovision-walinuxagent.sh
+  INSTALL_WALINUXAGENT_PY_SRC=/home/packer/install_walinuxagent.py
+  INSTALL_WALINUXAGENT_PY_DEST=/opt/azure/containers/install_walinuxagent.py
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -329,8 +333,8 @@ copyPackerFiles() {
   IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
-  # Skip for Mariner, OSGuard, Flatcar, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
@@ -415,6 +419,14 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+  elif isACL "$OS"; then
+    # ACL cannot share the isMarinerOrAzureLinux block because:
+    # - containerd.service: ACL provides containerd via sysext.
+    # - mariner-package-update.sh: Mariner-only package update script, not applicable to ACL.
+    # ACL uses system-auth/system-password (like Mariner/AzureLinux),
+    # not Debian-style common-auth/common-password.
+    cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+    cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
@@ -436,7 +448,7 @@ copyPackerFiles() {
   fi
 
   # Handle the NOTICE file
-  if isFlatcar "$OS"; then
+  if isFlatcar "$OS" || isACL "$OS"; then
     # Append Flatcar specific license notices
     DIR=$(dirname "$NOTICE_DEST") && mkdir -p "${DIR}" && cp "$NOTICE_SRC" "$NOTICE_DEST"
     NOTICE_FLATCAR_SRC=/home/packer/NOTICE_FLATCAR.txt
@@ -453,6 +465,13 @@ copyPackerFiles() {
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
+
+  # Copy the post-deprovision WALinuxAgent install script and its Python helper
+  # Skip for Flatcar, which does not manually install WALinuxAgent
+  if ! isFlatcar "$OS"; then
+    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 644
+    cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
+  fi
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644

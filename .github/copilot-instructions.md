@@ -117,12 +117,13 @@ Analyze PRs for these compatibility scenarios:
 
 **2. Windows Bidirectional Compatibility**
 - **Context**: Windows VHD and CSE scripts release on different cadences with no guaranteed order
-- **What to check**: Changes to `staging/cse/windows/` (CSE scripts) or `vhdbuilder/packer/windows/` (VHD scripts)
+- **What to check**: Changes to `staging/cse/windows/` (CSE scripts) or `vhdbuilder/packer/windows/` (VHD scripts).
 - **Breaking signals**:
-  - New CSE scripts assuming capabilities that old VHDs don't have
-  - New VHD scripts expecting features that old CSE versions don't provide
+  - New CSE scripts using features in the VHD Scripts that aren't present before this PR.
+  - New VHD scripts expecting features in the CSE scripts that aren't present before this PR.
   - Changes to shared state (registry keys, files, environment variables) that break coordination
   - Removing PowerShell functions or cmdlets that the other component might call
+  - Incompatibilities between newer versions of the CSE scripts and older versions of the VHD scripts are critical to detect as they can cause production outages.
 
 **3. aks-node-controller Migration (Dual-Mode Support)**
 - **Context**: Transitioning from uploading scripts during both VHD build and CSE to only uploading aks-node-controller during VHD build
