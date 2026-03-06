@@ -1,9 +1,7 @@
 [Unit]
-Description=Parse contract and run csecmd
-ConditionPathExists=/opt/azure/containers/aks-node-controller-config.json
-After=cloud-init.target
-After=oem-cloudinit.service enable-oem-cloudinit.service
-Wants=cloud-init.target
+Description=AKS Node Controller - provision and run csecmd
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
@@ -11,5 +9,4 @@ ExecStart=/opt/azure/containers/aks-node-controller-wrapper.sh
 RemainAfterExit=No
 
 [Install]
-WantedBy=cloud-init.target
-WantedBy=oem-cloudinit.service
+WantedBy=multi-user.target
