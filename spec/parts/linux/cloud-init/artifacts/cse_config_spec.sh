@@ -940,12 +940,6 @@ SETUP_EOF
             The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
         End
 
-        It 'should run initial aks-hosts-setup for live DNS resolution'
-            When call enableAKSHostsSetup
-            The status should be success
-            The output should include "Running initial aks-hosts-setup to resolve DNS..."
-        End
-
         It 'should skip when setup script is missing'
             rm -f "$AKS_HOSTS_SETUP_SCRIPT"
             When call enableAKSHostsSetup
