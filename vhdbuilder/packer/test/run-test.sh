@@ -62,7 +62,12 @@ set -x
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
 TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-  TARGET_COMMAND_STRING="--size Standard_D2pds_V5"
+  # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+  if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+    TARGET_COMMAND_STRING="--size Standard_D2pds_v6"
+  else
+    TARGET_COMMAND_STRING="--size Standard_D2pds_V5"
+  fi
 else
   TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi

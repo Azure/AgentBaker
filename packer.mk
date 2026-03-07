@@ -23,6 +23,9 @@ else ifeq (${OS_SKU},AzureLinux)
 else ifeq (${OS_SKU},Flatcar)
 	@echo "Using packer template file vhd-image-builder-flatcar-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json
+else ifeq (${OS_SKU},AzureContainerLinux)
+	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif

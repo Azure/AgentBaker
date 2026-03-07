@@ -78,7 +78,12 @@ VM_SIZE="Standard_D8ds_v5"
 VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_SIZE="Standard_D8pds_v5"
+    # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+    if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+        VM_SIZE="Standard_D8pds_v6"
+    else
+        VM_SIZE="Standard_D8pds_v5"
+    fi
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
