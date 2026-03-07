@@ -2100,8 +2100,8 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
 # WALinuxAgent is installed post-deprovision (not via components.json),
-# so test it separately. Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version.
-if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+# so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
   testWALinuxAgentInstalled
 fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
