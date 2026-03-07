@@ -37,6 +37,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSFlatcarGen2:                   SIGFlatcarGen2ImageConfigTemplate.WithOptions(),
 			AKSFlatcarArm64Gen2:              SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(),
 			AKSACLGen2TL:                     SIGACLGen2TLImageConfigTemplate.WithOptions(),
+			AKSACLArm64Gen2TL:                     SIGACLArm64Gen2TLImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		for distro, config := range expected {
@@ -104,7 +105,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(18))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(19))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -379,5 +380,11 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aclGen2.Gallery).To(Equal("aksazurelinux"))
 		Expect(aclGen2.Definition).To(Equal("aclgen2TL"))
 		Expect(aclGen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		aclArm64Gen2 := sigConfig.SigAzureLinuxImageConfig[AKSACLArm64Gen2TL]
+		Expect(aclArm64Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aclArm64Gen2.Gallery).To(Equal("aksazurelinux"))
+		Expect(aclArm64Gen2.Definition).To(Equal("aclgen2arm64TL"))
+		Expect(aclArm64Gen2.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })
