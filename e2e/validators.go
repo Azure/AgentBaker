@@ -1413,7 +1413,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
 	// The skip file is only present on VHDs that have node-exporter installed (Ubuntu, Mariner, Azure Linux).
-	// Flatcar, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
+	// Flatcar, ACL, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
 	if !fileExist(ctx, s, skipFile) {
 		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
 		return

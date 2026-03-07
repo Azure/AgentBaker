@@ -500,7 +500,7 @@ while IFS= read -r p; do
       ;;
     "node-exporter")
       # Skipping is handled by empty versionsV2 arrays in components.json
-      # for mariner, flatcar, and osguard. Kata is skipped explicitly here.
+      # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
       if [ "${IS_KATA}" = "true" ]; then
         echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
       else
