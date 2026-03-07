@@ -53,7 +53,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Skip on AzureLinux OSGuard which uses its OS-packaged waagent version.
-# Flatcar is excluded at the packer config level (its JSON does not call this).
+# Flatcar and ACL are excluded at the packer config level (their JSONs do not call this).
 OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:lower:]' '[:upper:]' | tr -d '"')
 if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
 
