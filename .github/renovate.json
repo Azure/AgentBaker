@@ -217,6 +217,17 @@
     },
     {
       "matchPackageNames": [
+        "node-exporter-kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "node-exporter-kubernetes"
+    },
+    {
+      "matchPackageNames": [
         "containernetworking/azure-cni"
       ],
       "reviewers": [
