@@ -228,6 +228,16 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
+	VHDACLArm64Gen2TL = &Image{
+		Name:         "aclgen2arm64TL",
+		OS:           OSACL,
+		Arch:         "arm64",
+		Distro:       datamodel.AKSACLArm64Gen2TL,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
+	}
+
 	VHDWindows2019Containerd = &Image{
 		Name:    "windows-2019-containerd",
 		OS:      "windows",
