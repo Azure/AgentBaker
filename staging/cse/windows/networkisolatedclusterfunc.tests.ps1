@@ -190,3 +190,26 @@ Describe "Invoke-OrasLogin" {
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 2
   }
 }
+
+Describe "Get-BootstrapRegistryDomainName" {
+  It "should return default mcr domain when no overrides are set" {
+    $global:MCRRepositoryBase = ""
+    $global:BootstrapProfileContainerRegistryServer = ""
+
+    Get-BootstrapRegistryDomainName | Should -Be "mcr.microsoft.com"
+  }
+
+  It "should use MCRRepositoryBase and trim trailing slash" {
+    $global:MCRRepositoryBase = "example.registry.io/"
+    $global:BootstrapProfileContainerRegistryServer = ""
+
+    Get-BootstrapRegistryDomainName | Should -Be "example.registry.io"
+  }
+
+  It "should prefer bootstrap profile registry host when provided" {
+    $global:MCRRepositoryBase = "example.registry.io/"
+    $global:BootstrapProfileContainerRegistryServer = "mybootstrap.azurecr.io/repo/path"
+
+    Get-BootstrapRegistryDomainName | Should -Be "mybootstrap.azurecr.io"
+  }
+}
