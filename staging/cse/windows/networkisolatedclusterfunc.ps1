@@ -99,6 +99,7 @@ function Invoke-OrasLogin {
             Uri     = $accessUrl
             Method  = "Get"
             Headers = @{ Metadata = "true" }
+            TimeoutSec  = 10
         }
         $rawAccessTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
         $accessToken = $rawAccessTokenResponse.access_token
@@ -120,7 +121,7 @@ function Invoke-OrasLogin {
             Method      = "Post"
             ContentType = "application/x-www-form-urlencoded"
             Body        = $body
-            TimeoutSec  = 60
+            TimeoutSec  = 10
         }
         $rawRefreshTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
         $refreshToken = $rawRefreshTokenResponse.refresh_token
