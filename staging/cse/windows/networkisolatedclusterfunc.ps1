@@ -1,5 +1,10 @@
 # functions for network isolated cluster
 
+function Initialize-Oras {
+    Install-Oras
+    Invoke-OrasLogin -Acr_Url $(Get-BootstrapRegistryDomainName) -ClientID $global:UserAssignedClientID -TenantID $global:TenantId
+}
+
 # unpackage and install oras from cache
 # Oras is used for pulling windows binaries, e.g. windowszip, from private container registry when it is network isolated cluster.
 function Install-Oras {
@@ -60,7 +65,7 @@ function Install-Oras {
     Write-Log "Oras installed successfully at $($global:OrasPath)"
 }
 
-function Oras-Login {
+function Invoke-OrasLogin {
     param(
         [Parameter(Mandatory = $true)][string]
         $Acr_Url,
@@ -70,8 +75,6 @@ function Oras-Login {
         $TenantID
     )
 
-    Ensure-Oras
-
     # Check for required variables
     if ([string]::IsNullOrWhiteSpace($ClientID) -or [string]::IsNullOrWhiteSpace($TenantID)) {
         Write-Host "ClientID or TenantID are not set. Oras login is not possible, proceeding with anonymous pull"
@@ -79,7 +82,7 @@ function Oras-Login {
     }
 
     # Attempt anonymous pull check (assumes helper function exists)
-    $retCode = retrycmd_can_oras_ls_acr_anonymously 10 5 $Acr_Url
+    $retCode = Assert-AnonymousAcrAccess 10 5 $Acr_Url
     if ($retCode -eq 0) {
         Write-Host "anonymous pull is allowed for acr '$Acr_Url', proceeding with anonymous pull"
         return
@@ -92,12 +95,12 @@ function Oras-Login {
     # Get AAD Access Token using Managed Identity Metadata Service
     $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$ClientID"
     try {
-        $args = @{
+        $requestArgs = @{
             Uri     = $accessUrl
             Method  = "Get"
             Headers = @{ Metadata = "true" }
         }
-        $rawAccessTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 10 -RetryDelaySeconds 5
+        $rawAccessTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
         $accessToken = $rawAccessTokenResponse.access_token
     }
     catch {
@@ -112,14 +115,14 @@ function Oras-Login {
     try {
         $exchangeUrl = "https://$Acr_Url/oauth2/exchange"
         $body = "grant_type=access_token&service=$Acr_Url&tenant=$TenantID&access_token=$accessToken"
-        $args = @{
+        $requestArgs = @{
             Uri         = $exchangeUrl
             Method      = "Post"
             ContentType = "application/x-www-form-urlencoded"
             Body        = $body
             TimeoutSec  = 60
         }
-        $rawRefreshTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 10 -RetryDelaySeconds 5
+        $rawRefreshTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
         $refreshToken = $rawRefreshTokenResponse.refresh_token
     }
     catch {
@@ -165,66 +168,7 @@ function Oras-Login {
     Write-Host "successfully logged in to acr '$Acr_Url' with identity token"
 }
 
-function Ensure-Oras {
-    if (Test-Path $global:OrasPath) {
-        return
-    }
-    # Ensure cache directory exists before checking for archives or downloading
-    if (-Not (Test-Path $global:OrasCacheDir)) {
-        New-Item -ItemType Directory -Path $global:OrasCacheDir -Force | Out-Null
-    }
-
-    ### FOR TEMP TEST USE ONLY - Download oras if not found in cache. This is to unblock Windows 2025 testing since we don't have oras in the cache for 2025 image yet. We will remove this logic after we have oras in the cache for 2025 image.
-    if (-Not (Get-ChildItem -Path $global:OrasCacheDir -File | Where-Object { $_.Name -like "*.tar.gz" -or $_.Name -like "*.zip" })) {
-        $orasVersion = "1.3.0"
-        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
-        $orasDownloadUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
-        Write-Log "Downloading oras v${orasVersion} from $orasDownloadUrl"
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Invoke-WebRequest -UseBasicParsing $orasDownloadUrl -OutFile "$($global:OrasCacheDir)\$orasZip"
-        }
-        catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND -ErrorMessage "Failed to download oras from $orasDownloadUrl. Error: $_"
-        }
-    }
-    ######################## END TEMP TEST USE ONLY ######################################
-
-    if (-Not (Test-Path $global:OrasCacheDir)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND -ErrorMessage "Oras cache directory not found at $($global:OrasCacheDir)"
-    }
-
-    # Look for a cached oras archive (.tar.gz or .zip) in the oras cache directory
-    $orasArchive = Get-ChildItem -Path $global:OrasCacheDir -File | Where-Object { $_.Name -like "*.tar.gz" -or $_.Name -like "*.zip" } | Select-Object -First 1
-    if (-Not $orasArchive) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND -ErrorMessage "No oras archive (.tar.gz or .zip) found in $($global:OrasCacheDir)"
-    }
-
-    # Extract the archive to the oras install directory
-    $orasInstallDir = [IO.Path]::GetDirectoryName($global:OrasPath)
-    if (-Not (Test-Path $orasInstallDir)) {
-        New-Item -ItemType Directory -Path $orasInstallDir -Force | Out-Null
-    }
-
-    Write-Log "Extracting oras from $($orasArchive.FullName) to $orasInstallDir"
-    if ($orasArchive.Name -like "*.zip") {
-        Expand-Archive -Path $orasArchive.FullName -DestinationPath $orasInstallDir -Force
-    }
-    elseif ($orasArchive.Name -like "*.tar.gz") {
-        tar -xzf $orasArchive.FullName -C $orasInstallDir
-        if ($LASTEXITCODE -ne 0) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND -ErrorMessage "Failed to extract oras archive $($orasArchive.FullName)"
-        }
-    }
-
-    if (-Not (Test-Path $global:OrasPath)) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND -ErrorMessage "Oras executable not found at $($global:OrasPath) after extraction"
-    }
-
-    Write-Log "Oras installed successfully at $($global:OrasPath)"
-}
-
-function retrycmd_can_oras_ls_acr_anonymously {
+function Assert-AnonymousAcrAccess {
     Param(
         [Parameter(Mandatory = $true)][int]$Retries,
         [Parameter(Mandatory = $true)][int]$WaitSleep,
@@ -324,4 +268,13 @@ function Assert-RefreshToken {
     }
 
     return 0
+}
+
+function Get-BootstrapRegistryDomainName {
+    $registryDomainName = if ($global:MCRRepositoryBase) { $global:MCRRepositoryBase } else { "mcr.microsoft.com" } # default to mcr
+    $registryDomainName = $registryDomainName.TrimEnd("/")
+    if ($global:BootstrapProfileContainerRegistryServer) {
+        $registryDomainName = $global:BootstrapProfileContainerRegistryServer.Split("/")[0]
+    }
+    return $registryDomainName
 }
