@@ -105,3 +105,117 @@ Describe "Install-Oras" {
     } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND):Failed to extract oras archive*"
   }
 }
+
+Describe "Set-PodInfraContainerImage" {
+  BeforeEach {
+    $global:KubeClusterConfigPath = "C:\k\kubeclusterconfig.json"
+    $global:BootstrapProfileContainerRegistryServer = "myacr.azurecr.io/aks-managed-repository"
+    $global:OrasRegistryConfigFile = "C:\aks-tools\oras\config.json"
+    $global:OrasPath = "Mock-OrasCli"
+    $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER = 82
+
+    Mock Write-Log
+    Mock Start-Sleep
+    Mock New-Item
+    Mock Remove-Item
+    Mock tar -MockWith { $global:LASTEXITCODE = 0 }
+    Mock Test-Path -MockWith { $false }
+    Mock Set-ExitCode -MockWith {
+      param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$ErrorMessage
+      )
+      throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+    }
+
+    Mock Get-Content -MockWith {
+@'
+{
+  "Cri": {
+    "Images": {
+      "Pause": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"
+    }
+  }
+}
+'@
+    }
+  }
+
+  It "fails when pod infra image is empty" {
+    Mock Get-Content -MockWith {
+@'
+{
+  "Cri": {
+    "Images": {
+      "Pause": ""
+    }
+  }
+}
+'@
+    }
+
+    {
+      Set-PodInfraContainerImage
+    } | Should -Throw "*Set-ExitCode:82:Failed to recognize pod infra container image*"
+  }
+
+  It "returns early when image already exists locally" {
+    Mock ctr -MockWith {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = 0
+      return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1")
+    }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $global:LASTEXITCODE = 0
+      return "ok"
+    }
+
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'tar' -Times 0
+  }
+
+  It "pulls via oras and imports image when not found locally" {
+    Mock ctr -MockWith {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = 0
+      return @()
+    }
+    Mock 'ctr.exe' -MockWith {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = 0
+      return "ok"
+    }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'tar' -Times 1
+    Assert-MockCalled -CommandName 'ctr.exe' -Times 3
+    Assert-MockCalled -CommandName 'Remove-Item' -Times 2
+  }
+
+  It "fails after oras retry exhaustion" {
+    Mock ctr -MockWith {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = 0
+      return @()
+    }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $global:LASTEXITCODE = 1
+      return "oras failed"
+    }
+
+    {
+      Set-PodInfraContainerImage
+    } | Should -Throw "*Set-ExitCode:82:Failed to pull*"
+    Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
+  }
+}

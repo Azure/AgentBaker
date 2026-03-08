@@ -330,5 +330,13 @@ function Install-Containerd {
     -CNIConfDir $CNIConfDir
 
   RegisterContainerDService -KubeDir $KubeDir
+  if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and -not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    try {
+      Set-PodInfraContainerImage
+    }
+    catch {
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER -ErrorMessage "Failed to set pod infra container image: $_"
+    }
+  }
   Enable-Logging
 }
