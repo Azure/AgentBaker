@@ -221,8 +221,13 @@ $global:WindowsCiliumNetworkingPath = Join-Path -Path $global:cacheDir -ChildPat
 $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
 # Network isolated cluster
-$global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{GetBootstrapProfileContainerRegistryServer}}"
-$global:MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
+$global:BootstrapProfileContainerRegistryServer="{{GetBootstrapProfileContainerRegistryServer}}"
+$global:MCRRepositoryBase="{{GetMCRRepositoryBase}}"
+
+$global:OrasCacheDir="c:\aks-tools\oras\" # refer to components.json
+$global:OrasPath="c:\aks-tools\oras\oras.exe"
+$global:OrasOutput="c:\aks-tools\oras\oras_verbose.out"
+$global:OrasRegistryConfigFile="c:\aks-tools\oras\config.yaml" # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -291,6 +296,12 @@ if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
     Write-Log "Windows Cilium Networking function script not found, skipping dot-source"
 }
 
+if (Test-Path -Path 'c:\AzureData\windows\networkisolatedclusterfunc.ps1') {
+    . c:\AzureData\windows\networkisolatedclusterfunc.ps1
+} else {
+    Write-Log "Network Isolated Cluster function script not found, skipping dot-source"
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # All operations that prepare the base VHD image
 function BasePrep {
@@ -332,6 +343,18 @@ function BasePrep {
     Configure-KubeletServingCertificateRotation
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    # oras login must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
+    if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and
+    -not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) {
+    # variable exists and is not empty/whitespace
+        if (Get-Command -Name Initialize-Oras -ErrorAction SilentlyContinue) {
+            Logs-To-Event -TaskName "AKS.WindowsCSE.EnsureOras" -TaskMessage "Ensure oras is initialized for network isolated cluster"
+            Initialize-Oras
+        } else {
+            Write-Log "Initialize-Oras is not a recognized function, will skip oras initialization for network isolated cluster"
+        }
+    }
 
     # to ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Install-SecureTLSBootstrapClient -ErrorAction SilentlyContinue) {

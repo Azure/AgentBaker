@@ -161,7 +161,7 @@ function ProcessAndWriteContainerdConfig {
 
   # Set up registry mirrors
   Set-ContainerdRegistryConfig -Registry "docker.io" -RegistryHost "registry-1.docker.io"
-  if ((Test-Path variable:global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER) -and -not [string]::IsNullOrEmpty($global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER)) {
+  if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and -not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
     Set-BootstrapProfileRegistryContainerdHost
   } else {
     Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
@@ -235,9 +235,9 @@ server = "https://$Registry"
 }
 
 function Set-BootstrapProfileRegistryContainerdHost {
-  $mcrRegistry = if ((Test-Path variable:global:MCR_REPOSITORY_BASE) -and
-      -not [string]::IsNullOrEmpty($global:MCR_REPOSITORY_BASE)) {
-    [string]$global:MCR_REPOSITORY_BASE
+  $mcrRegistry = if ((Test-Path variable:global:MCRRepositoryBase) -and
+      -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
+    [string]$global:MCRRepositoryBase
   }
   else {
     "mcr.microsoft.com"
@@ -246,7 +246,7 @@ function Set-BootstrapProfileRegistryContainerdHost {
   $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
   $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
 
-  $registryHost = [string]$global:BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+  $registryHost = [string]$global:BootstrapProfileContainerRegistryServer
   $registryHost = ($registryHost -replace '^https?://', '').TrimEnd('/')
 
   $registryHostParts = $registryHost.Split('/', 2)
