@@ -5,7 +5,7 @@ BeforeAll {
 
 }
 
-Describe "Ensure-Oras" {
+Describe "Install-Oras" {
   BeforeEach {
     $global:OrasPath = "C:\aks-tools\oras\oras.exe"
     $global:OrasCacheDir = "C:\akse-cache\oras"
@@ -33,7 +33,7 @@ Describe "Ensure-Oras" {
       return $Path -eq $global:OrasPath
     }
 
-    { Ensure-Oras } | Should -Not -Throw
+    { Install-Oras } | Should -Not -Throw
     Assert-MockCalled -CommandName 'New-Item' -Times 0
     Assert-MockCalled -CommandName 'Expand-Archive' -Times 0
     Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 0
@@ -66,7 +66,7 @@ Describe "Ensure-Oras" {
       $script:orasInstalled = $true
     }
 
-    { Ensure-Oras } | Should -Not -Throw
+    { Install-Oras } | Should -Not -Throw
     $script:archiveExtractCalls | Should -Be 1
   }
 
@@ -79,7 +79,7 @@ Describe "Ensure-Oras" {
     Mock Get-ChildItem -MockWith { @() }
 
     {
-      Ensure-Oras
+      Install-Oras
     } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND):No oras archive*"
   }
 
@@ -101,7 +101,7 @@ Describe "Ensure-Oras" {
     Mock tar -MockWith { $global:LASTEXITCODE = 1 }
 
     {
-      Ensure-Oras
+      Install-Oras
     } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND):Failed to extract oras archive*"
   }
 }

@@ -2,18 +2,12 @@
 
 # unpackage and install oras from cache
 # Oras is used for pulling windows binaries, e.g. windowszip, from private container registry when it is network isolated cluster.
-function Ensure-Oras {
+function Install-Oras {
     # Check if OrasPath variable exists to avoid latest cached cse in vhd with possible old ab svc
     $orasPathVarExists = Test-Path variable:global:OrasPath
     if (-not $orasPathVarExists) {
         Write-Log "OrasPath variable does not exist. Setting OrasPath to default value C:\aks-tools\oras\oras.exe"
         $global:OrasPath = "C:\aks-tools\oras\oras.exe"
-    }
-
-    $orasFileExists = $false
-
-    if ($orasPathVarExists -and -not [string]::IsNullOrWhiteSpace($global:OrasPath)) {
-        $orasFileExists = Test-Path -Path $global:OrasPath -PathType Leaf
     }
 
     if (Test-Path -Path $global:OrasPath) {

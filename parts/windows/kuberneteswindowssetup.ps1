@@ -348,11 +348,11 @@ function BasePrep {
     if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and
     -not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) {
     # variable exists and is not empty/whitespace
-        if (Get-Command -Name Ensure-Oras -ErrorAction SilentlyContinue) {
+        if (Get-Command -Name Install-Oras -ErrorAction SilentlyContinue) {
             Logs-To-Event -TaskName "AKS.WindowsCSE.EnsureOras" -TaskMessage "Ensure oras is installed for network isolated cluster"
-            Ensure-Oras
+            Install-Oras
         } else {
-            Write-Log "Ensure-Oras is not a recognized function, will skip oras installation for network isolated cluster"
+            Write-Log "Install-Oras is not a recognized function, will skip oras installation for network isolated cluster"
         }
     }
 
