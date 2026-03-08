@@ -340,7 +340,7 @@ function BasePrep {
 
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
-    # oras login must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
+    # oras initialization, including install and login, must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
     if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and
     -not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) {
     # variable exists and is not empty/whitespace
