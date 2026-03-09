@@ -118,6 +118,18 @@ Describe "Set-PodInfraContainerImage" {
     Mock New-Item
     Mock Remove-Item
     Mock tar -MockWith { $global:LASTEXITCODE = 0 }
+    # Default mock to prevent invoking real ctr binary in UT.
+    Mock ctr -MockWith {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = 0
+      return @()
+    }
+    # Default mock for ctr.exe import/tag/label path.
+    Mock 'ctr.exe' -MockWith {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = 0
+      return "ok"
+    }
     Mock Test-Path -MockWith { $false }
     Mock Set-ExitCode -MockWith {
       param(
