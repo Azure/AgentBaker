@@ -343,7 +343,7 @@ steps:
   # TODO(cameissner): remove when running prefetch optimization + VHD blob conversion by default
   - task: AzureCLI@2
     inputs:
-      azureSubscription: $(TME_ARM_SERVICE_CONNECTION)
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
