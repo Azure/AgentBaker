@@ -160,7 +160,6 @@ if grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]]*true' <<< "$optInCh
     echo "successfully pulled in root certs"
 else
     echo "Not opted in for root certs, skipping CA cert pull and install"
-    # http://168.63.129.16 is a constant for the host's wireserver endpoint
     certs=$(curl "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
     certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
     certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
