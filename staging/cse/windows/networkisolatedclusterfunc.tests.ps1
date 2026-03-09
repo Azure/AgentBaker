@@ -118,13 +118,7 @@ Describe "Set-PodInfraContainerImage" {
     Mock New-Item
     Mock Remove-Item
     Mock tar -MockWith { $global:LASTEXITCODE = 0 }
-    # Default mock to prevent invoking real ctr binary in UT.
-    Mock ctr -MockWith {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = 0
-      return @()
-    }
-    # Default mock for ctr.exe import/tag/label path.
+    # Default mock for ctr.exe list/import/tag/label path.
     Mock 'ctr.exe' -MockWith {
       param([Parameter(ValueFromRemainingArguments = $true)]$Args)
       $global:LASTEXITCODE = 0
@@ -171,7 +165,7 @@ Describe "Set-PodInfraContainerImage" {
   }
 
   It "returns early when image already exists locally" {
-    Mock ctr -MockWith {
+    Mock 'ctr.exe' -MockWith {
       param([Parameter(ValueFromRemainingArguments = $true)]$Args)
       $global:LASTEXITCODE = 0
       return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1")
@@ -185,17 +179,16 @@ Describe "Set-PodInfraContainerImage" {
 
     { Set-PodInfraContainerImage } | Should -Not -Throw
     Assert-MockCalled -CommandName 'tar' -Times 0
+    Assert-MockCalled -CommandName 'ctr.exe' -Times 1
   }
 
   It "pulls via oras and imports image when not found locally" {
-    Mock ctr -MockWith {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = 0
-      return @()
-    }
     Mock 'ctr.exe' -MockWith {
       param([Parameter(ValueFromRemainingArguments = $true)]$Args)
       $global:LASTEXITCODE = 0
+      if ($Args -contains 'list') {
+        return @()
+      }
       return "ok"
     }
 
@@ -207,12 +200,12 @@ Describe "Set-PodInfraContainerImage" {
 
     { Set-PodInfraContainerImage } | Should -Not -Throw
     Assert-MockCalled -CommandName 'tar' -Times 1
-    Assert-MockCalled -CommandName 'ctr.exe' -Times 3
+    Assert-MockCalled -CommandName 'ctr.exe' -Times 4
     Assert-MockCalled -CommandName 'Remove-Item' -Times 2
   }
 
   It "fails after oras retry exhaustion" {
-    Mock ctr -MockWith {
+    Mock 'ctr.exe' -MockWith {
       param([Parameter(ValueFromRemainingArguments = $true)]$Args)
       $global:LASTEXITCODE = 0
       return @()
@@ -228,5 +221,6 @@ Describe "Set-PodInfraContainerImage" {
       Set-PodInfraContainerImage
     } | Should -Throw "*Set-ExitCode:82:Failed to pull*"
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
+    Assert-MockCalled -CommandName 'ctr.exe' -Times 1
   }
 }
