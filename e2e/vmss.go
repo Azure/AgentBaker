@@ -627,10 +627,11 @@ param(
 Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
 Expand-Archive azcopy.zip
 cd .\azcopy\*
-$env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-$env:AZCOPY_MSI_RESOURCE_STRING=$arg3
+$env:AZCOPY_AUTO_LOGIN_TYPE = "AZCLI"
+$env:AZCOPY_CONCURRENCY_VALUE = "AUTO"
 C:\k\debug\collect-windows-logs.ps1
 $CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
+.\azcopy.exe login
 .\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
 .\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
 .\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
