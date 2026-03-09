@@ -131,7 +131,7 @@ function Set-PodInfraContainerImage {
     $finalImage = '{0}:{1}' -f $baseName, $tag
     $tagOutput = $(ctr.exe -n k8s.io image tag ${finalImage} $podInfraContainerImage 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER -ErrorMessage ('failed to tag pod infra image ''{0}'' as ''{1}'': {2}' -f $podInfraContainerImage, $finalImage, $tagOutput)
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER -ErrorMessage "failed to tag pod infra image"
     }
 
     $labelOutput = $(ctr.exe -n k8s.io images label $podInfraContainerImage io.cri-containerd.pinned=pinned 2>&1)

@@ -118,11 +118,16 @@ Describe "Set-PodInfraContainerImage" {
     Mock New-Item
     Mock Remove-Item
     Mock tar -MockWith { $global:LASTEXITCODE = 0 }
-    # Default mock for ctr.exe list/import/tag/label path.
-    Mock 'ctr.exe' -MockWith {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = 0
+    $script:CtrExeInvocations = @()
+    $script:CtrExeMock = {
+      param($Args)
       return "ok"
+    }
+    function global:ctr.exe {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:CtrExeInvocations += , @($Args)
+      $global:LASTEXITCODE = 0
+      return & $script:CtrExeMock $Args
     }
     Mock Test-Path -MockWith { $false }
     Mock Set-ExitCode -MockWith {
@@ -146,6 +151,10 @@ Describe "Set-PodInfraContainerImage" {
     }
   }
 
+  AfterEach {
+    Remove-Item Function:\global:ctr.exe -ErrorAction SilentlyContinue
+  }
+
   It "fails when pod infra image is empty" {
     Mock Get-Content -MockWith {
 @'
@@ -165,9 +174,8 @@ Describe "Set-PodInfraContainerImage" {
   }
 
   It "returns early when image already exists locally" {
-    Mock 'ctr.exe' -MockWith {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = 0
+    $script:CtrExeMock = {
+      param($Args)
       return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1")
     }
 
@@ -179,13 +187,12 @@ Describe "Set-PodInfraContainerImage" {
 
     { Set-PodInfraContainerImage } | Should -Not -Throw
     Assert-MockCalled -CommandName 'tar' -Times 0
-    Assert-MockCalled -CommandName 'ctr.exe' -Times 1
+    $script:CtrExeInvocations.Count | Should -Be 1
   }
 
   It "pulls via oras and imports image when not found locally" {
-    Mock 'ctr.exe' -MockWith {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = 0
+    $script:CtrExeMock = {
+      param($Args)
       if ($Args -contains 'list') {
         return @()
       }
@@ -200,14 +207,13 @@ Describe "Set-PodInfraContainerImage" {
 
     { Set-PodInfraContainerImage } | Should -Not -Throw
     Assert-MockCalled -CommandName 'tar' -Times 1
-    Assert-MockCalled -CommandName 'ctr.exe' -Times 4
+    $script:CtrExeInvocations.Count | Should -Be 4
     Assert-MockCalled -CommandName 'Remove-Item' -Times 2
   }
 
   It "fails after oras retry exhaustion" {
-    Mock 'ctr.exe' -MockWith {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = 0
+    $script:CtrExeMock = {
+      param($Args)
       return @()
     }
 
@@ -221,6 +227,6 @@ Describe "Set-PodInfraContainerImage" {
       Set-PodInfraContainerImage
     } | Should -Throw "*Set-ExitCode:82:Failed to pull*"
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
-    Assert-MockCalled -CommandName 'ctr.exe' -Times 1
+    $script:CtrExeInvocations.Count | Should -Be 1
   }
 }
