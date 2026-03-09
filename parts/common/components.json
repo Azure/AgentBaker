@@ -6,19 +6,6 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "comment": "Windows 2019 servercore. Should have latest version and latest version -1",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.8389",
-          "previousLatestVersion": "10.0.17763.8276",
-          "windowsSkuMatch": "2019-containerd"
-        },
-        {
-          "comment": "this will be cached in the previous step, we really just want to download the tag",
-          "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "ltsc2019",
-          "windowsSkuMatch": "2019-containerd"
-        },
-        {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "10.0.20348.4773",
@@ -77,12 +64,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
       "windowsVersions": [
-        {
-          "comment": "1809 gets patches every 6 months or so. The alternative is ltsc2019 which gets patches every couple of years. Most customers use 1809, so we keep that on the VHD",
-          "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "1809",
-          "windowsSkuMatch": "2019-containerd"
-        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2022",
@@ -1189,20 +1170,6 @@
           }
         },
         "windows": {
-          "ws2019": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.6.35-azure.1"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.7.20-azure.1",
-                "previousLatestVersion": "v1.7.17-azure.1"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
-          },
           "ws2022": {
             "versionsV2": [
               {
