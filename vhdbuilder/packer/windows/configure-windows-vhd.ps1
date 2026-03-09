@@ -133,6 +133,8 @@ function Download-FileWithAzCopy
     }
 
     pushd "$global:aksTempDir"
+    $env:AZCOPY_AUTO_LOGIN_TYPE = "AZCLI"
+    $env:AZCOPY_CONCURRENCY_VALUE = "AUTO"
     $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
     $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
 
@@ -144,7 +146,7 @@ function Download-FileWithAzCopy
 
     Write-Log "Logging in to AzCopy"
     # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-    .\azcopy.exe login --login-type=MSI
+    .\azcopy.exe login
 
     Write-Log "Copying $URL to $Dest"
     .\azcopy.exe copy "$URL" "$Dest"
