@@ -757,6 +757,13 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
+	if s.VHD.OS == config.OSACL {
+		// systemd-sysupdate.service: known upstream Flatcar issue (flatcar/Flatcar#1979). The timer
+		// (OnBootSec=15min) fires the service which exits with "No transfer definitions found" because
+		// ACL VHDs don't ship sysupdate transfer configs. Whether it fails depends on whether the timer
+		// fires before the validator checks.
+		unitFailureAllowList["systemd-sysupdate.service"] = true
+	}
 
 	type systemdUnit struct {
 		Name string `json:"unit,omitempty"`
