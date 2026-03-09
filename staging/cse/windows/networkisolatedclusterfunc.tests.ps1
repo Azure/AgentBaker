@@ -124,7 +124,7 @@ Describe "Invoke-OrasLogin" {
 
   It "should return unauthorized error code when ClientID is missing" {
     $ret = Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "" -TenantID "tenant-id"
-    $ret | Should -Be $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED
+    $ret | Should -Be $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
   }
 
   It "should return early when anonymous pull is allowed" {
@@ -186,7 +186,7 @@ Describe "Invoke-OrasLogin" {
 
     {
       Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
-    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED):failed to login to acr*"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED):failed to login to acr*"
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 2
   }
 }

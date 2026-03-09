@@ -110,7 +110,7 @@ function Invoke-OrasLogin {
     }
 
     if ([string]::IsNullOrWhiteSpace($accessToken)) {
-        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED -ErrorMessage "failed to parse imds access token"
+        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to parse imds access token"
     }
 
     # Exchange AAD Access Token for ACR Refresh Token
@@ -128,17 +128,17 @@ function Invoke-OrasLogin {
         $refreshToken = $rawRefreshTokenResponse.refresh_token
     }
     catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED -ErrorMessage "failed to retrieve refresh token: $($_.Exception.Message)"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to retrieve refresh token: $($_.Exception.Message)"
     }
 
     if ([string]::IsNullOrWhiteSpace($refreshToken)) {
-        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED -ErrorMessage "failed to parse refresh token"
+        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to parse refresh token"
     }
 
     # Pre-validate refresh token permissions
     $retCode = Assert-RefreshToken -RefreshToken $refreshToken -RequiredActions @("read")
     if ($retCode -ne 0) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED -ErrorMessage "failed to validate refresh token permissions"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to validate refresh token permissions"
     }
 
     # Perform Oras Login (pipe refresh token to stdin for --identity-token-stdin)
@@ -161,7 +161,7 @@ function Invoke-OrasLogin {
         }
     }
     if (-Not $loginSuccess) {
-        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED -ErrorMessage "failed to login to acr '$Acr_Url' with identity token"
+        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to login to acr '$Acr_Url' with identity token"
     }
 
     # Clean up sensitive data
@@ -217,7 +217,7 @@ function Assert-RefreshToken {
     $tokenParts = $RefreshToken.Split('.')
     if ($tokenParts.Length -lt 2) {
         Write-Host "Invalid JWT token format"
-        return $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED
+        return $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
     }
 
     $tokenPayload = $tokenParts[1]
@@ -235,7 +235,7 @@ function Assert-RefreshToken {
     }
     catch {
         Write-Host "Failed to decode token payload: $($_.Exception.Message)"
-        return $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED
+        return $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
     }
 
     if (-Not [string]::IsNullOrWhiteSpace($decodedToken)) {
@@ -244,7 +244,7 @@ function Assert-RefreshToken {
         }
         catch {
             Write-Host "Failed to parse token JSON: $($_.Exception.Message)"
-            return $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED
+            return $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
         }
 
         # Check if permissions field exists (RBAC token vs ABAC token)
@@ -259,7 +259,7 @@ function Assert-RefreshToken {
             foreach ($action in $RequiredActions) {
                 if ($tokenActions -notcontains $action) {
                     Write-Host "Required action '$action' not found in token permissions"
-                    return $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED
+                    return $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
                 }
             }
             Write-Host "Token validation passed: all required actions present"
