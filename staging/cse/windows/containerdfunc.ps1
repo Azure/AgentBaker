@@ -332,12 +332,7 @@ function Install-Containerd {
   RegisterContainerDService -KubeDir $KubeDir
   if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and -not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
     if (Get-Command -Name Set-PodInfraContainerImage -ErrorAction SilentlyContinue) {
-      try {
-        Set-PodInfraContainerImage
-      }
-      catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER -ErrorMessage "Failed to set pod infra container image: $_"
-      }
+      Set-PodInfraContainerImage
     }
     else {
       Write-Log "Set-PodInfraContainerImage command not found; skipping pod infra container image configuration."
