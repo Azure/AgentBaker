@@ -23,13 +23,6 @@ func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfigurat
 	properties.FeatureFlags.EnableIPv6DualStack = true
 }
 
-func Windows2019BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
-	// 2019 is not supported in 1.33+
-	version := components.GetKubeletVersionByMinorVersion("v1.32")
-	require.NotEmpty(t, version)
-	configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = components.RemoveLeadingV(version)
-}
-
 func Windows2025BootstrapConfigMutator(t *testing.T, configuration *datamodel.NodeBootstrappingConfiguration) {
 	// 2025 supported in 1.32+ - a kubelet bug impacts networking in most of 1.32 and 1.33.0, .1
 	version := components.GetKubeletVersionByMinorVersion("v1.33")

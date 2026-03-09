@@ -8,12 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// this is mostly for WS2019 - as WS2019 doesn't support anything after 1.32.
-func TestVersion1_32IsCached(t *testing.T) {
-	version := GetKubeletVersionByMinorVersion("v1.32")
-	require.NotEmpty(t, version)
-}
-
 func TestImagesAreFullySpecified(t *testing.T) {
 	images := GetWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
 	tags := getWindowsContainerImageTags("mcr.microsoft.com/windows/servercore:*", "2025-gen2")
@@ -90,18 +84,6 @@ func TestWs2022ServerCoreGen2(t *testing.T) {
 
 func TestWs2022NanoserverGen2(t *testing.T) {
 	serverCoreVersions := GetWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2022-containerd-gen2")
-	t.Logf("found servercore version %v", serverCoreVersions)
-	require.Len(t, serverCoreVersions, 1)
-}
-
-func TestWs2019ServerCore(t *testing.T) {
-	serverCoreVersions := GetWindowsContainerImages("mcr.microsoft.com/windows/servercore:*", "2019-containerd")
-	t.Logf("found servercore version %v", serverCoreVersions)
-	require.Len(t, serverCoreVersions, 2)
-}
-
-func TestWs2019Nanoserver(t *testing.T) {
-	serverCoreVersions := GetWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2019-containerd")
 	t.Logf("found servercore version %v", serverCoreVersions)
 	require.Len(t, serverCoreVersions, 1)
 }
