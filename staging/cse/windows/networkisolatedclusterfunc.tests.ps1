@@ -111,7 +111,6 @@ Describe "Invoke-OrasLogin" {
     $global:OrasRegistryConfigFile = "C:\aks-tools\oras\config.json"
     $global:LASTEXITCODE = 0
 
-    Mock Write-Log
     Mock Start-Sleep
     Mock Set-ExitCode -MockWith {
       param(
