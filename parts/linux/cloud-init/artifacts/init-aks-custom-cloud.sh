@@ -150,7 +150,7 @@ if [ "$optInCurlStatus" -ne 0 ]; then
     optInCheck=""
 fi
 
-if echo "$optInCheck" | grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]]*true'; then
+if grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]]*true' <<< "$optInCheck"; then
     echo "Opted in for root certs, proceeding with CA cert pull and install"
     # Process root certificates
     process_cert_operations "operationrequestsroot"
