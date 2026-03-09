@@ -167,8 +167,8 @@ else
     if [ "$IS_FLATCAR" -eq 1 ]; then
         ext=".pem"
     fi
-    for i in ${!certBodies[@]}; do
-        echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed "s/.cer/.${ext}/g")"
+    for i in "${!certBodies[@]}"; do
+        printf '%s\n' "${certBodies[$i]}" | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(printf '%s' "${certNames[$i]}" | sed "s/.cer/.${ext}/g")"
     done
     echo "successfully pulled in default certs"
 fi
