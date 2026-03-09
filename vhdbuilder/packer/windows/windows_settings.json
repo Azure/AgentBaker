@@ -1,6 +1,5 @@
 {
   "WindowsComments": [
-    "Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619",
     "Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee",
     "Windows Server 23H2 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248",
     "Then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx",
@@ -67,31 +66,6 @@
       "Type": "DWORD"
     },
     {
-      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900 - even tho this is turned on by default, we keep the fix in case windows wants to use it in future",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
-      "Name": "HNSControlFlag",
-      "Value": "0x10",
-      "Operation": "bor",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
-      "Name": "EnableCertPaddingCheck",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\Software\\Wow6432Node\\Microsoft\\Cryptography\\Wintrust\\Config",
-      "Name": "EnableCertPaddingCheck",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2022*",
       "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
@@ -104,126 +78,6 @@
       "WindowsSkuMatch": "2022*",
       "Path": "HKLM:\\Software\\Wow6432Node\\Microsoft\\Cryptography\\Wintrust\\Config",
       "Name": "EnableCertPaddingCheck",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable a WCIFS fix in 2022-10B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\wcifs",
-      "Name": "WcifsSOPCountDisabled",
-      "Value": "0",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable HnsPolicyUpdateChange fix in 2023-04B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
-      "Name": "HnsPolicyUpdateChange",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable HnsNatAllowRuleUpdateChange fix in 2023-04B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
-      "Name": "HnsNatAllowRuleUpdateChange",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable 3105872524 fix in 2023-04B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "3105872524",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable 1 fix in 2023-05B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
-      "Name": "VfpEvenPodDistributionIsEnabled",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable 1 fix in 2023-06B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "3230913164",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "Enable 1 fix in 2023-10B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
-      "Name": "VfpNotReuseTcpOneWayFlowIsEnabled",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2023-11B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
-      "Name": "CleanupReservedPorts",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2023-11B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "652313229",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2023-11B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "2059235981",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2023-11B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "3767762061",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2024-01B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "1102009996",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2024-04B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "2290715789",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2024-04B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "3152880268",
-      "Value": "1",
-      "Type": "DWORD"
-    },
-    {
-      "Comment": "2024-06B",
-      "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
-      "Name": "1605443213",
       "Value": "1",
       "Type": "DWORD"
     },
