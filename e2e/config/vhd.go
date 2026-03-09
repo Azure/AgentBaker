@@ -42,7 +42,7 @@ var (
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
 	OSFlatcar    OS = "flatcar"
-	OSACL        OS = "acl"
+	OSACL        OS = "azurecontainerlinux"
 )
 
 var (
