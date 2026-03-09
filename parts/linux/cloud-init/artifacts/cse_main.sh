@@ -21,6 +21,147 @@ for i in $(seq 1 120); do
         sleep 1
     fi
 done
+
+# Check for provisioning script hotfixes from MAR before sourcing any scripts.
+# This function is intentionally self-contained — it cannot depend on any scripts
+# it might replace (provision_source.sh, provision_installs.sh, etc.).
+#
+# Each hotfix targets exactly ONE baked VHD version (because a script with the
+# same filename can differ between VHD versions). There is one tag per version:
+#   <version>-hotfix  (e.g., v0.20260201.0-hotfix)
+# The node checks for an exact tag match against its baked version.
+check_for_script_hotfix() {
+    local version_file="/opt/azure/containers/.provisioning-scripts-version"
+    local registry="${HOTFIX_REGISTRY:-mcr.microsoft.com}"
+    local applied_marker="/opt/azure/containers/.hotfix-applied"
+
+    # Determine SKU from OS
+    local sku=""
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        case "${ID}-${VERSION_ID}" in
+            ubuntu-22.04) sku="ubuntu-2204" ;;
+            ubuntu-24.04) sku="ubuntu-2404" ;;
+            mariner-2*)   sku="azurelinux-v2" ;;
+            azurelinux-3*) sku="azurelinux-v3" ;;
+            *) echo "check_for_script_hotfix: unknown SKU (${ID}-${VERSION_ID}), skipping"; return 0 ;;
+        esac
+    else
+        echo "check_for_script_hotfix: /etc/os-release not found, skipping"
+        return 0
+    fi
+
+    local repo="${registry}/aks/provisioning-scripts/${sku}"
+
+    # Read baked version
+    if [ ! -f "$version_file" ]; then
+        echo "check_for_script_hotfix: no baked version stamp found, skipping"
+        return 0
+    fi
+    local baked_version
+    baked_version=$(cat "$version_file")
+
+    # Check ORAS availability
+    if ! command -v oras &>/dev/null; then
+        echo "check_for_script_hotfix: oras not available, skipping"
+        return 0
+    fi
+
+    # List available hotfix tags (anonymous pull from public MAR, no auth needed)
+    local tags
+    tags=$(timeout 30 oras repo tags "$repo" 2>/dev/null) || {
+        echo "check_for_script_hotfix: failed to query MAR for hotfixes, using baked scripts"
+        return 0
+    }
+
+    if [ -z "$tags" ]; then
+        echo "check_for_script_hotfix: no hotfixes available, using baked scripts"
+        return 0
+    fi
+
+    local staging_dir="/opt/azure/containers/.hotfix-staging"
+    local hotfix_tag="${baked_version}-hotfix"
+    local applied_marker="/opt/azure/containers/.hotfix-applied"
+
+    # Check if our version's hotfix tag exists in the tag list
+    if ! echo "$tags" | grep -qx "$hotfix_tag"; then
+        echo "check_for_script_hotfix: no hotfix for baked version $baked_version, using baked scripts"
+        return 0
+    fi
+
+    # Skip if already applied
+    if [ -f "$applied_marker" ] && grep -q "$hotfix_tag" "$applied_marker"; then
+        echo "check_for_script_hotfix: hotfix $hotfix_tag already applied, skipping"
+        return 0
+    fi
+
+    echo "check_for_script_hotfix: hotfix $hotfix_tag found for baked version $baked_version"
+
+    # Pull the full artifact
+    mkdir -p "$staging_dir"
+    if ! timeout 30 oras pull "${repo}:${hotfix_tag}" \
+        -o "$staging_dir" 2>/dev/null; then
+        echo "check_for_script_hotfix: failed to pull $hotfix_tag, using baked scripts"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Verify metadata exists
+    local metadata="$staging_dir/hotfix-metadata.json"
+    if [ ! -f "$metadata" ]; then
+        echo "check_for_script_hotfix: no metadata in $hotfix_tag, skipping"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Verify the metadata's affectedVersion matches (defense in depth)
+    local meta_version
+    if command -v jq &>/dev/null; then
+        meta_version=$(jq -r '.affectedVersion' "$metadata" 2>/dev/null)
+    else
+        meta_version=$(grep -o '"affectedVersion"[[:space:]]*:[[:space:]]*"[^"]*"' "$metadata" | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+    fi
+
+    if [ "$meta_version" != "$baked_version" ]; then
+        echo "check_for_script_hotfix: metadata version mismatch ($meta_version != $baked_version), skipping"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Find and extract the tarball
+    local tarball
+    tarball=$(find "$staging_dir" -name "*.tar.gz" | head -1)
+    if [ -n "$tarball" ]; then
+        # Verify tarball checksum if metadata includes it
+        local expected_sha
+        if command -v jq &>/dev/null; then
+            expected_sha=$(jq -r '.tarballSha256 // empty' "$metadata" 2>/dev/null)
+        fi
+        if [ -n "${expected_sha:-}" ]; then
+            local actual_sha
+            actual_sha=$(sha256sum "$tarball" | awk '{print $1}')
+            if [ "$actual_sha" != "$expected_sha" ]; then
+                echo "check_for_script_hotfix: checksum mismatch for $hotfix_tag, using baked scripts"
+                rm -rf "$staging_dir"
+                return 0
+            fi
+        fi
+
+        tar -xzf "$tarball" -C / --no-same-owner 2>/dev/null && {
+            echo "$hotfix_tag" >> "$applied_marker"
+            echo "check_for_script_hotfix: applied hotfix $hotfix_tag"
+        } || {
+            echo "check_for_script_hotfix: failed to extract $hotfix_tag, continuing with baked scripts"
+        }
+    fi
+
+    rm -rf "$staging_dir"
+
+    return 0
+}
+
+check_for_script_hotfix || true
+
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 

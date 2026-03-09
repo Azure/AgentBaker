@@ -463,6 +463,16 @@ copyPackerFiles() {
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
+
+  # Stamp the provisioning scripts version for hotfix detection at provisioning time.
+  # Uses the git tag if building from a tagged commit, otherwise falls back to the commit SHA.
+  local scripts_version
+  scripts_version=$(cd /opt/azure 2>/dev/null && cat provisioning-scripts-version 2>/dev/null || true)
+  if [ -z "$scripts_version" ]; then
+    scripts_version=$(git -C "${THIS_DIR}" describe --tags --abbrev=0 --exact-match 2>/dev/null || git -C "${THIS_DIR}" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    echo "$scripts_version" > /opt/azure/containers/.provisioning-scripts-version
+    chmod 644 /opt/azure/containers/.provisioning-scripts-version
+  fi
 }
 
 cpAndMode() {
