@@ -94,6 +94,7 @@ process_cert_operations() {
     fi
 
     # Extract ResourceFileName values from the JSON response
+    # NOTE: ResouceFileName is a deliberate typo
     local cert_filenames
     mapfile -t cert_filenames < <(echo "$operation_response" | grep -oP '(?<="ResouceFileName": ")[^"]*')
 
