@@ -343,7 +343,7 @@ steps:
   # TODO(cameissner): remove when running prefetch optimization + VHD blob conversion by default
   - task: AzureCLI@2
     inputs:
-      azureSubscription: $(TME_ARM_SERVICE_CONNECTION)
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
@@ -351,7 +351,7 @@ steps:
         --destination-blob "${BLOB_NAME}" \
         --destination-container "${VHD_STAGING_CONTAINER_NAME}" \
         --account-name "${TME_STORAGE_ACCOUNT_NAME}" \
-        --source-uri "${CLASSIC_BLOB}/${TEST_VERSION}?$(SAS_TOKEN)" \
+        --source-uri "${CLASSIC_BLOB_STAGING}/${TEST_VERSION}?$(SAS_TOKEN)" \
         --auth-mode login
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
