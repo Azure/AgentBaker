@@ -658,6 +658,36 @@
       "destination": "/home/packer/99-azure-network.rules"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-node-exporter.sh",
+      "destination": "/home/packer/install-node-exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh",
+      "destination": "/home/packer/node-exporter-startup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service",
+      "destination": "/home/packer/node-exporter.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service",
+      "destination": "/home/packer/node-exporter-restart.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path",
+      "destination": "/home/packer/node-exporter-restart.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/node-exporter.d/web-config.yml",
+      "destination": "/home/packer/node-exporter-web-config.yml"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/pre-install-dependencies.sh"

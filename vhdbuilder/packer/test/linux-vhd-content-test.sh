@@ -1571,7 +1571,7 @@ testNodeExporter () {
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
   # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
@@ -2100,8 +2100,8 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
 # WALinuxAgent is installed post-deprovision (not via components.json),
-# so test it separately. Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version.
-if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+# so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
   testWALinuxAgentInstalled
 fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
