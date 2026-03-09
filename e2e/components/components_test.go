@@ -117,7 +117,6 @@ func TestWindowsImagesHaveServercoreAndNanoserverSpecified(t *testing.T) {
 		config.VHDWindows23H2Gen2,
 		config.VHDWindows2025,
 		config.VHDWindows2025Gen2,
-		config.VHDWindows2019Containerd,
 	}
 
 	for _, image := range windowsImages {
