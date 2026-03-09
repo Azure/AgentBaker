@@ -205,7 +205,7 @@ steps:
         az account set -s "$SUBSCRIPTION_ID"
 
         expiry=$(date +"%Y-%m-%dT%H:%MZ" -d "+6 hour")
-        sas_token=$(az storage container generate-sas --account-name "$STORAGE_ACCOUNT_NAME" --name "$VHD_CONTAINER_NAME" --expiry "$expiry" --auth-mode login --permissions r --as-user | tr -d '"')
+        sas_token=$(az storage container generate-sas --account-name "$E2E_STORAGE_ACCOUNT_NAME" --name "$VHD_CONTAINER_NAME" --expiry "$expiry" --auth-mode login --permissions r --as-user | tr -d '"')
         if [ -z "$sas_token" ]; then
           echo "##vso[task.logissue type=error]ERROR: unable to generate user-delegation SAS token"
           exit 1
