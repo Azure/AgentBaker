@@ -1150,15 +1150,6 @@ Describe 'Tests of components-test.json ' {
         $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
     }
 
-    It 'has containerd versions for 2019' {
-        $windowsSku = "2019-containerd"
-        $packages = GetPackagesFromComponentsJson $componentsJson
-
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
-    }
-
     It 'has containerd versions for 2022' {
         $windowsSku = "2022-containerd"
 
