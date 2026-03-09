@@ -168,7 +168,7 @@ else
         ext=".pem"
     fi
     for i in "${!certBodies[@]}"; do
-        printf '%s\n' "${certBodies[$i]}" | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(printf '%s' "${certNames[$i]}" | sed "s/.cer/.${ext}/g")"
+        printf '%s\n' "${certBodies[$i]}" | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(printf '%s' "${certNames[$i]}" | sed "s/\\.cer$/${ext}/")"
     done
     echo "successfully pulled in default certs"
 fi
