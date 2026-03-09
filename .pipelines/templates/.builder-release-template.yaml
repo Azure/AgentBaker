@@ -94,25 +94,6 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        make -f packer.mk run-packer
-    condition: ne(variables['BUILDER'], 'imagecustomizer')
-    displayName: Build VHD
-    retryCountOnTaskFailure: 3
-    env:
-      OS_TYPE: Linux
-      GIT_VERSION: $(Build.SourceVersion)
-      BRANCH: $(Build.SourceBranch)
-      BUILD_NUMBER: $(Build.BuildNumber)
-      BUILD_ID: $(Build.BuildId)
-      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
-      UA_TOKEN: $(ua-token)
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
         make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD - Image Customizer
@@ -202,7 +183,7 @@ steps:
       inlineScript: |
         set -euo
 
-        az account set -s "$SUBSCRIPTION_ID"
+        az account set -s "$E2E_SUBSCRIPTION_ID"
 
         expiry=$(date +"%Y-%m-%dT%H:%MZ" -d "+6 hour")
         sas_token=$(az storage container generate-sas --account-name "$E2E_STORAGE_ACCOUNT_NAME" --name "$VHD_CONTAINER_NAME" --expiry "$expiry" --auth-mode login --permissions r --as-user | tr -d '"')
