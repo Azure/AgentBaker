@@ -78,7 +78,7 @@ function Set-PodInfraContainerImage {
     }
 
     Write-Log "Checking if '$podInfraContainerImage' already exists locally..."
-    $images = & ctr -n k8s.io images list -q 2>$null
+    $images = & ctr.exe -n k8s.io images list -q 2>$null
     if (($LASTEXITCODE -eq 0) -and ($images -contains $podInfraContainerImage)) {
         Write-Log "Image '$podInfraContainerImage' already exists locally, skipping pull"
         return
