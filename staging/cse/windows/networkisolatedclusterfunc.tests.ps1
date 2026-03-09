@@ -117,6 +117,7 @@ Describe "Set-PodInfraContainerImage" {
     Mock Start-Sleep
     Mock New-Item
     Mock Remove-Item
+    Mock ctr -MockWith { $global:LASTEXITCODE = 0 }
     Mock tar -MockWith { $global:LASTEXITCODE = 0 }
     Mock Test-Path -MockWith { $false }
     Mock Set-ExitCode -MockWith {
