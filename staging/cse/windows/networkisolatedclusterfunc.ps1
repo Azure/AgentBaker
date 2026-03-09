@@ -79,7 +79,7 @@ function Invoke-OrasLogin {
     # Check for required variables
     if ([string]::IsNullOrWhiteSpace($ClientID) -or [string]::IsNullOrWhiteSpace($TenantID)) {
         Write-Host "ClientID or TenantID are not set. Oras login is not possible, proceeding with anonymous pull"
-        return $global:WINDOWS_CSE_ERROR_ORAS_PULLUNAUTHORIZED
+        return $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
     }
 
     # Attempt anonymous pull check (assumes helper function exists)
