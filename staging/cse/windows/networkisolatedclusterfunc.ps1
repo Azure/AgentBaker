@@ -3,7 +3,7 @@
 # Initialize-Oras will install oras and login the registry if anonymous access is disabled. This is required for network isolated cluster to pull windowszip from private container registry.
 function Initialize-Oras {
     Install-Oras
-    Invoke-OrasLogin -Acr_Url $(Get-BootstrapRegistryDomainName) -ClientID $global:UserAssignedClientID -TenantID $global:TenantId
+    Invoke-OrasLogin -Acr_Url $(Get-BootstrapRegistryDomainName) -ClientID $UserAssignedClientID -TenantID $global:TenantId
 }
 
 # unpackage and install oras from cache
