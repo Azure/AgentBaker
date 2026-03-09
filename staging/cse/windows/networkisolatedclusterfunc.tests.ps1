@@ -114,7 +114,6 @@ Describe "Set-PodInfraContainerImage" {
     $global:OrasPath = "Mock-OrasCli"
     $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER = 82
 
-    Mock Write-Log
     Mock Start-Sleep
     Mock New-Item
     Mock Remove-Item
