@@ -38,7 +38,8 @@ case "${local_cloud}" in
     AzureChinaCloud)
         CLOUD_FQDNS=(
             "acs-mirror.azureedge.net"          # K8s binaries mirror
-            "mcr.azure.cn"                      # Container registry (China)
+            "mcr.azure.cn"                      # Container registry (China)(New)
+            "mcr.azk8s.cn"                      # Container registry (China)(Old, migrating from this to mcr.azure.cn)
             "login.partner.microsoftonline.cn"  # Azure AD (China)
             "management.chinacloudapi.cn"       # ARM (China)
         )
