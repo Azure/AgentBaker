@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4773",
-          "previousLatestVersion": "10.0.20348.4648",
+          "latestVersion": "10.0.20348.4893",
+          "previousLatestVersion": "10.0.20348.4773",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4773",
-          "previousLatestVersion": "10.0.20348.4648",
+          "latestVersion": "10.0.20348.4893",
+          "previousLatestVersion": "10.0.20348.4773",
           "windowsSkuMatch": "23H2*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4773",
-          "previousLatestVersion": "10.0.20348.4648",
+          "latestVersion": "10.0.20348.4893",
+          "previousLatestVersion": "10.0.20348.4773",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -47,8 +47,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.32370",
-          "previousLatestVersion": "10.0.26100.32230",
+          "latestVersion": "10.0.26100.32522",
+          "previousLatestVersion": "10.0.26100.32370",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -685,8 +685,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.20.1-4",
-          "previousLatestVersion": "v3.20.1-3"
+          "latestVersion": "v3.20.1-6",
+          "previousLatestVersion": "v3.20.1-4"
         }
       ],
       "windowsVersions": []

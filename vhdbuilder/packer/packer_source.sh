@@ -265,6 +265,10 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
+  IMAGE_FETCHER_SRC=/home/packer/image-fetcher
+  IMAGE_FETCHER_DEST=/opt/azure/containers/image-fetcher
+  cpAndMode $IMAGE_FETCHER_SRC $IMAGE_FETCHER_DEST 755
+
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755

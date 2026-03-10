@@ -531,7 +531,7 @@ func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSe
 
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
-	extensionVersion := "1.374"
+	extensionVersion := "1.406"
 	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
 	// extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
 	// if err != nil {
