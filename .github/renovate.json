@@ -100,10 +100,47 @@
       "matchDatasources": [
         "rpm"
       ],
-      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "versioning": "regex:(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)\\.(?<compatibility>.+)$",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false
+    },
+    {
+      "description": "Nvidia DCGM RPM packages use epoch:version-revision format, keep original versioning",
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchPackageNames": [
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary"
+      ],
+      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false
+    },
+    {
+      "description": "Override RPM versioning for revision-only tracking managers",
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchPackageNames": [
+        "*-revision",
+        "*-prev-revision"
+      ],
+      "versioning": "regex:^(?<compatibility>.*-)(?<patch>\\d+)\\.(?<build>.+)$",
+      "ignoreUnstable": false
+    },
+    {
+      "description": "Group and enable PMC package revision-only updates",
+      "matchPackageNames": [
+        "*-revision",
+        "*-prev-revision"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "enabled": true,
+      "groupName": "pmc-revision-updates"
     },
     {
       "matchPackageNames": [
@@ -613,7 +650,7 @@
         "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2004",
-      "versioningTemplate": "deb",
+      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>[a-z]+\\d+\\.\\d+)u(?<build>\\d+)$",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
@@ -627,7 +664,7 @@
         "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2204",
-      "versioningTemplate": "deb",
+      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>[a-z]+\\d+\\.\\d+)u(?<build>\\d+)$",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
@@ -655,7 +692,7 @@
         "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2404",
-      "versioningTemplate": "deb",
+      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>[a-z]+\\d+\\.\\d+)u(?<build>\\d+)$",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
@@ -683,8 +720,200 @@
         "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=test, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2404-test",
-      "versioningTemplate": "deb",
+      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>[a-z]+\\d+\\.\\d+)u(?<build>\\d+)$",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=test, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update package revisions for OS ubuntu 20.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "depNameTemplate": "{{{packageName}}}-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2004",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{depType}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update package revisions for OS ubuntu 22.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "depNameTemplate": "{{{packageName}}}-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2204",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{depType}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update package revisions for OS ubuntu 24.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "depNameTemplate": "{{{packageName}}}-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2404",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{depType}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update package revisions for OS ubuntu 24.04 (test registry) in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=test, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "depNameTemplate": "{{{packageName}}}-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2404-test",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=test, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{depType}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update package revisions for OS Mariner 2.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "depNameTemplate": "{{{packageName}}}-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "rpm",
+      "versioningTemplate": "regex:^(?<compatibility>.*-)(?<patch>\\d+)\\.(?<build>.+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{depType}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update package revisions for OS AzureLinux 3.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "depNameTemplate": "{{{packageName}}}-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "rpm",
+      "versioningTemplate": "regex:^(?<compatibility>.*-)(?<patch>\\d+)\\.(?<build>.+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{depType}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update previousLatestVersion revisions for OS ubuntu 20.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<depType>[^\"]+)\",\\s*\"previousLatestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "{{{packageName}}}-prev-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2004",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{depType}}}\",\n                \"previousLatestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "auto update previousLatestVersion revisions for OS ubuntu 22.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<depType>[^\"]+)\",\\s*\"previousLatestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "{{{packageName}}}-prev-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2204",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{depType}}}\",\n                \"previousLatestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "auto update previousLatestVersion revisions for OS ubuntu 24.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<depType>[^\"]+)\",\\s*\"previousLatestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "{{{packageName}}}-prev-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2404",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{depType}}}\",\n                \"previousLatestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "auto update previousLatestVersion revisions for OS ubuntu 24.04 (test registry) in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=test, os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<depType>[^\"]+)\",\\s*\"previousLatestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "{{{packageName}}}-prev-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "custom.deb2404-test",
+      "versioningTemplate": "regex:^(?<compatibility>.*u)(?<patch>\\d+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=test, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{depType}}}\",\n                \"previousLatestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "auto update previousLatestVersion revisions for OS Mariner 2.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=mariner, release=2\\.0\",\\s*\"latestVersion\":\\s*\"(?<depType>[^\"]+)\",\\s*\"previousLatestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "{{{packageName}}}-prev-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "rpm",
+      "versioningTemplate": "regex:^(?<compatibility>.*-)(?<patch>\\d+)\\.(?<build>.+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=mariner, release=2.0\",\n                \"latestVersion\": \"{{{depType}}}\",\n                \"previousLatestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "auto update previousLatestVersion revisions for OS AzureLinux 3.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"RPM_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^,]+), os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<depType>[^\"]+)\",\\s*\"previousLatestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "{{{packageName}}}-prev-revision",
+      "packageNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "rpm",
+      "versioningTemplate": "regex:^(?<compatibility>.*-)(?<patch>\\d+)\\.(?<build>.+)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{depType}}}\",\n                \"previousLatestVersion\": \"{{{newValue}}}\""
     },
     {
       "customType": "regex",
