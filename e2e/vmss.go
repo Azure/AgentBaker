@@ -213,7 +213,10 @@ func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
 #!/bin/bash
 set -euo pipefail
 
-mkdir -p /opt/azure/containers /opt/azure/bin
+mkdir -p /opt/azure/containers /opt/azure/bin /var/lib/waagent
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 

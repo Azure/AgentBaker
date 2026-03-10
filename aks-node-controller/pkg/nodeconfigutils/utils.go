@@ -28,7 +28,10 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers
+mkdir -p /opt/azure/containers /var/lib/waagent
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 

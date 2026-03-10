@@ -455,8 +455,9 @@ func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped with custom sysctls, and chrony/taints configured",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:                       ClusterKubenet,
+			VHD:                           config.VHDUbuntu2204Gen2Containerd,
+			UseCustomDataOnlyProvisioning: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
