@@ -17,7 +17,6 @@
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
-    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
@@ -278,11 +277,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.service",
       "destination": "/home/packer/ensure-no-dup.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/teleportd.service",
-      "destination": "/home/packer/teleportd.service"
     },
     {
       "type": "file",
@@ -702,7 +696,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {
@@ -715,7 +709,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -eux /home/packer/install-dependencies.sh"
       ]
     },
     {
@@ -752,7 +746,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
       ]
     },
     {

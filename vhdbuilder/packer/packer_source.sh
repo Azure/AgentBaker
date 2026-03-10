@@ -233,10 +233,6 @@ copyPackerFiles() {
   NO_DUP_SVC_DEST=/etc/systemd/system/ensure-no-dup.service
   cpAndMode $NO_DUP_SVC_SRC $NO_DUP_SVC_DEST 600
 
-  TELED_SRC=/home/packer/teleportd.service
-  TELED_DEST=/etc/systemd/system/teleportd.service
-  cpAndMode $TELED_SRC $TELED_DEST 600
-
   SETUP_SEARCH_SRC=/home/packer/setup-custom-search-domains.sh
   SETUP_SEARCH_DEST=/opt/azure/containers/setup-custom-search-domains.sh
   cpAndMode $SETUP_SEARCH_SRC $SETUP_SEARCH_DEST 0744
