@@ -42,6 +42,7 @@ var (
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
 	OSFlatcar    OS = "flatcar"
+	OSACL        OS = "azurecontainerlinux"
 )
 
 var (
@@ -68,6 +69,7 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
+		UnsupportedGen2:                   true,
 	}
 	VHDUbuntu2204Gen2FIPSContainerd = &Image{
 		Name:                "2204gen2fipscontainerd",
@@ -148,6 +150,7 @@ var (
 		UnsupportedLocalDns:      true,
 		// old image, doesn't have Secure TLS Bootstrapping support
 		UnsupportedSecureTLSBootstrapping: true,
+		UnsupportedNVMe:                   true,
 		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
 		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
 		IgnoreFailedCgroupTelemetryServices: true,
@@ -164,17 +167,19 @@ var (
 		UnsupportedLocalDns: true,
 		// old image, doesn't have Secure TLS Bootstrapping support
 		UnsupportedSecureTLSBootstrapping: true,
+		UnsupportedNVMe:                   true,
 		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
 		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
 		IgnoreFailedCgroupTelemetryServices: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
-		Name:    "2404containerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2404,
-		Gallery: imageGalleryLinux,
+		Name:            "2404containerd",
+		OS:              OSUbuntu,
+		Arch:            "amd64",
+		Distro:          datamodel.AKSUbuntuContainerd2404,
+		Gallery:         imageGalleryLinux,
+		UnsupportedGen2: true,
 	}
 
 	VHDUbuntu2404Gen2Containerd = &Image{
@@ -213,20 +218,23 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
-	VHDWindows2019Containerd = &Image{
-		Name:    "windows-2019-containerd",
-		OS:      "windows",
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2019Containerd,
-		Gallery: imageGalleryWindows,
+	VHDACLGen2TL = &Image{
+		Name:         "aclgen2TL",
+		OS:           OSACL,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSACLGen2TL,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
 	}
 
 	VHDWindows2022Containerd = &Image{
-		Name:    "windows-2022-containerd",
-		OS:      "windows",
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2022Containerd,
-		Gallery: imageGalleryWindows,
+		Name:            "windows-2022-containerd",
+		OS:              "windows",
+		Arch:            "amd64",
+		Distro:          datamodel.AKSWindows2022Containerd,
+		Gallery:         imageGalleryWindows,
+		UnsupportedGen2: true,
 	}
 
 	VHDWindows2022ContainerdGen2 = &Image{
@@ -238,11 +246,12 @@ var (
 	}
 
 	VHDWindows23H2 = &Image{
-		Name:    "windows-23H2",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows23H2,
-		Gallery: imageGalleryWindows,
+		Name:            "windows-23H2",
+		OS:              OSWindows,
+		Arch:            "amd64",
+		Distro:          datamodel.AKSWindows23H2,
+		Gallery:         imageGalleryWindows,
+		UnsupportedGen2: true,
 	}
 
 	VHDWindows23H2Gen2 = &Image{
@@ -254,11 +263,12 @@ var (
 	}
 
 	VHDWindows2025 = &Image{
-		Name:    "windows-2025",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2025,
-		Gallery: imageGalleryWindows,
+		Name:            "windows-2025",
+		OS:              OSWindows,
+		Arch:            "amd64",
+		Distro:          datamodel.AKSWindows2025,
+		Gallery:         imageGalleryWindows,
+		UnsupportedGen2: true,
 	}
 
 	VHDWindows2025Gen2 = &Image{
@@ -288,6 +298,8 @@ type Image struct {
 	UnsupportedKubeletNodeIP            bool
 	UnsupportedLocalDns                 bool
 	UnsupportedSecureTLSBootstrapping   bool
+	UnsupportedNVMe                     bool
+	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.

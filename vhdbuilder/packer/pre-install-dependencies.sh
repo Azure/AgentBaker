@@ -24,7 +24,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
-if isMarinerOrAzureLinux "$OS"; then
+if isMarinerOrAzureLinux "$OS" || isACL "$OS"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -44,7 +44,7 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
-if ! isFlatcar "$OS" ; then
+if ! isFlatcar "$OS" && ! isACL "$OS" ; then
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi
 
@@ -60,7 +60,7 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
-if isFlatcar "$OS"; then
+if isFlatcar "$OS" || isACL "$OS"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
@@ -136,6 +136,17 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
+  elif [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+    # Pin to 5.15.0-1102-azure to avoid regression in 5.15.0-1103-azure
+    KERNEL_IMAGE="linux-image-5.15.0-1102-azure"
+    KERNEL_PACKAGES=(
+      "linux-image-5.15.0-1102-azure"
+      "linux-tools-5.15.0-1102-azure"
+      "linux-cloud-tools-5.15.0-1102-azure"
+      "linux-headers-5.15.0-1102-azure"
+      "linux-modules-extra-5.15.0-1102-azure"
+    )
+    echo "Installing pinned LTS kernel 5.15.0-1102-azure for Ubuntu 22.04 (regression in 1103)"
   else
     # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"

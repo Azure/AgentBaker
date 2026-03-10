@@ -8,6 +8,8 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
@@ -30,6 +32,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
+source /home/packer/install-node-exporter.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -117,6 +120,22 @@ fi
 if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
+fi
+
+# ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
+# so these must be called separately (mirrored in the Mariner/AzureLinux block below).
+# Other Mariner functions are safe to skip for ACL:
+#   setMarinerNetworkdConfig — ACL doesn't ship systemd-bootstrap's 99-dhcp-en.network
+#   fixCBLMarinerPermissions — product_uuid already 444; no rsyslog on ACL
+#   addMarinerNvidiaRepo / updateDnfWithNvidiaPkg / disableDNFAutomatic / enableCheckRestart — ACL has no dnf/rpm
+#   activateNfConntrack — nf_conntrack auto-loads via iptables dependency chain
+#   disableTimesyncd — ACL handles chrony separately above via disableNtpAndTimesyncdInstallChrony
+if isACL "$OS"; then
+  # ACL's iptables.service loads host firewall rules that conflict with Cilium eBPF routing.
+  disableSystemdIptables || exit 1
+  # Repoint /etc/resolv.conf from the stub (127.0.0.53) to the real upstream file
+  # so DNS queries go directly through localdns.
+  disableSystemdResolvedCache
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
@@ -416,12 +435,18 @@ while IFS= read -r p; do
       done
       ;;
     "inspektor-gadget")
-      if isMariner "$OS" || isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
         echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
-        # installIG is defined in install-ig.sh
-        installIG "${p}" "${ig_version}" "${downloadDir}"
+        if isUbuntu "$OS"; then
+          # Ubuntu: download ig deb via apt; ig_install_deb_stack expects it at downloadDir
+          downloadPkgFromVersion "ig" "${ig_version}" "${downloadDir}"
+          installIG "${ig_version}" "${downloadDir}"
+        elif isAzureLinux "$OS"; then
+          # Azure Linux 3.0: ig_install_rpm_stack handles its own RPM downloads
+          installIG "${ig_version}" "${downloadDir}"
+        fi
       fi
       ;;
     "kubernetes-binaries")
@@ -442,7 +467,7 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-        elif isFlatcar; then
+        elif isFlatcar || isACL; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
         fi
@@ -474,6 +499,17 @@ while IFS= read -r p; do
         downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      ;;
+    "node-exporter")
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
+      else
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+      fi
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
@@ -575,7 +611,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   mkdir -p /opt/{actions,gpu}
 
-  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}

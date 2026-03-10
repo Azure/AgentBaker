@@ -141,6 +141,10 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
+  POST_DEPROVISION_WALINUXAGENT_SRC=/home/packer/post-deprovision-walinuxagent.sh
+  POST_DEPROVISION_WALINUXAGENT_DEST=/opt/azure/containers/post-deprovision-walinuxagent.sh
+  INSTALL_WALINUXAGENT_PY_SRC=/home/packer/install_walinuxagent.py
+  INSTALL_WALINUXAGENT_PY_DEST=/opt/azure/containers/install_walinuxagent.py
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -265,6 +269,10 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
+  IMAGE_FETCHER_SRC=/home/packer/image-fetcher
+  IMAGE_FETCHER_DEST=/opt/azure/containers/image-fetcher
+  cpAndMode $IMAGE_FETCHER_SRC $IMAGE_FETCHER_DEST 755
+
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
@@ -317,11 +325,34 @@ copyPackerFiles() {
   IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
-  # Skip for Mariner, OSGuard, Flatcar, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
+  fi
+# ---------------------------------------------------------------------------------------
+
+# ------------------------- Files related to node-exporter ------------------------------
+  NODE_EXPORTER_STARTUP_SRC=/home/packer/node-exporter-startup.sh
+  NODE_EXPORTER_STARTUP_DEST=/opt/bin/node-exporter-startup.sh
+  NODE_EXPORTER_SERVICE_SRC=/home/packer/node-exporter.service
+  NODE_EXPORTER_SERVICE_DEST=/etc/systemd/system/node-exporter.service
+  NODE_EXPORTER_RESTART_SERVICE_SRC=/home/packer/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_SERVICE_DEST=/etc/systemd/system/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_PATH_SRC=/home/packer/node-exporter-restart.path
+  NODE_EXPORTER_RESTART_PATH_DEST=/etc/systemd/system/node-exporter-restart.path
+  NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
+  NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
+
+  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+    cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
+    cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
+    cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
+    # Symlink to /opt/bin is created by installNodeExporter in install-node-exporter.sh
   fi
 # ---------------------------------------------------------------------------------------
 
@@ -403,6 +434,14 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+  elif isACL "$OS"; then
+    # ACL cannot share the isMarinerOrAzureLinux block because:
+    # - containerd.service: ACL provides containerd via sysext.
+    # - mariner-package-update.sh: Mariner-only package update script, not applicable to ACL.
+    # ACL uses system-auth/system-password (like Mariner/AzureLinux),
+    # not Debian-style common-auth/common-password.
+    cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+    cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
@@ -424,7 +463,7 @@ copyPackerFiles() {
   fi
 
   # Handle the NOTICE file
-  if isFlatcar "$OS"; then
+  if isFlatcar "$OS" || isACL "$OS"; then
     # Append Flatcar specific license notices
     DIR=$(dirname "$NOTICE_DEST") && mkdir -p "${DIR}" && cp "$NOTICE_SRC" "$NOTICE_DEST"
     NOTICE_FLATCAR_SRC=/home/packer/NOTICE_FLATCAR.txt
@@ -441,6 +480,13 @@ copyPackerFiles() {
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
+
+  # Copy the post-deprovision WALinuxAgent install script and its Python helper
+  # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
+  if ! { isFlatcar "$OS" || isACL "$OS"; }; then
+    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 644
+    cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
+  fi
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644

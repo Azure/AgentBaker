@@ -117,6 +117,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+	AKSACLGen2TL,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -178,6 +179,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+	AKSACLGen2TL,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -260,6 +262,11 @@ var AvailableAzureLinuxOSGuardDistros = []Distro{
 var AvailableFlatcarDistros = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+}
+
+//nolint:gochecknoglobals
+var AvailableACLDistros = []Distro{
+	AKSACLGen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -377,6 +384,9 @@ const (
 	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
 	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
+	// Check with Keith and Alex, since they have their own branch for GB200.
+	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -467,7 +477,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2arm64gb200containerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -736,6 +746,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGACLGen2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "aclgen2TL",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -889,6 +906,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3CVMGen2:           SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3OSGuardGen2FIPSTL: SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
+		AKSACLGen2TL:                     SIGACLGen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

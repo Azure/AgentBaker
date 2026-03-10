@@ -75,6 +75,7 @@ type AzureClient struct {
 	ArmOptions                *arm.ClientOptions
 	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
 	VMExtensionImages         *armcompute.VirtualMachineExtensionImagesClient
+	ResourceSKUs              *armcompute.ResourceSKUsClient
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -325,6 +326,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.VMExtensionImages, err = armcompute.NewVirtualMachineExtensionImagesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vm extension images client: %w", err)
+	}
+
+	cloud.ResourceSKUs, err = armcompute.NewResourceSKUsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create resource skus client: %w", err)
 	}
 
 	// Ensure the gallery exists
@@ -808,4 +814,91 @@ func (v VMExtenstionVersion) Less(other VMExtenstionVersion) bool {
 		return v.Minor < other.Minor
 	}
 	return v.Patch < other.Patch
+}
+
+// getResourceSKU queries the Azure Resource SKUs API to find the SKU for the given VM size and location.
+func (a *AzureClient) getResourceSKU(ctx context.Context, location, vmSize string) (*armcompute.ResourceSKU, error) {
+	filter := fmt.Sprintf("location eq '%s'", location)
+	pager := a.ResourceSKUs.NewListPager(&armcompute.ResourceSKUsClientListOptions{
+		Filter: &filter,
+	})
+
+	upperVMSize := strings.ToUpper(vmSize)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("listing resource SKUs: %w", err)
+		}
+		for _, sku := range page.Value {
+			if sku.ResourceType == nil || !strings.EqualFold(*sku.ResourceType, "virtualMachines") {
+				continue
+			}
+			if sku.Name == nil || strings.ToUpper(*sku.Name) != upperVMSize {
+				continue
+			}
+			return sku, nil
+		}
+	}
+
+	return nil, fmt.Errorf("VM size %q not found in location %q", vmSize, location)
+}
+
+// VMSizeSupportsNVMe queries the Azure Resource SKUs API to determine if the given VM size
+// supports the NVMe disk controller type.
+func (a *AzureClient) VMSizeSupportsNVMe(ctx context.Context, location, vmSize string) (bool, error) {
+	sku, err := a.getResourceSKU(ctx, location, vmSize)
+	if err != nil {
+		return false, err
+	}
+	return SkuSupportsNVMe(sku), nil
+}
+
+// IsVMSizeGen2Only queries the Azure Resource SKUs API to determine if the given VM size
+// only supports the Gen2 hypervisor (i.e., does not support Gen1).
+func (a *AzureClient) IsVMSizeGen2Only(ctx context.Context, location, vmSize string) (bool, error) {
+	sku, err := a.getResourceSKU(ctx, location, vmSize)
+	if err != nil {
+		return false, err
+	}
+	return SkuSupportsOnlyGen2(sku), nil
+}
+
+// SkuSupportsNVMe checks the DiskControllerTypes capability of a resource SKU.
+// Returns true if supported disk controller type is NVMe.
+func SkuSupportsNVMe(sku *armcompute.ResourceSKU) bool {
+	for _, capability := range sku.Capabilities {
+		if capability.Name != nil && strings.EqualFold(*capability.Name, "DiskControllerTypes") {
+			if capability.Value == nil {
+				return false
+			}
+			// The value is a comma-separated list of supported controller types, e.g. "SCSI, NVMe" or "NVMe"
+			controllers := strings.Split(*capability.Value, ",")
+			for i := range controllers {
+				if strings.EqualFold(strings.TrimSpace(controllers[i]), "NVMe") {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// SkuSupportsOnlyGen2 checks the HyperVGenerations capability of a resource SKU.
+// Returns true if the only supported hypervisor generation is V2.
+func SkuSupportsOnlyGen2(sku *armcompute.ResourceSKU) bool {
+	for _, capability := range sku.Capabilities {
+		if capability.Name != nil && strings.EqualFold(*capability.Name, "HyperVGenerations") {
+			if capability.Value == nil {
+				return false
+			}
+			// The value is a comma-separated list of supported generations, e.g. "V1,V2" or "V2"
+			gens := strings.Split(*capability.Value, ",")
+			for i := range gens {
+				gens[i] = strings.TrimSpace(gens[i])
+			}
+			// Gen2-only if "V2" is the sole generation
+			return len(gens) == 1 && strings.EqualFold(gens[0], "V2")
+		}
+	}
+	return false
 }

@@ -209,21 +209,27 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
     {
       "matchPackageNames": [
-        "azure-cni",
-        "containernetworking/azure-cni",
-        "containernetworking/azure-ipam"
+        "node-exporter-kubernetes"
       ],
-      "groupName": "azure-cni-cilium-ipam",
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "node-exporter-kubernetes"
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/azure-cni"
+      ],
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -249,9 +255,10 @@
       "matchPackageNames": [
         "containernetworking/cilium/cilium",
         "containernetworking/cilium/cilium-distroless",
-        "containernetworking/cilium/cilium-distroless-init"
+        "containernetworking/cilium/cilium-distroless-init",
+        "containernetworking/azure-ipam"
       ],
-      "groupName": "azure-cni-cilium-ipam",
+      "groupName": "cilium-ipam",
       "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
       "ignoreUnstable": false,
       "reviewers": [
@@ -261,7 +268,10 @@
         "rbtr",
         "behzad-mir",
         "jpayne3506",
-        "QxBytes"
+        "QxBytes",
+        "camrynl",
+        "santhoshmprabhu",
+        "vipul-21"
       ]
     },
     {
@@ -342,15 +352,14 @@
     },
     {
       "matchPackageNames": [
-        "oss/binaries/kubernetes/azure-acr-credential-provider"
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "azure-acr-credential-provider"
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
@@ -376,6 +385,40 @@
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
       ]
     },
     {
@@ -434,11 +477,9 @@
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },

@@ -11,17 +11,6 @@ on:
       - 'vhdbuilder/packer/windows/components_json_helpers.ps1'
 
 jobs:
-  check-files-for-ws2019:
-    name: Check for Windows 2019
-    runs-on: windows-latest
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v6
-      - name: Run check script for 2019-containerd
-        shell: powershell
-        run: |
-          ./vhdbuilder/packer/test/windows-files-check.ps1 2019-containerd
-          
   check-files-for-ws2022:
     name: Check for Windows 2022
     runs-on: windows-latest
