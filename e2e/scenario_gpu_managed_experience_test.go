@@ -262,7 +262,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -337,7 +337,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -411,7 +411,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -481,7 +481,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -558,7 +558,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// to test that NBC EnableManagedGPU field works independently
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},

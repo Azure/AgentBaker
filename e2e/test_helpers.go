@@ -522,21 +522,22 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
-func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
-	// Default to "westus" if location is nil.
-	// region := "westus"
-	// if location != nil {
-	// 	region = *location
-	// }
+func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+	region := config.Config.DefaultLocation
+	if location != nil {
+		region = *location
+	}
 
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
-	extensionVersion := "1.406"
-	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
-	// extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
-	// }
+	extensionVersion, err := CachedGetLatestVMExtensionImageVersion(ctx, GetLatestExtensionVersionRequest{
+		Location:  region,
+		ExtType:   extensionName,
+		Publisher: publisher,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting latest VM extension image version: %w", err)
+	}
 
 	return &armcompute.VirtualMachineScaleSetExtension{
 		Name: to.Ptr(extensionName),
@@ -795,7 +796,7 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
