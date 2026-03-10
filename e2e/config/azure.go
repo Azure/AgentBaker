@@ -753,67 +753,73 @@ func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, loca
 	if err != nil {
 		return "", fmt.Errorf("listing extension versions: %w", err)
 	}
-
 	if len(resp.VirtualMachineExtensionImageArray) == 0 {
 		return "", fmt.Errorf("no extension versions found")
 	}
 
-	version := make([]VMExtenstionVersion, len(resp.VirtualMachineExtensionImageArray))
+	versions := make([]vmExtensionVersion, len(resp.VirtualMachineExtensionImageArray))
 	for i, ext := range resp.VirtualMachineExtensionImageArray {
-		version[i] = parseVersion(ext)
+		versions[i] = parseVersion(ctx, ext)
 	}
 
-	sort.Slice(version, func(i, j int) bool {
-		return version[i].Less(version[j])
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i].less(versions[j])
 	})
 
-	return *version[len(version)-1].Original.Name, nil
+	return *versions[len(versions)-1].original.Name, nil
 }
 
-// VMExtenstionVersion represents a parsed version of a VM extension image.
-type VMExtenstionVersion struct {
-	Original *armcompute.VirtualMachineExtensionImage
-	Major    int
-	Minor    int
-	Patch    int
+// vmExtensionVersion represents a parsed version of a VM extension image.
+type vmExtensionVersion struct {
+	original *armcompute.VirtualMachineExtensionImage
+	major    int
+	minor    int
+	patch    int
 }
 
 // parseVersion parses the version from a VM extension image name, which can be in the format 1.151, 1.0.1, etc.
 // You can find all the versions of a specific VM extension by running:
 // az vm extension image list -n Compute.AKS.Linux.AKSNode
-func parseVersion(v *armcompute.VirtualMachineExtensionImage) VMExtenstionVersion {
+func parseVersion(ctx context.Context, v *armcompute.VirtualMachineExtensionImage) vmExtensionVersion {
 	// Split by dots
 	parts := strings.Split(*v.Name, ".")
 
-	version := VMExtenstionVersion{Original: v}
+	version := vmExtensionVersion{original: v}
 
 	if len(parts) >= 1 {
 		if major, err := strconv.Atoi(parts[0]); err == nil {
-			version.Major = major
+			version.major = major
+		} else {
+			toolkit.Logf(ctx, "warning: failed to parse major version from %q: %v", *v.Name, err)
 		}
 	}
 	if len(parts) >= 2 {
 		if minor, err := strconv.Atoi(parts[1]); err == nil {
-			version.Minor = minor
+			version.minor = minor
+		} else {
+			toolkit.Logf(ctx, "warning: failed to parse minor version from %q: %v", *v.Name, err)
 		}
 	}
 	if len(parts) >= 3 {
 		if patch, err := strconv.Atoi(parts[2]); err == nil {
-			version.Patch = patch
+			version.patch = patch
+		} else {
+			toolkit.Logf(ctx, "warning: failed to parse patch version from %q: %v", *v.Name, err)
 		}
 	}
 
 	return version
 }
 
-func (v VMExtenstionVersion) Less(other VMExtenstionVersion) bool {
-	if v.Major != other.Major {
-		return v.Major < other.Major
+// less returns true if v is a lower version than other.
+func (v vmExtensionVersion) less(other vmExtensionVersion) bool {
+	if v.major != other.major {
+		return v.major < other.major
 	}
-	if v.Minor != other.Minor {
-		return v.Minor < other.Minor
+	if v.minor != other.minor {
+		return v.minor < other.minor
 	}
-	return v.Patch < other.Patch
+	return v.patch < other.patch
 }
 
 // getResourceSKU queries the Azure Resource SKUs API to find the SKU for the given VM size and location.
