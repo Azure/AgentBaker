@@ -19,7 +19,7 @@ import "aksnodeconfig/v1/localdns_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/service_account_image_pull_profile.proto";
-import "aksnodeconfig/v1/teleport_config.proto";
+
 
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
@@ -56,8 +56,7 @@ message Configuration {
   // Containerd configuration
   ContainerdConfig containerd_config = 9;
 
-  // Teleport configuration
-  TeleportConfig teleport_config = 10;
+  reserved 10;
 
   // Kubelet configuration
   KubeletConfig kubelet_config = 11;
