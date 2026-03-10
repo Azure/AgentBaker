@@ -1508,9 +1508,9 @@ root = "{{GetDataDir}}"{{- end}}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
+    {{- if IsKata }}
+    disable_snapshot_annotations = false
+    {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
@@ -1722,9 +1722,9 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
+    {{- if IsKata }}
+    disable_snapshot_annotations = false
+    {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false

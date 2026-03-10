@@ -4,9 +4,9 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
-      {{- if .GetIsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
+    {{- if .GetIsKata }}
+    disable_snapshot_annotations = false
+    {{- end}}
     {{- if .GetEnableArtifactStreaming }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
