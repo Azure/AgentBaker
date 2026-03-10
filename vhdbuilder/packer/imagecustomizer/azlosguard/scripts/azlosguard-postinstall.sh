@@ -57,6 +57,8 @@ echo "Started containerd with PID $CONTAINERD_PID"
 trap "kill $CONTAINERD_PID" EXIT
 
 # Precache packages and containers from components.json
+# Use fetch-only mode to avoid unpacking images, saving disk space on OSGuard's constrained root partition
+export IMAGE_FETCH_ONLY=true
 /opt/azure/containers/install-dependencies.sh
 
 # Apply CIS compliance changes

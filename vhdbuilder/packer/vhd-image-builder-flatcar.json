@@ -91,6 +91,11 @@
     },
     {
       "type": "file",
+      "source": "image-fetcher/bin/image-fetcher-linux-amd64",
+      "destination": "/home/packer/image-fetcher"
+    },
+    {
+      "type": "file",
       "source": "aks-node-controller/bin/aks-node-controller-linux-amd64",
       "destination": "/home/packer/aks-node-controller"
     },
