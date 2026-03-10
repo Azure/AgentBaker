@@ -301,8 +301,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	}
 
-	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
-	require.NoError(s.T, err)
+	if !s.Config.UseCustomDataOnlyProvisioning {
+		err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
+		require.NoError(s.T, err)
+	}
 
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
