@@ -147,6 +147,7 @@ MOCK_EOF
             The output should include "Detected cloud environment: AzureChinaCloud"
             # Should resolve China-specific endpoints
             The output should include "Resolving addresses for mcr.azure.cn"
+            The output should include "Resolving addresses for mcr.azk8s.cn"
             The output should include "Resolving addresses for login.partner.microsoftonline.cn"
             The output should include "Resolving addresses for management.chinacloudapi.cn"
             The output should include "Resolving addresses for packages.microsoft.com"
