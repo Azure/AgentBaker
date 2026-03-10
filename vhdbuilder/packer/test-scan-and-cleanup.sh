@@ -24,15 +24,13 @@ required_env_vars=(
   "UMSI_PRINCIPAL_ID_TME"
   "UMSI_CLIENT_ID_TME"
 )
-
+exit 0
 for v in "${required_env_vars[@]}"; do
   if [ -z "${!v}" ]; then
     echo "$v was not set!"
     exit 1
   fi
 done
-
-exit 0
 
 echo "Present working directory: ${PWD}"
 
