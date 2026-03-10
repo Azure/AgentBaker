@@ -1505,8 +1505,9 @@ testBccTools () {
   return 0
 }
 
-# testWALinuxAgentInstalled verifies that the WALinuxAgent GAFamily version was
-# installed post-deprovision and that waagent.conf is configured to use it.
+# testWALinuxAgentInstalled verifies that the WALinuxAgent version from
+# components.json was installed post-deprovision via the wireserver manifest
+# and that waagent.conf is configured to use it.
 # The test runs on a VM booted from the captured VHD image, so the post-deprovision
 # script has already executed and self-deleted. We verify its *results*:
 #   1. At least one WALinuxAgent-* directory exists under /var/lib/waagent/

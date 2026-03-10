@@ -715,6 +715,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update GitHub release versions in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"github-releases=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"github-releases={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "managerFilePatterns": [
         "/^.*cse_.*\\.sh/"

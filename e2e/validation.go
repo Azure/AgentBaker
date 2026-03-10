@@ -45,6 +45,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
 	ValidateKernelLogs(ctx, s)
+	ValidateWaagentLog(ctx, s)
 	ValidateScriptlessCSECmd(ctx, s)
 	ValidateNodeExporter(ctx, s)
 
