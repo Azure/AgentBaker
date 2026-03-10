@@ -68,6 +68,8 @@ func main() {
 // already-fetched content from the store and handles snapshotter resolution
 // internally (namespace label → platform default).
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
+	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
+
 	fmt.Printf("Fetching %s ...\n", ref)
 
 	platform := fmt.Sprintf("linux/%s", runtime.GOARCH)
@@ -82,6 +84,11 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	)
 	if err != nil {
 		return fmt.Errorf("fetch failed: %w", err)
+	}
+
+	if fetchOnly {
+		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
+		return nil
 	}
 
 	image := containerd.NewImage(client, imageMeta)
