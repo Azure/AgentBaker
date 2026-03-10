@@ -1,9 +1,8 @@
 package main
 
-// Some options are intentionally non-configurable to avoid customization by users
-// it will help us to avoid introducing any breaking changes in the future.
 const (
-	logPath                   = "/var/log/azure/aks-node-controller.log"
-	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
-	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
+	defaultLogPath                   = "/var/log/azure/aks-node-controller.log"
+	defaultEventsDir                 = "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
+	defaultProvisionJSONFilePath     = "/var/log/azure/aks/provision.json"
+	defaultProvisionCompleteFilePath = "/opt/azure/containers/provision.complete"
 )
