@@ -352,9 +352,9 @@
     },
     {
       "matchPackageNames": [
-        "oss/binaries/kubernetes/azure-acr-credential-provider"
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "azure-acr-credential-provider"
       ],
-      "groupName": "acr-credential-provider",
       "assignees": [
         "nilo19"
       ],
