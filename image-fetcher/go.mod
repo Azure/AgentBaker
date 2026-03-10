@@ -5,6 +5,8 @@ go 1.24.12
 require (
 	github.com/containerd/containerd/v2 v2.1.6
 	github.com/containerd/platforms v1.0.0-rc.2
+	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.1.1
 )
 
 require (
@@ -35,8 +37,6 @@ require (
 	github.com/moby/sys/signal v0.7.1 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/runtime-spec v1.2.1 // indirect
 	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

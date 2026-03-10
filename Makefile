@@ -204,15 +204,19 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: test-aks-node-controller
+test: test-aks-node-controller test-image-fetcher
 	go build -mod=readonly ./... && go test ./...
 
 test-aks-node-controller:
 	pushd aks-node-controller && go build -mod=readonly ./... && go test ./... && popd
 
+test-image-fetcher:
+	pushd image-fetcher && go build -mod=readonly ./... && go test ./... && popd
+
 lint:
 	$(TOOLSBIN)/golangci-lint run ./...
 	pushd aks-node-controller && $(TOOLSBIN)/golangci-lint run ./... && popd
+	pushd image-fetcher && $(TOOLSBIN)/golangci-lint run ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers

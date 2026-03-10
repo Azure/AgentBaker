@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dirs: [".", "aks-node-controller"]
+        dirs: [".", "aks-node-controller", "image-fetcher"]
     steps:
       - uses: actions/setup-go@v6
         with:

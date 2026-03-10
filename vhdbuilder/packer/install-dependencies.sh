@@ -699,6 +699,7 @@ while IFS= read -r imageToBePulled; do
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
 wait ${image_pids[@]}
+/opt/azure/containers/image-fetcher --gc || echo "Warning: image-fetcher GC failed; continuing VHD build anyway."
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 retagAKSNodeCAWatcher() {
