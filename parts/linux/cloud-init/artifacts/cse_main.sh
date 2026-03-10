@@ -382,10 +382,11 @@ function nodePrep {
             # Disable fabric manager service if it's not needed
             # The NVIDIA driver installation may automatically enable this service,
             # but it will fail on single-GPU systems, so we explicitly disable it
-            # Check if the unit file exists (not just if it's loaded) and disable/stop it
-            if systemctl list-unit-files | grep -q "nvidia-fabricmanager.service"; then
-                systemctl stop nvidia-fabricmanager 2>/dev/null || true
-                systemctl disable nvidia-fabricmanager 2>/dev/null || true
+            # Check if the unit file exists using a more direct approach
+            if systemctl list-unit-files --no-pager nvidia-fabricmanager.service >/dev/null 2>&1; then
+                # Use systemctl helper wrappers for consistent retry/timeout behavior
+                systemctl_stop 20 5 25 nvidia-fabricmanager || true
+                systemctl_disable 20 5 25 nvidia-fabricmanager || true
                 # Reset any failed state so it doesn't show up in 'systemctl list-units --failed'
                 systemctl reset-failed nvidia-fabricmanager 2>/dev/null || true
             fi
