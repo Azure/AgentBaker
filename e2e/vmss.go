@@ -379,9 +379,6 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
 func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -392,7 +389,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		})
 
 		if pager.More() {
-			page, err := pager.NextPage(ctxTimeout)
+			page, err := pager.NextPage(ctx)
 			if err == nil && len(page.Value) > 0 {
 				vmssVM := page.Value[0]
 				// Verify it has network profile
@@ -406,7 +403,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		}
 
 		select {
-		case <-ctxTimeout.Done():
+		case <-ctx.Done():
 			if lastErr != nil {
 				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
 			}
