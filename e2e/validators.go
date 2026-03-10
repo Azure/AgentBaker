@@ -2011,8 +2011,14 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 // - AutoUpdate is disabled as expected
 // - The correct version is running as ExtHandler
 // - No errors from ExtHandler
+// Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
+
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		return
+	}
 
 	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
 	if len(versions) == 0 || versions[0] == "<SKIP>" {
