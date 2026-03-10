@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -8,7 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -762,11 +763,13 @@ func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, loca
 		versions[i] = parseVersion(ctx, ext)
 	}
 
-	sort.Slice(versions, func(i, j int) bool {
-		return versions[i].less(versions[j])
+	latest := slices.MaxFunc(versions, func(a, b vmExtensionVersion) int {
+		return a.cmp(b)
 	})
-
-	return *versions[len(versions)-1].original.Name, nil
+	if latest.original.Name == nil {
+		return "", fmt.Errorf("latest extension version has nil name")
+	}
+	return *latest.original.Name, nil
 }
 
 // vmExtensionVersion represents a parsed version of a VM extension image.
@@ -781,10 +784,14 @@ type vmExtensionVersion struct {
 // You can find all the versions of a specific VM extension by running:
 // az vm extension image list -n Compute.AKS.Linux.AKSNode
 func parseVersion(ctx context.Context, v *armcompute.VirtualMachineExtensionImage) vmExtensionVersion {
+	version := vmExtensionVersion{original: v}
+	if v.Name == nil {
+		toolkit.Logf(ctx, "warning: VM extension image has nil name, skipping version parse")
+		return version
+	}
+
 	// Split by dots
 	parts := strings.Split(*v.Name, ".")
-
-	version := vmExtensionVersion{original: v}
 
 	if len(parts) >= 1 {
 		if major, err := strconv.Atoi(parts[0]); err == nil {
@@ -811,15 +818,15 @@ func parseVersion(ctx context.Context, v *armcompute.VirtualMachineExtensionImag
 	return version
 }
 
-// less returns true if v is a lower version than other.
-func (v vmExtensionVersion) less(other vmExtensionVersion) bool {
-	if v.major != other.major {
-		return v.major < other.major
+// cmp compares two versions, returning -1, 0, or 1.
+func (v vmExtensionVersion) cmp(other vmExtensionVersion) int {
+	if c := cmp.Compare(v.major, other.major); c != 0 {
+		return c
 	}
-	if v.minor != other.minor {
-		return v.minor < other.minor
+	if c := cmp.Compare(v.minor, other.minor); c != 0 {
+		return c
 	}
-	return v.patch < other.patch
+	return cmp.Compare(v.patch, other.patch)
 }
 
 // getResourceSKU queries the Azure Resource SKUs API to find the SKU for the given VM size and location.
