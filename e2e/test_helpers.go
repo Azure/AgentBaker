@@ -805,6 +805,7 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 
 				// Then validate NPD configuration and GPU monitoring
 				ValidateNPDGPUCountPlugin(ctx, s)
