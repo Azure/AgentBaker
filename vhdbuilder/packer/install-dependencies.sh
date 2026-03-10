@@ -122,6 +122,8 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+skipCloudInitReadyReport || exit 1
+
 # ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
 # so these must be called separately (mirrored in the Mariner/AzureLinux block below).
 # Other Mariner functions are safe to skip for ACL:
@@ -227,6 +229,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     addMarinerNvidiaRepo
     updateDnfWithNvidiaPkg
     overrideNetworkConfig || exit 1
+    skipCloudInitReadyReport || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
       if [ "${OS}" != "3.0" ]; then

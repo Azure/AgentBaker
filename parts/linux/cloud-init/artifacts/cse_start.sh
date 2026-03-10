@@ -97,6 +97,15 @@ EVENT_JSON=$( jq -n \
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
+
+if [ -x /opt/azure/containers/report_ready.py ]; then
+    if [ "$EXIT_CODE" -eq 0 ]; then
+        python3 /opt/azure/containers/report_ready.py -v || echo "WARNING: Failed to report ready to Azure fabric"
+    else
+        python3 /opt/azure/containers/report_ready.py -v --failure --description "ExitCode: ${EXIT_CODE}, ${message_string}" || echo "WARNING: Failed to report failure to Azure fabric"
+    fi
+fi
+
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
 # the VM before it finishes. if we succeeded, upload in the background

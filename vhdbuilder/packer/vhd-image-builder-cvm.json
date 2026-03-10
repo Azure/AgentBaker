@@ -242,6 +242,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/report_ready.py",
+      "destination": "/home/packer/report_ready.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
       "destination": "/home/packer/init-aks-custom-cloud.sh"
     },
