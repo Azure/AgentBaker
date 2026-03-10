@@ -152,10 +152,6 @@ function basePrep {
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
     fi
-    if [ "${TELEPORT_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-    fi
-
     setupCNIDirs
 
     # Network plugin already installed on Azure Linux OS Guard
