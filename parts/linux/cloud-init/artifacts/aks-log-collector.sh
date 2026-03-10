@@ -144,7 +144,8 @@ for file in ${GLOBS[*]}; do
       # Using continue instead of break ensures smaller subsequent files can still be included.
       FILE_SIZE=$(stat --printf "%s" "${ZIP}")
       if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
-        echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE after adding $file; removing it and trying next file."
+        ADDED_FILE_SIZE=$(stat --printf "%s" "$file" 2>/dev/null || echo 0)
+        echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE after adding $file (file size: $ADDED_FILE_SIZE); removing it and trying next file."
         zip -d "${ZIP}" "$file"
       fi
     fi
