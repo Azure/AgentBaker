@@ -530,6 +530,7 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 		region = *location
 	}
 
+	const fallbackExtensionVersion = "1.406"
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
 	extensionVersion, err := CachedGetLatestVMExtensionImageVersion(ctx, GetLatestExtensionVersionRequest{
@@ -538,7 +539,8 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 		Publisher: publisher,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("getting latest VM extension image version: %w", err)
+		toolkit.Logf(ctx, "warning: failed to get latest VM extension version, falling back to %s: %v", fallbackExtensionVersion, err)
+		extensionVersion = fallbackExtensionVersion
 	}
 
 	return &armcompute.VirtualMachineScaleSetExtension{
