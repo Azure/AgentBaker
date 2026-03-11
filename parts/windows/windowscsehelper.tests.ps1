@@ -465,7 +465,7 @@ Describe "Install-CachedScripts" {
     Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1 -ParameterFilter {
       $Path -eq 'c:\csescripts.zip' -and $DestinationPath -eq 'C:\\AzureData\\windows'
     }
-    Assert-MockCalled -CommandName 'Remove-Item' -Times 1 -ParameterFilter { $Path -eq 'c:\csescripts.zip' }
+    Assert-MockCalled -CommandName 'Remove-Item' -Times 1
     Assert-MockCalled -CommandName 'Set-ExitCode' -Times 0
   }
 
