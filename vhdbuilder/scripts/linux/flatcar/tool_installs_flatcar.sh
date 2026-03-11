@@ -20,8 +20,8 @@ listInstalledPackages() {
 
 disableNtpAndTimesyncdInstallChrony() {
     # Configure chronyd for ACL only (Flatcar uses its base image config which already works)
-    # ACL has ID=acl in /etc/os-release, so the OS variable will be "ACL"
-    if [ "${OS:-}" != "ACL" ]; then
+    # ACL has ID=azurecontainerlinux in /etc/os-release, so the OS variable will be "AZURECONTAINERLINUX"
+    if [ "${OS:-}" != "AZURECONTAINERLINUX" ]; then
         echo "Skipping chrony configuration for non-ACL Flatcar-based OS"
         return 0
     fi

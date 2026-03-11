@@ -43,6 +43,7 @@ func Test_Flatcar(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurecontainerlinux")
 				// Check /etc/protocols exists with real protocol data.
 				// ACL (Azure Linux) uses a different header than Flatcar, so we check for
 				// "tcp" which both include, rather than the Flatcar-specific header comment.
