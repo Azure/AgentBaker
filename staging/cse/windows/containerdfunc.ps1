@@ -330,7 +330,7 @@ function Install-Containerd {
     -CNIConfDir $CNIConfDir
 
   RegisterContainerDService -KubeDir $KubeDir
-  if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and -not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+  if (-not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
     if (Get-Command -Name Set-PodInfraContainerImage -ErrorAction SilentlyContinue) {
       Set-PodInfraContainerImage
     }
