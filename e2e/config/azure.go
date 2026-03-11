@@ -746,11 +746,23 @@ func (a *AzureClient) DeleteSnapshot(ctx context.Context, resourceGroupName, sna
 	return nil
 }
 
+// vmExtensionImageVersionLister abstracts the ListVersions method of the VM extension images client for testability.
+type vmExtensionImageVersionLister interface {
+	ListVersions(ctx context.Context, location string, publisherName string, typeParam string,
+		options *armcompute.VirtualMachineExtensionImagesClientListVersionsOptions,
+	) (armcompute.VirtualMachineExtensionImagesClientListVersionsResponse, error)
+}
+
 // GetLatestVMExtensionImageVersion lists VM extension images for a given extension name and returns the latest version.
 // This is equivalent to: az vm extension image list -n Compute.AKS.Linux.AKSNode --latest
 func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, location, extType, extPublisher string) (string, error) {
+	return getLatestVMExtensionImageVersion(ctx, a.VMExtensionImages, location, extType, extPublisher)
+}
+
+// getLatestVMExtensionImageVersion lists VM extension images using the provided lister and returns the latest version.
+func getLatestVMExtensionImageVersion(ctx context.Context, lister vmExtensionImageVersionLister, location, extType, extPublisher string) (string, error) {
 	// List extension versions
-	resp, err := a.VMExtensionImages.ListVersions(ctx, location, extPublisher, extType, &armcompute.VirtualMachineExtensionImagesClientListVersionsOptions{})
+	resp, err := lister.ListVersions(ctx, location, extPublisher, extType, &armcompute.VirtualMachineExtensionImagesClientListVersionsOptions{})
 	if err != nil {
 		return "", fmt.Errorf("listing extension versions: %w", err)
 	}
