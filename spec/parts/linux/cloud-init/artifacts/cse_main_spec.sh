@@ -1,19 +1,21 @@
 #!/usr/bin/env shellspec
 
-# Unit tests for cse_main.sh helper functions (via cse_helpers.sh)
+# Unit tests for cse_main.sh helper functions
 # Tests the select_localdns_corefile() function for localdns corefile selection logic
+# Note: select_localdns_corefile() is now defined in localdns.sh for dynamic selection on restart
 
 Describe 'cse_main.sh corefile selection'
-    CSE_HELPERS_PATH="parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    LOCALDNS_PATH="parts/linux/cloud-init/artifacts/localdns.sh"
 
     # Mock base64-encoded corefiles for testing
     COREFILE_WITH_HOSTS="aG9zdHMgL2V0Yy9sb2NhbGRucy9ob3N0cw=="  # "hosts /etc/localdns/hosts"
     COREFILE_NO_HOSTS="bm8gaG9zdHMgcGx1Z2lu"  # "no hosts plugin"
 
     setup() {
-        # Source the helpers to get select_localdns_corefile function
+        # Source localdns.sh to get select_localdns_corefile function
+        # We set __SOURCED__=1 to only source the functions, not run main execution
         # shellcheck disable=SC1090
-        . "${CSE_HELPERS_PATH}"
+        __SOURCED__=1 . "${LOCALDNS_PATH}"
 
         # Create temp directory for test files
         TEST_DIR=$(mktemp -d)
@@ -34,7 +36,7 @@ Describe 'cse_main.sh corefile selection'
                 echo "10.0.0.1 mcr.microsoft.com" > "${HOSTS_FILE}"
                 echo "192.168.1.1 login.microsoftonline.com" >> "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_WITH_HOSTS}"
                 The status should be success
                 The stderr should include "Hosts plugin is enabled"
@@ -46,7 +48,7 @@ Describe 'cse_main.sh corefile selection'
                 # Create empty hosts file
                 touch "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "exists but has no IP mappings"
@@ -58,7 +60,7 @@ Describe 'cse_main.sh corefile selection'
                 echo "# This is a comment" > "${HOSTS_FILE}"
                 echo "# Another comment line" >> "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "exists but has no IP mappings"
@@ -66,7 +68,7 @@ Describe 'cse_main.sh corefile selection'
 
             It 'returns corefile WITHOUT hosts plugin when hosts file does not exist'
                 # Don't create hosts file
-                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "does not exist"
@@ -78,7 +80,7 @@ Describe 'cse_main.sh corefile selection'
                 echo "2001:db8::1 mcr.microsoft.com" > "${HOSTS_FILE}"
                 echo "fe80::1 login.microsoftonline.com" >> "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_WITH_HOSTS}"
                 The status should be success
                 The stderr should include "using corefile with hosts plugin"
@@ -90,7 +92,7 @@ Describe 'cse_main.sh corefile selection'
                 # Create hosts file with valid IP mappings (should be ignored)
                 echo "10.0.0.1 mcr.microsoft.com" > "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "false" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "false" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "Hosts plugin is not enabled"
@@ -101,7 +103,7 @@ Describe 'cse_main.sh corefile selection'
                 # Create hosts file with valid IP mappings (should be ignored)
                 echo "10.0.0.1 mcr.microsoft.com" > "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "Hosts plugin is not enabled"
@@ -111,7 +113,7 @@ Describe 'cse_main.sh corefile selection'
                 # Create hosts file with valid IP mappings (should be ignored)
                 echo "10.0.0.1 mcr.microsoft.com" > "${HOSTS_FILE}"
 
-                When call select_localdns_corefile "yes" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "yes" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "Hosts plugin is not enabled"
@@ -123,7 +125,7 @@ Describe 'cse_main.sh corefile selection'
                 # Simulate unknown cloud: SHOULD_ENABLE_HOSTS_PLUGIN=true but aks-hosts-setup.sh
                 # exited before creating the file
 
-                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}"
+                When call select_localdns_corefile "true" "${COREFILE_WITH_HOSTS}" "${COREFILE_NO_HOSTS}" "${HOSTS_FILE}" 0
                 The output should equal "${COREFILE_NO_HOSTS}"
                 The status should be success
                 The stderr should include "does not exist"

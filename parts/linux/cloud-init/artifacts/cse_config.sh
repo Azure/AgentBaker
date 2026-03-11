@@ -1257,10 +1257,14 @@ generateLocalDNSFiles() {
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
+    # Save BOTH corefile variants so localdns can dynamically choose on each restart.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
 LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_content}
+LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS=${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}
+SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
