@@ -429,6 +429,61 @@ Describe "DownloadFileOverHttp" {
   }
 }
 
+Describe "Install-CachedScripts" {
+  BeforeEach {
+    $script:originalCacheDir = $global:CacheDir
+    $global:CacheDir = Join-Path $TestDrive ([guid]::NewGuid().ToString())
+
+    Mock Copy-Item -MockWith {}
+    Mock AKS-Expand-Archive -MockWith {}
+    Mock Remove-Item -MockWith {}
+    Mock Set-ExitCode -MockWith {
+      param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$ErrorMessage
+      )
+      throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+    }
+  }
+
+  AfterEach {
+    $global:CacheDir = $script:originalCacheDir
+  }
+
+  It "copies and expands cached CSE scripts when cache file exists" {
+    $nestedDir = Join-Path $global:CacheDir "nested"
+    New-Item -ItemType Directory -Path $nestedDir -Force | Out-Null
+
+    $cachedArchive = Join-Path $nestedDir "aks-windows-cse-scripts-current.zip"
+    New-Item -ItemType File -Path $cachedArchive -Force | Out-Null
+
+    { Install-CachedScripts -ExitCode 33 } | Should -Not -Throw
+
+    Assert-MockCalled -CommandName 'Copy-Item' -Times 1 -ParameterFilter {
+      $Path -eq $cachedArchive -and $Destination -eq 'c:\csescripts.zip'
+    }
+    Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 1 -ParameterFilter {
+      $Path -eq 'c:\csescripts.zip' -and $DestinationPath -eq 'C:\\AzureData\\windows'
+    }
+    Assert-MockCalled -CommandName 'Remove-Item' -Times 1
+    Assert-MockCalled -CommandName 'Set-ExitCode' -Times 0
+  }
+
+  It "sets exit code when cached CSE scripts are not found" {
+    New-Item -ItemType Directory -Path $global:CacheDir -Force | Out-Null
+
+    {
+      Install-CachedScripts -ExitCode 33
+    } | Should -Throw "*Set-ExitCode:33:cached CSE not found in VHD*"
+
+    Assert-MockCalled -CommandName 'Copy-Item' -Times 0
+    Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Times 0
+    Assert-MockCalled -CommandName 'Set-ExitCode' -Times 1 -ParameterFilter {
+      $ExitCode -eq 33 -and $ErrorMessage -eq 'cached CSE not found in VHD'
+    }
+  }
+}
+
 Describe "Update-BaseUrl" {
   BeforeEach {
     # Reset the PackageDownloadFqdn before each test

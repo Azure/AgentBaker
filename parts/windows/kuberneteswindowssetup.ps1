@@ -245,7 +245,10 @@ try {
 
 $global:OperationId = New-Guid
 
-if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
+if (
+    -not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1") -and
+    ([string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) # skip download for network isolated cluster which will use cached scripts
+) {
     # Determine the CSE package URL
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
@@ -277,7 +280,14 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 } else {
-    Write-Log "CSE scripts already exist, skipping download"
+    Write-Log "CSE scripts already exist or detect network isolated cluster, skipping download"
+}
+
+# always use the cached scripts for network isolated cluster
+if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1") -and
+    (-not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer))) {
+    Write-Log "BootstrapProfileContainerRegistryServer is set, skip CSE scripts download"
+    Install-CachedScripts -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED
 }
 
 # Dot-source cse scripts with functions that are called in this script
