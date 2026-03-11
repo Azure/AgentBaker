@@ -280,7 +280,7 @@ if (
     AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
 } else {
-    Write-Log "CSE scripts already exist, skipping download"
+    Write-Log "CSE scripts already exist or detect network isolated cluster, skipping download"
 }
 
 # always use the cached scripts for network isolated cluster
