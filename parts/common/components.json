@@ -509,8 +509,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.8-1",
-          "previousLatestVersion": "v1.33.6-3"
+          "latestVersion": "v1.33.9-1",
+          "previousLatestVersion": "v1.33.8-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
