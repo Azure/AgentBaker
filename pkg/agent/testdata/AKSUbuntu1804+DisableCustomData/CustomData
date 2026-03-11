@@ -182,6 +182,7 @@ write_files:
   content: |
     [Service]
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    LimitNOFILE=1048576
     #EOF
 
 - path: /etc/crictl.yaml

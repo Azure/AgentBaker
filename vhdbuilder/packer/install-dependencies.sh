@@ -147,6 +147,7 @@ mkdir -p "${CONTAINERD_SERVICE_DIR}"
 tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
 tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF

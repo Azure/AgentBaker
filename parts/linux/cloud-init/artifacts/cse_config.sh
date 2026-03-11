@@ -341,6 +341,7 @@ ensureContainerd() {
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
