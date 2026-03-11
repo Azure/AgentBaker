@@ -119,6 +119,21 @@ should_use_nvidia_open_drivers() {
     return 0
 }
 
+downloadGridDrivers() {
+    # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) require NVIDIA GRID (vGPU guest)
+    # drivers instead of CUDA drivers.
+    GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
+        grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+
+    if [ -z "$GRID_PACKAGE" ]; then
+        echo "No nvidia-vgpu-guest-driver package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    fi
+
+    echo "Installing: ${GRID_PACKAGE}"
+    dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -128,15 +143,25 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
-    # VM SKU is retrieved from IMDS to determine which driver to use.
+    # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
+    # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
+    #
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
+    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+    VM_SKU=$(get_compute_sku)
+
+    # Converged GPU sizes use GRID drivers instead of CUDA drivers
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA GRID driver (converged)"
+        downloadGridDrivers
+        return
+    fi
 
     local driver_ret
     should_use_nvidia_open_drivers
     driver_ret=$?
-    # Get VM SKU for logging (export already done by should_use_nvidia_open_drivers)
-    VM_SKU=$(get_compute_sku)
     if [ "$driver_ret" -eq 2 ]; then
         echo "Failed to determine GPU driver type"
         exit $ERR_MISSING_CUDA_PACKAGE
