@@ -841,11 +841,17 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-						DiskSizeGB:   to.Ptr(int32(50)),
+						DiskSizeGB: to.Ptr(func() int32 {
+							if s.VHD.OSDiskSizeGB > 0 {
+								return s.VHD.OSDiskSizeGB
+							}
+							return 50
+						}()),
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
 						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
 						DiffDiskSettings: &armcompute.DiffDiskSettings{
-							Option: to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Option:    to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Placement: to.Ptr(armcompute.DiffDiskPlacementResourceDisk),
 						},
 					},
 				},

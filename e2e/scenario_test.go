@@ -103,6 +103,8 @@ func Test_Flatcar_ARM64(t *testing.T) {
 				nbc.IsARM64 = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurecontainerlinux")
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")

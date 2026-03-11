@@ -8,7 +8,7 @@ CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
 CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-TRIVY_VERSION="0.57.0"
+TRIVY_VERSION="0.69.2"
 TRIVY_ARCH=""
 
 MODULE_NAME="vuln-to-kusto-vhd"
@@ -149,7 +149,7 @@ mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
 curl -fL -o "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" --no-same-owner
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-chmod a+x trivy 
+chmod a+x trivy
 
 # pull vuln-to-kusto binary
 az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
@@ -179,7 +179,7 @@ fi
 
 IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 
-echo "This contains the list of images with high and critical level CVEs (if present), that are present in the node. 
+echo "This contains the list of images with high and critical level CVEs (if present), that are present in the node.
 Note: images without CVEs are also listed" >> "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 
 for CONTAINER_IMAGE in $IMAGE_LIST; do
