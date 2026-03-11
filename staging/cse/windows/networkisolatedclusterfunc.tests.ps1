@@ -105,3 +105,110 @@ Describe "Install-Oras" {
     } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND):Failed to extract oras archive*"
   }
 }
+
+Describe "Invoke-OrasLogin" {
+  BeforeEach {
+    $global:OrasRegistryConfigFile = "C:\aks-tools\oras\config.json"
+    $global:LASTEXITCODE = 0
+
+    Mock Start-Sleep
+    Mock Set-ExitCode -MockWith {
+      param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$ErrorMessage
+      )
+      throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+    }
+  }
+
+  It "should return unauthorized error code when ClientID is missing" {
+    $ret = Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "" -TenantID "tenant-id"
+    $ret | Should -Be $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED
+  }
+
+  It "should return early when anonymous pull is allowed" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 0 }
+    Mock Retry-Command
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'Retry-Command' -Times 0
+  }
+
+  It "should set network timeout exit code when anonymous check returns unexpected error" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 2 }
+
+    {
+      Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_PULL_NETWORK_TIMEOUT):failed with an error other than unauthorized*"
+  }
+
+  It "should complete login flow when token exchange and oras login succeed" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Retry-Command -MockWith {
+      param($Command, $Args)
+      if ($Args.Uri -like "*metadata/identity/oauth2/token*") {
+        return @{ access_token = "imds-token" }
+      }
+      return @{ refresh_token = "refresh-token" }
+    }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+    $global:OrasPath = "Mock-OrasCli"
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'Retry-Command' -Times 2
+    Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1 -ParameterFilter { $RefreshToken -eq 'refresh-token' }
+  }
+
+  It "should fail after three unsuccessful oras login attempts" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Retry-Command -MockWith {
+      param($Command, $Args)
+      if ($Args.Uri -like "*metadata/identity/oauth2/token*") {
+        return @{ access_token = "imds-token" }
+      }
+      return @{ refresh_token = "refresh-token" }
+    }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $global:LASTEXITCODE = 1
+      return "login failed"
+    }
+    $global:OrasPath = "Mock-OrasCli"
+
+    {
+      Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED):failed to login to acr*"
+    Assert-MockCalled -CommandName 'Start-Sleep' -Times 2
+  }
+}
+
+Describe "Get-BootstrapRegistryDomainName" {
+  It "should return default mcr domain when no overrides are set" {
+    $global:MCRRepositoryBase = ""
+    $global:BootstrapProfileContainerRegistryServer = ""
+
+    Get-BootstrapRegistryDomainName | Should -Be "mcr.microsoft.com"
+  }
+
+  It "should use MCRRepositoryBase and trim trailing slash" {
+    $global:MCRRepositoryBase = "example.registry.io/"
+    $global:BootstrapProfileContainerRegistryServer = ""
+
+    Get-BootstrapRegistryDomainName | Should -Be "example.registry.io"
+  }
+
+  It "should prefer bootstrap profile registry host when provided" {
+    $global:MCRRepositoryBase = "example.registry.io/"
+    $global:BootstrapProfileContainerRegistryServer = "mybootstrap.azurecr.io/repo/path"
+
+    Get-BootstrapRegistryDomainName | Should -Be "mybootstrap.azurecr.io"
+  }
+}
