@@ -432,7 +432,7 @@ Describe "DownloadFileOverHttp" {
 Describe "Install-CachedScripts" {
   BeforeEach {
     $script:originalCacheDir = $global:CacheDir
-    $global:CacheDir = Join-Path $TestDrive "cache"
+    $global:CacheDir = Join-Path $TestDrive ([guid]::NewGuid().ToString())
 
     Mock Copy-Item -MockWith {}
     Mock AKS-Expand-Archive -MockWith {}
@@ -455,7 +455,7 @@ Describe "Install-CachedScripts" {
     New-Item -ItemType Directory -Path $nestedDir -Force | Out-Null
 
     $cachedArchive = Join-Path $nestedDir "aks-windows-cse-scripts-current.zip"
-    Set-Content -Path $cachedArchive -Value "fake zip payload"
+    New-Item -ItemType File -Path $cachedArchive -Force | Out-Null
 
     { Install-CachedScripts -ExitCode 33 } | Should -Not -Throw
 
