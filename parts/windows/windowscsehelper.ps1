@@ -86,9 +86,10 @@ $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED=79 # exit code for error pullin
 $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL=80 # exit code for error pulling kubelet kubectl artifact with oras from registry
 $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER=81 # exit code for error pulling credential provider artifact with oras from registry
 $global:WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER=82 # exit code for error pulling pause image with oras from registry
+$global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED=83 # exit code for cse of network isolated cluster not cached
 # WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
 # Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
-$global:WINDOWS_CSE_ERROR_MAX_CODE=83
+$global:WINDOWS_CSE_ERROR_MAX_CODE=84
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -174,7 +175,8 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED",
     "WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL",
     "WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER",
-    "WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER"
+    "WINDOWS_CSE_ERROR_ORAS_PULL_POD_INFRA_CONTAINER",
+    "WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED"
 )
 
 # The package domain to be used
@@ -648,5 +650,30 @@ function Resolve-Error ($ErrorRecord=$Error[0])
    {   "$i" * 80
        $Exception |Format-List * -Force
    }
+}
+
+function Install-CachedScripts {
+    Param(
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode
+    )
+
+    $fileName = "aks-windows-cse-scripts-current.zip"
+
+    $search = @()
+    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+        $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+    }
+
+    if ($search.Count -ne 0) {
+        $tempfile = 'c:\csescripts.zip'
+        Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $tempfile"
+        Copy-Item -Path $search[0] -Destination $tempfile -Force
+        AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
+        Remove-Item -Path $tempfile -Force
+    }
+    else {
+        Set-ExitCode -ExitCode $ExitCode -ErrorMessage "cached CSE not found in VHD"
+    }
 }
 
