@@ -78,7 +78,11 @@ VM_SIZE="Standard_D8ds_v5"
 VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_SIZE="Standard_D8pds_v5"
+    if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+        VM_SIZE="Standard_D8pds_v6"
+    else
+        VM_SIZE="Standard_D8pds_v5"
+    fi
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
@@ -126,7 +130,7 @@ else
         --nics $SCANNING_NIC_ID \
         --admin-username $SCAN_VM_ADMIN_USERNAME \
         --admin-password $SCAN_VM_ADMIN_PASSWORD \
-        --os-disk-size-gb 50 \
+        --os-disk-size-gb 60 \
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
 
@@ -253,7 +257,7 @@ isCISUnsupportedUbuntu() {
 isFlatcar() {
     local os="$1"
 
-    if [ "$os" = "Flatcar" ] || [ "$os" = "ACL" ]; then
+    if [ "$os" = "Flatcar" ] || [ "$os" = "AZURECONTAINERLINUX" ]; then
         return 0
     fi
     return 1
@@ -261,7 +265,7 @@ isFlatcar() {
 isACL() {
     local os="$1"
 
-    if [ "$os" = "ACL" ]; then
+    if [ "$os" = "AZURECONTAINERLINUX" ]; then
         return 0
     fi
     return 1

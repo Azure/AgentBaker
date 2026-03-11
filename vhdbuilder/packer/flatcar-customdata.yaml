@@ -9,7 +9,7 @@ storage:
     mode: 0644
     contents:
       inline: |
-        ID=flatcar
+        ID=azurecontainerlinux
         SYSEXT_LEVEL=1.0
   - path: /etc/flatcar/update.conf
     mode: 0644
