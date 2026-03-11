@@ -338,10 +338,18 @@ ensureContainerd() {
     ensureTeleportd
   fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
-  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+  if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
+EOF
+  else
+    tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
+  fi
 
   mkdir -p /etc/containerd
   # Remove in case this is an existing symlink
