@@ -169,47 +169,62 @@ MOCK_EOF
             The output should not include "Resolving addresses for management.azure.com"
         End
 
-        It 'selects USNatCloud FQDNs'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USNatCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be success
-            The output should include "Detected cloud environment: USNatCloud"
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for login.microsoftonline.eaglex.ic.gov"
-            The output should include "Resolving addresses for management.azure.eaglex.ic.gov"
-            The output should not include "Resolving addresses for login.microsoftonline.com"
-        End
-
-        It 'selects USSecCloud FQDNs'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USSecCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be success
-            The output should include "Detected cloud environment: USSecCloud"
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for login.microsoftonline.microsoft.scloud"
-            The output should include "Resolving addresses for management.azure.microsoft.scloud"
-            The output should not include "Resolving addresses for login.microsoftonline.com"
-        End
-
-        It 'selects AzureStackCloud FQDNs'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureStackCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be success
-            The output should include "Detected cloud environment: AzureStackCloud"
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for packages.microsoft.com"
-            The output should not include "Resolving addresses for management.azure.com"
-            The output should not include "Resolving addresses for login.microsoftonline.com"
-        End
-
         It 'exits with error for unknown cloud values'
             TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "SomeUnknownCloud")
             When run command bash "${TEST_SCRIPT}"
             The status should be failure
-            The output should include "Detected cloud environment: SomeUnknownCloud"
-            The output should include "ERROR: Unrecognized cloud environment: SomeUnknownCloud"
-            The output should include "Cannot determine which FQDNs to resolve for hosts file"
-            The output should include "Exiting without modifying hosts file"
+            The output should include "ERROR: The following cloud is not supported: SomeUnknownCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should not include "Cannot determine which FQDNs to resolve for hosts file"
+            The output should not include "Exiting without modifying hosts file"
+        End
+
+        It 'exits with error for USNatCloud (no longer supported)'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USNatCloud")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: The following cloud is not supported: USNatCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+        End
+
+        It 'exits with error for USSecCloud (no longer supported)'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USSecCloud")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: The following cloud is not supported: USSecCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+        End
+
+        It 'exits with error for AzureStackCloud (no longer supported)'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureStackCloud")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: The following cloud is not supported: AzureStackCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+        End
+
+        It 'exits with error for AzureGermanCloud (no longer supported)'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureGermanCloud")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: The following cloud is not supported: AzureGermanCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+        End
+
+        It 'exits with error for AzureGermanyCloud (no longer supported)'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureGermanyCloud")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: The following cloud is not supported: AzureGermanyCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+        End
+
+        It 'exits with error for AzureBleuCloud (no longer supported)'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureBleuCloud")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be failure
+            The output should include "ERROR: The following cloud is not supported: AzureBleuCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
         End
 
         It 'fails when TARGET_CLOUD is unset'
@@ -248,7 +263,7 @@ EOF
         End
 
         It 'includes packages.microsoft.com for all clouds (common FQDN)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USNatCloud")
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzurePublicCloud")
             When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Resolving addresses for packages.microsoft.com"

@@ -53,31 +53,7 @@ case "${local_cloud}" in
             "packages.aks.azure.com"            # AKS packages
         )
         ;;
-    USNatCloud)
-        CLOUD_FQDNS=(
-            "mcr.microsoft.com"                        # Container registry
-            "login.microsoftonline.eaglex.ic.gov"      # Azure AD (USNat)
-            "management.azure.eaglex.ic.gov"           # ARM (USNat)
-        )
-        ;;
-    USSecCloud)
-        CLOUD_FQDNS=(
-            "mcr.microsoft.com"                           # Container registry
-            "login.microsoftonline.microsoft.scloud"      # Azure AD (USSec)
-            "management.azure.microsoft.scloud"           # ARM (USSec)
-        )
-        ;;
-    AzureStackCloud)
-        # Custom cloud / AGC — endpoints are customer-defined.
-        CLOUD_FQDNS=(
-            "mcr.microsoft.com"                 # Container registry
-        )
-        ;;
-    AzurePublicCloud|AzureGermanCloud|AzureGermanyCloud|AzureBleuCloud)
-        # AzurePublicCloud: standard public endpoints.
-        # AzureGermanCloud (legacy): retired, uses public endpoints.
-        # AzureGermanyCloud (Delos) / AzureBleuCloud: EU sovereign clouds,
-        #   use public endpoints for container registry and packages.
+    AzurePublicCloud)
         CLOUD_FQDNS=(
             "acs-mirror.azureedge.net"          # K8s binaries mirror
             "mcr.microsoft.com"                 # Container registry
@@ -87,12 +63,9 @@ case "${local_cloud}" in
         )
         ;;
     *)
-        # Unrecognized cloud environment - exit with error
-        echo "Detected cloud environment: ${local_cloud}"
-        echo "ERROR: Unrecognized cloud environment: ${local_cloud}"
-        echo "Supported clouds: AzureChinaCloud, AzureUSGovernmentCloud, USNatCloud, USSecCloud, AzureStackCloud, AzurePublicCloud, AzureGermanCloud, AzureGermanyCloud, AzureBleuCloud"
-        echo "Cannot determine which FQDNs to resolve for hosts file."
-        echo "Exiting without modifying hosts file to avoid caching incorrect DNS entries."
+        # Unsupported cloud environment - exit with error
+        echo "ERROR: The following cloud is not supported: ${local_cloud}"
+        echo "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
         exit 1
         ;;
 esac
