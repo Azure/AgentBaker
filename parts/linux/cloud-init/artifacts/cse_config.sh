@@ -1337,6 +1337,21 @@ enableAKSHostsSetup() {
         echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
         return
     fi
+
+    # Validate that TARGET_CLOUD is one of the supported clouds
+    # This must match the case statement in aks-hosts-setup.sh
+    case "${TARGET_CLOUD}" in
+        AzurePublicCloud|AzureChinaCloud|AzureUSGovernmentCloud)
+            # Supported cloud, continue
+            ;;
+        *)
+            echo "WARNING: The following cloud is not supported by aks-hosts-setup: ${TARGET_CLOUD}"
+            echo "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
+            return
+            ;;
+    esac
+
     echo "Setting TARGET_CLOUD=${TARGET_CLOUD} for aks-hosts-setup"
     mkdir -p "$(dirname "${cloud_env_file}")"
     echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
