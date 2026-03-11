@@ -668,9 +668,19 @@ function Install-CachedScripts {
     if ($search.Count -ne 0) {
         $tempfile = 'c:\csescripts.zip'
         Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $tempfile"
-        Copy-Item -Path $search[0] -Destination $tempfile -Force
-        AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
-        Remove-Item -Path $tempfile -Force
+        try {
+            Copy-Item -Path $search[0] -Destination $tempfile -Force
+            AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
+        }
+        catch {
+            Set-ExitCode -ExitCode $ExitCode -ErrorMessage ("failed to install cached CSE scripts: {0}" -f $_.Exception.Message)
+            return
+        }
+        finally {
+            if (Test-Path $tempfile) {
+                Remove-Item -Path $tempfile -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
     else {
         Set-ExitCode -ExitCode $ExitCode -ErrorMessage "cached CSE not found in VHD"
