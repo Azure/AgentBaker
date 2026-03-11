@@ -1,0 +1,557 @@
+2026/03/06 03:00:08 using E2E environment configuration:
+ACR_SECRET_NAME=acr-secret-code2
+ACR_TARGET_REPOSITORY=aks-managed-repository/*
+BLOB_CONTAINER=abe2e
+BLOB_STORAGE_ACCOUNT_PREFIX=abe2e
+BUILD_ID=local
+DEFAULT_POLL_INTERVAL=1s
+DEFAULT_SUBNET_NAME=aks-subnet
+DEFAULT_VM_SKU=Standard_D2ds_v5
+DISABLE_SCRIPTLESS_COMPILATION=false
+E2E_LOCATION=westus2
+ENABLE_SCRIPTLESS_CSE_CMD=false
+EXTENDED_TESTS=
+GALLERY_NAME=PackerSigGalleryEastUS
+GALLERY_NAME=PackerSigGalleryEastUS
+GALLERY_RESOURCE_GROUP=aksvhdtestbuildrg
+GALLERY_RESOURCE_GROUP=aksvhdtestbuildrg
+GALLERY_SUBSCRIPTION_ID=c4c3550e-a965-4993-a50c-628fd38cd3e1
+GALLERY_SUBSCRIPTION_ID=c4c3550e-a965-4993-a50c-628fd38cd3e1
+IGNORE_SCENARIOS_WITH_MISSING_VHD=false
+KEEP_VMSS=true
+LOGGING_DIR=scenario-logs
+NETWORK_ISOLATED_NSG_NAME=abe2e-networkisolated-securityGroup
+SIG_VERSION_TAG_NAME=buildId
+SIG_VERSION_TAG_VALUE=155648650
+SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE=false
+SUBSCRIPTION_ID=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8
+SYS_SSH_PRIVATE_KEY_B64=
+SYS_SSH_PUBLIC_KEY=
+TAGS_TO_RUN=
+TAGS_TO_SKIP=gpu=true,os=windows
+TEST_GALLERY_IMAGE_PREFIX=abe2etest
+TEST_GALLERY_NAME_PREFIX=abe2etest
+TEST_PRE_PROVISION=false
+TEST_TIMEOUT=35m0s
+TEST_TIMEOUT_CLUSTER=20m0s
+TEST_TIMEOUT_VMSS=17m0s
+WINDOWS_ADMIN_PASSWORD=
+=== RUN   Test_Ubuntu2204_LocalDNSHostsPlugin
+=== PAUSE Test_Ubuntu2204_LocalDNSHostsPlugin
+=== RUN   Test_Ubuntu2404_LocalDNSHostsPlugin
+=== PAUSE Test_Ubuntu2404_LocalDNSHostsPlugin
+=== RUN   Test_AzureLinuxV3_LocalDNSHostsPlugin
+=== PAUSE Test_AzureLinuxV3_LocalDNSHostsPlugin
+=== RUN   Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+=== PAUSE Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+=== RUN   Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+=== PAUSE Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+=== CONT  Test_Ubuntu2204_LocalDNSHostsPlugin
+=== CONT  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+=== CONT  Test_AzureLinuxV3_LocalDNSHostsPlugin
+=== CONT  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+=== CONT  Test_Ubuntu2404_LocalDNSHostsPlugin
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    azure.go:469: [0.000s] Looking up images in https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-22.04-gen2/overview
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    azure.go:469: [0.000s] Looking up images in https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-24.04-gen2/overview
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    azure.go:469: [0.000s] Looking up images in https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-azurelinux-v3-gen2/overview
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    azure.go:658: [0.000s] Looking up images for gallery subscription c4c3550e-a965-4993-a50c-628fd38cd3e1 resource group aksvhdtestbuildrg gallery name PackerSigGalleryEastUS image name 2204Gen2 version 1.1704411049.2812 
+    azure.go:558: [3.231s] Image version /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812 is already in region westus2
+    vhd.go:318: [3.231s] Got image by version: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-22.04-gen2/versions/1.1704411049.2812/overview
+    test_helpers.go:360: [3.231s] TAGS {Name:Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback ImageName:2204Gen2 OS:ubuntu Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:false VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    azure.go:558: [7.303s] Image version /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV3gen2/versions/1.1772760844.18907 is already in region westus2
+    vhd.go:326: [7.303s] got version by tag buildId=155648650: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-azurelinux-v3-gen2/versions/1.1772760844.18907/overview
+    test_helpers.go:360: [7.303s] TAGS {Name:Test_AzureLinuxV3_LocalDNSHostsPlugin ImageName:AzureLinuxV3gen2 OS:azurelinux Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:false VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    azure.go:558: [8.044s] Image version /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2containerd/versions/1.1772760851.25282 is already in region westus2
+    vhd.go:326: [8.044s] got version by tag buildId=155648650: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-22.04-gen2/versions/1.1772760851.25282/overview
+    test_helpers.go:360: [8.044s] TAGS {Name:Test_Ubuntu2204_LocalDNSHostsPlugin ImageName:2204gen2containerd OS:ubuntu Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:false VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    test_helpers.go:360: [8.044s] TAGS {Name:Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless ImageName:2204gen2containerd OS:ubuntu Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:true VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+    test_helpers.go:199: [12.260s] → running scenario...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    test_helpers.go:199: [12.260s] → running scenario...
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    test_helpers.go:199: [12.260s] → running scenario...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    cluster.go:63: [12.260s] → preparing cluster...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    test_helpers.go:199: [12.260s] → running scenario...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    cluster.go:242: [12.260s] → get or create cluster abe2e-kubenet-v4-f78eb...
+    cluster.go:250: [13.510s] ✓ get or create cluster abe2e-kubenet-v4-f78eb done (1.3s)
+    aks_model.go:306: [17.745s] → adding firewall rules...
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    azure.go:558: [17.836s] Image version /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2404gen2containerd/versions/1.1772761191.9801 is already in region westus2
+    vhd.go:326: [17.836s] got version by tag buildId=155648650: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-24.04-gen2/versions/1.1772761191.9801/overview
+    test_helpers.go:360: [17.836s] TAGS {Name:Test_Ubuntu2404_LocalDNSHostsPlugin ImageName:2404gen2containerd OS:ubuntu Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:false VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+    test_helpers.go:199: [17.836s] → running scenario...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    aks_model.go:316: [18.588s] ✓ adding firewall rules done (0.8s)
+    kube.go:368: [18.588s] Creating daemonset debug-mariner-tolerated with image mcr.microsoft.com/cbl-mariner/base/core:2.0
+    kube.go:368: [18.705s] Creating daemonset debugnonhost-mariner-tolerated with image mcr.microsoft.com/cbl-mariner/base/core:2.0
+    cluster.go:704: [18.713s] → collecting garbage VMSS...
+    cluster.go:738: [19.842s] ✓ collecting garbage VMSS done (1.1s)
+    cluster.go:742: [19.843s] → collecting garbage Private DNS zones...
+    cluster.go:838: [21.884s] ✓ collecting garbage Private DNS zones done (2.0s)
+    cluster.go:140: [21.897s] ✓ preparing cluster done (9.6s)
+    test_helpers.go:231: [21.897s] → preparing AKS node...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    test_helpers.go:231: [21.897s] → preparing AKS node...
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    test_helpers.go:231: [21.897s] → preparing AKS node...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    test_helpers.go:231: [21.897s] → preparing AKS node...
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    test_helpers.go:231: [21.897s] → preparing AKS node...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    vmss.go:279: [28.439s] → creating VMSS lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless...
+    vmss.go:65: [28.439s] compiling aks-node-controller: "/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/bin/go build -o aks-node-controller-amd64 -v"
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    vmss.go:279: [28.439s] → creating VMSS npes-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef...
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    vmss.go:279: [28.439s] → creating VMSS rlbx-2026-03-06-azurelinuxv3localdnshostsplugin...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    vmss.go:279: [28.439s] → creating VMSS fkms-2026-03-06-ubuntu2204localdnshostsplugin...
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    vmss.go:279: [28.439s] → creating VMSS 043y-2026-03-06-ubuntu2404localdnshostsplugin...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    vmss.go:200: [28.690s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/fkms-2026-03-06-ubuntu2204localdnshostsplugin/overview
+    vmss.go:206: [28.690s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    vmss.go:200: [28.693s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/npes-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef/overview
+    vmss.go:206: [28.693s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    vmss.go:200: [28.694s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/043y-2026-03-06-ubuntu2404localdnshostsplugin/overview
+    vmss.go:206: [28.694s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    vmss.go:200: [28.695s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/rlbx-2026-03-06-azurelinuxv3localdnshostsplugin/overview
+    vmss.go:206: [28.695s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    vmss.go:43: [29.572s] uploading aks-node-controller binary to blob path 2026-03-06-03-00-37/aks-node-controller-77yge0
+    vmss.go:200: [31.374s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless/overview
+    vmss.go:206: [31.374s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    vmss.go:310: [34.943s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [34.943s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/npes-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-1068816996
+        
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    vmss.go:310: [34.957s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [34.957s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/rlbx-2026-03-06-azurelinuxv3localdnshostsplugin/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-1068816996
+        
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    vmss.go:310: [35.106s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [35.106s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/043y-2026-03-06-ubuntu2404localdnshostsplugin/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-1068816996
+        
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    vmss.go:310: [35.510s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [35.510s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/fkms-2026-03-06-ubuntu2204localdnshostsplugin/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-1068816996
+        
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    vmss.go:310: [36.631s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [36.631s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-1068816996
+        
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    bastionssh.go:304: [197.612s] Attempt 1/5 establishing SSH over bastion to 10.224.0.15
+    vmss.go:366: [199.733s] VM reached running state
+    vmss.go:336: [199.733s] ✓ creating VMSS fkms-2026-03-06-ubuntu2204localdnshostsplugin done (171.3s)
+    kube.go:149: [199.733s] → waiting for node fkms-2026-03-06-ubuntu2204localdnshostsplugin to be ready...
+    kube.go:181: [199.794s] node fkms-2026-03-06-ubuntu2204localdnshostsplugin000000 is ready. Taints: [{"key":"node.kubernetes.io/network-unavailable","effect":"NoSchedule","timeAdded":"2026-03-06T03:03:21Z"}] Conditions: [{"type":"NetworkUnavailable","status":"True","lastHeartbeatTime":"2026-03-06T03:03:21Z","lastTransitionTime":"2026-03-06T03:03:21Z","reason":"NodeInitialization","message":"Waiting for cloud routes"},{"type":"MemoryPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:00Z","lastTransitionTime":"2026-03-06T03:02:59Z","reason":"KubeletHasSufficientMemory","message":"kubelet has sufficient memory available"},{"type":"DiskPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:00Z","lastTransitionTime":"2026-03-06T03:02:59Z","reason":"KubeletHasNoDiskPressure","message":"kubelet has no disk pressure"},{"type":"PIDPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:00Z","lastTransitionTime":"2026-03-06T03:02:59Z","reason":"KubeletHasSufficientPID","message":"kubelet has sufficient PID available"},{"type":"Ready","status":"True","lastHeartbeatTime":"2026-03-06T03:03:00Z","lastTransitionTime":"2026-03-06T03:03:00Z","reason":"KubeletReady","message":"kubelet is posting ready status"}]
+    kube.go:182: [199.794s] ✓ waiting for node fkms-2026-03-06-ubuntu2204localdnshostsplugin to be ready done (0.1s)
+    test_helpers.go:313: [199.794s] Node fkms-2026-03-06-ubuntu2204localdnshostsplugin took 2m51.293778082s to be created and 61.278049ms to be ready
+    test_helpers.go:316: [199.794s] ✓ preparing AKS node done (177.9s)
+    test_helpers.go:224: [199.794s] Choosing the private ACR "abe2eprivatewestus2" for the vm validation
+    test_helpers.go:380: [199.794s] → validating VM...
+    test_helpers.go:774: [199.877s] SSH connectivity to 10.224.0.15 verified successfully
+    validation.go:168: [199.877s] creating pod "fkms-2026-03-06-ubuntu2204localdnshostsplugin000000-test-pod"
+    kube.go:77: [199.958s] → waiting for pod  metadata.name=fkms-2026-03-06-ubuntu2204localdnshostsplugin000000-test-pod in "default" namespace...
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    bastionssh.go:304: [226.714s] Attempt 1/5 establishing SSH over bastion to 10.224.0.16
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    bastionssh.go:304: [227.412s] Attempt 1/5 establishing SSH over bastion to 10.224.0.14
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    vmss.go:366: [228.792s] VM reached running state
+    vmss.go:336: [228.792s] ✓ creating VMSS rlbx-2026-03-06-azurelinuxv3localdnshostsplugin done (200.4s)
+    kube.go:149: [228.792s] → waiting for node rlbx-2026-03-06-azurelinuxv3localdnshostsplugin to be ready...
+    kube.go:181: [228.800s] node rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000 is ready. Taints: [{"key":"node.kubernetes.io/network-unavailable","effect":"NoSchedule","timeAdded":"2026-03-06T03:03:37Z"}] Conditions: [{"type":"NetworkUnavailable","status":"True","lastHeartbeatTime":"2026-03-06T03:03:37Z","lastTransitionTime":"2026-03-06T03:03:37Z","reason":"NodeInitialization","message":"Waiting for cloud routes"},{"type":"MemoryPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:30Z","lastTransitionTime":"2026-03-06T03:03:29Z","reason":"KubeletHasSufficientMemory","message":"kubelet has sufficient memory available"},{"type":"DiskPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:30Z","lastTransitionTime":"2026-03-06T03:03:29Z","reason":"KubeletHasNoDiskPressure","message":"kubelet has no disk pressure"},{"type":"PIDPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:30Z","lastTransitionTime":"2026-03-06T03:03:29Z","reason":"KubeletHasSufficientPID","message":"kubelet has sufficient PID available"},{"type":"Ready","status":"True","lastHeartbeatTime":"2026-03-06T03:03:30Z","lastTransitionTime":"2026-03-06T03:03:30Z","reason":"KubeletReady","message":"kubelet is posting ready status"}]
+    kube.go:182: [228.800s] ✓ waiting for node rlbx-2026-03-06-azurelinuxv3localdnshostsplugin to be ready done (0.0s)
+    test_helpers.go:313: [228.800s] ⚠️ ##vso[task.logissue type=warning;] Node rlbx-2026-03-06-azurelinuxv3localdnshostsplugin took 3m20.352917634s to be created and 8.319417ms to be ready
+    test_helpers.go:316: [228.800s] ✓ preparing AKS node done (206.9s)
+    test_helpers.go:224: [228.800s] Choosing the private ACR "abe2eprivatewestus2" for the vm validation
+    test_helpers.go:380: [228.800s] → validating VM...
+    test_helpers.go:774: [228.951s] SSH connectivity to 10.224.0.16 verified successfully
+    validation.go:168: [228.951s] creating pod "rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000-test-pod"
+    kube.go:77: [229.007s] → waiting for pod  metadata.name=rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000-test-pod in "default" namespace...
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    vmss.go:366: [229.117s] VM reached running state
+    vmss.go:336: [229.117s] ✓ creating VMSS 043y-2026-03-06-ubuntu2404localdnshostsplugin done (200.7s)
+    kube.go:149: [229.117s] → waiting for node 043y-2026-03-06-ubuntu2404localdnshostsplugin to be ready...
+    kube.go:181: [229.121s] node 043y-2026-03-06-ubuntu2404localdnshostsplugin000000 is ready. Taints: [{"key":"node.kubernetes.io/network-unavailable","effect":"NoSchedule","timeAdded":"2026-03-06T03:03:55Z"}] Conditions: [{"type":"NetworkUnavailable","status":"True","lastHeartbeatTime":"2026-03-06T03:03:55Z","lastTransitionTime":"2026-03-06T03:03:55Z","reason":"NodeInitialization","message":"Waiting for cloud routes"},{"type":"MemoryPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:38Z","lastTransitionTime":"2026-03-06T03:03:38Z","reason":"KubeletHasSufficientMemory","message":"kubelet has sufficient memory available"},{"type":"DiskPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:38Z","lastTransitionTime":"2026-03-06T03:03:38Z","reason":"KubeletHasNoDiskPressure","message":"kubelet has no disk pressure"},{"type":"PIDPressure","status":"False","lastHeartbeatTime":"2026-03-06T03:03:38Z","lastTransitionTime":"2026-03-06T03:03:38Z","reason":"KubeletHasSufficientPID","message":"kubelet has sufficient PID available"},{"type":"Ready","status":"True","lastHeartbeatTime":"2026-03-06T03:03:38Z","lastTransitionTime":"2026-03-06T03:03:38Z","reason":"KubeletReady","message":"kubelet is posting ready status"}]
+    kube.go:182: [229.122s] ✓ waiting for node 043y-2026-03-06-ubuntu2404localdnshostsplugin to be ready done (0.0s)
+    test_helpers.go:313: [229.122s] ⚠️ ##vso[task.logissue type=warning;] Node 043y-2026-03-06-ubuntu2404localdnshostsplugin took 3m20.677903996s to be created and 4.608964ms to be ready
+    test_helpers.go:316: [229.122s] ✓ preparing AKS node done (207.2s)
+    test_helpers.go:224: [229.122s] Choosing the private ACR "abe2eprivatewestus2" for the vm validation
+    test_helpers.go:380: [229.122s] → validating VM...
+    test_helpers.go:774: [229.717s] SSH connectivity to 10.224.0.14 verified successfully
+    validation.go:168: [229.717s] creating pod "043y-2026-03-06-ubuntu2404localdnshostsplugin000000-test-pod"
+    kube.go:77: [229.762s] → waiting for pod  metadata.name=043y-2026-03-06-ubuntu2404localdnshostsplugin000000-test-pod in "default" namespace...
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin
+    kube.go:141: [259.974s] ✓ waiting for pod  metadata.name=fkms-2026-03-06-ubuntu2204localdnshostsplugin000000-test-pod in "default" namespace done (60.0s)
+    validation.go:192: [259.974s] ⚠️ ##vso[task.logissue type=warning;] Time for pod "fkms-2026-03-06-ubuntu2204localdnshostsplugin000000-test-pod" to get ready was 1m0.097170723s
+    validation.go:193: [259.974s] node health validation: test pod "fkms-2026-03-06-ubuntu2204localdnshostsplugin000000-test-pod" is running on node "fkms-2026-03-06-ubuntu2204localdnshostsplugin000000"
+    validators.go:59: [260.415s] will validate bootstrapping mode: secure TLS bootstrapping
+    validators.go:120: [260.439s] will validate linux KSCR enablement
+    validation.go:78: [260.868s] VM has 2 CPUs, expecting rx buffer size: 1024
+    validation.go:78: [260.928s] NICs to configure:
+        === NICs to Configure ===
+        enP5320s1
+    validation.go:78: [260.928s] Parsed NICs list: [enP5320s1] (count: 1)
+    validation.go:78: [260.928s] Validating network interface config for NIC: enP5320s1
+    validation.go:78: [260.945s] Full ethtool output for enP5320s1:
+        === Full ethtool output for enP5320s1 ===
+        Ring parameters for enP5320s1:
+        Pre-set maximums:
+        RX:		8192
+        RX Mini:	n/a
+        RX Jumbo:	n/a
+        TX:		8192
+        Current hardware settings:
+        RX:		1024
+        RX Mini:	n/a
+        RX Jumbo:	n/a
+        TX:		1024
+    validation.go:78: [260.962s] Ethtool setting rx for NIC enP5320s1: expected=1024, actual=1024
+    validation.go:79: [261.045s] No critical kernel issues found
+    validation.go:118: [261.676s] Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...
+    validation.go:118: [261.683s] ✓ Node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled found after 1 attempts
+    validation.go:118: [261.683s] Verifying Corefile contains hosts plugin configuration...
+    validation.go:118: [261.711s] Testing hosts plugin resolves packages.microsoft.com from /etc/localdns/hosts
+    validation.go:122: [261.752s] skip_vhd_ig sentinel file found, validating Inspektor Gadget installation
+    validation.go:122: [261.806s] Validating imported gadgets tracking file is not empty
+    validation.go:122: [261.809s] Validating ig image list shows imported gadgets
+    validation.go:122: [261.889s] ig image list output:
+        REPOSITORY TAG DIGEST CREATED
+        advise_networkpolicy v0.45.0 sha256:d85812a15a6dcbefe564dcbb9b34ea4f36f3da6e20c92ec3d60c8e9c3272cea3 2025-10-08T14:15:59Z
+        advise_seccomp v0.45.0 sha256:77732d74a08a87571b2d9fcbb96ba497bcc2520ce6692cd10fd220bfff074978 2025-10-08T14:16:04Z
+        audit_seccomp v0.45.0 sha256:2bbdb531495ecf23d8f885e0f1f59dc99d0653eddb85d5f6b47046297422bbc9 2025-10-08T14:16:05Z
+        bpfstats v0.45.0 sha256:7e67e4e9985ad0930bb45c9aad47e9154153e760d1ad141b61019156e0e7a570 2025-10-08T14:16:05Z
+        deadlock v0.45.0 sha256:b576f88a95e57d58610c4054d822bf0f850124812aba0cfe5d27355268b2b7ff 2025-10-08T14:16:10Z
+        fdpass v0.45.0 sha256:56fea1939497fb5a95f48051b511139670026745329b0b9b9a2dbb3b6b7d3116 2025-10-08T14:16:12Z
+        fsnotify v0.45.0 sha256:b6d5d91f99afc183bc20edb1ce711a1fa0a5894b219d7729205973156b8c5878 2025-10-08T14:16:17Z
+        profile_blockio v0.45.0 sha256:994770e77d58a27bc42209965ac962c8590f888db75e66a532b8b1feff7d6155 2025-10-08T14:16:18Z
+        profile_cpu v0.45.0 sha256:b2bc16ac978c141c5345ec9c631ddb255f726421913932eb4999b8ae4fc542ab 2025-10-08T14:16:19Z
+        profile_qdisc_latency v0.45.0 sha256:ae7524ddbb12008d92492476a4aba753157c952479f4521e66e08ceb37b01072 2025-10-08T14:16:20Z
+        profile_tcprtt v0.45.0 sha256:84640dd269992958075d21f1a115c48e5419b181bf0cd9b5744bf6ebb2d9a8b4 2025-10-08T14:16:21Z
+        snapshot_process v0.45.0 sha256:afb3cb5db36854571bab3a6979474f7a163d3a7fd6184cab7255644407b46ffd 2025-10-08T14:16:22Z
+        snapshot_socket v0.45.0 sha256:4f701ce43b25a0e84d66e0a277b363b7d287602fc28b19cc1e650bee6ee261e4 2025-10-08T14:16:23Z
+        top_blockio v0.45.0 sha256:9660184084eb792a67a2b4f72465f5ac974d7f0990c5fef4e94c74a095508cf9 2025-10-08T14:16:25Z
+        top_file v0.45.0 sha256:1eb7426c12f4b092e4b89b8ca67e6fc86722682196f078eb62c48a66bba5c45c 2025-10-08T14:16:26Z
+        top_process v0.45.0 sha256:025584e4bbff782adcd783da78c4955282281a2a0c3d8d8e41c09e5197664e0e 2025-10-08T14:16:26Z
+        top_tcp v0.45.0 sha256:a6bdebe4a7be83c6e091ecad511035946f7bf2dae992a6ac4f7a05ec064aa595 2025-10-08T14:16:27Z
+        trace_bind v0.45.0 sha256:b83e28e0d1baeb00abeb6206f6bb50a3c186c9798ef2a583fa59d9be107aa0a8 2025-10-08T14:16:28Z
+        trace_capabilities v0.45.0 sha256:efe7f6503fb0838337344f8046301e5a458d541a72f013dc4800e39ff1cd52bf 2025-10-08T14:16:30Z
+        trace_dns v0.45.0 sha256:22904e9b6e1e99755c9d5e41ca83e2da2058b08491d21ed6940df3f541cf91ab 2025-10-08T14:16:35Z
+        trace_exec v0.45.0 sha256:80849c35c431308620eab456c1d6528d12dfb482ad7ca700d38a369f2c55fcd8 2025-10-08T14:16:42Z
+        trace_fsslower v0.45.0 sha256:484db1e769d3bc5aa5b5734f38fead2f486875b17ee4df4d634c367591035597 2025-10-08T14:16:47Z
+        trace_lsm v0.45.0 sha256:226e23804e6d18487d418b9d799418539a1793c98bc080bed99db32351651783 2025-10-08T14:16:50Z
+        trace_malloc v0.45.0 sha256:a95071780f09a91b0a4cda35c31fa075824ad1663abbbd459dd94b5a0e9c0828 2025-10-08T14:16:51Z
+        trace_oomkill v0.45.0 sha256:2ac03c3b00aba2e7815c2f5e1358b50e3a39f11637dd88344acc86c9446a0a80 2025-10-08T14:16:52Z
+        trace_open v0.45.0 sha256:0c0dd408fd70d95357642fc6ad60d3b7c799c9c33e86e146fe13f4503ae13a71 2025-10-08T14:16:53Z
+        trace_signal v0.45.0 sha256:dd9c328f56236fa4dfdf01bf6a985b2a52639d61f9f7048a1fb955ae35010bf9 2025-10-08T14:16:55Z
+        trace_sni v0.45.0 sha256:f7b9b533b56e22d1e9591986fb1c845bb6b4d978948c23a7874c3b16451f4c3c 2025-10-08T14:16:55Z
+        trace_ssl v0.45.0 sha256:726e47663448e3dd59d436f0d61080bb2ac10961cee96b7a563cd2072a0585ba 2025-10-08T14:16:57Z
+        trace_tcp v0.45.0 sha256:c4f00debb4508490dec1947eee842f9f3466018eaef542402f0d89dcb96c0119 2025-10-08T14:16:58Z
+        trace_tcpdrop v0.45.0 sha256:a689bc19532c11c1c363fabc5b6a4913515fcccb63e84c13cd37058ddaf1851d 2025-10-08T14:16:59Z
+        trace_tcpretrans v0.45.0 sha256:5d971581c2605f7e91c27e6f997ee92dfca094b92d1ee732affc3846d549b46f 2025-10-08T14:17:00Z
+        traceloop v0.45.0 sha256:6597f5ee7ce6c96f38f071aa23c09fc2e86d7524aae16a6962f90e2d1089e992 2025-10-08T14:17:06Z
+    validation.go:122: [261.889s] Running functional test with trace_exec gadget
+    validation.go:122: [265.981s] Inspektor Gadget functional validation passed
+    kube.go:77: [266.005s] → waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=fkms-2026-03-06-ubuntu2204localdnshostsplugin000000 in "default" namespace...
+    kube.go:141: [266.020s] ✓ waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=fkms-2026-03-06-ubuntu2204localdnshostsplugin000000 in "default" namespace done (0.0s)
+    kube.go:77: [270.200s] → waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=fkms-2026-03-06-ubuntu2204localdnshostsplugin000000 in "default" namespace...
+    kube.go:141: [270.216s] ✓ waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=fkms-2026-03-06-ubuntu2204localdnshostsplugin000000 in "default" namespace done (0.0s)
+    scenario_localdns_hosts_test.go:43: [274.921s] Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...
+    scenario_localdns_hosts_test.go:43: [274.929s] ✓ Node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled found after 1 attempts
+    scenario_localdns_hosts_test.go:43: [274.929s] Verifying Corefile contains hosts plugin configuration...
+    scenario_localdns_hosts_test.go:43: [274.974s] Testing hosts plugin resolves packages.microsoft.com from /etc/localdns/hosts
+    test_helpers.go:403: [275.016s] VM validation succeeded
+    test_helpers.go:405: [275.016s] ✓ validating VM done (75.2s)
+    test_helpers.go:227: [275.016s] ✓ running scenario done (262.8s)
+    vmss.go:502: [275.253s] extracted VM logs to scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin
+    vmss.go:771: [275.580s] vmss "fkms-2026-03-06-ubuntu2204localdnshostsplugin" will be retained for debugging purposes, please make sure to manually delete it later
+--- PASS: Test_Ubuntu2204_LocalDNSHostsPlugin (275.61s)
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    kube.go:141: [319.782s] ✓ waiting for pod  metadata.name=043y-2026-03-06-ubuntu2404localdnshostsplugin000000-test-pod in "default" namespace done (90.0s)
+    validation.go:192: [319.782s] ⚠️ ##vso[task.logissue type=warning;] Time for pod "043y-2026-03-06-ubuntu2404localdnshostsplugin000000-test-pod" to get ready was 1m30.064860147s
+    validation.go:193: [319.782s] node health validation: test pod "043y-2026-03-06-ubuntu2404localdnshostsplugin000000-test-pod" is running on node "043y-2026-03-06-ubuntu2404localdnshostsplugin000000"
+    validators.go:59: [320.358s] will validate bootstrapping mode: secure TLS bootstrapping
+    validators.go:120: [320.387s] will validate linux KSCR enablement
+    validation.go:78: [320.748s] VM has 2 CPUs, expecting rx buffer size: 1024
+    validation.go:78: [320.805s] NICs to configure:
+        === NICs to Configure ===
+        enP34814s1
+    validation.go:78: [320.805s] Parsed NICs list: [enP34814s1] (count: 1)
+    validation.go:78: [320.805s] Validating network interface config for NIC: enP34814s1
+    validation.go:78: [320.819s] Full ethtool output for enP34814s1:
+        === Full ethtool output for enP34814s1 ===
+        Ring parameters for enP34814s1:
+        Pre-set maximums:
+        RX:			8192
+        RX Mini:		n/a
+        RX Jumbo:		n/a
+        TX:			8192
+        TX push buff len:	n/a
+        Current hardware settings:
+        RX:			1024
+        RX Mini:		n/a
+        RX Jumbo:		n/a
+        TX:			1024
+        RX Buf Len:		n/a
+        CQE Size:		n/a
+        TX Push:		off
+        RX Push:		off
+        TX push buff len:	n/a
+        TCP data split:		off
+    validation.go:78: [320.835s] Ethtool setting rx for NIC enP34814s1: expected=1024, actual=1024
+    validation.go:79: [320.925s] No critical kernel issues found
+    validation.go:118: [321.569s] Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...
+    validation.go:118: [321.578s] ✓ Node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled found after 1 attempts
+    validation.go:118: [321.578s] Verifying Corefile contains hosts plugin configuration...
+    validation.go:118: [321.604s] Testing hosts plugin resolves packages.microsoft.com from /etc/localdns/hosts
+    validation.go:122: [321.666s] skip_vhd_ig sentinel file found, validating Inspektor Gadget installation
+    validation.go:122: [321.716s] Validating imported gadgets tracking file is not empty
+    validation.go:122: [321.719s] Validating ig image list shows imported gadgets
+    validation.go:122: [321.801s] ig image list output:
+        REPOSITORY TAG DIGEST CREATED
+        advise_networkpolicy v0.45.0 sha256:d85812a15a6dcbefe564dcbb9b34ea4f36f3da6e20c92ec3d60c8e9c3272cea3 2025-10-08T14:15:59Z
+        advise_seccomp v0.45.0 sha256:77732d74a08a87571b2d9fcbb96ba497bcc2520ce6692cd10fd220bfff074978 2025-10-08T14:16:04Z
+        audit_seccomp v0.45.0 sha256:2bbdb531495ecf23d8f885e0f1f59dc99d0653eddb85d5f6b47046297422bbc9 2025-10-08T14:16:05Z
+        bpfstats v0.45.0 sha256:7e67e4e9985ad0930bb45c9aad47e9154153e760d1ad141b61019156e0e7a570 2025-10-08T14:16:05Z
+        deadlock v0.45.0 sha256:b576f88a95e57d58610c4054d822bf0f850124812aba0cfe5d27355268b2b7ff 2025-10-08T14:16:10Z
+        fdpass v0.45.0 sha256:56fea1939497fb5a95f48051b511139670026745329b0b9b9a2dbb3b6b7d3116 2025-10-08T14:16:12Z
+        fsnotify v0.45.0 sha256:b6d5d91f99afc183bc20edb1ce711a1fa0a5894b219d7729205973156b8c5878 2025-10-08T14:16:17Z
+        profile_blockio v0.45.0 sha256:994770e77d58a27bc42209965ac962c8590f888db75e66a532b8b1feff7d6155 2025-10-08T14:16:18Z
+        profile_cpu v0.45.0 sha256:b2bc16ac978c141c5345ec9c631ddb255f726421913932eb4999b8ae4fc542ab 2025-10-08T14:16:19Z
+        profile_qdisc_latency v0.45.0 sha256:ae7524ddbb12008d92492476a4aba753157c952479f4521e66e08ceb37b01072 2025-10-08T14:16:20Z
+        profile_tcprtt v0.45.0 sha256:84640dd269992958075d21f1a115c48e5419b181bf0cd9b5744bf6ebb2d9a8b4 2025-10-08T14:16:21Z
+        snapshot_process v0.45.0 sha256:afb3cb5db36854571bab3a6979474f7a163d3a7fd6184cab7255644407b46ffd 2025-10-08T14:16:22Z
+        snapshot_socket v0.45.0 sha256:4f701ce43b25a0e84d66e0a277b363b7d287602fc28b19cc1e650bee6ee261e4 2025-10-08T14:16:23Z
+        top_blockio v0.45.0 sha256:9660184084eb792a67a2b4f72465f5ac974d7f0990c5fef4e94c74a095508cf9 2025-10-08T14:16:25Z
+        top_file v0.45.0 sha256:1eb7426c12f4b092e4b89b8ca67e6fc86722682196f078eb62c48a66bba5c45c 2025-10-08T14:16:26Z
+        top_process v0.45.0 sha256:025584e4bbff782adcd783da78c4955282281a2a0c3d8d8e41c09e5197664e0e 2025-10-08T14:16:26Z
+        top_tcp v0.45.0 sha256:a6bdebe4a7be83c6e091ecad511035946f7bf2dae992a6ac4f7a05ec064aa595 2025-10-08T14:16:27Z
+        trace_bind v0.45.0 sha256:b83e28e0d1baeb00abeb6206f6bb50a3c186c9798ef2a583fa59d9be107aa0a8 2025-10-08T14:16:28Z
+        trace_capabilities v0.45.0 sha256:efe7f6503fb0838337344f8046301e5a458d541a72f013dc4800e39ff1cd52bf 2025-10-08T14:16:30Z
+        trace_dns v0.45.0 sha256:22904e9b6e1e99755c9d5e41ca83e2da2058b08491d21ed6940df3f541cf91ab 2025-10-08T14:16:35Z
+        trace_exec v0.45.0 sha256:80849c35c431308620eab456c1d6528d12dfb482ad7ca700d38a369f2c55fcd8 2025-10-08T14:16:42Z
+        trace_fsslower v0.45.0 sha256:484db1e769d3bc5aa5b5734f38fead2f486875b17ee4df4d634c367591035597 2025-10-08T14:16:47Z
+        trace_lsm v0.45.0 sha256:226e23804e6d18487d418b9d799418539a1793c98bc080bed99db32351651783 2025-10-08T14:16:50Z
+        trace_malloc v0.45.0 sha256:a95071780f09a91b0a4cda35c31fa075824ad1663abbbd459dd94b5a0e9c0828 2025-10-08T14:16:51Z
+        trace_oomkill v0.45.0 sha256:2ac03c3b00aba2e7815c2f5e1358b50e3a39f11637dd88344acc86c9446a0a80 2025-10-08T14:16:52Z
+        trace_open v0.45.0 sha256:0c0dd408fd70d95357642fc6ad60d3b7c799c9c33e86e146fe13f4503ae13a71 2025-10-08T14:16:53Z
+        trace_signal v0.45.0 sha256:dd9c328f56236fa4dfdf01bf6a985b2a52639d61f9f7048a1fb955ae35010bf9 2025-10-08T14:16:55Z
+        trace_sni v0.45.0 sha256:f7b9b533b56e22d1e9591986fb1c845bb6b4d978948c23a7874c3b16451f4c3c 2025-10-08T14:16:55Z
+        trace_ssl v0.45.0 sha256:726e47663448e3dd59d436f0d61080bb2ac10961cee96b7a563cd2072a0585ba 2025-10-08T14:16:57Z
+        trace_tcp v0.45.0 sha256:c4f00debb4508490dec1947eee842f9f3466018eaef542402f0d89dcb96c0119 2025-10-08T14:16:58Z
+        trace_tcpdrop v0.45.0 sha256:a689bc19532c11c1c363fabc5b6a4913515fcccb63e84c13cd37058ddaf1851d 2025-10-08T14:16:59Z
+        trace_tcpretrans v0.45.0 sha256:5d971581c2605f7e91c27e6f997ee92dfca094b92d1ee732affc3846d549b46f 2025-10-08T14:17:00Z
+        traceloop v0.45.0 sha256:6597f5ee7ce6c96f38f071aa23c09fc2e86d7524aae16a6962f90e2d1089e992 2025-10-08T14:17:06Z
+    validation.go:122: [321.801s] Running functional test with trace_exec gadget
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    kube.go:141: [322.025s] ✓ waiting for pod  metadata.name=rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000-test-pod in "default" namespace done (93.0s)
+    validation.go:192: [322.025s] ⚠️ ##vso[task.logissue type=warning;] Time for pod "rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000-test-pod" to get ready was 1m33.073400614s
+    validation.go:193: [322.025s] node health validation: test pod "rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000-test-pod" is running on node "rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000"
+    validators.go:59: [323.006s] will validate bootstrapping mode: secure TLS bootstrapping
+    validators.go:120: [323.096s] will validate linux KSCR enablement
+    validation.go:78: [324.597s] VM has 2 CPUs, expecting rx buffer size: 1024
+    validation.go:78: [324.854s] NICs to configure:
+        === NICs to Configure ===
+        eth1
+    validation.go:78: [324.854s] Parsed NICs list: [eth1] (count: 1)
+    validation.go:78: [324.854s] Validating network interface config for NIC: eth1
+    validation.go:78: [324.938s] Full ethtool output for eth1:
+        === Full ethtool output for eth1 ===
+        Ring parameters for eth1:
+        Pre-set maximums:
+        RX:			8192
+        RX Mini:		n/a
+        RX Jumbo:		n/a
+        TX:			8192
+        TX push buff len:	n/a
+        Current hardware settings:
+        RX:			1024
+        RX Mini:		n/a
+        RX Jumbo:		n/a
+        TX:			1024
+        RX Buf Len:		n/a
+        CQE Size:		n/a
+        TX Push:		off
+        RX Push:		off
+        TX push buff len:	n/a
+        TCP data split:		off
+    validation.go:78: [325.028s] Ethtool setting rx for NIC eth1: expected=1024, actual=1024
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    validation.go:122: [325.176s] Inspektor Gadget functional validation passed
+    kube.go:77: [325.202s] → waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=043y-2026-03-06-ubuntu2404localdnshostsplugin000000 in "default" namespace...
+    kube.go:141: [325.228s] ✓ waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=043y-2026-03-06-ubuntu2404localdnshostsplugin000000 in "default" namespace done (0.0s)
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    validation.go:79: [325.510s] No critical kernel issues found
+    validation.go:118: [326.636s] Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...
+    validation.go:118: [326.646s] ✓ Node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled found after 1 attempts
+    validation.go:118: [326.646s] Verifying Corefile contains hosts plugin configuration...
+    validation.go:118: [326.736s] Testing hosts plugin resolves packages.microsoft.com from /etc/localdns/hosts
+    validation.go:122: [326.905s] skip_vhd_ig sentinel file found, validating Inspektor Gadget installation
+    validation.go:122: [327.235s] Validating imported gadgets tracking file is not empty
+    validation.go:122: [327.271s] Validating ig image list shows imported gadgets
+    validation.go:122: [327.399s] ig image list output:
+        REPOSITORY TAG DIGEST CREATED
+        advise_networkpolicy v0.45.0 sha256:d85812a15a6dcbefe564dcbb9b34ea4f36f3da6e20c92ec3d60c8e9c3272cea3 2025-10-08T14:15:59Z
+        advise_seccomp v0.45.0 sha256:77732d74a08a87571b2d9fcbb96ba497bcc2520ce6692cd10fd220bfff074978 2025-10-08T14:16:04Z
+        audit_seccomp v0.45.0 sha256:2bbdb531495ecf23d8f885e0f1f59dc99d0653eddb85d5f6b47046297422bbc9 2025-10-08T14:16:05Z
+        bpfstats v0.45.0 sha256:7e67e4e9985ad0930bb45c9aad47e9154153e760d1ad141b61019156e0e7a570 2025-10-08T14:16:05Z
+        deadlock v0.45.0 sha256:b576f88a95e57d58610c4054d822bf0f850124812aba0cfe5d27355268b2b7ff 2025-10-08T14:16:10Z
+        fdpass v0.45.0 sha256:56fea1939497fb5a95f48051b511139670026745329b0b9b9a2dbb3b6b7d3116 2025-10-08T14:16:12Z
+        fsnotify v0.45.0 sha256:b6d5d91f99afc183bc20edb1ce711a1fa0a5894b219d7729205973156b8c5878 2025-10-08T14:16:17Z
+        profile_blockio v0.45.0 sha256:994770e77d58a27bc42209965ac962c8590f888db75e66a532b8b1feff7d6155 2025-10-08T14:16:18Z
+        profile_cpu v0.45.0 sha256:b2bc16ac978c141c5345ec9c631ddb255f726421913932eb4999b8ae4fc542ab 2025-10-08T14:16:19Z
+        profile_qdisc_latency v0.45.0 sha256:ae7524ddbb12008d92492476a4aba753157c952479f4521e66e08ceb37b01072 2025-10-08T14:16:20Z
+        profile_tcprtt v0.45.0 sha256:84640dd269992958075d21f1a115c48e5419b181bf0cd9b5744bf6ebb2d9a8b4 2025-10-08T14:16:21Z
+        snapshot_process v0.45.0 sha256:afb3cb5db36854571bab3a6979474f7a163d3a7fd6184cab7255644407b46ffd 2025-10-08T14:16:22Z
+        snapshot_socket v0.45.0 sha256:4f701ce43b25a0e84d66e0a277b363b7d287602fc28b19cc1e650bee6ee261e4 2025-10-08T14:16:23Z
+        top_blockio v0.45.0 sha256:9660184084eb792a67a2b4f72465f5ac974d7f0990c5fef4e94c74a095508cf9 2025-10-08T14:16:25Z
+        top_file v0.45.0 sha256:1eb7426c12f4b092e4b89b8ca67e6fc86722682196f078eb62c48a66bba5c45c 2025-10-08T14:16:26Z
+        top_process v0.45.0 sha256:025584e4bbff782adcd783da78c4955282281a2a0c3d8d8e41c09e5197664e0e 2025-10-08T14:16:26Z
+        top_tcp v0.45.0 sha256:a6bdebe4a7be83c6e091ecad511035946f7bf2dae992a6ac4f7a05ec064aa595 2025-10-08T14:16:27Z
+        trace_bind v0.45.0 sha256:b83e28e0d1baeb00abeb6206f6bb50a3c186c9798ef2a583fa59d9be107aa0a8 2025-10-08T14:16:28Z
+        trace_capabilities v0.45.0 sha256:efe7f6503fb0838337344f8046301e5a458d541a72f013dc4800e39ff1cd52bf 2025-10-08T14:16:30Z
+        trace_dns v0.45.0 sha256:22904e9b6e1e99755c9d5e41ca83e2da2058b08491d21ed6940df3f541cf91ab 2025-10-08T14:16:35Z
+        trace_exec v0.45.0 sha256:80849c35c431308620eab456c1d6528d12dfb482ad7ca700d38a369f2c55fcd8 2025-10-08T14:16:42Z
+        trace_fsslower v0.45.0 sha256:484db1e769d3bc5aa5b5734f38fead2f486875b17ee4df4d634c367591035597 2025-10-08T14:16:47Z
+        trace_lsm v0.45.0 sha256:226e23804e6d18487d418b9d799418539a1793c98bc080bed99db32351651783 2025-10-08T14:16:50Z
+        trace_malloc v0.45.0 sha256:a95071780f09a91b0a4cda35c31fa075824ad1663abbbd459dd94b5a0e9c0828 2025-10-08T14:16:51Z
+        trace_oomkill v0.45.0 sha256:2ac03c3b00aba2e7815c2f5e1358b50e3a39f11637dd88344acc86c9446a0a80 2025-10-08T14:16:52Z
+        trace_open v0.45.0 sha256:0c0dd408fd70d95357642fc6ad60d3b7c799c9c33e86e146fe13f4503ae13a71 2025-10-08T14:16:53Z
+        trace_signal v0.45.0 sha256:dd9c328f56236fa4dfdf01bf6a985b2a52639d61f9f7048a1fb955ae35010bf9 2025-10-08T14:16:55Z
+        trace_sni v0.45.0 sha256:f7b9b533b56e22d1e9591986fb1c845bb6b4d978948c23a7874c3b16451f4c3c 2025-10-08T14:16:55Z
+        trace_ssl v0.45.0 sha256:726e47663448e3dd59d436f0d61080bb2ac10961cee96b7a563cd2072a0585ba 2025-10-08T14:16:57Z
+        trace_tcp v0.45.0 sha256:c4f00debb4508490dec1947eee842f9f3466018eaef542402f0d89dcb96c0119 2025-10-08T14:16:58Z
+        trace_tcpdrop v0.45.0 sha256:a689bc19532c11c1c363fabc5b6a4913515fcccb63e84c13cd37058ddaf1851d 2025-10-08T14:16:59Z
+        trace_tcpretrans v0.45.0 sha256:5d971581c2605f7e91c27e6f997ee92dfca094b92d1ee732affc3846d549b46f 2025-10-08T14:17:00Z
+        traceloop v0.45.0 sha256:6597f5ee7ce6c96f38f071aa23c09fc2e86d7524aae16a6962f90e2d1089e992 2025-10-08T14:17:06Z
+    validation.go:122: [327.399s] Running functional test with trace_exec gadget
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    kube.go:77: [329.435s] → waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=043y-2026-03-06-ubuntu2404localdnshostsplugin000000 in "default" namespace...
+    kube.go:141: [329.454s] ✓ waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=043y-2026-03-06-ubuntu2404localdnshostsplugin000000 in "default" namespace done (0.0s)
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    validation.go:122: [331.139s] Inspektor Gadget functional validation passed
+    kube.go:77: [331.249s] → waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000 in "default" namespace...
+    kube.go:141: [331.269s] ✓ waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000 in "default" namespace done (0.0s)
+=== NAME  Test_Ubuntu2404_LocalDNSHostsPlugin
+    scenario_localdns_hosts_test.go:72: [334.196s] Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...
+    scenario_localdns_hosts_test.go:72: [334.202s] ✓ Node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled found after 1 attempts
+    scenario_localdns_hosts_test.go:72: [334.202s] Verifying Corefile contains hosts plugin configuration...
+    scenario_localdns_hosts_test.go:72: [334.228s] Testing hosts plugin resolves packages.microsoft.com from /etc/localdns/hosts
+    test_helpers.go:403: [334.270s] VM validation succeeded
+    test_helpers.go:405: [334.270s] ✓ validating VM done (105.1s)
+    test_helpers.go:227: [334.270s] ✓ running scenario done (316.4s)
+    vmss.go:502: [334.613s] extracted VM logs to scenario-logs/Test_Ubuntu2404_LocalDNSHostsPlugin
+    vmss.go:771: [334.875s] vmss "043y-2026-03-06-ubuntu2404localdnshostsplugin" will be retained for debugging purposes, please make sure to manually delete it later
+--- PASS: Test_Ubuntu2404_LocalDNSHostsPlugin (334.90s)
+=== NAME  Test_AzureLinuxV3_LocalDNSHostsPlugin
+    kube.go:77: [335.524s] → waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000 in "default" namespace...
+    kube.go:141: [335.554s] ✓ waiting for pod app=debugnonhost-mariner-tolerated spec.nodeName=rlbx-2026-03-06-azurelinuxv3localdnshostsplugin000000 in "default" namespace done (0.0s)
+    scenario_localdns_hosts_test.go:101: [340.820s] Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...
+    scenario_localdns_hosts_test.go:101: [340.838s] ✓ Node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled found after 1 attempts
+    scenario_localdns_hosts_test.go:101: [340.838s] Verifying Corefile contains hosts plugin configuration...
+    scenario_localdns_hosts_test.go:101: [340.926s] Testing hosts plugin resolves packages.microsoft.com from /etc/localdns/hosts
+    test_helpers.go:403: [341.027s] VM validation succeeded
+    test_helpers.go:405: [341.027s] ✓ validating VM done (112.2s)
+    test_helpers.go:227: [341.027s] ✓ running scenario done (328.8s)
+    vmss.go:502: [341.916s] extracted VM logs to scenario-logs/Test_AzureLinuxV3_LocalDNSHostsPlugin
+    vmss.go:771: [342.391s] vmss "rlbx-2026-03-06-azurelinuxv3localdnshostsplugin" will be retained for debugging purposes, please make sure to manually delete it later
+--- PASS: Test_AzureLinuxV3_LocalDNSHostsPlugin (342.41s)
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    bastionssh.go:304: [741.573s] Attempt 1/5 establishing SSH over bastion to 10.224.0.13
+    vmss.go:327: [743.678s] ✓ creating VMSS npes-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef done (715.2s)
+    test_helpers.go:301: [743.678s] 🔴 FAIL: 
+        	Error Trace:	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:301
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:219
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:86
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/scenario_localdns_hosts_test.go:130
+        	Error:      	Received unexpected error:
+        	            	GET https://management.azure.com/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/providers/Microsoft.Compute/locations/westus2/operations/5f60c459-fd49-4ac5-931b-af1deb37db2f
+        	            	--------------------------------------------------------------------------------
+        	            	RESPONSE 200: 200 OK
+        	            	ERROR CODE: VMExtensionProvisioningError
+        	            	--------------------------------------------------------------------------------
+        	            	{
+        	            	  "startTime": "2026-03-06T03:00:40.3305779+00:00",
+        	            	  "endTime": "2026-03-06T03:12:09.4486591+00:00",
+        	            	  "status": "Failed",
+        	            	  "error": {
+        	            	    "code": "VMExtensionProvisioningError",
+        	            	    "message": "VM has reported a failure when processing extension 'vmssCSE' (publisher 'Microsoft.Azure.Extensions' and type 'CustomScript'). Error message: 'Enable failed: failed to execute command: command terminated with exit status=216\n[stdout]\n{ \"ExitCode\": \"216\", \"Output\": \"ager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 93 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 94 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 95 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 96 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 97 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 98 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 99 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 100 -eq 100 ']'\\n+ return 1\\n+ RESTART_STATUS=1\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ '[' 1 -ne 0 ']'\\n+ echo 'localdns could not be started'\\nlocaldns could not be started\\n+ return 1\\n+ exit 216\", \"Error\": \"\", \"ExecDuration\": \"573\", \"KernelStartTime\": \"Fri 2026-03-06 03:00:58 UTC\", \"CloudInitLocalStartTime\": \"Fri 2026-03-06 03:01:01 UTC\", \"CloudInitStartTime\": \"Fri 2026-03-06 03:01:05 UTC\", \"CloudFinalStartTime\": \"Fri 2026-03-06 03:01:20 UTC\", \"NetworkdStartTime\": \"Fri 2026-03-06 03:01:03 UTC\", \"CSEStartTime\": \"Fri Mar 6 03:02:24 UTC 2026\", \"GuestAgentStartTime\": \"Fri 2026-03-06 03:01:08 UTC\", \"SystemdSummary\": \"Startup finished in 1.482s (kernel) + 20.866s (userspace) = 22.348s \\ngraphical.target reached after 20.205s in userspace\", \"BootDatapoints\": { \"KernelStartTime\": \"Fri 2026-03-06 03:00:58 UTC\", \"CSEStartTime\": \"Fri Mar 6 03:02:24 UTC 2026\", \"GuestAgentStartTime\": \"Fri 2026-03-06 03:01:08 UTC\", \"KubeletStartTime\": \"n/a\" } }\n\n[stderr]\ndate: invalid date ‘n/a’\n'. More information on troubleshooting is available at https://aka.ms/VMExtensionCSELinuxTroubleshoot. ",
+        	            	    "target": "0"
+        	            	  },
+        	            	  "name": "5f60c459-fd49-4ac5-931b-af1deb37db2f"
+        	            	}
+        	            	--------------------------------------------------------------------------------
+        	Test:       	Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+        	Messages:   	create vmss "npes-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef", check scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback for vm logs
+    test_helpers.go:301: [743.678s] 🔴 FAIL:
+    panic.go:636: [743.678s] ✗ preparing AKS node failed (721.8s)
+    panic.go:636: [743.678s] ✗ running scenario failed (731.4s)
+    vmss.go:502: [744.399s] extracted VM logs to scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    vmss.go:771: [744.649s] vmss "npes-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef" will be retained for debugging purposes, please make sure to manually delete it later
+--- FAIL: Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback (744.67s)
+=== NAME  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    bastionssh.go:304: [1014.215s] Attempt 1/5 establishing SSH over bastion to 10.224.0.17
+    vmss.go:327: [1018.159s] ✓ creating VMSS lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless done (989.7s)
+    test_helpers.go:301: [1018.159s] 🔴 FAIL: 
+        	Error Trace:	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:301
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:219
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:86
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/scenario_localdns_hosts_test.go:159
+        	Error:      	Received unexpected error:
+        	            	GET https://management.azure.com/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/providers/Microsoft.Compute/locations/westus2/operations/7e062943-1393-4c11-88d4-2b1f10e68491
+        	            	--------------------------------------------------------------------------------
+        	            	RESPONSE 200: 200 OK
+        	            	ERROR CODE: VMExtensionProvisioningError
+        	            	--------------------------------------------------------------------------------
+        	            	{
+        	            	  "startTime": "2026-03-06T03:00:42.9555876+00:00",
+        	            	  "endTime": "2026-03-06T03:16:54.1489363+00:00",
+        	            	  "status": "Failed",
+        	            	  "error": {
+        	            	    "code": "VMExtensionProvisioningError",
+        	            	    "message": "VM has reported a failure when processing extension 'vmssCSE' (publisher 'Microsoft.Azure.Extensions' and type 'CustomScript'). Error message: 'Enable failed: failed to execute command: command terminated with exit status=1\n[stdout]\n{ \"ExitCode\": \"124\", \"Output\": \"/10-netplan-eth0.network.d/70-localdns.conf.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Successfully removed network drop-in file.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Attempt to reload network configuration.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Reloading network configuration succeeded.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Waiting for localdns (169.254.10.10) to be removed from resolv.conf...\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: DNS configuration refreshed successfully. Current DNS: 168.63.129.16\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Found upstream VNET DNS servers: 168.63.129.16\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Setting up localdns dummy interface with IPs 169.254.10.10 and 169.254.10.11.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Adding iptables rules to skip conntrack for queries to localdns.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Starting localdns: systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- /opt/azure/containers/localdns/binary/coredns -conf /opt/azure/containers/localdns/updated.localdns.corefile -pidfile /run/localdns.pid.\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: maxprocs: Leaving GOMAXPROCS=2: CPU quota undefined\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: health-check.localdns.local.:53 on 169.254.10.10\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: health-check.localdns.local.:53 on 169.254.10.11\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: CoreDNS-1.13.2\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: linux/amd64, go1.25.7, 0233f3e7c600b730426628f2cf9c829d404a181f\\nMar 06 03:16:03 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Localdns PID is 23289.\\nMar 06 03:16:03 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Waiting for localdns to start and be able to serve traffic.\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\", \"Error\": \"\", \"ExecDuration\": \"901\", \"KernelStartTime\": \"Fri 2026-03-06 03:01:01 UTC\", \"CloudInitLocalStartTime\": \"Fri 2026-03-06 03:01:06 UTC\", \"CloudInitStartTime\": \"Fri 2026-03-06 03:01:14 UTC\", \"CloudFinalStartTime\": \"Fri 2026-03-06 03:01:38 UTC\", \"NetworkdStartTime\": \"Fri 2026-03-06 03:01:12 UTC\", \"CSEStartTime\": \"Fri Mar 6 03:01:39 UTC 2026\", \"GuestAgentStartTime\": \"Fri 2026-03-06 03:01:17 UTC\", \"SystemdSummary\": \"Startup finished in 1.782s (kernel) + 36.268s (userspace) = 38.050s \\ngraphical.target reached after 35.270s in userspace\", \"BootDatapoints\": { \"KernelStartTime\": \"Fri 2026-03-06 03:01:01 UTC\", \"CSEStartTime\": \"Fri Mar 6 03:01:39 UTC 2026\", \"GuestAgentStartTime\": \"Fri 2026-03-06 03:01:17 UTC\", \"KubeletStartTime\": \"n/a\" } }\n\n\n[stderr]\ntries)\\\\n+ timeout 30 systemctl daemon-reload\\\\n+ timeout 30 systemctl restart localdns\\\", \\\"Error\\\": \\\"\\\", \\\"ExecDuration\\\": \\\"901\\\", \\\"KernelStartTime\\\": \\\"Fri 2026-03-06 03:01:01 UTC\\\", \\\"CloudInitLocalStartTime\\\": \\\"Fri 2026-03-06 03:01:06 UTC\\\", \\\"CloudInitStartTime\\\": \\\"Fri 2026-03-06 03:01:14 UTC\\\", \\\"CloudFinalStartTime\\\": \\\"Fri 2026-03-06 03:01:38 UTC\\\", \\\"NetworkdStartTime\\\": \\\"Fri 2026-03-06 03:01:12 UTC\\\", \\\"CSEStartTime\\\": \\\"Fri Mar 6 03:01:39 UTC 2026\\\", \\\"GuestAgentStartTime\\\": \\\"Fri 2026-03-06 03:01:17 UTC\\\", \\\"SystemdSummary\\\": \\\"Startup finished in 1.782s (kernel) + 36.268s (userspace) = 38.050s \\\\ngraphical.target reached after 35.270s in userspace\\\", \\\"BootDatapoints\\\": { \\\"KernelStartTime\\\": \\\"Fri 2026-03-06 03:01:01 UTC\\\", \\\"CSEStartTime\\\": \\\"Fri Mar 6 03:01:39 UTC 2026\\\", \\\"GuestAgentStartTime\\\": \\\"Fri 2026-03-06 03:01:17 UTC\\\", \\\"KubeletStartTime\\\": \\\"n/a\\\" } }\\n\"}\n{\"time\":\"2026-03-06T03:16:40.446597335Z\",\"level\":\"ERROR\",\"msg\":\"aks-node-controller failed\",\"error\":\"provision failed: exitCode=124 error= output=\\\"/10-netplan-eth0.network.d/70-localdns.conf.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Successfully removed network drop-in file.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Attempt to reload network configuration.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Reloading network configuration succeeded.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Waiting for localdns (169.254.10.10) to be removed from resolv.conf...\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: DNS configuration refreshed successfully. Current DNS: 168.63.129.16\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Found upstream VNET DNS servers: 168.63.129.16\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Setting up localdns dummy interface with IPs 169.254.10.10 and 169.254.10.11.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Adding iptables rules to skip conntrack for queries to localdns.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Starting localdns: systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- /opt/azure/containers/localdns/binary/coredns -conf /opt/azure/containers/localdns/updated.localdns.corefile -pidfile /run/localdns.pid.\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: maxprocs: Leaving GOMAXPROCS=2: CPU quota undefined\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: health-check.localdns.local.:53 on 169.254.10.10\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: health-check.localdns.local.:53 on 169.254.10.11\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: CoreDNS-1.13.2\\\\nMar 06 03:16:02 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns-coredns[23289]: linux/amd64, go1.25.7, 0233f3e7c600b730426628f2cf9c829d404a181f\\\\nMar 06 03:16:03 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Localdns PID is 23289.\\\\nMar 06 03:16:03 lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 localdns.sh[23238]: Waiting for localdns to start and be able to serve traffic.\\\\n+ sleep 5\\\\n+ for i in $(seq 1 $retries)\\\\n+ timeout 30 systemctl daemon-reload\\\\n+ timeout 30 systemctl restart localdns\\\"\"}\n'. More information on troubleshooting is available at https://aka.ms/VMExtensionCSELinuxTroubleshoot. ",
+        	            	    "target": "0"
+        	            	  },
+        	            	  "name": "7e062943-1393-4c11-88d4-2b1f10e68491"
+        	            	}
+        	            	--------------------------------------------------------------------------------
+        	Test:       	Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+        	Messages:   	create vmss "lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless", check scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless for vm logs
+    test_helpers.go:301: [1018.159s] 🔴 FAIL:
+    panic.go:636: [1018.159s] ✗ preparing AKS node failed (996.3s)
+    panic.go:636: [1018.159s] ✗ running scenario failed (1005.9s)
+    vmss.go:502: [1022.083s] extracted VM logs to scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    vmss.go:771: [1022.355s] vmss "lmah-2026-03-06-ubuntu2204localdnshostspluginscriptless" will be retained for debugging purposes, please make sure to manually delete it later
+--- FAIL: Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless (1022.38s)
+FAIL
+exit status 1
+FAIL	github.com/Azure/agentbaker/e2e	1023.930s

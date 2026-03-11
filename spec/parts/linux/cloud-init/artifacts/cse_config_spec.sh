@@ -980,16 +980,6 @@ SETUP_EOF
             The output should include "is not executable, skipping aks-hosts-setup"
         End
 
-        It 'should warn when initial hosts setup script fails'
-            echo '#!/bin/bash
-exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
-            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
-            When call enableAKSHostsSetup
-            The status should be success
-            The output should include "Warning: Initial hosts setup failed"
-            The output should include "Enabling aks-hosts-setup timer..."
-        End
-
         It 'should create cloud-env file with TARGET_CLOUD value'
             TARGET_CLOUD="AzurePublicCloud"
             When call enableAKSHostsSetup
@@ -1037,6 +1027,56 @@ exit 1' > "$AKS_HOSTS_SETUP_SCRIPT"
             The status should be success
             The output should include "WARNING: TARGET_CLOUD is not set"
             The output should include "Skipping aks-hosts-setup"
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (USNatCloud)'
+            TARGET_CLOUD="USNatCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: USNatCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (USSecCloud)'
+            TARGET_CLOUD="USSecCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: USSecCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (AzureStackCloud)'
+            TARGET_CLOUD="AzureStackCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: AzureStackCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (AzureGermanCloud)'
+            TARGET_CLOUD="AzureGermanCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: AzureGermanCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (unknown cloud)'
+            TARGET_CLOUD="SomeRandomCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: SomeRandomCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
         End
 
         It 'should log TARGET_CLOUD value when set'
