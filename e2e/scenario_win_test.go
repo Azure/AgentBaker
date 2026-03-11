@@ -516,7 +516,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
 					},
 				}
 			},
