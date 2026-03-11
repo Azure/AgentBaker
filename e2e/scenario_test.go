@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -415,6 +417,42 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_HotfixScriptDelivery_Scriptless(t *testing.T) {
+	const hotfixPath = "/opt/azure/containers/test_hotfix.sh"
+	const hotfixContent = "#!/bin/bash\necho 'hotfix applied'"
+	RunScenario(t, &Scenario{
+		Description: "Tests that a hotfixed script delivered via cloud-init write_files is correctly placed on disk alongside scriptless provisioning",
+		Config: Config{
+			Cluster:              ClusterKubenet,
+			VHD:                  config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// Inject a hotfix write_files entry into the cloud-config CustomData.
+				// This simulates what the RP does when delivering hotfixed scripts
+				// via cloud-init write_files alongside the aks-node-controller config.
+				customData := vmss.Properties.VirtualMachineProfile.OSProfile.CustomData
+				if customData == nil {
+					return
+				}
+				decoded, err := base64.StdEncoding.DecodeString(*customData)
+				if err != nil {
+					return
+				}
+				hotfixEntry := fmt.Sprintf("- path: %s\n  permissions: \"0744\"\n  owner: root\n  content: !!binary |\n   %s\n",
+					hotfixPath,
+					base64.StdEncoding.EncodeToString([]byte(hotfixContent)))
+				modified := strings.Replace(string(decoded), "write_files:\n", "write_files:\n"+hotfixEntry, 1)
+				encoded := base64.StdEncoding.EncodeToString([]byte(modified))
+				vmss.Properties.VirtualMachineProfile.OSProfile.CustomData = &encoded
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, hotfixPath, "hotfix applied")
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 		},
 	})
