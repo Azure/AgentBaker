@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Helper functions for tests
+check_file_permissions() {
+    stat -c "%a" "$LOCALDNS_ENV_FILE"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
@@ -879,6 +884,33 @@ providers:
             The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+        End
+
+        # Environment file creation with both corefile variants.
+        It 'should create environment file with all corefile variants for dynamic selection'
+            # Set up both corefile variants
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "corefile with hosts plugin" | base64)
+            LOCALDNS_GENERATED_COREFILE_NO_HOSTS=$(echo -n "corefile without hosts plugin" | base64)
+            SHOULD_ENABLE_HOSTS_PLUGIN="true"
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+
+            When call enableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS=${LOCALDNS_GENERATED_COREFILE}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS=${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
+        End
+
+        # Environment file permissions.
+        It 'should set correct permissions on environment file'
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            When call enableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_ENV_FILE" should be file
+            # Check permissions are 0644 (owner read/write, group read, others read)
+            The result of function check_file_permissions should equal "0644"
         End
     End
 

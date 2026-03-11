@@ -127,15 +127,37 @@ verify_localdns_binary() {
 # Regenerate the localdns corefile from base64 encoded content.
 # This is used when the corefile goes missing.
 regenerate_localdns_corefile() {
-    if [ -z "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
-        echo "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+    # Dynamically select which corefile variant to use based on current state.
+    # This allows localdns to switch from no-hosts to hosts-plugin variant if:
+    # 1. SHOULD_ENABLE_HOSTS_PLUGIN is true, AND
+    # 2. /etc/localdns/hosts now exists and has valid content
+    # This provides recovery from initial CSE timeout scenarios.
+
+    local corefile_to_use
+
+    if [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS:-}" ] && \
+       [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS:-}" ]; then
+        # Both corefile variants are available - do dynamic selection
+        echo "Both corefile variants available, selecting based on current state..."
+        corefile_to_use=$(select_localdns_corefile \
+            "${SHOULD_ENABLE_HOSTS_PLUGIN}" \
+            "${LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS}" \
+            "${LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS}" \
+            "/etc/localdns/hosts")
+    elif [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
+        # Fallback to legacy single corefile for backward compatibility
+        echo "Using legacy LOCALDNS_BASE64_ENCODED_COREFILE (no dynamic selection)"
+        corefile_to_use="${LOCALDNS_BASE64_ENCODED_COREFILE}"
+    else
+        echo "No corefile variants available in environment. Cannot regenerate corefile."
         return 1
     fi
+
     echo "Regenerating localdns corefile at ${LOCALDNS_CORE_FILE}"
 
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     # Decode base64 corefile content and write to corefile.
-    if ! echo "${LOCALDNS_BASE64_ENCODED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
+    if ! echo "${corefile_to_use}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
         echo "Failed to decode and write corefile."
         return 1
     fi
@@ -721,6 +743,72 @@ start_localdns_watchdog() {
         done
     else
         wait "${COREDNS_PID}"
+    fi
+}
+
+select_localdns_corefile() {
+    local should_enable_hosts_plugin="${1}"
+    local corefile_with_hosts="${2}"
+    local corefile_no_hosts="${3}"
+    local hosts_file_path="${4}"
+    local timeout="${5:-0}"  # Default to 0 (no wait) for restarts; can be overridden for initial CSE
+
+    echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${should_enable_hosts_plugin:-<unset>}" >&2
+
+    if [ "${should_enable_hosts_plugin}" = "true" ]; then
+        echo "Hosts plugin is enabled, checking ${hosts_file_path} for content..." >&2
+
+        # During initial CSE, caller may set timeout > 0 to wait for aks-hosts-setup
+        # During restarts, timeout defaults to 0 (check immediately)
+        local wait_interval=5
+        local elapsed=0
+
+        while [ $elapsed -le $timeout ]; do
+            if [ -f "${hosts_file_path}" ]; then
+                if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
+                    if [ $elapsed -eq 0 ]; then
+                        echo "Hosts file has IP mappings, using corefile with hosts plugin" >&2
+                    else
+                        echo "aks-hosts-setup produced hosts file with IP mappings after ${elapsed}s, using corefile with hosts plugin" >&2
+                    fi
+                    echo "${corefile_with_hosts}"
+                    return 0
+                fi
+            fi
+
+            # If timeout is 0, don't wait - check once and fall through
+            if [ $timeout -eq 0 ]; then
+                break
+            fi
+
+            if [ $elapsed -eq 0 ]; then
+                echo "Waiting for aks-hosts-setup to populate ${hosts_file_path} (timeout: ${timeout}s)..." >&2
+            fi
+
+            sleep $wait_interval
+            elapsed=$((elapsed + wait_interval))
+        done
+
+        # Timeout reached or hosts file not ready - check final state and fall back
+        if [ -f "${hosts_file_path}" ]; then
+            if [ $timeout -gt 0 ]; then
+                echo "Warning: ${hosts_file_path} exists but has no IP mappings after ${timeout}s timeout, falling back to corefile without hosts plugin" >&2
+            else
+                echo "Info: ${hosts_file_path} exists but has no IP mappings yet, falling back to corefile without hosts plugin" >&2
+            fi
+        else
+            if [ $timeout -gt 0 ]; then
+                echo "Warning: ${hosts_file_path} does not exist after ${timeout}s timeout, falling back to corefile without hosts plugin" >&2
+            else
+                echo "Info: ${hosts_file_path} does not exist yet, falling back to corefile without hosts plugin" >&2
+            fi
+        fi
+        echo "${corefile_no_hosts}"
+        return 0
+    else
+        echo "Hosts plugin is not enabled (SHOULD_ENABLE_HOSTS_PLUGIN != 'true'), using corefile without hosts plugin" >&2
+        echo "${corefile_no_hosts}"
+        return 0
     fi
 }
 

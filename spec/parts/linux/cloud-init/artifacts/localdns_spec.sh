@@ -78,12 +78,14 @@ EOF
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
-        It 'should fail to regenerate when LOCALDNS_BASE64_ENCODED_COREFILE is not set'
+        It 'should fail to regenerate when no corefile variants are available'
             rm -f "$LOCALDNS_CORE_FILE"
             unset LOCALDNS_BASE64_ENCODED_COREFILE
+            unset LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS
+            unset LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS
             When run regenerate_localdns_corefile
             The status should be failure
-            The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+            The stdout should include "No corefile variants available in environment. Cannot regenerate corefile."
         End
 
         It 'should set correct permissions on regenerated corefile'
@@ -123,12 +125,15 @@ EOF
         End
 
         It 'should return failure if localdns corefile does not exist and regeneration fails'
-            rm -r "$LOCALDNS_CORE_FILE"
+            rm -f "$LOCALDNS_CORE_FILE"
+            unset LOCALDNS_BASE64_ENCODED_COREFILE
+            unset LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS
+            unset LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS
             When run verify_localdns_corefile
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
-            The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+            The stdout should include "No corefile variants available in environment. Cannot regenerate corefile."
         End
 
         It 'should return failure if localdns corefile is empty and regeneration fails'
