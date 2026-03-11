@@ -1195,6 +1195,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetBootstrapProfileContainerRegistryServer": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
 		},
+		// Used for internal e2e test only, won't be set by RP or used in production.
+		"GetNetworkIsolatedClusterTestMode": func() bool {
+			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressTestMode()
+		},
 		"GetMCRRepositoryBase": func() string {
 			if config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase == "" {
 				return "mcr.microsoft.com"

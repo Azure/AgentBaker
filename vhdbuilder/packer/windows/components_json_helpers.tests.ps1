@@ -38,12 +38,16 @@ Describe 'Tests of GetAllCachedThings ' {
         $windowsSettingsTestString = '{
 "WindowsBaseVersions": {
 "2019": {
+  "os_disk_size": "35",
+  "base_image_publisher": "MicrosoftWindowsServer",
+  "base_image_offer": "WindowsServer",
   "base_image_sku": "2019-Datacenter-Core-smalldisk",
   "windows_image_name": "windows-2019",
   "base_image_version": "17763.6893.250210",
   "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
 },
  "23H2-gen2": {
+  "os_disk_size": "40",
   "base_image_sku": "2019-Datacenter-Core-smalldisk",
   "windows_image_name": "windows-2019",
   "base_image_version": "17763.6893.250210",
@@ -160,6 +164,54 @@ Describe 'Tests of GetAllCachedThings ' {
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
         $allpackages | Should -Be ( $allpackages | Sort-Object )
+    }
+
+    it 'has the base image sku in it' {
+        $windowsSku = "2019"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows 2019 base image sku: 2019-Datacenter-Core-smalldisk"
+    }
+
+    it 'has the os disk size in it' {
+        $windowsSku = "2019"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows 2019 os disk size: 35"
+    }
+
+    it 'has the base image publisher when set' {
+        $windowsSku = "2019"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows 2019 base image publisher: MicrosoftWindowsServer"
+    }
+
+    it 'has the base image offer when set' {
+        $windowsSku = "2019"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows 2019 base image offer: WindowsServer"
+    }
+
+    it 'does not have base image publisher when not set' {
+        $windowsSku = "23H2-gen2"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        ($allpackages | Where-Object { $_ -like "Windows 23H2-gen2 base image publisher:*" }) | Should -BeNullOrEmpty
+    }
+
+    it 'does not have base image offer when not set' {
+        $windowsSku = "23H2-gen2"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        ($allpackages | Where-Object { $_ -like "Windows 23H2-gen2 base image offer:*" }) | Should -BeNullOrEmpty
     }
 }
 
