@@ -1,0 +1,1123 @@
+2026-03-04T23:42:48.9328050Z ##[section]Starting: Build VHD
+2026-03-04T23:42:48.9334919Z ==============================================================================
+2026-03-04T23:42:48.9335213Z Task         : Azure CLI
+2026-03-04T23:42:48.9335369Z Description  : Run Azure CLI commands against an Azure subscription in a PowerShell Core/Shell script when running on Linux agent or PowerShell/PowerShell Core/Batch script when running on Windows agent.
+2026-03-04T23:42:48.9335668Z Version      : 2.270.0
+2026-03-04T23:42:48.9335803Z Author       : Microsoft Corporation
+2026-03-04T23:42:48.9335963Z Help         : https://docs.microsoft.com/azure/devops/pipelines/tasks/deploy/azure-cli
+2026-03-04T23:42:48.9336150Z ==============================================================================
+2026-03-04T23:42:49.2631085Z [command]/usr/bin/az version
+2026-03-04T23:43:14.3982902Z {
+2026-03-04T23:43:14.3983827Z   "azure-cli": "2.82.0",
+2026-03-04T23:43:14.3984216Z   "azure-cli-core": "2.82.0",
+2026-03-04T23:43:14.3984573Z   "azure-cli-telemetry": "1.1.0",
+2026-03-04T23:43:14.3984997Z   "extensions": {
+2026-03-04T23:43:14.3985352Z     "azure-devops": "1.0.2"
+2026-03-04T23:43:14.3985664Z   }
+2026-03-04T23:43:14.3985981Z }
+2026-03-04T23:43:14.4004517Z Setting AZURE_CONFIG_DIR env variable to: /mnt/vss/_work/_temp/.azclitask
+2026-03-04T23:43:14.4011287Z Setting active cloud to: AzureCloud
+2026-03-04T23:43:14.4015714Z [command]/usr/bin/az cloud set -n AzureCloud
+2026-03-04T23:43:17.1533189Z [command]/usr/bin/az login --service-principal -u *** --tenant 70a036f6-8e4d-4615-bad6-149c02e7720d --allow-no-subscriptions --federated-token ***
+2026-03-04T23:43:18.0874945Z [
+2026-03-04T23:43:18.0875836Z   {
+2026-03-04T23:43:18.0877026Z     "cloudName": "AzureCloud",
+2026-03-04T23:43:18.0877915Z     "homeTenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:43:18.0878667Z     "id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:43:18.0879343Z     "isDefault": true,
+2026-03-04T23:43:18.0879950Z     "managedByTenants": [],
+2026-03-04T23:43:18.0881142Z     "name": "AKS NODE SIG - CI",
+2026-03-04T23:43:18.0882833Z     "state": "Enabled",
+2026-03-04T23:43:18.0883265Z     "tenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:43:18.0883671Z     "user": {
+2026-03-04T23:43:18.0884147Z       "name": "***",
+2026-03-04T23:43:18.0884523Z       "type": "servicePrincipal"
+2026-03-04T23:43:18.0884878Z     }
+2026-03-04T23:43:18.0885566Z   }
+2026-03-04T23:43:18.0885916Z ]
+2026-03-04T23:43:18.0886365Z [command]/usr/bin/az account set --subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:43:18.6072238Z [command]/usr/bin/bash /mnt/vss/_work/_temp/azureclitaskscript1772667769259.sh
+2026-03-04T23:43:18.6453567Z Using the subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:43:22.9232237Z [1;36mInstalled plugin github.com/hashicorp/azure v2.5.0 in "/home/cloudtest/.config/packer/plugins/github.com/hashicorp/azure/packer-plugin-azure_v2.5.0_x5.0_linux_amd64"[0m
+2026-03-04T23:43:23.0418841Z Packer v1.14.3
+2026-03-04T23:43:23.0420814Z
+2026-03-04T23:43:23.0421525Z Your version of Packer is out of date! The latest version
+2026-03-04T23:43:23.0422028Z is 1.15.0. You can update by downloading from www.packer.io/downloads
+2026-03-04T23:43:23.1624671Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:43:23.1672291Z Installing previous version of azcli in order to mitigate az compute bug
+2026-03-04T23:43:23.1674414Z Sourcing cse_helpers_distro.sh for Ubuntu
+2026-03-04T23:43:23.1711707Z Overriding azcli version to 2.77.0
+2026-03-04T23:43:23.2020315Z Enforcing az cli version to 2.77.0 for jammy
+2026-03-04T23:43:23.4686161Z Reading package lists...
+2026-03-04T23:43:23.7151743Z Building dependency tree...
+2026-03-04T23:43:23.7162539Z Reading state information...
+2026-03-04T23:43:23.9535640Z The following packages will be DOWNGRADED:
+2026-03-04T23:43:23.9543083Z   azure-cli
+2026-03-04T23:43:24.0005517Z 0 upgraded, 0 newly installed, 1 downgraded, 0 to remove and 114 not upgraded.
+2026-03-04T23:43:24.0006691Z Need to get 53.8 MB of archives.
+2026-03-04T23:43:24.0007913Z After this operation, 9730 kB disk space will be freed.
+2026-03-04T23:43:24.0008635Z Get:1 https://packages.microsoft.com/repos/azure-cli jammy/main amd64 azure-cli amd64 2.77.0-1~jammy [53.8 MB]
+2026-03-04T23:43:24.7495638Z Fetched 53.8 MB in 0s (129 MB/s)
+2026-03-04T23:43:24.8796930Z dpkg: warning: downgrading azure-cli from 2.82.0-1~jammy to 2.77.0-1~jammy
+2026-03-04T23:43:24.8866835Z (Reading database ...
+2026-03-04T23:43:24.8868214Z (Reading database ... 5%
+2026-03-04T23:43:24.8868883Z (Reading database ... 10%
+2026-03-04T23:43:24.8869392Z (Reading database ... 15%
+2026-03-04T23:43:24.8870019Z (Reading database ... 20%
+2026-03-04T23:43:24.8870633Z (Reading database ... 25%
+2026-03-04T23:43:24.8871221Z (Reading database ... 30%
+2026-03-04T23:43:24.8871837Z (Reading database ... 35%
+2026-03-04T23:43:24.8872409Z (Reading database ... 40%
+2026-03-04T23:43:24.8873008Z (Reading database ... 45%
+2026-03-04T23:43:24.8873572Z (Reading database ... 50%
+2026-03-04T23:43:24.8909496Z (Reading database ... 55%
+2026-03-04T23:43:24.8943430Z (Reading database ... 60%
+2026-03-04T23:43:24.8962188Z (Reading database ... 65%
+2026-03-04T23:43:24.9071910Z (Reading database ... 70%
+2026-03-04T23:43:24.9112231Z (Reading database ... 75%
+2026-03-04T23:43:24.9181566Z (Reading database ... 80%
+2026-03-04T23:43:24.9447618Z (Reading database ... 85%
+2026-03-04T23:43:24.9800905Z (Reading database ... 90%
+2026-03-04T23:43:24.9914251Z (Reading database ... 95%
+2026-03-04T23:43:24.9915081Z (Reading database ... 100%
+2026-03-04T23:43:24.9915473Z (Reading database ... 262192 files and directories currently installed.)
+2026-03-04T23:43:25.0034410Z Preparing to unpack .../azure-cli_2.77.0-1~jammy_amd64.deb ...
+2026-03-04T23:43:25.0362720Z Unpacking azure-cli (2.77.0-1~jammy) over (2.82.0-1~jammy) ...
+2026-03-04T23:43:38.2407602Z Setting up azure-cli (2.77.0-1~jammy) ...
+2026-03-04T23:43:43.2338591Z Successfully installed az cli version 2.77.0
+2026-03-04T23:43:43.2392911Z The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist
+2026-03-04T23:43:43.3050353Z Change publisher base image version to 22.04.202510230 for 22_04-lts-gen2
+2026-03-04T23:43:43.3051523Z POOL_NAME is set to nodesig-tme-pool
+2026-03-04T23:43:43.3096634Z VNET_RG_NAME set to: nodesig-tme-westus-packer-vnet-rg
+2026-03-04T23:43:43.3097487Z CAPTURED_SIG_VERSION set to: 1.1772667823.16585
+2026-03-04T23:43:43.3098102Z Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:43:43.3098449Z Gallery Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:43:44.2519367Z Using provided SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:43:44.2539187Z No input for SIG_IMAGE_NAME was provided, defaulting to: 2204gen2containerd
+2026-03-04T23:43:44.2540402Z Using finalized SIG_IMAGE_NAME: 2204gen2containerd, SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:43:44.2541851Z SIG existence checking for linuxVhdMode
+2026-03-04T23:43:45.4010907Z Gallery PackerSigGalleryEastUS exists in the resource group aksvhdtmebuildrg location eastus
+2026-03-04T23:43:45.4012152Z Gallery PackerSigGalleryEastUS is in a Succeeded state
+2026-03-04T23:43:46.3509936Z Image definition 2204gen2containerd existing in gallery PackerSigGalleryEastUS resource group aksvhdtmebuildrg
+2026-03-04T23:43:46.3511484Z AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build.
+2026-03-04T23:43:46.3512485Z UA_TOKEN not used for ubuntu 20.04, and FIPS
+2026-03-04T23:43:46.3535983Z packer settings:
+2026-03-04T23:43:46.3789435Z {
+2026-03-04T23:43:46.3790452Z   "subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:43:46.3791819Z   "gallery_subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:43:46.3792730Z   "resource_group_name": "aksvhdtmebuildrg",
+2026-03-04T23:43:46.3793749Z   "location": "westus",
+2026-03-04T23:43:46.3795584Z   "storage_account_name": "vhdbuildereastustme",
+2026-03-04T23:43:46.3796327Z   "vm_size": "Standard_D16ds_v5",
+2026-03-04T23:43:46.3797190Z   "create_time": "1772667823",
+2026-03-04T23:43:46.3798639Z   "img_version": "22.04.202510230",
+2026-03-04T23:43:46.3799377Z   "SKIP_EXTENSION_CHECK": "",
+2026-03-04T23:43:46.3800417Z   "INSTALL_OPEN_SSH_SERVER": "",
+2026-03-04T23:43:46.3801069Z   "vhd_build_timestamp": "",
+2026-03-04T23:43:46.3801779Z   "windows_image_publisher": "MicrosoftWindowsServer",
+2026-03-04T23:43:46.3802486Z   "windows_image_offer": "WindowsServer",
+2026-03-04T23:43:46.3803081Z   "windows_image_sku": "",
+2026-03-04T23:43:46.3804594Z   "windows_image_version": "",
+2026-03-04T23:43:46.3806117Z   "windows_image_url": "",
+2026-03-04T23:43:46.3807638Z   "imported_image_name": "",
+2026-03-04T23:43:46.3809334Z   "sig_image_name": "2204gen2containerd",
+2026-03-04T23:43:46.3809933Z   "sig_gallery_name": "PackerSigGalleryEastUS",
+2026-03-04T23:43:46.3810528Z   "captured_sig_version": "1.1772667823.16585",
+2026-03-04T23:43:46.3811125Z   "os_disk_size_gb": "",
+2026-03-04T23:43:46.3811658Z   "nano_image_url": "",
+2026-03-04T23:43:46.3812093Z   "core_image_url": "",
+2026-03-04T23:43:46.3812535Z   "windows_private_packages_url": "",
+2026-03-04T23:43:46.3812997Z   "windows_sigmode_source_subscription_id": "",
+2026-03-04T23:43:46.3813458Z   "windows_sigmode_source_resource_group_name": "",
+2026-03-04T23:43:46.3813937Z   "windows_sigmode_source_gallery_name": "",
+2026-03-04T23:43:46.3814431Z   "windows_sigmode_source_image_name": "",
+2026-03-04T23:43:46.3814885Z   "windows_sigmode_source_image_version": "",
+2026-03-04T23:43:46.3815430Z   "vnet_name": "nodesig-packer-vnet-westus",
+2026-03-04T23:43:46.3815872Z   "subnet_name": "packer",
+2026-03-04T23:43:46.3816350Z   "vnet_resource_group_name": "nodesig-tme-westus-packer-vnet-rg",
+2026-03-04T23:43:46.3816818Z   "msi_resource_strings": "",
+2026-03-04T23:43:46.3817428Z   "private_packages_url": "",
+2026-03-04T23:43:46.3817900Z   "build_date": ""
+2026-03-04T23:43:46.3818288Z }
+2026-03-04T23:43:46.3818702Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:43:46.3836478Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:43:46.3859403Z linuxVhdMode: Generating prefetch scripts
+2026-03-04T23:43:46.3904652Z /mnt/vss/_work/1/s/vhdbuilder/prefetch /mnt/vss/_work/1/s
+2026-03-04T23:43:52.9800857Z generated container image prefetch script at ../packer/prefetch.sh:
+2026-03-04T23:43:52.9801798Z #!/usr/bin/env bash
+2026-03-04T23:43:52.9802694Z set -eux
+2026-03-04T23:43:52.9802914Z
+2026-03-04T23:43:52.9803301Z prefetch() {
+2026-03-04T23:43:52.9803660Z     local image=$1
+2026-03-04T23:43:52.9804059Z     local files=$2
+2026-03-04T23:43:52.9804404Z
+2026-03-04T23:43:52.9804727Z     mount_dir=$(mktemp -d)
+2026-03-04T23:43:52.9805104Z     ctr -n k8s.io images mount "$image" "$mount_dir"
+2026-03-04T23:43:52.9805280Z
+2026-03-04T23:43:52.9805645Z     for f in $files; do
+2026-03-04T23:43:52.9806004Z         echo "prefetching $f in $image"
+2026-03-04T23:43:52.9806347Z         path="${mount_dir}${f}"
+2026-03-04T23:43:52.9806694Z         stat -c %s "$path"
+2026-03-04T23:43:52.9807046Z         cat "$path" > /dev/null
+2026-03-04T23:43:52.9807586Z     done
+2026-03-04T23:43:52.9807766Z
+2026-03-04T23:43:52.9808162Z     ctr -n k8s.io images unmount "$mount_dir"
+2026-03-04T23:43:52.9808510Z }
+2026-03-04T23:43:52.9808903Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.50" "/dropgz"
+2026-03-04T23:43:52.9809346Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.35-0" "/dropgz"
+2026-03-04T23:43:52.9809769Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0" "/dropgz"
+2026-03-04T23:43:52.9810213Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.50" "/usr/local/bin/azure-cns"
+2026-03-04T23:43:52.9810706Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.35-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:43:52.9811150Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:43:52.9811589Z prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1" "/dropgz"
+2026-03-04T23:43:52.9935083Z /mnt/vss/_work/1/s
+2026-03-04T23:43:52.9966111Z Building aks-node-controller binaries
+2026-03-04T23:43:53.0011194Z /mnt/vss/_work/1/s/aks-node-controller /mnt/vss/_work/1/s
+2026-03-04T23:43:53.0199027Z go: downloading google.golang.org/protobuf v1.36.6
+2026-03-04T23:43:53.3004328Z go: downloading github.com/stretchr/testify v1.11.1
+2026-03-04T23:43:53.3051028Z go: downloading github.com/blang/semver v3.5.1+incompatible
+2026-03-04T23:43:53.3112519Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
+2026-03-04T23:43:53.3168752Z go: downloading github.com/google/go-cmp v0.7.0
+2026-03-04T23:43:53.3318650Z go: downloading github.com/fsnotify/fsnotify v1.8.0
+2026-03-04T23:43:53.3505222Z go: downloading github.com/Azure/go-autorest/autorest/to v0.4.1
+2026-03-04T23:43:53.3506708Z go: downloading github.com/coreos/butane v0.25.1
+2026-03-04T23:43:53.3580207Z go: downloading github.com/Azure/go-autorest v14.2.0+incompatible
+2026-03-04T23:43:53.3712354Z go: downloading gopkg.in/yaml.v3 v3.0.1
+2026-03-04T23:43:53.3952835Z go: downloading github.com/Masterminds/semver/v3 v3.4.0
+2026-03-04T23:43:53.4106980Z go: downloading github.com/pkg/errors v0.9.1
+2026-03-04T23:43:53.4227012Z go: downloading github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+2026-03-04T23:43:53.4398763Z go: downloading github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+2026-03-04T23:43:53.4530786Z go: downloading golang.org/x/sys v0.40.0
+2026-03-04T23:43:53.4543541Z go: downloading github.com/coreos/go-systemd/v22 v22.5.0
+2026-03-04T23:43:53.4544373Z go: downloading github.com/flatcar/ignition/v2 v2.0.0-20250903113522-05b8a773288c
+2026-03-04T23:43:53.6229136Z go: downloading github.com/coreos/vcontext v0.0.0-20230201181013-d72178a18687
+2026-03-04T23:43:53.6407505Z go: downloading github.com/coreos/go-semver v0.3.1
+2026-03-04T23:43:53.6463218Z go: downloading github.com/vincent-petithory/dataurl v1.0.0
+2026-03-04T23:43:53.6596053Z go: downloading github.com/aws/aws-sdk-go-v2 v1.38.2
+2026-03-04T23:43:53.6597710Z go: downloading github.com/clarketm/json v1.17.1
+2026-03-04T23:43:53.6872915Z go: downloading github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb
+2026-03-04T23:44:11.2769074Z ok  	github.com/Azure/agentbaker/aks-node-controller	0.277s
+2026-03-04T23:44:11.2769944Z ok  	github.com/Azure/agentbaker/aks-node-controller/helpers	0.008s
+2026-03-04T23:44:11.7685785Z 2026/03/04 23:44:11 port range end value should be greater than the start value: 110 >= 90
+2026-03-04T23:44:11.7686627Z 2026/03/04 23:44:11 port range end value should be greater than the start value: 80 >= 80
+2026-03-04T23:44:11.7687365Z 2026/03/04 23:44:11 error converting port range end value to int: strconv.Atoi: parsing "abc": invalid syntax
+2026-03-04T23:44:11.7688030Z 2026/03/04 23:44:11 port range values should be greater than 0: -1
+2026-03-04T23:44:11.7688568Z --- FAIL: Test_getLocalDNSCorefileBase64 (0.00s)
+2026-03-04T23:44:11.7689148Z     --- FAIL: Test_getLocalDNSCorefileBase64/LocalDNSProfile_enabled_returns_base64_string (0.00s)
+2026-03-04T23:44:11.7691660Z         helper_test.go:1662: expected decoded corefile to contain "# ***********************************************************************************\n# WARNING: Changes to this file will be overwritten and not persisted.\n# ***********************************************************************************\n# whoami (used for health check of DNS)\nhealth-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    whoami\n}\n# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).\n.:53 {\n    log\n    bind 169.254.10.10\n    forward . 168.63.129.16 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s immediate\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}\ncluster.local:53 {\n    errors\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        force_tcp\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\ntestdomain456.com:53 {\n    log\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s verify\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\n# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).\n.:53 {\n    errors\n    bind 169.254.10.11\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 2000\n    }\n    ready 169.254.10.11:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 72000s verify\n        servfail 0\n    }\n    loop\n    nsid localdns-pod\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}", got:
+2026-03-04T23:44:11.7694276Z             # ***********************************************************************************
+2026-03-04T23:44:11.7694871Z             # WARNING: Changes to this file will be overwritten and not persisted.
+2026-03-04T23:44:11.7695457Z             # ***********************************************************************************
+2026-03-04T23:44:11.7695992Z             # whoami (used for health check of DNS)
+2026-03-04T23:44:11.7696539Z             health-check.localdns.local:53 {
+2026-03-04T23:44:11.7697048Z                 bind 169.254.10.10 169.254.10.11
+2026-03-04T23:44:11.7698180Z                 whoami
+2026-03-04T23:44:11.7698674Z             }
+2026-03-04T23:44:11.7699654Z             # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+2026-03-04T23:44:11.7700374Z             .:53 {
+2026-03-04T23:44:11.7700842Z                 log
+2026-03-04T23:44:11.7701432Z                 bind 169.254.10.10
+2026-03-04T23:44:11.7702032Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:44:11.7702547Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:44:11.7703029Z                     fallthrough
+2026-03-04T23:44:11.7703484Z                 }
+2026-03-04T23:44:11.7703969Z                 forward . 168.63.129.16 {
+2026-03-04T23:44:11.7704534Z                     policy sequential
+2026-03-04T23:44:11.7705012Z                     max_concurrent 1000
+2026-03-04T23:44:11.7705470Z                 }
+2026-03-04T23:44:11.7706298Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:11.7706764Z                 cache 3600 {
+2026-03-04T23:44:11.7707461Z                     success 9984
+2026-03-04T23:44:11.7707966Z                     denial 9984
+2026-03-04T23:44:11.7708469Z                     serve_stale 3600s immediate
+2026-03-04T23:44:11.7708923Z                     servfail 0
+2026-03-04T23:44:11.7709389Z                 }
+2026-03-04T23:44:11.7709811Z                 loop
+2026-03-04T23:44:11.7710540Z                 nsid localdns
+2026-03-04T23:44:11.7711021Z                 prometheus :9253
+2026-03-04T23:44:11.7711537Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:44:11.7712050Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:44:11.7712531Z                     rcode NXDOMAIN
+2026-03-04T23:44:11.7713015Z                     fallthrough
+2026-03-04T23:44:11.7713598Z                 }
+2026-03-04T23:44:11.7714847Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:44:11.7715562Z                     rcode NXDOMAIN
+2026-03-04T23:44:11.7716131Z                 }
+2026-03-04T23:44:11.7716664Z             }
+2026-03-04T23:44:11.7717231Z             cluster.local:53 {
+2026-03-04T23:44:11.7717932Z                 errors
+2026-03-04T23:44:11.7718487Z                 bind 169.254.10.10
+2026-03-04T23:44:11.7719217Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:11.7719834Z                     force_tcp
+2026-03-04T23:44:11.7720384Z                     policy sequential
+2026-03-04T23:44:11.7720956Z                     max_concurrent 1000
+2026-03-04T23:44:11.7721493Z                 }
+2026-03-04T23:44:11.7722423Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:11.7723027Z                 cache 3600 {
+2026-03-04T23:44:11.7723590Z                     success 9984
+2026-03-04T23:44:11.7724159Z                     denial 9984
+2026-03-04T23:44:11.7724733Z                     servfail 0
+2026-03-04T23:44:11.7725259Z                 }
+2026-03-04T23:44:11.7725802Z                 loop
+2026-03-04T23:44:11.7726354Z                 nsid localdns
+2026-03-04T23:44:11.7726922Z                 prometheus :9253
+2026-03-04T23:44:11.7727720Z             }
+2026-03-04T23:44:11.7728298Z             testdomain456.com:53 {
+2026-03-04T23:44:11.7728883Z                 log
+2026-03-04T23:44:11.7729463Z                 bind 169.254.10.10
+2026-03-04T23:44:11.7730034Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:11.7730630Z                     policy sequential
+2026-03-04T23:44:11.7731221Z                     max_concurrent 1000
+2026-03-04T23:44:11.7731755Z                 }
+2026-03-04T23:44:11.7732364Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:11.7732918Z                 cache 3600 {
+2026-03-04T23:44:11.7733486Z                     success 9984
+2026-03-04T23:44:11.7734047Z                     denial 9984
+2026-03-04T23:44:11.7734623Z                     serve_stale 3600s verify
+2026-03-04T23:44:11.7735201Z                     servfail 0
+2026-03-04T23:44:11.7735749Z                 }
+2026-03-04T23:44:11.7736472Z                 loop
+2026-03-04T23:44:11.7737048Z                 nsid localdns
+2026-03-04T23:44:11.7737736Z                 prometheus :9253
+2026-03-04T23:44:11.7738300Z             }
+2026-03-04T23:44:11.7739213Z             # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+2026-03-04T23:44:11.7739802Z             .:53 {
+2026-03-04T23:44:11.7740365Z                 errors
+2026-03-04T23:44:11.7740947Z                 bind 169.254.10.11
+2026-03-04T23:44:11.7741640Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:44:11.7742246Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:44:11.7742823Z                     fallthrough
+2026-03-04T23:44:11.7743358Z                 }
+2026-03-04T23:44:11.7744310Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:11.7744851Z                     policy sequential
+2026-03-04T23:44:11.7745421Z                     max_concurrent 2000
+2026-03-04T23:44:11.7746118Z                 }
+2026-03-04T23:44:11.7746773Z                 ready 169.254.10.11:8181
+2026-03-04T23:44:11.7747503Z                 cache 3600 {
+2026-03-04T23:44:11.7748081Z                     success 9984
+2026-03-04T23:44:11.7748685Z                     denial 9984
+2026-03-04T23:44:11.7749280Z                     serve_stale 72000s verify
+2026-03-04T23:44:11.7749831Z                     servfail 0
+2026-03-04T23:44:11.7750373Z                 }
+2026-03-04T23:44:11.7750932Z                 loop
+2026-03-04T23:44:11.7751507Z                 nsid localdns-pod
+2026-03-04T23:44:11.7752091Z                 prometheus :9253
+2026-03-04T23:44:11.7752721Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:44:11.7753336Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:44:11.7754053Z                     rcode NXDOMAIN
+2026-03-04T23:44:11.7754605Z
+2026-03-04T23:44:11.7755374Z                     fallthrough
+2026-03-04T23:44:11.7755934Z
+2026-03-04T23:44:11.7756599Z                 }
+2026-03-04T23:44:11.7757227Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:44:11.7758127Z                     rcode NXDOMAIN
+2026-03-04T23:44:11.7758675Z                 }
+2026-03-04T23:44:11.7759220Z             }
+2026-03-04T23:44:11.7759749Z FAIL
+2026-03-04T23:44:11.7760408Z FAIL	github.com/Azure/agentbaker/aks-node-controller/parser	0.023s
+2026-03-04T23:44:11.7761038Z ?   	github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1	[no test files]
+2026-03-04T23:44:27.5570403Z ok  	github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils	15.806s
+2026-03-04T23:44:27.5571480Z ?   	github.com/Azure/agentbaker/aks-node-controller/utils	[no test files]
+2026-03-04T23:44:27.5571933Z FAIL
+2026-03-04T23:44:27.6003607Z make[1]: *** [packer.mk:131: build-aks-node-controller] Error 1
+2026-03-04T23:44:27.6004746Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:27.6011141Z make: *** [packer.mk:93: run-packer] Error 2
+2026-03-04T23:44:27.6026654Z
+2026-03-04T23:44:27.6070586Z ##[error]Script failed with exit code: 2
+2026-03-04T23:44:27.6080418Z [command]/usr/bin/az account clear
+2026-03-04T23:44:28.3503502Z ##[warning]RetryHelper encountered task failure, will retry (attempt #: 1 out of 3) after 1000 ms
+2026-03-04T23:44:29.5640853Z [command]/usr/bin/az version
+2026-03-04T23:44:32.0429730Z {
+2026-03-04T23:44:32.0430364Z   "azure-cli": "2.77.0",
+2026-03-04T23:44:32.0430635Z   "azure-cli-core": "2.77.0",
+2026-03-04T23:44:32.0430932Z   "azure-cli-telemetry": "1.1.0",
+2026-03-04T23:44:32.0431198Z   "extensions": {
+2026-03-04T23:44:32.0431478Z     "azure-devops": "1.0.2"
+2026-03-04T23:44:32.0431725Z   }
+2026-03-04T23:44:32.0431975Z }
+2026-03-04T23:44:32.0454930Z Setting AZURE_CONFIG_DIR env variable to: /mnt/vss/_work/_temp/.azclitask
+2026-03-04T23:44:32.0462797Z Setting active cloud to: AzureCloud
+2026-03-04T23:44:32.0468073Z [command]/usr/bin/az cloud set -n AzureCloud
+2026-03-04T23:44:32.5946788Z [command]/usr/bin/az login --service-principal -u *** --tenant 70a036f6-8e4d-4615-bad6-149c02e7720d --allow-no-subscriptions --federated-token ***
+2026-03-04T23:44:33.4376700Z [
+2026-03-04T23:44:33.4377710Z   {
+2026-03-04T23:44:33.4378178Z     "cloudName": "AzureCloud",
+2026-03-04T23:44:33.4378598Z     "homeTenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:44:33.4379140Z     "id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:44:33.4379688Z     "isDefault": true,
+2026-03-04T23:44:33.4380185Z     "managedByTenants": [],
+2026-03-04T23:44:33.4380644Z     "name": "AKS NODE SIG - CI",
+2026-03-04T23:44:33.4381041Z     "state": "Enabled",
+2026-03-04T23:44:33.4381531Z     "tenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:44:33.4381996Z     "user": {
+2026-03-04T23:44:33.4382613Z       "name": "***",
+2026-03-04T23:44:33.4383135Z       "type": "servicePrincipal"
+2026-03-04T23:44:33.4383605Z     }
+2026-03-04T23:44:33.4384022Z   }
+2026-03-04T23:44:33.4384419Z ]
+2026-03-04T23:44:33.4385013Z [command]/usr/bin/az account set --subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:33.9609584Z [command]/usr/bin/bash /mnt/vss/_work/_temp/azureclitaskscript1772667869559.sh
+2026-03-04T23:44:33.9706662Z Using the subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:34.8223159Z Packer v1.14.3
+2026-03-04T23:44:34.8223654Z
+2026-03-04T23:44:34.8224115Z Your version of Packer is out of date! The latest version
+2026-03-04T23:44:34.8224605Z is 1.15.0. You can update by downloading from www.packer.io/downloads
+2026-03-04T23:44:34.9402927Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:34.9446471Z Installing previous version of azcli in order to mitigate az compute bug
+2026-03-04T23:44:34.9447469Z Sourcing cse_helpers_distro.sh for Ubuntu
+2026-03-04T23:44:34.9485695Z Overriding azcli version to 2.77.0
+2026-03-04T23:44:34.9795076Z Enforcing az cli version to 2.77.0 for jammy
+2026-03-04T23:44:35.2504885Z Reading package lists...
+2026-03-04T23:44:35.5009521Z Building dependency tree...
+2026-03-04T23:44:35.5019880Z Reading state information...
+2026-03-04T23:44:35.7047028Z azure-cli is already the newest version (2.77.0-1~jammy).
+2026-03-04T23:44:35.7048097Z 0 upgraded, 0 newly installed, 0 to remove and 114 not upgraded.
+2026-03-04T23:44:36.0314902Z Successfully installed az cli version 2.77.0
+2026-03-04T23:44:36.0358460Z The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist
+2026-03-04T23:44:36.0606644Z Change publisher base image version to 22.04.202510230 for 22_04-lts-gen2
+2026-03-04T23:44:36.0609218Z POOL_NAME is set to nodesig-tme-pool
+2026-03-04T23:44:36.0653775Z VNET_RG_NAME set to: nodesig-tme-westus-packer-vnet-rg
+2026-03-04T23:44:36.0655942Z CAPTURED_SIG_VERSION set to: 1.1772667876.5637
+2026-03-04T23:44:36.0656545Z Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:36.0657061Z Gallery Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:36.8141454Z Using provided SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:44:36.8164278Z No input for SIG_IMAGE_NAME was provided, defaulting to: 2204gen2containerd
+2026-03-04T23:44:36.8166051Z Using finalized SIG_IMAGE_NAME: 2204gen2containerd, SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:44:36.8167203Z SIG existence checking for linuxVhdMode
+2026-03-04T23:44:37.7481195Z Gallery PackerSigGalleryEastUS exists in the resource group aksvhdtmebuildrg location eastus
+2026-03-04T23:44:37.7482446Z Gallery PackerSigGalleryEastUS is in a Succeeded state
+2026-03-04T23:44:38.7822753Z Image definition 2204gen2containerd existing in gallery PackerSigGalleryEastUS resource group aksvhdtmebuildrg
+2026-03-04T23:44:38.7824209Z AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build.
+2026-03-04T23:44:38.7825187Z UA_TOKEN not used for ubuntu 20.04, and FIPS
+2026-03-04T23:44:38.7853878Z packer settings:
+2026-03-04T23:44:38.8101154Z {
+2026-03-04T23:44:38.8102099Z   "subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:44:38.8102715Z   "gallery_subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:44:38.8103741Z   "resource_group_name": "aksvhdtmebuildrg",
+2026-03-04T23:44:38.8104228Z   "location": "westus",
+2026-03-04T23:44:38.8104631Z   "storage_account_name": "vhdbuildereastustme",
+2026-03-04T23:44:38.8105017Z   "vm_size": "Standard_D16ds_v5",
+2026-03-04T23:44:38.8105451Z   "create_time": "1772667876",
+2026-03-04T23:44:38.8105880Z   "img_version": "22.04.202510230",
+2026-03-04T23:44:38.8106291Z   "SKIP_EXTENSION_CHECK": "",
+2026-03-04T23:44:38.8106792Z   "INSTALL_OPEN_SSH_SERVER": "",
+2026-03-04T23:44:38.8107394Z   "vhd_build_timestamp": "",
+2026-03-04T23:44:38.8107843Z   "windows_image_publisher": "MicrosoftWindowsServer",
+2026-03-04T23:44:38.8108368Z   "windows_image_offer": "WindowsServer",
+2026-03-04T23:44:38.8108849Z   "windows_image_sku": "",
+2026-03-04T23:44:38.8109280Z   "windows_image_version": "",
+2026-03-04T23:44:38.8109718Z   "windows_image_url": "",
+2026-03-04T23:44:38.8110151Z   "imported_image_name": "",
+2026-03-04T23:44:38.8110778Z   "sig_image_name": "2204gen2containerd",
+2026-03-04T23:44:38.8111366Z   "sig_gallery_name": "PackerSigGalleryEastUS",
+2026-03-04T23:44:38.8111864Z   "captured_sig_version": "1.1772667876.5637",
+2026-03-04T23:44:38.8112322Z   "os_disk_size_gb": "",
+2026-03-04T23:44:38.8112753Z   "nano_image_url": "",
+2026-03-04T23:44:38.8113158Z   "core_image_url": "",
+2026-03-04T23:44:38.8113607Z   "windows_private_packages_url": "",
+2026-03-04T23:44:38.8114099Z   "windows_sigmode_source_subscription_id": "",
+2026-03-04T23:44:38.8114606Z   "windows_sigmode_source_resource_group_name": "",
+2026-03-04T23:44:38.8114993Z   "windows_sigmode_source_gallery_name": "",
+2026-03-04T23:44:38.8115291Z   "windows_sigmode_source_image_name": "",
+2026-03-04T23:44:38.8115800Z   "windows_sigmode_source_image_version": "",
+2026-03-04T23:44:38.8116093Z   "vnet_name": "nodesig-packer-vnet-westus",
+2026-03-04T23:44:38.8116384Z   "subnet_name": "packer",
+2026-03-04T23:44:38.8116688Z   "vnet_resource_group_name": "nodesig-tme-westus-packer-vnet-rg",
+2026-03-04T23:44:38.8116989Z   "msi_resource_strings": "",
+2026-03-04T23:44:38.8117438Z   "private_packages_url": "",
+2026-03-04T23:44:38.8117917Z   "build_date": ""
+2026-03-04T23:44:38.8118371Z }
+2026-03-04T23:44:38.8118877Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:38.8148427Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:38.8170200Z linuxVhdMode: Generating prefetch scripts
+2026-03-04T23:44:38.8215768Z /mnt/vss/_work/1/s/vhdbuilder/prefetch /mnt/vss/_work/1/s
+2026-03-04T23:44:38.8954985Z generated container image prefetch script at ../packer/prefetch.sh:
+2026-03-04T23:44:38.8955992Z #!/usr/bin/env bash
+2026-03-04T23:44:38.8957675Z set -eux
+2026-03-04T23:44:38.8958826Z
+2026-03-04T23:44:38.9014520Z prefetch() {
+2026-03-04T23:44:38.9015005Z     local image=$1
+2026-03-04T23:44:38.9015451Z     local files=$2
+2026-03-04T23:44:38.9016055Z
+2026-03-04T23:44:38.9019449Z     mount_dir=$(mktemp -d)
+2026-03-04T23:44:38.9020232Z     ctr -n k8s.io images mount "$image" "$mount_dir"
+2026-03-04T23:44:38.9021226Z
+2026-03-04T23:44:38.9022355Z     for f in $files; do
+2026-03-04T23:44:38.9022991Z         echo "prefetching $f in $image"
+2026-03-04T23:44:38.9023603Z         path="${mount_dir}${f}"
+2026-03-04T23:44:38.9024170Z         stat -c %s "$path"
+2026-03-04T23:44:38.9024808Z         cat "$path" > /dev/null
+2026-03-04T23:44:38.9025347Z     done
+2026-03-04T23:44:38.9025868Z
+2026-03-04T23:44:38.9027492Z     ctr -n k8s.io images unmount "$mount_dir"
+2026-03-04T23:44:38.9028159Z }
+2026-03-04T23:44:38.9029100Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.50" "/dropgz"
+2026-03-04T23:44:38.9029849Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.35-0" "/dropgz"
+2026-03-04T23:44:38.9030653Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0" "/dropgz"
+2026-03-04T23:44:38.9031370Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.50" "/usr/local/bin/azure-cns"
+2026-03-04T23:44:38.9032088Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.35-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:44:38.9033009Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:44:38.9033662Z prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1" "/dropgz"
+2026-03-04T23:44:38.9034307Z /mnt/vss/_work/1/s
+2026-03-04T23:44:38.9034864Z Building aks-node-controller binaries
+2026-03-04T23:44:38.9037381Z /mnt/vss/_work/1/s/aks-node-controller /mnt/vss/_work/1/s
+2026-03-04T23:44:39.2183255Z ok  	github.com/Azure/agentbaker/aks-node-controller	(cached)
+2026-03-04T23:44:39.2213516Z ok  	github.com/Azure/agentbaker/aks-node-controller/helpers	(cached)
+2026-03-04T23:44:39.5281598Z 2026/03/04 23:44:39 port range end value should be greater than the start value: 110 >= 90
+2026-03-04T23:44:39.5282788Z 2026/03/04 23:44:39 port range end value should be greater than the start value: 80 >= 80
+2026-03-04T23:44:39.5283900Z 2026/03/04 23:44:39 error converting port range end value to int: strconv.Atoi: parsing "abc": invalid syntax
+2026-03-04T23:44:39.5284645Z 2026/03/04 23:44:39 port range values should be greater than 0: -1
+2026-03-04T23:44:39.5285266Z --- FAIL: Test_getLocalDNSCorefileBase64 (0.00s)
+2026-03-04T23:44:39.5286200Z     --- FAIL: Test_getLocalDNSCorefileBase64/LocalDNSProfile_enabled_returns_base64_string (0.00s)
+2026-03-04T23:44:39.5289168Z         helper_test.go:1662: expected decoded corefile to contain "# ***********************************************************************************\n# WARNING: Changes to this file will be overwritten and not persisted.\n# ***********************************************************************************\n# whoami (used for health check of DNS)\nhealth-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    whoami\n}\n# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).\n.:53 {\n    log\n    bind 169.254.10.10\n    forward . 168.63.129.16 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s immediate\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}\ncluster.local:53 {\n    errors\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        force_tcp\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\ntestdomain456.com:53 {\n    log\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s verify\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\n# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).\n.:53 {\n    errors\n    bind 169.254.10.11\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 2000\n    }\n    ready 169.254.10.11:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 72000s verify\n        servfail 0\n    }\n    loop\n    nsid localdns-pod\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}", got:
+2026-03-04T23:44:39.5292137Z             # ***********************************************************************************
+2026-03-04T23:44:39.5292900Z             # WARNING: Changes to this file will be overwritten and not persisted.
+2026-03-04T23:44:39.5293688Z             # ***********************************************************************************
+2026-03-04T23:44:39.5294304Z             # whoami (used for health check of DNS)
+2026-03-04T23:44:39.5294899Z             health-check.localdns.local:53 {
+2026-03-04T23:44:39.5295523Z                 bind 169.254.10.10 169.254.10.11
+2026-03-04T23:44:39.5296550Z                 whoami
+2026-03-04T23:44:39.5297132Z             }
+2026-03-04T23:44:39.5298112Z             # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+2026-03-04T23:44:39.5298709Z             .:53 {
+2026-03-04T23:44:39.5299240Z                 log
+2026-03-04T23:44:39.5300132Z                 bind 169.254.10.10
+2026-03-04T23:44:39.5300811Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:44:39.5301405Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:44:39.5302637Z                     fallthrough
+2026-03-04T23:44:39.5303519Z                 }
+2026-03-04T23:44:39.5304149Z                 forward . 168.63.129.16 {
+2026-03-04T23:44:39.5304772Z                     policy sequential
+2026-03-04T23:44:39.5305383Z                     max_concurrent 1000
+2026-03-04T23:44:39.5305947Z                 }
+2026-03-04T23:44:39.5306937Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:39.5307741Z                 cache 3600 {
+2026-03-04T23:44:39.5308337Z                     success 9984
+2026-03-04T23:44:39.5308947Z                     denial 9984
+2026-03-04T23:44:39.5309542Z                     serve_stale 3600s immediate
+2026-03-04T23:44:39.5310327Z                     servfail 0
+2026-03-04T23:44:39.5310860Z                 }
+2026-03-04T23:44:39.5311416Z                 loop
+2026-03-04T23:44:39.5312024Z                 nsid localdns
+2026-03-04T23:44:39.5312653Z                 prometheus :9253
+2026-03-04T23:44:39.5313305Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:44:39.5313982Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:44:39.5314617Z                     rcode NXDOMAIN
+2026-03-04T23:44:39.5315234Z                     fallthrough
+2026-03-04T23:44:39.5315785Z                 }
+2026-03-04T23:44:39.5316447Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:44:39.5317062Z                     rcode NXDOMAIN
+2026-03-04T23:44:39.5317736Z                 }
+2026-03-04T23:44:39.5318263Z             }
+2026-03-04T23:44:39.5318797Z             cluster.local:53 {
+2026-03-04T23:44:39.5319381Z                 errors
+2026-03-04T23:44:39.5319943Z                 bind 169.254.10.10
+2026-03-04T23:44:39.5320500Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:39.5321058Z                     force_tcp
+2026-03-04T23:44:39.5321611Z                     policy sequential
+2026-03-04T23:44:39.5322191Z                     max_concurrent 1000
+2026-03-04T23:44:39.5322753Z                 }
+2026-03-04T23:44:39.5323319Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:39.5323898Z                 cache 3600 {
+2026-03-04T23:44:39.5324444Z                     success 9984
+2026-03-04T23:44:39.5324977Z                     denial 9984
+2026-03-04T23:44:39.5325526Z                     servfail 0
+2026-03-04T23:44:39.5326029Z                 }
+2026-03-04T23:44:39.5326560Z                 loop
+2026-03-04T23:44:39.5327585Z                 nsid localdns
+2026-03-04T23:44:39.5328657Z                 prometheus :9253
+2026-03-04T23:44:39.5329175Z             }
+2026-03-04T23:44:39.5330006Z             testdomain456.com:53 {
+2026-03-04T23:44:39.5330820Z                 log
+2026-03-04T23:44:39.5331743Z                 bind 169.254.10.10
+2026-03-04T23:44:39.5332451Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:39.5333079Z                     policy sequential
+2026-03-04T23:44:39.5333680Z                     max_concurrent 1000
+2026-03-04T23:44:39.5334282Z                 }
+2026-03-04T23:44:39.5335047Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:39.5335647Z                 cache 3600 {
+2026-03-04T23:44:39.5336176Z                     success 9984
+2026-03-04T23:44:39.5336738Z                     denial 9984
+2026-03-04T23:44:39.5337445Z                     serve_stale 3600s verify
+2026-03-04T23:44:39.5338048Z                     servfail 0
+2026-03-04T23:44:39.5338576Z                 }
+2026-03-04T23:44:39.5339169Z                 loop
+2026-03-04T23:44:39.5340480Z                 nsid localdns
+2026-03-04T23:44:39.5341134Z                 prometheus :9253
+2026-03-04T23:44:39.5341738Z             }
+2026-03-04T23:44:39.5342497Z             # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+2026-03-04T23:44:39.5343294Z             .:53 {
+2026-03-04T23:44:39.5344196Z                 errors
+2026-03-04T23:44:39.5344835Z                 bind 169.254.10.11
+2026-03-04T23:44:39.5345522Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:44:39.5346161Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:44:39.5346676Z                     fallthrough
+2026-03-04T23:44:39.5347689Z                 }
+2026-03-04T23:44:39.5348360Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:39.5348988Z                     policy sequential
+2026-03-04T23:44:39.5349595Z                     max_concurrent 2000
+2026-03-04T23:44:39.5350193Z                 }
+2026-03-04T23:44:39.5350859Z                 ready 169.254.10.11:8181
+2026-03-04T23:44:39.5351415Z                 cache 3600 {
+2026-03-04T23:44:39.5351976Z                     success 9984
+2026-03-04T23:44:39.5352739Z                     denial 9984
+2026-03-04T23:44:39.5353314Z                     serve_stale 72000s verify
+2026-03-04T23:44:39.5353886Z                     servfail 0
+2026-03-04T23:44:39.5354410Z                 }
+2026-03-04T23:44:39.5354913Z                 loop
+2026-03-04T23:44:39.5355812Z                 nsid localdns-pod
+2026-03-04T23:44:39.5356441Z                 prometheus :9253
+2026-03-04T23:44:39.5357080Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:44:39.5357868Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:44:39.5358444Z                     rcode NXDOMAIN
+2026-03-04T23:44:39.5358995Z
+2026-03-04T23:44:39.5359998Z                     fallthrough
+2026-03-04T23:44:39.5360695Z
+2026-03-04T23:44:39.5361240Z                 }
+2026-03-04T23:44:39.5361786Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:44:39.5362431Z                     rcode NXDOMAIN
+2026-03-04T23:44:39.5363037Z                 }
+2026-03-04T23:44:39.5363600Z             }
+2026-03-04T23:44:39.5364131Z FAIL
+2026-03-04T23:44:39.5365062Z FAIL	github.com/Azure/agentbaker/aks-node-controller/parser	0.018s
+2026-03-04T23:44:39.5365774Z ?   	github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1	[no test files]
+2026-03-04T23:44:39.5366484Z ok  	github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils	(cached)
+2026-03-04T23:44:39.5367139Z ?   	github.com/Azure/agentbaker/aks-node-controller/utils	[no test files]
+2026-03-04T23:44:39.5367892Z FAIL
+2026-03-04T23:44:39.5405043Z make[1]: *** [packer.mk:131: build-aks-node-controller] Error 1
+2026-03-04T23:44:39.5407416Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:39.5412288Z make: *** [packer.mk:93: run-packer] Error 2
+2026-03-04T23:44:39.5425436Z
+2026-03-04T23:44:39.5443878Z ##[error]Script failed with exit code: 2
+2026-03-04T23:44:39.5447015Z [command]/usr/bin/az account clear
+2026-03-04T23:44:40.0907554Z ##[warning]RetryHelper encountered task failure, will retry (attempt #: 2 out of 3) after 4000 ms
+2026-03-04T23:44:44.3056162Z [command]/usr/bin/az version
+2026-03-04T23:44:44.7751878Z {
+2026-03-04T23:44:44.7752729Z   "azure-cli": "2.77.0",
+2026-03-04T23:44:44.7753200Z   "azure-cli-core": "2.77.0",
+2026-03-04T23:44:44.7753599Z   "azure-cli-telemetry": "1.1.0",
+2026-03-04T23:44:44.7754339Z   "extensions": {
+2026-03-04T23:44:44.7754709Z     "azure-devops": "1.0.2"
+2026-03-04T23:44:44.7755123Z   }
+2026-03-04T23:44:44.7755503Z }
+2026-03-04T23:44:44.7775116Z Setting AZURE_CONFIG_DIR env variable to: /mnt/vss/_work/_temp/.azclitask
+2026-03-04T23:44:44.7782213Z Setting active cloud to: AzureCloud
+2026-03-04T23:44:44.7787035Z [command]/usr/bin/az cloud set -n AzureCloud
+2026-03-04T23:44:45.4869712Z [command]/usr/bin/az login --service-principal -u *** --tenant 70a036f6-8e4d-4615-bad6-149c02e7720d --allow-no-subscriptions --federated-token ***
+2026-03-04T23:44:46.3135863Z [
+2026-03-04T23:44:46.3138802Z   {
+2026-03-04T23:44:46.3139432Z     "cloudName": "AzureCloud",
+2026-03-04T23:44:46.3139997Z     "homeTenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:44:46.3140590Z     "id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:44:46.3142725Z     "isDefault": true,
+2026-03-04T23:44:46.3143257Z     "managedByTenants": [],
+2026-03-04T23:44:46.3143773Z     "name": "AKS NODE SIG - CI",
+2026-03-04T23:44:46.3144267Z     "state": "Enabled",
+2026-03-04T23:44:46.3144820Z     "tenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:44:46.3145342Z     "user": {
+2026-03-04T23:44:46.3145976Z       "name": "***",
+2026-03-04T23:44:46.3146489Z       "type": "servicePrincipal"
+2026-03-04T23:44:46.3146934Z     }
+2026-03-04T23:44:46.3147550Z   }
+2026-03-04T23:44:46.3147992Z ]
+2026-03-04T23:44:46.3148599Z [command]/usr/bin/az account set --subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:46.8298313Z [command]/usr/bin/bash /mnt/vss/_work/_temp/azureclitaskscript1772667884301.sh
+2026-03-04T23:44:46.8396373Z Using the subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:47.7075545Z Packer v1.14.3
+2026-03-04T23:44:47.7079791Z
+2026-03-04T23:44:47.7081431Z Your version of Packer is out of date! The latest version
+2026-03-04T23:44:47.7082153Z is 1.15.0. You can update by downloading from www.packer.io/downloads
+2026-03-04T23:44:47.8304160Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:47.8350414Z Installing previous version of azcli in order to mitigate az compute bug
+2026-03-04T23:44:47.8351063Z Sourcing cse_helpers_distro.sh for Ubuntu
+2026-03-04T23:44:47.8389515Z Overriding azcli version to 2.77.0
+2026-03-04T23:44:47.8700298Z Enforcing az cli version to 2.77.0 for jammy
+2026-03-04T23:44:48.3358591Z Reading package lists...
+2026-03-04T23:44:48.6011142Z Building dependency tree...
+2026-03-04T23:44:48.6020907Z Reading state information...
+2026-03-04T23:44:48.8018882Z azure-cli is already the newest version (2.77.0-1~jammy).
+2026-03-04T23:44:48.8020040Z 0 upgraded, 0 newly installed, 0 to remove and 114 not upgraded.
+2026-03-04T23:44:49.1280212Z Successfully installed az cli version 2.77.0
+2026-03-04T23:44:49.1330707Z The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist
+2026-03-04T23:44:49.1581693Z Change publisher base image version to 22.04.202510230 for 22_04-lts-gen2
+2026-03-04T23:44:49.1583726Z POOL_NAME is set to nodesig-tme-pool
+2026-03-04T23:44:49.1628178Z VNET_RG_NAME set to: nodesig-tme-westus-packer-vnet-rg
+2026-03-04T23:44:49.1630497Z CAPTURED_SIG_VERSION set to: 1.1772667889.13046
+2026-03-04T23:44:49.1631159Z Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:49.1631624Z Gallery Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:44:50.0866432Z Using provided SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:44:50.0884740Z No input for SIG_IMAGE_NAME was provided, defaulting to: 2204gen2containerd
+2026-03-04T23:44:50.0886898Z Using finalized SIG_IMAGE_NAME: 2204gen2containerd, SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:44:50.0888011Z SIG existence checking for linuxVhdMode
+2026-03-04T23:44:51.0158626Z Gallery PackerSigGalleryEastUS exists in the resource group aksvhdtmebuildrg location eastus
+2026-03-04T23:44:51.0159650Z Gallery PackerSigGalleryEastUS is in a Succeeded state
+2026-03-04T23:44:51.9819173Z Image definition 2204gen2containerd existing in gallery PackerSigGalleryEastUS resource group aksvhdtmebuildrg
+2026-03-04T23:44:51.9820298Z AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build.
+2026-03-04T23:44:51.9821771Z UA_TOKEN not used for ubuntu 20.04, and FIPS
+2026-03-04T23:44:51.9850066Z packer settings:
+2026-03-04T23:44:52.0100333Z {
+2026-03-04T23:44:52.0101880Z   "subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:44:52.0102602Z   "gallery_subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:44:52.0103149Z   "resource_group_name": "aksvhdtmebuildrg",
+2026-03-04T23:44:52.0103596Z   "location": "westus",
+2026-03-04T23:44:52.0104092Z   "storage_account_name": "vhdbuildereastustme",
+2026-03-04T23:44:52.0104517Z   "vm_size": "Standard_D16ds_v5",
+2026-03-04T23:44:52.0104935Z   "create_time": "1772667889",
+2026-03-04T23:44:52.0105353Z   "img_version": "22.04.202510230",
+2026-03-04T23:44:52.0105889Z   "SKIP_EXTENSION_CHECK": "",
+2026-03-04T23:44:52.0106385Z   "INSTALL_OPEN_SSH_SERVER": "",
+2026-03-04T23:44:52.0106875Z   "vhd_build_timestamp": "",
+2026-03-04T23:44:52.0107563Z   "windows_image_publisher": "MicrosoftWindowsServer",
+2026-03-04T23:44:52.0108078Z   "windows_image_offer": "WindowsServer",
+2026-03-04T23:44:52.0108470Z   "windows_image_sku": "",
+2026-03-04T23:44:52.0108909Z   "windows_image_version": "",
+2026-03-04T23:44:52.0109353Z   "windows_image_url": "",
+2026-03-04T23:44:52.0109796Z   "imported_image_name": "",
+2026-03-04T23:44:52.0110186Z   "sig_image_name": "2204gen2containerd",
+2026-03-04T23:44:52.0110726Z   "sig_gallery_name": "PackerSigGalleryEastUS",
+2026-03-04T23:44:52.0111548Z   "captured_sig_version": "1.1772667889.13046",
+2026-03-04T23:44:52.0111985Z   "os_disk_size_gb": "",
+2026-03-04T23:44:52.0112387Z   "nano_image_url": "",
+2026-03-04T23:44:52.0112752Z   "core_image_url": "",
+2026-03-04T23:44:52.0113154Z   "windows_private_packages_url": "",
+2026-03-04T23:44:52.0113802Z   "windows_sigmode_source_subscription_id": "",
+2026-03-04T23:44:52.0114315Z   "windows_sigmode_source_resource_group_name": "",
+2026-03-04T23:44:52.0114827Z   "windows_sigmode_source_gallery_name": "",
+2026-03-04T23:44:52.0115279Z   "windows_sigmode_source_image_name": "",
+2026-03-04T23:44:52.0115572Z   "windows_sigmode_source_image_version": "",
+2026-03-04T23:44:52.0115846Z   "vnet_name": "nodesig-packer-vnet-westus",
+2026-03-04T23:44:52.0116113Z   "subnet_name": "packer",
+2026-03-04T23:44:52.0116382Z   "vnet_resource_group_name": "nodesig-tme-westus-packer-vnet-rg",
+2026-03-04T23:44:52.0116667Z   "msi_resource_strings": "",
+2026-03-04T23:44:52.0116921Z   "private_packages_url": "",
+2026-03-04T23:44:52.0117174Z   "build_date": ""
+2026-03-04T23:44:52.0117682Z }
+2026-03-04T23:44:52.0118086Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:52.0148254Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:52.0170599Z linuxVhdMode: Generating prefetch scripts
+2026-03-04T23:44:52.0214702Z /mnt/vss/_work/1/s/vhdbuilder/prefetch /mnt/vss/_work/1/s
+2026-03-04T23:44:52.0950291Z generated container image prefetch script at ../packer/prefetch.sh:
+2026-03-04T23:44:52.0951303Z #!/usr/bin/env bash
+2026-03-04T23:44:52.0951725Z set -eux
+2026-03-04T23:44:52.0951871Z
+2026-03-04T23:44:52.0952302Z prefetch() {
+2026-03-04T23:44:52.0952761Z     local image=$1
+2026-03-04T23:44:52.0953188Z     local files=$2
+2026-03-04T23:44:52.0953579Z
+2026-03-04T23:44:52.0953958Z     mount_dir=$(mktemp -d)
+2026-03-04T23:44:52.0954271Z     ctr -n k8s.io images mount "$image" "$mount_dir"
+2026-03-04T23:44:52.0954420Z
+2026-03-04T23:44:52.0954681Z     for f in $files; do
+2026-03-04T23:44:52.0954966Z         echo "prefetching $f in $image"
+2026-03-04T23:44:52.0955248Z         path="${mount_dir}${f}"
+2026-03-04T23:44:52.0955523Z         stat -c %s "$path"
+2026-03-04T23:44:52.0955779Z         cat "$path" > /dev/null
+2026-03-04T23:44:52.0956037Z     done
+2026-03-04T23:44:52.0956153Z
+2026-03-04T23:44:52.0956426Z     ctr -n k8s.io images unmount "$mount_dir"
+2026-03-04T23:44:52.0956900Z }
+2026-03-04T23:44:52.0957226Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.50" "/dropgz"
+2026-03-04T23:44:52.0957860Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.35-0" "/dropgz"
+2026-03-04T23:44:52.0958231Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0" "/dropgz"
+2026-03-04T23:44:52.0958606Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.50" "/usr/local/bin/azure-cns"
+2026-03-04T23:44:52.0958980Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.35-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:44:52.0959370Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:44:52.0959739Z prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1" "/dropgz"
+2026-03-04T23:44:52.0964481Z /mnt/vss/_work/1/s
+2026-03-04T23:44:52.0990383Z Building aks-node-controller binaries
+2026-03-04T23:44:52.1034874Z /mnt/vss/_work/1/s/aks-node-controller /mnt/vss/_work/1/s
+2026-03-04T23:44:52.4119046Z ok  	github.com/Azure/agentbaker/aks-node-controller	(cached)
+2026-03-04T23:44:52.4240855Z ok  	github.com/Azure/agentbaker/aks-node-controller/helpers	(cached)
+2026-03-04T23:44:52.7227428Z 2026/03/04 23:44:52 port range end value should be greater than the start value: 110 >= 90
+2026-03-04T23:44:52.7228825Z 2026/03/04 23:44:52 port range end value should be greater than the start value: 80 >= 80
+2026-03-04T23:44:52.7229668Z 2026/03/04 23:44:52 error converting port range end value to int: strconv.Atoi: parsing "abc": invalid syntax
+2026-03-04T23:44:52.7230472Z 2026/03/04 23:44:52 port range values should be greater than 0: -1
+2026-03-04T23:44:52.7231429Z --- FAIL: Test_getLocalDNSCorefileBase64 (0.00s)
+2026-03-04T23:44:52.7232107Z     --- FAIL: Test_getLocalDNSCorefileBase64/LocalDNSProfile_enabled_returns_base64_string (0.00s)
+2026-03-04T23:44:52.7236254Z         helper_test.go:1662: expected decoded corefile to contain "# ***********************************************************************************\n# WARNING: Changes to this file will be overwritten and not persisted.\n# ***********************************************************************************\n# whoami (used for health check of DNS)\nhealth-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    whoami\n}\n# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).\n.:53 {\n    log\n    bind 169.254.10.10\n    forward . 168.63.129.16 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s immediate\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}\ncluster.local:53 {\n    errors\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        force_tcp\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\ntestdomain456.com:53 {\n    log\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s verify\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\n# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).\n.:53 {\n    errors\n    bind 169.254.10.11\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 2000\n    }\n    ready 169.254.10.11:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 72000s verify\n        servfail 0\n    }\n    loop\n    nsid localdns-pod\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}", got:
+2026-03-04T23:44:52.7240761Z             # ***********************************************************************************
+2026-03-04T23:44:52.7241442Z             # WARNING: Changes to this file will be overwritten and not persisted.
+2026-03-04T23:44:52.7242116Z             # ***********************************************************************************
+2026-03-04T23:44:52.7242729Z             # whoami (used for health check of DNS)
+2026-03-04T23:44:52.7243283Z             health-check.localdns.local:53 {
+2026-03-04T23:44:52.7243832Z                 bind 169.254.10.10 169.254.10.11
+2026-03-04T23:44:52.7244343Z                 whoami
+2026-03-04T23:44:52.7244785Z             }
+2026-03-04T23:44:52.7245428Z             # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+2026-03-04T23:44:52.7246091Z             .:53 {
+2026-03-04T23:44:52.7246557Z                 log
+2026-03-04T23:44:52.7247018Z                 bind 169.254.10.10
+2026-03-04T23:44:52.7247823Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:44:52.7248454Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:44:52.7248958Z                     fallthrough
+2026-03-04T23:44:52.7249577Z                 }
+2026-03-04T23:44:52.7250034Z                 forward . 168.63.129.16 {
+2026-03-04T23:44:52.7250564Z                     policy sequential
+2026-03-04T23:44:52.7251057Z                     max_concurrent 1000
+2026-03-04T23:44:52.7251540Z                 }
+2026-03-04T23:44:52.7252134Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:52.7252652Z                 cache 3600 {
+2026-03-04T23:44:52.7253131Z                     success 9984
+2026-03-04T23:44:52.7253599Z                     denial 9984
+2026-03-04T23:44:52.7254116Z                     serve_stale 3600s immediate
+2026-03-04T23:44:52.7254630Z                     servfail 0
+2026-03-04T23:44:52.7255063Z                 }
+2026-03-04T23:44:52.7255518Z                 loop
+2026-03-04T23:44:52.7255978Z                 nsid localdns
+2026-03-04T23:44:52.7256496Z                 prometheus :9253
+2026-03-04T23:44:52.7257024Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:44:52.7257730Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:44:52.7258270Z                     rcode NXDOMAIN
+2026-03-04T23:44:52.7258735Z                     fallthrough
+2026-03-04T23:44:52.7259205Z                 }
+2026-03-04T23:44:52.7259706Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:44:52.7260232Z                     rcode NXDOMAIN
+2026-03-04T23:44:52.7260677Z                 }
+2026-03-04T23:44:52.7261133Z             }
+2026-03-04T23:44:52.7261610Z             cluster.local:53 {
+2026-03-04T23:44:52.7262113Z                 errors
+2026-03-04T23:44:52.7262591Z                 bind 169.254.10.10
+2026-03-04T23:44:52.7263078Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:52.7263578Z                     force_tcp
+2026-03-04T23:44:52.7264058Z                     policy sequential
+2026-03-04T23:44:52.7264560Z                     max_concurrent 1000
+2026-03-04T23:44:52.7265030Z                 }
+2026-03-04T23:44:52.7265550Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:52.7266063Z                 cache 3600 {
+2026-03-04T23:44:52.7266529Z                     success 9984
+2026-03-04T23:44:52.7267020Z                     denial 9984
+2026-03-04T23:44:52.7267598Z                     servfail 0
+2026-03-04T23:44:52.7268109Z                 }
+2026-03-04T23:44:52.7268550Z                 loop
+2026-03-04T23:44:52.7269322Z                 nsid localdns
+2026-03-04T23:44:52.7269816Z                 prometheus :9253
+2026-03-04T23:44:52.7270307Z             }
+2026-03-04T23:44:52.7270807Z             testdomain456.com:53 {
+2026-03-04T23:44:52.7271290Z                 log
+2026-03-04T23:44:52.7271762Z                 bind 169.254.10.10
+2026-03-04T23:44:52.7272251Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:52.7272755Z                     policy sequential
+2026-03-04T23:44:52.7273229Z                     max_concurrent 1000
+2026-03-04T23:44:52.7273696Z                 }
+2026-03-04T23:44:52.7274205Z                 ready 169.254.10.10:8181
+2026-03-04T23:44:52.7274712Z                 cache 3600 {
+2026-03-04T23:44:52.7275184Z                     success 9984
+2026-03-04T23:44:52.7275657Z                     denial 9984
+2026-03-04T23:44:52.7276147Z                     serve_stale 3600s verify
+2026-03-04T23:44:52.7276626Z                     servfail 0
+2026-03-04T23:44:52.7277089Z                 }
+2026-03-04T23:44:52.7277648Z                 loop
+2026-03-04T23:44:52.7278142Z                 nsid localdns
+2026-03-04T23:44:52.7278657Z                 prometheus :9253
+2026-03-04T23:44:52.7279126Z             }
+2026-03-04T23:44:52.7279751Z             # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+2026-03-04T23:44:52.7280390Z             .:53 {
+2026-03-04T23:44:52.7280879Z                 errors
+2026-03-04T23:44:52.7281342Z                 bind 169.254.10.11
+2026-03-04T23:44:52.7281946Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:44:52.7282724Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:44:52.7283220Z                     fallthrough
+2026-03-04T23:44:52.7283683Z                 }
+2026-03-04T23:44:52.7284144Z                 forward . 10.0.0.10 {
+2026-03-04T23:44:52.7284657Z                     policy sequential
+2026-03-04T23:44:52.7285164Z                     max_concurrent 2000
+2026-03-04T23:44:52.7285680Z                 }
+2026-03-04T23:44:52.7286190Z                 ready 169.254.10.11:8181
+2026-03-04T23:44:52.7286691Z                 cache 3600 {
+2026-03-04T23:44:52.7287180Z                     success 9984
+2026-03-04T23:44:52.7287786Z                     denial 9984
+2026-03-04T23:44:52.7288298Z                     serve_stale 72000s verify
+2026-03-04T23:44:52.7288794Z                     servfail 0
+2026-03-04T23:44:52.7289260Z                 }
+2026-03-04T23:44:52.7289711Z                 loop
+2026-03-04T23:44:52.7290200Z                 nsid localdns-pod
+2026-03-04T23:44:52.7290729Z                 prometheus :9253
+2026-03-04T23:44:52.7291255Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:44:52.7291817Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:44:52.7292333Z                     rcode NXDOMAIN
+2026-03-04T23:44:52.7292819Z
+2026-03-04T23:44:52.7293298Z                     fallthrough
+2026-03-04T23:44:52.7293744Z
+2026-03-04T23:44:52.7294198Z                 }
+2026-03-04T23:44:52.7294696Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:44:52.7295231Z                     rcode NXDOMAIN
+2026-03-04T23:44:52.7295687Z                 }
+2026-03-04T23:44:52.7296142Z             }
+2026-03-04T23:44:52.7296576Z FAIL
+2026-03-04T23:44:52.7297129Z FAIL	github.com/Azure/agentbaker/aks-node-controller/parser	0.018s
+2026-03-04T23:44:52.7297913Z ?   	github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1	[no test files]
+2026-03-04T23:44:52.7298585Z ok  	github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils	(cached)
+2026-03-04T23:44:52.7299247Z ?   	github.com/Azure/agentbaker/aks-node-controller/utils	[no test files]
+2026-03-04T23:44:52.7299786Z FAIL
+2026-03-04T23:44:52.7346227Z make[1]: *** [packer.mk:131: build-aks-node-controller] Error 1
+2026-03-04T23:44:52.7348840Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:44:52.7354041Z make: *** [packer.mk:93: run-packer] Error 2
+2026-03-04T23:44:52.7367858Z
+2026-03-04T23:44:52.7387913Z ##[error]Script failed with exit code: 2
+2026-03-04T23:44:52.7391299Z [command]/usr/bin/az account clear
+2026-03-04T23:44:53.3081320Z ##[warning]RetryHelper encountered task failure, will retry (attempt #: 3 out of 3) after 9000 ms
+2026-03-04T23:45:02.5373989Z [command]/usr/bin/az version
+2026-03-04T23:45:02.8745489Z {
+2026-03-04T23:45:02.8746463Z   "azure-cli": "2.77.0",
+2026-03-04T23:45:02.8746949Z   "azure-cli-core": "2.77.0",
+2026-03-04T23:45:02.8748114Z   "azure-cli-telemetry": "1.1.0",
+2026-03-04T23:45:02.8748772Z   "extensions": {
+2026-03-04T23:45:02.8749324Z     "azure-devops": "1.0.2"
+2026-03-04T23:45:02.8749880Z   }
+2026-03-04T23:45:02.8750373Z }
+2026-03-04T23:45:02.8769470Z Setting AZURE_CONFIG_DIR env variable to: /mnt/vss/_work/_temp/.azclitask
+2026-03-04T23:45:02.8776398Z Setting active cloud to: AzureCloud
+2026-03-04T23:45:02.8781327Z [command]/usr/bin/az cloud set -n AzureCloud
+2026-03-04T23:45:03.7928876Z [command]/usr/bin/az login --service-principal -u *** --tenant 70a036f6-8e4d-4615-bad6-149c02e7720d --allow-no-subscriptions --federated-token ***
+2026-03-04T23:45:04.7383145Z [
+2026-03-04T23:45:04.7384091Z   {
+2026-03-04T23:45:04.7384530Z     "cloudName": "AzureCloud",
+2026-03-04T23:45:04.7385105Z     "homeTenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:45:04.7385577Z     "id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:45:04.7385965Z     "isDefault": true,
+2026-03-04T23:45:04.7386342Z     "managedByTenants": [],
+2026-03-04T23:45:04.7386801Z     "name": "AKS NODE SIG - CI",
+2026-03-04T23:45:04.7388143Z     "state": "Enabled",
+2026-03-04T23:45:04.7388646Z     "tenantId": "70a036f6-8e4d-4615-bad6-149c02e7720d",
+2026-03-04T23:45:04.7389121Z     "user": {
+2026-03-04T23:45:04.7389762Z       "name": "***",
+2026-03-04T23:45:04.7390169Z       "type": "servicePrincipal"
+2026-03-04T23:45:04.7390555Z     }
+2026-03-04T23:45:04.7390917Z   }
+2026-03-04T23:45:04.7391255Z ]
+2026-03-04T23:45:04.7391747Z [command]/usr/bin/az account set --subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:45:05.2821635Z [command]/usr/bin/bash /mnt/vss/_work/_temp/azureclitaskscript1772667902533.sh
+2026-03-04T23:45:05.2918817Z Using the subscription 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:45:06.1617713Z Packer v1.14.3
+2026-03-04T23:45:06.1619345Z
+2026-03-04T23:45:06.1621338Z Your version of Packer is out of date! The latest version
+2026-03-04T23:45:06.1624419Z is 1.15.0. You can update by downloading from www.packer.io/downloads
+2026-03-04T23:45:06.2886154Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:45:06.2935927Z Installing previous version of azcli in order to mitigate az compute bug
+2026-03-04T23:45:06.2936831Z Sourcing cse_helpers_distro.sh for Ubuntu
+2026-03-04T23:45:06.2975672Z Overriding azcli version to 2.77.0
+2026-03-04T23:45:06.3285973Z Enforcing az cli version to 2.77.0 for jammy
+2026-03-04T23:45:06.8084430Z Reading package lists...
+2026-03-04T23:45:07.0603055Z Building dependency tree...
+2026-03-04T23:45:07.0613732Z Reading state information...
+2026-03-04T23:45:07.2627612Z azure-cli is already the newest version (2.77.0-1~jammy).
+2026-03-04T23:45:07.2628603Z 0 upgraded, 0 newly installed, 0 to remove and 114 not upgraded.
+2026-03-04T23:45:07.5861744Z Successfully installed az cli version 2.77.0
+2026-03-04T23:45:07.5913582Z The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist
+2026-03-04T23:45:07.6165685Z Change publisher base image version to 22.04.202510230 for 22_04-lts-gen2
+2026-03-04T23:45:07.6167398Z POOL_NAME is set to nodesig-tme-pool
+2026-03-04T23:45:07.6209835Z VNET_RG_NAME set to: nodesig-tme-westus-packer-vnet-rg
+2026-03-04T23:45:07.6211249Z CAPTURED_SIG_VERSION set to: 1.1772667907.31544
+2026-03-04T23:45:07.6212181Z Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:45:07.6212983Z Gallery Subscription ID: 6025ea9d-cd32-47fc-b23b-fc77f85f88b7
+2026-03-04T23:45:08.3626188Z Using provided SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:45:08.3649903Z No input for SIG_IMAGE_NAME was provided, defaulting to: 2204gen2containerd
+2026-03-04T23:45:08.3651000Z Using finalized SIG_IMAGE_NAME: 2204gen2containerd, SIG_GALLERY_NAME: PackerSigGalleryEastUS
+2026-03-04T23:45:08.3651620Z SIG existence checking for linuxVhdMode
+2026-03-04T23:45:09.3213918Z Gallery PackerSigGalleryEastUS exists in the resource group aksvhdtmebuildrg location eastus
+2026-03-04T23:45:09.3215264Z Gallery PackerSigGalleryEastUS is in a Succeeded state
+2026-03-04T23:45:10.3636523Z Image definition 2204gen2containerd existing in gallery PackerSigGalleryEastUS resource group aksvhdtmebuildrg
+2026-03-04T23:45:10.3638035Z AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build.
+2026-03-04T23:45:10.3638731Z UA_TOKEN not used for ubuntu 20.04, and FIPS
+2026-03-04T23:45:10.3666912Z packer settings:
+2026-03-04T23:45:10.3909142Z {
+2026-03-04T23:45:10.3911015Z   "subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:45:10.3911918Z   "gallery_subscription_id": "6025ea9d-cd32-47fc-b23b-fc77f85f88b7",
+2026-03-04T23:45:10.3912487Z   "resource_group_name": "aksvhdtmebuildrg",
+2026-03-04T23:45:10.3912958Z   "location": "westus",
+2026-03-04T23:45:10.3913428Z   "storage_account_name": "vhdbuildereastustme",
+2026-03-04T23:45:10.3913874Z   "vm_size": "Standard_D16ds_v5",
+2026-03-04T23:45:10.3914374Z   "create_time": "1772667907",
+2026-03-04T23:45:10.3914771Z   "img_version": "22.04.202510230",
+2026-03-04T23:45:10.3915197Z   "SKIP_EXTENSION_CHECK": "",
+2026-03-04T23:45:10.3915919Z   "INSTALL_OPEN_SSH_SERVER": "",
+2026-03-04T23:45:10.3916383Z   "vhd_build_timestamp": "",
+2026-03-04T23:45:10.3916836Z   "windows_image_publisher": "MicrosoftWindowsServer",
+2026-03-04T23:45:10.3917462Z   "windows_image_offer": "WindowsServer",
+2026-03-04T23:45:10.3918077Z   "windows_image_sku": "",
+2026-03-04T23:45:10.3918484Z   "windows_image_version": "",
+2026-03-04T23:45:10.3918766Z   "windows_image_url": "",
+2026-03-04T23:45:10.3919094Z   "imported_image_name": "",
+2026-03-04T23:45:10.3919600Z   "sig_image_name": "2204gen2containerd",
+2026-03-04T23:45:10.3920096Z   "sig_gallery_name": "PackerSigGalleryEastUS",
+2026-03-04T23:45:10.3920542Z   "captured_sig_version": "1.1772667907.31544",
+2026-03-04T23:45:10.3920932Z   "os_disk_size_gb": "",
+2026-03-04T23:45:10.3921352Z   "nano_image_url": "",
+2026-03-04T23:45:10.3921849Z   "core_image_url": "",
+2026-03-04T23:45:10.3922308Z   "windows_private_packages_url": "",
+2026-03-04T23:45:10.3922805Z   "windows_sigmode_source_subscription_id": "",
+2026-03-04T23:45:10.3923298Z   "windows_sigmode_source_resource_group_name": "",
+2026-03-04T23:45:10.3923799Z   "windows_sigmode_source_gallery_name": "",
+2026-03-04T23:45:10.3924316Z   "windows_sigmode_source_image_name": "",
+2026-03-04T23:45:10.3924778Z   "windows_sigmode_source_image_version": "",
+2026-03-04T23:45:10.3925296Z   "vnet_name": "nodesig-packer-vnet-westus",
+2026-03-04T23:45:10.3925825Z   "subnet_name": "packer",
+2026-03-04T23:45:10.3926297Z   "vnet_resource_group_name": "nodesig-tme-westus-packer-vnet-rg",
+2026-03-04T23:45:10.3926771Z   "msi_resource_strings": "",
+2026-03-04T23:45:10.3927116Z   "private_packages_url": "",
+2026-03-04T23:45:10.3927586Z   "build_date": ""
+2026-03-04T23:45:10.3927909Z }
+2026-03-04T23:45:10.3928285Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:45:10.3954010Z make[1]: Entering directory '/mnt/vss/_work/1/s'
+2026-03-04T23:45:10.3976135Z linuxVhdMode: Generating prefetch scripts
+2026-03-04T23:45:10.4019369Z /mnt/vss/_work/1/s/vhdbuilder/prefetch /mnt/vss/_work/1/s
+2026-03-04T23:45:10.4726787Z generated container image prefetch script at ../packer/prefetch.sh:
+2026-03-04T23:45:10.4727883Z #!/usr/bin/env bash
+2026-03-04T23:45:10.4729867Z set -eux
+2026-03-04T23:45:10.4730199Z
+2026-03-04T23:45:10.4730647Z prefetch() {
+2026-03-04T23:45:10.4731115Z     local image=$1
+2026-03-04T23:45:10.4731805Z     local files=$2
+2026-03-04T23:45:10.4732250Z
+2026-03-04T23:45:10.4732734Z     mount_dir=$(mktemp -d)
+2026-03-04T23:45:10.4733231Z     ctr -n k8s.io images mount "$image" "$mount_dir"
+2026-03-04T23:45:10.4733517Z
+2026-03-04T23:45:10.4733958Z     for f in $files; do
+2026-03-04T23:45:10.4734470Z         echo "prefetching $f in $image"
+2026-03-04T23:45:10.4734895Z         path="${mount_dir}${f}"
+2026-03-04T23:45:10.4735306Z         stat -c %s "$path"
+2026-03-04T23:45:10.4735759Z         cat "$path" > /dev/null
+2026-03-04T23:45:10.4736159Z     done
+2026-03-04T23:45:10.4736384Z
+2026-03-04T23:45:10.4736870Z     ctr -n k8s.io images unmount "$mount_dir"
+2026-03-04T23:45:10.4737624Z }
+2026-03-04T23:45:10.4738170Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.50" "/dropgz"
+2026-03-04T23:45:10.4738757Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.35-0" "/dropgz"
+2026-03-04T23:45:10.4739336Z prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0" "/dropgz"
+2026-03-04T23:45:10.4739877Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.50" "/usr/local/bin/azure-cns"
+2026-03-04T23:45:10.4740461Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.35-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:45:10.4740881Z prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0" "/usr/local/bin/azure-cns"
+2026-03-04T23:45:10.4741244Z prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1" "/dropgz"
+2026-03-04T23:45:10.4744233Z /mnt/vss/_work/1/s
+2026-03-04T23:45:10.4770585Z Building aks-node-controller binaries
+2026-03-04T23:45:10.4818786Z /mnt/vss/_work/1/s/aks-node-controller /mnt/vss/_work/1/s
+2026-03-04T23:45:10.7909856Z ok  	github.com/Azure/agentbaker/aks-node-controller	(cached)
+2026-03-04T23:45:10.8011313Z ok  	github.com/Azure/agentbaker/aks-node-controller/helpers	(cached)
+2026-03-04T23:45:11.1189268Z 2026/03/04 23:45:11 port range end value should be greater than the start value: 110 >= 90
+2026-03-04T23:45:11.1190474Z 2026/03/04 23:45:11 port range end value should be greater than the start value: 80 >= 80
+2026-03-04T23:45:11.1191202Z 2026/03/04 23:45:11 error converting port range end value to int: strconv.Atoi: parsing "abc": invalid syntax
+2026-03-04T23:45:11.1191833Z 2026/03/04 23:45:11 port range values should be greater than 0: -1
+2026-03-04T23:45:11.1192402Z --- FAIL: Test_getLocalDNSCorefileBase64 (0.00s)
+2026-03-04T23:45:11.1192997Z     --- FAIL: Test_getLocalDNSCorefileBase64/LocalDNSProfile_enabled_returns_base64_string (0.00s)
+2026-03-04T23:45:11.1197160Z         helper_test.go:1662: expected decoded corefile to contain "# ***********************************************************************************\n# WARNING: Changes to this file will be overwritten and not persisted.\n# ***********************************************************************************\n# whoami (used for health check of DNS)\nhealth-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    whoami\n}\n# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).\n.:53 {\n    log\n    bind 169.254.10.10\n    forward . 168.63.129.16 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s immediate\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}\ncluster.local:53 {\n    errors\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        force_tcp\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\ntestdomain456.com:53 {\n    log\n    bind 169.254.10.10\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 1000\n    }\n    ready 169.254.10.10:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 3600s verify\n        servfail 0\n    }\n    loop\n    nsid localdns\n    prometheus :9253\n}\n# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).\n.:53 {\n    errors\n    bind 169.254.10.11\n    forward . 10.0.0.10 {\n        policy sequential\n        max_concurrent 2000\n    }\n    ready 169.254.10.11:8181\n    cache 3600 {\n        success 9984\n        denial 9984\n        serve_stale 72000s verify\n        servfail 0\n    }\n    loop\n    nsid localdns-pod\n    prometheus :9253\n    template ANY ANY internal.cloudapp.net {\n        match \"^(?:[^.]+\\.){4,}internal\\.cloudapp\\.net\\.$\"\n        rcode NXDOMAIN\n        fallthrough\n    }\n    template ANY ANY reddog.microsoft.com {\n        rcode NXDOMAIN\n    }\n}", got:
+2026-03-04T23:45:11.1201744Z             # ***********************************************************************************
+2026-03-04T23:45:11.1202428Z             # WARNING: Changes to this file will be overwritten and not persisted.
+2026-03-04T23:45:11.1203079Z             # ***********************************************************************************
+2026-03-04T23:45:11.1203713Z             # whoami (used for health check of DNS)
+2026-03-04T23:45:11.1204271Z             health-check.localdns.local:53 {
+2026-03-04T23:45:11.1204832Z                 bind 169.254.10.10 169.254.10.11
+2026-03-04T23:45:11.1205330Z                 whoami
+2026-03-04T23:45:11.1205977Z             }
+2026-03-04T23:45:11.1206615Z             # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+2026-03-04T23:45:11.1207391Z             .:53 {
+2026-03-04T23:45:11.1207882Z                 log
+2026-03-04T23:45:11.1208371Z                 bind 169.254.10.10
+2026-03-04T23:45:11.1208997Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:45:11.1209614Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:45:11.1210123Z                     fallthrough
+2026-03-04T23:45:11.1210567Z                 }
+2026-03-04T23:45:11.1211046Z                 forward . 168.63.129.16 {
+2026-03-04T23:45:11.1211550Z                     policy sequential
+2026-03-04T23:45:11.1212025Z                     max_concurrent 1000
+2026-03-04T23:45:11.1212482Z                 }
+2026-03-04T23:45:11.1212992Z                 ready 169.254.10.10:8181
+2026-03-04T23:45:11.1213506Z                 cache 3600 {
+2026-03-04T23:45:11.1213982Z                     success 9984
+2026-03-04T23:45:11.1214480Z                     denial 9984
+2026-03-04T23:45:11.1214976Z                     serve_stale 3600s immediate
+2026-03-04T23:45:11.1215484Z                     servfail 0
+2026-03-04T23:45:11.1215932Z                 }
+2026-03-04T23:45:11.1216411Z                 loop
+2026-03-04T23:45:11.1216878Z                 nsid localdns
+2026-03-04T23:45:11.1217571Z                 prometheus :9253
+2026-03-04T23:45:11.1218127Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:45:11.1218693Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:45:11.1219233Z                     rcode NXDOMAIN
+2026-03-04T23:45:11.1219701Z                     fallthrough
+2026-03-04T23:45:11.1220184Z                 }
+2026-03-04T23:45:11.1220671Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:45:11.1221191Z                     rcode NXDOMAIN
+2026-03-04T23:45:11.1221672Z                 }
+2026-03-04T23:45:11.1222114Z             }
+2026-03-04T23:45:11.1222611Z             cluster.local:53 {
+2026-03-04T23:45:11.1223092Z                 errors
+2026-03-04T23:45:11.1223586Z                 bind 169.254.10.10
+2026-03-04T23:45:11.1224069Z                 forward . 10.0.0.10 {
+2026-03-04T23:45:11.1224740Z                     force_tcp
+2026-03-04T23:45:11.1225239Z                     policy sequential
+2026-03-04T23:45:11.1225762Z                     max_concurrent 1000
+2026-03-04T23:45:11.1226354Z                 }
+2026-03-04T23:45:11.1226853Z                 ready 169.254.10.10:8181
+2026-03-04T23:45:11.1227523Z                 cache 3600 {
+2026-03-04T23:45:11.1228032Z                     success 9984
+2026-03-04T23:45:11.1228520Z                     denial 9984
+2026-03-04T23:45:11.1229015Z                     servfail 0
+2026-03-04T23:45:11.1229469Z                 }
+2026-03-04T23:45:11.1229927Z                 loop
+2026-03-04T23:45:11.1230455Z                 nsid localdns
+2026-03-04T23:45:11.1230973Z                 prometheus :9253
+2026-03-04T23:45:11.1231444Z             }
+2026-03-04T23:45:11.1231952Z             testdomain456.com:53 {
+2026-03-04T23:45:11.1232446Z                 log
+2026-03-04T23:45:11.1232941Z                 bind 169.254.10.10
+2026-03-04T23:45:11.1233434Z                 forward . 10.0.0.10 {
+2026-03-04T23:45:11.1233958Z                     policy sequential
+2026-03-04T23:45:11.1234457Z                     max_concurrent 1000
+2026-03-04T23:45:11.1234933Z                 }
+2026-03-04T23:45:11.1235453Z                 ready 169.254.10.10:8181
+2026-03-04T23:45:11.1235958Z                 cache 3600 {
+2026-03-04T23:45:11.1236440Z                     success 9984
+2026-03-04T23:45:11.1236920Z                     denial 9984
+2026-03-04T23:45:11.1237545Z                     serve_stale 3600s verify
+2026-03-04T23:45:11.1238049Z                     servfail 0
+2026-03-04T23:45:11.1238524Z                 }
+2026-03-04T23:45:11.1239152Z                 loop
+2026-03-04T23:45:11.1239610Z                 nsid localdns
+2026-03-04T23:45:11.1240111Z                 prometheus :9253
+2026-03-04T23:45:11.1240596Z             }
+2026-03-04T23:45:11.1241245Z             # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+2026-03-04T23:45:11.1241907Z             .:53 {
+2026-03-04T23:45:11.1242385Z                 errors
+2026-03-04T23:45:11.1242887Z                 bind 169.254.10.11
+2026-03-04T23:45:11.1243494Z                 # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+2026-03-04T23:45:11.1244139Z                 hosts /etc/localdns/hosts {
+2026-03-04T23:45:11.1244990Z                     fallthrough
+2026-03-04T23:45:11.1245459Z                 }
+2026-03-04T23:45:11.1245917Z                 forward . 10.0.0.10 {
+2026-03-04T23:45:11.1246432Z                     policy sequential
+2026-03-04T23:45:11.1246953Z                     max_concurrent 2000
+2026-03-04T23:45:11.1247544Z                 }
+2026-03-04T23:45:11.1248079Z                 ready 169.254.10.11:8181
+2026-03-04T23:45:11.1248575Z                 cache 3600 {
+2026-03-04T23:45:11.1249058Z                     success 9984
+2026-03-04T23:45:11.1249547Z                     denial 9984
+2026-03-04T23:45:11.1250045Z                     serve_stale 72000s verify
+2026-03-04T23:45:11.1250553Z                     servfail 0
+2026-03-04T23:45:11.1251014Z                 }
+2026-03-04T23:45:11.1251481Z                 loop
+2026-03-04T23:45:11.1251953Z                 nsid localdns-pod
+2026-03-04T23:45:11.1252473Z                 prometheus :9253
+2026-03-04T23:45:11.1253009Z                 template ANY ANY internal.cloudapp.net {
+2026-03-04T23:45:11.1253588Z                     match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+2026-03-04T23:45:11.1254131Z                     rcode NXDOMAIN
+2026-03-04T23:45:11.1254588Z
+2026-03-04T23:45:11.1255051Z                     fallthrough
+2026-03-04T23:45:11.1255501Z
+2026-03-04T23:45:11.1255963Z                 }
+2026-03-04T23:45:11.1256457Z                 template ANY ANY reddog.microsoft.com {
+2026-03-04T23:45:11.1256985Z                     rcode NXDOMAIN
+2026-03-04T23:45:11.1257560Z                 }
+2026-03-04T23:45:11.1258034Z             }
+2026-03-04T23:45:11.1258683Z FAIL
+2026-03-04T23:45:11.1259210Z FAIL	github.com/Azure/agentbaker/aks-node-controller/parser	0.018s
+2026-03-04T23:45:11.1259875Z ?   	github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1	[no test files]
+2026-03-04T23:45:11.1260548Z ok  	github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils	(cached)
+2026-03-04T23:45:11.1261218Z ?   	github.com/Azure/agentbaker/aks-node-controller/utils	[no test files]
+2026-03-04T23:45:11.1261758Z FAIL
+2026-03-04T23:45:11.1313540Z make[1]: *** [packer.mk:131: build-aks-node-controller] Error 1
+2026-03-04T23:45:11.1315232Z make[1]: Leaving directory '/mnt/vss/_work/1/s'
+2026-03-04T23:45:11.1319183Z make: *** [packer.mk:93: run-packer] Error 2
+2026-03-04T23:45:11.1332888Z
+2026-03-04T23:45:11.1350589Z ##[error]Script failed with exit code: 2
+2026-03-04T23:45:11.1356061Z [command]/usr/bin/az account clear
+2026-03-04T23:45:11.7050119Z ##[section]Finishing: Build VHD

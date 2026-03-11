@@ -1,0 +1,103 @@
+2026/03/06 05:26:20 using E2E environment configuration:
+ACR_SECRET_NAME=acr-secret-code2
+ACR_TARGET_REPOSITORY=aks-managed-repository/*
+BLOB_CONTAINER=abe2e
+BLOB_STORAGE_ACCOUNT_PREFIX=abe2e
+BUILD_ID=local
+DEFAULT_POLL_INTERVAL=1s
+DEFAULT_SUBNET_NAME=aks-subnet
+DEFAULT_VM_SKU=Standard_D2ds_v5
+DISABLE_SCRIPTLESS_COMPILATION=false
+E2E_LOCATION=westus2
+ENABLE_SCRIPTLESS_CSE_CMD=false
+EXTENDED_TESTS=
+GALLERY_NAME=PackerSigGalleryEastUS
+GALLERY_NAME=PackerSigGalleryEastUS
+GALLERY_RESOURCE_GROUP=aksvhdtestbuildrg
+GALLERY_RESOURCE_GROUP=aksvhdtestbuildrg
+GALLERY_SUBSCRIPTION_ID=c4c3550e-a965-4993-a50c-628fd38cd3e1
+GALLERY_SUBSCRIPTION_ID=c4c3550e-a965-4993-a50c-628fd38cd3e1
+IGNORE_SCENARIOS_WITH_MISSING_VHD=false
+KEEP_VMSS=true
+LOGGING_DIR=scenario-logs
+NETWORK_ISOLATED_NSG_NAME=abe2e-networkisolated-securityGroup
+SIG_VERSION_TAG_NAME=buildId
+SIG_VERSION_TAG_VALUE=155648650
+SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE=false
+SUBSCRIPTION_ID=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8
+SYS_SSH_PRIVATE_KEY_B64=
+SYS_SSH_PUBLIC_KEY=
+TAGS_TO_RUN=
+TAGS_TO_SKIP=gpu=true,os=windows
+TEST_GALLERY_IMAGE_PREFIX=abe2etest
+TEST_GALLERY_NAME_PREFIX=abe2etest
+TEST_PRE_PROVISION=false
+TEST_TIMEOUT=35m0s
+TEST_TIMEOUT_CLUSTER=20m0s
+TEST_TIMEOUT_VMSS=17m0s
+WINDOWS_ADMIN_PASSWORD=
+=== RUN   Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+=== PAUSE Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+=== CONT  Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    azure.go:658: [0.000s] Looking up images for gallery subscription c4c3550e-a965-4993-a50c-628fd38cd3e1 resource group aksvhdtestbuildrg gallery name PackerSigGalleryEastUS image name 2204Gen2 version 1.1704411049.2812 
+    azure.go:558: [1.155s] Image version /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812 is already in region westus2
+    vhd.go:318: [1.155s] Got image by version: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-22.04-gen2/versions/1.1704411049.2812/overview
+    test_helpers.go:360: [1.155s] TAGS {Name:Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback ImageName:2204Gen2 OS:ubuntu Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:false VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+    test_helpers.go:199: [8.394s] → running scenario...
+    cluster.go:63: [8.394s] → preparing cluster...
+    cluster.go:242: [8.394s] → get or create cluster abe2e-kubenet-v4-f78eb...
+    cluster.go:250: [10.164s] ✓ get or create cluster abe2e-kubenet-v4-f78eb done (1.8s)
+    aks_model.go:306: [16.177s] → adding firewall rules...
+    aks_model.go:316: [18.143s] ✓ adding firewall rules done (2.0s)
+    kube.go:368: [18.143s] Creating daemonset debug-mariner-tolerated with image mcr.microsoft.com/cbl-mariner/base/core:2.0
+    kube.go:368: [18.238s] Creating daemonset debugnonhost-mariner-tolerated with image mcr.microsoft.com/cbl-mariner/base/core:2.0
+    cluster.go:704: [18.247s] → collecting garbage VMSS...
+    cluster.go:738: [19.445s] ✓ collecting garbage VMSS done (1.2s)
+    cluster.go:742: [19.445s] → collecting garbage Private DNS zones...
+    cluster.go:838: [21.512s] ✓ collecting garbage Private DNS zones done (2.1s)
+    cluster.go:140: [21.544s] ✓ preparing cluster done (13.1s)
+    test_helpers.go:231: [21.544s] → preparing AKS node...
+    vmss.go:279: [28.066s] → creating VMSS 15ip-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef...
+    vmss.go:200: [28.210s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/15ip-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef/overview
+    vmss.go:206: [28.210s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+    vmss.go:310: [34.861s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [34.861s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/15ip-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-2986489743
+        
+    bastionssh.go:304: [714.337s] Attempt 1/5 establishing SSH over bastion to 10.224.0.20
+    vmss.go:327: [716.384s] ✓ creating VMSS 15ip-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef done (688.3s)
+    test_helpers.go:301: [716.385s] 🔴 FAIL: 
+        	Error Trace:	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:301
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:219
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:86
+        	            				/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/scenario_localdns_hosts_test.go:131
+        	Error:      	Received unexpected error:
+        	            	GET https://management.azure.com/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/providers/Microsoft.Compute/locations/westus2/operations/3b1ab309-bd3b-4e1d-aefc-bc10b15464a3
+        	            	--------------------------------------------------------------------------------
+        	            	RESPONSE 200: 200 OK
+        	            	ERROR CODE: VMExtensionProvisioningError
+        	            	--------------------------------------------------------------------------------
+        	            	{
+        	            	  "startTime": "2026-03-06T05:26:52.3191442+00:00",
+        	            	  "endTime": "2026-03-06T05:38:14.8748132+00:00",
+        	            	  "status": "Failed",
+        	            	  "error": {
+        	            	    "code": "VMExtensionProvisioningError",
+        	            	    "message": "VM has reported a failure when processing extension 'vmssCSE' (publisher 'Microsoft.Azure.Extensions' and type 'CustomScript'). Error message: 'Enable failed: failed to execute command: command terminated with exit status=216\n[stdout]\n{ \"ExitCode\": \"216\", \"Output\": \"ager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 93 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 94 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 95 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 96 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 97 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 98 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 99 -eq 100 ']'\\n+ '[' true = true ']'\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ journalctl -u localdns\\n-- No entries --\\n+ sleep 5\\n+ for i in $(seq 1 $retries)\\n+ timeout 30 systemctl daemon-reload\\n+ timeout 30 systemctl restart localdns\\nFailed to restart localdns.service: Unit localdns.service not found.\\n+ '[' 100 -eq 100 ']'\\n+ return 1\\n+ RESTART_STATUS=1\\n+ systemctl status localdns --no-pager -l\\nUnit localdns.service could not be found.\\n+ '[' 1 -ne 0 ']'\\n+ echo 'localdns could not be started'\\nlocaldns could not be started\\n+ return 1\\n+ exit 216\", \"Error\": \"\", \"ExecDuration\": \"576\", \"KernelStartTime\": \"Fri 2026-03-06 05:27:11 UTC\", \"CloudInitLocalStartTime\": \"Fri 2026-03-06 05:27:14 UTC\", \"CloudInitStartTime\": \"Fri 2026-03-06 05:27:21 UTC\", \"CloudFinalStartTime\": \"Fri 2026-03-06 05:27:35 UTC\", \"NetworkdStartTime\": \"Fri 2026-03-06 05:27:19 UTC\", \"CSEStartTime\": \"Fri Mar 6 05:28:32 UTC 2026\", \"GuestAgentStartTime\": \"Fri 2026-03-06 05:27:24 UTC\", \"SystemdSummary\": \"Startup finished in 1.522s (kernel) + 23.118s (userspace) = 24.640s \\ngraphical.target reached after 22.457s in userspace\", \"BootDatapoints\": { \"KernelStartTime\": \"Fri 2026-03-06 05:27:11 UTC\", \"CSEStartTime\": \"Fri Mar 6 05:28:32 UTC 2026\", \"GuestAgentStartTime\": \"Fri 2026-03-06 05:27:24 UTC\", \"KubeletStartTime\": \"n/a\" } }\n\n[stderr]\ndate: invalid date ‘n/a’\n'. More information on troubleshooting is available at https://aka.ms/VMExtensionCSELinuxTroubleshoot. ",
+        	            	    "target": "0"
+        	            	  },
+        	            	  "name": "3b1ab309-bd3b-4e1d-aefc-bc10b15464a3"
+        	            	}
+        	            	--------------------------------------------------------------------------------
+        	Test:       	Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+        	Messages:   	create vmss "15ip-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef", check scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback for vm logs
+    test_helpers.go:301: [716.385s] 🔴 FAIL:
+    panic.go:636: [716.385s] ✗ preparing AKS node failed (694.8s)
+    panic.go:636: [716.385s] ✗ running scenario failed (708.0s)
+    vmss.go:502: [717.066s] extracted VM logs to scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback
+    vmss.go:771: [718.405s] vmss "15ip-2026-03-06-ubuntu2204localdnshostspluginoldvhdgracef" will be retained for debugging purposes, please make sure to manually delete it later
+--- FAIL: Test_Ubuntu2204_LocalDNSHostsPlugin_OldVHD_GracefulFallback (718.43s)
+FAIL
+exit status 1
+FAIL	github.com/Azure/agentbaker/e2e	719.915s

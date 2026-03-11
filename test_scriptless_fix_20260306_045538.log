@@ -1,0 +1,141 @@
+2026/03/06 04:55:44 using E2E environment configuration:
+ACR_SECRET_NAME=acr-secret-code2
+ACR_TARGET_REPOSITORY=aks-managed-repository/*
+BLOB_CONTAINER=abe2e
+BLOB_STORAGE_ACCOUNT_PREFIX=abe2e
+BUILD_ID=local
+DEFAULT_POLL_INTERVAL=1s
+DEFAULT_SUBNET_NAME=aks-subnet
+DEFAULT_VM_SKU=Standard_D2ds_v5
+DISABLE_SCRIPTLESS_COMPILATION=false
+E2E_LOCATION=westus2
+ENABLE_SCRIPTLESS_CSE_CMD=false
+EXTENDED_TESTS=
+GALLERY_NAME=PackerSigGalleryEastUS
+GALLERY_NAME=PackerSigGalleryEastUS
+GALLERY_RESOURCE_GROUP=aksvhdtestbuildrg
+GALLERY_RESOURCE_GROUP=aksvhdtestbuildrg
+GALLERY_SUBSCRIPTION_ID=c4c3550e-a965-4993-a50c-628fd38cd3e1
+GALLERY_SUBSCRIPTION_ID=c4c3550e-a965-4993-a50c-628fd38cd3e1
+IGNORE_SCENARIOS_WITH_MISSING_VHD=false
+KEEP_VMSS=true
+LOGGING_DIR=scenario-logs
+NETWORK_ISOLATED_NSG_NAME=abe2e-networkisolated-securityGroup
+SIG_VERSION_TAG_NAME=buildId
+SIG_VERSION_TAG_VALUE=155648650
+SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE=false
+SUBSCRIPTION_ID=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8
+SYS_SSH_PRIVATE_KEY_B64=
+SYS_SSH_PUBLIC_KEY=
+TAGS_TO_RUN=
+TAGS_TO_SKIP=gpu=true,os=windows
+TEST_GALLERY_IMAGE_PREFIX=abe2etest
+TEST_GALLERY_NAME_PREFIX=abe2etest
+TEST_PRE_PROVISION=false
+TEST_TIMEOUT=35m0s
+TEST_TIMEOUT_CLUSTER=20m0s
+TEST_TIMEOUT_VMSS=17m0s
+WINDOWS_ADMIN_PASSWORD=
+=== RUN   Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+=== PAUSE Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+=== CONT  Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    azure.go:469: [0.000s] Looking up images in https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-22.04-gen2/overview
+    azure.go:558: [5.622s] Image version /subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2containerd/versions/1.1772760851.25282 is already in region westus2
+    vhd.go:326: [5.622s] got version by tag buildId=155648650: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/aks-ubuntu-containerd-22.04-gen2/versions/1.1772760851.25282/overview
+    test_helpers.go:360: [5.622s] TAGS {Name:Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless ImageName:2204gen2containerd OS:ubuntu Arch:amd64 NetworkIsolated:false NonAnonymousACR:false GPU:false WASM:false BootstrapTokenFallback:false KubeletCustomConfig:false Scriptless:true VHDCaching:false MockAzureChinaCloud:false MockUnknownCloud:false VMSeriesCoverageTest:false}
+    test_helpers.go:199: [12.243s] → running scenario...
+    cluster.go:63: [12.243s] → preparing cluster...
+    cluster.go:242: [12.243s] → get or create cluster abe2e-kubenet-v4-f78eb...
+    cluster.go:250: [13.640s] ✓ get or create cluster abe2e-kubenet-v4-f78eb done (1.4s)
+    aks_model.go:306: [17.237s] → adding firewall rules...
+    aks_model.go:316: [19.013s] ✓ adding firewall rules done (1.8s)
+    kube.go:368: [19.013s] Creating daemonset debug-mariner-tolerated with image mcr.microsoft.com/cbl-mariner/base/core:2.0
+    kube.go:368: [19.124s] Creating daemonset debugnonhost-mariner-tolerated with image mcr.microsoft.com/cbl-mariner/base/core:2.0
+    cluster.go:704: [19.133s] → collecting garbage VMSS...
+    cluster.go:738: [20.172s] ✓ collecting garbage VMSS done (1.0s)
+    cluster.go:742: [20.172s] → collecting garbage Private DNS zones...
+    cluster.go:838: [22.002s] ✓ collecting garbage Private DNS zones done (1.8s)
+    cluster.go:140: [22.014s] ✓ preparing cluster done (9.8s)
+    test_helpers.go:231: [22.014s] → preparing AKS node...
+    vmss.go:279: [28.186s] → creating VMSS xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless...
+    vmss.go:65: [28.186s] compiling aks-node-controller: "/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/bin/go build -o aks-node-controller-amd64 -v"
+    vmss.go:43: [28.387s] uploading aks-node-controller binary to blob path 2026-03-06-04-56-13/aks-node-controller-domt0j
+    vmss.go:200: [30.165s] VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless/overview
+    vmss.go:206: [30.165s] Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.ContainerService/managedClusters/abe2e-kubenet-v4-f78eb/overview
+    vmss.go:310: [37.109s] VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes
+    vmss.go:316: [37.109s] SSH Instructions: (may take a few minutes for the VM to be ready for SSH)
+        ========================
+        az network bastion ssh --target-resource-id "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2/providers/Microsoft.Compute/virtualMachineScaleSets/xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless/virtualMachines/0" --name "abe2e-kubenet-v4-f78eb-bastion" --resource-group MC_abe2e-westus2_abe2e-kubenet-v4-f78eb_westus2 --auth-type ssh-key --username azureuser --ssh-key /tmp/private-key-418885668
+        
+    bastionssh.go:304: [169.397s] Attempt 1/5 establishing SSH over bastion to 10.224.0.18
+    vmss.go:366: [172.775s] VM reached running state
+    vmss.go:336: [172.775s] ✓ creating VMSS xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless done (144.6s)
+    kube.go:149: [172.775s] → waiting for node xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless to be ready...
+    kube.go:181: [172.817s] node xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000 is ready. Taints: null Conditions: [{"type":"NetworkUnavailable","status":"False","lastHeartbeatTime":"2026-03-06T04:58:26Z","lastTransitionTime":"2026-03-06T04:58:26Z","reason":"RouteCreated","message":"RouteController created a route"},{"type":"MemoryPressure","status":"False","lastHeartbeatTime":"2026-03-06T04:58:35Z","lastTransitionTime":"2026-03-06T04:57:44Z","reason":"KubeletHasSufficientMemory","message":"kubelet has sufficient memory available"},{"type":"DiskPressure","status":"False","lastHeartbeatTime":"2026-03-06T04:58:35Z","lastTransitionTime":"2026-03-06T04:57:44Z","reason":"KubeletHasNoDiskPressure","message":"kubelet has no disk pressure"},{"type":"PIDPressure","status":"False","lastHeartbeatTime":"2026-03-06T04:58:35Z","lastTransitionTime":"2026-03-06T04:57:44Z","reason":"KubeletHasSufficientPID","message":"kubelet has sufficient PID available"},{"type":"Ready","status":"True","lastHeartbeatTime":"2026-03-06T04:58:35Z","lastTransitionTime":"2026-03-06T04:57:44Z","reason":"KubeletReady","message":"kubelet is posting ready status"}]
+    kube.go:182: [172.817s] ✓ waiting for node xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless to be ready done (0.0s)
+    test_helpers.go:313: [172.817s] Node xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless took 2m24.589078374s to be created and 41.924668ms to be ready
+    test_helpers.go:316: [172.817s] ✓ preparing AKS node done (150.8s)
+    test_helpers.go:224: [172.817s] Choosing the private ACR "abe2eprivatewestus2" for the vm validation
+    test_helpers.go:380: [172.817s] → validating VM...
+    test_helpers.go:774: [173.023s] SSH connectivity to 10.224.0.18 verified successfully
+    validators.go:2130: [173.023s] truncated pod name "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-test-pod" to "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-t"
+    validation.go:168: [173.023s] creating pod "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-t"
+    kube.go:77: [173.072s] → waiting for pod  metadata.name=xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-t in "default" namespace...
+    kube.go:141: [188.098s] ✓ waiting for pod  metadata.name=xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-t in "default" namespace done (15.0s)
+    validation.go:192: [188.098s] Time for pod "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-t" to get ready was 15.075456079s
+    validation.go:193: [188.098s] node health validation: test pod "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000-t" is running on node "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless000000"
+    validators.go:59: [188.450s] will validate bootstrapping mode: secure TLS bootstrapping
+    validators.go:120: [188.471s] will validate linux KSCR enablement
+    validation.go:78: [188.848s] VM has 2 CPUs, expecting rx buffer size: 1024
+    validation.go:78: [188.909s] NICs to configure:
+        === NICs to Configure ===
+        enP9415s1
+    validation.go:78: [188.909s] Parsed NICs list: [enP9415s1] (count: 1)
+    validation.go:78: [188.909s] Validating network interface config for NIC: enP9415s1
+    validation.go:78: [188.925s] Full ethtool output for enP9415s1:
+        === Full ethtool output for enP9415s1 ===
+        Ring parameters for enP9415s1:
+        Pre-set maximums:
+        RX:		8192
+        RX Mini:	n/a
+        RX Jumbo:	n/a
+        TX:		8192
+        Current hardware settings:
+        RX:		1024
+        RX Mini:	n/a
+        RX Jumbo:	n/a
+        TX:		1024
+    validation.go:78: [188.941s] Ethtool setting rx for NIC enP9415s1: expected=1024, actual=1024
+    validation.go:79: [189.034s] No critical kernel issues found
+    panic.go:262: [189.112s] ✓ validating VM done (16.3s)
+    panic.go:262: [189.112s] ✓ running scenario done (176.9s)
+    vmss.go:502: [189.335s] extracted VM logs to scenario-logs/Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless
+    vmss.go:771: [189.864s] vmss "xjou-2026-03-06-ubuntu2204localdnshostspluginscriptless" will be retained for debugging purposes, please make sure to manually delete it later
+--- FAIL: Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless (189.90s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered]
+	panic: runtime error: invalid memory address or nil pointer dereference
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0x1ce8942]
+
+goroutine 40 [running]:
+testing.tRunner.func1.2({0x20112c0, 0x3aadb80})
+	/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/src/testing/testing.go:1734 +0x21c
+testing.tRunner.func1()
+	/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/src/testing/testing.go:1737 +0x35e
+panic({0x20112c0?, 0x3aadb80?})
+	/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/src/runtime/panic.go:792 +0x132
+github.com/Azure/agentbaker/e2e.ValidateCommonLinux({0x27ce2b8, 0xc0002020e0}, 0xc00041c000)
+	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/validation.go:110 +0x5c2
+github.com/Azure/agentbaker/e2e.validateVM({0x27ce2b8, 0xc0002020e0}, 0xc00041c000)
+	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:392 +0x11b
+github.com/Azure/agentbaker/e2e.runScenario({0x27eed00, 0xc000103a40}, 0xc00041c000)
+	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:225 +0x731
+github.com/Azure/agentbaker/e2e.RunScenario(0xc000103a40, 0xc00041c000)
+	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/test_helpers.go:86 +0xae
+github.com/Azure/agentbaker/e2e.Test_Ubuntu2204_LocalDNSHostsPlugin_Scriptless(0xc000103a40)
+	/home/sakwa/go/src/go.goms.io/AgentBaker/e2e/scenario_localdns_hosts_test.go:164 +0xb2
+testing.tRunner(0xc000103a40, 0x25c4650)
+	/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/src/testing/testing.go:1792 +0xf4
+created by testing.(*T).Run in goroutine 1
+	/home/sakwa/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.12.linux-amd64/src/testing/testing.go:1851 +0x413
+exit status 2
+FAIL	github.com/Azure/agentbaker/e2e	191.206s
