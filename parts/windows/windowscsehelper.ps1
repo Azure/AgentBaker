@@ -677,9 +677,7 @@ function Install-CachedScripts {
             return
         }
         finally {
-            if (Test-Path $tempfile) {
-                Remove-Item -Path $tempfile -Force -ErrorAction SilentlyContinue
-            }
+            Remove-Item -Path $tempfile -Force -ErrorAction SilentlyContinue
         }
     }
     else {
