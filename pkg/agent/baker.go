@@ -553,6 +553,10 @@ all business logic is implemented in the underlying func. */
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	customCloudEnv := &datamodel.CustomCloudEnv{}
+	if cs != nil && cs.Properties != nil && cs.Properties.CustomCloudEnv != nil {
+		customCloudEnv = cs.Properties.CustomCloudEnv
+	}
 	return template.FuncMap{
 		// This was DisableUnattendedUpgrade when we had UU enabled by default in image.
 		// Now we don't, so we have to deliberately enable it.
@@ -929,7 +933,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetTargetEnvironment": func() string {
 			if cs.IsAKSCustomCloud() {
-				return cs.Properties.CustomCloudEnv.Name
+				return customCloudEnv.Name
 			}
 			return GetCloudTargetEnv(cs.Location)
 		},
@@ -940,85 +944,85 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return initAKSCustomCloudFilepath
 		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			return customCloudEnv.RepoDepotEndpoint
 		},
 		"AKSCustomCloudManagementPortalURL": func() string {
-			return cs.Properties.CustomCloudEnv.ManagementPortalURL
+			return customCloudEnv.ManagementPortalURL
 		},
 		"AKSCustomCloudPublishSettingsURL": func() string {
-			return cs.Properties.CustomCloudEnv.PublishSettingsURL
+			return customCloudEnv.PublishSettingsURL
 		},
 		"AKSCustomCloudServiceManagementEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.ServiceManagementEndpoint
+			return customCloudEnv.ServiceManagementEndpoint
 		},
 		"AKSCustomCloudResourceManagerEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
+			return customCloudEnv.ResourceManagerEndpoint
 		},
 		"AKSCustomCloudActiveDirectoryEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.ActiveDirectoryEndpoint
+			return customCloudEnv.ActiveDirectoryEndpoint
 		},
 		"AKSCustomCloudGalleryEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.GalleryEndpoint
+			return customCloudEnv.GalleryEndpoint
 		},
 		"AKSCustomCloudKeyVaultEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.KeyVaultEndpoint
+			return customCloudEnv.KeyVaultEndpoint
 		},
 		"AKSCustomCloudGraphEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.GraphEndpoint
+			return customCloudEnv.GraphEndpoint
 		},
 		"AKSCustomCloudServiceBusEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.ServiceBusEndpoint
+			return customCloudEnv.ServiceBusEndpoint
 		},
 		"AKSCustomCloudBatchManagementEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.BatchManagementEndpoint
+			return customCloudEnv.BatchManagementEndpoint
 		},
 		"AKSCustomCloudStorageEndpointSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.StorageEndpointSuffix
+			return customCloudEnv.StorageEndpointSuffix
 		},
 		"AKSCustomCloudSqlDatabaseDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.SQLDatabaseDNSSuffix
+			return customCloudEnv.SQLDatabaseDNSSuffix
 		},
 		"AKSCustomCloudTrafficManagerDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.TrafficManagerDNSSuffix
+			return customCloudEnv.TrafficManagerDNSSuffix
 		},
 		"AKSCustomCloudKeyVaultDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.KeyVaultDNSSuffix
+			return customCloudEnv.KeyVaultDNSSuffix
 		},
 		"AKSCustomCloudServiceBusEndpointSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.ServiceBusEndpointSuffix
+			return customCloudEnv.ServiceBusEndpointSuffix
 		},
 		"AKSCustomCloudServiceManagementVMDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.ServiceManagementVMDNSSuffix
+			return customCloudEnv.ServiceManagementVMDNSSuffix
 		},
 		"AKSCustomCloudResourceManagerVMDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceManagerVMDNSSuffix
+			return customCloudEnv.ResourceManagerVMDNSSuffix
 		},
 		"AKSCustomCloudContainerRegistryDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.ContainerRegistryDNSSuffix
+			return customCloudEnv.ContainerRegistryDNSSuffix
 		},
 		"AKSCustomCloudCosmosDBDNSSuffix": func() string {
-			return cs.Properties.CustomCloudEnv.CosmosDBDNSSuffix
+			return customCloudEnv.CosmosDBDNSSuffix
 		},
 		"AKSCustomCloudTokenAudience": func() string {
-			return cs.Properties.CustomCloudEnv.TokenAudience
+			return customCloudEnv.TokenAudience
 		},
 		"AKSCustomCloudResourceIdentifiersGraph": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Graph
+			return customCloudEnv.ResourceIdentifiers.Graph
 		},
 		"AKSCustomCloudResourceIdentifiersKeyVault": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.KeyVault
+			return customCloudEnv.ResourceIdentifiers.KeyVault
 		},
 		"AKSCustomCloudResourceIdentifiersDatalake": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Datalake
+			return customCloudEnv.ResourceIdentifiers.Datalake
 		},
 		"AKSCustomCloudResourceIdentifiersBatch": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Batch
+			return customCloudEnv.ResourceIdentifiers.Batch
 		},
 		"AKSCustomCloudResourceIdentifiersOperationalInsights": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.OperationalInsights
+			return customCloudEnv.ResourceIdentifiers.OperationalInsights
 		},
 		"AKSCustomCloudResourceIdentifiersStorage": func() string {
-			return cs.Properties.CustomCloudEnv.ResourceIdentifiers.Storage
+			return customCloudEnv.ResourceIdentifiers.Storage
 		},
 		"GetCSEHelpersScriptFilepath": func() string {
 			return cseHelpersScriptFilepath

@@ -1,7 +1,13 @@
 #!/bin/bash
 set -x
+
+# Running first-time or as a cron job?
+action=${1:-init}
+
 mkdir -p /root/AzureCACertificates
 
+IS_MARINER=0
+IS_AZURELINUX=0
 IS_FLATCAR=0
 IS_UBUNTU=0
 IS_ACL=0
@@ -9,7 +15,11 @@ IS_ACL=0
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
     # shellcheck disable=SC3010
-    if [[ $NAME == *"Ubuntu"* ]]; then
+    if [[ $NAME == *"Mariner"* ]]; then
+        IS_MARINER=1
+    elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
+        IS_AZURELINUX=1
+    elif [[ $NAME == *"Ubuntu"* ]]; then
         IS_UBUNTU=1
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
@@ -27,28 +37,167 @@ fi
 echo "distribution is $distribution"
 echo "Running on $NAME"
 
+# The purpose of RCV 1P is to reliably distribute root and intermediate certificates at scale to
+# only Microsoft 1st party (1P) virtual machines (VM) and virtual machine scale sets (VMSS).
+# This is critical for initiatives such as Microsoft PKI. RCV 1P ensures that these certificates
+# are installed on the node at creation time. This eliminates the need for your VM to be connected
+# to the internet and ping an endpoint to receive certificate packages. The feature also eliminates
+# the dependency on updates to AzSecPack to receive the latest root and intermediate certs.
+# RCV 1P is designed to work completely autonomously from the user perspective on all Azure 1st
+# party VMs.
+
+# Below code calls the wireserver to get the list of CA certs for this cloud and saves them to /root/AzureCACertificates. Then it copies them to the appropriate location based on distro and updates the CA bundle.
+
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
-certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
+WIRESERVER_ENDPOINT="http://168.63.129.16"
+
+# Function to make HTTP request with retry logic for rate limiting
+make_request_with_retry() {
+    local url="$1"
+    local max_retries=10
+    local retry_delay=3
+    local attempt=1
+
+    local response
+    while [ $attempt -le $max_retries ]; do
+        response=$(curl -f --no-progress-meter "$url")
+        local request_status=$?
+
+        if echo "$response" | grep -q "RequestRateLimitExceeded"; then
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))
+            attempt=$((attempt + 1))
+        elif [ $request_status -ne 0 ]; then
+            sleep $retry_delay
+            attempt=$((attempt + 1))
+        else
+            echo "$response"
+            return 0
+        fi
+    done
+
+    echo "exhausted all retries, last response: $response"
+    return 1
+}
+
+# Function to process certificate operations from a given endpoint
+process_cert_operations() {
+    local endpoint_type="$1"
+    local operation_response
+
+    echo "Retrieving certificate operations for type: $endpoint_type"
+    operation_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json")
+    local request_status=$?
+    if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
+        echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json"
+        return
+    fi
+
+    # Extract ResourceFileName values from the JSON response
+    # NOTE: ResouceFileName is a deliberate typo
+    local cert_filenames
+    mapfile -t cert_filenames < <(echo "$operation_response" | grep -oP '(?<="ResouceFileName": ")[^"]*')
+
+    if [ ${#cert_filenames[@]} -eq 0 ]; then
+        echo "No certificate filenames found in response for $endpoint_type"
+        return
+    fi
+
+    # Process each certificate file
+    for cert_filename in "${cert_filenames[@]}"; do
+        echo "Processing certificate file: $cert_filename"
+
+        # Extract filename and extension
+        local filename="${cert_filename%.*}"
+        local extension="${cert_filename##*.}"
+
+        echo "Downloading certificate: filename=$filename, extension=$extension"
+
+        # Retrieve the actual certificate content with retry logic
+        local cert_content
+        cert_content=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension")
+        local request_status=$?
+        if [ -z "$cert_content" ] || [ $request_status -ne 0 ]; then
+            echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
+            continue
+        fi
+
+        if [ -n "$cert_content" ]; then
+            # Save the certificate to the appropriate location
+            echo "$cert_content" > "/root/AzureCACertificates/$cert_filename"
+            echo "Successfully saved certificate: $cert_filename"
+        else
+            echo "Warning: Failed to retrieve certificate content for $cert_filename"
+        fi
+    done
+}
+
 IFS_backup=$IFS
 IFS=$'\r\n'
-certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-ext=".crt"
-if [ "$IS_FLATCAR" -eq 1 ]; then
-    ext=".pem"
+
+# First check via curl "http://168.63.129.16/acms/isOptedInForRootCerts" and JSON response for
+# {"IsOptedInForRootCerts":true}. The value captured in optInCheck indicates whether THIS VM
+# is opted in for the RCV 1P PKI setup described above. If not opted in, skip the RCV 1P pull
+# path and use the default cert retrieval flow instead. This check can be removed if you want to
+# attempt to pull certs regardless of opt-in status, but it may result in errors in the logs if
+# not opted in.
+# https://eng.ms/docs/products/onecert-certificates-key-vault-and-dsms/onecert-customer-guide/autorotationandecr/rcv1ptsg
+
+optInCurlStatus=0
+optInCheck=$(curl -sS --fail "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts" 2>/dev/null) || optInCurlStatus=$?
+if [ "$optInCurlStatus" -ne 0 ]; then
+    echo "Warning: failed to query root cert opt-in status (curl exit code $optInCurlStatus); defaulting to non-opt-in flow"
+    optInCheck=""
 fi
-for i in ${!certBodies[@]}; do
-    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed "s/.cer/.${ext}/g")"
-done
+
+if grep -Eq '"IsOptedInForRootCerts"[[:space:]]*:[[:space:]]*true' <<< "$optInCheck"; then
+    echo "Opted in for root certs, proceeding with CA cert pull and install"
+    # Process root certificates
+    process_cert_operations "operationrequestsroot"
+
+    # Process intermediate certificates
+    process_cert_operations "operationrequestsintermediate"
+    echo "successfully pulled in root certs"
+else
+    echo "Not opted in for root certs, skipping CA cert pull and install"
+    certs=$(curl "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
+    certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
+    certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+    ext=".crt"
+    if [ "$IS_FLATCAR" -eq 1 ]; then
+        ext=".pem"
+    fi
+    for i in "${!certBodies[@]}"; do
+        printf '%s\n' "${certBodies[$i]}" | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(printf '%s' "${certNames[$i]}" | sed "s/\\.cer$/${ext}/")"
+    done
+    echo "successfully pulled in default certs"
+fi
+
 IFS=$IFS_backup
 
-if [ "$IS_ACL" -eq 1 ]; then
+# Copy all certificate files to the system certificate directory
+# Update the system certificate store
+# hardening: ensure the ca trust store is empty initially and only the WIRESERVER is the source of truth
+if [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
+    if [ "$action" = "init" ]; then
+        echo "Clearing existing CA trust store to ensure only certs from wireserver are trusted"
+        rm -rf /etc/pki/ca-trust/source/anchors/*
+    fi
+    # Keep Mariner/AzureLinux trust store behavior aligned with prior scripts.
     cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
     update-ca-trust
 elif [ "$IS_FLATCAR" -eq 1 ]; then
+    if [ "$action" = "init" ]; then
+        echo "Clearing existing CA trust store to ensure only certs from wireserver are trusted"
+        rm -rf /etc/ssl/certs/*
+    fi
     cp /root/AzureCACertificates/*.pem /etc/ssl/certs/
     update-ca-certificates
 else
+    if [ "$action" = "init" ]; then
+        echo "Clearing existing CA trust store to ensure only certs from wireserver are trusted"
+        rm -rf /usr/local/share/ca-certificates/*
+    fi
     cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
     update-ca-certificates
 
@@ -58,10 +207,83 @@ fi
 
 # This section creates a cron job to poll for refreshed CA certs daily
 # It can be removed if not needed or desired
-action=${1:-init}
 if [ "$action" = "ca-refresh" ]; then
     exit
 fi
+
+function init_mariner_repo_depot {
+    local repodepot_endpoint=$1
+    echo "Adding [extended] repo"
+    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-extended.repo
+    sed -i -e "s|extras|extended|" /etc/yum.repos.d/mariner-extended.repo
+    sed -i -e "s|Extras|Extended|" /etc/yum.repos.d/mariner-extended.repo
+
+    echo "Adding [nvidia] repo"
+    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-nvidia.repo
+    sed -i -e "s|extras|nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
+    sed -i -e "s|Extras|Nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
+
+    echo "Adding [cloud-native] repo"
+    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-cloud-native.repo
+    sed -i -e "s|extras|cloud-native|" /etc/yum.repos.d/mariner-cloud-native.repo
+    sed -i -e "s|Extras|Cloud-Native|" /etc/yum.repos.d/mariner-cloud-native.repo
+
+    echo "Pointing Mariner repos at RepoDepot..."
+    for f in /etc/yum.repos.d/*.repo
+    do
+        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" $f
+        echo "$f modified."
+    done
+    echo "Mariner repo setup complete."
+}
+
+function init_azurelinux_repo_depot {
+    local repodepot_endpoint=$1
+    repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
+
+    # tbd maybe we do this a bit nicer
+    rm -f /etc/yum.repos.d/azurelinux*
+
+    for repo in "${repos[@]}"; do
+        output_file="/etc/yum.repos.d/azurelinux-${repo}.repo"
+        repo_content=(
+            "[azurelinux-official-$repo]"
+            "name=Azure Linux Official $repo \$releasever \$basearch"
+            "baseurl=$repodepot_endpoint/azurelinux/\$releasever/prod/$repo/\$basearch"
+            "gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY"
+            "gpgcheck=1"
+            "repo_gpgcheck=1"
+            "enabled=1"
+            "skip_if_unavailable=True"
+            "sslverify=1"
+        )
+
+        rm -f "$output_file"
+
+        for line in "${repo_content[@]}"; do
+            echo "$line" >> "$output_file"
+        done
+
+        echo "File '$output_file' has been created."
+    done
+    echo "Azure Linux repo setup complete."
+}
+
+dnf_makecache() {
+    local retries=10
+    local dnf_makecache_output=/tmp/dnf-makecache.out
+    local i
+    for i in $(seq 1 $retries); do
+        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_makecache_output && break || \
+        cat $dnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else sleep 5
+        fi
+    done
+    echo "Executed dnf makecache -y $i times"
+}
 
 function init_ubuntu_main_repo_depot {
     local repodepot_endpoint="$1"
@@ -201,7 +423,25 @@ function init_ubuntu_pmc_repo_depot {
     add_ms_keys $repodepot_endpoint
 }
 
-if [ "$IS_UBUNTU" -eq 1 ]; then
+if [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
+    marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+    if [ -z "$marinerRepoDepotEndpoint" ]; then
+      >&2 echo "repo depot endpoint empty while running custom-cloud init script"
+    else
+      # logic taken from https://repodepot.azure.com/scripts/cloud-init/setup_repodepot.sh
+      if [ "$IS_MARINER" -eq 1 ]; then
+          echo "Initializing Mariner repo depot settings..."
+          init_mariner_repo_depot ${marinerRepoDepotEndpoint}
+          dnf_makecache || exit 1
+      elif [ "$IS_AZURELINUX" -eq 1 ]; then
+          echo "Initializing Azure Linux repo depot settings..."
+          init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
+          dnf_makecache || exit 1
+      else
+          echo "No customizations for distribution: $NAME"
+      fi
+    fi
+elif [ "$IS_UBUNTU" -eq 1 ]; then
     scriptPath=$0
     # Determine an absolute, canonical path to this script for use in cron.
     if command -v readlink >/dev/null 2>&1; then
@@ -329,7 +569,7 @@ EOF
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
     systemctl restart chrony
-elif [ "$IS_FLATCAR" -eq 1 ]; then
+elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ] || [ "$IS_FLATCAR" -eq 1 ]; then
     systemctl restart chronyd
 fi
 fi # end of IS_ACL skip block
