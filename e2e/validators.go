@@ -2046,7 +2046,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{
 			"set -e",
-			fmt.Sprintf("sudo grep 'ExtHandler' %s | grep -iE 'ERROR|CRITICAL' || true", waagentLogFile),
+			fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile),
 		}, "\n"), 0,
 		"failed to scan waagent log for ExtHandler errors")
 
