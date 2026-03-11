@@ -287,7 +287,7 @@ if (
 if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1") -and
     (-not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer))) {
     Write-Log "BootstrapProfileContainerRegistryServer is set, skip CSE scripts download"
-    Install-CachedScripts -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
+    Install-CachedScripts -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED
 }
 
 # Dot-source cse scripts with functions that are called in this script
