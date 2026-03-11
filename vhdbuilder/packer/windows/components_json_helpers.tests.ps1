@@ -1077,6 +1077,17 @@ Describe 'Tests of components-test.json ' {
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip"
     }
 
+    It 'has specific WS2019 containers' {
+        $windowsSku = "2019-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # core images shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2019"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:1809"
+    }
+
     It 'has specific WS2022 containers' {
         $windowsSku = "2022-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
@@ -1150,6 +1161,15 @@ Describe 'Tests of components-test.json ' {
         $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
     }
 
+    It 'has containerd versions for 2019' {
+        $windowsSku = "2019-containerd"
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
     It 'has containerd versions for 2022' {
         $windowsSku = "2022-containerd"
 
@@ -1210,6 +1230,14 @@ Describe 'Tests of components-test.json ' {
         $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
+    it 'has the right default containerd for ws2019' {
+        $windowsSku = "2019-containerd"
+
+        $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
+
+        $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
     it 'has the right default containerd for ws2022' {
         $windowsSku = "2022-containerd"
 
@@ -1247,7 +1275,7 @@ Describe 'Tests of components-test.json ' {
 
         $artifacts["c:\akse-cache\oci-test-arch\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry-arch-amd64:2.0.0"
     }
-
+    
     it 'can get OCI artifacts with CPU_ARCH and version variable replacement' {
         $CPU_ARCH = "amd64"
         $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
@@ -1284,7 +1312,7 @@ Describe 'Tests of components-test.json ' {
 
     it 'skips OCI artifacts with missing windowsDownloadLocation' {
         $artifacts = GetOCIArtifactsFromComponentsJson $componentsJson
-
+        
         # No entry should exist for the artifact without a download location
         $artifacts.Keys | ForEach-Object { $_ } | Should -Not -Contain "mcr.microsoft.com/aks/oci-test-registry-no-location:3.0.0"
     }
@@ -1292,7 +1320,7 @@ Describe 'Tests of components-test.json ' {
     it 'can get OCI artifacts from the default when there is no windows override set' {
         # Modify a copy of the components.json to test default behavior
         $componentsJsonCopy = $componentsJson | ConvertTo-Json -Depth 10 | ConvertFrom-Json
-
+        
         # Find the oci-test-registry artifact and set windowsVersions to null to test default behavior
         foreach ($artifact in $componentsJsonCopy.OCIArtifacts) {
             if ($artifact.registry -like "*oci-test-registry*" -and $artifact.repository -like "*oci-test-registry*") {
@@ -1300,9 +1328,9 @@ Describe 'Tests of components-test.json ' {
                 break
             }
         }
-
+        
         $artifacts = GetOCIArtifactsFromComponentsJson $componentsJsonCopy
-
+        
         # Should still get the artifact using the default version
         $artifacts["c:\akse-cache\oci-test\"] | Should -Contain "mcr.microsoft.com/aks/oci-test-registry:1.0.0"
     }
