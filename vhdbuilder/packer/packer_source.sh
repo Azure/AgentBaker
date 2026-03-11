@@ -269,6 +269,10 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
+  IMAGE_FETCHER_SRC=/home/packer/image-fetcher
+  IMAGE_FETCHER_DEST=/opt/azure/containers/image-fetcher
+  cpAndMode $IMAGE_FETCHER_SRC $IMAGE_FETCHER_DEST 755
+
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
@@ -338,6 +342,29 @@ copyPackerFiles() {
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
+  fi
+# ---------------------------------------------------------------------------------------
+
+# ------------------------- Files related to node-exporter ------------------------------
+  NODE_EXPORTER_STARTUP_SRC=/home/packer/node-exporter-startup.sh
+  NODE_EXPORTER_STARTUP_DEST=/opt/bin/node-exporter-startup.sh
+  NODE_EXPORTER_SERVICE_SRC=/home/packer/node-exporter.service
+  NODE_EXPORTER_SERVICE_DEST=/etc/systemd/system/node-exporter.service
+  NODE_EXPORTER_RESTART_SERVICE_SRC=/home/packer/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_SERVICE_DEST=/etc/systemd/system/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_PATH_SRC=/home/packer/node-exporter-restart.path
+  NODE_EXPORTER_RESTART_PATH_DEST=/etc/systemd/system/node-exporter-restart.path
+  NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
+  NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
+
+  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+    cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
+    cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
+    cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
+    # Symlink to /opt/bin is created by installNodeExporter in install-node-exporter.sh
   fi
 # ---------------------------------------------------------------------------------------
 
@@ -467,8 +494,8 @@ copyPackerFiles() {
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 
   # Copy the post-deprovision WALinuxAgent install script and its Python helper
-  # Skip for Flatcar, which does not manually install WALinuxAgent
-  if ! isFlatcar "$OS"; then
+  # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
+  if ! { isFlatcar "$OS" || isACL "$OS"; }; then
     cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 644
     cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
   fi

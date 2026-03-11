@@ -11,5 +11,7 @@ touch /etc/machine-id
 chmod 644 /etc/machine-id
 # Cleanup disk usage diagnostics file (created by generate-disk-usage.sh)
 rm -f /opt/azure/disk-usage.txt
+# remove image-fetcher binary from the image since it's only needed during build and is not expected to be present on the final image
+rm -f /opt/azure/containers/image-fetcher
 # Cleanup IMDS instance metadata cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json

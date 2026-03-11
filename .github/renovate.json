@@ -209,13 +209,22 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "node-exporter-kubernetes"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "node-exporter-kubernetes"
     },
     {
       "matchPackageNames": [
@@ -343,15 +352,14 @@
     },
     {
       "matchPackageNames": [
-        "oss/binaries/kubernetes/azure-acr-credential-provider"
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "azure-acr-credential-provider"
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
@@ -469,11 +477,9 @@
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },

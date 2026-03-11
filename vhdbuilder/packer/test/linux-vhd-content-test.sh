@@ -7,7 +7,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
-ACL_OS_NAME="ACL"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -1562,6 +1562,97 @@ testWALinuxAgentInstalled() {
   echo "$test:Finish"
 }
 
+testNodeExporter () {
+  local test="NodeExporterInstallTest"
+  local os_sku="${1}"
+  local skip_file="/etc/node-exporter.d/skip_vhd_node_exporter"
+
+  echo "$test: checking if node-exporter was successfully installed"
+
+  # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
+  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    if [ -f "$skip_file" ]; then
+      err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
+      return 1
+    fi
+    echo "$test: Verified skip file does not exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS) - node-exporter correctly not installed"
+    return 0
+  fi
+
+  # At this point we're on Ubuntu or AzureLinux 3.0, both of which have node-exporter installed.
+  # The skip file better exist at this point or we're sad.
+  if [ ! -f "$skip_file" ]; then
+    err "$test" "Skip sentinel file $skip_file does not exist on $os_sku — install-node-exporter.sh may have failed"
+    return 1
+  fi
+  echo "$test: skip sentinel file exists at $skip_file"
+
+  # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
+  # We then create a symlink at /opt/bin/node-exporter for consistency with
+  # other binaries (kubelet, kubectl) that live in /opt/bin.
+  # Both paths are verified: the real binary and the symlink.
+  if [ ! -f "/usr/bin/node-exporter" ]; then
+    err "$test" "node-exporter binary does not exist at /usr/bin/node-exporter (installed by package manager)"
+    return 1
+  fi
+  echo "$test: node-exporter binary exists at /usr/bin/node-exporter"
+
+  if [ ! -L "/opt/bin/node-exporter" ]; then
+    err "$test" "node-exporter symlink does not exist at /opt/bin/node-exporter"
+    return 1
+  fi
+  # Verify the symlink actually points back to the package-managed binary
+  local symlink_target
+  symlink_target=$(readlink -f /opt/bin/node-exporter)
+  if [ "$symlink_target" != "/usr/bin/node-exporter" ]; then
+    err "$test" "/opt/bin/node-exporter symlink points to $symlink_target, expected /usr/bin/node-exporter"
+    return 1
+  fi
+  echo "$test: node-exporter symlink at /opt/bin/node-exporter -> /usr/bin/node-exporter"
+
+  # Check that the startup script exists
+  if [ ! -f "/opt/bin/node-exporter-startup.sh" ]; then
+    err "$test" "node-exporter startup script does not exist at /opt/bin/node-exporter-startup.sh"
+    return 1
+  fi
+  echo "$test: node-exporter startup script exists"
+
+  # Check that the service file exists
+  if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
+    err "$test" "node-exporter service file does not exist at /etc/systemd/system/node-exporter.service"
+    return 1
+  fi
+  echo "$test: node-exporter service file exists"
+
+  # Check that the web config exists
+  if [ ! -f "/etc/node-exporter.d/web-config.yml" ]; then
+    err "$test" "node-exporter web config does not exist at /etc/node-exporter.d/web-config.yml"
+    return 1
+  fi
+  echo "$test: node-exporter web config exists"
+
+  # Verify node-exporter service is registered with systemd
+  if ! systemctl list-unit-files | grep -q "node-exporter.service"; then
+    err "$test" "node-exporter.service not found in systemd unit files - service not properly registered"
+    return 1
+  fi
+  echo "$test: node-exporter.service is registered with systemd"
+
+  # Check that the service is DISABLED during VHD build
+  # CSE will enable and start node-exporter at provisioning time, not during VHD build
+  local node_exporter_enabled_state
+  node_exporter_enabled_state=$(systemctl is-enabled node-exporter.service 2>/dev/null)
+  if [ "${node_exporter_enabled_state}" != "disabled" ]; then
+    err "$test" "node-exporter.service should be disabled during VHD build, state is: $node_exporter_enabled_state"
+    return 1
+  fi
+  echo "$test: node-exporter.service is correctly disabled (will be enabled by CSE at provisioning)"
+
+  echo "$test: node-exporter was successfully installed"
+  return 0
+}
+
 testAKSNodeControllerBinary () {
   local test="testAKSNodeControllerBinary"
   local go_binary_path="/opt/azure/containers/aks-node-controller"
@@ -2009,8 +2100,8 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
 # WALinuxAgent is installed post-deprovision (not via components.json),
-# so test it separately. Skip on Flatcar and AzureLinuxOSGuard which use OS-packaged version.
-if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+# so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
   testWALinuxAgentInstalled
 fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
@@ -2040,6 +2131,7 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS

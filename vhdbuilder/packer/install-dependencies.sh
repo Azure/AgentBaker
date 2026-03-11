@@ -8,6 +8,8 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
@@ -30,6 +32,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
+source /home/packer/install-node-exporter.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -497,6 +500,17 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "node-exporter")
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
+      else
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+      fi
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -597,7 +611,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   mkdir -p /opt/{actions,gpu}
 
-  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}

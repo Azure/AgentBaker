@@ -6,23 +6,10 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "comment": "Windows 2019 servercore. Should have latest version and latest version -1",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.17763.8389",
-          "previousLatestVersion": "10.0.17763.8276",
-          "windowsSkuMatch": "2019-containerd"
-        },
-        {
-          "comment": "this will be cached in the previous step, we really just want to download the tag",
-          "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "ltsc2019",
-          "windowsSkuMatch": "2019-containerd"
-        },
-        {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4773",
-          "previousLatestVersion": "10.0.20348.4648",
+          "latestVersion": "10.0.20348.4893",
+          "previousLatestVersion": "10.0.20348.4773",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -34,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4773",
-          "previousLatestVersion": "10.0.20348.4648",
+          "latestVersion": "10.0.20348.4893",
+          "previousLatestVersion": "10.0.20348.4773",
           "windowsSkuMatch": "23H2*"
         },
         {
@@ -47,8 +34,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.4773",
-          "previousLatestVersion": "10.0.20348.4648",
+          "latestVersion": "10.0.20348.4893",
+          "previousLatestVersion": "10.0.20348.4773",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -60,8 +47,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.32370",
-          "previousLatestVersion": "10.0.26100.32230",
+          "latestVersion": "10.0.26100.32522",
+          "previousLatestVersion": "10.0.26100.32370",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -77,12 +64,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
       "windowsVersions": [
-        {
-          "comment": "1809 gets patches every 6 months or so. The alternative is ltsc2019 which gets patches every couple of years. Most customers use 1809, so we keep that on the VHD",
-          "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "1809",
-          "windowsSkuMatch": "2019-containerd"
-        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2022",
@@ -208,6 +189,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.7.9-0"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
+          "latestVersion": "v1.8.1-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -236,6 +221,17 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.7.9-0",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
+          "latestVersion": "v1.8.1-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -261,6 +257,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.7.9-0"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
+          "latestVersion": "v1.8.1-0"
         }
       ],
       "multiArchVersionsV2": [
@@ -289,6 +289,17 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.7.9-0",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/usr/local/bin/azure-cns"
+              ]
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
+          "latestVersion": "v1.8.1-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -425,15 +436,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.25.0-main-02-26-2026-12118731"
+          "latestVersion": "6.26.0-main-03-05-2026-701eb75f"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.25.0-main-02-26-2026-12118731-targetallocator"
+          "latestVersion": "6.26.0-main-03-05-2026-701eb75f-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.25.0-main-02-26-2026-12118731-cfg"
+          "latestVersion": "6.26.0-main-03-05-2026-701eb75f-cfg"
         }
       ],
       "windowsVersions": []
@@ -674,8 +685,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.20.1-4",
-          "previousLatestVersion": "v3.20.1-3"
+          "latestVersion": "v3.20.1-6",
+          "previousLatestVersion": "v3.20.1-4"
         }
       ],
       "windowsVersions": []
@@ -786,7 +797,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.31.14-1"
+          "latestVersion": "v1.31.100-4"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
@@ -1159,20 +1170,6 @@
           }
         },
         "windows": {
-          "ws2019": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.6.35-azure.1"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.7.20-azure.1",
-                "previousLatestVersion": "v1.7.17-azure.1"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
-          },
           "ws2022": {
             "versionsV2": [
               {
@@ -1486,13 +1483,13 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.3-1.azl3",
-                "previousLatestVersion": "1.34.2-1.azl3"
+                "latestVersion": "1.34.4-1.azl3",
+                "previousLatestVersion": "1.34.3-1.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
-                "latestVersion": "1.35.0-1.azl3"
+                "latestVersion": "1.35.1-1.azl3"
               }
             ]
           }
@@ -1584,13 +1581,13 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
-                "latestVersion": "1.34.3-2.azl3",
-                "previousLatestVersion": "1.34.2-1.azl3"
+                "latestVersion": "1.34.4-1.azl3",
+                "previousLatestVersion": "1.34.3-2.azl3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
-                "latestVersion": "1.35.0-2.azl3"
+                "latestVersion": "1.35.1-1.azl3"
               }
             ]
           }
@@ -1743,7 +1740,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.49.1-ubuntu24.04u1"
+                "latestVersion": "0.49.1-ubuntu24.04u2"
               }
             ]
           },
@@ -1751,7 +1748,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.49.1-ubuntu22.04u1"
+                "latestVersion": "0.49.1-ubuntu22.04u2"
               }
             ]
           },
@@ -1759,7 +1756,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.49.1-ubuntu20.04u1"
+                "latestVersion": "0.49.1-ubuntu20.04u2"
               }
             ]
           }
@@ -2042,6 +2039,61 @@
                 "latestVersion": "4.8.1-1.azl3"
               }
             ]
+          }
+        }
+      }
+    },
+    {
+      "name": "node-exporter",
+      "downloadLocation": "/opt/node-exporter",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "1.9.1-ubuntu24.04u12"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "1.9.1-ubuntu22.04u12"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=node-exporter-kubernetes, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "1.9.1-ubuntu20.04u12"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.1-12.azl3"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": []
           }
         }
       }
