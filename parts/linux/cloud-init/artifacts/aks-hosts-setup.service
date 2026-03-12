@@ -11,4 +11,4 @@ EnvironmentFile=-/etc/localdns/cloud-env
 ExecStart=/opt/azure/containers/aks-hosts-setup.sh
 
 [Install]
-WantedBy=multi-user.target kubelet.service
+WantedBy=multi-user.target
