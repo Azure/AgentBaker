@@ -135,6 +135,10 @@ configureHTTPProxyCA() {
     elif isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
+    elif isACL "$OS"; then
+        # ACL is Flatcar-based but uses Azure Linux internals for CA trust.
+        cert_dest="/etc/pki/ca-trust/source/anchors"
+        update_cmd="update-ca-trust"
     elif isFlatcar "$OS"; then
         cert_dest="/etc/ssl/certs"
         update_cmd="update-ca-certificates"
@@ -544,7 +548,7 @@ configureKubeletAndKubectl() {
     # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
     # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
     if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
-       { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
        { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
     then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
@@ -752,7 +756,7 @@ EOF
         # Install credential provider from URL:
         # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
         # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
-        if { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+        if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
            { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
         then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
@@ -801,6 +805,25 @@ EOF
     # service type=Simple, which does not exit non-zero
     # on failure if ExecStart failed to invoke.
     systemctlEnableAndStart mig-partition 300
+}
+
+configureNodeExporter() {
+    echo "Configuring Node Exporter"
+    # Check for skip file to determine if node-exporter was installed on this VHD
+    if [ ! -f /etc/node-exporter.d/skip_vhd_node_exporter ]; then
+        echo "Node Exporter assets not found on this VHD (missing /etc/node-exporter.d/skip_vhd_node_exporter); skipping configuration."
+        return 0
+    fi
+
+    if ! systemctlEnableAndStart node-exporter 30; then
+        echo "Failed to start node-exporter service"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    if ! systemctlEnableAndStart node-exporter-restart.path 30; then
+        echo "Failed to start node-exporter-restart.path"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    echo "Node Exporter started successfully"
 }
 
 ensureSysctl() {
@@ -1063,7 +1086,7 @@ configureSSHPubkeyAuth() {
 
   # AAD SSH extension will append following section to the end of sshd_config,
   # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
-  # Match User *@*,????????-????-????-????-????????????    # Added by aadsshlogin installer
+  # Match User *@*,????????-????-????-????-???????????? # Added by aadsshlogin installer
   # AuthenticationMethods publickey
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k

@@ -78,6 +78,30 @@ Describe 'cse_install_mariner.sh'
             The output should include "dnf install 30 1 600 $kubeletRpm"
             The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
         End
+
+        It 'does not pass duplicate release versions to dnf causing conflicts'
+            desiredVersion="1.34.3"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            release1="$rpmDir/kubelet-1.34.3-1.azl3.x86_64.rpm"
+            release2="$rpmDir/kubelet-1.34.3-2.azl3.x86_64.rpm"
+            touch "$release1"
+            touch "$release2"
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+            # sort -V | tail -n 1 should pick the latest release as the primary RPM
+            The output should include "dnf install 30 1 600 $release2"
+            # the older release should be skipped, not added as a dependency
+            The output should include "Skipping cached kubelet rpm"
+            The output should not include "$release1"
+        End
+
+        It 'returns failure when no cached RPM is found and dnf list finds no version'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf() { echo ""; }
+            desiredVersion="1.99.0"
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+            The output should include "Failed to find valid kubelet version for 1.99.0"
+            The status should equal 1
+        End
     End
 
     Describe 'should_use_nvidia_open_drivers'
@@ -95,7 +119,7 @@ Describe 'cse_install_mariner.sh'
         set_mock_sku() {
             MOCK_VM_SKU="$1"
         }
-        
+
         It 'returns false (1) for T4 GPU SKU Standard_NC4as_T4_v3'
             set_mock_sku "Standard_NC4as_T4_v3"
             When call should_use_nvidia_open_drivers
@@ -184,6 +208,83 @@ Describe 'cse_install_mariner.sh'
             set_mock_sku "standard_nd96asr_v4"
             When call should_use_nvidia_open_drivers
             The status should equal 0
+        End
+    End
+
+    Describe 'downloadGPUDrivers grid vs cuda selection'
+        # Tests the routing logic in downloadGPUDrivers():
+        # NVIDIA_GPU_DRIVER_TYPE="grid" → downloadGridDrivers (converged A10 sizes)
+        # NVIDIA_GPU_DRIVER_TYPE="cuda" → cuda/cuda-open path (all other GPU sizes)
+        #
+        # We mock downloadGridDrivers and the cuda download path to isolate
+        # the selection logic without triggering actual downloads or exits.
+
+        MOCK_VM_SKU=""
+        get_compute_sku() { echo "$MOCK_VM_SKU"; }
+
+        # Track which path was taken
+        GRID_CALLED=""
+        downloadGridDrivers() { GRID_CALLED="true"; }
+
+        # Mock should_use_nvidia_open_drivers to avoid IMDS dependency
+        MOCK_OPEN_RET=0
+        should_use_nvidia_open_drivers() { return "$MOCK_OPEN_RET"; }
+
+        # Mock uname to return a kernel version matching our fake package
+        uname() { echo "6.6.121.1-1.azl3"; }
+
+        # Mock dnf repoquery to return fake packages matching both cuda and cuda-open patterns
+        dnf() {
+            echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+        }
+
+        It 'selects GRID driver path when NVIDIA_GPU_DRIVER_TYPE is grid'
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            MOCK_VM_SKU="Standard_NV36ads_A10_v5"
+            GRID_CALLED=""
+            When call downloadGPUDrivers
+            The output should include "NVIDIA GRID driver (converged)"
+            The variable GRID_CALLED should equal "true"
+        End
+
+        It 'selects GRID driver path for NCads_A10_v4 converged size'
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            MOCK_VM_SKU="Standard_NC8ads_A10_v4"
+            GRID_CALLED=""
+            When call downloadGPUDrivers
+            The output should include "NVIDIA GRID driver (converged)"
+            The variable GRID_CALLED should equal "true"
+        End
+
+        It 'selects cuda-open path for A100 when NVIDIA_GPU_DRIVER_TYPE is cuda'
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            MOCK_VM_SKU="Standard_ND96asr_v4"
+            MOCK_OPEN_RET=0
+            GRID_CALLED=""
+            When call downloadGPUDrivers
+            The output should include "NVIDIA OpenRM driver (cuda-open)"
+            The variable GRID_CALLED should not equal "true"
+        End
+
+        It 'selects proprietary cuda path for T4 when NVIDIA_GPU_DRIVER_TYPE is cuda'
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            MOCK_VM_SKU="Standard_NC4as_T4_v3"
+            MOCK_OPEN_RET=1
+            GRID_CALLED=""
+            When call downloadGPUDrivers
+            The output should include "NVIDIA proprietary driver (cuda)"
+            The variable GRID_CALLED should not equal "true"
+        End
+
+        It 'does not select GRID path when NVIDIA_GPU_DRIVER_TYPE is empty'
+            NVIDIA_GPU_DRIVER_TYPE=""
+            MOCK_VM_SKU="Standard_ND96asr_v4"
+            MOCK_OPEN_RET=0
+            GRID_CALLED=""
+            When call downloadGPUDrivers
+            The output should not include "NVIDIA GRID driver"
+            The variable GRID_CALLED should not equal "true"
         End
     End
 End

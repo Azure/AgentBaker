@@ -192,6 +192,7 @@ const (
 	AKSUbuntuContainerd2404TLGen2         Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
 	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
+	AKSACLGen2TL                          Distro = "aks-acl-gen2-tl"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -272,6 +273,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+	AKSACLGen2TL,
 }
 
 type CustomConfigurationComponent string
@@ -324,6 +326,15 @@ func (d Distro) IsKataDistro() bool {
 
 func (d Distro) IsFlatcarDistro() bool {
 	for _, distro := range AvailableFlatcarDistros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsACLDistro() bool {
+	for _, distro := range AvailableACLDistros {
 		if d == distro {
 			return true
 		}
@@ -1208,6 +1219,10 @@ func (a *AgentPoolProfile) IsFlatcar() bool {
 	return a.Distro.IsFlatcarDistro()
 }
 
+func (a *AgentPoolProfile) IsACL() bool {
+	return a.Distro.IsACLDistro()
+}
+
 func (a *AgentPoolProfile) IsAzureLinuxOSGuard() bool {
 	return a.Distro.IsAzureLinuxOSGuardDistro()
 }
@@ -1785,6 +1800,10 @@ type NodeBootstrappingConfiguration struct {
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
 	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
+}
+
+func (config *NodeBootstrappingConfiguration) IsACL() bool {
+	return config.OSSKU == OSSKUAzureContainerLinux || config.AgentPoolProfile.IsACL()
 }
 
 type SSHStatus int
@@ -2393,6 +2412,8 @@ type PrivateEgress struct {
 	Enabled                 bool   `json:"enabled"`
 	ContainerRegistryServer string `json:"containerRegistryServer"`
 	ProxyAddress            string `json:"proxyAddress"`
+	// Used for internal e2e test only, won't be set by RP or used in production.
+	TestMode bool `json:"testMode,omitempty"`
 }
 
 func (s *SecurityProfile) GetProxyAddress() string {
@@ -2407,6 +2428,14 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 		return s.PrivateEgress.ContainerRegistryServer
 	}
 	return ""
+}
+
+// Used for internal e2e test only, won't be set by RP or used in production.
+func (s *SecurityProfile) GetPrivateEgressTestMode() bool {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.TestMode
+	}
+	return false
 }
 
 // SecurityProfile end.

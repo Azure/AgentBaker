@@ -379,9 +379,6 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
 func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -392,7 +389,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		})
 
 		if pager.More() {
-			page, err := pager.NextPage(ctxTimeout)
+			page, err := pager.NextPage(ctx)
 			if err == nil && len(page.Value) > 0 {
 				vmssVM := page.Value[0]
 				// Verify it has network profile
@@ -406,7 +403,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		}
 
 		select {
-		case <-ctxTimeout.Done():
+		case <-ctx.Done():
 			if lastErr != nil {
 				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
 			}
@@ -570,6 +567,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
+		"waagent.log":                      "sudo cat /var/log/waagent.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
 

@@ -1,0 +1,210 @@
+# Pipeline: Provisioning Scripts Hotfix
+# Manually triggered pipeline to build, validate, and publish provisioning
+# script hotfix OCI artifacts to the AKS managed ACR (aksnipackages).
+# MCR syndication automatically mirrors to mcr.microsoft.com.
+#
+# Stages:
+#   1. Build     — validates inputs and builds the OCI artifact (dry-run)
+#   2. Validate  — pushes to test ACR, runs e2e tests with hotfix-enabled VHD
+#   3. Publish   — pushes to production ACR (gates on validation or skip override)
+
+name: $(Date:yyyyMMdd)$(Rev:.r)_hotfix_$(Build.SourceBranchName)
+trigger: none
+pr: none
+
+pool:
+  name: $(POOL_NAME)
+
+parameters:
+  - name: sku
+    displayName: 'Target OS SKU'
+    type: string
+    values:
+      - ubuntu-2204
+      - ubuntu-2404
+      - azurelinux-v2
+      - azurelinux-v3
+  - name: affectedVersion
+    displayName: 'Affected VHD version (e.g., v0.20260201.0)'
+    type: string
+  - name: description
+    displayName: 'Hotfix description'
+    type: string
+  - name: changedFiles
+    displayName: 'Changed script files (comma-separated source paths relative to repo root)'
+    type: string
+  - name: skipValidation
+    displayName: 'Skip e2e validation (emergency only — requires justification)'
+    type: boolean
+    default: false
+
+variables:
+  - group: ab-e2e
+
+stages:
+  # Stage 1: Build the hotfix artifact locally (dry-run validation)
+  - stage: Build
+    displayName: 'Build Hotfix Artifact'
+    jobs:
+      - job: BuildHotfix
+        displayName: 'Build and validate hotfix'
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - bash: |
+              set -euo pipefail
+              echo "=== Hotfix Build Parameters ==="
+              echo "SKU:              ${{ parameters.sku }}"
+              echo "Affected Version: ${{ parameters.affectedVersion }}"
+              echo "Description:      ${{ parameters.description }}"
+              echo "Changed Files:    ${{ parameters.changedFiles }}"
+              echo "Skip Validation:  ${{ parameters.skipValidation }}"
+              echo ""
+
+              # Validate version format
+              if [[ ! "${{ parameters.affectedVersion }}" =~ ^v0\.[0-9]{8}\.[0-9]+$ ]]; then
+                echo "ERROR: affectedVersion must match format v0.YYYYMMDD.PATCH (e.g., v0.20260201.0)"
+                exit 1
+              fi
+            displayName: 'Validate parameters'
+
+          - bash: |
+              set -euo pipefail
+              bash vhdbuilder/provisioning-manifest/build-hotfix-oci.sh \
+                --sku "${{ parameters.sku }}" \
+                --affected-version "${{ parameters.affectedVersion }}" \
+                --description "${{ parameters.description }}" \
+                --files "${{ parameters.changedFiles }}" \
+                --dry-run
+            displayName: 'Build hotfix artifact (dry-run)'
+
+  # Stage 2: Push to test ACR and run e2e validation
+  - stage: Validate
+    displayName: 'Validate Hotfix (E2E)'
+    condition: and(succeeded(), eq('${{ parameters.skipValidation }}', false))
+    dependsOn: Build
+    jobs:
+      - job: PushToTestRegistry
+        displayName: 'Push hotfix to test ACR'
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: 'Build and push hotfix to test ACR'
+            inputs:
+              azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                az acr login --name $(E2E_HOTFIX_ACR_NAME)
+
+                bash vhdbuilder/provisioning-manifest/build-hotfix-oci.sh \
+                  --sku "${{ parameters.sku }}" \
+                  --affected-version "${{ parameters.affectedVersion }}" \
+                  --description "${{ parameters.description }}" \
+                  --files "${{ parameters.changedFiles }}" \
+                  --registry "$(E2E_HOTFIX_ACR_NAME).azurecr.io"
+
+      - job: E2EValidation
+        displayName: 'Run e2e validation with hotfix'
+        dependsOn: PushToTestRegistry
+        timeoutInMinutes: 90
+        steps:
+          - checkout: self
+            path: s
+            fetchTags: false
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: 'Run AgentBaker E2E with hotfix'
+            inputs:
+              azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                # Override the hotfix registry so check_for_script_hotfix()
+                # pulls from the test ACR instead of mcr.microsoft.com
+                export HOTFIX_REGISTRY="$(E2E_HOTFIX_ACR_NAME).azurecr.io"
+
+                # Run the standard e2e harness — the test node will detect
+                # and apply the hotfix from the test ACR during provisioning
+                bash .pipelines/scripts/e2e_run.sh
+            env:
+              E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+              SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
+              SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
+              BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
+              DefaultWorkingDirectory: $(Build.SourcesDirectory)
+              HOTFIX_REGISTRY: $(E2E_HOTFIX_ACR_NAME).azurecr.io
+              TAGS_TO_RUN: "os=linux"
+
+          - task: PublishTestResults@2
+            displayName: 'Upload test results'
+            condition: succeededOrFailed()
+            inputs:
+              testRunner: JUnit
+              testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
+
+          - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+            artifact: hotfix-e2e-$(LOGGING_DIR)
+            condition: always()
+            continueOnError: true
+
+          - task: AzureCLI@2
+            displayName: 'Ensure VMSS deletion'
+            condition: always()
+            inputs:
+              azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                bash .pipelines/scripts/e2e_delete_vmss.sh
+
+  # Stage 3: Publish to production ACR (syndicates to MAR)
+  - stage: Publish
+    displayName: 'Publish Hotfix to Production'
+    dependsOn:
+      - Build
+      - Validate
+    condition: |
+      and(
+        succeeded('Build'),
+        or(
+          succeeded('Validate'),
+          eq('${{ parameters.skipValidation }}', true)
+        )
+      )
+    jobs:
+      - job: PublishHotfix
+        displayName: 'Push hotfix to production ACR'
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: 'Build and push hotfix to production ACR'
+            inputs:
+              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                az acr login --name aksnipackages
+
+                bash vhdbuilder/provisioning-manifest/build-hotfix-oci.sh \
+                  --sku "${{ parameters.sku }}" \
+                  --affected-version "${{ parameters.affectedVersion }}" \
+                  --description "${{ parameters.description }}" \
+                  --files "${{ parameters.changedFiles }}" \
+                  --registry "aksnipackages.azurecr.io"
+
+                echo ""
+                echo "=== Hotfix published to production ACR ==="
+                echo "MCR syndication will mirror to mcr.microsoft.com within 15-30 minutes."
+                echo ""
+                echo "Verify with:"
+                echo "  oras repo tags mcr.microsoft.com/aks/provisioning-scripts/${{ parameters.sku }}"

@@ -42,6 +42,7 @@ var (
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
 	OSFlatcar    OS = "flatcar"
+	OSACL        OS = "azurecontainerlinux"
 )
 
 var (
@@ -217,12 +218,14 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
-	VHDWindows2019Containerd = &Image{
-		Name:    "windows-2019-containerd",
-		OS:      "windows",
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2019Containerd,
-		Gallery: imageGalleryWindows,
+	VHDACLGen2TL = &Image{
+		Name:         "aclgen2TL",
+		OS:           OSACL,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSACLGen2TL,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
 	}
 
 	VHDWindows2022Containerd = &Image{

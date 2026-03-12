@@ -41,7 +41,6 @@ package components
 	latestVersion:           string
 	previousLatestVersion?:  string
 	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
-	revision?:               string
 }
 
 #ReleaseDownloadURI: {
@@ -74,7 +73,6 @@ package components
 
 #WindowsOsDistro: {
 	default?: #ReleaseDownloadURI
-	ws2019?: #ReleaseDownloadURI
 	ws2022?: #ReleaseDownloadURI
 	ws23h2?: #ReleaseDownloadURI
 	ws2025?: #ReleaseDownloadURI
