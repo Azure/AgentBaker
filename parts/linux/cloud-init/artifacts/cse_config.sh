@@ -1246,7 +1246,7 @@ generateLocalDNSFiles() {
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    echo "${corefile_content}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    base64 -d <<< "${corefile_content}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the generated corefile includes hosts plugin
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
