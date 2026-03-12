@@ -105,3 +105,86 @@ Describe "Install-Oras" {
     } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_NOT_FOUND):Failed to extract oras archive*"
   }
 }
+
+Describe "DownloadFileWithOras" {
+  BeforeEach {
+    $global:OrasPath = "C:\aks-tools\oras\oras.exe"
+    $global:OrasRegistryConfigFile = "C:\oras-config.json"
+    $global:AppInsightsClient = $null
+
+    Mock Set-ExitCode -MockWith { throw "Set-ExitCode:$($ExitCode):$ErrorMessage" }
+    Mock Get-Item -MockWith { return New-Object -TypeName PSObject -Property @{ FullName = $DestinationPath } }
+    # Mocks for temp directory and file move operations used by oras pull workflow
+    Mock New-Item -MockWith {} -ParameterFilter { $ItemType -eq 'Directory' }
+    Mock Get-ChildItem -MockWith {
+      return @([PSCustomObject]@{ FullName = "/tmp/downloaded-file.zip" })
+    }
+    Mock Move-Item -MockWith {}
+    Mock Remove-Item -MockWith {}
+    Mock Test-Path -MockWith { $false }
+  }
+
+  It "should call oras with correct arguments on success" {
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    $global:OrasPath = "Write-Output"
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -ExitCode 80 } | Should -Not -Throw
+  }
+
+  It "should call Set-ExitCode when oras returns non-zero exit code" {
+    $global:OrasPath = "cmd.exe"
+    Mock cmd.exe -MockWith { $global:LASTEXITCODE = 1 }
+
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -ExitCode 80 } | Should -Throw "*Set-ExitCode:80:oras pull failed*"
+  }
+
+  It "should call Set-ExitCode when no file is found after oras pull" {
+    $global:OrasPath = "Write-Output"
+    Mock Get-ChildItem -MockWith { return @() }
+
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -ExitCode 80 } | Should -Throw "*Set-ExitCode:80:oras pull succeeded but no file found*"
+  }
+
+  It "should move downloaded file to destination path on success" {
+    $global:OrasPath = "Write-Output"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -ExitCode 80 } | Should -Not -Throw
+
+    Assert-MockCalled -CommandName 'Move-Item' -Exactly -Times 1 -ParameterFilter {
+      $Destination -eq $destPath
+    }
+  }
+
+  It "should use default platform windows/amd64 when not specified" {
+    $global:OrasPath = "Write-Output"
+    $reference = "myregistry.azurecr.io/aks/packages/test:v1"
+    $destPath = "c:\test.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -ExitCode 80 } | Should -Not -Throw
+
+    Assert-MockCalled -CommandName 'Write-Log' -ParameterFilter {
+      $message -like "*platform=windows/amd64*"
+    }
+  }
+
+  It "should accept a custom platform parameter" {
+    $global:OrasPath = "Write-Output"
+    $reference = "myregistry.azurecr.io/aks/packages/test:v1"
+    $destPath = "c:\test.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -ExitCode 80 -Platform "linux/amd64" } | Should -Not -Throw
+
+    Assert-MockCalled -CommandName 'Write-Log' -ParameterFilter {
+      $message -like "*platform=linux/amd64*"
+    }
+  }
+}

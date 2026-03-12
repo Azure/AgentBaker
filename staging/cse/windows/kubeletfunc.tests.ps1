@@ -1,5 +1,6 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+    . $PSScriptRoot\networkisolatedclusterfunc.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
 }
 
@@ -57,6 +58,98 @@ Describe 'Get-KubePackage' {
     Context 'mapping file does not exist' {
         It "KubeBinariesSASURL should not be changed" {
             Mock Test-Path -MockWith { $false }
+            $global:KubeBinariesVersion = '1.29.2'
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip' }
+        }
+    }
+
+    Context 'BootstrapProfileContainerRegistryServer is set - downloads with ORAS' {
+        BeforeEach {
+            Mock DownloadFileWithOras -MockWith {}
+            Mock Test-Path -MockWith { $false }
+            Mock AKS-Expand-Archive -MockWith {}
+
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+            $global:KubeBinariesVersion = "1.29.2"
+            $global:OrasPath = "C:\aks-tools\oras\oras.exe"
+            $global:OrasRegistryConfigFile = "C:\oras-config.json"
+        }
+
+        AfterEach {
+            $global:BootstrapProfileContainerRegistryServer = $null
+        }
+
+        It "Should not call DownloadFileOverHttp when BootstrapProfileContainerRegistryServer is set" {
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 0
+        }
+
+        It "Should call DownloadFileWithOras with correct reference when BootstrapProfileContainerRegistryServer is set" {
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq 'myregistry.azurecr.io/aks/packages/kubernetes/windowszip:v1.29.2' -and
+                $DestinationPath -eq 'c:\k.zip' -and
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL
+            }
+        }
+
+        It "Should call Logs-To-Event with ORAS task name when BootstrapProfileContainerRegistryServer is set" {
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'Logs-To-Event' -Exactly -Times 1 -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.DownloadKubletBinariesWithOras' }
+        }
+
+        It "Should still expand archive and clean up zip file after ORAS download" {
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'AKS-Expand-Archive' -Exactly -Times 1 -ParameterFilter { $Path -eq 'c:\k.zip' -and $DestinationPath -eq 'C:\' }
+            Assert-MockCalled -CommandName 'Remove-Item' -Exactly -Times 1
+        }
+    }
+
+    Context 'BootstrapProfileContainerRegistryServer is set but DownloadFileWithOras is not available' {
+        BeforeEach {
+            Mock Test-Path -MockWith { $false }
+            Mock AKS-Expand-Archive -MockWith {}
+            Mock Set-ExitCode -MockWith {
+                Param($ExitCode, $ErrorMessage)
+                throw "Set-ExitCode: $ExitCode - $ErrorMessage"
+            }
+            Mock Get-Command -MockWith { return $null } -ParameterFilter { $Name -eq 'DownloadFileWithOras' }
+
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+            $global:KubeBinariesVersion = "1.29.2"
+        }
+
+        AfterEach {
+            $global:BootstrapProfileContainerRegistryServer = $null
+        }
+
+        It "Should call Set-ExitCode when DownloadFileWithOras function is not available" {
+            { Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip' } | Should -Throw "*DownloadFileWithOras function is not available*"
+        }
+    }
+
+    Context 'BootstrapProfileContainerRegistryServer is not set - falls back to HTTP download' {
+        BeforeEach {
+            $global:BootstrapProfileContainerRegistryServer = $null
+            Mock Test-Path -MockWith { $false }
+            Mock AKS-Expand-Archive -MockWith {}
+        }
+
+        It "Should call DownloadFileOverHttp when BootstrapProfileContainerRegistryServer is not set" {
+            $global:KubeBinariesVersion = '1.29.2'
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip' }
+        }
+
+        It "Should call Logs-To-Event with HTTP download task name" {
+            $global:KubeBinariesVersion = '1.29.2'
+            Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
+            Assert-MockCalled -CommandName 'Logs-To-Event' -Exactly -Times 1 -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.DownloadKubletBinaries' }
+        }
+
+        It "Should call DownloadFileOverHttp when BootstrapProfileContainerRegistryServer is empty string" {
+            $global:BootstrapProfileContainerRegistryServer = ""
             $global:KubeBinariesVersion = '1.29.2'
             Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
             Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip' }
@@ -137,7 +230,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
     It "Should no-op if kubelet args and node labels are already correct when the opt-out tag is not set" {
         Mock Get-TagValue -MockWith { "false" }
         $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" 
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
         $global:EnableKubeletServingCertificateRotation = $true
@@ -217,8 +310,8 @@ Describe 'Get-TagValue' {
     Context 'Unable to call IMDS' {
         BeforeEach {
             Mock Set-ExitCode
-            Mock Invoke-RestMethod -MockWith { 
-                Throw 'IMDS is down' 
+            Mock Invoke-RestMethod -MockWith {
+                Throw 'IMDS is down'
             }
         }
 
