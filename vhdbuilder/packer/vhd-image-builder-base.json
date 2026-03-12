@@ -118,6 +118,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu/cloudinit/DataSourceAzure.py",
+      "destination": "/home/packer/DataSourceAzure.py"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
