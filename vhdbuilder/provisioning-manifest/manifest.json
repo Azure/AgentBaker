@@ -1,0 +1,127 @@
+{
+  "version": "1.0",
+  "skus": {
+    "ubuntu-2204": {
+      "description": "provisioning scripts for Ubuntu 22.04 (Gen1 and Gen2)",
+      "registry": "hotfixscriptpoc.azurecr.io",
+      "repository": "aks/provisioning-scripts/ubuntu-2204",
+      "scripts": [
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
+          "destination": "/opt/azure/containers/provision_source.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh",
+          "destination": "/opt/azure/containers/provision_source_distro.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+          "destination": "/opt/azure/containers/provision.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
+          "destination": "/opt/azure/containers/provision_installs.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh",
+          "destination": "/opt/azure/containers/provision_installs_distro.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+          "destination": "/opt/azure/containers/provision_configs.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
+          "destination": "/opt/azure/containers/provision_start.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
+          "destination": "/opt/azure/containers/provision_redact_cloud_config.py",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
+          "destination": "/opt/azure/containers/provision_send_logs.py",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
+          "destination": "/opt/azure/containers/init-aks-custom-cloud.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
+          "destination": "/opt/azure/containers/reconcilePrivateHosts.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/bind-mount.sh",
+          "destination": "/opt/azure/containers/bind-mount.sh",
+          "permissions": "0544"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.sh",
+          "destination": "/opt/azure/containers/ensure-no-dup.sh",
+          "permissions": "0755"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
+          "destination": "/opt/azure/containers/kubelet.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh",
+          "destination": "/opt/azure/containers/ensure_imds_restriction.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
+          "destination": "/opt/azure/containers/cloud-init-status-check.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh",
+          "destination": "/opt/azure/containers/measure-tls-bootstrapping-latency.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
+          "destination": "/opt/azure/containers/validate-kubelet-credentials.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
+          "destination": "/opt/azure-network/configure-azure-network.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
+          "destination": "/opt/azure/containers/setup-custom-search-domains.sh",
+          "permissions": "0744"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/enable-dhcpv6.sh",
+          "destination": "/opt/azure/containers/enable-dhcpv6.sh",
+          "permissions": "0544"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
+          "destination": "/opt/azure/containers/mig-partition.sh",
+          "permissions": "0544"
+        },
+        {
+          "source": "parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh",
+          "destination": "/opt/azure/containers/ubuntu-snapshot-update.sh",
+          "permissions": "0544"
+        }
+      ]
+    }
+  }
+}

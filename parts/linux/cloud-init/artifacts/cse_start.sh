@@ -6,6 +6,126 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
+
+# check_for_script_hotfix — detect and apply provisioning script hotfixes
+# published as OCI artifacts. This function is intentionally self-contained
+# (no source of helpers) because it may replace those very scripts.
+# Non-fatal: any failure silently falls back to baked scripts.
+check_for_script_hotfix() {
+    local baked_version_file="/opt/azure/containers/.provisioning-scripts-version"
+    local registry="${HOTFIX_REGISTRY:-hotfixscriptpoc.azurecr.io}"
+    local sku=""
+    local hotfix_log="/var/log/azure/hotfix-check.log"
+
+    # Determine SKU from OS
+    if [ -f /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        case "${ID}-${VERSION_ID}" in
+            ubuntu-22.04) sku="ubuntu-2204" ;;
+            ubuntu-24.04) sku="ubuntu-2404" ;;
+            mariner-2*)   sku="azurelinux-v2" ;;
+            azurelinux-3*) sku="azurelinux-v3" ;;
+            *) echo "$(date): Hotfix check: unknown SKU ${ID}-${VERSION_ID}, skipping" >> "$hotfix_log"; return 0 ;;
+        esac
+    else
+        echo "$(date): Hotfix check: /etc/os-release not found, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    local repo="${registry}/aks/provisioning-scripts/${sku}"
+
+    # Read baked version
+    if [ ! -f "$baked_version_file" ]; then
+        echo "$(date): Hotfix check: no version stamp at ${baked_version_file}, skipping" >> "$hotfix_log"
+        return 0
+    fi
+    local baked_version
+    baked_version=$(cat "$baked_version_file")
+    if [ -z "$baked_version" ]; then
+        echo "$(date): Hotfix check: empty version stamp, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    # Ensure /opt/bin is in PATH (ORAS is installed there during VHD build)
+    case "${PATH}" in
+        */opt/bin*) : ;;
+        *) export PATH="/opt/bin:${PATH}" ;;
+    esac
+
+    if ! command -v oras &>/dev/null; then
+        echo "$(date): Hotfix check: ORAS not available, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    local hotfix_tag="${baked_version}-hotfix"
+    echo "$(date): Hotfix check: version=${baked_version} sku=${sku} tag=${hotfix_tag} registry=${registry}" >> "$hotfix_log"
+
+    # Query registry for the specific hotfix tag using oras manifest fetch.
+    # This is a single lightweight HEAD-like request — no listing of all tags.
+    if ! timeout 30 oras manifest fetch "${repo}:${hotfix_tag}" > /dev/null 2>&1; then
+        echo "$(date): Hotfix check: no hotfix tag '${hotfix_tag}' found (normal case)" >> "$hotfix_log"
+        return 0
+    fi
+
+    echo "$(date): Hotfix check: found hotfix ${hotfix_tag}, pulling..." >> "$hotfix_log"
+
+    local staging_dir="/opt/azure/containers/.hotfix-staging"
+    local applied_marker="/opt/azure/containers/.hotfix-applied"
+
+    # Skip if already applied (idempotency for retries)
+    if [ -f "$applied_marker" ] && grep -q "$hotfix_tag" "$applied_marker" 2>/dev/null; then
+        echo "$(date): Hotfix check: ${hotfix_tag} already applied, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    # Pull the hotfix artifact
+    mkdir -p "$staging_dir"
+    if ! timeout 60 oras pull "${repo}:${hotfix_tag}" -o "$staging_dir" 2>> "$hotfix_log"; then
+        echo "$(date): Hotfix check: pull failed, using baked scripts" >> "$hotfix_log"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Verify metadata
+    local metadata="$staging_dir/hotfix-metadata.json"
+    if [ ! -f "$metadata" ]; then
+        echo "$(date): Hotfix check: no metadata in artifact, using baked scripts" >> "$hotfix_log"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Defense in depth: verify affectedVersion matches baked version
+    local meta_version
+    meta_version=$(jq -r '.affectedVersion' "$metadata" 2>/dev/null)
+    if [ "$meta_version" != "$baked_version" ]; then
+        echo "$(date): Hotfix check: metadata version '${meta_version}' != baked '${baked_version}', skipping" >> "$hotfix_log"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Extract tarball — overlays corrected scripts onto the filesystem
+    local tarball
+    tarball=$(find "$staging_dir" -name "*.tar.gz" -print -quit 2>/dev/null)
+    if [ -n "$tarball" ]; then
+        if tar -xzf "$tarball" -C / --no-same-owner 2>> "$hotfix_log"; then
+            echo "$hotfix_tag" >> "$applied_marker"
+            echo "$(date): Hotfix check: applied ${hotfix_tag} successfully" >> "$hotfix_log"
+        else
+            echo "$(date): Hotfix check: tar extraction failed, using baked scripts" >> "$hotfix_log"
+        fi
+    else
+        echo "$(date): Hotfix check: no tarball in artifact, using baked scripts" >> "$hotfix_log"
+    fi
+
+    rm -rf "$staging_dir"
+    return 0
+}
+
+# Run hotfix check before provisioning — must happen before any scripts are sourced.
+# Failures are non-fatal; we always proceed with whatever scripts are on disk.
+check_for_script_hotfix || true
+
 # this is the "global" CSE execution timeout - we allow CSE to run for some time (default 15 minutes) before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?

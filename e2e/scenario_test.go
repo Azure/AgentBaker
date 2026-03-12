@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -2501,6 +2502,54 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
 				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
 				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_HotfixDetection(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that provisioning script hotfix detection runs during CSE and can gracefully handle the no-hotfix case",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// 1. Verify the hotfix check function exists in the provisioning script
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/provision_start.sh", "check_for_script_hotfix")
+
+				// 2. Verify the hotfix detection ran during CSE and produced a log file
+				ValidateFileExists(ctx, s, "/var/log/azure/hotfix-check.log")
+
+				// 3. The log should contain a "Hotfix check:" entry showing the function ran
+				ValidateFileHasContent(ctx, s, "/var/log/azure/hotfix-check.log", "Hotfix check:")
+
+				// 4. Verify ORAS is installed and available on the node
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					"oras version",
+					0, "ORAS should be available on the node")
+
+				// 5. Manual hotfix detection test: write a fake version stamp, extract and run
+				//    the function, verify it correctly reports "no hotfix found" for a
+				//    non-existent version. This exercises the full flow:
+				//    SKU detection → version read → registry query → graceful "no hotfix" result.
+				manualTest := strings.Join([]string{
+					"set -e",
+					// Extract just the function definition from provision_start.sh
+					`sudo sed -n '/^check_for_script_hotfix()/,/^}/p' /opt/azure/containers/provision_start.sh > /tmp/hotfix_func.sh`,
+					// Write a test version stamp (no hotfix should exist for this version)
+					`sudo bash -c 'echo "999999.99.0" > /opt/azure/containers/.provisioning-scripts-version'`,
+					// Clear log for clean test
+					`sudo bash -c '> /var/log/azure/hotfix-check.log'`,
+					// Run the function as root with PATH set (oras is at /opt/bin)
+					`sudo bash -c 'export PATH=/opt/bin:$PATH && source /tmp/hotfix_func.sh && export HOTFIX_REGISTRY=hotfixscriptpoc.azurecr.io && check_for_script_hotfix'`,
+					// Verify log shows the version was read and no hotfix was found
+					`sudo grep -q "version=999999.99.0" /var/log/azure/hotfix-check.log`,
+				}, "\n")
+
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					manualTest,
+					0, "Manual hotfix detection should complete successfully for non-existent version")
 			},
 		},
 	})

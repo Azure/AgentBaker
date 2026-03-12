@@ -263,4 +263,8 @@ validate-components:
 	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/windows/components-test.json
 	@./hack/tools/bin/cue vet -c ./schemas/windows_settings.cue ./vhdbuilder/packer/windows/windows_settings.json
 
+.PHONY: build-provisioning-scripts-hotfix
+build-provisioning-scripts-hotfix:
+	@bash vhdbuilder/provisioning-manifest/build-hotfix-oci.sh $(HOTFIX_ARGS)
+
 include versioning.mk
