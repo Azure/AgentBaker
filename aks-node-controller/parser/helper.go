@@ -719,12 +719,16 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 	}
 }
 
-// getLocalDnsCorefileBase64WithHostsPlugin returns the base64 encoded LocalDns corefile
+// getLocalDnsCorefileBase64WithHostsPlugin generates and returns the base64-encoded LocalDns corefile
 // with or without the hosts plugin, depending on the includeHostsPlugin parameter.
-// The corefile with hosts plugin is written to /opt/azure/containers/localdns/localdns.corefile.
-// The corefile without hosts plugin is written to /opt/azure/containers/localdns/localdns-nohosts.corefile
-// and used as a fallback when enableAKSHostsSetup fails or when older VHDs don't have aks-hosts-setup artifacts.
-// Runtime selection happens in cse_main.sh based on the availability of /etc/localdns/hosts.
+//
+// The generated content is returned as a base64-encoded string and stored in environment variables:
+//   - LOCALDNS_GENERATED_COREFILE (with hosts plugin)
+//   - LOCALDNS_GENERATED_COREFILE_NO_HOSTS (without hosts plugin)
+//
+// The actual file writing happens in shell scripts (cse_config.sh) which decode and write
+// the selected variant to /opt/azure/containers/localdns/localdns.corefile.
+// Runtime selection between variants happens in cse_main.sh based on the availability of /etc/localdns/hosts.
 func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {
 	if aksnodeconfig == nil {
 		return ""
