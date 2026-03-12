@@ -2412,6 +2412,8 @@ type PrivateEgress struct {
 	Enabled                 bool   `json:"enabled"`
 	ContainerRegistryServer string `json:"containerRegistryServer"`
 	ProxyAddress            string `json:"proxyAddress"`
+	// Used for internal e2e test only, won't be set by RP or used in production.
+	TestMode bool `json:"testMode,omitempty"`
 }
 
 func (s *SecurityProfile) GetProxyAddress() string {
@@ -2426,6 +2428,14 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 		return s.PrivateEgress.ContainerRegistryServer
 	}
 	return ""
+}
+
+// Used for internal e2e test only, won't be set by RP or used in production.
+func (s *SecurityProfile) GetPrivateEgressTestMode() bool {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.TestMode
+	}
+	return false
 }
 
 // SecurityProfile end.

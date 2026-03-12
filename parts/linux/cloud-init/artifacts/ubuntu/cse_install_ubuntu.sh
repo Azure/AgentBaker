@@ -65,13 +65,29 @@ updateAptWithMicrosoftPkg() {
 
 updatePMCRepository() {
     packageVersion="${1}"
-    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
+
+    # Detect apt source file format: currently custom clouds use DEB822 (.sources), public cloud uses legacy (.list)
+    local microsoft_prod_file="/etc/apt/sources.list.d/microsoft-prod.list"
+    if [ ! -f "${microsoft_prod_file}" ] && [ -f /etc/apt/sources.list.d/microsoft-prod.sources ]; then
+        microsoft_prod_file="/etc/apt/sources.list.d/microsoft-prod.sources"
+    fi
+    if [ ! -f "${microsoft_prod_file}" ]; then
+        echo "ERROR: neither microsoft-prod.list nor microsoft-prod.sources found in /etc/apt/sources.list.d/"
+        exit $ERR_APT_UPDATE_TIMEOUT
+    fi
+    local opts="-o Dir::Etc::sourcelist=${microsoft_prod_file} -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
 
     # if the package version contains a tilde (~), indicating pre-release version, updating test repo
-    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && echo "$packageVersion" | grep -q '~'; then
-        local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
-        apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+    if echo "$packageVersion" | grep -q '~'; then
+        local microsoft_prod_testing_file="/etc/apt/sources.list.d/microsoft-prod-testing.list"
+        if [ ! -f "${microsoft_prod_testing_file}" ] && [ -f /etc/apt/sources.list.d/microsoft-prod-testing.sources ]; then
+            microsoft_prod_testing_file="/etc/apt/sources.list.d/microsoft-prod-testing.sources"
+        fi
+        if [ -f "${microsoft_prod_testing_file}" ]; then
+            local testing_opts="-o Dir::Etc::sourcelist=${microsoft_prod_testing_file} -o Dir::Etc::sourceparts=-"
+            apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+        fi
     fi
 }
 
