@@ -26,7 +26,8 @@ matchLocalSysext() {
 
 matchRemoteSysext() {
     local seURL=$1 desiredVer=$2 seArch=$3
-    retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${seURL}" | grep -Ex "v${desiredVer//./\\.}[.~-].*-azlinux3-${seArch}" | sort -V | tail -n1
+    # Match either arch-specific tags (v{ver}[.~-]*-azlinux3-{arch}) or exact version tags ({ver})
+    retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${seURL}" | grep -Ex "(v${desiredVer//./\\.}[.~-].*-azlinux3-${seArch}|${desiredVer//./\\.})" | sort -V | tail -n1
     test ${PIPESTATUS[0]} -eq 0
 }
 
@@ -114,11 +115,11 @@ getACLVersionID() {
 
 # Pulls a GPU-related sysext by name using the ACL MCR registry.
 # Registry path uses major.minor (e.g. 3.0), tag uses full VERSION_ID (e.g. 3.0.20260304).
-# Example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:v3.0.20260304...
+# Example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:3.0.20260304
 installACLGPUSysext() {
     local sysext_name=$1
     local version_id=$(getACLVersionID) || exit $ERR_SYSEXT_VERSION_ID_NOT_FOUND
-    local registry_base="mcr.microsoft.com/azurelinux/${version_id%.*}/azure-container-linux"
+    local registry_base="acldevsysext.azurecr.io/azurelinux/${version_id%.*}/azure-container-linux"
     mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_id}" \
         || exit $ERR_ORAS_PULL_SYSEXT_FAIL
 }
