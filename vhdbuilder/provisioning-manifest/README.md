@@ -52,7 +52,7 @@ When a critical bug is discovered in provisioning scripts baked into VHDs, this 
 
 4. **Verify** the artifact was pushed:
    ```bash
-   oras repo tags hotfixscriptpoc.azurecr.io/aks/provisioning-scripts/ubuntu-2204
+   oras repo tags abe2eprivatenonanonwestus3.azurecr.io/aks/provisioning-scripts/ubuntu-2204
    ```
 
 5. **Test** by provisioning a node with the affected VHD version. Check `/var/log/azure/hotfix-check.log` for detection logs and `/opt/azure/containers/.hotfix-applied` for the applied marker.
@@ -104,7 +104,7 @@ When all affected VHDs have aged out of the 6-month support window:
 1. **Delete the tag** from the source ACR:
    ```bash
    az acr repository delete \
-     --name hotfixscriptpoc \
+     --name abe2eprivatenonanonwestus3 \
      --image aks/provisioning-scripts/ubuntu-2204:<version>-hotfix
    ```
 
@@ -148,7 +148,7 @@ Document the justification in the pipeline run notes.
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `HOTFIX_REGISTRY` | `hotfixscriptpoc.azurecr.io` | Override the registry for testing |
+| `HOTFIX_REGISTRY` | `abe2eprivatenonanonwestus3.azurecr.io` | Override the registry for testing |
 
 ## Manifest Schema
 

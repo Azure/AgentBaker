@@ -7,7 +7,7 @@
 #     --affected-version 202602.10.0 \
 #     --description "Fix for CVE-2026-XXXX in provision_source.sh" \
 #     --files "parts/linux/cloud-init/artifacts/cse_helpers.sh" \
-#     [--registry hotfixscriptpoc.azurecr.io] \
+#     [--registry abe2eprivatenonanonwestus3.azurecr.io] \
 #     [--dry-run]
 #
 # The hotfix tag is auto-generated: <affected-version>-hotfix
@@ -22,7 +22,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 MANIFEST_FILE="${SCRIPT_DIR}/manifest.json"
 
 # Defaults
-REGISTRY="hotfixscriptpoc.azurecr.io"
+REGISTRY="abe2eprivatenonanonwestus3.azurecr.io"
 DRY_RUN=false
 SKU=""
 AFFECTED_VERSION=""
@@ -43,7 +43,7 @@ Required:
                               (relative to repo root, e.g., parts/linux/cloud-init/artifacts/cse_helpers.sh)
 
 Optional:
-  --registry <registry>       Target container registry (default: hotfixscriptpoc.azurecr.io)
+  --registry <registry>       Target container registry (default: abe2eprivatenonanonwestus3.azurecr.io)
   --dry-run                   Build artifact locally but do not push to registry
 
 Examples:

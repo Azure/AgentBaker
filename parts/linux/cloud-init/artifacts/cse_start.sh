@@ -13,7 +13,7 @@ mkdir -p $EVENTS_LOGGING_DIR
 # Non-fatal: any failure silently falls back to baked scripts.
 check_for_script_hotfix() {
     local baked_version_file="/opt/azure/containers/.provisioning-scripts-version"
-    local registry="${HOTFIX_REGISTRY:-hotfixscriptpoc.azurecr.io}"
+    local registry="${HOTFIX_REGISTRY:-abe2eprivatenonanonwestus3.azurecr.io}"
     local sku=""
     local hotfix_log="/var/log/azure/hotfix-check.log"
 
@@ -74,8 +74,8 @@ check_for_script_hotfix() {
     local applied_marker="/opt/azure/containers/.hotfix-applied"
 
     # Skip if already applied (idempotency for retries)
-    if [ -f "$applied_marker" ] && grep -q "$hotfix_tag" "$applied_marker" 2>/dev/null; then
-        echo "$(date): Hotfix check: ${hotfix_tag} already applied, skipping" >> "$hotfix_log"
+    if [ -f "$applied_marker" ]; then
+        echo "$(date): Hotfix check: hotfix already applied, skipping" >> "$hotfix_log"
         return 0
     fi
 
@@ -109,7 +109,7 @@ check_for_script_hotfix() {
     tarball=$(find "$staging_dir" -name "*.tar.gz" -print -quit 2>/dev/null)
     if [ -n "$tarball" ]; then
         if tar -xzf "$tarball" -C / --no-same-owner 2>> "$hotfix_log"; then
-            echo "$hotfix_tag" >> "$applied_marker"
+            echo "$hotfix_tag" > "$applied_marker"
             echo "$(date): Hotfix check: applied ${hotfix_tag} successfully" >> "$hotfix_log"
         else
             echo "$(date): Hotfix check: tar extraction failed, using baked scripts" >> "$hotfix_log"

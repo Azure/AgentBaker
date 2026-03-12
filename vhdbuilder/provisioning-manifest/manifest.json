@@ -3,7 +3,7 @@
   "skus": {
     "ubuntu-2204": {
       "description": "provisioning scripts for Ubuntu 22.04 (Gen1 and Gen2)",
-      "registry": "hotfixscriptpoc.azurecr.io",
+      "registry": "abe2eprivatenonanonwestus3.azurecr.io",
       "repository": "aks/provisioning-scripts/ubuntu-2204",
       "scripts": [
         {
