@@ -1,0 +1,13 @@
+[Unit]
+Description=Localdns Prometheus Exporter Socket
+Documentation=https://github.com/Azure/AgentBaker
+
+[Socket]
+# Bind to loopback only - restricts access to local connections
+ListenStream=127.0.0.1:9353
+# Accept=yes means "Spawn a new service instance for every connection"
+# This enables on-demand execution: the exporter script only runs when VMAgent scrapes
+Accept=yes
+
+[Install]
+WantedBy=sockets.target
