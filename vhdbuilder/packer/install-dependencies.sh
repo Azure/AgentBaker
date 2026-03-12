@@ -244,6 +244,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
+    installAznfsPkgFromPMC
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
   updateAptWithNvidiaPkg
