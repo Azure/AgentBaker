@@ -88,7 +88,7 @@ Describe 'Get-KubePackage' {
         It "Should call DownloadFileWithOras with correct reference when BootstrapProfileContainerRegistryServer is set" {
             Get-KubePackage -KubeBinariesSASURL 'https://xxx.blob.core.windows.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip'
             Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
-                $Reference -eq 'myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2' -and
+                $Reference -eq 'myregistry.azurecr.io/aks/packages/kubernetes/windowszip:v1.29.2' -and
                 $DestinationPath -eq 'c:\k.zip' -and
                 $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL
             }
