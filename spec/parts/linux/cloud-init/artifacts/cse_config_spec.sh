@@ -793,6 +793,11 @@ providers:
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            # Create mock localdns assets that would be present on VHD
+            mkdir -p /etc/systemd/system
+            mkdir -p /opt/azure/containers/localdns
+            touch /etc/systemd/system/localdns.service
+            touch /opt/azure/containers/localdns/localdns.sh
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -801,16 +806,37 @@ providers:
         }
         cleanup() {
             rm -rf "$TMP_DIR"
+            # Clean up mock VHD assets
+            rm -f /etc/systemd/system/localdns.service
+            rm -f /opt/azure/containers/localdns/localdns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        It 'should enable localdns successfully'
+        It 'should enable localdns successfully when VHD has required assets'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             When run enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+        End
+
+        It 'should skip localdns when localdns.service is missing on old VHD'
+            rm -f /etc/systemd/system/localdns.service
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Warning: localdns.service not found on this VHD, skipping localdns setup"
+            The output should not include "localdns should be enabled."
+        End
+
+        It 'should skip localdns when localdns.sh is missing on old VHD'
+            rm -f /opt/azure/containers/localdns/localdns.sh
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+            The output should not include "localdns should be enabled."
         End
 
         It 'should return error when systemctl fails to start localdns'
@@ -833,6 +859,11 @@ providers:
             LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
             LOCALDNS_CPU_LIMIT="250%"
+            # Create mock localdns assets that would be present on VHD
+            mkdir -p /etc/systemd/system
+            mkdir -p /opt/azure/containers/localdns
+            touch /etc/systemd/system/localdns.service
+            touch /opt/azure/containers/localdns/localdns.sh
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -841,6 +872,9 @@ providers:
         }
         cleanup() {
             rm -rf "$TMP_DIR"
+            # Clean up mock VHD assets
+            rm -f /etc/systemd/system/localdns.service
+            rm -f /opt/azure/containers/localdns/localdns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
