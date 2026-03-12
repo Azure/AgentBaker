@@ -2020,6 +2020,13 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		return
 	}
 
+	// Skip on pinned-version VHDs that predate the waagent installation.
+	// These VHDs explicitly select a version number and are not updated.
+	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
+		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
+		return
+	}
+
 	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
 	if len(versions) == 0 || versions[0] == "<SKIP>" {
 		s.T.Log("Skipping waagent log validation: no walinuxagent version in components.json")
