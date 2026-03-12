@@ -65,3 +65,75 @@ function Install-Oras {
 
     Write-Log "Oras installed successfully at $($global:OrasPath)"
 }
+
+function DownloadFileWithOras {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Reference,
+        [Parameter(Mandatory = $true)][string]
+        $DestinationPath,
+        [Parameter(Mandatory = $true)][int]
+        $ExitCode,
+        [Parameter(Mandatory = $false)][string]
+        $Platform = "windows/amd64"
+    )
+
+    Write-Log "Downloading $Reference to $DestinationPath via oras pull (platform=$Platform)"
+
+    # oras pull --output specifies the output directory, not the filename.
+    # Download to a temp directory first, then move the file to DestinationPath.
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+    $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    $orasArgs = @(
+        "pull",
+        $Reference,
+        "--platform=$Platform",
+        "--registry-config=$($global:OrasRegistryConfigFile)",
+        "--output", $tempDir
+    )
+    & $global:OrasPath @orasArgs
+    if ($LASTEXITCODE -ne 0) {
+        $downloadTimer.Stop()
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        Set-ExitCode -ExitCode $ExitCode -ErrorMessage "oras pull failed with exit code $LASTEXITCODE for $Reference"
+    }
+    $downloadTimer.Stop()
+    $elapsedMs = $downloadTimer.ElapsedMilliseconds
+
+    # Find the downloaded file in the temp directory and move it to the desired path
+    $downloadedFile = Get-ChildItem -Path $tempDir -File | Select-Object -First 1
+    if (-not $downloadedFile) {
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        Set-ExitCode -ExitCode $ExitCode -ErrorMessage "oras pull succeeded but no file found in temp directory for $Reference"
+    }
+
+    Write-Log "Downloaded file name: $($downloadedFile.Name) (size: $($downloadedFile.Length) bytes) in temp directory $tempDir"
+
+    # Ensure the destination parent directory exists
+    $destDir = [System.IO.Path]::GetDirectoryName($DestinationPath)
+    if ($destDir -and -not (Test-Path $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    }
+
+    # Remove existing destination if present, then move the downloaded file
+    if (Test-Path $DestinationPath) {
+        Remove-Item -Path $DestinationPath -Force
+    }
+    Write-Log "Moving $($downloadedFile.FullName) to $DestinationPath"
+    Move-Item -Path $downloadedFile.FullName -Destination $DestinationPath -Force
+    Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+
+    if ($global:AppInsightsClient -ne $null) {
+        $event = New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
+        $event.Name = "FileDownload"
+        $event.Properties["FileName"] = $Reference
+        $event.Properties["Method"] = "oras"
+        $event.Metrics["DurationMs"] = $elapsedMs
+        $global:AppInsightsClient.TrackEvent($event)
+    }
+
+    Write-Log "Downloaded $Reference to $DestinationPath via oras in $elapsedMs ms"
+    Get-Item $DestinationPath -ErrorAction Continue | Format-List | Out-String | Write-Log
+}

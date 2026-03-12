@@ -193,19 +193,45 @@ function Get-KubePackage {
             Write-Log "Did not find $global:KubeBinariesVersion in $mappingFile"
         }
     }
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $KubeBinariesSASURL"
 
     $zipfile = "c:\k.zip"
-    for ($i = 0; $i -le 10; $i++) {
-        DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
-        if ($?) {
-            break
+
+    # download kubelet binraries based on whether BootstrapProfileContainerRegistryServer is set.
+    if ($global:BootstrapProfileContainerRegistryServer) {
+        if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
         }
-        else {
-            Write-Log $Error[0].Exception.Message
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinariesWithOras" -TaskMessage "Start to download kubelet binaries with oras. KubeBinariesVersion: $global:KubeBinariesVersion, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+        $orasReference = "$($global:BootstrapProfileContainerRegistryServer)/aks/packages/kubernetes/windowszip:v$($global:KubeBinariesVersion)"
+        $maxRetries = 5
+        $retryDelaySeconds = 10
+        for ($i = 0; $i -le $maxRetries; $i++) {
+            try {
+                DownloadFileWithOras -Reference $orasReference -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL
+                break
+            } catch {
+                Write-Log "Attempt ${i}: oras pull failed for $orasReference. Error: $_"
+                if ($i -eq $maxRetries) {
+                    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+                }
+                Start-Sleep -Seconds $retryDelaySeconds
+            }
+        }
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $KubeBinariesSASURL"
+
+
+        for ($i = 0; $i -le 10; $i++) {
+            DownloadFileOverHttp -Url $KubeBinariesSASURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE
+            if ($?) {
+                break
+            }
+            else {
+                Write-Log $Error[0].Exception.Message
+            }
         }
     }
-    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\ 
+    AKS-Expand-Archive -Path $zipfile -DestinationPath C:\
     Remove-Item $zipfile
 }
 
