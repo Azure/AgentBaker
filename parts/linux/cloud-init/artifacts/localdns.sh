@@ -816,6 +816,13 @@ ${__SOURCED__:+return}
 
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
+# Regenerate corefile on every startup to enable dynamic variant selection.
+# ---------------------------------------------------------------------------------------------------------------------
+# This allows switching between WITH_HOSTS and NO_HOSTS variants based on current state.
+# On restarts, if /etc/localdns/hosts has been populated by aks-hosts-setup timer,
+# localdns will automatically switch to the hosts-plugin variant.
+regenerate_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
+
 # Verify localdns required files exists.
 # ---------------------------------------------------------------------------------------------------------------------
 # Verify that generated corefile exists and is not empty.
