@@ -1397,11 +1397,14 @@ EOF
 10.0.0.1 mcr.microsoft.com
 EOF
 
-            command() {
-                if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
-                    return 0
-                fi
-            }
+            # Create mock kubectl binary that is executable
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+echo "mock kubectl"
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
             rm -f "$KUBECONFIG"
             # Use short timeout for testing (2 attempts = 6 seconds)
             KUBECONFIG_WAIT_ATTEMPTS=2

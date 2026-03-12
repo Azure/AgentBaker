@@ -2,7 +2,8 @@
 
 # Helper functions for tests
 check_file_permissions() {
-    stat -c "%a" "$LOCALDNS_ENV_FILE"
+    # Use printf to ensure leading zero (0644 format)
+    printf "0%s" "$(stat -c "%a" "$LOCALDNS_ENV_FILE")"
 }
 
 Describe 'cse_config.sh'
@@ -896,6 +897,9 @@ providers:
 
             When call enableLocalDNS
             The status should be success
+            The stdout should include "enableLocalDNS called, generating corefile..."
+            The stdout should include "localdns should be enabled."
+            The stdout should include "Enable localdns succeeded."
             The path "$LOCALDNS_ENV_FILE" should be file
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS=${LOCALDNS_GENERATED_COREFILE}"
