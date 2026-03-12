@@ -62,6 +62,9 @@ type Configuration struct {
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
+	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"false"`
+	EnableScriptlessCSECmd                 bool          `env:"ENABLE_SCRIPTLESS_CSE_CMD" envDefault:"false"`
+	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
@@ -75,9 +78,10 @@ type Configuration struct {
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
+	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
-	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
 	TestGalleryNamePrefix                  string        `env:"TEST_GALLERY_NAME_PREFIX" envDefault:"abe2etest"`
 	TestPreProvision                       bool          `env:"TEST_PRE_PROVISION" envDefault:"false"`
@@ -85,9 +89,6 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
-	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
-	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
-	EnableScriptlessCSECmd                 bool          `env:"ENABLE_SCRIPTLESS_CSE_CMD" envDefault:"false"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
