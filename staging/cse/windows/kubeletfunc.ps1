@@ -196,7 +196,7 @@ function Get-KubePackage {
 
     $zipfile = "c:\k.zip"
 
-    # download kubelet binraries based on whether BootstrapProfileContainerRegistryServer is set.
+    # download kubelet binaries based on whether BootstrapProfileContainerRegistryServer is set.
     if ($global:BootstrapProfileContainerRegistryServer) {
         if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
