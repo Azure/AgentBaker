@@ -1,5 +1,8 @@
 #!/bin/bash -eux
 
+systemctl daemon-reload
+systemctl disable --now containerd || exit 1
+
 # Cleanup packer SSH key and machine ID generated for this boot
 rm -f /root/.ssh/authorized_keys
 rm -f /home/packer/.ssh/authorized_keys

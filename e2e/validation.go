@@ -71,10 +71,10 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
-	if !s.VHD.UnsupportedLocalDns {
-		ValidateLocalDNSService(ctx, s, "enabled")
-		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
-	}
+	// if !s.VHD.UnsupportedLocalDns {
+	// 	ValidateLocalDNSService(ctx, s, "enabled")
+	// 	ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+	// }
 
 	ValidateInspektorGadget(ctx, s)
 

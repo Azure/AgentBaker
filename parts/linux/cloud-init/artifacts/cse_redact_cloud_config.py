@@ -28,9 +28,10 @@ def redact_cloud_config(cloud_config_path, output_path):
 
     with open(cloud_config_path, 'r') as f:
         cloud_config_data = f.read()
-    cloud_config = yaml.safe_load(cloud_config_data)
+    cloud_config = yaml.safe_load(cloud_config_data) or {}
+    write_files = cloud_config.get('write_files', [])
 
-    for write_file in cloud_config['write_files']:
+    for write_file in write_files:
         if write_file['path'] in target_paths:
             target_path = write_file['path']
             target_paths.remove(target_path)

@@ -56,7 +56,7 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    # logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
@@ -148,9 +148,12 @@ function basePrep {
         echo "Golden image; skipping dependencies installation"
     fi
 
-    # Container runtime already installed on Azure Linux OS Guard
-    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    # Container runtime is already available on Azure Linux OS Guard and VHD-backed images
+    # that have containerd preinstalled.
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && ! command -v containerd >/dev/null 2>&1; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    else
+        echo "Skipping installContainerRuntime because containerd is already available"
     fi
     if [ "${TELEPORT_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
@@ -272,10 +275,6 @@ EOF
       logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
 
-    if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
-    fi
-
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
@@ -292,11 +291,6 @@ EOF
 
     if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
-    fi
-
-    # This is to enable localdns using scriptless.
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
@@ -351,11 +345,6 @@ function nodePrep {
 
     # By default, never reboot new nodes.
     REBOOTREQUIRED=false
-
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
 
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
@@ -421,6 +410,13 @@ function nodePrep {
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
+    logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Clean up GPU drivers if not a GPU node or if skipping driver install
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
+    fi
+
     VALIDATION_ERR=0
 
     # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
@@ -471,7 +467,14 @@ function nodePrep {
         exit $VALIDATION_ERR
     fi
 
-    logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+    if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
+        logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+    fi
+
+    # This is to enable localdns using scriptless.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
+    fi
 
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
 
@@ -480,7 +483,8 @@ function nodePrep {
         /bin/bash -c "shutdown -r 1 &"
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
             # logs_to_events should not be run on & commands
-            aptmarkWALinuxAgent unhold &
+            # aptmarkWALinuxAgent unhold &
+            true
         fi
     else
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -502,7 +506,7 @@ function nodePrep {
                 systemctl restart --no-block apt-daily.service
 
             fi
-            aptmarkWALinuxAgent unhold &
+            # aptmarkWALinuxAgent unhold &
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
                 if [ "${IS_KATA}" = "true" ]; then

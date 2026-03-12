@@ -415,6 +415,7 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubernetesVersion = "1.33.7"
 			},
 		},
 	})
