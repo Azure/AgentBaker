@@ -259,7 +259,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -334,7 +334,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -408,7 +408,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -478,7 +478,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -555,7 +555,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// to test that NBC EnableManagedGPU field works independently
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -603,4 +603,44 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 			},
 		},
 	})
+}
+
+func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	// First call — may hit the Azure API or cache
+	start := time.Now()
+	ext, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
+	firstDuration := time.Since(start)
+	require.NoError(t, err, "first call to createVMExtensionLinuxAKSNode failed")
+	require.NotNil(t, ext, "first call returned nil extension")
+	t.Logf("First call duration: %s", firstDuration)
+
+	// Second call — should be served from cache
+	start = time.Now()
+	ext2, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
+	secondDuration := time.Since(start)
+	require.NoError(t, err, "second call to createVMExtensionLinuxAKSNode failed")
+	require.NotNil(t, ext2, "second call returned nil extension")
+	t.Logf("Second call duration: %s", secondDuration)
+
+	// Both calls should return a valid, consistent TypeHandlerVersion
+	require.NotNil(t, ext.Properties, "first extension has nil Properties")
+	require.NotNil(t, ext2.Properties, "second extension has nil Properties")
+	require.NotNil(t, ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil")
+	require.NotNil(t, ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil")
+	require.NotEmpty(t, *ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty")
+	require.NotEmpty(t, *ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty")
+
+	// // TODO: @surajssd, uncomment this when you update the aks vm extension
+	// // version that is different than 1.406.
+	// // Ensure we actually hit Azure and didn't just get the fallback version
+	// require.NotEqual(t, "1.406", *ext.Properties.TypeHandlerVersion,
+	// 	"extension version is the hardcoded fallback — Azure API may not have been reached")
+
+	// Cache consistency: both calls should return the same version
+	require.Equal(t, *ext.Properties.TypeHandlerVersion, *ext2.Properties.TypeHandlerVersion,
+		"both calls should return the same extension version")
 }
