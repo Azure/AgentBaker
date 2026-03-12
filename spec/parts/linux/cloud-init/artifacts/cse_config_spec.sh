@@ -787,6 +787,7 @@ providers:
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            KUBELET_NODE_LABELS=""
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -795,6 +796,14 @@ providers:
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
                 return 0
+            }
+            addKubeletNodeLabel() {
+                echo "addKubeletNodeLabel $1"
+                if [[ -z "$KUBELET_NODE_LABELS" ]]; then
+                    KUBELET_NODE_LABELS="$1"
+                else
+                    KUBELET_NODE_LABELS="$KUBELET_NODE_LABELS,$1"
+                fi
             }
         }
         cleanup() {
@@ -810,6 +819,14 @@ providers:
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
             The output should include "Enable localdns-exporter.socket succeeded."
+        End
+
+        It 'should add node label when localdns-exporter.socket is enabled successfully'
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When call enableLocalDNS
+            The status should be success
+            The output should include "addKubeletNodeLabel kubernetes.azure.com/localdns-exporter=enabled"
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/localdns-exporter=enabled'
         End
 
         It 'should return error when systemctl fails to start localdns'
@@ -834,6 +851,18 @@ providers:
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
             The output should include "WARNING: Failed to enable localdns-exporter.socket"
+        End
+
+        It 'should not add node label when localdns-exporter.socket fails to start'
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+            When call enableLocalDNS
+            The status should be success
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/localdns-exporter=enabled"
+            The variable KUBELET_NODE_LABELS should equal ''
         End
     End
 

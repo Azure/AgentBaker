@@ -1256,6 +1256,7 @@ enableLocalDNS() {
     echo "Enabling localdns-exporter.socket for metrics collection."
     if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
         echo "Enable localdns-exporter.socket succeeded."
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     else
         echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
     fi
