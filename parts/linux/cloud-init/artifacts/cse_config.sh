@@ -1323,6 +1323,19 @@ EOF
 #                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 enableLocalDNS() {
     local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+
+    # Guard: Check if this VHD has localdns assets installed.
+    # Older VHDs may not have localdns.service or the execution script.
+    # This ensures backward compatibility when new CSE runs on old VHDs.
+    if [ ! -f /etc/systemd/system/localdns.service ]; then
+        echo "Warning: localdns.service not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+    if [ ! -f /opt/azure/containers/localdns/localdns.sh ]; then
+        echo "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+
     echo "enableLocalDNS called, generating corefile..."
     generateLocalDNSFiles "${corefile_content}"
     # Log corefile variant after it's been successfully written
