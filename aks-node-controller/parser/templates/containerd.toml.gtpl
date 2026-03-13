@@ -5,13 +5,8 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if .TeleportConfig.GetStatus }}
-    snapshotter = "teleportd"
+    {{- if .GetIsKata }}
     disable_snapshot_annotations = false
-    {{- else}}
-      {{- if .GetIsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
     {{- end}}
     {{- if .GetEnableArtifactStreaming }}
     snapshotter = "overlaybd"
@@ -58,12 +53,6 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
-{{- if .TeleportConfig.GetStatus }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if .GetEnableArtifactStreaming }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]

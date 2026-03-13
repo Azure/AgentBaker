@@ -334,9 +334,6 @@ disableSystemdResolved() {
 }
 
 ensureContainerd() {
-  if [ "${TELEPORT_ENABLED}" = "true" ]; then
-    ensureTeleportd
-  fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
@@ -417,10 +414,6 @@ EOF
 
 ensureNoDupOnPromiscuBridge() {
     systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureTeleportd() {
-    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureArtifactStreaming() {
