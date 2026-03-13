@@ -50,7 +50,7 @@ resolve_packages_source_url
 # Not all build paths set IMAGE_VERSION (e.g. Image Customizer / OSGuard),
 # so this is only stamped when IMAGE_VERSION is available.
 PROVISIONING_SCRIPTS_VERSION_FILE="/opt/azure/containers/.provisioning-scripts-version"
-if [[ -n "${IMAGE_VERSION:-}" ]]; then
+if [ -n "${IMAGE_VERSION:-}" ]; then
     echo "${IMAGE_VERSION}" > "${PROVISIONING_SCRIPTS_VERSION_FILE}"
     echo "Provisioning scripts version stamped: ${IMAGE_VERSION}"
 else

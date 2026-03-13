@@ -7,6 +7,8 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
 
+HOTFIX_LOG="/var/log/azure/hotfix-check.log"
+
 # Ensure /opt/bin is in PATH (ORAS is installed there during VHD build)
 case "${PATH}" in
     */opt/bin*) : ;;
@@ -23,7 +25,7 @@ if [ -n "${CSE_HELPERS_FILEPATH}" ]; then
             grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
         fi
         if [ $i -eq 120 ]; then
-            echo "$(date): cse_start: helpers file not ready after 120s" >> /var/log/azure/hotfix-check.log
+            echo "$(date): cse_start: helpers file not ready after 120s" >> "$HOTFIX_LOG"
         else
             sleep 1
         fi
@@ -39,7 +41,7 @@ fi
 # both hotfix check below and cse_main.sh's ORAS operations.
 if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] && command -v oras &>/dev/null && type oras_login_with_managed_identity &>/dev/null; then
     _hotfix_registry_domain="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
-    oras_login_with_managed_identity "${_hotfix_registry_domain}" "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" || true
+    oras_login_with_managed_identity "${_hotfix_registry_domain}" "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" >>"$HOTFIX_LOG" 2>&1 || true
     set +x 2>/dev/null  # oras_login_with_managed_identity enables set -x; restore
     unset _hotfix_registry_domain
 fi
@@ -52,7 +54,7 @@ fi
 check_for_script_hotfix() {
     local baked_version_file="/opt/azure/containers/.provisioning-scripts-version"
     local sku=""
-    local hotfix_log="/var/log/azure/hotfix-check.log"
+    local hotfix_log="$HOTFIX_LOG"
 
     # Determine SKU from OS
     if [ -f /etc/os-release ]; then
