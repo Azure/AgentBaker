@@ -1310,4 +1310,9 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
+
+# Selects the appropriate localdns corefile based on hosts plugin enablement and hosts file state
+# Usage: select_localdns_corefile <should_enable_hosts_plugin> <corefile_with_hosts> <corefile_no_hosts> <hosts_file_path>
+# Returns: The selected corefile (base64-encoded) via stdout
+# Logs: Decision messages to stderr
 #HELPERSEOF

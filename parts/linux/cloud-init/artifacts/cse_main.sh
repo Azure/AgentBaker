@@ -294,9 +294,23 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Run aks-hosts-setup only if LocalDNS is enabled and hosts plugin is enabled
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        # hosts file produced (handle nxdomain and no record)
+        # npd - detect if the /etc/localdns/hosts is stale for x hours
+        # keep a record of the refresh heartbeat of the /etc/localdns/hosts file
+
+        # live-patching controller (yao/yamur, updates the annotation from the systemd unit)
+        logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup
+    fi
+
     # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
+        # Pass the no-hosts corefile as initial default.
+        # localdns.sh will dynamically select the correct corefile variant on each start
+        # based on SHOULD_ENABLE_HOSTS_PLUGIN and whether /etc/localdns/hosts exists with content.
+        # Both corefile variants are saved in /etc/localdns/environment for dynamic selection.
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS "${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}" || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then

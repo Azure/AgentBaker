@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Helper functions for tests
+check_file_permissions() {
+    # Use printf to ensure leading zero (0644 format)
+    printf "0%s" "$(stat -c "%a" "$LOCALDNS_ENV_FILE")"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
@@ -787,6 +793,11 @@ providers:
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            # Create mock localdns assets that would be present on VHD
+            mkdir -p /etc/systemd/system
+            mkdir -p /opt/azure/containers/localdns
+            touch /etc/systemd/system/localdns.service
+            touch /opt/azure/containers/localdns/localdns.sh
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -795,16 +806,37 @@ providers:
         }
         cleanup() {
             rm -rf "$TMP_DIR"
+            # Clean up mock VHD assets
+            rm -f /etc/systemd/system/localdns.service
+            rm -f /opt/azure/containers/localdns/localdns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        It 'should enable localdns successfully'
+        It 'should enable localdns successfully when VHD has required assets'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             When run enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+        End
+
+        It 'should skip localdns when localdns.service is missing on old VHD'
+            rm -f /etc/systemd/system/localdns.service
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Warning: localdns.service not found on this VHD, skipping localdns setup"
+            The output should not include "localdns should be enabled."
+        End
+
+        It 'should skip localdns when localdns.sh is missing on old VHD'
+            rm -f /opt/azure/containers/localdns/localdns.sh
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+            The output should not include "localdns should be enabled."
         End
 
         It 'should return error when systemctl fails to start localdns'
@@ -819,7 +851,7 @@ providers:
         End
     End
 
-    Describe 'shouldEnableLocalDns'
+    Describe 'enableLocalDNSForScriptless'
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
@@ -827,6 +859,11 @@ providers:
             LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
             LOCALDNS_CPU_LIMIT="250%"
+            # Create mock localdns assets that would be present on VHD
+            mkdir -p /etc/systemd/system
+            mkdir -p /opt/azure/containers/localdns
+            touch /etc/systemd/system/localdns.service
+            touch /opt/azure/containers/localdns/localdns.sh
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
@@ -835,6 +872,9 @@ providers:
         }
         cleanup() {
             rm -rf "$TMP_DIR"
+            # Clean up mock VHD assets
+            rm -f /etc/systemd/system/localdns.service
+            rm -f /opt/azure/containers/localdns/localdns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -879,6 +919,241 @@ providers:
             The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+        End
+
+        # Environment file creation with both corefile variants.
+        It 'should create environment file with all corefile variants for dynamic selection'
+            # Set up both corefile variants
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "corefile with hosts plugin" | base64)
+            LOCALDNS_GENERATED_COREFILE_NO_HOSTS=$(echo -n "corefile without hosts plugin" | base64)
+            SHOULD_ENABLE_HOSTS_PLUGIN="true"
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "enableLocalDNS called, generating corefile..."
+            The stdout should include "localdns should be enabled."
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS=${LOCALDNS_GENERATED_COREFILE}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS=${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
+        End
+
+        # Environment file permissions.
+        It 'should set correct permissions on environment file'
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            When call enableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_ENV_FILE" should be file
+            # Check permissions are 0644 (owner read/write, group read, others read)
+            The result of function check_file_permissions should equal "0644"
+        End
+    End
+
+    Describe 'enableAKSHostsSetup'
+        setup() {
+            # Create temporary test directories and files
+            TEST_TEMP_DIR=$(mktemp -d)
+            AKS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
+            AKS_HOSTS_SETUP_SCRIPT="${TEST_TEMP_DIR}/aks-hosts-setup.sh"
+            AKS_HOSTS_SETUP_SERVICE="${TEST_TEMP_DIR}/aks-hosts-setup.service"
+            AKS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-hosts-setup.timer"
+            AKS_CLOUD_ENV_FILE="${TEST_TEMP_DIR}/cloud-env"
+
+            # Create fake script that simulates successful hosts file creation
+            cat > "$AKS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
+#!/bin/bash
+echo "# test hosts file" > "${AKS_HOSTS_FILE}"
+SETUP_EOF
+            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+
+            # Create dummy service and timer files
+            touch "$AKS_HOSTS_SETUP_SERVICE"
+            touch "$AKS_HOSTS_SETUP_TIMER"
+
+            # Set up test environment
+            TARGET_CLOUD="AzurePublicCloud"
+
+            # Mock systemctl function
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+
+            # Export variables so the real function can use them
+            export AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
+            export AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
+        }
+
+        cleanup() {
+            rm -rf "$TEST_TEMP_DIR"
+            unset AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
+            unset AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should enable aks-hosts-setup timer successfully'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-hosts-setup timer..."
+            The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
+            The output should include "aks-hosts-setup timer enabled successfully."
+        End
+
+        It 'should call systemctlEnableAndStartNoBlock with correct parameters'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
+        End
+
+        It 'should skip when setup script is missing'
+            rm -f "$AKS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should skip when timer unit is missing'
+            rm -f "$AKS_HOSTS_SETUP_TIMER"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should print warning when systemctlEnableAndStartNoBlock fails'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-hosts-setup timer..."
+            The output should include "Warning: Failed to enable aks-hosts-setup timer"
+            The output should not include "aks-hosts-setup timer enabled successfully."
+        End
+
+        It 'should skip when service unit is missing'
+            rm -f "$AKS_HOSTS_SETUP_SERVICE"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-hosts-setup"
+        End
+
+        It 'should skip when setup script is not executable'
+            chmod -x "$AKS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "is not executable, skipping aks-hosts-setup"
+        End
+
+        It 'should create cloud-env file with TARGET_CLOUD value'
+            TARGET_CLOUD="AzurePublicCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The file "$AKS_CLOUD_ENV_FILE" should be exist
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzurePublicCloud"
+        End
+
+        It 'should write correct cloud-env for AzureChinaCloud'
+            TARGET_CLOUD="AzureChinaCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureChinaCloud"
+        End
+
+        It 'should write correct cloud-env for AzureUSGovernmentCloud'
+            TARGET_CLOUD="AzureUSGovernmentCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
+        End
+
+        It 'should set 0644 permissions on cloud-env file'
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The file "$AKS_CLOUD_ENV_FILE" should be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unset'
+            unset TARGET_CLOUD
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: TARGET_CLOUD is not set"
+            The output should include "Cannot run aks-hosts-setup without knowing cloud environment"
+            The output should include "Skipping aks-hosts-setup"
+        End
+
+        It 'should skip when TARGET_CLOUD is empty string'
+            TARGET_CLOUD=""
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: TARGET_CLOUD is not set"
+            The output should include "Skipping aks-hosts-setup"
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (USNatCloud)'
+            TARGET_CLOUD="USNatCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: USNatCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (USSecCloud)'
+            TARGET_CLOUD="USSecCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: USSecCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (AzureStackCloud)'
+            TARGET_CLOUD="AzureStackCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: AzureStackCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (AzureGermanCloud)'
+            TARGET_CLOUD="AzureGermanCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: AzureGermanCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should skip when TARGET_CLOUD is unsupported (unknown cloud)'
+            TARGET_CLOUD="SomeRandomCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: SomeRandomCloud"
+            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            The output should include "Skipping aks-hosts-setup"
+            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+        End
+
+        It 'should log TARGET_CLOUD value when set'
+            TARGET_CLOUD="AzurePublicCloud"
+            When call enableAKSHostsSetup
+            The status should be success
+            The output should include "Setting TARGET_CLOUD=AzurePublicCloud for aks-hosts-setup"
         End
     End
 

@@ -1236,18 +1236,35 @@ LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+# generateLocalDNSFiles creates the localdns corefile and slice file.
+# Usage: generateLocalDNSFiles [corefile_base64]
+#   corefile_base64: optional base64-encoded corefile content to use.
+#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 generateLocalDNSFiles() {
+    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    base64 -d <<< "${corefile_content}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Log whether the generated corefile includes hosts plugin
+    if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
+        echo "Generated corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
+    else
+        echo "Generated corefile at ${LOCALDNS_CORE_FILE} DOES NOT include hosts plugin"
+    fi
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
+    # Save BOTH corefile variants so localdns can dynamically choose on each restart.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_content}
+LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS=${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}
+SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -1267,12 +1284,110 @@ CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
 }
 
+# enableLocalDNS creates localdns files and starts the service.
+# Usage: enableLocalDNS [corefile_base64]
+#   corefile_base64: optional base64-encoded corefile content to use.
+#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
 enableLocalDNS() {
-    generateLocalDNSFiles
+    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
+
+    # Guard: Check if this VHD has localdns assets installed.
+    # Older VHDs may not have localdns.service or the execution script.
+    # This ensures backward compatibility when new CSE runs on old VHDs.
+    if [ ! -f /etc/systemd/system/localdns.service ]; then
+        echo "Warning: localdns.service not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+    if [ ! -f /opt/azure/containers/localdns/localdns.sh ]; then
+        echo "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+
+    echo "enableLocalDNS called, generating corefile..."
+    generateLocalDNSFiles "${corefile_content}"
+    # Log corefile variant after it's been successfully written
+    echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+}
+
+# This function enables and starts the aks-hosts-setup timer.
+# The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
+# The caller in cse_main.sh checks /etc/localdns/hosts content directly to decide
+# which corefile to use, so this function does not need to signal success/failure.
+enableAKSHostsSetup() {
+    # handle nxdomain and no answer case
+    # Allow overriding paths for testing (via environment variables)
+    local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_script="${AKS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-hosts-setup.sh}"
+    local hosts_setup_service="${AKS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-hosts-setup.service}"
+    local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
+    local cloud_env_file="${AKS_CLOUD_ENV_FILE:-/etc/localdns/cloud-env}"
+
+    # Guard: verify required artifacts exist on this VHD.
+    # Older VHDs (or certain build modes) may not include them.
+    if [ ! -f "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-hosts-setup"
+        return
+    fi
+    if [ ! -x "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} is not executable, skipping aks-hosts-setup"
+        return
+    fi
+    if [ ! -f "${hosts_setup_service}" ]; then
+        echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-hosts-setup"
+        return
+    fi
+    if [ ! -f "${hosts_setup_timer}" ]; then
+        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
+        return
+    fi
+
+    # Write the cloud environment as a systemd EnvironmentFile so aks-hosts-setup.sh
+    # can use $TARGET_CLOUD directly — both when called from CSE (already in env) and
+    # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
+    if [ -z "${TARGET_CLOUD:-}" ]; then
+        echo "WARNING: TARGET_CLOUD is not set. Cannot run aks-hosts-setup without knowing cloud environment."
+        echo "aks-hosts-setup requires TARGET_CLOUD to determine which FQDNs to resolve."
+        echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
+        return
+    fi
+
+    # Validate that TARGET_CLOUD is one of the supported clouds
+    # This must match the case statement in aks-hosts-setup.sh
+    case "${TARGET_CLOUD}" in
+        AzurePublicCloud|AzureChinaCloud|AzureUSGovernmentCloud)
+            # Supported cloud, continue
+            ;;
+        *)
+            echo "WARNING: The following cloud is not supported by aks-hosts-setup: ${TARGET_CLOUD}"
+            echo "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
+            echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
+            return
+            ;;
+    esac
+
+    echo "Setting TARGET_CLOUD=${TARGET_CLOUD} for aks-hosts-setup"
+    mkdir -p "$(dirname "${cloud_env_file}")"
+    echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
+    chmod 0644 "${cloud_env_file}"
+
+    # Create an empty hosts file so the localdns hosts plugin can start watching it
+    # immediately. The file will be populated by aks-hosts-setup timer asynchronously.
+    mkdir -p "$(dirname "${hosts_file}")"
+    touch "${hosts_file}"
+    chmod 0644 "${hosts_file}"
+
+    # Enable the timer for periodic refresh (every 15 minutes)
+    # This will update the hosts file with fresh IPs from live DNS
+    echo "Enabling aks-hosts-setup timer..."
+    if systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30; then
+        echo "aks-hosts-setup timer enabled successfully."
+    else
+        echo "Warning: Failed to enable aks-hosts-setup timer"
+    fi
 }
 
 configureManagedGPUExperience() {
