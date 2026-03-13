@@ -19,7 +19,6 @@ import (
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
 )
 
@@ -71,11 +70,11 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--serialize-image-pulls":             true,
 }
 
-type paramsMap map[string]interface{}
+type paramsMap map[string]any
 
 const numInPair = 2
 
-func addValue(m paramsMap, k string, v interface{}) {
+func addValue(m paramsMap, k string, v any) {
 	m[k] = paramsMap{
 		"value": v,
 	}
@@ -94,7 +93,7 @@ func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVers
 }
 
 //nolint:unparam,nolintlint
-func addSecret(m paramsMap, k string, v interface{}, encode bool) {
+func addSecret(m paramsMap, k string, v any, encode bool) {
 	str, ok := v.(string)
 	if !ok {
 		addValue(m, k, v)
@@ -202,8 +201,8 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
 func removeComments(b []byte) []byte {
 	var contentWithoutComments []string
-	lines := strings.Split(string(b), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(b), "\n")
+	for line := range lines {
 		lineNoWhitespace := strings.TrimSpace(line)
 		if lineStartsWithComment(lineNoWhitespace) {
 			// ignore entire line that is a comment
@@ -297,17 +296,17 @@ func getExtensionURL(rootURL, extensionName, version, fileName, query string) st
 }
 
 func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
-	str := ""
+	var str strings.Builder
 	if linuxProfile != nil {
 		lastItem := len(linuxProfile.SSH.PublicKeys) - 1
 		for i, publicKey := range linuxProfile.SSH.PublicKeys {
-			str += `"` + strings.TrimSpace(publicKey.KeyData) + `"`
+			str.WriteString(`"` + strings.TrimSpace(publicKey.KeyData) + `"`)
 			if i < lastItem {
-				str += ", "
+				str.WriteString(", ")
 			}
 		}
 	}
-	return str
+	return str.String()
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
@@ -389,7 +388,7 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
+		fmt.Fprintf(&buf, "%s=%s ", key, k[key])
 	}
 	return buf.String()
 }
@@ -414,7 +413,7 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, config[key]))
+		fmt.Fprintf(&buf, "%s=%s ", key, config[key])
 	}
 	return buf.String()
 }
@@ -549,7 +548,7 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 			kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
 		}
 		if customKc.PodMaxPids != nil {
-			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
+			kubeletConfig.PodPidsLimit = new(int64(*customKc.PodMaxPids))
 		}
 		if customKc.SeccompDefault != nil {
 			kubeletConfig.SeccompDefault = customKc.SeccompDefault
@@ -649,8 +648,8 @@ func strToInt64Ptr(str string) *int64 {
 
 func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
 	m := make(map[string]string)
-	pairs := strings.Split(str, strDelim)
-	for _, pairRaw := range pairs {
+	pairs := strings.SplitSeq(str, strDelim)
+	for pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
 			key := strings.TrimSpace(pair[0])
@@ -663,8 +662,8 @@ func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]st
 
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
 	m := make(map[string]bool)
-	pairs := strings.Split(str, strDelim)
-	for _, pairRaw := range pairs {
+	pairs := strings.SplitSeq(str, strDelim)
+	for pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
 			key := strings.TrimSpace(pair[0])

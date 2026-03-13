@@ -5,6 +5,8 @@ package datamodel
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -347,9 +349,7 @@ func getSortedSemverVersions(versions []string, preRelease bool) []semver.Versio
 
 func getAllKubernetesWindowsSupportedVersionsMap() map[string]bool {
 	ret := make(map[string]bool)
-	for k, v := range AllKubernetesSupportedVersions {
-		ret[k] = v
-	}
+	maps.Copy(ret, AllKubernetesSupportedVersions)
 	for _, version := range []string{
 		"1.6.6",
 		"1.6.9",
@@ -527,10 +527,5 @@ func GetLatestPatchVersion(majorMinor string, versionsList []string) string {
 
 // IsSupportedKubernetesVersion return true if the provided Kubernetes version is supported.
 func IsSupportedKubernetesVersion(version string, isUpdate, hasWindows bool) bool {
-	for _, ver := range GetAllSupportedKubernetesVersions(isUpdate, hasWindows) {
-		if ver == version {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(GetAllSupportedKubernetesVersions(isUpdate, hasWindows), version)
 }

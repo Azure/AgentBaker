@@ -104,7 +104,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    "coredns",
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 							},
 						},
 					},
@@ -120,7 +120,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(false),
+								Enabled: new(false),
 							},
 						},
 					},
@@ -151,7 +151,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 							},
 						},
 					},
@@ -162,7 +162,6 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.p.IsIPMasqAgentDisabled() != c.expectedDisabled {
@@ -264,7 +263,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(false),
+								Enabled: new(false),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -286,7 +285,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(false),
+								Enabled: new(false),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -311,7 +310,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -336,7 +335,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -401,7 +400,6 @@ func TestGenerateClusterID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetClusterID()
@@ -648,7 +646,6 @@ func TestGetSubnetName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetSubnetName()
@@ -669,14 +666,14 @@ func TestIsNextGenNetworkingEnabled(t *testing.T) {
 		{
 			name: "NextGenNetworkingEnabled is true",
 			profile: &AgentPoolWindowsProfile{
-				NextGenNetworkingEnabled: to.BoolPtr(true),
+				NextGenNetworkingEnabled: new(true),
 			},
 			expected: true,
 		},
 		{
 			name: "NextGenNetworkingEnabled is false",
 			profile: &AgentPoolWindowsProfile{
-				NextGenNetworkingEnabled: to.BoolPtr(false),
+				NextGenNetworkingEnabled: new(false),
 			},
 			expected: false,
 		},
@@ -688,7 +685,6 @@ func TestIsNextGenNetworkingEnabled(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.profile.IsNextGenNetworkingEnabled()
@@ -709,7 +705,7 @@ func TestGetNextGenNetworkingConfig(t *testing.T) {
 		{
 			name: "NextGenNetworkingConfig is set",
 			profile: &AgentPoolWindowsProfile{
-				NextGenNetworkingConfig: to.StringPtr("config"),
+				NextGenNetworkingConfig: new("config"),
 			},
 			expected: "config",
 		},
@@ -721,7 +717,6 @@ func TestGetNextGenNetworkingConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.profile.GetNextGenNetworkingConfig()
@@ -816,7 +811,6 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetVirtualNetworkName()
@@ -914,7 +908,6 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.IsVHDDistro() {
@@ -961,7 +954,6 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.Is2204VHDDistro() {
@@ -1015,7 +1007,6 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.Is2404VHDDistro() {
@@ -1174,7 +1165,6 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.IsAzureLinuxCgroupV2VHDDistro() {
@@ -1221,7 +1211,6 @@ func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			isFlatcar := c.ap.IsFlatcar()
@@ -1346,7 +1335,6 @@ func TestFlatcarAndCustomDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.nbc.AgentPoolProfile.Distro != c.nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro {
@@ -1536,7 +1524,6 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.GetKubernetesLabels() {
@@ -1664,7 +1651,7 @@ func TestHasStorageProfile(t *testing.T) {
 					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
-							Enabled: to.BoolPtr(true),
+							Enabled: new(true),
 							JumpboxProfile: &PrivateJumpboxProfile{
 								StorageProfile: ManagedDisks,
 							},
@@ -1691,7 +1678,7 @@ func TestHasStorageProfile(t *testing.T) {
 					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
-							Enabled: to.BoolPtr(true),
+							Enabled: new(true),
 							JumpboxProfile: &PrivateJumpboxProfile{
 								StorageProfile: StorageAccount,
 							},
@@ -1760,7 +1747,6 @@ func TestHasStorageProfile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.p.OrchestratorProfile != nil && c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() != c.expectedPrivateJB {
@@ -1853,10 +1839,10 @@ func TestWindowsProfile(t *testing.T) {
 			},
 		},
 		WindowsImageSourceURL:       "testCustomImage",
-		IsCredentialAutoGenerated:   to.BoolPtr(true),
-		EnableAHUB:                  to.BoolPtr(true),
-		EnableCSIProxy:              to.BoolPtr(true),
-		AlwaysPullWindowsPauseImage: to.BoolPtr(true),
+		IsCredentialAutoGenerated:   new(true),
+		EnableAHUB:                  new(true),
+		EnableCSIProxy:              new(true),
+		AlwaysPullWindowsPauseImage: new(true),
 	}
 
 	if !w.HasSecrets() || !w.HasCustomImage() {
@@ -1877,8 +1863,8 @@ func TestWindowsProfile(t *testing.T) {
 		WindowsDockerVersion:      "18.03.1-ee-3",
 		WindowsSku:                "Datacenter-Core-1809-with-Containers-smalldisk",
 		SSHEnabled:                &trueVar,
-		IsCredentialAutoGenerated: to.BoolPtr(false),
-		EnableAHUB:                to.BoolPtr(false),
+		IsCredentialAutoGenerated: new(false),
+		EnableAHUB:                new(false),
 		ContainerdWindowsRuntimes: &ContainerdWindowsRuntimes{
 			DefaultSandboxIsolation: "hyperv",
 			RuntimeHandlers: []RuntimeHandlers{
@@ -1887,7 +1873,7 @@ func TestWindowsProfile(t *testing.T) {
 			},
 		},
 		WindowsGmsaPackageUrl:   "windows-gmsa-package-url",
-		WindowsSecureTlsEnabled: to.BoolPtr(false),
+		WindowsSecureTlsEnabled: new(false),
 	}
 
 	dv = w.GetWindowsDockerVersion()
@@ -2017,7 +2003,6 @@ func TestWindowsProfileCustomOS(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.w.HasCustomImage() != c.expectedURL {
@@ -2175,7 +2160,6 @@ func TestIsFeatureEnabled(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.flags.IsFeatureEnabled(test.feature)
@@ -2311,7 +2295,6 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -2349,7 +2332,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -2361,7 +2344,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2373,7 +2356,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "bar",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2418,7 +2401,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    IPMASQAgentAddonName,
-						Enabled: to.BoolPtr(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -2430,7 +2413,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    IPMASQAgentAddonName,
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2439,7 +2422,6 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.k.IsIPMasqAgentDisabled() != c.expectedDisabled {
@@ -2544,7 +2526,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -2556,7 +2538,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2568,7 +2550,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "bar",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2654,7 +2636,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig) {
@@ -2676,13 +2657,13 @@ func TestKubernetesAddonIsEnabled(t *testing.T) {
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(false),
+				Enabled: new(false),
 			},
 			expected: false,
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(true),
+				Enabled: new(true),
 			},
 			expected: true,
 		},
@@ -2706,13 +2687,13 @@ func TestKubernetesAddonIsDisabled(t *testing.T) {
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(false),
+				Enabled: new(false),
 			},
 			expected: true,
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(true),
+				Enabled: new(true),
 			},
 			expected: false,
 		},
@@ -2839,7 +2820,6 @@ func TestGetOrderedKubeproxyConfigStringForPowershell(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.config.GetOrderedKubeproxyConfigStringForPowershell()
@@ -2949,7 +2929,6 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig)
@@ -2990,7 +2969,6 @@ func TestSecurityProfileGetProxyAddress(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.securityProfile.GetProxyAddress()
@@ -3031,7 +3009,6 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.securityProfile.GetPrivateEgressContainerRegistryServer()
@@ -3096,7 +3073,7 @@ func TestLocalDNSProfileMethods(t *testing.T) {
 	tests := []struct {
 		name             string
 		agentPoolProfile *AgentPoolProfile
-		expectedData     interface{}
+		expectedData     any
 		expectedError    bool
 	}{
 		{

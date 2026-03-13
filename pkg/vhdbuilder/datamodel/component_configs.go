@@ -40,7 +40,8 @@ type DockerKubeProxyImages struct {
 	ContainerImages []*ContainerImage `json:"ContainerImages"`
 }
 
-func loadJSONFromFile(path string, v interface{}) error {
+func loadJSONFromFile(path string, v any) error {
+	//nolint: gosec
 	configFile, err := os.Open(path)
 	if err != nil {
 		return err

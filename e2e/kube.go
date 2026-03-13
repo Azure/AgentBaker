@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -110,7 +109,7 @@ func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace
 					if maxRetries <= 0 {
 						return false, sandboxErr
 					}
-					k.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+					k.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: new(int64(0))})
 					return false, nil // Keep polling
 				}
 			}
@@ -209,7 +208,7 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 	if pod == nil {
 		return
 	}
-	logs, _ := kube.Typed.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{TailLines: to.Ptr(int64(5))}).DoRaw(ctx)
+	logs, _ := kube.Typed.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{TailLines: new(int64(5))}).DoRaw(ctx)
 	type Condition struct {
 		Reason  string
 		Message string
@@ -328,7 +327,7 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secr
 		return fmt.Errorf("create Kubernetes client: %w", err)
 	}
 
-	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	auth := base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", username, password))
 	dockerConfigJSON := fmt.Sprintf(`{
 		"auths": {
 			"%s.azurecr.io": {
@@ -413,7 +412,7 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 							Name:    "mariner",
 							Command: []string{"sleep", "infinity"},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: to.Ptr(true),
+								Privileged: new(true),
 								Capabilities: &corev1.Capabilities{
 									Add: []corev1.Capability{"SYS_PTRACE", "SYS_RAWIO"},
 								},

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -271,37 +272,17 @@ var AvailableACLDistros = []Distro{
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
 func (d Distro) IsContainerdDistro() bool {
-	for _, distro := range AvailableContainerdDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableContainerdDistros, d)
 }
 
 func (d Distro) IsGen2Distro() bool {
-	for _, distro := range AvailableGen2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableGen2Distros, d)
 }
 func (d Distro) IsAzureLinuxDistro() bool {
-	for _, distro := range AvailableAzureLinuxDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxDistros, d)
 }
 func (d Distro) IsWindowsSIGDistro() bool {
-	for _, distro := range AvailableWindowsSIGDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableWindowsSIGDistros, d)
 }
 
 func (d Distro) IsWindowsDistro() bool {

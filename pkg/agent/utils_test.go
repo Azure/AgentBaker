@@ -50,17 +50,17 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
-		SeccompDefault:        to.BoolPtr(true),
+		SeccompDefault:        new(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -446,13 +446,13 @@ func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		PodMaxPids:            to.Int32Ptr(12345),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
@@ -466,13 +466,13 @@ func TestGetKubeletConfigFileFromFlagsWithContainerLogMaxSize(t *testing.T) {
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
 	}
@@ -487,17 +487,17 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		PodMaxPids:            to.Int32Ptr(12345),
-		SeccompDefault:        to.BoolPtr(true),
+		SeccompDefault:        new(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -518,7 +518,7 @@ func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 			reason:            "agent pool TLS bootstrap token not set",
 		},
 		{
-			tlsBootstrapToken: to.StringPtr("foobar.foobar"),
+			tlsBootstrapToken: new("foobar.foobar"),
 			expected:          true,
 			reason:            "supported",
 		},
@@ -542,7 +542,7 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 			expected: "",
 		},
 		{
-			token:    to.StringPtr("foo.bar"),
+			token:    new("foo.bar"),
 			expected: "foo.bar",
 		},
 	}
@@ -664,7 +664,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			EnableKubeletConfigFile: true,
 			AgentPoolProfile: &datamodel.AgentPoolProfile{
 				CustomKubeletConfig: &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.BoolPtr(false),
+					SeccompDefault: new(false),
 				},
 			},
 		}

@@ -115,7 +115,7 @@ func (c *Configuration) GalleryResourceID() string {
 func (c *Configuration) String() string {
 	data := make([]string, 0)
 	v := reflect.ValueOf(c)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	t := v.Type()
@@ -180,7 +180,7 @@ func mustGetNewRSAKeyPair() ([]byte, []byte, string) {
 
 	privateKeyFileName, err := writePrivateKeyToTempFile(privatePEMBytes)
 	if err != nil {
-		panic(fmt.Sprintf("failed to write private key to temp file: %w", err))
+		panic(fmt.Errorf("failed to write private key to temp file: %w", err).Error())
 	}
 
 	return privatePEMBytes, publicKeyBytes, privateKeyFileName
