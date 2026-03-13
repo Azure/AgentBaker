@@ -1,3 +1,4 @@
+<!-- This repo is managed by the AgentBaker team -->
 # Agentbaker
 
 [![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master)
