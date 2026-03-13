@@ -305,7 +305,7 @@ installAznfsPkgFromPMC() {
   if ! dnf_install 30 1 600 "${aznfs_rpm_file}"; then
     exit $ERR_APT_INSTALL_TIMEOUT
   fi
-  if ! dnf_install 30 1 600 aznfs-0.3.34; then
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 aznfs-3.0.15-1; then
     exit $ERR_APT_INSTALL_TIMEOUT
   fi
   rm -f "${aznfs_rpm_file}"
@@ -313,8 +313,8 @@ installAznfsPkgFromPMC() {
   systemctl disable aznfswatchdog
   systemctl stop aznfswatchdog
 
-  echo "=== FIX: Import Microsoft key into GnuPG keyring ==="
-  gpg --import /etc/pki/rpm-gpg/RPM-GPG-KEY-Microsoft 2>&1
+  echo "Importing Microsoft RPM GPG key into RPM database"
+  gpg --import /etc/pki/rpm-gpg/RPM-GPG-KEY-Microsoft || echo "Warning: failed to import Microsoft RPM GPG key"
 }
 
 installToolFromLocalRepo() {
