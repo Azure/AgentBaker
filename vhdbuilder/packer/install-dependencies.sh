@@ -45,12 +45,17 @@ resolve_packages_source_url
 # Stamp the provisioning scripts version used to build this VHD.
 # Used by the hotfix detection mechanism in cse_start.sh to check for
 # corrected scripts published as OCI artifacts.
-# Prefer IMAGE_VERSION (e.g. 202602.10.0) which matches the VHD SIG version;
-# fall back to COMMIT (git SHA) if IMAGE_VERSION is not set.
+# IMAGE_VERSION (e.g. 202602.10.0) matches the VHD SIG version and is the
+# required artifact tag format for hotfix OCI artifacts.
+# Not all build paths set IMAGE_VERSION (e.g. Image Customizer / OSGuard),
+# so this is only stamped when IMAGE_VERSION is available.
 PROVISIONING_SCRIPTS_VERSION_FILE="/opt/azure/containers/.provisioning-scripts-version"
-PROVISIONING_SCRIPTS_VERSION="${IMAGE_VERSION:-${COMMIT}}"
-echo "${PROVISIONING_SCRIPTS_VERSION}" > "${PROVISIONING_SCRIPTS_VERSION_FILE}"
-echo "Provisioning scripts version stamped: ${PROVISIONING_SCRIPTS_VERSION}"
+if [[ -n "${IMAGE_VERSION:-}" ]]; then
+    echo "${IMAGE_VERSION}" > "${PROVISIONING_SCRIPTS_VERSION_FILE}"
+    echo "Provisioning scripts version stamped: ${IMAGE_VERSION}"
+else
+    echo "IMAGE_VERSION is not set, skipping provisioning scripts version stamp (hotfix detection will be disabled on this VHD)"
+fi
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
