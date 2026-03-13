@@ -182,7 +182,9 @@ TARBALL_NAME="provisioning-scripts-${HOTFIX_TAG}.tar.gz"
 TARBALL_PATH="${OUTPUT_DIR}/${TARBALL_NAME}"
 
 # Create tarball from the staging directory (paths are absolute from /)
-tar -czf "$TARBALL_PATH" -C "$STAGING_DIR" .
+# Use explicit path list instead of '.' to avoid including the staging dir root entry,
+# which could overwrite '/' directory permissions during extraction.
+tar -czf "$TARBALL_PATH" -C "$STAGING_DIR" opt
 
 TARBALL_SHA256=$(sha256sum "$TARBALL_PATH" | awk '{print $1}')
 TARBALL_SIZE=$(stat --format='%s' "$TARBALL_PATH" 2>/dev/null || stat -f '%z' "$TARBALL_PATH")

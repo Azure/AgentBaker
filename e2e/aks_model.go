@@ -260,6 +260,23 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr("download.microsoft.com")},
 	}
 
+	// Needed for hotfix e2e tests - allows VMs to pull test hotfix artifacts from the test ACR
+	// ACR redirects blob downloads to *.blob.core.windows.net, so that must also be allowed
+	hotfixACRFqdn := config.PrivateACRNameNotAnon(location) + ".azurecr.io"
+	hotfixACRDataFqdn := location + ".data.azurecr.io"
+	hotfixACRBlobFqdn := "*.blob.core.windows.net"
+	hotfixACRRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("hotfix-acr-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr(hotfixACRFqdn), to.Ptr(hotfixACRDataFqdn), to.Ptr(hotfixACRBlobFqdn)},
+	}
+
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -267,7 +284,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, &hotfixACRRule},
 		},
 	}
 

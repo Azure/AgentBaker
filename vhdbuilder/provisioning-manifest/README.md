@@ -8,11 +8,22 @@ When a critical bug is discovered in provisioning scripts baked into VHDs, this 
 
 ### How It Works
 
-1. **VHD Build**: Each VHD is stamped with the AgentBaker commit SHA in `/opt/azure/containers/.provisioning-scripts-version`
+1. **VHD Build**: Each VHD is stamped with the image version (e.g., `202603.04.0`) in `/opt/azure/containers/.provisioning-scripts-version`
 2. **Hotfix Publish**: An operator builds and pushes corrected scripts as an OCI artifact tagged `<baked-version>-hotfix`
-3. **Node Detection**: At provisioning time, `check_for_script_hotfix()` in `cse_start.sh` checks the registry for a matching hotfix tag
-4. **Overlay**: If found, the tarball is extracted over the baked scripts before `provision.sh` runs
-5. **Fallback**: Any failure is non-fatal — nodes always proceed with baked scripts
+3. **ORAS Login**: At provisioning time, `cse_start.sh` sources `cse_helpers.sh` early and performs a single ORAS login via `oras_login_with_managed_identity()`. This login is reused for both hotfix detection and later ORAS operations (kubelet download, etc.) in `cse_main.sh`
+4. **Node Detection**: `check_for_script_hotfix()` in `cse_start.sh` queries the registry for a matching hotfix tag using `oras manifest fetch`
+5. **Overlay**: If found, the tarball is extracted over the baked scripts before `provision.sh` runs
+6. **Fallback**: Any failure is non-fatal — nodes always proceed with baked scripts
+
+### Registry Selection
+
+| Cluster Type | Registry | Auth |
+|---|---|---|
+| **Non-NI** (standard) | `mcr.microsoft.com` | Anonymous pull (covered by `AzureKubernetesService` firewall FQDN tag) |
+| **NI** (network-isolated) | Private ACR mirror via `BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER` | Managed identity (ORAS login via IMDS → AAD → ACR token exchange) |
+| **Test override** | `HOTFIX_REGISTRY` env var | Depends on registry configuration |
+
+For NI clusters, the RP always sets `BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER` (e.g., `myacr.azurecr.io/aks-managed-repository`). ACR cache rules transparently mirror `mcr.microsoft.com/*` content under this prefix. The private endpoint makes the ACR reachable inside the VNet without firewall rules.
 
 ## Files
 
@@ -52,7 +63,7 @@ When a critical bug is discovered in provisioning scripts baked into VHDs, this 
 
 4. **Verify** the artifact was pushed:
    ```bash
-   oras repo tags abe2eprivatenonanonwestus3.azurecr.io/aks/provisioning-scripts/ubuntu-2204
+   oras repo tags mcr.microsoft.com/aks/provisioning-scripts/ubuntu-2204
    ```
 
 5. **Test** by provisioning a node with the affected VHD version. Check `/var/log/azure/hotfix-check.log` for detection logs and `/opt/azure/containers/.hotfix-applied` for the applied marker.
@@ -104,7 +115,7 @@ When all affected VHDs have aged out of the 6-month support window:
 1. **Delete the tag** from the source ACR:
    ```bash
    az acr repository delete \
-     --name abe2eprivatenonanonwestus3 \
+     --name <production-acr> \
      --image aks/provisioning-scripts/ubuntu-2204:<version>-hotfix
    ```
 
@@ -148,7 +159,8 @@ Document the justification in the pipeline run notes.
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `HOTFIX_REGISTRY` | `abe2eprivatenonanonwestus3.azurecr.io` | Override the registry for testing |
+| `HOTFIX_REGISTRY` | `mcr.microsoft.com` | Override the hotfix registry (e.g., for testing with a private ACR) |
+| `BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER` | *(set by RP for NI clusters)* | Private ACR mirror; when set, hotfix pulls use this registry with managed identity auth |
 
 ## Manifest Schema
 

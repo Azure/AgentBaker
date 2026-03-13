@@ -7,13 +7,50 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
 
+# Ensure /opt/bin is in PATH (ORAS is installed there during VHD build)
+case "${PATH}" in
+    */opt/bin*) : ;;
+    *) export PATH="/opt/bin:${PATH}" ;;
+esac
+
+# Source CSE helpers early for ORAS login functionality.
+# This enables a single ORAS login that is reused for both hotfix detection
+# and later ORAS operations (kubelet downloads, etc.) in cse_main.sh.
+# The credentials persist in /etc/oras/config.yaml across processes.
+if [ -n "${CSE_HELPERS_FILEPATH}" ]; then
+    for i in $(seq 1 120); do
+        if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+            grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
+        fi
+        if [ $i -eq 120 ]; then
+            echo "$(date): cse_start: helpers file not ready after 120s" >> /var/log/azure/hotfix-check.log
+        else
+            sleep 1
+        fi
+    done
+    if [ -s "${CSE_HELPERS_FILEPATH}" ] && grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" 2>/dev/null; then
+        # shellcheck disable=SC1090
+        source "${CSE_HELPERS_FILEPATH}"
+    fi
+fi
+
+# For NI clusters, perform ORAS login once. The credentials persist in
+# ORAS_REGISTRY_CONFIG_FILE (/etc/oras/config.yaml) and are reused by
+# both hotfix check below and cse_main.sh's ORAS operations.
+if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] && command -v oras &>/dev/null && type oras_login_with_managed_identity &>/dev/null; then
+    _hotfix_registry_domain="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+    oras_login_with_managed_identity "${_hotfix_registry_domain}" "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" || true
+    set +x 2>/dev/null  # oras_login_with_managed_identity enables set -x; restore
+    unset _hotfix_registry_domain
+fi
+
 # check_for_script_hotfix — detect and apply provisioning script hotfixes
-# published as OCI artifacts. This function is intentionally self-contained
-# (no source of helpers) because it may replace those very scripts.
+# published as OCI artifacts.
+# Supports both NI clusters (private ACR via BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER)
+# and non-NI clusters (MCR anonymous pull).
 # Non-fatal: any failure silently falls back to baked scripts.
 check_for_script_hotfix() {
     local baked_version_file="/opt/azure/containers/.provisioning-scripts-version"
-    local registry="${HOTFIX_REGISTRY:-abe2eprivatenonanonwestus3.azurecr.io}"
     local sku=""
     local hotfix_log="/var/log/azure/hotfix-check.log"
 
@@ -33,7 +70,32 @@ check_for_script_hotfix() {
         return 0
     fi
 
-    local repo="${registry}/aks/provisioning-scripts/${sku}"
+    # Determine registry, repo, and auth args based on cluster type:
+    #   NI cluster  → private ACR mirror (ORAS login already performed above)
+    #   Non-NI      → MCR direct (anonymous pull, no auth needed)
+    #   HOTFIX_REGISTRY override → explicit registry (e.g., testing)
+    local registry=""
+    local repo=""
+    local oras_auth_args=""
+
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        # NI cluster: ORAS login already performed; reuse credentials from config file
+        registry="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+        repo="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/aks/provisioning-scripts/${sku}"
+        local oras_cfg="${ORAS_REGISTRY_CONFIG_FILE:-/etc/oras/config.yaml}"
+        if [ -s "$oras_cfg" ]; then
+            oras_auth_args="--registry-config ${oras_cfg}"
+        else
+            echo "$(date): Hotfix check: NI cluster but no ORAS credentials, skipping" >> "$hotfix_log"
+            return 0
+        fi
+    elif [ -n "${HOTFIX_REGISTRY}" ]; then
+        registry="${HOTFIX_REGISTRY}"
+        repo="${registry}/aks/provisioning-scripts/${sku}"
+    else
+        registry="mcr.microsoft.com"
+        repo="${registry}/aks/provisioning-scripts/${sku}"
+    fi
 
     # Read baked version
     if [ ! -f "$baked_version_file" ]; then
@@ -47,12 +109,6 @@ check_for_script_hotfix() {
         return 0
     fi
 
-    # Ensure /opt/bin is in PATH (ORAS is installed there during VHD build)
-    case "${PATH}" in
-        */opt/bin*) : ;;
-        *) export PATH="/opt/bin:${PATH}" ;;
-    esac
-
     if ! command -v oras &>/dev/null; then
         echo "$(date): Hotfix check: ORAS not available, skipping" >> "$hotfix_log"
         return 0
@@ -63,7 +119,8 @@ check_for_script_hotfix() {
 
     # Query registry for the specific hotfix tag using oras manifest fetch.
     # This is a single lightweight HEAD-like request — no listing of all tags.
-    if ! timeout 30 oras manifest fetch "${repo}:${hotfix_tag}" > /dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    if ! timeout 30 oras manifest fetch ${oras_auth_args} "${repo}:${hotfix_tag}" > /dev/null 2>&1; then
         echo "$(date): Hotfix check: no hotfix tag '${hotfix_tag}' found (normal case)" >> "$hotfix_log"
         return 0
     fi
@@ -81,7 +138,8 @@ check_for_script_hotfix() {
 
     # Pull the hotfix artifact
     mkdir -p "$staging_dir"
-    if ! timeout 60 oras pull "${repo}:${hotfix_tag}" -o "$staging_dir" 2>> "$hotfix_log"; then
+    # shellcheck disable=SC2086
+    if ! timeout 60 oras pull ${oras_auth_args} "${repo}:${hotfix_tag}" -o "$staging_dir" 2>> "$hotfix_log"; then
         echo "$(date): Hotfix check: pull failed, using baked scripts" >> "$hotfix_log"
         rm -rf "$staging_dir"
         return 0
@@ -108,7 +166,7 @@ check_for_script_hotfix() {
     local tarball
     tarball=$(find "$staging_dir" -name "*.tar.gz" -print -quit 2>/dev/null)
     if [ -n "$tarball" ]; then
-        if tar -xzf "$tarball" -C / --no-same-owner 2>> "$hotfix_log"; then
+        if tar -xzf "$tarball" -C / --no-same-owner --no-overwrite-dir 2>> "$hotfix_log"; then
             echo "$hotfix_tag" > "$applied_marker"
             echo "$(date): Hotfix check: applied ${hotfix_tag} successfully" >> "$hotfix_log"
         else

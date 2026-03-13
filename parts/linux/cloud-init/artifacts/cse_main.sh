@@ -119,14 +119,19 @@ function basePrep {
 
     # oras login must be in front of configureKubeletAndKubectl and ensureKubelet
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-        # Compute registry domain name for ORAS login
-        registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
-        registry_domain_name="${registry_domain_name%/}"
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
-            registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
-        fi
+        # Skip login if already authenticated (e.g., by early login in cse_start.sh)
+        if [ -s "${ORAS_REGISTRY_CONFIG_FILE}" ]; then
+            echo "ORAS: reusing existing credentials from ${ORAS_REGISTRY_CONFIG_FILE}"
+        else
+            # Compute registry domain name for ORAS login
+            registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+            registry_domain_name="${registry_domain_name%/}"
+            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+                registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+            fi
 
-        logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
+            logs_to_events "AKS.CSE.orasLogin.oras_login_with_managed_identity" oras_login_with_managed_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
+        fi
     fi
 
     logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
