@@ -54,7 +54,6 @@ fi
 check_for_script_hotfix() {
     local baked_version_file="/opt/azure/containers/.provisioning-scripts-version"
     local sku=""
-    local hotfix_log="$HOTFIX_LOG"
 
     # Determine SKU from OS
     if [ -f /etc/os-release ]; then
@@ -65,10 +64,10 @@ check_for_script_hotfix() {
             ubuntu-24.04) sku="ubuntu-2404" ;;
             mariner-2*)   sku="azurelinux-v2" ;;
             azurelinux-3*) sku="azurelinux-v3" ;;
-            *) echo "$(date): Hotfix check: unknown SKU ${ID}-${VERSION_ID}, skipping" >> "$hotfix_log"; return 0 ;;
+            *) echo "$(date): Hotfix check: unknown SKU ${ID}-${VERSION_ID}, skipping" >> "$HOTFIX_LOG"; return 0 ;;
         esac
     else
-        echo "$(date): Hotfix check: /etc/os-release not found, skipping" >> "$hotfix_log"
+        echo "$(date): Hotfix check: /etc/os-release not found, skipping" >> "$HOTFIX_LOG"
         return 0
     fi
 
@@ -88,7 +87,7 @@ check_for_script_hotfix() {
         if [ -s "$oras_cfg" ]; then
             oras_auth_args="--registry-config ${oras_cfg}"
         else
-            echo "$(date): Hotfix check: NI cluster but no ORAS credentials, skipping" >> "$hotfix_log"
+            echo "$(date): Hotfix check: NI cluster but no ORAS credentials, skipping" >> "$HOTFIX_LOG"
             return 0
         fi
     elif [ -n "${HOTFIX_REGISTRY}" ]; then
@@ -101,48 +100,48 @@ check_for_script_hotfix() {
 
     # Read baked version
     if [ ! -f "$baked_version_file" ]; then
-        echo "$(date): Hotfix check: no version stamp at ${baked_version_file}, skipping" >> "$hotfix_log"
+        echo "$(date): Hotfix check: no version stamp at ${baked_version_file}, skipping" >> "$HOTFIX_LOG"
         return 0
     fi
     local baked_version
     baked_version=$(cat "$baked_version_file")
     if [ -z "$baked_version" ]; then
-        echo "$(date): Hotfix check: empty version stamp, skipping" >> "$hotfix_log"
+        echo "$(date): Hotfix check: empty version stamp, skipping" >> "$HOTFIX_LOG"
         return 0
     fi
 
     if ! command -v oras &>/dev/null; then
-        echo "$(date): Hotfix check: ORAS not available, skipping" >> "$hotfix_log"
+        echo "$(date): Hotfix check: ORAS not available, skipping" >> "$HOTFIX_LOG"
         return 0
     fi
 
     local hotfix_tag="${baked_version}-hotfix"
-    echo "$(date): Hotfix check: version=${baked_version} sku=${sku} tag=${hotfix_tag} registry=${registry}" >> "$hotfix_log"
+    echo "$(date): Hotfix check: version=${baked_version} sku=${sku} tag=${hotfix_tag} registry=${registry}" >> "$HOTFIX_LOG"
 
     # Query registry for the specific hotfix tag using oras manifest fetch.
     # This is a single lightweight HEAD-like request — no listing of all tags.
     # shellcheck disable=SC2086
     if ! timeout 30 oras manifest fetch ${oras_auth_args} "${repo}:${hotfix_tag}" > /dev/null 2>&1; then
-        echo "$(date): Hotfix check: no hotfix tag '${hotfix_tag}' found (normal case)" >> "$hotfix_log"
+        echo "$(date): Hotfix check: no hotfix tag '${hotfix_tag}' found (normal case)" >> "$HOTFIX_LOG"
         return 0
     fi
 
-    echo "$(date): Hotfix check: found hotfix ${hotfix_tag}, pulling..." >> "$hotfix_log"
+    echo "$(date): Hotfix check: found hotfix ${hotfix_tag}, pulling..." >> "$HOTFIX_LOG"
 
     local staging_dir="/opt/azure/containers/.hotfix-staging"
     local applied_marker="/opt/azure/containers/.hotfix-applied"
 
     # Skip if already applied (idempotency for retries)
     if [ -f "$applied_marker" ]; then
-        echo "$(date): Hotfix check: hotfix already applied, skipping" >> "$hotfix_log"
+        echo "$(date): Hotfix check: hotfix already applied, skipping" >> "$HOTFIX_LOG"
         return 0
     fi
 
     # Pull the hotfix artifact
     mkdir -p "$staging_dir"
     # shellcheck disable=SC2086
-    if ! timeout 60 oras pull ${oras_auth_args} "${repo}:${hotfix_tag}" -o "$staging_dir" 2>> "$hotfix_log"; then
-        echo "$(date): Hotfix check: pull failed, using baked scripts" >> "$hotfix_log"
+    if ! timeout 60 oras pull ${oras_auth_args} "${repo}:${hotfix_tag}" -o "$staging_dir" 2>> "$HOTFIX_LOG"; then
+        echo "$(date): Hotfix check: pull failed, using baked scripts" >> "$HOTFIX_LOG"
         rm -rf "$staging_dir"
         return 0
     fi
@@ -150,7 +149,7 @@ check_for_script_hotfix() {
     # Verify metadata
     local metadata="$staging_dir/hotfix-metadata.json"
     if [ ! -f "$metadata" ]; then
-        echo "$(date): Hotfix check: no metadata in artifact, using baked scripts" >> "$hotfix_log"
+        echo "$(date): Hotfix check: no metadata in artifact, using baked scripts" >> "$HOTFIX_LOG"
         rm -rf "$staging_dir"
         return 0
     fi
@@ -159,7 +158,7 @@ check_for_script_hotfix() {
     local meta_version
     meta_version=$(jq -r '.affectedVersion' "$metadata" 2>/dev/null)
     if [ "$meta_version" != "$baked_version" ]; then
-        echo "$(date): Hotfix check: metadata version '${meta_version}' != baked '${baked_version}', skipping" >> "$hotfix_log"
+        echo "$(date): Hotfix check: metadata version '${meta_version}' != baked '${baked_version}', skipping" >> "$HOTFIX_LOG"
         rm -rf "$staging_dir"
         return 0
     fi
@@ -168,14 +167,14 @@ check_for_script_hotfix() {
     local tarball
     tarball=$(find "$staging_dir" -name "*.tar.gz" -print -quit 2>/dev/null)
     if [ -n "$tarball" ]; then
-        if tar -xzf "$tarball" -C / --no-same-owner --no-overwrite-dir 2>> "$hotfix_log"; then
+        if tar -xzf "$tarball" -C / --no-same-owner --no-overwrite-dir 2>> "$HOTFIX_LOG"; then
             echo "$hotfix_tag" > "$applied_marker"
-            echo "$(date): Hotfix check: applied ${hotfix_tag} successfully" >> "$hotfix_log"
+            echo "$(date): Hotfix check: applied ${hotfix_tag} successfully" >> "$HOTFIX_LOG"
         else
-            echo "$(date): Hotfix check: tar extraction failed, using baked scripts" >> "$hotfix_log"
+            echo "$(date): Hotfix check: tar extraction failed, using baked scripts" >> "$HOTFIX_LOG"
         fi
     else
-        echo "$(date): Hotfix check: no tarball in artifact, using baked scripts" >> "$hotfix_log"
+        echo "$(date): Hotfix check: no tarball in artifact, using baked scripts" >> "$HOTFIX_LOG"
     fi
 
     rm -rf "$staging_dir"
