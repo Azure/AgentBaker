@@ -2097,6 +2097,42 @@
           }
         }
       }
+    },
+    {
+      "name": "walinuxagent",
+      "downloadLocation": "/opt/walinuxagent/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "github-releases=Azure/WALinuxAgent",
+                "latestVersion": "2.15.0.1"
+              }
+            ]
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [
