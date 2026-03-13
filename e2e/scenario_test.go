@@ -1151,7 +1151,37 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node with Standard_NC6s_v3 can bootstrap and run NVIDIA device plugin as a DaemonSet",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+
+				// Validate that the NVIDIA device plugin can be deployed as a DaemonSet (upstream model)
+				validateNvidiaDevicePluginServiceNotRunning(ctx, s)
+				deployNvidiaDevicePluginDaemonset(ctx, s)
+				waitForNvidiaDevicePluginDaemonsetReady(ctx, s)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+			},
+		},
+	})
 }
 
 func Test_Ubuntu2204_GPUA100(t *testing.T) {
@@ -1159,7 +1189,39 @@ func Test_Ubuntu2204_GPUA100(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
-	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5")
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node with Standard_NV6ads_A10_v5 can bootstrap with GRID license and run NVIDIA device plugin as a DaemonSet",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+
+				// Validate that the NVIDIA device plugin can be deployed as a DaemonSet (upstream model)
+				validateNvidiaDevicePluginServiceNotRunning(ctx, s)
+				deployNvidiaDevicePluginDaemonset(ctx, s)
+				waitForNvidiaDevicePluginDaemonsetReady(ctx, s)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+			},
+		},
+	})
 }
 
 // Returns config for the 'gpu' E2E scenario
@@ -1186,36 +1248,6 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
-			},
-		},
-	})
-}
-
-func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
-	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = vmSize
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr(vmSize)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
 			},
 		},
 	})
