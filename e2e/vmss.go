@@ -570,6 +570,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"waagent.log":                      "sudo cat /var/log/waagent.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
+		"hotfix-check.log":                 "sudo cat /var/log/azure/hotfix-check.log",
 
 		// Only available in Scriptless. By default, e2e enables aks-node-controller-hack, so this is the actual config used. Only in e2e. Not used in production.
 		"aks-node-controller-config-hack.json": "sudo cat /opt/azure/containers/aks-node-controller-config-hack.json",

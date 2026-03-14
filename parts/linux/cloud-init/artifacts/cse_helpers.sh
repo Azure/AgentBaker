@@ -1120,7 +1120,7 @@ assert_refresh_token() {
     return 0
 }
 
-oras_login_with_kubelet_identity() {
+oras_login_with_managed_identity() {
     local acr_url=$1
     local client_id=$2
     local tenant_id=$3

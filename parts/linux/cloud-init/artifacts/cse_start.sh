@@ -6,6 +6,186 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
+
+HOTFIX_LOG="/var/log/azure/hotfix-check.log"
+
+# Ensure /opt/bin is in PATH (ORAS is installed there during VHD build)
+case "${PATH}" in
+    */opt/bin*) : ;;
+    *) export PATH="/opt/bin:${PATH}" ;;
+esac
+
+# Source CSE helpers early for ORAS login functionality.
+# This enables a single ORAS login that is reused for both hotfix detection
+# and later ORAS operations (kubelet downloads, etc.) in cse_main.sh.
+# The credentials persist in /etc/oras/config.yaml across processes.
+if [ -n "${CSE_HELPERS_FILEPATH}" ]; then
+    for i in $(seq 1 120); do
+        if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+            grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
+        fi
+        if [ $i -eq 120 ]; then
+            echo "$(date): cse_start: helpers file not ready after 120s" >> "$HOTFIX_LOG"
+        else
+            sleep 1
+        fi
+    done
+    if [ -s "${CSE_HELPERS_FILEPATH}" ] && grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" 2>/dev/null; then
+        # shellcheck disable=SC1090
+        source "${CSE_HELPERS_FILEPATH}"
+    fi
+fi
+
+# For NI clusters, perform ORAS login once. The credentials persist in
+# ORAS_REGISTRY_CONFIG_FILE (/etc/oras/config.yaml) and are reused by
+# both hotfix check below and cse_main.sh's ORAS operations.
+if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] && command -v oras &>/dev/null && type oras_login_with_managed_identity &>/dev/null; then
+    _hotfix_registry_domain="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+    oras_login_with_managed_identity "${_hotfix_registry_domain}" "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" >>"$HOTFIX_LOG" 2>&1 || true
+    set +x 2>/dev/null  # oras_login_with_managed_identity enables set -x; restore
+    unset _hotfix_registry_domain
+fi
+
+# check_for_script_hotfix — detect and apply provisioning script hotfixes
+# published as OCI artifacts.
+# Supports both NI clusters (private ACR via BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER)
+# and non-NI clusters (MCR anonymous pull).
+# Non-fatal: any failure silently falls back to baked scripts.
+check_for_script_hotfix() {
+    local hotfix_log="${HOTFIX_LOG:-/var/log/azure/hotfix-check.log}"
+    local baked_version_file="/opt/azure/containers/.provisioning-scripts-version"
+    local sku=""
+
+    # Determine SKU from OS
+    if [ -f /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        case "${ID}-${VERSION_ID}" in
+            ubuntu-22.04) sku="ubuntu-2204" ;;
+            ubuntu-24.04) sku="ubuntu-2404" ;;
+            mariner-2*)   sku="azurelinux-v2" ;;
+            azurelinux-3*) sku="azurelinux-v3" ;;
+            *) echo "$(date): Hotfix check: unknown SKU ${ID}-${VERSION_ID}, skipping" >> "$hotfix_log"; return 0 ;;
+        esac
+    else
+        echo "$(date): Hotfix check: /etc/os-release not found, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    # Determine registry, repo, and auth args based on cluster type:
+    #   NI cluster  → private ACR mirror (ORAS login already performed above)
+    #   Non-NI      → MCR direct (anonymous pull, no auth needed)
+    #   HOTFIX_REGISTRY override → explicit registry (e.g., testing)
+    local registry=""
+    local repo=""
+    local oras_auth_args=""
+
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        # NI cluster: ORAS login already performed; reuse credentials from config file
+        registry="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+        repo="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/aks/provisioning-scripts/${sku}"
+        local oras_cfg="${ORAS_REGISTRY_CONFIG_FILE:-/etc/oras/config.yaml}"
+        if [ -s "$oras_cfg" ]; then
+            oras_auth_args="--registry-config ${oras_cfg}"
+        else
+            echo "$(date): Hotfix check: NI cluster but no ORAS credentials, skipping" >> "$hotfix_log"
+            return 0
+        fi
+    elif [ -n "${HOTFIX_REGISTRY}" ]; then
+        registry="${HOTFIX_REGISTRY}"
+        repo="${registry}/aks/provisioning-scripts/${sku}"
+    else
+        registry="mcr.microsoft.com"
+        repo="${registry}/aks/provisioning-scripts/${sku}"
+    fi
+
+    # Read baked version
+    if [ ! -f "$baked_version_file" ]; then
+        echo "$(date): Hotfix check: no version stamp at ${baked_version_file}, skipping" >> "$hotfix_log"
+        return 0
+    fi
+    local baked_version
+    baked_version=$(cat "$baked_version_file")
+    if [ -z "$baked_version" ]; then
+        echo "$(date): Hotfix check: empty version stamp, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    if ! command -v oras &>/dev/null; then
+        echo "$(date): Hotfix check: ORAS not available, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    local hotfix_tag="${baked_version}-hotfix"
+    echo "$(date): Hotfix check: version=${baked_version} sku=${sku} tag=${hotfix_tag} registry=${registry}" >> "$hotfix_log"
+
+    # Query registry for the specific hotfix tag using oras manifest fetch.
+    # This is a single lightweight HEAD-like request — no listing of all tags.
+    # shellcheck disable=SC2086
+    if ! timeout 30 oras manifest fetch ${oras_auth_args} "${repo}:${hotfix_tag}" > /dev/null 2>&1; then
+        echo "$(date): Hotfix check: no hotfix tag '${hotfix_tag}' found (normal case)" >> "$hotfix_log"
+        return 0
+    fi
+
+    echo "$(date): Hotfix check: found hotfix ${hotfix_tag}, pulling..." >> "$hotfix_log"
+
+    local staging_dir="/opt/azure/containers/.hotfix-staging"
+    local applied_marker="/opt/azure/containers/.hotfix-applied"
+
+    # Skip if already applied (idempotency for retries)
+    if [ -f "$applied_marker" ]; then
+        echo "$(date): Hotfix check: hotfix already applied, skipping" >> "$hotfix_log"
+        return 0
+    fi
+
+    # Pull the hotfix artifact
+    mkdir -p "$staging_dir"
+    # shellcheck disable=SC2086
+    if ! timeout 60 oras pull ${oras_auth_args} "${repo}:${hotfix_tag}" -o "$staging_dir" 2>> "$hotfix_log"; then
+        echo "$(date): Hotfix check: pull failed, using baked scripts" >> "$hotfix_log"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Verify metadata
+    local metadata="$staging_dir/hotfix-metadata.json"
+    if [ ! -f "$metadata" ]; then
+        echo "$(date): Hotfix check: no metadata in artifact, using baked scripts" >> "$hotfix_log"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Defense in depth: verify affectedVersion matches baked version
+    local meta_version
+    meta_version=$(jq -r '.affectedVersion' "$metadata" 2>/dev/null)
+    if [ "$meta_version" != "$baked_version" ]; then
+        echo "$(date): Hotfix check: metadata version '${meta_version}' != baked '${baked_version}', skipping" >> "$hotfix_log"
+        rm -rf "$staging_dir"
+        return 0
+    fi
+
+    # Extract tarball — overlays corrected scripts onto the filesystem
+    local tarball
+    tarball=$(find "$staging_dir" -name "*.tar.gz" -print -quit 2>/dev/null)
+    if [ -n "$tarball" ]; then
+        if tar -xzf "$tarball" -C / --no-same-owner --no-overwrite-dir 2>> "$hotfix_log"; then
+            echo "$hotfix_tag" > "$applied_marker"
+            echo "$(date): Hotfix check: applied ${hotfix_tag} successfully" >> "$hotfix_log"
+        else
+            echo "$(date): Hotfix check: tar extraction failed, using baked scripts" >> "$hotfix_log"
+        fi
+    else
+        echo "$(date): Hotfix check: no tarball in artifact, using baked scripts" >> "$hotfix_log"
+    fi
+
+    rm -rf "$staging_dir"
+    return 0
+}
+
+# Run hotfix check before provisioning — must happen before any scripts are sourced.
+# Failures are non-fatal; we always proceed with whatever scripts are on disk.
+check_for_script_hotfix || true
+
 # this is the "global" CSE execution timeout - we allow CSE to run for some time (default 15 minutes) before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?

@@ -273,12 +273,12 @@ Describe 'cse_helpers.sh'
         End
     End
 
-    Describe 'oras_login_with_kubelet_identity'
+    Describe 'oras_login_with_managed_identity'
         It 'should return if client_id or tenant_id is empty'
             local acr_url="unneeded.azurecr.io"
             local client_id=""
             local tenant_id=""
-            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_managed_identity $acr_url $client_id $tenant_id
             The status should be success
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
@@ -294,7 +294,7 @@ Describe 'cse_helpers.sh'
             local acr_url="unneeded.azurecr.io"
             local client_id="failureClient"
             local tenant_id="mytenantID"
-            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_managed_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve kubelet identity token"
         End
@@ -311,7 +311,7 @@ Describe 'cse_helpers.sh'
             local acr_url="unneeded.azurecr.io"
             local client_id="myclientID"
             local tenant_id="failureID"
-            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_managed_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve refresh token"
         End
@@ -331,7 +331,7 @@ Describe 'cse_helpers.sh'
             local acr_url="failed.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
-            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_managed_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End
@@ -352,7 +352,7 @@ Describe 'cse_helpers.sh'
             local acr_url="success.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
-            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_managed_identity $acr_url $client_id $tenant_id
             The status should be success
             The stdout should include "successfully logged in to acr '$acr_url' with identity token"
             The stderr should be present

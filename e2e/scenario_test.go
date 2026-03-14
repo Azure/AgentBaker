@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -2501,6 +2502,121 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-default-tenant-id")
 				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "--ib-sni-name")
 				ValidateFileExcludesContent(ctx, s, "/var/lib/kubelet/credential-provider-config.yaml", "serviceAccountTokenAudience: api://AKSIdentityBinding")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_NetworkIsolated_HotfixApplied(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that provisioning script hotfix detection on a network-isolated cluster correctly pulls and applies an available hotfix artifact from the registry",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				hotfixRegistry := fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation))
+
+				// Setup and run: extract function, write version stamp, clear state, run hotfix detection
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					strings.Join([]string{
+						"set -e",
+						`sudo sed -n '/^check_for_script_hotfix()/,/^}/p' /opt/azure/containers/provision_start.sh > /tmp/hotfix_func.sh`,
+						`sudo bash -c 'echo "999999.99.0" > /opt/azure/containers/.provisioning-scripts-version'`,
+						`sudo rm -f /opt/azure/containers/.hotfix-applied`,
+						`sudo bash -c '> /var/log/azure/hotfix-check.log'`,
+						fmt.Sprintf(`sudo bash -c 'export PATH=/opt/bin:$PATH && source /tmp/hotfix_func.sh && export HOTFIX_REGISTRY=%s && check_for_script_hotfix'`, hotfixRegistry),
+					}, "\n"),
+					0, "Setup and run hotfix detection")
+
+				// Verify: hotfix detected, applied, marker created, staging cleaned up
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					strings.Join([]string{
+						"set -e",
+						`sudo grep -q "found hotfix 999999.99.0-hotfix" /var/log/azure/hotfix-check.log`,
+						`sudo grep -q "applied 999999.99.0-hotfix successfully" /var/log/azure/hotfix-check.log`,
+						`sudo test -f /opt/azure/containers/.hotfix-applied`,
+						`sudo test ! -d /opt/azure/containers/.hotfix-staging`,
+					}, "\n"),
+					0, "Hotfix should be detected, applied, marker created, and staging cleaned up")
+
+				// Idempotency: running again should skip because marker exists
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					strings.Join([]string{
+						`sudo bash -c '> /var/log/azure/hotfix-check.log'`,
+						fmt.Sprintf(`sudo bash -c 'export PATH=/opt/bin:$PATH && source /tmp/hotfix_func.sh && export HOTFIX_REGISTRY=%s && check_for_script_hotfix'`, hotfixRegistry),
+						`sudo grep -q "hotfix already applied" /var/log/azure/hotfix-check.log`,
+					}, "\n"),
+					0, "Re-running should skip (idempotency)")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_HotfixApplied(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that provisioning script hotfix detection on a non-NI cluster correctly pulls and applies an available hotfix artifact from the registry",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				hotfixRegistry := fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon(config.Config.DefaultLocation))
+
+				// Setup and run: extract function, write version stamp, clear state, run hotfix detection
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					strings.Join([]string{
+						"set -e",
+						`sudo sed -n '/^check_for_script_hotfix()/,/^}/p' /opt/azure/containers/provision_start.sh > /tmp/hotfix_func.sh`,
+						`sudo bash -c 'echo "999999.99.0" > /opt/azure/containers/.provisioning-scripts-version'`,
+						`sudo rm -f /opt/azure/containers/.hotfix-applied`,
+						`sudo bash -c '> /var/log/azure/hotfix-check.log'`,
+						fmt.Sprintf(`sudo bash -c 'export PATH=/opt/bin:$PATH && source /tmp/hotfix_func.sh && export HOTFIX_REGISTRY=%s && check_for_script_hotfix'`, hotfixRegistry),
+					}, "\n"),
+					0, "Setup and run hotfix detection")
+
+				// Verify: hotfix detected, applied, marker created, staging cleaned up
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					strings.Join([]string{
+						"set -e",
+						`sudo grep -q "found hotfix 999999.99.0-hotfix" /var/log/azure/hotfix-check.log`,
+						`sudo grep -q "applied 999999.99.0-hotfix successfully" /var/log/azure/hotfix-check.log`,
+						`sudo test -f /opt/azure/containers/.hotfix-applied`,
+						`sudo test ! -d /opt/azure/containers/.hotfix-staging`,
+					}, "\n"),
+					0, "Hotfix should be detected, applied, marker created, and staging cleaned up")
+
+				// Idempotency: running again should skip because marker exists
+				execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					strings.Join([]string{
+						`sudo bash -c '> /var/log/azure/hotfix-check.log'`,
+						fmt.Sprintf(`sudo bash -c 'export PATH=/opt/bin:$PATH && source /tmp/hotfix_func.sh && export HOTFIX_REGISTRY=%s && check_for_script_hotfix'`, hotfixRegistry),
+						`sudo grep -q "hotfix already applied" /var/log/azure/hotfix-check.log`,
+					}, "\n"),
+					0, "Re-running should skip (idempotency)")
 			},
 		},
 	})
