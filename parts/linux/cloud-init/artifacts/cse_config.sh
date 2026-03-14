@@ -376,8 +376,8 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
-  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  retrycmd_if_failure 120 5 25 sysctl -p /etc/sysctl.d/99-force-bridge-forward.conf || exit $ERR_SYSCTL_RELOAD
+  systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
@@ -776,16 +776,16 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
     fi
 
-    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
-    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
-        echo "failed to start measure-tls-bootstrapping-latency.service"
-    fi
-
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
         journalctl -u kubelet.service --no-pager || true
         exit $ERR_KUBELET_START_FAIL
+    fi
+
+    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
+        echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 }
 

@@ -81,58 +81,92 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	return vm, err
 }
 
-// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
-// Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
-// check aks-node-controller.service for details
-// a new binary is downloaded from the given URL and run with provision command
+// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run a new
+// aks-node-controller binary earlier in boot.
+// The VHD-baked aks-node-controller service waits for the default config path, so the hack drops a
+// dedicated service and wrapper during cloud-boothook and starts it immediately.
 func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
-	cloudConfigTemplate := `#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s
-runcmd:
- - mkdir -p /opt/azure/bin
- - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
- - chmod +x /opt/azure/bin/aks-node-controller-hack
- - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+	cloudConfigTemplate := `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+mkdir -p /opt/azure/bin /opt/azure/containers /etc/systemd/system
+
+cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-config-hack.json
+%s
+EOF
+chmod 0644 /opt/azure/containers/aks-node-controller-config-hack.json
+
+cat <<'EOF' | base64 -d >/opt/azure/bin/aks-node-controller-hack-wrapper.sh
+%s
+EOF
+chmod 0755 /opt/azure/bin/aks-node-controller-hack-wrapper.sh
+
+cat <<'EOF' >/etc/systemd/system/aks-node-controller-hack.service
+[Unit]
+Description=Download and run hacked aks-node-controller
+ConditionPathExists=/opt/azure/containers/aks-node-controller-config-hack.json
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/bin/aks-node-controller-hack-wrapper.sh
+RemainAfterExit=yes
+EOF
+
+systemctl daemon-reload
+systemctl start --no-block aks-node-controller-hack.service
 `
+
+	aksNodeControllerWrapper := `#!/bin/bash
+set -euo pipefail
+
+BIN_DIR="/opt/azure/bin"
+BIN_PATH="${BIN_DIR}/aks-node-controller-hack"
+CONFIG_PATH="/opt/azure/containers/aks-node-controller-config-hack.json"
+LOGGER_TAG="aks-node-controller-hack-wrapper"
+
+log() {
+	local message="$1"
+	logger -t "$LOGGER_TAG" "$message"
+	echo "$message"
+}
+
+mkdir -p "$BIN_DIR"
+log "Downloading aks-node-controller hack binary"
+curl -fSL "%s" -o "$BIN_PATH"
+chmod +x "$BIN_PATH"
+
+log "Launching aks-node-controller hack with config ${CONFIG_PATH}"
+exec "$BIN_PATH" provision --provision-config="$CONFIG_PATH"
+`
+
 	if s.VHD.Flatcar {
-		cloudConfigTemplate = `#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s
-- path: /opt/azure/bin/run-aks-node-controller-hack.sh
-  permissions: "0755"
-  owner: root
-  content: |
-    #!/bin/bash
-    set -euo pipefail
-    mkdir -p /opt/azure/bin
-    curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
-    chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
-# Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
-coreos:
-  units:
-    - name: aks-node-controller-hack.service
-      command: start
-      content: |
-        [Unit]
-        Description=Downloads and runs the AKS node controller hack
-        After=network-online.target
-        Wants=network-online.target
-        [Service]
-        Type=oneshot
-        ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
-        [Install]
-        WantedBy=multi-user.target
-`
+		cloudConfigTemplate = `{
+     "ignition": { "version": "3.4.0" },
+     "storage": {
+       "files": [
+	   {
+        "path": "/opt/azure/containers/aks-node-controller-config-hack.json",
+        "mode": 420,
+        "contents": { "source": "data:;base64,%s" }
+       },
+	   {
+        "path": "/opt/azure/bin/aks-node-controller-hack-wrapper.sh",
+        "mode": 493,
+        "contents": { "source": "data:;base64,%s"}
+	  }
+      ]
+     },
+     "systemd": {
+       "units": [{
+         "name": "aks-node-controller-hack.service",
+         "enabled": true,
+         "contents": "[Unit]\nConditionPathExists=/opt/azure/containers/aks-node-controller-config-hack.json\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nExecStart=/opt/azure/bin/aks-node-controller-hack-wrapper.sh\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target"
+       }]
+     }
+   }`
 	}
 
 	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
@@ -140,7 +174,8 @@ coreos:
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON, binaryURL)
+	encodedAksNodeControllerWrapper := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(aksNodeControllerWrapper, binaryURL)))
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON, encodedAksNodeControllerWrapper)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
@@ -154,7 +189,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		cse = nodeconfigutils.CSE
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
-				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				var data string
+				var err error
+				if s.VHD.Flatcar {
+					data, err = nodeconfigutils.CustomDataFlatcar(s.Runtime.AKSNodeConfig)
+				} else {
+					data, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				}
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}

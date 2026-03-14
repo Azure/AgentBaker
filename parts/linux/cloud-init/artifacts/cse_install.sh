@@ -658,8 +658,10 @@ installKubeletKubectlFromURL() {
             fi
         fi
     fi
-    install -m0755 "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
-    install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+    mv "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
+    mv "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    chmod a+x /opt/bin/kubelet /opt/bin/kubectl
 
     rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }

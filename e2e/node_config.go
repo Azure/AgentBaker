@@ -162,7 +162,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	return &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
-		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar() || nbc.AgentPoolProfile.IsACL(),
+		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -226,7 +226,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
-			EnableLocalDns:       true,
+			EnableLocalDns:       false,
 			CpuLimitInMilliCores: to.Ptr(int32(2008)),
 			MemoryLimitInMb:      to.Ptr(int32(256)),
 			VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
