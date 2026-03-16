@@ -311,7 +311,8 @@ Describe "Invoke-OrasLogin" {
     Mock Assert-RefreshToken -MockWith { 0 }
 
     $global:OrasPath = {
-      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $null = $input
+      $null = $args
       $global:LASTEXITCODE = 0
       return "login ok"
     }
@@ -346,7 +347,8 @@ Describe "Invoke-OrasLogin" {
     Mock Assert-RefreshToken -MockWith { 0 }
 
     $global:OrasPath = {
-      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $null = $input
+      $null = $args
       $global:LASTEXITCODE = 1
       return "login failed"
     }
