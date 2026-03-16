@@ -750,18 +750,24 @@ function Test-SSHDConfig
 }
 
 
-# Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
+# Verify no .NET runtime/CLI is present on the VHD
 function Test-DotnetNotInstalled
 {
     $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
-    if ($dotnetCmd)
+    if (-not $dotnetCmd)
     {
-        $result = & dotnet --list-runtimes 2>&1
-        if ($LASTEXITCODE -eq 0 -and $result)
-        {
-            Write-ErrorWithTimestamp ".NET runtime is installed on the VHD but should not be: $result"
-            exit 1
-        }
+        Write-OutputWithTimestamp ".NET runtime is not installed on the VHD"
+        return
+    }
+    $result = & dotnet --list-runtimes 2>&1
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-ErrorWithTimestamp "Failed to query .NET runtimes via 'dotnet --list-runtimes': $result"
+        exit 1
+    }
+    if ($result)
+    {
+        Write-ErrorWithTimestamp ".NET runtime is installed on the VHD but should not be: $result"
     }
     Write-OutputWithTimestamp ".NET runtime is not installed on the VHD"
 }
