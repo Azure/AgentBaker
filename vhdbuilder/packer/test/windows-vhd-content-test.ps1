@@ -751,6 +751,22 @@ function Test-SSHDConfig
 
 
 # Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
+function Test-DotnetNotInstalled
+{
+    $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+    if ($dotnetCmd)
+    {
+        $result = & dotnet --list-runtimes 2>&1
+        if ($LASTEXITCODE -eq 0 -and $result)
+        {
+            Write-ErrorWithTimestamp ".NET runtime is installed on the VHD but should not be: $result"
+            exit 1
+        }
+    }
+    Write-OutputWithTimestamp ".NET runtime is not installed on the VHD"
+}
+
+# Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
 function Test-ValidateImageBinarySignature {
     # imageBinaryNotSigned is used to record binaries in image that are not signed
     $imageBinaryNotSigned=@{}
@@ -848,6 +864,9 @@ Test-ToolsToCacheOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask
+
+Write-OutputWithTimestamp "Test: DotnetNotInstalled"
+Test-DotnetNotInstalled
 
 Write-OutputWithTimestamp "Test: ValidateImageBinarySignature"
 Test-ValidateImageBinarySignature
