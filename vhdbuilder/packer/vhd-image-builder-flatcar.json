@@ -42,7 +42,7 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
-      "os_disk_size_gb": 30,
+      "os_disk_size_gb": 60,
       "shared_image_gallery": {
         "subscription": "{{user `sig_source_subscription_id`}}",
         "resource_group": "{{user `sig_source_resource_group`}}",
