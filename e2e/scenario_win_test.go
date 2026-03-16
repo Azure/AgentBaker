@@ -507,7 +507,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 		Description: "Tests that Windows nodes in network isolated clusters configure containerd to use the bootstrap profile container registry for MCR images",
 		Tags: Tags{
 			NetworkIsolated: true,
-			NonAnonymousACR: true,
+			NonAnonymousACR: false,
 		},
 		Config: Config{
 			Cluster: ClusterAzureBootstrapProfileCache,
