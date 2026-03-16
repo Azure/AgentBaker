@@ -508,7 +508,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 		Description: "Tests that Windows nodes in network isolated clusters configure containerd to use the bootstrap profile container registry for MCR images",
 		Tags: Tags{
 			NetworkIsolated: true,
-			NonAnonymousACR: false,
+			NonAnonymousACR: true,
 		},
 		Config: Config{
 			Cluster: ClusterAzureBootstrapProfileCache,
@@ -518,7 +518,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
