@@ -768,8 +768,12 @@ function Test-DotnetNotInstalled
     if ($result)
     {
         Write-ErrorWithTimestamp ".NET runtime is installed on the VHD but should not be: $result"
+        exit 1
     }
-    Write-OutputWithTimestamp ".NET runtime is not installed on the VHD"
+    else
+    {
+        Write-OutputWithTimestamp ".NET runtime is not installed on the VHD"
+    }
 }
 
 # Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
