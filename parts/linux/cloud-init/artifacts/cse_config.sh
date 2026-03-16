@@ -943,6 +943,14 @@ configGPUDrivers() {
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # GRID vGPU licensing: configure and start nvidia-gridd after device nodes exist
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        sed -i -e '/^FeatureType=/d' -e '$ a FeatureType=1' /etc/nvidia/gridd.conf
+        systemctl enable nvidia-gridd.service
+        systemctl restart nvidia-gridd.service
+    fi
+    
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue
