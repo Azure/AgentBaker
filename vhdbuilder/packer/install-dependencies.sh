@@ -144,18 +144,17 @@ configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warnin
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
-if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
+# Explicitly set LimitNOFILE=1048576 for both Ubuntu and Mariner/AzureLinux.
+# On Ubuntu 24.04 (kernel 6.x), LimitNOFILE is removed upstream and systemd resolves to 1024,
+# causing containerd to run with very low file descriptor limit.
+# On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+# Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+# because to avoid new VHD and old CSE problem.
+tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 LimitNOFILE=1048576
 EOF
-else
-  tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
-[Service]
-ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-EOF
-fi
 
 tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1

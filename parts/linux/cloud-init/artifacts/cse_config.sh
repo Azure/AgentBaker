@@ -338,18 +338,17 @@ ensureContainerd() {
     ensureTeleportd
   fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
-  if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-    tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+# Explicitly set LimitNOFILE=1048576 for both Ubuntu and Mariner/AzureLinux.
+# On Ubuntu 24.04 (kernel 6.x), LimitNOFILE is removed upstream and systemd resolves to 1024,
+# causing containerd to run with very low file descriptor limit.
+# On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+# Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+# because to avoid new VHD and old CSE problem.
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 LimitNOFILE=1048576
 EOF
-  else
-    tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
-[Service]
-ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-EOF
-  fi
 
   mkdir -p /etc/containerd
   # Remove in case this is an existing symlink
