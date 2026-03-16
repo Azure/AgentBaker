@@ -431,8 +431,9 @@ function BasePrep {
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
 
-    Get-CACertificates
     {{end}}
+
+    Get-CACertificates -Location $Location
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
@@ -474,6 +475,7 @@ function BasePrep {
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
+    Register-CACertificatesRefreshTask -Location $Location
 
     Update-DefenderPreferences
 
