@@ -59,8 +59,9 @@ OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:
 if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
 
     # Configuration
+    WIRESERVER_IP="168.63.129.16"
     WALINUXAGENT_DOWNLOAD_DIR="/opt/walinuxagent/downloads"
-    WALINUXAGENT_WIRESERVER_URL="http://168.63.129.16:80"
+    WALINUXAGENT_WIRESERVER_URL="http://${WIRESERVER_IP}:80"
     COMPONENTS_FILEPATH="/opt/azure/components.json"
 
     # Read WALinuxAgent version from components.json.
@@ -86,16 +87,16 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
             # Back up the content of the symlink target (not the link itself).
             cp "${RESOLV_CONF_SYMLINK_RESOLVED}" "${RESOLV_CONF_BAK}" 2>/dev/null || true
             # Write temporary nameserver to the target file, preserving the symlink.
-            echo "nameserver 168.63.129.16" > "${RESOLV_CONF_SYMLINK_RESOLVED}"
+            echo "nameserver ${WIRESERVER_IP}" > "${RESOLV_CONF_SYMLINK_RESOLVED}"
         elif [ -e /etc/resolv.conf ]; then
             # Regular file (possibly empty).
             RESOLV_CONF_ORIGINAL_STATE="file"
             cp /etc/resolv.conf "${RESOLV_CONF_BAK}"
-            echo "nameserver 168.63.129.16" > /etc/resolv.conf
+            echo "nameserver ${WIRESERVER_IP}" > /etc/resolv.conf
         else
             # File does not exist at all.
             RESOLV_CONF_ORIGINAL_STATE="absent"
-            echo "nameserver 168.63.129.16" > /etc/resolv.conf
+            echo "nameserver ${WIRESERVER_IP}" > /etc/resolv.conf
         fi
         echo "Temporarily set DNS to Azure DNS for manifest download"
     fi
