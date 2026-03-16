@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Masterminds/semver"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -507,17 +508,34 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 		Description: "Tests that Windows nodes in network isolated clusters configure containerd to use the bootstrap profile container registry for MCR images",
 		Tags: Tags{
 			NetworkIsolated: true,
-			NonAnonymousACR: false,
+			NonAnonymousACR: true,
 		},
 		Config: Config{
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDWindows2025Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, nbc)
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.KubeletConfig["--image-credential-provider-config"] = "c:\\k\\credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+				orchestratorVersion, _ := semver.NewVersion(nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				if orchestratorVersion.LessThan(semver.MustParse("1.32.0")) {
+					nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf(
+						"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz",
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				} else {
+					nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf(
+						"https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/%s/windows/amd64/azure-acr-credential-provider_%s-1_amd64.zip",
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
