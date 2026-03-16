@@ -69,6 +69,29 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
+function Register-CACertificatesRefreshTask {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Location
+    )
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterCACertificatesRefreshTask" -TaskMessage "Start to register CA certificates refresh task"
+    Write-Log "Creating a scheduled task to refresh custom cloud CA certificates"
+
+    $taskName = "aks-ca-certs-refresh-task"
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction Ignore) {
+        Write-Log "Scheduled task $taskName already exists, skipping registration"
+        return
+    }
+
+    $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$Location' | Out-Null }"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"$refreshCommand`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -Daily -At "19:00" -DaysInterval 1
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-ca-certs-refresh-task"
+    Register-ScheduledTask -TaskName $taskName -InputObject $definition
+}
+
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -220,38 +243,103 @@ function Check-APIServerConnectivity {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
 
+function Get-CustomCloudCertEndpointModeFromLocation {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Location
+    )
+
+    $normalizedLocation = $Location.ToLowerInvariant()
+    if ($normalizedLocation.StartsWith("ussec") -or $normalizedLocation.StartsWith("usnat")) {
+        return "legacy"
+    }
+
+    return "rcv1p"
+}
+
 function Get-CACertificates {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Location
+    )
+
+    $caFolder = "C:\ca"
+    Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
+
+    $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+    Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
+
     try {
-        Write-Log "Get CA certificates"
-        $caFolder = "C:\ca"
-        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
-
-        Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
-
-        Write-Log "Download CA certificates rawdata"
-        # This is required when the root CA certs are different for some clouds.
-        try {
+        if ($certEndpointMode -eq "legacy") {
+            $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
             $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
-        } catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata. Error: $_"
+            $caCerts = ($rawData.Content) | ConvertFrom-Json
+            if ($null -eq $caCerts -or $null -eq $caCerts.Certificates -or $caCerts.Certificates.Length -eq 0) {
+                Write-Log "Warning: CA certificates rawdata is empty for legacy endpoint"
+                return $false
+            }
+
+            foreach ($certificate in $caCerts.Certificates) {
+                $name = $certificate.Name
+                $certFilePath = Join-Path $caFolder $name
+                Write-Log "Write certificate $name to $certFilePath"
+                $certificate.CertBody > $certFilePath
+            }
+
+            return $true
         }
 
-        Write-Log "Convert CA certificates rawdata"
-        $caCerts=($rawData.Content) | ConvertFrom-Json
-        if ([string]::IsNullOrEmpty($caCerts)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
+        $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        if (($optInResponse.Content -notmatch 'IsOptedInForRootCerts=true')) {
+            Write-Log "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
+            return $false
         }
 
-        $certificates = $caCerts.Certificates
-        for ($index = 0; $index -lt $certificates.Length ; $index++) {
-            $name=$certificates[$index].Name
-            $certFilePath = Join-Path $caFolder $name
-            Write-Log "Write certificate $name to $certFilePath"
-            $certificates[$index].CertBody > $certFilePath
+        $operationRequestTypes = @("operationrequestsroot", "operationrequestsintermediate")
+        $downloadedAny = $false
+
+        foreach ($requestType in $operationRequestTypes) {
+            $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
+            $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+            $operationJson = ($operationResponse.Content) | ConvertFrom-Json
+
+            if ($null -eq $operationJson -or $null -eq $operationJson.OperationRequests) {
+                Write-Log "Warning: no operation requests found for $requestType"
+                continue
+            }
+
+            foreach ($operation in $operationJson.OperationRequests) {
+                $resourceFileName = $operation.ResouceFileName
+                if ([string]::IsNullOrEmpty($resourceFileName)) {
+                    continue
+                }
+
+                $resourceType = [IO.Path]::GetFileNameWithoutExtension($resourceFileName)
+                $resourceExt = [IO.Path]::GetExtension($resourceFileName).TrimStart('.')
+                $resourceUri = "http://168.63.129.16/machine?comp=acmspackage&type=$resourceType&ext=$resourceExt"
+
+                $certContentResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+                if ([string]::IsNullOrEmpty($certContentResponse.Content)) {
+                    Write-Log "Warning: empty certificate content for $resourceFileName"
+                    continue
+                }
+
+                $certFilePath = Join-Path $caFolder $resourceFileName
+                Write-Log "Write certificate $resourceFileName to $certFilePath"
+                $certContentResponse.Content > $certFilePath
+                $downloadedAny = $true
+            }
         }
+
+        if (-not $downloadedAny) {
+            Write-Log "Warning: no CA certificates were downloaded in rcv1p mode"
+        }
+
+        return $downloadedAny
     }
     catch {
-        # Catch all exceptions in this function. NOTE: exit cannot be caught.
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
+        Write-Log "Warning: failed to retrieve CA certificates. Error: $_"
+        return $false
     }
 }

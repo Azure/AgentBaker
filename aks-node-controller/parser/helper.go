@@ -64,6 +64,7 @@ func getFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"getInitAKSCustomCloudFilepath": getInitAKSCustomCloudFilepath,
 		"getIsAksCustomCloud":           getIsAksCustomCloud,
+		"getCloudLocation":              getCloudLocation,
 	}
 }
 
@@ -538,11 +539,15 @@ func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) b
 	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
 }
 
+func getCloudLocation(v *aksnodeconfigv1.Configuration) string {
+	return strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
+}
+
 /* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
 have their own data compliance regulations (China/Germany/USGov) or standard.  */
 // Azure public cloud.
 func getCloudTargetEnv(v *aksnodeconfigv1.Configuration) string {
-	loc := strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
+	loc := getCloudLocation(v)
 	switch {
 	case strings.HasPrefix(loc, "china"):
 		return "AzureChinaCloud"
