@@ -270,6 +270,8 @@ function Assert-AnonymousAcrAccess {
         }
         catch {
             $output = $_.Exception.Message
+            # Ensure we do not rely on a stale success exit code when repo ls throws
+            $LASTEXITCODE = 1
         }
 
         if ($LASTEXITCODE -eq 0) {
