@@ -19,7 +19,7 @@
       "base_image_offer": "windowsserver2022",
       "base_image_sku": "2022-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2022-containerd",
-      "base_image_version": "20348.4773.260206",
+      "base_image_version": "20348.4893.260303",
       "patches_to_apply": []
     },
     "2022-containerd-gen2": {
@@ -28,7 +28,7 @@
       "base_image_offer": "windowsserver2022",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2022-containerd",
-      "base_image_version": "20348.4773.260206",
+      "base_image_version": "20348.4893.260303",
       "patches_to_apply": []
     },
     "2025": {
