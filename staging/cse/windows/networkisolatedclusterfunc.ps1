@@ -194,7 +194,12 @@ function Invoke-OrasLogin {
     # Exchange AAD Access Token for ACR Refresh Token
     try {
         $exchangeUrl = "https://$Acr_Url/oauth2/exchange"
-        $body = "grant_type=access_token&service=$Acr_Url&tenant=$TenantID&access_token=$accessToken"
+        $body = @{
+            grant_type   = "access_token"
+            service      = $Acr_Url
+            tenant       = $TenantID
+            access_token = $accessToken
+        }
         $requestArgs = @{
             Uri         = $exchangeUrl
             Method      = "Post"
