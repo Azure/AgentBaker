@@ -1,9 +1,10 @@
 #!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
 # Called by packer inline block AFTER 'waagent -force -deprovision+user',
-# which clears /var/lib/waagent/. This script installs the latest
-# WALinuxAgent from the wireserver GAFamily manifest so the agent daemon
-# can pick it up locally without downloading at provisioning time.
+# which clears /var/lib/waagent/. This script reads the target WALinuxAgent
+# version from components.json and installs it from the wireserver manifest
+# so the agent daemon can pick it up locally without downloading at
+# provisioning time.
 #
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
@@ -58,8 +59,18 @@ OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:
 if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
 
     # Configuration
+    WIRESERVER_IP="168.63.129.16"
     WALINUXAGENT_DOWNLOAD_DIR="/opt/walinuxagent/downloads"
-    WALINUXAGENT_WIRESERVER_URL="http://168.63.129.16:80"
+    WALINUXAGENT_WIRESERVER_URL="http://${WIRESERVER_IP}:80"
+    COMPONENTS_FILEPATH="/opt/azure/components.json"
+
+    # Read WALinuxAgent version from components.json.
+    WALINUXAGENT_VERSION=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "${COMPONENTS_FILEPATH}")
+    if [ -z "${WALINUXAGENT_VERSION}" ] || [ "${WALINUXAGENT_VERSION}" = "null" ] || [ "${WALINUXAGENT_VERSION}" = "<SKIP>" ]; then
+        echo "ERROR: Could not read walinuxagent version from ${COMPONENTS_FILEPATH}" >&2
+        exit 1
+    fi
+    echo "WALinuxAgent target version from components.json: ${WALINUXAGENT_VERSION}"
 
     # DNS will be broken on AzLinux after deprovision because
     # 'waagent -deprovision' clears /etc/resolv.conf.
@@ -76,24 +87,24 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
             # Back up the content of the symlink target (not the link itself).
             cp "${RESOLV_CONF_SYMLINK_RESOLVED}" "${RESOLV_CONF_BAK}" 2>/dev/null || true
             # Write temporary nameserver to the target file, preserving the symlink.
-            echo "nameserver 168.63.129.16" > "${RESOLV_CONF_SYMLINK_RESOLVED}"
+            echo "nameserver ${WIRESERVER_IP}" > "${RESOLV_CONF_SYMLINK_RESOLVED}"
         elif [ -e /etc/resolv.conf ]; then
             # Regular file (possibly empty).
             RESOLV_CONF_ORIGINAL_STATE="file"
             cp /etc/resolv.conf "${RESOLV_CONF_BAK}"
-            echo "nameserver 168.63.129.16" > /etc/resolv.conf
+            echo "nameserver ${WIRESERVER_IP}" > /etc/resolv.conf
         else
             # File does not exist at all.
             RESOLV_CONF_ORIGINAL_STATE="absent"
-            echo "nameserver 168.63.129.16" > /etc/resolv.conf
+            echo "nameserver ${WIRESERVER_IP}" > /etc/resolv.conf
         fi
         echo "Temporarily set DNS to Azure DNS for manifest download"
     fi
 
-    # Install WALinuxAgent from wireserver GAFamily manifest.
+    # Install WALinuxAgent from wireserver manifest using the version from components.json.
     # Uses a standalone Python script (stdlib only) for wireserver HTTP, XML parsing,
-    # and zip extraction — replacing inline python3 one-liners that were in bash.
-    python3 /opt/azure/containers/install_walinuxagent.py "${WALINUXAGENT_DOWNLOAD_DIR}" "${WALINUXAGENT_WIRESERVER_URL}"
+    # and zip extraction.
+    python3 /opt/azure/containers/install_walinuxagent.py "${WALINUXAGENT_DOWNLOAD_DIR}" "${WALINUXAGENT_WIRESERVER_URL}" "${WALINUXAGENT_VERSION}"
 
     # Configure waagent.conf to pick up the pre-cached agent from disk:
     # - AutoUpdate.Enabled=y tells the daemon to look for newer agent versions on disk
@@ -108,6 +119,10 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
     fi
 
     echo "WALinuxAgent installed and waagent.conf configured post-deprovision"
+
+    # Log the installed version to VHD release notes
+    VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+    echo "  - WALinuxAgent version ${WALINUXAGENT_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 else
     echo "Skipping WALinuxAgent manifest install on AzureLinux OSGuard"
