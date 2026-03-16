@@ -1,6 +1,8 @@
 #!/bin/bash
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
@@ -15,7 +17,13 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-MAX_BLOCK_COUNT=30298176 # 30 GB
+if [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
+  MAX_BLOCK_COUNT=60397977 # 60 GB
+  DISK_SIZE_GB=60
+else
+  MAX_BLOCK_COUNT=30298176 # 30 GB
+  DISK_SIZE_GB=30
+fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
