@@ -253,7 +253,7 @@ isCISUnsupportedUbuntu() {
 isFlatcar() {
     local os="$1"
 
-    if [ "$os" = "Flatcar" ] || [ "$os" = "ACL" ]; then
+    if [ "$os" = "Flatcar" ] || [ "$os" = "AzureContainerLinux" ]; then
         return 0
     fi
     return 1
@@ -261,7 +261,7 @@ isFlatcar() {
 isACL() {
     local os="$1"
 
-    if [ "$os" = "ACL" ]; then
+    if [ "$os" = "AzureContainerLinux" ]; then
         return 0
     fi
     return 1
