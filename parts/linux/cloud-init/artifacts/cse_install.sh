@@ -618,8 +618,12 @@ installKubeletKubectlFromURL() {
             fi
         fi
     fi
-    install -m0755 "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
-    install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    mv "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
+    mv "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    chown root:root /opt/bin/kubelet /opt/bin/kubectl
+    chmod 0755 /opt/bin/kubelet /opt/bin/kubectl
 
     rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }
@@ -686,8 +690,9 @@ labelContainerImage() {
 }
 
 retagMCRImagesForChina() {
+    waitForContainerdReady || exit $ERR_CTR_OPERATION_ERROR
     # shellcheck disable=SC2016
-        allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
     if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return
