@@ -1621,6 +1621,11 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
 			},
 		},
 	})
