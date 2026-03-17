@@ -1,13 +1,12 @@
 package e2e
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
-
 	crand "crypto/rand"
-
 	"encoding/base64"
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -40,7 +40,7 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	}
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
-	logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
 	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
@@ -62,7 +62,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 		"GOOS=linux",
 		"GOARCH="+arch,
 	)
-	logf(ctx, "compiling aks-node-controller: %q", cmd.String())
+	toolkit.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
@@ -164,14 +164,24 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 
 	} else {
-		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
+		if s.Runtime.NBC.EnableScriptlessCSECmd {
+			// Validate that the custom data doesn't contain any script content,
+			// which indicates that the scriptless CSE is working as intended
+			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
+			require.NoError(s.T, err, "failed to decode custom data")
+			reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
+			require.NoError(s.T, err, "failed to create gzip reader")
+			result, err := io.ReadAll(reader)
+			require.NoError(s.T, err, "failed to read gzip data")
+			reader.Close()
+			require.Contains(s.T, string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled")
+		}
 	}
 
 	// These two links are really for local development
@@ -210,6 +220,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
+
+	if s.Config.UseNVMe {
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	}
 	return model
 }
 
@@ -229,7 +243,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		attempt++
 		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 		if err == nil {
-			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 			return vm, nil
 		}
 
@@ -242,7 +255,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
-		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		toolkit.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
 			return vm, err
@@ -252,6 +265,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 }
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
+	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
@@ -338,11 +352,11 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
 						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
 						if powerState == "running" {
-							logf(ctxTimeout, "VM reached running state")
+							toolkit.Logf(ctxTimeout, "VM reached running state")
 							*vmssVM = vm.VirtualMachineScaleSetVM
 							return nil
 						}
-						logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+						toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
 					}
 				}
 			}
@@ -365,9 +379,6 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
 func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -378,7 +389,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		})
 
 		if pager.More() {
-			page, err := pager.NextPage(ctxTimeout)
+			page, err := pager.NextPage(ctx)
 			if err == nil && len(page.Value) > 0 {
 				vmssVM := page.Value[0]
 				// Verify it has network profile
@@ -392,7 +403,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		}
 
 		select {
-		case <-ctxTimeout.Done():
+		case <-ctx.Done():
 			if lastErr != nil {
 				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
 			}
@@ -439,13 +450,22 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 }
 
 func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
-	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if !config.Config.SkipTestsWithSKUCapacityIssue {
+		return
+	}
 	var respErr *azcore.ResponseError
-	if config.Config.SkipTestsWithSKUCapacityIssue &&
-		errors.As(err, &respErr) &&
-		respErr.StatusCode == 409 &&
-		respErr.ErrorCode == "SkuNotAvailable" {
+	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
+		return
+	}
+	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if respErr.ErrorCode == "SkuNotAvailable" {
 		t.Skip("skipping scenario SKU not available", t.Name(), err)
+	}
+	// sometimes the SKU quota is exceeded and we can't do anything. Skip the test in this case.
+	if respErr.ErrorCode == "OperationNotAllowed" &&
+		strings.Contains(respErr.Error(), "exceeding approved") &&
+		strings.Contains(respErr.Error(), "quota") {
+		t.Skip("skipping scenario SKU quota exceeded", t.Name(), err)
 	}
 }
 
@@ -547,6 +567,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
+		"waagent.log":                      "sudo cat /var/log/waagent.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
 
@@ -845,7 +866,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
 						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
 						DiffDiskSettings: &armcompute.DiffDiskSettings{
-							Option: to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Option:    to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Placement: to.Ptr(armcompute.DiffDiskPlacementResourceDisk),
 						},
 					},
 				},

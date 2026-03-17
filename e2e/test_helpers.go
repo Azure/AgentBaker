@@ -27,11 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	logf = toolkit.Logf
-	log  = toolkit.Log
-)
-
 // it's important to share context between tests to allow graceful shutdown
 // cancellation signal can be sent before a test starts, without shared context such test will miss the signal
 var testCtx = setupSignalHandler()
@@ -192,6 +187,8 @@ func runScenario(t testing.TB, s *Scenario) error {
 	}
 
 	ctx := newTestCtx(t)
+	maybeSkipScenario(ctx, t, s)
+
 	_, err := CachedEnsureResourceGroup(ctx, s.Location)
 	require.NoError(t, err)
 	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
@@ -199,7 +196,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 	s.T = t
 	ctrruntimelog.SetLogger(zap.New())
 
-	maybeSkipScenario(ctx, t, s)
+	defer toolkit.LogStep(t, "running scenario")()
 
 	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
 		Location:         s.Location,
@@ -231,6 +228,7 @@ func runScenario(t testing.TB, s *Scenario) error {
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	defer toolkit.LogStep(s.T, "preparing AKS node")()
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
 		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
@@ -238,6 +236,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	var err error
 	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
+
+	if config.Config.EnableScriptlessCSECmd {
+		nbc.EnableScriptlessCSECmd = true
+	}
 
 	if s.IsWindows() {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
@@ -266,6 +268,29 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	require.NoError(s.T, err)
+
+	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   config.Config.DefaultVMSKU,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", config.Config.DefaultVMSKU)
+	if gen2Only && s.Config.VHD.UnsupportedGen2 {
+		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
+		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+	}
+	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
+		Location: s.Location,
+		VMSize:   config.Config.DefaultVMSKU,
+	})
+	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", config.Config.DefaultVMSKU)
+	if supportsNVMe {
+		if s.Config.VHD.UnsupportedNVMe {
+			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
+			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		} else {
+			s.Config.UseNVMe = true
+		}
+	}
 
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
@@ -352,6 +377,7 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) {
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
+	defer toolkit.LogStep(s.T, "validating VM")()
 	if !s.Config.SkipSSHConnectivityValidation {
 		err := validateSSHConnectivity(ctx, s)
 		require.NoError(s.T, err)
@@ -505,7 +531,7 @@ func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSe
 
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
-	extensionVersion := "1.374"
+	extensionVersion := "1.406"
 	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
 	// extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
 	// if err != nil {
@@ -530,7 +556,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		logf(ctx, "Command %q took %s", command, elapsed)
+		toolkit.Logf(ctx, "Command %q took %s", command, elapsed)
 	}()
 
 	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{

@@ -24,9 +24,10 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "oss/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/addon-resizer",
+        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "*/kubernetes/coredns",
         "oss/v2/kubernetes/pause",
-        "oss/v2/kubernetes/coredns",
         "containernetworking/azure-cni",
         "containernetworking/azure-cns",
         "containernetworking/azure-ipam",
@@ -66,7 +67,8 @@
     },
     {
       "matchPackageNames": [
-        "oss/v2/**"
+        "oss/v2/**",
+        "!oss/v2/kubernetes/*-sysext"
       ],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d+)$",
       "ignoreUnstable": false
@@ -108,7 +110,8 @@
         "moby-runc",
         "moby-containerd",
         "containerd2",
-        "aks/aks-node-ca-watcher"
+        "aks/aks-node-ca-watcher",
+        "Azure/WALinuxAgent"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -123,7 +126,8 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ],
       "reviewers": [
         "devinwong",
@@ -132,14 +136,16 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ]
     },
     {
       "matchPackageNames": [
         "moby-runc",
         "moby-containerd",
-        "containerd2"
+        "containerd2",
+        "Azure/WALinuxAgent"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -154,7 +160,8 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ],
       "reviewers": [
         "devinwong",
@@ -163,7 +170,8 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ]
     },
     {
@@ -207,21 +215,27 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
     {
       "matchPackageNames": [
-        "azure-cni",
-        "containernetworking/azure-cni",
-        "containernetworking/azure-ipam"
+        "node-exporter-kubernetes"
       ],
-      "groupName": "azure-cni-cilium-ipam",
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "node-exporter-kubernetes"
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/azure-cni"
+      ],
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -237,21 +251,20 @@
         "oss/v2/azure/ip-masq-agent-v2"
       ],
       "reviewers": [
-        "robogatikov",
-        "paulgmiller"
+        "robogatikov"
       ],
       "assignees": [
-        "robogatikov",
-        "paulgmiller"
+        "robogatikov"
       ]
     },
     {
       "matchPackageNames": [
         "containernetworking/cilium/cilium",
         "containernetworking/cilium/cilium-distroless",
-        "containernetworking/cilium/cilium-distroless-init"
+        "containernetworking/cilium/cilium-distroless-init",
+        "containernetworking/azure-ipam"
       ],
-      "groupName": "azure-cni-cilium-ipam",
+      "groupName": "cilium-ipam",
       "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
       "ignoreUnstable": false,
       "reviewers": [
@@ -261,7 +274,10 @@
         "rbtr",
         "behzad-mir",
         "jpayne3506",
-        "QxBytes"
+        "QxBytes",
+        "camrynl",
+        "santhoshmprabhu",
+        "vipul-21"
       ]
     },
     {
@@ -313,18 +329,15 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/autoscaler/addon-resizer",
-        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
-        "oss/kubernetes/coredns",
-        "oss/v2/kubernetes/coredns"
+        "**/kubernetes/autoscaler/addon-resizer",
+        "**/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "**/kubernetes/coredns"
       ],
       "assignees": [
-        "nirnaymsft",
-        "SriHarsha001"
+        "ashokobulapuram7"
       ],
       "reviewers": [
-        "nirnaymsft",
-        "SriHarsha001"
+        "ashokobulapuram7"
       ]
     },
     {
@@ -345,15 +358,14 @@
     },
     {
       "matchPackageNames": [
-        "oss/binaries/kubernetes/azure-acr-credential-provider"
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "azure-acr-credential-provider"
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
@@ -379,6 +391,40 @@
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "ig"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "inspektor-gadget",
+      "assignees": [
+        "team:ebpf-tools"
+      ],
+      "reviewers": [
+        "team:ebpf-tools"
       ]
     },
     {
@@ -437,11 +483,9 @@
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [
-        "mainred",
         "nilo19"
       ],
       "reviewers": [
-        "mainred",
         "nilo19"
       ]
     },
@@ -482,6 +526,16 @@
         "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "oss/v2/kubernetes/*-sysext"
+      ],
+      "matchCurrentVersion": "/-azlinux3$/",
+      "extractVersion": "^(?P<version>.+-azlinux3)-"
     },
     {
       "matchPackageNames": [
@@ -664,6 +718,20 @@
       ],
       "datasourceTemplate": "rpm",
       "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update GitHub release versions in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"github-releases=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"github-releases={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\""
     },
     {
       "customType": "regex",

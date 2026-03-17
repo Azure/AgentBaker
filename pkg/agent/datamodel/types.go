@@ -168,6 +168,7 @@ const (
 	AKSUbuntuFipsContainerd2004Gen2       Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
 	AKSUbuntuFipsContainerd2204           Distro = "aks-ubuntu-fips-containerd-22.04"
 	AKSUbuntuFipsContainerd2204Gen2       Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
+	AKSUbuntuFipsContainerd2204TLGen2     Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
 	AKSUbuntuEdgeZoneContainerd2204       Distro = "aks-ubuntu-edgezone-containerd-22.04"
 	AKSUbuntuEdgeZoneContainerd2204Gen2   Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
 	AKSUbuntuContainerd2204               Distro = "aks-ubuntu-containerd-22.04"
@@ -191,6 +192,7 @@ const (
 	AKSUbuntuContainerd2404TLGen2         Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
 	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
+	AKSACLGen2TL                          Distro = "aks-acl-gen2-tl"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -248,6 +250,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
+	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuContainerd2204,
@@ -270,6 +273,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
+	AKSACLGen2TL,
 }
 
 type CustomConfigurationComponent string
@@ -322,6 +326,15 @@ func (d Distro) IsKataDistro() bool {
 
 func (d Distro) IsFlatcarDistro() bool {
 	for _, distro := range AvailableFlatcarDistros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+func (d Distro) IsACLDistro() bool {
+	for _, distro := range AvailableACLDistros {
 		if d == distro {
 			return true
 		}
@@ -1206,6 +1219,10 @@ func (a *AgentPoolProfile) IsFlatcar() bool {
 	return a.Distro.IsFlatcarDistro()
 }
 
+func (a *AgentPoolProfile) IsACL() bool {
+	return a.Distro.IsACLDistro()
+}
+
 func (a *AgentPoolProfile) IsAzureLinuxOSGuard() bool {
 	return a.Distro.IsAzureLinuxOSGuardDistro()
 }
@@ -1774,10 +1791,19 @@ type NodeBootstrappingConfiguration struct {
 
 	// CSETimeout specifies the timeout execution in seconds.
 	CSETimeout int
+
+	// EnableScriptlessCSECmd enables scriptless CSE command execution.
+	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
+	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
+	EnableScriptlessCSECmd bool
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
 	return config.OSSKU == OSSKUFlatcar || config.AgentPoolProfile.IsFlatcar()
+}
+
+func (config *NodeBootstrappingConfiguration) IsACL() bool {
+	return config.OSSKU == OSSKUAzureContainerLinux || config.AgentPoolProfile.IsACL()
 }
 
 type SSHStatus int
@@ -2386,6 +2412,8 @@ type PrivateEgress struct {
 	Enabled                 bool   `json:"enabled"`
 	ContainerRegistryServer string `json:"containerRegistryServer"`
 	ProxyAddress            string `json:"proxyAddress"`
+	// Used for internal e2e test only, won't be set by RP or used in production.
+	TestMode bool `json:"testMode,omitempty"`
 }
 
 func (s *SecurityProfile) GetProxyAddress() string {
@@ -2400,6 +2428,14 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 		return s.PrivateEgress.ContainerRegistryServer
 	}
 	return ""
+}
+
+// Used for internal e2e test only, won't be set by RP or used in production.
+func (s *SecurityProfile) GetPrivateEgressTestMode() bool {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.TestMode
+	}
+	return false
 }
 
 // SecurityProfile end.

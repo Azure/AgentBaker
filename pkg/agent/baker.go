@@ -54,7 +54,7 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
-	if config.IsFlatcar() {
+	if config.IsFlatcar() || config.IsACL() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
@@ -79,6 +79,11 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
+
+const (
+	encodingGZIP   = "gzip"
+	encodingBase64 = "base64"
+)
 
 const (
 	ignitionFilesTarPath      = "/var/lib/ignition/ignition-files.tar"
@@ -107,13 +112,13 @@ func buildIgnitionTarEntries(customData cloudInit) ([]ignitionTarEntry, error) {
 		switch {
 		case file.Content == "" || file.Encoding == "":
 			contents = []byte(file.Content)
-		case file.Encoding == "gzip":
+		case file.Encoding == encodingGZIP:
 			decoded, err := getGzipDecodedValue([]byte(file.Content))
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode gzip content for %s: %w", file.Path, err)
 			}
 			contents = decoded
-		case file.Encoding == "base64":
+		case file.Encoding == encodingBase64:
 			decoded, err := base64.StdEncoding.DecodeString(file.Content)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode base64 content: %w", err)
@@ -208,15 +213,17 @@ func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 		Overwrite: to.BoolPtr(true),
 		Contents: base0_5.Resource{
 			Source:      to.StringPtr(dataURL),
-			Compression: to.StringPtr("gzip"),
+			Compression: to.StringPtr(encodingGZIP),
 		},
 	}
 	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
 	return butaneconfig
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
+// getFlatcarLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
+// { "customData": "<customData string>" } for Flatcar-based distros (Flatcar and ACL).
+// ACL (Azure Container Linux) is Flatcar-based and uses the same Ignition/Butane pipeline,
+// so this function handles both cases.
 func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
 	parameters := getParameters(config)
@@ -614,7 +621,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar()
+			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar() || profile.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -693,12 +700,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsFlatcar": func() bool {
 			return config.IsFlatcar()
 		},
+		"IsACL": func() bool {
+			return config.IsACL()
+		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
 			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
 		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
+		},
+		"IsAzlOSGuard": func() bool {
+			return profile.Distro.IsAzureLinuxOSGuardDistro() ||
+				profile.Distro == datamodel.CustomizedImageLinuxGuard
 		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
@@ -1176,13 +1190,17 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData && !config.IsFlatcar()
+			return !config.DisableCustomData && !config.IsFlatcar() && !config.IsACL()
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
 		},
 		"GetBootstrapProfileContainerRegistryServer": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
+		},
+		// Used for internal e2e test only, won't be set by RP or used in production.
+		"GetNetworkIsolatedClusterTestMode": func() bool {
+			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressTestMode()
 		},
 		"GetMCRRepositoryBase": func() string {
 			if config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase == "" {
@@ -1213,7 +1231,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if err != nil {
 				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
 			}
-			return output, nil
+			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
 		"GetLocalDNSCPULimitInPercentage": func() string {
 			return profile.GetLocalDNSCPULimitInPercentage()
@@ -1226,6 +1244,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
+		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
 	}
 }
 
@@ -1839,11 +1858,8 @@ func GenerateLocalDNSCoreFile(
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
 
-	if profile.LocalDNSProfile == nil {
-		return "", fmt.Errorf("localdns profile is nil")
-	}
-	if !profile.ShouldEnableLocalDNS() {
-		return "", fmt.Errorf("EnableLocalDNS is set to false, corefile will not be generated")
+	if profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
+		return "", nil
 	}
 
 	funcMapForHasSuffix := template.FuncMap{
@@ -1858,8 +1874,8 @@ func GenerateLocalDNSCoreFile(
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 
-	// Return gzipped base64 encoded Corefile. Used in nodecustomdata.
-	return getBase64EncodedGzippedCustomScriptFromStr(corefileBuffer.String()), nil
+	// Return the rendered Corefile as a plain string.
+	return corefileBuffer.String(), nil
 }
 
 // Template to create corefile that will be used by localdns service.

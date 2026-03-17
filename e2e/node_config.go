@@ -124,14 +124,14 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	// we assume that all E2E clusters are created with a user-assigned managed identity for the kubelet (not a service principal)
 	nbc.UserAssignedIdentityClientID = *cluster.KubeletIdentity.ClientID
 
-	// pass in the bootstrap token and enable secure TLS bootstrapping by default on compatible VHDs
+	// pass in the bootstrap token and enable secure TLS bootstrapping according to E2E config
 	// this allows us to test the following bootstrapping modes:
 	// 1. secure TLS bootstrapping
 	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: !vhd.UnsupportedSecureTLSBootstrapping,
+		Enabled: config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
 	}
 
 	nbc.TenantID = *cluster.Model.Identity.TenantID
@@ -162,7 +162,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	return &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
-		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar(),
+		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar() || nbc.AgentPoolProfile.IsACL(),
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -175,6 +175,19 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
 				Subnet:            cs.Properties.GetSubnetName(),
 				RouteTable:        cs.Properties.GetRouteTableName(),
+			},
+			CloudProviderConfig: &aksnodeconfigv1.CloudProviderConfig{
+				Backoff:              cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoff,
+				BackoffMode:          cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffMode,
+				BackoffRetries:       to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffRetries)),
+				BackoffExponent:      to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffExponent),
+				BackoffDuration:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffDuration)),
+				BackoffJitter:        to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffJitter),
+				RateLimit:            cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimit,
+				RateLimitQps:         to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS),
+				RateLimitQpsWrite:    to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite),
+				RateLimitBucket:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)),
+				RateLimitBucketWrite: to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)),
 			},
 			PrimaryScaleSet: nbc.PrimaryScaleSetName,
 		},

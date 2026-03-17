@@ -10,6 +10,22 @@ bootcmd:
   done
 
 write_files:
+# IMPORTANT: OSGuard images have /usr/ mounted read-only (dm-verity).
+# All write_files entries must target /opt/ or /etc/ paths only.
+# If a /usr/ path is ever needed for non-OSGuard distros, guard it with:
+#   {{ if not IsAzlOSGuard }}
+#   - path: /usr/...
+#   {{ end }}
+{{if EnableScriptlessCSECmd}}
+- path: /opt/azure/containers/scriptless-cse-overrides.txt
+  permissions: "0644"
+  owner: root
+  content: |
+    Executing in scriptless CSE mode. No cloud-init scripts will be written to the VM.
+    Any overridden files will be listed here - Hotfix mode
+    Example: {{GetCSEHelpersScriptFilepath}}
+
+{{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -18,7 +34,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 
-{{if IsMariner}}
+{{if IsAzlOSGuard}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceAzlOSGuard"}}
+{{- else if IsMariner}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -32,6 +55,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSourceFlatcar"}}
+{{- else if IsACL }}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceACL"}}
 {{- else }}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
@@ -78,7 +108,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
 
-{{if IsMariner}}
+{{if IsAzlOSGuard}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsAzlOSGuard"}}
+{{- else if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -92,6 +129,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
+{{- else if IsACL }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsACL"}}
 {{- else }}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
@@ -108,12 +152,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
+{{ if not (or IsMariner IsFlatcar IsACL) -}}
 - path: /opt/azure/manifest.json
   permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
+{{- end }}
 
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"
@@ -164,7 +210,8 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-{{if IsMariner}}
+{{if IsAzlOSGuard}}
+{{- else if IsMariner}}
 - path: /opt/azure/containers/mariner-package-update.sh
   permissions: "0544"
   encoding: gzip
@@ -185,7 +232,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
-{{- else if not IsFlatcar }}
+{{- else if not (or IsFlatcar IsACL) }}
 - path: /opt/azure/containers/ubuntu-snapshot-update.sh
   permissions: "0544"
   encoding: gzip
@@ -348,27 +395,4 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{if ShouldEnableLocalDNS}}
-- path: /opt/azure/containers/localdns/localdns.corefile
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetGeneratedLocalDNSCoreFile}}
-
-- path: /etc/systemd/system/localdns.slice
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=localdns Slice
-    DefaultDependencies=no
-    Before=slices.target
-    Requires=system.slice
-    After=system.slice
-
-    [Slice]
-    MemoryMax={{GetLocalDNSMemoryLimitInMB}}
-    CPUQuota={{GetLocalDNSCPULimitInPercentage}}
 {{- end}}

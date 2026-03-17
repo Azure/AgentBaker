@@ -1,12 +1,13 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -43,8 +44,8 @@ SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-elif [ "$OS_SKU" = "Flatcar" ]; then
-  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
+  : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
   SKIP_GIT_CLONE=true
 else
@@ -207,6 +208,8 @@ testPackagesInstalled() {
     elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
       OS=$AZURELINUX_OS_NAME
       OS_VARIANT=OSGUARD
+    elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
+      OS=$ACL_OS_NAME
     else
       OS=${OS_SKU^^}
     fi
@@ -224,13 +227,23 @@ testPackagesInstalled() {
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "azure-acr-credential-provider-pmc"|\
       "kubelet"|\
       "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
-        testPkgDownloaded "${name}" "${PACKAGE_VERSIONS[@]}"
+        testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "cni-plugins")
+        testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "containernetworking-plugins")
+        # containernetworking-plugins, namely, cni-plugins are installed in a different way so we test them separately
+        testContainerNetworkingPluginsInstalled
         continue
         ;;
     esac
@@ -523,7 +536,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ] || [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -600,18 +613,33 @@ testLtsKernel() {
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
-    if [ "$os_version" = "22.04" ]; then
-      expected_kernel="5.15"
-    elif [ "$os_version" = "24.04" ]; then
-      expected_kernel="6.8"
+    # CVM builds use linux-image-azure-fde-lts-* (different flavor), skip exact pin check
+    local is_cvm=false
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+      is_cvm=true
+    fi
+
+    if [ "$os_version" = "22.04" ] && [ "$is_cvm" = "false" ]; then
+      # Pinned to exact version to avoid regression in 5.15.0-1103-azure
+      expected_kernel="5.15.0-1102-azure"
+    elif [ "$os_version" = "22.04" ] || [ "$os_version" = "24.04" ]; then
+      expected_kernel=$([ "$os_version" = "22.04" ] && echo "5.15" || echo "6.8")
     else
-      echo "LTS kernel not installed for: $os_version"
+      echo "LTS kernel not installed for: $os_version, skipping check"
+      echo "$test:Finish"
+      return
     fi
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
     # shellcheck disable=SC3010
-    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+    if [ "$os_version" = "22.04" ] && [ "$is_cvm" = "false" ]; then
+      if [[ "$kernel" == "$expected_kernel" ]]; then
+        echo "Kernel version matches pinned version ($expected_kernel)."
+      else
+        err $test "Kernel version does not match pinned version. Expected exactly $expected_kernel, found $kernel."
+      fi
+    elif [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
       err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
@@ -663,7 +691,7 @@ testAutologinDisabled() {
   local os_sku=$1
   echo "$test:Start"
 
-  if [ "$os_sku" = "Flatcar" ]; then
+  if [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
     local failed=0
 
     # Test 1: Check actual behavior using loginctl
@@ -720,7 +748,7 @@ testAutologinDisabled() {
     fi
 
   else
-    echo "$test: Skipping for non-Flatcar OS"
+    echo "$test: Skipping for non-Flatcar/ACL OS"
   fi
 
   echo "$test:Finish"
@@ -911,9 +939,10 @@ testKubeBinariesPresent() {
 testPkgDownloaded() {
   local test="testPkgDownloaded"
   echo "$test:Start"
-  local packageName=$1; shift
+  local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  downloadLocation="/opt/${packageName}/downloads"
+  local seArch seFile
+  seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
@@ -927,6 +956,11 @@ testPkgDownloaded() {
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
+      fi
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
+      seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
+      if [ -z "${seFile}" ]; then
+        err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
       fi
     fi
 
@@ -1119,7 +1153,7 @@ testCronPermissions() {
   )
 
   # shellcheck disable=SC3010
-  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]]; then
+  if [[ "${image_sku}" != *"minimal"* ]] && [[ "${os_sku}" != "Flatcar" ]] && [[ "${os_sku}" != "AzureContainerLinux" ]]; then
     echo "$test: Checking required paths"
     for path in "${!required_paths[@]}"; do
       checkPathPermissions $test $path ${required_paths[$path]} 1
@@ -1471,6 +1505,161 @@ testBccTools () {
   return 0
 }
 
+# testWALinuxAgentInstalled verifies that the WALinuxAgent version from
+# components.json was installed post-deprovision via the wireserver manifest
+# and that waagent.conf is configured to use it.
+# The test runs on a VM booted from the captured VHD image, so the post-deprovision
+# script has already executed and self-deleted. We verify its *results*:
+#   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
+#   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
+#   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+testWALinuxAgentInstalled() {
+  local test="testWALinuxAgentInstalled"
+  echo "$test:Start"
+
+  # Read the expected version from components.json
+  local expectedVersion
+  expectedVersion=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "${COMPONENTS_FILEPATH}")
+  if [ -z "${expectedVersion}" ] || [ "${expectedVersion}" = "null" ]; then
+    err "$test" "Could not read walinuxagent version from ${COMPONENTS_FILEPATH}"
+    return 1
+  fi
+  echo "$test: Expected WALinuxAgent version from components.json: ${expectedVersion}"
+
+  # Check that the exact expected version directory exists
+  local expectedDir="/var/lib/waagent/WALinuxAgent-${expectedVersion}"
+  if [ ! -d "${expectedDir}" ]; then
+    local actual
+    actual=$(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null || true)
+    err "$test" "Expected directory ${expectedDir} not found. Found: ${actual:-none}"
+    return 1
+  fi
+  echo "$test: Found expected directory ${expectedDir}"
+
+  # Validate the directory has expected artifacts
+  local expectedFiles=("HandlerManifest.json" "manifest.xml")
+  for f in "${expectedFiles[@]}"; do
+    if [ ! -f "${expectedDir}/${f}" ]; then
+      err "$test" "Expected file ${f} not found in ${expectedDir}, contents: $(ls -al "${expectedDir}")"
+      return 1
+    fi
+    echo "$test: Found expected file ${expectedDir}/${f}"
+  done
+
+  if [ ! -d "${expectedDir}/bin" ]; then
+    err "$test" "bin/ directory not found in ${expectedDir}, contents: $(ls -al "${expectedDir}")"
+    return 1
+  fi
+  echo "$test: Found bin/ directory in ${expectedDir}"
+
+  # Verify waagent.conf has the expected AutoUpdate settings
+  if grep -q '^AutoUpdate.Enabled=y' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.Enabled=y"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.Enabled=y"
+    return 1
+  fi
+  if grep -q '^AutoUpdate.UpdateToLatestVersion=n' /etc/waagent.conf; then
+    echo "$test: waagent.conf has AutoUpdate.UpdateToLatestVersion=n"
+  else
+    err "$test" "waagent.conf missing AutoUpdate.UpdateToLatestVersion=n"
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
+
+testNodeExporter () {
+  local test="NodeExporterInstallTest"
+  local os_sku="${1}"
+  local skip_file="/etc/node-exporter.d/skip_vhd_node_exporter"
+
+  echo "$test: checking if node-exporter was successfully installed"
+
+  # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
+  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    if [ -f "$skip_file" ]; then
+      err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
+      return 1
+    fi
+    echo "$test: Verified skip file does not exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS) - node-exporter correctly not installed"
+    return 0
+  fi
+
+  # At this point we're on Ubuntu or AzureLinux 3.0, both of which have node-exporter installed.
+  # The skip file better exist at this point or we're sad.
+  if [ ! -f "$skip_file" ]; then
+    err "$test" "Skip sentinel file $skip_file does not exist on $os_sku — install-node-exporter.sh may have failed"
+    return 1
+  fi
+  echo "$test: skip sentinel file exists at $skip_file"
+
+  # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
+  # We then create a symlink at /opt/bin/node-exporter for consistency with
+  # other binaries (kubelet, kubectl) that live in /opt/bin.
+  # Both paths are verified: the real binary and the symlink.
+  if [ ! -f "/usr/bin/node-exporter" ]; then
+    err "$test" "node-exporter binary does not exist at /usr/bin/node-exporter (installed by package manager)"
+    return 1
+  fi
+  echo "$test: node-exporter binary exists at /usr/bin/node-exporter"
+
+  if [ ! -L "/opt/bin/node-exporter" ]; then
+    err "$test" "node-exporter symlink does not exist at /opt/bin/node-exporter"
+    return 1
+  fi
+  # Verify the symlink actually points back to the package-managed binary
+  local symlink_target
+  symlink_target=$(readlink -f /opt/bin/node-exporter)
+  if [ "$symlink_target" != "/usr/bin/node-exporter" ]; then
+    err "$test" "/opt/bin/node-exporter symlink points to $symlink_target, expected /usr/bin/node-exporter"
+    return 1
+  fi
+  echo "$test: node-exporter symlink at /opt/bin/node-exporter -> /usr/bin/node-exporter"
+
+  # Check that the startup script exists
+  if [ ! -f "/opt/bin/node-exporter-startup.sh" ]; then
+    err "$test" "node-exporter startup script does not exist at /opt/bin/node-exporter-startup.sh"
+    return 1
+  fi
+  echo "$test: node-exporter startup script exists"
+
+  # Check that the service file exists
+  if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
+    err "$test" "node-exporter service file does not exist at /etc/systemd/system/node-exporter.service"
+    return 1
+  fi
+  echo "$test: node-exporter service file exists"
+
+  # Check that the web config exists
+  if [ ! -f "/etc/node-exporter.d/web-config.yml" ]; then
+    err "$test" "node-exporter web config does not exist at /etc/node-exporter.d/web-config.yml"
+    return 1
+  fi
+  echo "$test: node-exporter web config exists"
+
+  # Verify node-exporter service is registered with systemd
+  if ! systemctl list-unit-files | grep -q "node-exporter.service"; then
+    err "$test" "node-exporter.service not found in systemd unit files - service not properly registered"
+    return 1
+  fi
+  echo "$test: node-exporter.service is registered with systemd"
+
+  # Check that the service is DISABLED during VHD build
+  # CSE will enable and start node-exporter at provisioning time, not during VHD build
+  local node_exporter_enabled_state
+  node_exporter_enabled_state=$(systemctl is-enabled node-exporter.service 2>/dev/null)
+  if [ "${node_exporter_enabled_state}" != "disabled" ]; then
+    err "$test" "node-exporter.service should be disabled during VHD build, state is: $node_exporter_enabled_state"
+    return 1
+  fi
+  echo "$test: node-exporter.service is correctly disabled (will be enabled by CSE at provisioning)"
+
+  echo "$test: node-exporter was successfully installed"
+  return 0
+}
+
 testAKSNodeControllerBinary () {
   local test="testAKSNodeControllerBinary"
   local go_binary_path="/opt/azure/containers/aks-node-controller"
@@ -1698,6 +1887,120 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+# Basic sanity check for Inspektor Gadget artifacts baked into the image.
+testInspektorGadgetAssets() {
+  local test="testInspektorGadgetAssets"
+  echo "$test:Start"
+
+  local skip_file="/etc/ig.d/skip_vhd_ig"
+  local import_script="/usr/share/inspektor-gadget/import_gadgets.sh"
+  local remove_script="/usr/share/inspektor-gadget/remove_gadgets.sh"
+  local service_name="ig-import-gadgets.service"
+  local unit_file="/usr/lib/systemd/system/${service_name}"
+  local tracking_file="/var/lib/ig/imported-gadgets.txt"
+
+  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
+  local is_kata=false
+  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    is_kata=true
+  fi
+
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
+    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
+
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
+    if [ -f "$skip_file" ]; then
+      err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
+    fi
+
+    if [ -f "$import_script" ]; then
+      err $test "Import script should not exist for $OS_SKU but found at $import_script"
+    fi
+
+    if [ -f "$remove_script" ]; then
+      err $test "Remove script should not exist for $OS_SKU but found at $remove_script"
+    fi
+
+    if [ -f "$unit_file" ]; then
+      err $test "Unit file should not exist for $OS_SKU but found at $unit_file"
+    fi
+
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ ! -f "$skip_file" ]; then
+    err $test "Skip sentinel missing at $skip_file"
+  fi
+
+  if [ ! -x "$import_script" ]; then
+    err $test "Import script missing or not executable at $import_script"
+  fi
+
+  if [ ! -x "$remove_script" ]; then
+    err $test "Remove script missing or not executable at $remove_script"
+  fi
+
+  if [ ! -f "$unit_file" ]; then
+    err $test "Unit file missing at $unit_file"
+  fi
+
+  local service_state
+  service_state=$(systemctl is-enabled "$service_name" 2>/dev/null || true)
+  if [ "$service_state" != "enabled" ]; then
+    err $test "$service_name not enabled, state: ${service_state:-absent}"
+  fi
+
+  # Verify gadgets were imported during VHD build (tracking file should exist and have content)
+  if [ ! -f "$tracking_file" ]; then
+    err $test "Tracking file missing at $tracking_file - gadget import may have failed"
+  elif [ ! -s "$tracking_file" ]; then
+    err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
+  fi
+
+  # Verify ig / ig-gadgets version dependency constraint (defined in ig-gadgets Dalec spec).
+  #   AzureLinux (azl3):  ig == ig-gadgets  — versions must match exactly
+  #   Ubuntu (deb-based): ig >= ig-gadgets  — ig can be newer than gadgets
+  # A mismatch on AzureLinux causes "conflicting requests" during RPM install,
+  # so catching it here prevents broken VHD builds from shipping.
+  if [ "$OS_SKU" = "AzureLinux" ]; then
+    local ig_ver ig_gadgets_ver
+    ig_ver=$(rpm -q --queryformat '%{VERSION}' ig 2>/dev/null || echo "")
+    ig_gadgets_ver=$(rpm -q --queryformat '%{VERSION}' ig-gadgets 2>/dev/null || echo "")
+
+    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
+      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
+    elif [ "$ig_ver" != "$ig_gadgets_ver" ]; then
+      err $test "AzureLinux requires ig == ig-gadgets (Dalec spec) but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
+    else
+      echo "$test: AzureLinux ig/ig-gadgets version constraint satisfied (both ${ig_ver})"
+    fi
+  else
+    local ig_ver ig_gadgets_ver ig_semver ig_gadgets_semver
+    ig_ver=$(dpkg-query -W -f '${Version}' ig 2>/dev/null || echo "")
+    ig_gadgets_ver=$(dpkg-query -W -f '${Version}' ig-gadgets 2>/dev/null || echo "")
+
+    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
+      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
+    else
+      # Extract base semver (e.g. "0.49.1" from "0.49.1-ubuntu22.04u1")
+      ig_semver=$(echo "$ig_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+      ig_gadgets_semver=$(echo "$ig_gadgets_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+
+      # sort -V: smallest version first; ig_gadgets_semver must be <= ig_semver
+      local oldest
+      oldest=$(printf '%s\n%s\n' "$ig_semver" "$ig_gadgets_semver" | sort -V | head -n1)
+      if [ "$oldest" != "$ig_gadgets_semver" ]; then
+        err $test "Ubuntu requires ig >= ig-gadgets (Dalec spec) but found ig=${ig_semver} ig-gadgets=${ig_gadgets_semver}"
+      else
+        echo "$test: Ubuntu ig/ig-gadgets version constraint satisfied (ig=${ig_semver} ig-gadgets=${ig_gadgets_semver})"
+      fi
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
 # Check that no files have a numeric UID or GID, which would indicate a file ownership issue.
 testFileOwnership() {
   local test="testFileOwnership"
@@ -1730,6 +2033,63 @@ testDiskQueueServiceIsActive() {
   echo "$test:Finish"
 }
 
+testCNIPluginsInstalled() {
+  local test="testCNIPluginsInstalled"
+  echo "$test: Start"
+
+  local downloadLocation=$1
+  local packageVersion=$2
+  local cni_extracted_dir="${downloadLocation}/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"
+
+  # Check that the extracted directory exists
+  echo "$test: Checking for existence of extracted CNI plugins directory: $cni_extracted_dir"
+  if [ ! -d "$cni_extracted_dir" ]; then
+    err "$test: CNI plugins directory $cni_extracted_dir not found"
+    return 1
+  fi
+  echo "$test: CNI plugins directory $cni_extracted_dir found"
+
+  # Verify that the directory contains the expected CNI plugin binaries
+  local required_plugins=("bridge" "host-local" "loopback")
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_extracted_dir/$plugin"
+    echo "$test: Checking for CNI plugin binary $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin binary $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin binary $plugin found"
+  done
+
+  echo "$test: All required CNI plugin binaries are present in cached directory."
+  echo "$test: Finish"
+  return 0
+}
+
+
+testContainerNetworkingPluginsInstalled() {
+  local test="testContainerNetworkingPluginsInstalled"
+  echo "$test: Start"
+
+  local cni_bin_dir="/opt/cni/bin"
+  #there are several other plugins but these are used by kubenet and containerd so focus on them.
+  local required_plugins=("bridge" "host-local" "loopback")
+
+  for plugin in "${required_plugins[@]}"; do
+    local plugin_path="$cni_bin_dir/$plugin"
+    echo "$test: Checking for existence of CNI plugin $plugin at $plugin_path"
+    if [ ! -f "$plugin_path" ]; then
+      err "$test: CNI plugin $plugin not found at $plugin_path"
+      return 1
+    fi
+    echo "$test: CNI plugin $plugin found at $plugin_path"
+  done
+
+  echo "$test: All required CNI plugins are installed."
+  echo "$test: Finish"
+  return 0
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1746,6 +2106,11 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+# WALinuxAgent is installed post-deprovision (not via components.json),
+# so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
+if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
+  testWALinuxAgentInstalled
+fi
 testImagesPulled "$(cat $COMPONENTS_FILEPATH)"
 testImagesCompleted
 testPodSandboxImagePinned
@@ -1773,12 +2138,14 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
+testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive

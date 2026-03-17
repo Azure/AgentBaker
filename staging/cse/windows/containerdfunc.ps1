@@ -161,7 +161,11 @@ function ProcessAndWriteContainerdConfig {
 
   # Set up registry mirrors
   Set-ContainerdRegistryConfig -Registry "docker.io" -RegistryHost "registry-1.docker.io"
-  Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+  if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and -not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    Set-BootstrapProfileRegistryContainerdHost
+  } else {
+    Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+  }
 
   if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
     # Remove annotations placeholders for older containerd versions
@@ -230,6 +234,46 @@ server = "https://$Registry"
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
+function Set-BootstrapProfileRegistryContainerdHost {
+  $mcrRegistry = if ((Test-Path variable:global:MCRRepositoryBase) -and
+      -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
+    [string]$global:MCRRepositoryBase
+  }
+  else {
+    "mcr.microsoft.com"
+  }
+  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
+  $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
+
+  $registryHost = [string]$global:BootstrapProfileContainerRegistryServer
+  $registryHost = ($registryHost -replace '^https?://', '').TrimEnd('/')
+
+  $registryHostParts = $registryHost.Split('/', 2)
+  $registryHostName = $registryHostParts[0]
+  $registryRepoPrefix = if ($registryHostParts.Length -gt 1) { $registryHostParts[1].Trim('/') } else { "" }
+
+  $registryHost = if ([string]::IsNullOrEmpty($registryRepoPrefix)) {
+    "$registryHostName/v2"
+  }
+  else {
+    "$registryHostName/v2/$registryRepoPrefix"
+  }
+
+  Create-Directory -FullPath $mcrRegistryPath -DirectoryUsage "storing containerd registry hosts config"
+
+  $content = @"
+server = "https://$mcrRegistry"
+
+[host."https://$registryHost"]
+  capabilities = ["pull", "resolve"]
+  override_path = true
+"@
+
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
+}
+
 function Install-Containerd {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -286,5 +330,13 @@ function Install-Containerd {
     -CNIConfDir $CNIConfDir
 
   RegisterContainerDService -KubeDir $KubeDir
+  if (-not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    if (Get-Command -Name Set-PodInfraContainerImage -ErrorAction SilentlyContinue) {
+      Set-PodInfraContainerImage
+    }
+    else {
+      Write-Log "Set-PodInfraContainerImage command not found; skipping pod infra container image configuration."
+    }
+  }
   Enable-Logging
 }

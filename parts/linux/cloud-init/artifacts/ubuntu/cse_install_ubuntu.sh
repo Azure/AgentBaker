@@ -35,7 +35,7 @@ installDeps() {
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=3.0.10")
+        pkg_list+=("aznfs=3.0.14")
     fi
 
     for apt_package in ${pkg_list[*]}; do
@@ -65,13 +65,29 @@ updateAptWithMicrosoftPkg() {
 
 updatePMCRepository() {
     packageVersion="${1}"
-    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
+
+    # Detect apt source file format: currently custom clouds use DEB822 (.sources), public cloud uses legacy (.list)
+    local microsoft_prod_file="/etc/apt/sources.list.d/microsoft-prod.list"
+    if [ ! -f "${microsoft_prod_file}" ] && [ -f /etc/apt/sources.list.d/microsoft-prod.sources ]; then
+        microsoft_prod_file="/etc/apt/sources.list.d/microsoft-prod.sources"
+    fi
+    if [ ! -f "${microsoft_prod_file}" ]; then
+        echo "ERROR: neither microsoft-prod.list nor microsoft-prod.sources found in /etc/apt/sources.list.d/"
+        exit $ERR_APT_UPDATE_TIMEOUT
+    fi
+    local opts="-o Dir::Etc::sourcelist=${microsoft_prod_file} -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
 
     # if the package version contains a tilde (~), indicating pre-release version, updating test repo
-    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && echo "$packageVersion" | grep -q '~'; then
-        local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
-        apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+    if echo "$packageVersion" | grep -q '~'; then
+        local microsoft_prod_testing_file="/etc/apt/sources.list.d/microsoft-prod-testing.list"
+        if [ ! -f "${microsoft_prod_testing_file}" ] && [ -f /etc/apt/sources.list.d/microsoft-prod-testing.sources ]; then
+            microsoft_prod_testing_file="/etc/apt/sources.list.d/microsoft-prod-testing.sources"
+        fi
+        if [ -f "${microsoft_prod_testing_file}" ]; then
+            local testing_opts="-o Dir::Etc::sourcelist=${microsoft_prod_testing_file} -o Dir::Etc::sourceparts=-"
+            apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+        fi
     fi
 }
 
@@ -186,7 +202,7 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then
@@ -205,7 +221,7 @@ installCredentialProviderFromPMC() {
     ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     k8sVersion="${1}"
     installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
     installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
@@ -277,10 +293,8 @@ installPkgWithAptGet() {
     packageName="${1:-}"
     packageVersion="${2}"
     downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}_${packageVersion}-*"
 
-    # if no deb file with desired version found then try fetching from packages.microsoft repo
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
             echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
@@ -288,23 +302,25 @@ installPkgWithAptGet() {
             return 0
         fi
 
-        # update pmc repo to get latest package versions
+        # update pmc repo to get latest versions
         updatePMCRepository ${packageVersion}
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion} | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
-        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
-        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
+        logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
+
+        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
         return 1
     fi
 
+    debFile="${downloadDir}/${debFile}"
     logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
 
     mkdir -p /opt/bin

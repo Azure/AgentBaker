@@ -4,7 +4,7 @@ stub() {
     echo "${FUNCNAME[1]} stub"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
 	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
@@ -22,29 +22,30 @@ installRPMPackageFromFile() {
     fi
     echo "installing ${packageName} version ${desiredVersion}"
     downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}-${desiredVersion}-*"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ] && { [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; } && fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
         echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
         rm -rf ${downloadDir}
         return 0
     fi
     if [ -z "${rpmFile}" ]; then
-        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        # query all package versions and get the latest version for matching k8s version
+        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         return 1
     fi
 
+    rpmFile="${downloadDir}/${rpmFile}"
     local rpmBinaryName="${packageName}"
     local targetBinaryName="${packageName}"
     if [ "${packageName}" = "azure-acr-credential-provider" ]; then
@@ -67,7 +68,7 @@ downloadPkgFromVersion() {
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then
@@ -92,6 +93,7 @@ installDeps() {
 installCriCtlPackage() {
     stub
 }
+
 
 installStandaloneContainerd() {
     stub

@@ -1,5 +1,5 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -20,13 +20,11 @@ CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
-cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
-if isMarinerOrAzureLinux "$OS"; then
+if isMarinerOrAzureLinux "$OS" || isACL "$OS"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -46,7 +44,7 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
-if ! isFlatcar "$OS" ; then
+if ! isFlatcar "$OS" && ! isACL "$OS" ; then
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi
 
@@ -54,7 +52,7 @@ systemctlEnableAndStart disk_queue 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
 
 # This path is used by the Custom CA Trust feature only
-mkdir /opt/certs
+mkdir -p /opt/certs
 chmod 755 /opt/certs
 systemctlEnableAndStart update_certs.path 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
@@ -62,7 +60,7 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
-if isFlatcar "$OS"; then
+if isFlatcar "$OS" || isACL "$OS"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
@@ -138,6 +136,17 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
+  elif [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+    # Pin to 5.15.0-1102-azure to avoid regression in 5.15.0-1103-azure
+    KERNEL_IMAGE="linux-image-5.15.0-1102-azure"
+    KERNEL_PACKAGES=(
+      "linux-image-5.15.0-1102-azure"
+      "linux-tools-5.15.0-1102-azure"
+      "linux-cloud-tools-5.15.0-1102-azure"
+      "linux-headers-5.15.0-1102-azure"
+      "linux-modules-extra-5.15.0-1102-azure"
+    )
+    echo "Installing pinned LTS kernel 5.15.0-1102-azure for Ubuntu 22.04 (regression in 1103)"
   else
     # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
@@ -152,7 +161,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 
   echo "Logging the currently running kernel: $(uname -r)"
-  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*' || true
 
   if apt-cache show "$KERNEL_IMAGE" &>/dev/null; then
     echo "Kernel packages are available, proceeding with purging current kernel and installing new kernel..."
@@ -166,12 +175,12 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # Purge all current kernels and dependencies
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-    echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+    echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*' || true
 
     # Install new kernel packages
     wait_for_apt_locks
     DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "${KERNEL_PACKAGES[@]}"
-    echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+    echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*' || true
 
     # Reinstall nullboot package only for cvm
     if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -196,13 +205,17 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       wait_for_apt_locks
       sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
       echo "after installation:"
-      dpkg -l | grep "linux-.*-azure-nvidia"
+      dpkg -l | grep "linux-.*-azure-nvidia" || true
     else
       echo "ARM64 image. NVIDIA kernel not available, skipping installation."
     fi
   fi
   wait_for_apt_locks
-  update-grub
+  if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    echo "update-grub not found (expected for CVM images using nullboot), skipping"
+  else
+    update-grub
+  fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
