@@ -923,11 +923,9 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if isMarinerOrAzureLinux "$OS"; then
-        # GRID vGPU licensing: configure and restart nvidia-gridd after device nodes exist
+        # GRID vGPU licensing: start nvidia-gridd after device nodes exist
         if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
-            sed -i -e '/^FeatureType=/d' -e '$ a FeatureType=1' /etc/nvidia/gridd.conf
-            systemctl enable nvidia-gridd.service
-            systemctl restart nvidia-gridd.service
+            systemctlEnableAndStart nvidia-gridd 30
         fi
 
         # Fix the NVIDIA /dev/char link issue
