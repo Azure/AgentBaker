@@ -725,6 +725,20 @@ func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, servic
 		fmt.Sprintf("Windows service %s validation failed", serviceName))
 }
 
+func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		"$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue",
+		"if ($dotnetCmd) {",
+		"  throw \".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD\"",
+		"}",
+		"Write-Host \".NET is not installed\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		".NET should not be installed on the Windows node")
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{
