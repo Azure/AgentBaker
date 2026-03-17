@@ -192,7 +192,8 @@ func Test_ACL(t *testing.T) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurecontainerlinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 			},
 		},
@@ -217,7 +218,8 @@ func Test_ACL_ARM64(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurecontainerlinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 			},
 		},

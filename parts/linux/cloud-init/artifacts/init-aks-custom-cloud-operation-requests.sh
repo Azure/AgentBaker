@@ -13,7 +13,7 @@ if [[ -f /etc/os-release ]]; then
         IS_UBUNTU=1
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
-    elif [[ $ID == "azurecontainerlinux" ]]; then
+    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
         IS_ACL=1
     else
         echo "Unknown Linux distribution"
