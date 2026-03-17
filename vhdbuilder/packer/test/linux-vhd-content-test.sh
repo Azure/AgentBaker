@@ -7,7 +7,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
-ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -209,7 +209,8 @@ testPackagesInstalled() {
       OS=$AZURELINUX_OS_NAME
       OS_VARIANT=OSGUARD
     elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
-      OS=$ACL_OS_NAME
+      OS=$AZURELINUX_OS_NAME
+      OS_VARIANT=$ACL_OS_VARIANT
     else
       OS=${OS_SKU^^}
     fi
@@ -957,7 +958,7 @@ testPkgDownloaded() {
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
-    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "${OS_VARIANT:-}"; then
       seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
       if [ -z "${seFile}" ]; then
         err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"

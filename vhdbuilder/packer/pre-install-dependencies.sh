@@ -1,6 +1,7 @@
 #!/bin/bash
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -24,7 +25,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
-if isMarinerOrAzureLinux "$OS" || isACL "$OS"; then
+if isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -44,7 +45,7 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
-if ! isFlatcar "$OS" && ! isACL "$OS" ; then
+if ! isFlatcar "$OS" && ! isACL "$OS" "$OS_VARIANT" ; then
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi
 
@@ -60,7 +61,7 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
-if isFlatcar "$OS" || isACL "$OS"; then
+if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}

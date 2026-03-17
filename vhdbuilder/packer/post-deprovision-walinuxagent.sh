@@ -55,8 +55,9 @@ trap cleanup EXIT
 
 # Skip on AzureLinux OSGuard which uses its OS-packaged waagent version.
 # Flatcar and ACL are excluded at the packer config level (their JSONs do not call this).
+# The VARIANT_ID check for ACL is purely defensive.
 OS_VARIANT_ID=$(. /etc/os-release 2>/dev/null && echo "${VARIANT_ID:-}" | tr '[:lower:]' '[:upper:]' | tr -d '"')
-if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
+if [ "$OS_VARIANT_ID" != "OSGUARD" ] && [ "$OS_VARIANT_ID" != "AZURECONTAINERLINUX" ]; then
 
     # Configuration
     WIRESERVER_IP="168.63.129.16"
@@ -125,5 +126,5 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ]; then
     echo "  - WALinuxAgent version ${WALINUXAGENT_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 else
-    echo "Skipping WALinuxAgent manifest install on AzureLinux OSGuard"
+    echo "Skipping WALinuxAgent manifest install (VARIANT_ID=${OS_VARIANT_ID:-unset})"
 fi
