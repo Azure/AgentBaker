@@ -777,7 +777,11 @@ should_enable_managed_gpu_experience() {
 isMarinerOrAzureLinux() {
     local os=${1-$OS}
     local os_variant=${2-$OS_VARIANT}
+<<<<<<< HEAD
     # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+=======
+    # ACL has ID=azurelinux but is Flatcar-based and does not neccessarily match AzureLinux code paths
+>>>>>>> f416f90126 (feat: support new ACL os-release (ID=azurelinux, VARIANT_ID=azurecontainerlinux))
     if isACL "$os" "$os_variant"; then
         return 1
     fi
@@ -807,7 +811,7 @@ isMariner() {
 isAzureLinux() {
     local os=${1-$OS}
     local os_variant=${2-$OS_VARIANT}
-    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    # ACL has ID=azurelinux but is Flatcar-based and does not neccessarily match AzureLinux code paths
     if isACL "$os" "$os_variant"; then
         return 1
     fi
