@@ -223,6 +223,7 @@ $global:WindowsCiliumInstallPath = Join-Path -Path $global:WindowsCiliumNetworki
 # Network isolated cluster
 $global:BootstrapProfileContainerRegistryServer="{{GetBootstrapProfileContainerRegistryServer}}"
 $global:MCRRepositoryBase="{{GetMCRRepositoryBase}}"
+$global:NetworkIsolatedClusterTestMode = [System.Convert]::ToBoolean("{{GetNetworkIsolatedClusterTestMode}}"); # for ab e2e only for local ab test with remote cse package
 
 $global:OrasCacheDir="c:\aks-tools\oras\" # refer to components.json
 $global:OrasPath="c:\aks-tools\oras\oras.exe"
@@ -245,49 +246,61 @@ try {
 
 $global:OperationId = New-Guid
 
-if (
-    -not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1") -and
-    ([string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) # skip download for network isolated cluster which will use cached scripts
-) {
-    # Determine the CSE package URL
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
+if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
-    # From 2025-06 The CSE packages is eleased on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
+    # From 2025-06 The CSE packages is released on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
     # In the transition period, it is important that when deal with older VHD versions, the agentbaker runtime provision script needs to be compatible with the latest known storage account package, 0.0.52.
-    Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
-    if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
-        $search = @()
-        if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
-            $search = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
-            # list files in the cache directory.
-            Write-Log "the directory $global:CacheDir contains the following files:"
-            Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
-        }
 
-        if ($search.Count -eq 0) {
-            Write-Log "Could not find windows cse package on VHD. Use remote version instead."
-            $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-current.zip"
+    $scriptsZip = $null
+    $shouldCleanup = $false
+
+    # Step 1: Try to find cached scripts on VHD
+    if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+        $searchCachedScripts = [IO.Directory]::GetFiles($global:CacheDir, $WindowsCSEScriptsPackage, [IO.SearchOption]::AllDirectories)
+        Write-Log "the directory $global:CacheDir contains the following files:"
+        Get-ChildItem -Path $global:CacheDir | ForEach-Object { Write-Log "  $_" }
+        if ($searchCachedScripts.Count -gt 0) {
+            $scriptsZip = $searchCachedScripts[0]
+            Write-Log "Found cached CSE scripts at $scriptsZip"
         }
-        Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
-        $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
     }
-    Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
 
-    # Download CSE function scripts
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
-    $tempfile = 'c:\csescripts.zip'
-    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    AKS-Expand-Archive -Path $tempfile -DestinationPath "C:\\AzureData\\windows"
-    Remove-Item -Path $tempfile -Force
+    # Step 2: For non-network-isolated clusters, download scripts if needed (overrides cached version when appropriate)
+    $isNetworkIsolated = -not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer) -and -not $global:NetworkIsolatedClusterTestMode
+    if (-not $isNetworkIsolated) {
+        Write-Log "Requested CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
+        if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
+            if (-not $scriptsZip) {
+                Write-Log "Could not find windows cse package on VHD. Use remote version instead."
+                $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.52.zip"
+            }
+            Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
+            $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
+        }
+        Write-Log "CSEScriptsPackageUrl used for provision is $global:CSEScriptsPackageUrl"
+
+        # Download CSE function scripts
+        $downloadedFile = 'c:\csescripts.zip'
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
+        DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $downloadedFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
+        $scriptsZip = $downloadedFile
+        $shouldCleanup = $true
+    } else {
+        Write-Log "Network isolated cluster detected (BootstrapProfileContainerRegistryServer is set), skip CSE scripts download and use cached scripts"
+        if (-not $scriptsZip) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED -ErrorMessage "Cached CSE scripts package '$WindowsCSEScriptsPackage' not found under cache directory '$global:CacheDir'"
+        }
+    }
+
+    # Step 3: Extract scripts from the resolved zip
+    Write-Log "Extracting CSE scripts from $scriptsZip"
+    AKS-Expand-Archive -Path $scriptsZip -DestinationPath "C:\\AzureData\\windows"
+    if ($shouldCleanup) {
+        Remove-Item -Path $scriptsZip -Force
+    }
 } else {
-    Write-Log "CSE scripts already exist or detect network isolated cluster, skipping download"
-}
-
-# always use the cached scripts for network isolated cluster
-if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1") -and
-    (-not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer))) {
-    Write-Log "BootstrapProfileContainerRegistryServer is set, skip CSE scripts download"
-    Install-CachedScripts -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ISOLATED_CLUSTER_CSE_NOT_CACHED
+    Write-Log "CSE scripts already exist, skipping download"
 }
 
 # Dot-source cse scripts with functions that are called in this script
