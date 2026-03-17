@@ -729,11 +729,13 @@ func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
 	command := []string{
 		"$ErrorActionPreference = \"Continue\"",
 		"$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue",
-		"if ($dotnetCmd) { $result = & dotnet --list-runtimes 2>&1; if ($LASTEXITCODE -eq 0 -and $result) { throw \".NET runtime is installed but should not be: $result\" } }",
-		"Write-Host \".NET runtime is not installed\"",
+		"if ($dotnetCmd) {",
+		"  throw \".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD\"",
+		"}",
+		"Write-Host \".NET is not installed\"",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		".NET runtime should not be installed on the Windows node")
+		".NET should not be installed on the Windows node")
 }
 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
