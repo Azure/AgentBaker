@@ -380,6 +380,7 @@ Describe "Get-BootstrapRegistryDomainName" {
     $global:BootstrapProfileContainerRegistryServer = "mybootstrap.azurecr.io/repo/path"
 
     Get-BootstrapRegistryDomainName | Should -Be "mybootstrap.azurecr.io"
+  }
 }
 
 Describe "DownloadFileWithOras" {
