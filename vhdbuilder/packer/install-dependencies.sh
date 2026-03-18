@@ -547,14 +547,12 @@ installAndConfigureArtifactStreaming() {
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming enabled for all supported Ubuntu versions including 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-# Artifact Streaming enabled for Azure Linux 2.0 and 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+# Artifact Streaming enabled for Azure Linux 3.0
+if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ]; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
