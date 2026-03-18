@@ -775,6 +775,11 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				// Validate the if IB NPD is reporting the flapping condition
 				ValidateNPDIBLinkFlappingCondition(ctx, s)
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
+
+				// Validate GPU ECC health checks
+				ValidateNPDGPUECCPlugin(ctx, s)
+				ValidateNPDGPUECCCondition(ctx, s)
+				ValidateNPDGPUECCConditionAfterFailure(ctx, s)
 			},
 		}}
 }
