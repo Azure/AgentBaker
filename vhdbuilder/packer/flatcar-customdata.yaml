@@ -58,6 +58,10 @@ storage:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin
     hard: false
+  - path: /etc/extensions/aks-sysext/usr/local/share/ca-certificates
+    target: /etc/ssl/certs
+    hard: false
+
 systemd:
   units:
   - name: update-ca-certificates.service
