@@ -285,10 +285,9 @@ copyPackerFiles() {
     FMT_SVC_SRC=/home/packer/format-mount-nvme-root.service
     FMT_SVC_DEST=/etc/systemd/system/format-mount-nvme-root.service
     cpAndMode $FMT_SVC_SRC $FMT_SVC_DEST 600
-    #NVME_SETUP_CFG_SRC=/home/packer/gb-nvme-setup.cfg
-    #NVME_SETUP_CFG_DEST=/etc/cloud/cloud.cfg.d/gb-nvme-setup.cfg
-    #cpAndMode $NVME_SETUP_CFG_SRC $NVME_SETUP_CFG_DEST 0644
-
+    FMT_SVC_SRC=/home/packer/format-mount-kubelet.conf
+    FMT_SVC_DEST=/etc/systemd/system/kubelet.service.d/11-fmtmount.conf
+    cpAndMode $FMT_SVC_SRC $FMT_SVC_DEST 600
   fi
 
   NOTICE_SRC=/home/packer/NOTICE.txt

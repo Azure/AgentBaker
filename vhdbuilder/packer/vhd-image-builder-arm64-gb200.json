@@ -110,18 +110,18 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/format-mount-nvme-root.sh",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/format-mount-nvme-root.sh",
       "destination": "/home/packer/format-mount-nvme-root.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/format-mount-nvme-root.service",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/format-mount-nvme-root.service",
       "destination": "/home/packer/format-mount-nvme-root.service"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb-nvme-setup.cfg",
-      "destination": "/home/packer/gb-nvme-setup.cfg"
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/format-mount-kubelet.conf",
+      "destination": "/home/packer/format-mount-kubelet.conf"
     },
     {
       "type": "file",
