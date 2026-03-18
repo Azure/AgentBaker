@@ -1,7 +1,7 @@
 CIS Ubuntu Linux 24.04 LTS Benchmark
-Evaluation of: vhd-scanning-vm-1758731237-17721
-Ended: 2025-09-24T16:40:34.909Z
-Assessment Duration: 3 minutes, 52 seconds
+Evaluation of: vhd-scanning-vm-1761580670-20737
+Ended: 2025-10-27T16:11:54.143Z
+Assessment Duration: 4 minutes, 12 seconds
 
 pass: 1.1.1.1 Ensure cramfs kernel module is not available
 pass: 1.1.1.2 Ensure freevxfs kernel module is not available
@@ -36,7 +36,7 @@ manual: 1.2.1.2 Ensure package manager repositories are configured
 manual: 1.2.2.1 Ensure updates, patches, and additional security software are installed
 pass: 1.3.1.1 Ensure AppArmor is installed
 pass: 1.3.1.2 Ensure AppArmor is enabled in the bootloader configuration
-fail: 1.3.1.3 Ensure all AppArmor Profiles are in enforce or complain mode
+pass: 1.3.1.3 Ensure all AppArmor Profiles are in enforce or complain mode
 pass: 1.4.1 Ensure bootloader password is set
 pass: 1.4.2 Ensure access to bootloader config is configured
 pass: 1.5.1 Ensure address space layout randomization is enabled
@@ -255,11 +255,11 @@ pass: 7.2.8 Ensure no duplicate group names exist
 pass: 7.2.9 Ensure local interactive user home directories are configured
 pass: 7.2.10 Ensure local interactive user dot files access is configured
 ********** Total **********
-Pass: 207
-Fail: 25
+Pass: 208
+Fail: 24
 Error: 0
 Unknown: 0
 Not Selected: 80
-Actual Pass: 207.0
+Actual Pass: 208.0
 Maximum Possible: 232.0
-Score: 89%
+Score: 90%
