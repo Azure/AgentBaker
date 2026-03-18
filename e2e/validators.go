@@ -2065,9 +2065,8 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 
 	// 3. Check for ExtHandler errors
 	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
-	// FIPS crypto restrictions prevent PFX certificate conversion. This is benign —
-	// the node provisions correctly since the CSE uses settings instead of protectedSettings.
-	// Filter this known error at the grep level for these VHDs.
+	// of a known bug with VMSS that fails to propagate the FIPS additionalCapabilities.
+	// Until the VMSS bug is fixed, skip the "Cannot convert PFX to PEM" errors.
 	isUbuntu2204FIPS := s.VHD == config.VHDUbuntu2204FIPSContainerd ||
 		s.VHD == config.VHDUbuntu2204Gen2FIPSContainerd ||
 		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
