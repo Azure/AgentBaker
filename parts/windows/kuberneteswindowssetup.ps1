@@ -475,7 +475,9 @@ function BasePrep {
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
-    Register-CACertificatesRefreshTask -Location $Location
+    # Compute cert endpoint mode from location for use in scheduled refresh task
+    $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+    Register-CACertificatesRefreshTask -Location $Location -CertEndpointMode $certEndpointMode
 
     Update-DefenderPreferences
 
