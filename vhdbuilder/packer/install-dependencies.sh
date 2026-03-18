@@ -524,8 +524,11 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.3.0'
-  MIRROR_DOWNLOAD_PATH="./$1.$2"
+  if [ "$(isARM64)" -eq 1 ]; then
+    PACKAGE_NAME="${PACKAGE_NAME}-arm64"
+  fi
+  MIRROR_PROXY_VERSION='0.3.1'
+  MIRROR_DOWNLOAD_PATH="./${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
   if [ "$2" = "deb" ]; then
