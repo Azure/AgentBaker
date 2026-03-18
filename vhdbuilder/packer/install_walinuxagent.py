@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Install WALinuxAgent from the Azure wireserver GAFamily manifest.
+"""Install WALinuxAgent from the Azure wireserver manifest.
 
-Queries the wireserver to discover the target GAFamily version of WALinuxAgent,
-downloads the matching zip from the manifest, and installs it under
+Queries the wireserver to discover the manifest URL for WALinuxAgent,
+then downloads the zip for the *specified* version and installs it under
 /var/lib/waagent/WALinuxAgent-<version>/.
 
-This lets the waagent daemon pick up the correct version locally without
-downloading from the network at provisioning time.
+The target version is passed explicitly (from components.json) rather than
+being discovered from the GAFamily block in the extensions config.
 
 Usage:
-    python3 install_walinuxagent.py <download_dir> <wireserver_url>
+    python3 install_walinuxagent.py <download_dir> <wireserver_url> <version>
 
 Arguments:
     download_dir   Directory to store the downloaded zip for provenance tracking.
     wireserver_url Base URL of the Azure wireserver (e.g. http://168.63.129.16:80).
+    version        Target WALinuxAgent version (e.g. 2.15.0.1) from components.json.
 
 Exit codes:
     0  Success
@@ -34,7 +35,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
 from html import unescape as html_unescape
-from typing import Optional, Tuple
+from typing import Optional
 
 # Retry configuration for wireserver requests
 MAX_RETRIES = 10
@@ -137,21 +138,12 @@ def extract_extensions_config_url(goalstate_xml: str) -> str:
     return url
 
 
-def extract_ga_family_info(extensions_config_xml: str) -> Tuple[str, str]:
-    """Extract the GAFamily version and first manifest URI from extensions config.
+def extract_ga_family_manifest_uri(extensions_config_xml: str) -> str:
+    """Extract the GAFamily manifest URI from extensions config.
 
     Returns:
-        A tuple of (version, manifest_uri).
+        The manifest URI string.
     """
-    # Use regex with DOTALL since the GAFamily block spans multiple lines
-    version_match = re.search(
-        r"<GAFamily>.*?<Version>([^<]+)</Version>",
-        extensions_config_xml,
-        re.DOTALL,
-    )
-    if not version_match:
-        raise RuntimeError("No GAFamily version found in extensions config")
-
     uri_match = re.search(
         r"<GAFamily>.*?<Uri>([^<]+)</Uri>",
         extensions_config_xml,
@@ -160,9 +152,7 @@ def extract_ga_family_info(extensions_config_xml: str) -> Tuple[str, str]:
     if not uri_match:
         raise RuntimeError("No GAFamily manifest URI found in extensions config")
 
-    version = version_match.group(1).strip()
-    manifest_uri = html_unescape(uri_match.group(1).strip())
-    return version, manifest_uri
+    return html_unescape(uri_match.group(1).strip())
 
 
 def find_zip_url_in_manifest(manifest_xml: str, target_version: str) -> str:
@@ -179,20 +169,24 @@ def find_zip_url_in_manifest(manifest_xml: str, target_version: str) -> str:
     raise RuntimeError(f"Version {target_version} not found in WALinuxAgent manifest")
 
 
-def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
+def install_walinuxagent(download_dir: str, wireserver_url: str, version: str) -> None:
     """Main installation logic.
 
     1. Fetch goalstate from wireserver
     2. Extract ExtensionsConfig URL from goalstate
     3. Fetch extensions config
-    4. Extract GAFamily version and manifest URI
+    4. Extract GAFamily manifest URI (version comes from components.json)
     5. Fetch the manifest
     6. Find the zip URL for the target version
     7. Download the zip
     8. Extract to /var/lib/waagent/WALinuxAgent-<version>/
     9. Copy zip to download_dir for provenance tracking
     """
-    print("Installing WALinuxAgent from wireserver GAFamily manifest...")
+    # Validate version is a safe string (e.g. "2.15.0.1") before using in paths.
+    if not re.match(r"^[0-9]+(\.[0-9]+)*$", version):
+        raise RuntimeError(f"Version contains unexpected characters: {version!r}")
+
+    print(f"Installing WALinuxAgent {version} from wireserver manifest...")
 
     # Step 1: Fetch goalstate
     goalstate_url = f"{wireserver_url}/machine/?comp=goalstate"
@@ -206,14 +200,10 @@ def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
     print("Fetching extensions config...")
     extensions_config = fetch_url(extensions_config_url, headers=WIRESERVER_HEADERS, silent=True)
 
-    # Step 4: Extract GAFamily version and manifest URI
-    version, manifest_url = extract_ga_family_info(extensions_config)
-    # Validate version is a safe string (e.g. "2.9.1.1") before using in paths.
-    # WALinuxAgent versions are dot-separated digits only.
-    if not re.match(r"^[0-9]+(\.[0-9]+)*$", version):
-        raise RuntimeError(f"GAFamily version contains unexpected characters: {version!r}")
+    # Step 4: Extract manifest URI from GAFamily block
+    manifest_url = extract_ga_family_manifest_uri(extensions_config)
 
-    print(f"GAFamily version: {version}")
+    print(f"Target version (from components.json): {version}")
 
     # Step 5: Fetch the manifest (silent to avoid logging SAS token)
     print(f"Fetching manifest from {strip_sas_token(manifest_url)}")
@@ -257,15 +247,16 @@ def install_walinuxagent(download_dir: str, wireserver_url: str) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <download_dir> <wireserver_url>", file=sys.stderr)
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} <download_dir> <wireserver_url> <version>", file=sys.stderr)
         return 1
 
     download_dir = sys.argv[1]
     wireserver_url = sys.argv[2]
+    version = sys.argv[3]
 
     try:
-        install_walinuxagent(download_dir, wireserver_url)
+        install_walinuxagent(download_dir, wireserver_url, version)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

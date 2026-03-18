@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Masterminds/semver"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -65,6 +66,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -106,6 +108,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 			},
 		},
@@ -273,6 +276,7 @@ func Test_Windows2025(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -295,6 +299,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -323,6 +328,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -347,6 +353,7 @@ func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testin
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -374,6 +381,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -397,6 +405,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -464,6 +473,7 @@ func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 				ValidateFileHasContent(ctx, s,
 					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
 					`https://mcr.azk8s.cn`)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -489,6 +499,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
 				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
 				ValidateFileHasContent(ctx, s,
@@ -513,17 +524,35 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDWindows2025Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, nbc)
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.KubeletConfig["--image-credential-provider-config"] = "c:\\k\\credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+				orchestratorVersion, _ := semver.NewVersion(nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				if orchestratorVersion.LessThan(semver.MustParse("1.32.0")) {
+					nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf(
+						"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz",
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				} else {
+					nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf(
+						"https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/%s/windows/amd64/azure-acr-credential-provider_%s-1_amd64.zip",
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Verify mcr.microsoft.com host config exist
 				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml`)
 				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
