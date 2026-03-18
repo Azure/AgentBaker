@@ -384,6 +384,10 @@ func Test_ACL_GPUA100(t *testing.T) {
 	runScenarioACLGPU(t, "Standard_NC24ads_A100_v4")
 }
 
+func Test_ACL_GPUA100(t *testing.T) {
+	runScenarioACLGPU(t, "Standard_NC24ads_A100_v4")
+}
+
 func Test_ACL_GPUA10(t *testing.T) {
 	runScenarioACLGRID(t, "Standard_NV6ads_A10_v5")
 }

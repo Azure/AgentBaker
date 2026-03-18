@@ -21,29 +21,18 @@ downloadSysextFromVersion() {
 
 matchLocalSysext() {
     local seName=$1 desiredVer=$2 seArch=$3
-<<<<<<< HEAD
     local downloadDir="/opt/${seName}/downloads"
     # Try arch-specific versioned filename first (kubelet-style: name-vVER.X-arch.raw)
     local match
     match=$(find "${downloadDir}" -maxdepth 2 -name "${seName}-v${desiredVer}*-${seArch}.raw" -type f 2>/dev/null | sort -V | tail -n1)
-=======
-    # Try arch-specific versioned filename first (kubelet-style: name-vVER.X-arch.raw)
-    local match
-    match=$(printf "%s\n" "/opt/${seName}/downloads/${seName}-v${desiredVer}"[.~-]*"-${seArch}.raw" | sort -V | tail -n1)
->>>>>>> 5fac68b53c (feat: onboard ACL GPU provisioning support)
     if [ -f "${match}" ]; then
         echo "${match}"
         return
     fi
-<<<<<<< HEAD
     # Fallback: GPU sysexts are downloaded as simple name.raw (e.g. nvidia-driver-vgpu.raw).
     # MCR artifacts may place files in an arch subdirectory (e.g. amd64/name.raw),
     # so search up to 2 levels deep.
     match=$(find "${downloadDir}" -maxdepth 2 -name "${seName}.raw" -type f 2>/dev/null | head -n1)
-=======
-    # Fallback: GPU sysexts are downloaded as simple name.raw (e.g. nvidia-driver-vgpu.raw)
-    match=$(find "/opt/${seName}/downloads" -maxdepth 1 -name "${seName}.raw" -type f 2>/dev/null | head -n1)
->>>>>>> 5fac68b53c (feat: onboard ACL GPU provisioning support)
     echo "${match}"
 }
 
