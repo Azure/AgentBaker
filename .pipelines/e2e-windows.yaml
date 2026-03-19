@@ -5,8 +5,24 @@ variables:
   # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
   SIG_FOR_PRODUCTION: False
 
-trigger: none
-pr: none
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
+pr:
+  branches:
+    include:
+      - official/*
+      - windows/*
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
 
 jobs:
   - template: ./templates/e2e-template.yaml
