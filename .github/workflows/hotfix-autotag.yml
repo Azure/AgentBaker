@@ -1,0 +1,56 @@
+name: Hotfix Auto-Tag
+
+# Automatically creates a hotfix tag when a PR is merged to an official/* branch.
+# Example: if branch is official/v20260219 and latest tag is v0.20260219.0,
+# creates v0.20260219.1.
+on:
+  push:
+    branches:
+      - 'official/**'
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse version and create tag
+        run: |
+          # Extract date from branch name: official/v20260219 → 20260219
+          BRANCH="${GITHUB_REF_NAME}"
+          DATE=$(echo "${BRANCH}" | sed -n 's|official/v\([0-9]*\)|\1|p')
+
+          if [[ -z "${DATE}" ]]; then
+            echo "ERROR: Could not parse date from branch ${BRANCH}"
+            exit 1
+          fi
+
+          echo "Branch: ${BRANCH}"
+          echo "Date: ${DATE}"
+
+          # Find latest tag matching v0.${DATE}.*
+          LATEST_TAG=$(git tag -l "v0.${DATE}.*" --sort=-v:refname | head -1)
+
+          if [[ -z "${LATEST_TAG}" ]]; then
+            # No existing tag — create .1 (assuming .0 was the original release)
+            NEW_TAG="v0.${DATE}.1"
+          else
+            # Increment PATCH: v0.20260219.0 → v0.20260219.1
+            PATCH=$(echo "${LATEST_TAG}" | grep -oP '\.\K[0-9]+$')
+            NEW_PATCH=$((PATCH + 1))
+            NEW_TAG="v0.${DATE}.${NEW_PATCH}"
+          fi
+
+          echo "Latest tag: ${LATEST_TAG:-none}"
+          echo "New tag: ${NEW_TAG}"
+
+          git tag "${NEW_TAG}"
+          git push origin "${NEW_TAG}"
+
+          echo "✅ Created and pushed tag ${NEW_TAG}"

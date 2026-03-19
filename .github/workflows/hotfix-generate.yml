@@ -1,0 +1,68 @@
+name: Hotfix Template Update
+# This workflow is for temporary use and will deprecate once we move to the
+# final stage of scriptless, as hotfixes will be applied directly to the
+# aks-node-controller instead of nodecustomdata.yml template.
+
+# Triggers:
+# 1. Automatically when a PR targets an official/* release branch
+# 2. Manually when a "hotfix" label is added to any PR
+on:
+  pull_request:
+    branches:
+      - 'official/**'
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  hotfix-generate:
+    # Run if: PR targets official/* branch, OR "hotfix" label was just added
+    if: >-
+      (github.event_name == 'pull_request' && startsWith(github.base_ref, 'official/')) ||
+      (github.event_name == 'pull_request_target' && github.event.label.name == 'hotfix')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Detect changed scripts and update template
+        run: |
+          bash hack/hotfix-generate.sh "origin/${{ github.base_ref }}"
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet parts/linux/cloud-init/nodecustomdata.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No template changes needed."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Template updated with hotfix entries."
+          fi
+
+      - name: Run make generate
+        if: steps.check.outputs.changed == 'true'
+        run: make generate
+
+      - name: Commit changes
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add parts/linux/cloud-init/nodecustomdata.yml
+          git add pkg/agent/testdata/
+          git commit -m "chore: auto-generate hotfix template entries
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push
