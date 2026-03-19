@@ -4,6 +4,7 @@ mkdir -p /root/AzureCACertificates
 
 IS_FLATCAR=0
 IS_UBUNTU=0
+IS_ACL=0
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -12,6 +13,8 @@ if [[ -f /etc/os-release ]]; then
         IS_UBUNTU=1
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
+    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
+        IS_ACL=1
     else
         echo "Unknown Linux distribution"
         exit 1

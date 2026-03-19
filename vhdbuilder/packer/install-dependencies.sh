@@ -120,7 +120,7 @@ fi
 # ACL inherits several Azure Linux behaviors that Mariner/AzureLinux handles
 # in its own block below. ACL needs them separately because
 # isMarinerOrAzureLinux returns false for ACL.
-if isACL "$OS"; then
+if isACL "$OS" "$OS_VARIANT"; then
   # ACL inherits Azure Linux's restrictive iptables rules from its base image.
   # Original Flatcar's iptables.service loads empty rules (harmless), but ACL's
   # loads actual host firewall rules that conflict with Cilium eBPF host routing.

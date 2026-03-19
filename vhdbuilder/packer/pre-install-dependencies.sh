@@ -53,7 +53,7 @@ fi
 # ACL (Azure Container Linux) is Flatcar-based but its image is missing azure-vm-utils,
 # and WALinuxAgent skips udev rule installation on Flatcar >= 3550. Install the rules
 # from azure-vm-utils v0.7.0 so /dev/disk/azure/{root,os,resource} symlinks exist for disk_queue.
-if isACL "$OS" && [ ! -e /usr/lib/udev/rules.d/80-azure-disk.rules ] && [ ! -e /etc/udev/rules.d/80-azure-disk.rules ]; then
+if isACL "$OS" "$OS_VARIANT" && [ ! -e /usr/lib/udev/rules.d/80-azure-disk.rules ] && [ ! -e /etc/udev/rules.d/80-azure-disk.rules ]; then
     echo "ACL: Azure disk udev rules not found, installing to /etc/udev/rules.d/80-azure-disk.rules"
     cat > /etc/udev/rules.d/80-azure-disk.rules <<EOF
 ACTION!="add|change", GOTO="azure_disk_end"
@@ -144,7 +144,7 @@ systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 # The Azure Linux 3 logrotate RPM creates /var/lib/logrotate at RPM install time but does
 # not ship a tmpfiles.d drop-in, so the directory is missing at runtime on ACL.
 # Upstream Flatcar includes usr/lib/tmpfiles.d/logrotate.conf for this; ACL does not.
-if isACL "$OS"; then
+if isACL "$OS" "$OS_VARIANT"; then
     mkdir -p /var/lib/logrotate
 fi
 systemctlEnableAndStart logrotate.timer 30 || exit 1
