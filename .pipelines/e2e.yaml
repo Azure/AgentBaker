@@ -2,6 +2,13 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
+schedules:
+  - cron: "0 8 * * *"
+    displayName: Daily midnight PST
+    branches:
+      include:
+        - main
+    always: true
 trigger:
   branches:
     include:
