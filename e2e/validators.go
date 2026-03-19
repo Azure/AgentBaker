@@ -2064,10 +2064,21 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
 
 	// 3. Check for ExtHandler errors
+	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
+	// of a known bug with VMSS that fails to propagate the FIPS additionalCapabilities.
+	// Until the VMSS bug is fixed, skip the "Cannot convert PFX to PEM" errors.
+	// TODO: Remove the conditional exclusion once the underlying VMSS issue is resolved.
+	isUbuntu2204FIPS := s.VHD == config.VHDUbuntu2204FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
+	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
+	if isUbuntu2204FIPS {
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+	}
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{
 			"set -e",
-			fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile),
+			grepCmd,
 		}, "\n"), 0,
 		"failed to scan waagent log for ExtHandler errors")
 
