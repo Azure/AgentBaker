@@ -18,7 +18,7 @@ Describe 'init-aks-custom-cloud.sh refresh mode wiring'
         When run grep -Eq '^location_normalized="\$\{refresh_location,,\}"$' "$script_path"
         The status should eq 0
 
-        When run grep -Eq 'ussec\*\|usnat\*\) cert_endpoint_mode="legacy"' "$script_path"
+        When run grep -Eq 'ussec\*|usnat\*\) cert_endpoint_mode="legacy"' "$script_path"
         The status should eq 0
     End
 
@@ -26,10 +26,10 @@ Describe 'init-aks-custom-cloud.sh refresh mode wiring'
         When run grep -Eq '^install_ca_refresh_schedule=0$' "$script_path"
         The status should eq 0
 
-        When run grep -Eq '^\s*install_ca_refresh_schedule=1$' "$script_path"
+        When run grep -Eq '^[[:space:]]*install_ca_refresh_schedule=1$' "$script_path"
         The status should eq 0
 
-        When run grep -Eq '^\s*if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
+        When run grep -Eq '^[[:space:]]*if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
         The status should eq 0
     End
 
@@ -37,12 +37,12 @@ Describe 'init-aks-custom-cloud.sh refresh mode wiring'
         When run grep -Eq '^if \[ "\$action" = "ca-refresh" \]; then$' "$script_path"
         The status should eq 0
 
-        When run grep -Eq '^\s*exit$' "$script_path"
+        When run grep -Eq '^[[:space:]]*exit$' "$script_path"
         The status should eq 0
     End
 
     It 'passes LOCATION directly into cron refresh command'
-        When run grep -Eq 'ca-refresh \\\\"\$LOCATION\\\\"' "$script_path"
+        When run grep -Eq 'ca-refresh \\"\$LOCATION\\"' "$script_path"
         The status should eq 0
     End
 
