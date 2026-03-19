@@ -72,9 +72,7 @@ function Register-NodeResetScriptTask {
 function Register-CACertificatesRefreshTask {
     Param(
         [Parameter(Mandatory = $true)][string]
-        $Location,
-        [Parameter(Mandatory = $true)][string]
-        $CertEndpointMode
+        $Location
     )
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterCACertificatesRefreshTask" -TaskMessage "Start to register CA certificates refresh task"
@@ -86,7 +84,7 @@ function Register-CACertificatesRefreshTask {
         return
     }
 
-    $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$Location' -CertEndpointMode '$CertEndpointMode' | Out-Null }"
+    $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$Location' | Out-Null }"
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"$refreshCommand`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     $trigger = New-JobTrigger -Daily -At "19:00" -DaysInterval 1
@@ -262,18 +260,17 @@ function Get-CustomCloudCertEndpointModeFromLocation {
 function Get-CACertificates {
     Param(
         [Parameter(Mandatory = $true)][string]
-        $Location,
-        [Parameter(Mandatory = $true)][string]
-        $CertEndpointMode
+        $Location
     )
 
     $caFolder = "C:\ca"
     Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
 
-    Write-Log "Get CA certificates. Location: $Location. EndpointMode: $CertEndpointMode"
+    $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+    Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
 
     try {
-        if ($CertEndpointMode -eq "legacy") {
+        if ($certEndpointMode -eq "legacy") {
             $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
             $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
             $caCerts = ($rawData.Content) | ConvertFrom-Json
