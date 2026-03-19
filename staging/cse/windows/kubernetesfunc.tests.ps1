@@ -89,19 +89,19 @@ Describe 'Register-CACertificatesRefreshTask' {
     It 'skips registration when the task already exists' {
         Mock Get-ScheduledTask -MockWith { return @{ TaskName = 'aks-ca-certs-refresh-task' } }
 
-        Register-CACertificatesRefreshTask -Location 'southcentralus' -CertEndpointMode 'rcv1p'
+        Register-CACertificatesRefreshTask -Location 'southcentralus'
 
         Assert-MockCalled -CommandName Register-ScheduledTask -Exactly -Times 0
         Assert-MockCalled -CommandName New-ScheduledTaskAction -Exactly -Times 0
     }
 
-    It 'creates a scheduled task that passes the explicit cert endpoint mode' {
+    It 'creates a scheduled task that passes location for cert endpoint mode derivation' {
         Mock Get-ScheduledTask -MockWith { return $null }
 
-        Register-CACertificatesRefreshTask -Location 'southcentralus' -CertEndpointMode 'rcv1p'
+        Register-CACertificatesRefreshTask -Location 'southcentralus'
 
         Assert-MockCalled -CommandName Register-ScheduledTask -Exactly -Times 1
-        $script:lastScheduledTaskArgument | Should Match ([regex]::Escape("Get-CACertificates -Location 'southcentralus' -CertEndpointMode 'rcv1p'"))
+        $script:lastScheduledTaskArgument | Should Match ([regex]::Escape("Get-CACertificates -Location 'southcentralus'"))
     }
 }
 
@@ -120,7 +120,7 @@ Describe 'Get-CACertificates' {
         }
     }
 
-    It 'uses the legacy endpoint when CertEndpointMode is legacy regardless of location' {
+    It 'uses the legacy endpoint when location is a ussec/usnat region' {
         Mock Retry-Command -MockWith {
             param($Command, $Args, $Retries, $RetryDelaySeconds)
             return [PSCustomObject]@{
@@ -128,7 +128,7 @@ Describe 'Get-CACertificates' {
             }
         }
 
-        $result = Get-CACertificates -Location 'southcentralus' -CertEndpointMode 'legacy'
+        $result = Get-CACertificates -Location 'ussecwest'
 
         $result | Should Be $true
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json' }
@@ -140,7 +140,7 @@ Describe 'Get-CACertificates' {
             throw 'simulated retrieval failure'
         }
 
-        $result = Get-CACertificates -Location 'ussecwest' -CertEndpointMode 'rcv1p'
+        $result = Get-CACertificates -Location 'southcentralus'
 
         $result | Should Be $false
     }
