@@ -5,8 +5,24 @@ variables:
   SKIP_E2E_TESTS: false
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
   E2E_GO_TEST_TIMEOUT: "75m"
-trigger: none
-pr: none
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
+pr:
+  branches:
+    include:
+      - official/*
+      - windows/*
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
