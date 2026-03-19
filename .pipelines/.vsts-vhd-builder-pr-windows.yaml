@@ -42,6 +42,7 @@ pr:
       - /**/*.md
       - .github/**
       - e2e/scenario_test.go
+      - .pipelines/scripts/verify_shell.sh
 
 pool:
   name: $(POOL_NAME)
