@@ -475,7 +475,9 @@ function BasePrep {
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
-    Register-CACertificatesRefreshTask -Location $Location
+    if (Should-InstallCACertificatesRefreshTask -Location $Location) {
+        Register-CACertificatesRefreshTask -Location $Location
+    }
 
     Update-DefenderPreferences
 

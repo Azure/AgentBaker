@@ -105,6 +105,42 @@ Describe 'Register-CACertificatesRefreshTask' {
     }
 }
 
+Describe 'Should-InstallCACertificatesRefreshTask' {
+    BeforeEach {
+        Mock Write-Log
+    }
+
+    It 'returns true for legacy regions without calling the opt-in endpoint' {
+        Mock Retry-Command
+
+        $result = Should-InstallCACertificatesRefreshTask -Location 'ussecwest'
+
+        $result | Should Be $true
+        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 0
+    }
+
+    It 'returns true for rcv1p regions when opt-in is enabled' {
+        Mock Retry-Command -MockWith {
+            return [PSCustomObject]@{ Content = 'IsOptedInForRootCerts=true' }
+        }
+
+        $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
+
+        $result | Should Be $true
+        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts' }
+    }
+
+    It 'returns false for rcv1p regions when opt-in is disabled' {
+        Mock Retry-Command -MockWith {
+            return [PSCustomObject]@{ Content = 'IsOptedInForRootCerts=false' }
+        }
+
+        $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
+
+        $result | Should Be $false
+    }
+}
+
 Describe 'Get-CACertificates' {
     BeforeEach {
         Mock Write-Log
