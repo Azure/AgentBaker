@@ -74,7 +74,6 @@ Describe 'Register-CACertificatesRefreshTask' {
         $script:lastScheduledTaskArgument = $null
 
         Mock Logs-To-Event
-        Mock Write-Log
         Mock New-ScheduledTaskPrincipal -MockWith { return @{ Kind = 'principal' } }
         Mock New-JobTrigger -MockWith { return @{ Kind = 'trigger' } }
         Mock New-ScheduledTask -MockWith { return @{ Kind = 'definition' } }
@@ -107,7 +106,6 @@ Describe 'Register-CACertificatesRefreshTask' {
 
 Describe 'Should-InstallCACertificatesRefreshTask' {
     BeforeEach {
-        Mock Write-Log
     }
 
     It 'returns true for legacy regions without calling the opt-in endpoint' {
@@ -143,7 +141,6 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
 
 Describe 'Get-CACertificates' {
     BeforeEach {
-        Mock Write-Log
         Mock Create-Directory -MockWith {
             param($FullPath, $DirectoryUsage)
             if (-not (Test-Path $FullPath)) {
