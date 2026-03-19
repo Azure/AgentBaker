@@ -212,8 +212,10 @@ case "$location_normalized" in
 esac
 
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
+install_ca_refresh_schedule=0
 rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
+    install_ca_refresh_schedule=1
     if retrieve_legacy_certs; then
         install_certs_to_trust_store
     else
@@ -221,6 +223,7 @@ if [ "$cert_endpoint_mode" = "legacy" ]; then
     fi
 elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
     if is_opted_in_for_root_certs; then
+        install_ca_refresh_schedule=1
         if retrieve_rcv1p_certs; then
             install_certs_to_trust_store
         else
@@ -458,10 +461,12 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
         scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
     fi
 
-    if ! crontab -l 2>/dev/null | grep -q "\"$scriptPath\" ca-refresh"; then
-        # Quote the script path in the cron entry to avoid issues with spaces or special characters.
-        if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\"") | crontab -; then
-            echo "Failed to install ca-refresh cron job via crontab" >&2
+    if [ "$install_ca_refresh_schedule" -eq 1 ]; then
+        if ! crontab -l 2>/dev/null | grep -q "\"$scriptPath\" ca-refresh"; then
+            # Quote the script path in the cron entry to avoid issues with spaces or special characters.
+            if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\"") | crontab -; then
+                echo "Failed to install ca-refresh cron job via crontab" >&2
+            fi
         fi
     fi
 
@@ -477,11 +482,12 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
     echo "Running apt-get update"
     aptget_update
 elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
-    script_path="$(readlink -f "$0")"
-    svc="/etc/systemd/system/azure-ca-refresh.service"
-    tmr="/etc/systemd/system/azure-ca-refresh.timer"
+    if [ "$install_ca_refresh_schedule" -eq 1 ]; then
+        script_path="$(readlink -f "$0")"
+        svc="/etc/systemd/system/azure-ca-refresh.service"
+        tmr="/etc/systemd/system/azure-ca-refresh.timer"
 
-    cat >"$svc" <<EOF
+        cat >"$svc" <<EOF
 [Unit]
 Description=Refresh Azure Custom Cloud CA certificates
 After=network-online.target
@@ -492,7 +498,7 @@ Type=oneshot
 ExecStart=$script_path ca-refresh $LOCATION
 EOF
 
-    cat >"$tmr" <<EOF
+        cat >"$tmr" <<EOF
 [Unit]
 Description=Daily refresh of Azure Custom Cloud CA certificates
 
@@ -505,8 +511,9 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 EOF
 
-    systemctl daemon-reload
-    systemctl enable --now azure-ca-refresh.timer
+        systemctl daemon-reload
+        systemctl enable --now azure-ca-refresh.timer
+    fi
 fi
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
