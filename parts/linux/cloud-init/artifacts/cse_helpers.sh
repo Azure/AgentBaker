@@ -177,6 +177,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -779,7 +780,12 @@ should_enable_managed_gpu_experience() {
 }
 
 isMarinerOrAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -804,7 +810,12 @@ isMariner() {
 }
 
 isAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -813,7 +824,11 @@ isAzureLinux() {
 
 isFlatcar() {
     local os=${1-$OS}
-    if [ "$os" = "$FLATCAR_OS_NAME" ] || [ "$os" = "$ACL_OS_NAME" ]; then
+    if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+        return 0
+    fi
+    # ACL is Flatcar-based and routes through Flatcar code paths
+    if isACL "$os"; then
         return 0
     fi
     return 1
@@ -821,7 +836,12 @@ isFlatcar() {
 
 isACL() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    # Also match when OS is AZURELINUX with VARIANT_ID=AZURECONTAINERLINUX (new os-release format)
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$ACL_OS_VARIANT" ]; then
         return 0
     fi
     return 1
@@ -887,11 +907,9 @@ updatePackageVersions() {
 
     # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
     # Otherwise get the versions from .downloadURIs.${osLowerCase}
-    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
-        if isACL "${os}"; then
-            osLowerCase="flatcar"
-        fi
+    # ACL is Flatcar-based; use flatcar download entries.
+    if isACL "${os}"; then
+        osLowerCase="flatcar"
     fi
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
         osLowerCase="default"
@@ -961,8 +979,8 @@ updatePackageDownloadURL() {
 
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
     #otherwise get the downloadURL from .downloadURIs.default
-    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" = "null" ] && isACL "${os}"; then
+    # ACL is Flatcar-based; use flatcar download entries.
+    if isACL "${os}"; then
         osLowerCase="flatcar"
     fi
     if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
