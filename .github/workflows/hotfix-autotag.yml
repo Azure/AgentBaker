@@ -4,15 +4,17 @@ name: Hotfix Auto-Tag
 # Example: if branch is official/v20260219 and latest tag is v0.20260219.0,
 # creates v0.20260219.1.
 on:
-  push:
+  pull_request:
     branches:
       - 'official/**'
+    types: [closed]
 
 permissions:
   contents: write
 
 jobs:
   auto-tag:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,8 +24,8 @@ jobs:
 
       - name: Parse version and create tag
         run: |
-          # Extract date from branch name: official/v20260219 → 20260219
-          BRANCH="${GITHUB_REF_NAME}"
+          # Extract date from base branch name: official/v20260219 → 20260219
+          BRANCH="${{ github.event.pull_request.base.ref }}"
           DATE=$(echo "${BRANCH}" | sed -n 's|official/v\([0-9]*\)|\1|p')
 
           if [[ -z "${DATE}" ]]; then
@@ -34,20 +36,37 @@ jobs:
           echo "Branch: ${BRANCH}"
           echo "Date: ${DATE}"
 
+          # Ensure we have the latest tags from the remote
+          git fetch --tags --force origin
+
           # Find latest tag matching v0.${DATE}.*
           LATEST_TAG=$(git tag -l "v0.${DATE}.*" --sort=-v:refname | head -1)
 
           if [[ -z "${LATEST_TAG}" ]]; then
-            # No existing tag — create .1 (assuming .0 was the original release)
-            NEW_TAG="v0.${DATE}.1"
+            # No existing tag — start at patch .1 (assuming .0 was the original release)
+            PATCH=1
           else
             # Increment PATCH: v0.20260219.0 → v0.20260219.1
             PATCH=$(echo "${LATEST_TAG}" | grep -oP '\.\K[0-9]+$')
-            NEW_PATCH=$((PATCH + 1))
-            NEW_TAG="v0.${DATE}.${NEW_PATCH}"
+            PATCH=$((PATCH + 1))
           fi
 
+          NEW_TAG="v0.${DATE}.${PATCH}"
+
           echo "Latest tag: ${LATEST_TAG:-none}"
+          echo "Initial new tag candidate: ${NEW_TAG}"
+
+          # Refresh tags to capture any new tags created by concurrent runs
+          git fetch --tags --force origin
+
+          # If the candidate tag already exists (e.g., due to a concurrent run),
+          # keep incrementing PATCH until we find an unused tag.
+          while git rev-parse -q --verify "refs/tags/${NEW_TAG}" >/dev/null 2>&1; do
+            echo "Tag ${NEW_TAG} already exists, incrementing patch..."
+            PATCH=$((PATCH + 1))
+            NEW_TAG="v0.${DATE}.${PATCH}"
+          done
+
           echo "New tag: ${NEW_TAG}"
 
           git tag "${NEW_TAG}"
