@@ -527,16 +527,16 @@ installAndConfigureArtifactStreaming() {
   if [ "$(isARM64)" -eq 1 ]; then
     PACKAGE_NAME="${PACKAGE_NAME}-arm64"
   fi
-  MIRROR_PROXY_VERSION='0.3.1'
-  MIRROR_DOWNLOAD_PATH="./${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" = "deb" ]; then
-    apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$2" = "rpm" ]; then
-    dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  local MIRROR_PROXY_VERSION='0.3.1'
+  local MIRROR_DOWNLOAD_PATH="./${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  local MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$MIRROR_PROXY_URL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  if [ "$PACKAGE_EXTENSION" = "deb" ]; then
+    apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  elif [ "$PACKAGE_EXTENSION" = "rpm" ]; then
+    dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
-  rm $MIRROR_DOWNLOAD_PATH
+  rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
   /opt/acr/tools/overlaybd/config-user-agent.sh azure
