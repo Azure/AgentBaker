@@ -208,6 +208,21 @@ stages:
         parameters:
           IgnoreScenariosWithMissingVhd: true
 
+  - stage: gpu_e2e
+    dependsOn: build
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      TAGS_TO_RUN: "gpu=true"
+      TAGS_TO_SKIP: "os=windows"
+      SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: "true"
+      E2E_GO_TEST_TIMEOUT: "75m"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          name: Linux GPU Tests
+          IgnoreScenariosWithMissingVhd: true
+
   - stage: scriptless_cse_cmd_e2e
     dependsOn: build
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
