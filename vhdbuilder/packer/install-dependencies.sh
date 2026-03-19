@@ -522,8 +522,8 @@ done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
-  PACKAGE_NAME=$1
-  PACKAGE_EXTENSION=$2
+  local PACKAGE_NAME="$1"
+  local PACKAGE_EXTENSION="$2"
   if [ "$(isARM64)" -eq 1 ]; then
     PACKAGE_NAME="${PACKAGE_NAME}-arm64"
   fi
