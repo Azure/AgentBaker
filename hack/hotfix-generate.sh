@@ -114,7 +114,7 @@ declare -A matched_varkeys=()
 declare -A matched_block_groups=()
 
 while IFS= read -r filepath; do
-    local_path="${filepath#${ARTIFACTS_DIR}/}"
+    local_path="${filepath#"${ARTIFACTS_DIR}"/}"
     if [[ -n "${SOURCE_TO_VARKEY[${local_path}]+x}" ]]; then
         varkey="${SOURCE_TO_VARKEY[${local_path}]}"
         matched_varkeys["${varkey}"]=1
