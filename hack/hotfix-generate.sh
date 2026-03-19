@@ -63,6 +63,9 @@ declare -A SOURCE_TO_VARKEY=(
     ["setup-custom-search-domains.sh"]="customSearchDomainsScript"
     ["configure-azure-network.sh"]="configureAzureNetworkScript"
     ["init-aks-custom-cloud.sh"]="initAKSCustomCloud"
+    ["init-aks-custom-cloud-mariner.sh"]="initAKSCustomCloud"
+    ["init-aks-custom-cloud-operation-requests.sh"]="initAKSCustomCloud"
+    ["init-aks-custom-cloud-operation-requests-mariner.sh"]="initAKSCustomCloud"
     # Distro-specific scripts
     ["ubuntu/ubuntu-snapshot-update.sh"]="snapshotUpdateScript"
     ["mariner/mariner-package-update.sh"]="packageUpdateScriptMariner"
@@ -80,6 +83,8 @@ declare -A SOURCE_TO_VARKEY=(
     ["mariner/package-update.service"]="packageUpdateServiceMariner"
     ["mariner/package-update.timer"]="packageUpdateTimerMariner"
     ["99-azure-network.rules"]="azureNetworkUdevRule"
+    # Component manifest
+    ["manifest.json"]="componentManifestFile"
 )
 
 # Distro-variant variable keys that share a single conditional write_files block.
