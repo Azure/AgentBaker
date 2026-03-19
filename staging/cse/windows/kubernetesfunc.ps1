@@ -257,6 +257,27 @@ function Get-CustomCloudCertEndpointModeFromLocation {
     return "rcv1p"
 }
 
+function Should-InstallCACertificatesRefreshTask {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Location
+    )
+
+    $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+    if ($certEndpointMode -eq "legacy") {
+        return $true
+    }
+
+    try {
+        $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        return ($optInResponse.Content -match 'IsOptedInForRootCerts=true')
+    } catch {
+        Write-Log "Skipping CA refresh task registration because IsOptedInForRootCerts could not be determined: $_"
+        return $false
+    }
+}
+
 function Get-CACertificates {
     Param(
         [Parameter(Mandatory = $true)][string]
