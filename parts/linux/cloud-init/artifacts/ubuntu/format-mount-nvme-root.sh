@@ -24,7 +24,10 @@ if [ ! -e "${SENTINEL_FILE}" ]; then
     mv "${KUBELET_DIR}" "${KUBELET_MOUNT_POINT}"
     touch "${SENTINEL_FILE}"
 else
-    # On subsequent boots, the disk should already be partitioned and formatted, so just mount it.
+    # On subsequent boots, reassemble the RAID array if it wasn't auto-detected.
+    if [ ! -e /dev/md0 ]; then
+        mdadm --assemble /dev/md0 /dev/disk/azure/local/by-index/1 /dev/disk/azure/local/by-index/2 /dev/disk/azure/local/by-index/3 /dev/disk/azure/local/by-index/4
+    fi
     mount /dev/md0 "${MOUNT_POINT}"
 fi
 
