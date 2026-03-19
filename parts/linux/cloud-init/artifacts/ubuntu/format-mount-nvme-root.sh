@@ -19,14 +19,18 @@ if [ ! -e "${SENTINEL_FILE}" ]; then
     if [ -e /dev/disk/azure/local/by-index/1 ] && [ ! -e /dev/md0 ]; then
         mdadm --create --verbose /dev/md0 --level=0 --raid-devices=4 /dev/disk/azure/local/by-index/1 /dev/disk/azure/local/by-index/2 /dev/disk/azure/local/by-index/3 /dev/disk/azure/local/by-index/4
         mkfs.ext4 -F /dev/md0
+        # Save the RAID config so mdadm --assemble --scan works on subsequent boots.
+        mdadm --detail --scan >> /etc/mdadm/mdadm.conf
     fi
     mount /dev/md0 "${MOUNT_POINT}"
     mv "${KUBELET_DIR}" "${KUBELET_MOUNT_POINT}"
     touch "${SENTINEL_FILE}"
 else
-    # On subsequent boots, reassemble the RAID array if it wasn't auto-detected.
+    # On subsequent boots, reassemble the RAID array from superblocks.
+    # Cannot use /dev/disk/azure/local/by-index/ paths here as the waagent
+    # udev rules that create those symlinks may not have run yet.
     if [ ! -e /dev/md0 ]; then
-        mdadm --assemble /dev/md0 /dev/disk/azure/local/by-index/1 /dev/disk/azure/local/by-index/2 /dev/disk/azure/local/by-index/3 /dev/disk/azure/local/by-index/4
+        mdadm --assemble --scan
     fi
     mount /dev/md0 "${MOUNT_POINT}"
 fi
