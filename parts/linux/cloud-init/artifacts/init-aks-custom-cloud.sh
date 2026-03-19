@@ -198,27 +198,18 @@ function install_certs_to_trust_store {
 # - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
 # - Wireserver failures are treated as non-fatal, and cert trust-store updates are skipped gracefully.
 
-# Action values:
-# - init: normal provisioning path
-# - ca-refresh: scheduled refresh path
-action=${1:-init}
-requested_cert_endpoint_mode="${2:-}"
+refresh_location="${2:-${LOCATION}}"
 
-cert_endpoint_mode=""
-if [ "$action" = "ca-refresh" ] && [ -n "$requested_cert_endpoint_mode" ]; then
-    cert_endpoint_mode="${requested_cert_endpoint_mode,,}"
-else
-    location_normalized="${LOCATION,,}"
-    location_normalized="${location_normalized//[[:space:]]/}"
-    if [ -z "$location_normalized" ]; then
-        echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
-    fi
-
-    cert_endpoint_mode="rcv1p"
-    case "$location_normalized" in
-        ussec*|usnat*) cert_endpoint_mode="legacy" ;;
-    esac
+location_normalized="${refresh_location,,}"
+location_normalized="${location_normalized//[[:space:]]/}"
+if [ -z "$location_normalized" ]; then
+    echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
 fi
+
+cert_endpoint_mode="rcv1p"
+case "$location_normalized" in
+    ussec*|usnat*) cert_endpoint_mode="legacy" ;;
+esac
 
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
 rm -f /root/AzureCACertificates/*
@@ -238,8 +229,12 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
     fi
 fi
 
-# This section creates a cron job to poll for refreshed CA certs daily
-# It can be removed if not needed or desired
+# In ca-refresh mode (invoked by the scheduled cron/systemd task with the location as arg),
+# only the cert refresh above is needed; exit before running the full init path.
+# Action values:
+# - init (default): full provisioning path
+# - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
+action=${1:-init}
 if [ "$action" = "ca-refresh" ]; then
     exit
 fi
@@ -465,7 +460,7 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
 
     if ! crontab -l 2>/dev/null | grep -q "\"$scriptPath\" ca-refresh"; then
         # Quote the script path in the cron entry to avoid issues with spaces or special characters.
-        if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh \"$cert_endpoint_mode\"") | crontab -; then
+        if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\"") | crontab -; then
             echo "Failed to install ca-refresh cron job via crontab" >&2
         fi
     fi
@@ -494,7 +489,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=$script_path ca-refresh $cert_endpoint_mode
+ExecStart=$script_path ca-refresh $LOCATION
 EOF
 
     cat >"$tmr" <<EOF
