@@ -516,6 +516,10 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.34.6-1",
           "previousLatestVersion": "v1.34.3-3"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.35.1-1"
         }
       ],
       "windowsVersions": [
@@ -530,6 +534,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.34.3-windows-hpc-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.35.1-windows-hpc-1"
         }
       ]
     },
@@ -1515,7 +1523,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.34.3-1-azlinux3"
+                "latestVersion": "v1.34.4-1-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
