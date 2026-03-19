@@ -22,6 +22,17 @@ Describe 'init-aks-custom-cloud.sh refresh mode wiring'
         The status should eq 0
     End
 
+    It 'installs refresh schedule only for legacy mode or opted-in rcv1p mode'
+        When run grep -Eq '^install_ca_refresh_schedule=0$' "$script_path"
+        The status should eq 0
+
+        When run grep -Eq '^\s*install_ca_refresh_schedule=1$' "$script_path"
+        The status should eq 0
+
+        When run grep -Eq '^\s*if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
+        The status should eq 0
+    End
+
     It 'exits early in ca-refresh mode after certificate refresh logic'
         When run grep -Eq '^if \[ "\$action" = "ca-refresh" \]; then$' "$script_path"
         The status should eq 0
