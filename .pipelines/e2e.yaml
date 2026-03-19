@@ -2,8 +2,24 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
-trigger: none
-pr: none
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
+pr:
+  branches:
+    include:
+      - official/*
+      - windows/*
+      - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
