@@ -20,7 +20,6 @@ import (
 	"github.com/vincent-petithory/dataurl"
 )
 
-
 // this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
 /* - KEY=VALUE
 - KEY="VALUE"
@@ -41,12 +40,11 @@ health-check.localdns.local:53 {
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 `
 
-
 type decodedValue struct {
-	encoding string
-	value    string
-	mode     int64
+	value string
+	mode  int64
 }
+
 var _ = Describe("Assert generated customData and cseCmd", func() {
 	Describe("Tests of template methods", func() {
 		var config *datamodel.NodeBootstrappingConfiguration
