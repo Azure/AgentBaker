@@ -68,7 +68,6 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
