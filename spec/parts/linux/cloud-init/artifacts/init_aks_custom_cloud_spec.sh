@@ -17,26 +17,34 @@ Describe 'init-aks-custom-cloud.sh refresh mode wiring'
     It 'always derives cert endpoint mode from refresh_location'
         When run grep -Eq '^location_normalized="\$\{refresh_location,,\}"$' "$script_path"
         The status should eq 0
+    End
 
+    It 'maps ussec/usnat locations to legacy cert endpoint mode'
         When run grep -Eq 'ussec\*|usnat\*\) cert_endpoint_mode="legacy"' "$script_path"
         The status should eq 0
     End
 
-    It 'installs refresh schedule only for legacy mode or opted-in rcv1p mode'
+    It 'initializes refresh schedule installation as disabled'
         When run grep -Eq '^install_ca_refresh_schedule=0$' "$script_path"
         The status should eq 0
+    End
 
+    It 'enables refresh schedule installation for eligible certificate modes'
         When run grep -Eq '^[[:space:]]*install_ca_refresh_schedule=1$' "$script_path"
         The status should eq 0
+    End
 
+    It 'gates refresh schedule installation on install_ca_refresh_schedule'
         When run grep -Eq '^[[:space:]]*if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
         The status should eq 0
     End
 
-    It 'exits early in ca-refresh mode after certificate refresh logic'
+    It 'checks for ca-refresh mode after certificate refresh logic'
         When run grep -Eq '^if \[ "\$action" = "ca-refresh" \]; then$' "$script_path"
         The status should eq 0
+    End
 
+    It 'exits early in ca-refresh mode after certificate refresh logic'
         When run grep -Eq '^[[:space:]]*exit$' "$script_path"
         The status should eq 0
     End
