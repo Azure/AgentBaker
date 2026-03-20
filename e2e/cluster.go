@@ -69,71 +69,64 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	clusterModel.Name = to.Ptr(fmt.Sprintf("%s-%s", *clusterModel.Name, hash(clusterModel)))
 	needACR := isNetworkIsolated || attachPrivateAcr
 
-	cluster, err := getOrCreateCluster(ctx, clusterModel)
-	if err != nil {
-		return nil, err
-	}
-
-	rg := config.ResourceGroupName(*cluster.Location)
+	rg := config.ResourceGroupName(*clusterModel.Location)
 	g := dag.NewGroup(ctx)
 
-	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
-		return getOrCreateBastion(ctx, cluster)
+	cluster := dag.Go(g, func(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+		return getOrCreateCluster(ctx, clusterModel)
 	})
-	dag.Run(g, func(ctx context.Context) error {
-		_, err := getOrCreateMaintenanceConfiguration(ctx, cluster)
+
+	bastion := dag.Go1(g, cluster, getOrCreateBastion)
+	dag.Run1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
+		_, err := getOrCreateMaintenanceConfiguration(ctx, c)
 		return err
 	})
-	subnet := dag.Go(g, func(ctx context.Context) (string, error) {
-		return getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
+	subnet := dag.Go1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) (string, error) {
+		return getClusterSubnetID(ctx, *c.Properties.NodeResourceGroup)
 	})
-	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) {
-		return getClusterKubeClient(ctx, rg, *cluster.Name)
+	kube := dag.Go1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
+		return getClusterKubeClient(ctx, rg, *c.Name)
 	})
-	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
-		return getClusterKubeletIdentity(cluster)
-	})
-	dag.Run(g, func(ctx context.Context) error {
-		return collectGarbageVMSS(ctx, cluster)
-	})
-	dag.Run(g, func(ctx context.Context) error {
+	identity := dag.Go1(g, cluster, getClusterKubeletIdentity)
+	dag.Run1(g, cluster, collectGarbageVMSS)
+	dag.Run1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
 		if isNetworkIsolated {
 			return nil
 		}
-		return addFirewallRules(ctx, cluster, *cluster.Location)
+		return addFirewallRules(ctx, c, *c.Location)
 	})
-	dag.Run(g, func(ctx context.Context) error {
+	dag.Run1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
 		if !isNetworkIsolated {
 			return nil
 		}
-		return addNetworkIsolatedSettings(ctx, cluster, *cluster.Location)
+		return addNetworkIsolatedSettings(ctx, c, *c.Location)
 	})
-	acrNonAnon := dag.Run2(g, kube, identity,
-		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+	acrNonAnon := dag.Run3(g, cluster, kube, identity,
+		func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
 			if !needACR {
 				return nil
 			}
-			return addPrivateAzureContainerRegistry(ctx, cluster, k, rg, id, true)
+			return addPrivateAzureContainerRegistry(ctx, c, k, rg, id, true)
 		})
-	acrAnon := dag.Run2(g, kube, identity,
-		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+	acrAnon := dag.Run3(g, cluster, kube, identity,
+		func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
 			if !needACR {
 				return nil
 			}
-			return addPrivateAzureContainerRegistry(ctx, cluster, k, rg, id, false)
+			return addPrivateAzureContainerRegistry(ctx, c, k, rg, id, false)
 		})
 	dag.Run(g, func(ctx context.Context) error {
-		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
+		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.MustGet().Location))
 	}, kube, acrNonAnon, acrAnon)
-	extract := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (*ClusterParams, error) {
-		return extractClusterParameters(ctx, k, cluster)
+	extract := dag.Go2(g, cluster, kube, func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient) (*ClusterParams, error) {
+		return extractClusterParameters(ctx, k, c)
 	})
 
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 	return &Cluster{
-		Model:           cluster,
+		Model:           cluster.MustGet(),
 		Kube:            kube.MustGet(),
 		KubeletIdentity: identity.MustGet(),
 		SubnetID:        subnet.MustGet(),
@@ -142,7 +135,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	}, nil
 }
 
-func getClusterKubeletIdentity(cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
+func getClusterKubeletIdentity(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
 	if cluster == nil || cluster.Properties == nil || cluster.Properties.IdentityProfile == nil {
 		return nil, fmt.Errorf("cannot dereference cluster identity profile to extract kubelet identity ID")
 	}
