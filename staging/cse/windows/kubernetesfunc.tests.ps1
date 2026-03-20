@@ -48,8 +48,11 @@ function Register-ScheduledTask {
     param($TaskName, $InputObject)
 }
 
-. $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
-. $PSCommandPath.Replace('.tests.ps1', '.ps1')
+$helperScriptPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowscsehelper.ps1'
+$scriptUnderTestPath = Join-Path $PSScriptRoot 'kubernetesfunc.ps1'
+
+. $helperScriptPath
+. $scriptUnderTestPath
 
 Describe 'Get-CustomCloudCertEndpointModeFromLocation' {
     It 'returns legacy for ussec regions' {
