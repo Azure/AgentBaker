@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -165,30 +164,13 @@ func TestExecute_MaxConcurrency_Serial(t *testing.T) {
 }
 
 func TestExecute_MaxConcurrency_Respected(t *testing.T) {
-	// Track max concurrent tasks
-	var mu sync.Mutex
-	var current, maxConcurrent int32
-
-	type trackingTask struct {
-		current      *int32
-		maxConc      *int32
-		mu           *sync.Mutex
-		Output       int
-	}
-
-	// Can't define Do on local type. Use atomic counters and a known task type.
-	// Instead, test with a simpler approach using the race detector + timing.
-	// Just verify MaxConcurrency=1 produces correct results (tested above)
-	// and unlimited concurrency also works.
+	// Verify unlimited concurrency (MaxConcurrency=0) produces correct results.
+	// Actual parallelism verification is in TestExecute_MaxConcurrency_LimitsParallelism.
 	a := &valueTask{Value: 1}
 	b := &valueTask{Value: 2}
 	add := &addTask{}
 	add.Deps.A = a
 	add.Deps.B = b
-
-	_ = mu
-	_ = current
-	_ = maxConcurrent
 
 	err := Execute(context.Background(), Config{MaxConcurrency: 0}, add)
 	require.NoError(t, err)
