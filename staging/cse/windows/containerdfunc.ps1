@@ -16,24 +16,25 @@ function RegisterContainerDService {
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
   if ($null -ne $svc) {
     sc.exe delete containerd
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to delete existing containerd service (exit code $LASTEXITCODE)" }
   }
 
   Write-Log "Registering containerd as a service"
   # setup containerd
-  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
+  Invoke-Nssm -KubeDir $KubeDir install containerd $global:Containerdbinary
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppDirectory $KubeDir
+  Invoke-Nssm -KubeDir $KubeDir set containerd DisplayName containerd
+  Invoke-Nssm -KubeDir $KubeDir set containerd Description containerd
+  Invoke-Nssm -KubeDir $KubeDir set containerd Start SERVICE_DEMAND_START
+  Invoke-Nssm -KubeDir $KubeDir set containerd ObjectName LocalSystem
+  Invoke-Nssm -KubeDir $KubeDir set containerd Type SERVICE_WIN32_OWN_PROCESS
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppThrottle 1500
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppStdout "$KubeDir\containerd.log"
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppStderr "$KubeDir\containerd.err.log"
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateFiles 1
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateOnline 1
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateSeconds 86400
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateBytes 10485760
 
   $retryCount=0
   $maxRetryCount=6 # 1 minutes
