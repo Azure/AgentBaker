@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/dag"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -59,85 +60,93 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
-func prepareCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
+// prepareCluster runs all cluster preparation steps as a concurrent DAG.
+func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
-	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
-	cluster, err := getOrCreateCluster(ctx, cluster)
+
+	clusterModel.Name = to.Ptr(fmt.Sprintf("%s-%s", *clusterModel.Name, hash(clusterModel)))
+	needACR := isNetworkIsolated || attachPrivateAcr
+
+	cluster, err := getOrCreateCluster(ctx, clusterModel)
 	if err != nil {
-		return nil, fmt.Errorf("get or create cluster: %w", err)
+		return nil, err
 	}
 
-	bastion, err := getOrCreateBastion(ctx, cluster)
-	if err != nil {
-		return nil, fmt.Errorf("get or create bastion: %w", err)
-	}
+	g := dag.NewGroup(ctx)
 
-	_, err = getOrCreateMaintenanceConfiguration(ctx, cluster)
-	if err != nil {
-		return nil, fmt.Errorf("get or create maintenance configuration: %w", err)
-	}
+	// Fan-out: all of these run concurrently.
+	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
+		return getOrCreateBastion(ctx, cluster)
+	})
+	dag.Run(g, func(ctx context.Context) error {
+		_, err := getOrCreateMaintenanceConfiguration(ctx, cluster)
+		return err
+	})
+	subnet := dag.Go(g, func(ctx context.Context) (string, error) {
+		return getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
+	})
+	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) {
+		return getClusterKubeClient(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name)
+	})
+	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
+		return getClusterKubeletIdentity(cluster)
+	})
+	dag.Run(g, func(ctx context.Context) error {
+		return collectGarbageVMSS(ctx, cluster)
+	})
 
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
-	if err != nil {
-		return nil, fmt.Errorf("get cluster subnet: %w", err)
-	}
+	// ACR tasks: depend on kube + identity.
+	acrNonAnon := dag.Run2(g, kube, identity,
+		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+			if !needACR {
+				return nil
+			}
+			return addPrivateAzureContainerRegistry(ctx, cluster, k, config.ResourceGroupName(*cluster.Location), id, true)
+		})
+	acrAnon := dag.Run2(g, kube, identity,
+		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+			if !needACR {
+				return nil
+			}
+			return addPrivateAzureContainerRegistry(ctx, cluster, k, config.ResourceGroupName(*cluster.Location), id, false)
+		})
 
-	resourceGroupName := config.ResourceGroupName(*cluster.Location)
-
-	kube, err := getClusterKubeClient(ctx, resourceGroupName, *cluster.Name)
-	if err != nil {
-		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
-	}
-
-	kubeletIdentity, err := getClusterKubeletIdentity(cluster)
-	if err != nil {
-		return nil, fmt.Errorf("getting cluster kubelet identity: %w", err)
-	}
-
-	if isNetworkIsolated || attachPrivateAcr {
-		// private acr must be created before we add the debug daemonsets
-		if err := addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, true); err != nil {
-			return nil, fmt.Errorf("add private azure container registry (true): %w", err)
+	// Firewall / network isolation: no deps within the DAG.
+	dag.Run(g, func(ctx context.Context) error {
+		if isNetworkIsolated {
+			return nil
 		}
-		if err := addPrivateAzureContainerRegistry(ctx, cluster, kube, resourceGroupName, kubeletIdentity, false); err != nil {
-			return nil, fmt.Errorf("add private azure container registry (false): %w", err)
+		return addFirewallRules(ctx, cluster, *cluster.Location)
+	})
+	dag.Run(g, func(ctx context.Context) error {
+		if !isNetworkIsolated {
+			return nil
 		}
-	}
-	if isNetworkIsolated {
-		if err := addNetworkIsolatedSettings(ctx, cluster, *cluster.Location); err != nil {
-			return nil, fmt.Errorf("add network isolated settings: %w", err)
-		}
-	}
-	if !isNetworkIsolated { // network isolated cluster blocks all egress via NSG
-		if err := addFirewallRules(ctx, cluster, *cluster.Location); err != nil {
-			return nil, fmt.Errorf("add firewall rules: %w", err)
-		}
-	}
+		return addNetworkIsolatedSettings(ctx, cluster, *cluster.Location)
+	})
 
-	if err := kube.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
-		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
-	}
+	// Debug daemonsets: depend on kube + both ACR tasks.
+	dag.Run(g, func(ctx context.Context) error {
+		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
+	}, kube, acrNonAnon, acrAnon)
 
-	// sometimes tests can be interrupted and vmss are left behind
-	// don't waste resource and delete them
-	if err := collectGarbageVMSS(ctx, cluster); err != nil {
-		return nil, fmt.Errorf("collect garbage vmss: %w", err)
-	}
+	// Extract cluster params: depend on kube.
+	extract := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (*ClusterParams, error) {
+		return extractClusterParameters(ctx, k, cluster)
+	})
 
-	clusterParams, err := extractClusterParameters(ctx, kube, cluster)
-	if err != nil {
-		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
-
 	return &Cluster{
 		Model:           cluster,
-		Kube:            kube,
-		KubeletIdentity: kubeletIdentity,
-		SubnetID:        subnetID,
-		ClusterParams:   clusterParams,
-		Bastion:         bastion,
+		Kube:            kube.MustGet(),
+		KubeletIdentity: identity.MustGet(),
+		SubnetID:        subnet.MustGet(),
+		ClusterParams:   extract.MustGet(),
+		Bastion:         bastion.MustGet(),
 	}, nil
 }
 
