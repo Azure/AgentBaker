@@ -35,6 +35,43 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 
+{{if IsAzlOSGuard}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsAzlOSGuard"}}
+{{- else if IsMariner}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
+{{- else if IsFlatcar }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
+{{- else if IsACL }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsACL"}}
+{{- else }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
+{{end}}
+
 # ---- end hotfix ----
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
