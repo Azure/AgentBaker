@@ -739,6 +739,55 @@ func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
 		".NET should not be installed on the Windows node")
 }
 
+func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
+
+	command := []string{
+		fmt.Sprintf("sc.exe qfailure %s", serviceName),
+	}
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		strings.Join(command, "\n"),
+		0,
+		fmt.Sprintf("failed to validate restart configuration for Windows service %s", serviceName),
+	)
+
+	var RESET_PERIOD = "RESET_PERIOD"
+	var FAILURE_ACTIONS = "FAILURE_ACTIONS"
+
+	fields := map[string]string{}
+	sdtout := execResult.stdout
+	lines := strings.Split(sdtout, "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if strings.Contains(key, RESET_PERIOD) {
+			fields[RESET_PERIOD] = value
+		}
+		if strings.Contains(key, FAILURE_ACTIONS) {
+			fields[FAILURE_ACTIONS] = value
+		}
+	}
+	if fields[RESET_PERIOD] != "900" {
+		s.T.Fatalf("Expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout)
+	}
+	if fields[FAILURE_ACTIONS] != "RESTART -- Delay = 60000 milliseconds." {
+		s.T.Fatalf("Expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout)
+	}
+}
+
+func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *Scenario) {
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubelet")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "containerd")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{
