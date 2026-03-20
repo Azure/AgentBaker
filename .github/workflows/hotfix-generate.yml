@@ -57,7 +57,7 @@ jobs:
           repositories: AgentBaker
 
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
@@ -83,7 +83,7 @@ jobs:
 
       - name: Setup Go
         if: steps.check.outputs.changed == 'true'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -97,6 +97,7 @@ jobs:
           git config user.name "aks-node-assistant[bot]"
           git config user.email "190555641+aks-node-assistant[bot]@users.noreply.github.com"
           git add parts/linux/cloud-init/nodecustomdata.yml
+          git add parts/linux/cloud-init/artifacts/manifest.json
           git add pkg/agent/testdata/
           git commit -m "chore: auto-generate hotfix template entries"
           git push
