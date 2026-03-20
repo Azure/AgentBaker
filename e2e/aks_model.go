@@ -299,8 +299,8 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 
 func addFirewallRules(
 	ctx context.Context, clusterModel *armcontainerservice.ManagedCluster,
-	location string,
 ) error {
+	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, "adding firewall rules")()
 	routeTableName := "abe2e-fw-rt"
 	rtGetResp, err := config.Azure.RouteTables.Get(
@@ -486,10 +486,11 @@ func addFirewallRules(
 	return nil
 }
 
-func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, resourceGroupName string, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {
+func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {
 	if cluster == nil || kube == nil || kubeletIdentity == nil {
 		return errors.New("cluster, kubeclient, and kubeletIdentity cannot be nil when adding Private Azure Container Registry")
 	}
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
 	if err := createPrivateAzureContainerRegistry(ctx, cluster, resourceGroupName, isNonAnonymousPull); err != nil {
 		return fmt.Errorf("failed to create private acr: %w", err)
 	}
@@ -514,7 +515,8 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 	return nil
 }
 
-func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, location string) error {
+func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster) error {
+	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
