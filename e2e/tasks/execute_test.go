@@ -115,20 +115,11 @@ func TestExecute_CancelDependents_SkipsDownstream(t *testing.T) {
 }
 
 func TestExecute_CancelDependents_IndependentBranchContinues(t *testing.T) {
-	// fail and independent are both leaves; root depends on both
+	// fail and independent are both leaves; run as separate roots.
+	// CancelDependents should not affect independent branches.
 	f := &failTask{}
 	independent := &valueTask{Value: 99}
 
-	type twoDepTask struct {
-		Deps struct {
-			F *failTask
-			V *valueTask
-		}
-		Output int
-	}
-	// Can't define Do on local type — use a package-level type instead.
-	// For this test, just verify independent runs by checking its output.
-	// We'll verify via a different approach: run them as separate roots.
 	err := Execute(context.Background(), Config{OnError: CancelDependents}, f, independent)
 	require.Error(t, err)
 	// independent should have run successfully
@@ -194,8 +185,6 @@ func TestExecute_Diamond(t *testing.T) {
 }
 
 func TestExecute_MultipleRoots(t *testing.T) {
-	shared := &valueTask{Value: 10}
-
 	a := &chainB{}
 	a.Deps.A = &chainA{}
 	b := &chainB{}
@@ -203,7 +192,6 @@ func TestExecute_MultipleRoots(t *testing.T) {
 
 	err := Execute(context.Background(), Config{}, a, b)
 	require.NoError(t, err)
-	_ = shared
 }
 
 func TestExecute_MultipleRoots_SharedTask(t *testing.T) {
@@ -241,7 +229,7 @@ func TestExecute_PreCanceledContext(t *testing.T) {
 	select {
 	case <-done:
 		// good — didn't hang
-	case <-time.After(2 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Execute hung on pre-canceled context")
 	}
 }

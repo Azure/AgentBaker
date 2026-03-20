@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -23,6 +24,17 @@ const (
 	// CancelAll cancels the context for all running and pending tasks.
 	CancelAll
 )
+
+func (s ErrorStrategy) String() string {
+	switch s {
+	case CancelDependents:
+		return "CancelDependents"
+	case CancelAll:
+		return "CancelAll"
+	default:
+		return fmt.Sprintf("ErrorStrategy(%d)", int(s))
+	}
+}
 
 // Config controls execution behavior.
 type Config struct {
@@ -79,6 +91,7 @@ func (e *DAGError) Error() string {
 			failed = append(failed, fmt.Sprintf("%T: %s: %v", task, result.Status, result.Err))
 		}
 	}
+	sort.Strings(failed)
 	return fmt.Sprintf("dag execution failed: %s", strings.Join(failed, "; "))
 }
 
