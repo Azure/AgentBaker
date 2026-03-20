@@ -110,7 +110,8 @@
         "moby-runc",
         "moby-containerd",
         "containerd2",
-        "aks/aks-node-ca-watcher"
+        "aks/aks-node-ca-watcher",
+        "Azure/WALinuxAgent"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -125,7 +126,8 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ],
       "reviewers": [
         "devinwong",
@@ -134,14 +136,16 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ]
     },
     {
       "matchPackageNames": [
         "moby-runc",
         "moby-containerd",
-        "containerd2"
+        "containerd2",
+        "Azure/WALinuxAgent"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -156,7 +160,8 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ],
       "reviewers": [
         "devinwong",
@@ -165,7 +170,8 @@
         "lilypan26",
         "djsly",
         "zachary-bailey",
-        "ganeshkumarashok"
+        "ganeshkumarashok",
+        "mxj220"
       ]
     },
     {
@@ -712,6 +718,20 @@
       ],
       "datasourceTemplate": "rpm",
       "autoReplaceStringTemplate": "\"renovateTag\": \"RPM_registry={{{registryUrl}}}, name={{{packageName}}}, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update GitHub release versions in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"github-releases=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"github-releases={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\""
     },
     {
       "customType": "regex",

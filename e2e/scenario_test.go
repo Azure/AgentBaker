@@ -199,6 +199,31 @@ func Test_ACL(t *testing.T) {
 	})
 }
 
+func Test_ACL_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLArm64Gen2TL,
+			// v6 (Cobalt 100) only supports NVMe disk controllers, not ResourceDisk
+			UseNVMe: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
+				nbc.IsARM64 = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurecontainerlinux")
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+			},
+		},
+	})
+}
+
 func Test_ACL_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using ACL and the self-contained installer can be properly bootstrapped",
@@ -1593,6 +1618,9 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 func Test_AzureLinuxV3_MA35D(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Tags: Tags{
+			GPU: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1621,6 +1649,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
 		Tags: Tags{
+			GPU:        true,
 			Scriptless: true,
 		},
 		Config: Config{

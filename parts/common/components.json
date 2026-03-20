@@ -256,7 +256,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.9-0"
+          "latestVersion": "v1.7.15-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -288,7 +288,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.9-0",
+          "latestVersion": "v1.7.15-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -335,7 +335,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.6.29"
+          "latestVersion": "v1.6.42"
         }
       ],
       "windowsVersions": []
@@ -370,8 +370,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
-          "latestVersion": "v1.18.2-251028",
-          "previousLatestVersion": "v1.18.2-251028"
+          "latestVersion": "v1.18.6-260312",
+          "previousLatestVersion": "v1.18.6-260130"
         }
       ],
       "windowsVersions": []
@@ -382,8 +382,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
-          "latestVersion": "v1.18.2-251028",
-          "previousLatestVersion": "v1.18.2-251028"
+          "latestVersion": "v1.18.6-260312",
+          "previousLatestVersion": "v1.18.6-260130"
         }
       ],
       "windowsVersions": []
@@ -504,21 +504,41 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.32.13-1",
+          "latestVersion": "v1.30.15-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.12-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.32.14-1",
           "previousLatestVersion": "v1.32.11-3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.8-1",
+          "latestVersion": "v1.33.9-1",
           "previousLatestVersion": "v1.33.6-3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.5-1",
+          "latestVersion": "v1.34.6-1",
           "previousLatestVersion": "v1.34.3-3"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.35.1-1"
         }
       ],
       "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.30.15-windows-hpc-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.12-windows-hpc-1"
+        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.32.11-windows-hpc-1"
@@ -530,6 +550,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.34.3-windows-hpc-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.35.1-windows-hpc-1"
         }
       ]
     },
@@ -1515,7 +1539,7 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.34.3-1-azlinux3"
+                "latestVersion": "v1.34.4-1-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
@@ -1916,7 +1940,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.18.2-ubuntu24.04u1"
+                "latestVersion": "0.18.2-ubuntu24.04u2"
               }
             ]
           },
@@ -1924,7 +1948,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.18.2-ubuntu22.04u1"
+                "latestVersion": "0.18.2-ubuntu22.04u2"
               }
             ]
           }
@@ -1934,7 +1958,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
-                "latestVersion": "0.18.2-1.azl3"
+                "latestVersion": "0.18.2-2.azl3"
               }
             ]
           }
@@ -2018,7 +2042,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "4.8.1-ubuntu24.04u1"
+                "latestVersion": "4.8.1-ubuntu24.04u2"
               }
             ]
           },
@@ -2026,7 +2050,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "4.8.1-ubuntu22.04u1"
+                "latestVersion": "4.8.1-ubuntu22.04u2"
               }
             ]
           }
@@ -2036,7 +2060,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.8.1-1.azl3"
+                "latestVersion": "4.8.1-2.azl3"
               }
             ]
           }
@@ -2094,6 +2118,42 @@
         "flatcar": {
           "current": {
             "versionsV2": []
+          }
+        }
+      }
+    },
+    {
+      "name": "walinuxagent",
+      "downloadLocation": "/opt/walinuxagent/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "github-releases=Azure/WALinuxAgent",
+                "latestVersion": "2.15.0.1"
+              }
+            ]
+          }
+        },
+        "flatcar": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
           }
         }
       }

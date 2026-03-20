@@ -330,5 +330,13 @@ function Install-Containerd {
     -CNIConfDir $CNIConfDir
 
   RegisterContainerDService -KubeDir $KubeDir
+  if (-not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    if (Get-Command -Name Set-PodInfraContainerImage -ErrorAction SilentlyContinue) {
+      Set-PodInfraContainerImage
+    }
+    else {
+      Write-Log "Set-PodInfraContainerImage command not found; skipping pod infra container image configuration."
+    }
+  }
   Enable-Logging
 }
