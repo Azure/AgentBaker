@@ -1,58 +1,64 @@
-if (-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)) {
-    New-PSDrive -Name C -PSProvider FileSystem -Root ([System.IO.Path]::GetTempPath()) | Out-Null
-}
-
-function Write-Log {
-    param($Message)
-    Write-Host "$Message"
-}
-
-function Logs-To-Event {
-    param($TaskName, $TaskMessage)
-    Write-Host "$TaskName $TaskMessage"
-}
-
-function Set-ExitCode {
-    param($ExitCode, $ErrorMessage)
-    throw "Unexpected Set-ExitCode: $ExitCode $ErrorMessage"
-}
-
-function Create-Directory {
-    param($FullPath, $DirectoryUsage)
-    if (-not (Test-Path $FullPath)) {
-        New-Item -Path $FullPath -ItemType Directory -Force | Out-Null
+BeforeAll {
+    if (-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)) {
+        New-PSDrive -Name C -PSProvider FileSystem -Root ([System.IO.Path]::GetTempPath()) | Out-Null
     }
+
+    function Write-Log {
+        param($Message)
+        Write-Host "$Message"
+    }
+
+    function Logs-To-Event {
+        param($TaskName, $TaskMessage)
+        Write-Host "$TaskName $TaskMessage"
+    }
+
+    function Set-ExitCode {
+        param($ExitCode, $ErrorMessage)
+        throw "Unexpected Set-ExitCode: $ExitCode $ErrorMessage"
+    }
+
+    function Create-Directory {
+        param($FullPath, $DirectoryUsage)
+        if (-not (Test-Path $FullPath)) {
+            New-Item -Path $FullPath -ItemType Directory -Force | Out-Null
+        }
+    }
+
+    function Get-ScheduledTask {
+        param($TaskName, $ErrorAction)
+    }
+
+    function New-ScheduledTaskAction {
+        param($Execute, $Argument)
+    }
+
+    function New-ScheduledTaskPrincipal {
+        param($UserId, $LogonType, $RunLevel)
+    }
+
+    function New-JobTrigger {
+        param([switch]$Daily, $At, $DaysInterval)
+    }
+
+    function New-ScheduledTask {
+        param($Action, $Principal, $Trigger, $Description)
+    }
+
+    function Register-ScheduledTask {
+        param($TaskName, $InputObject)
+    }
+
+    function Retry-Command {
+        param($Command, $Args, $Retries, $RetryDelaySeconds)
+    }
+
+    $helperScriptPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowscsehelper.ps1'
+    $scriptUnderTestPath = Join-Path $PSScriptRoot 'kubernetesfunc.ps1'
+
+    . $helperScriptPath
+    . $scriptUnderTestPath
 }
-
-function Get-ScheduledTask {
-    param($TaskName, $ErrorAction)
-}
-
-function New-ScheduledTaskAction {
-    param($Execute, $Argument)
-}
-
-function New-ScheduledTaskPrincipal {
-    param($UserId, $LogonType, $RunLevel)
-}
-
-function New-JobTrigger {
-    param([switch]$Daily, $At, $DaysInterval)
-}
-
-function New-ScheduledTask {
-    param($Action, $Principal, $Trigger, $Description)
-}
-
-function Register-ScheduledTask {
-    param($TaskName, $InputObject)
-}
-
-$helperScriptPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowscsehelper.ps1'
-$scriptUnderTestPath = Join-Path $PSScriptRoot 'kubernetesfunc.ps1'
-
-. $helperScriptPath
-. $scriptUnderTestPath
 
 Describe 'Get-CustomCloudCertEndpointModeFromLocation' {
     It 'returns legacy for ussec regions' {
@@ -76,11 +82,11 @@ Describe 'Register-CACertificatesRefreshTask' {
     BeforeEach {
         $script:lastScheduledTaskArgument = $null
 
-        Mock Logs-To-Event
+        Mock Logs-To-Event -MockWith { }
         Mock New-ScheduledTaskPrincipal -MockWith { return @{ Kind = 'principal' } }
         Mock New-JobTrigger -MockWith { return @{ Kind = 'trigger' } }
         Mock New-ScheduledTask -MockWith { return @{ Kind = 'definition' } }
-        Mock Register-ScheduledTask
+        Mock Register-ScheduledTask -MockWith { }
         Mock New-ScheduledTaskAction -MockWith {
             param($Execute, $Argument)
             $script:lastScheduledTaskArgument = $Argument
@@ -109,6 +115,7 @@ Describe 'Register-CACertificatesRefreshTask' {
 
 Describe 'Should-InstallCACertificatesRefreshTask' {
     BeforeEach {
+        Mock Retry-Command -MockWith { }
     }
 
     It 'returns true for legacy regions without calling the opt-in endpoint' {
@@ -144,13 +151,6 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
 
 Describe 'Get-CACertificates' {
     BeforeEach {
-        Mock Create-Directory -MockWith {
-            param($FullPath, $DirectoryUsage)
-            if (-not (Test-Path $FullPath)) {
-                New-Item -Path $FullPath -ItemType Directory -Force | Out-Null
-            }
-        }
-
         if (Test-Path 'C:\ca') {
             Remove-Item -Path 'C:\ca' -Recurse -Force
         }
