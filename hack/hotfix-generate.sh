@@ -153,7 +153,7 @@ echo "Variable keys to inject: ${!matched_varkeys[*]}"
 # Extract the write_files blocks from the traditional section of nodecustomdata.yml
 # and inject matching ones into the EnableScriptlessCSECmd section.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 "${SCRIPT_DIR}/hotfix_inject.py" "${TEMPLATE}" ${!matched_varkeys[*]}
+python3 "${SCRIPT_DIR}/hotfix_inject.py" "${TEMPLATE}" "${!matched_varkeys[@]}"
 
 echo ""
 echo "Done. Run 'make generate' to regenerate test data."

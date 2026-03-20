@@ -27,9 +27,12 @@ def find_block_boundaries(lines):
 
     for i in range(len(lines) - 1, -1, -1):
         stripped = lines[i].strip()
-        if stripped in ('{{- end}}', '{{end}}', '{{ end }}', '{{- end }}'):
+        if re.match(r'\{\{-?\s*end\s*-?\}\}$', stripped):
             end_line = i
             break
+
+    if else_line is not None and end_line is not None and end_line <= else_line:
+        end_line = None
 
     return scriptless_start, else_line, end_line
 
@@ -54,12 +57,15 @@ def parse_write_files_blocks(traditional_lines):
         # Track conditional nesting depth
         if re.match(r'\{\{-?\s*if\s+', stripped):
             conditional_depth += 1
-        if re.match(r'\{\{-?\s*end\s*\}\}', stripped):
+        if re.match(r'\{\{-?\s*end\s*-?\}\}', stripped):
             conditional_depth -= 1
 
         # Detect start of a new top-level write_files entry
         is_path_line = stripped.startswith('- path:')
-        is_conditional_start = (conditional_depth == 1 and re.match(r'\{\{-?\s*if\s+', stripped))
+        # Distro conditionals in the template are unindented, while nested
+        # conditionals inside write_files entries are indented.
+        is_unindented = not line[0:1].isspace() if line else False
+        is_conditional_start = (conditional_depth == 1 and is_unindented and re.match(r'\{\{-?\s*if\s+', stripped))
 
         start_new = False
         if conditional_depth == 0 and is_path_line:
