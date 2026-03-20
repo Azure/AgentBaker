@@ -1,4 +1,4 @@
-# taskflow — Type-Safe DAG Execution Library
+# tasks — Type-Safe DAG Execution Library
 
 ## Problem
 
@@ -24,9 +24,17 @@ type Task interface {
 }
 ```
 
+**Tasks must use pointer receivers for `Do`.** Since tasks write to `self.Output` during execution, a value receiver would discard the result. The framework validates this at graph construction time.
+
 Dependencies are declared as a struct field named `Deps` containing pointers to upstream tasks. Outputs are written to a field named `Output`. Both are optional — a leaf task has no Deps, a sink task has no Output.
 
+**The `Deps` struct must contain only pointers to types implementing `Task`.** Any other field type (e.g., `*string`, `int`, config structs) is a validation error. Use separate struct fields outside `Deps` for non-task data.
+
 ```go
+type BuildOutput struct {
+    ImagePath string
+}
+
 type BuildImage struct {
     Output BuildOutput
 }
@@ -36,11 +44,17 @@ func (b *BuildImage) Do(ctx context.Context) error {
     return nil
 }
 
+type DeployDeps struct {
+    Build  *BuildImage
+    Config *LoadConfig
+}
+
+type DeployOutput struct {
+    URL string
+}
+
 type Deploy struct {
-    Deps struct {
-        Build  *BuildImage
-        Config *LoadConfig
-    }
+    Deps   DeployDeps
     Output DeployOutput
 }
 
@@ -60,9 +74,7 @@ The DAG is expressed through plain Go struct initialization:
 build := &BuildImage{}
 config := &LoadConfig{}
 deploy := &Deploy{
-    Deps: struct{ Build *BuildImage; Config *LoadConfig }{
-        Build: build, Config: config,
-    },
+    Deps: DeployDeps{Build: build, Config: config},
 }
 ```
 
@@ -71,46 +83,55 @@ No `Add()`, no `Connect()`, no `DependsOn()`. The struct field assignments *are*
 ### Execution
 
 ```go
-err := taskflow.Execute(ctx, deploy)
+func Execute(ctx context.Context, cfg Config, roots ...Task) error
 ```
 
-`Execute` takes a root task and:
-
-1. **Walks the graph** — reflects over each task's `Deps` field, follows pointers recursively to discover the full DAG.
-2. **Validates** — checks for cycles and nil Deps pointers. Returns an error before running anything if the graph is invalid.
-3. **Deduplicates** — the same task pointer reached via multiple paths (diamond dependency) is executed exactly once.
-4. **Schedules** — runs tasks concurrently. A task starts only after all its Deps have completed successfully.
-5. **Populates outputs** — since Deps hold pointers to upstream tasks, `task.Deps.Upstream.Output` is directly readable after the upstream completes. No copying needed — it's just Go pointer dereferencing.
-
-### Multiple Roots
+`Execute` takes a context, a config, and one or more root tasks:
 
 ```go
-err := taskflow.Execute(ctx, teardown1, teardown2)
+// Single root with default config
+err := tasks.Execute(ctx, tasks.Config{}, deploy)
+
+// Multiple roots
+err := tasks.Execute(ctx, tasks.Config{}, teardown1, teardown2)
+
+// With options
+err := tasks.Execute(ctx, tasks.Config{
+    OnError:        tasks.CancelAll,
+    MaxConcurrency: 4,
+}, deploy)
 ```
 
-All tasks across both graphs are deduplicated and run as a single DAG.
+When multiple roots are provided, all tasks across their graphs are deduplicated by pointer identity and run as a single DAG. If a root also appears as an interior node of another root's graph, it is deduplicated — not an error.
+
+`Execute` proceeds as follows:
+
+1. **Walks the graph** — reflects over each task's `Deps` field, follows pointers recursively to discover the full DAG. Nodes are identified by pointer identity.
+2. **Validates** — checks for cycles (via topological sort on pointer-identity nodes), nil Deps pointers, and invalid Deps field types. Returns an error before running anything if the graph is invalid.
+3. **Deduplicates** — the same task pointer reached via multiple paths (diamond dependency) is executed exactly once.
+4. **Schedules** — runs tasks concurrently. A task starts only after all its Deps have completed successfully (or with the appropriate status per the error strategy).
+5. **Outputs are available** — since Deps hold pointers to upstream tasks, `task.Deps.Upstream.Output` is directly readable inside `Do()`. The framework guarantees happens-before ordering: a task's goroutine is only launched after all upstream goroutines have completed and their results are visible (synchronized via `sync.WaitGroup` or channel).
 
 ## Configuration
 
 ```go
-err := taskflow.Execute(ctx, root, taskflow.Config{
-    OnError:        taskflow.CancelAll,
-    MaxConcurrency: 4,
-})
+type Config struct {
+    // OnError controls what happens when a task fails.
+    // Default (zero value): CancelDependents.
+    OnError ErrorStrategy
+
+    // MaxConcurrency limits how many tasks run in parallel.
+    // 0 (default): unlimited. 1: serial execution (useful for debugging).
+    // Negative values are treated as 0 (unlimited).
+    MaxConcurrency int
+}
 ```
-
-### Config Fields
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `OnError` | `ErrorStrategy` | `CancelDependents` | What happens when a task fails |
-| `MaxConcurrency` | `int` | `0` (unlimited) | Max number of tasks running in parallel |
 
 ### Error Strategies
 
-**`CancelDependents` (default):** When a task fails, all tasks that transitively depend on it are skipped. Independent branches continue running.
+**`CancelDependents` (default / zero value):** When a task fails, all tasks that transitively depend on it are skipped (status `Skipped`). Independent branches continue running. Already-running tasks are not interrupted.
 
-**`CancelAll`:** When any task fails, the context passed to all running tasks is canceled. Fail-fast.
+**`CancelAll`:** When any task fails, the context passed to all running and future tasks is canceled. Tasks currently in `Do()` receive cancellation via `ctx.Done()` and should return promptly (status `Canceled`). Tasks that haven't started yet also get status `Canceled`.
 
 ## Graph Discovery via Reflection
 
@@ -124,35 +145,55 @@ At `Execute` time, the framework:
 
 The framework never touches `Output` — that's purely a user convention. Tasks write to `self.Output`, downstream tasks read `dep.Output`. The framework only cares about `Deps` pointers and the `Task` interface.
 
+### Concurrency Safety
+
+The framework guarantees that when `Do(ctx)` is called on a task, all upstream tasks have fully completed and their writes (including to `Output` fields) are visible. This happens-before relationship is established through Go synchronization primitives (e.g., `sync.WaitGroup.Done()` in the upstream goroutine, `sync.WaitGroup.Wait()` before launching the downstream goroutine).
+
+Tasks must not mutate their `Deps` fields during `Do()`. Doing so is undefined behavior.
+
 ## Error Reporting
 
-`Execute` returns a `DAGError` containing the result of every task:
+`Execute` returns a `*DAGError` containing the result of every task:
 
 ```go
 type DAGError struct {
+    // Results is keyed by task pointer. Since tasks must be pointers,
+    // they are comparable and safe to use as map keys.
     Results map[Task]TaskResult
 }
 
 type TaskResult struct {
-    Status TaskStatus // Succeeded, Failed, Skipped, Canceled
-    Err    error      // nil if Succeeded
+    Status TaskStatus
+    Err    error // nil if Succeeded
 }
 
 type TaskStatus int
 
 const (
     Succeeded TaskStatus = iota
-    Failed
-    Skipped   // dependency failed, this task was not run
-    Canceled  // context was canceled while running
+    Failed               // Do() returned a non-nil error
+    Skipped              // a dependency failed (CancelDependents mode); task was never started
+    Canceled             // context was canceled (CancelAll mode); task may or may not have started
 )
 ```
 
 `DAGError` implements `error`. `Execute` returns `nil` if all tasks succeeded.
 
+### Inspecting Results
+
+```go
+err := tasks.Execute(ctx, tasks.Config{}, root)
+var dagErr *tasks.DAGError
+if errors.As(err, &dagErr) {
+    for task, result := range dagErr.Results {
+        fmt.Printf("%T: %s %v\n", task, result.Status, result.Err)
+    }
+}
+```
+
 ## Task Reuse
 
-Each `Execute` call re-runs all tasks in the graph from scratch. Previous `Output` values are overwritten.
+Each `Execute` call re-runs all tasks in the graph from scratch. The framework does **not** reset `Output` fields — it is the user's responsibility to ensure `Do()` overwrites `Output` fully. If a task can fail partway through writing `Output`, the user should write to a local variable first and assign to `Output` only on success.
 
 ## Accessing Transitive Dependencies
 
@@ -165,7 +206,7 @@ func (c *CreateCluster) Do(ctx context.Context) error {
 }
 ```
 
-Safe — DAG ordering guarantees all transitive deps have completed.
+This is safe — DAG ordering guarantees all transitive deps have completed. However, it creates coupling to the internal structure of transitive dependencies. Prefer declaring direct deps when practical.
 
 ## Complete Example
 
@@ -176,13 +217,17 @@ import (
     "context"
     "fmt"
 
-    "github.com/example/taskflow"
+    "github.com/example/tasks"
 )
 
 // --- Task definitions ---
 
+type CreateRGOutput struct {
+    RGName string
+}
+
 type CreateRG struct {
-    Output struct{ RGName string }
+    Output CreateRGOutput
 }
 
 func (t *CreateRG) Do(ctx context.Context) error {
@@ -190,11 +235,17 @@ func (t *CreateRG) Do(ctx context.Context) error {
     return nil
 }
 
+type CreateVNetDeps struct {
+    RG *CreateRG
+}
+
+type CreateVNetOutput struct {
+    VNetID string
+}
+
 type CreateVNet struct {
-    Deps struct {
-        RG *CreateRG
-    }
-    Output struct{ VNetID string }
+    Deps   CreateVNetDeps
+    Output CreateVNetOutput
 }
 
 func (t *CreateVNet) Do(ctx context.Context) error {
@@ -202,11 +253,17 @@ func (t *CreateVNet) Do(ctx context.Context) error {
     return nil
 }
 
+type CreateSubnetDeps struct {
+    VNet *CreateVNet
+}
+
+type CreateSubnetOutput struct {
+    SubnetID string
+}
+
 type CreateSubnet struct {
-    Deps struct {
-        VNet *CreateVNet
-    }
-    Output struct{ SubnetID string }
+    Deps   CreateSubnetDeps
+    Output CreateSubnetOutput
 }
 
 func (t *CreateSubnet) Do(ctx context.Context) error {
@@ -214,12 +271,18 @@ func (t *CreateSubnet) Do(ctx context.Context) error {
     return nil
 }
 
+type CreateClusterDeps struct {
+    RG     *CreateRG
+    Subnet *CreateSubnet
+}
+
+type CreateClusterOutput struct {
+    ClusterID string
+}
+
 type CreateCluster struct {
-    Deps struct {
-        RG     *CreateRG
-        Subnet *CreateSubnet
-    }
-    Output struct{ ClusterID string }
+    Deps   CreateClusterDeps
+    Output CreateClusterOutput
 }
 
 func (t *CreateCluster) Do(ctx context.Context) error {
@@ -229,10 +292,12 @@ func (t *CreateCluster) Do(ctx context.Context) error {
     return nil
 }
 
+type RunTestsDeps struct {
+    Cluster *CreateCluster
+}
+
 type RunTests struct {
-    Deps struct {
-        Cluster *CreateCluster
-    }
+    Deps RunTestsDeps
 }
 
 func (t *RunTests) Do(ctx context.Context) error {
@@ -240,11 +305,13 @@ func (t *RunTests) Do(ctx context.Context) error {
     return nil
 }
 
+type TeardownDeps struct {
+    RG    *CreateRG
+    Tests *RunTests
+}
+
 type Teardown struct {
-    Deps struct {
-        RG    *CreateRG
-        Tests *RunTests
-    }
+    Deps TeardownDeps
 }
 
 func (t *Teardown) Do(ctx context.Context) error {
@@ -256,29 +323,23 @@ func (t *Teardown) Do(ctx context.Context) error {
 
 func main() {
     rg := &CreateRG{}
-    vnet := &CreateVNet{Deps: struct{ RG *CreateRG }{RG: rg}}
-    subnet := &CreateSubnet{Deps: struct{ VNet *CreateVNet }{VNet: vnet}}
-    cluster := &CreateCluster{Deps: struct {
-        RG     *CreateRG
-        Subnet *CreateSubnet
-    }{RG: rg, Subnet: subnet}}
-    tests := &RunTests{Deps: struct{ Cluster *CreateCluster }{Cluster: cluster}}
-    teardown := &Teardown{Deps: struct {
-        RG    *CreateRG
-        Tests *RunTests
-    }{RG: rg, Tests: tests}}
+    vnet := &CreateVNet{Deps: CreateVNetDeps{RG: rg}}
+    subnet := &CreateSubnet{Deps: CreateSubnetDeps{VNet: vnet}}
+    cluster := &CreateCluster{Deps: CreateClusterDeps{RG: rg, Subnet: subnet}}
+    tests := &RunTests{Deps: RunTestsDeps{Cluster: cluster}}
+    teardown := &Teardown{Deps: TeardownDeps{RG: rg, Tests: tests}}
 
     // DAG (concurrent where possible):
     //
     //   CreateRG ──┬── CreateVNet ── CreateSubnet ──┐
     //              │                                 │
-    //              └──────────────── CreateCluster ──┘
-    //                                     │
-    //                                 RunTests
-    //                                     │
-    //                                 Teardown
+    //              ├──────────────── CreateCluster ──┘
+    //              │                       │
+    //              │                   RunTests
+    //              │                       │
+    //              └──────────────── Teardown
 
-    err := taskflow.Execute(context.Background(), teardown)
+    err := tasks.Execute(context.Background(), tasks.Config{}, teardown)
     if err != nil {
         panic(err)
     }
@@ -291,7 +352,7 @@ func main() {
 |------|-----------|-------|
 | Nil pointer in Deps | Reflection | `"task %T has nil dependency field %s"` |
 | Deps field is not a pointer to Task | Reflection | `"task %T.Deps.%s: %T does not implement Task"` |
-| Cycle in dependency graph | Topological sort | `"cycle detected: A -> B -> A"` |
+| Cycle in dependency graph | Topological sort (pointer identity) | `"cycle detected: %T(%p) -> %T(%p) -> ..."` |
 | Deps field is not a struct | Reflection | `"task %T.Deps must be a struct"` |
 
 ## What's NOT in Scope (V1)
@@ -303,12 +364,5 @@ Intentionally deferred to keep V1 minimal:
 - **Observability hooks** — deferred. Users can wrap tasks.
 - **Step naming / logging** — can use `fmt.Stringer`. Deferred.
 - **WorkflowMutator pattern** — not needed. The graph is just Go structs; mutation is just Go code.
-
-## Package Name Candidates
-
-- `taskflow` — descriptive, flows well
-- `tasks` — minimal, Go-idiomatic
-- `rundag` — action-oriented
-- `orchid` — short for orchestration, catchy
-
-Open to your preference.
+- **Output reset between re-runs** — user responsibility. Framework doesn't touch Output.
+- **Linter for nil deps** — out of scope for the library, but a natural companion tool.
