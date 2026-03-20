@@ -24,7 +24,14 @@ write_files:
     Executing in scriptless CSE mode. No cloud-init scripts will be written to the VM.
     Any overridden files will be listed here - Hotfix mode
     Example: {{GetCSEHelpersScriptFilepath}}
-
+{{range GetHotfixWriteFiles}}
+- path: {{.Path}}
+  permissions: "{{.Permissions}}"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" .VarKey}}
+{{end}}
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"

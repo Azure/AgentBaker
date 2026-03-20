@@ -1,0 +1,74 @@
+name: Hotfix Auto-Tag
+
+# Automatically creates a hotfix tag when a PR is merged to an official/* branch.
+# Example: if branch is official/v20260219 and latest tag is v0.20260219.0,
+# creates v0.20260219.1.
+on:
+  pull_request:
+    branches:
+      - 'official/**'
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Parse version and create tag
+        run: |
+          # Enforce exact branch format: official/vYYYYMMDD
+          BRANCH="${{ github.event.pull_request.base.ref }}"
+          if [[ "${BRANCH}" =~ ^official/v([0-9]{8})$ ]]; then
+            DATE="${BASH_REMATCH[1]}"
+          else
+            echo "ERROR: Could not parse date from branch '${BRANCH}'. Expected format: official/vYYYYMMDD"
+            exit 1
+          fi
+
+          echo "Branch: ${BRANCH}"
+          echo "Date: ${DATE}"
+
+          # Retry loop to handle concurrent tag creation
+          MAX_RETRIES=5
+          ATTEMPT=1
+
+          while (( ATTEMPT <= MAX_RETRIES )); do
+            echo "Attempt ${ATTEMPT}/${MAX_RETRIES}: determining next available tag..."
+
+            git fetch --tags --force origin
+
+            LATEST_TAG=$(git tag -l "v0.${DATE}.*" --sort=-v:refname | head -1)
+
+            if [[ -z "${LATEST_TAG}" ]]; then
+              PATCH=1
+            else
+              PATCH=$(echo "${LATEST_TAG}" | grep -oP '\.\K[0-9]+$')
+              PATCH=$((PATCH + 1))
+            fi
+
+            NEW_TAG="v0.${DATE}.${PATCH}"
+            echo "Trying tag: ${NEW_TAG}"
+
+            git tag -f "${NEW_TAG}"
+
+            if git push origin "${NEW_TAG}"; then
+              echo "✅ Created and pushed tag ${NEW_TAG}"
+              exit 0
+            fi
+
+            echo "Push failed (likely concurrent push). Retrying..."
+            git tag -d "${NEW_TAG}" >/dev/null 2>&1 || true
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "ERROR: Failed to create tag after ${MAX_RETRIES} attempts"
+          exit 1

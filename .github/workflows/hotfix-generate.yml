@@ -1,0 +1,54 @@
+name: Hotfix Template Update
+# This workflow is for temporary use and will deprecate once we move to the
+# final stage of scriptless, as hotfixes will be applied directly to the
+# aks-node-controller instead of nodecustomdata.yml template.
+
+# Triggers:
+# 1. Automatically when a PR targets an official/* release branch
+# 2. Manually when a "hotfix" label is added to any PR
+on:
+  pull_request:
+    branches:
+      - 'official/**'
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  hotfix-validate:
+    # Run if: PR targets official/* branch, OR "hotfix" label was just added (same-repo PRs only)
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event_name == 'pull_request' && startsWith(github.base_ref, 'official/')) ||
+        (github.event_name == 'pull_request_target' && github.event.label.name == 'hotfix')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Validate hotfix.json matches changed scripts
+        run: |
+          # Run hotfix-generate.sh to determine what hotfix.json should contain
+          bash hack/hotfix-generate.sh "origin/${{ github.base_ref }}"
+
+          # Check if the developer's hotfix.json matches what the script generated
+          if git diff --quiet parts/linux/cloud-init/hotfix.json; then
+            echo "✅ hotfix.json is consistent with changed scripts."
+          else
+            echo "❌ hotfix.json does not match the changed scripts."
+            echo "Please run: bash hack/hotfix-generate.sh <base_ref> && make generate"
+            git diff parts/linux/cloud-init/hotfix.json
+            exit 1
+          fi

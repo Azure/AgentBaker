@@ -1245,6 +1245,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
 		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
+		"GetHotfixWriteFiles": func() []HotfixWriteFile {
+			return getHotfixWriteFiles()
+		},
 	}
 }
 
