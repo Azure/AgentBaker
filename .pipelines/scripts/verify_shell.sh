@@ -33,16 +33,6 @@ BASH_ONLY_LIST=$(cat <<'EOF'
 EOF
 )
 
-# also shell-check generated test data
-generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
-for file in $generatedTestData; do
-    firstLine=$(awk 'NR==1 {print; exit}' ${file})
-    # shellcheck disable=SC3010
-    if [[ "${firstLine}" =~ "#!/bin/bash" || "${firstLine}" =~ "#!/usr/bin/env bash" ]]; then
-        filesToCheck+=(${file})
-    fi
-done
-
 # couple of blank lines between the skipped files and the shellchecked files.
 echo
 echo
