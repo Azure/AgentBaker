@@ -62,19 +62,19 @@ BeforeAll {
 
 Describe 'Get-CustomCloudCertEndpointModeFromLocation' {
     It 'returns legacy for ussec regions' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'ussecwest' | Should Be 'legacy'
+        Get-CustomCloudCertEndpointModeFromLocation -Location 'ussecwest' | Should -Be 'legacy'
     }
 
     It 'returns legacy for usnat regions' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'usnatcentral' | Should Be 'legacy'
+        Get-CustomCloudCertEndpointModeFromLocation -Location 'usnatcentral' | Should -Be 'legacy'
     }
 
     It 'returns rcv1p for public regions' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'southcentralus' | Should Be 'rcv1p'
+        Get-CustomCloudCertEndpointModeFromLocation -Location 'southcentralus' | Should -Be 'rcv1p'
     }
 
     It 'handles mixed-case input' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'UsSeCeast' | Should Be 'legacy'
+        Get-CustomCloudCertEndpointModeFromLocation -Location 'UsSeCeast' | Should -Be 'legacy'
     }
 }
 
@@ -109,7 +109,7 @@ Describe 'Register-CACertificatesRefreshTask' {
         Register-CACertificatesRefreshTask -Location 'southcentralus'
 
         Assert-MockCalled -CommandName Register-ScheduledTask -Exactly -Times 1
-        $script:lastScheduledTaskArgument | Should Match ([regex]::Escape("Get-CACertificates -Location 'southcentralus'"))
+        $script:lastScheduledTaskArgument | Should -Match ([regex]::Escape("Get-CACertificates -Location 'southcentralus'"))
     }
 }
 
@@ -123,7 +123,7 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
 
         $result = Should-InstallCACertificatesRefreshTask -Location 'ussecwest'
 
-        $result | Should Be $true
+        $result | Should -Be $true
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 0
     }
 
@@ -134,7 +134,7 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
 
         $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
 
-        $result | Should Be $true
+        $result | Should -Be $true
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts' }
     }
 
@@ -145,7 +145,7 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
 
         $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
 
-        $result | Should Be $false
+        $result | Should -Be $false
     }
 }
 
@@ -166,7 +166,7 @@ Describe 'Get-CACertificates' {
 
         $result = Get-CACertificates -Location 'ussecwest'
 
-        $result | Should Be $true
+        $result | Should -Be $true
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json' }
         Assert-MockCalled -CommandName Retry-Command -Exactly -Times 0 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts' }
     }
@@ -178,6 +178,6 @@ Describe 'Get-CACertificates' {
 
         $result = Get-CACertificates -Location 'southcentralus'
 
-        $result | Should Be $false
+        $result | Should -Be $false
     }
 }
