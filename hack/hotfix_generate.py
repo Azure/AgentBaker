@@ -259,7 +259,7 @@ def inject_hotfix(target_varkeys):
 
     if not selected_blocks:
         print("No matching write_files blocks found for the target varkeys.", file=sys.stderr)
-        return
+        return False
 
     hotfix_lines = [
         "\n",
@@ -276,6 +276,7 @@ def inject_hotfix(target_varkeys):
 
     print(f"\nInjected {len(selected_blocks)} write_files block(s) into EnableScriptlessCSECmd section", file=sys.stderr)
     print(f"Updated {TEMPLATE}", file=sys.stderr)
+    return True
 
 
 def main():
@@ -288,10 +289,13 @@ def main():
 
     target_varkeys = detect_changed_varkeys(base_ref)
     if not target_varkeys:
-        return
+        sys.exit(0)
 
-    inject_hotfix(target_varkeys)
-    print("\nDone. Run 'make generate' to regenerate test data.")
+    changed = inject_hotfix(target_varkeys)
+    if changed:
+        print("\nDone. Template updated.")
+    else:
+        print("\nNo template changes needed.")
 
 
 if __name__ == '__main__':

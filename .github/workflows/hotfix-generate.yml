@@ -70,61 +70,20 @@ jobs:
         run: |
           python3 hack/hotfix_generate.py "origin/${{ github.base_ref }}"
 
-      - name: Check for changes
-        id: check
-        run: |
-          if git diff --quiet parts/linux/cloud-init/nodecustomdata.yml; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No template changes needed."
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Template updated with hotfix entries."
-          fi
-
-      - name: Setup Go
-        if: steps.check.outputs.changed == 'true'
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-
-      - name: Run make generate
-        if: steps.check.outputs.changed == 'true'
-        run: make generate
-
-      - name: Commit and push changes via API
-        if: steps.check.outputs.changed == 'true'
+      - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          REPO="${{ github.repository }}"
-          BRANCH="${{ github.head_ref }}"
-
-          # Get current branch HEAD and its tree
-          HEAD_SHA=$(gh api "repos/${REPO}/git/ref/heads/${BRANCH}" --jq '.object.sha')
-          BASE_TREE=$(gh api "repos/${REPO}/git/commits/${HEAD_SHA}" --jq '.tree.sha')
-
-          # Build tree entries for all changed files
-          TREE_JSON="[]"
-          while IFS= read -r file; do
-            CONTENT=$(base64 -w 0 "$file")
-            TREE_JSON=$(echo "$TREE_JSON" | jq \
-              --arg path "$file" \
-              --arg content "$CONTENT" \
-              '. + [{"path": $path, "mode": "100644", "type": "blob", "encoding": "base64", "content": $content}]')
-          done < <(git diff --name-only HEAD)
-
-          # Create tree, commit, and update ref (single atomic signed commit)
-          NEW_TREE=$(echo "$TREE_JSON" | jq --arg base "$BASE_TREE" '{"base_tree": $base, "tree": .}' | \
-            gh api "repos/${REPO}/git/trees" --input - --jq '.sha')
-
-          NEW_COMMIT=$(jq -n \
-            --arg tree "$NEW_TREE" \
-            --arg parent "$HEAD_SHA" \
-            --arg msg "chore: auto-generate hotfix template entries" \
-            '{"message": $msg, "tree": $tree, "parents": [$parent]}' | \
-            gh api "repos/${REPO}/git/commits" --input - --jq '.sha')
-
-          gh api "repos/${REPO}/git/refs/heads/${BRANCH}" \
-            -X PATCH -f sha="$NEW_COMMIT"
-
-          echo "✅ Created verified commit ${NEW_COMMIT}"
+          FILE="parts/linux/cloud-init/nodecustomdata.yml"
+          if git diff --quiet "$FILE"; then
+            echo "No template changes needed."
+            exit 0
+          fi
+          CONTENT=$(base64 -w 0 "$FILE")
+          SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha')
+          gh api "repos/${{ github.repository }}/contents/${FILE}" \
+            -X PUT \
+            -f message="chore: auto-generate hotfix template entries" \
+            -f content="$CONTENT" \
+            -f branch="${{ github.head_ref }}" \
+            -f sha="$SHA"
