@@ -249,11 +249,13 @@ function Get-CustomCloudCertEndpointModeFromLocation {
         $Location
     )
 
+    # ussec/usnat regions still use the legacy certificate endpoint contract.
     $normalizedLocation = $Location.ToLowerInvariant()
     if ($normalizedLocation.StartsWith("ussec") -or $normalizedLocation.StartsWith("usnat")) {
         return "legacy"
     }
 
+    # All other regions use the rcv1p endpoint mode with opt-in gating.
     return "rcv1p"
 }
 
