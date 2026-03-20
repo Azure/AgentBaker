@@ -1228,39 +1228,6 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-# localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-# This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by checking for existence of corefile.
-# It returns 0 if localdns is enabled successfully or if it should not be enabled.
-# It returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
-enableLocalDNS() {
-    # Check if the localdns corefile exists and is not empty.
-    # If the corefile exists and is not empty, localdns should be enabled.
-    # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "localdns should not be enabled."
-        return 0
-    fi
-
-    # If the corefile exists and is not empty, attempt to enable localdns.
-    echo "localdns should be enabled."
-
-    # Write hosts file BEFORE starting LocalDNS so it has entries to serve
-    # Enable aks-hosts-setup timer to periodically resolve and cache critical AKS FQDN DNS addresses
-    enableAKSHostsSetup || return $ERR_SYSTEMCTL_START_FAIL
-
-    if ! systemctlEnableAndStart localdns 30; then
-      echo "Enable localdns failed."
-      return $ERR_LOCALDNS_FAIL
-    fi
-
-    # Enabling localdns succeeded.
-    echo "Enable localdns succeeded."
-}
-
-
 # localdns corefile used by localdns systemd unit.
 LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
@@ -1291,6 +1258,12 @@ generateLocalDNSFiles() {
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
     # Save BOTH corefile variants so localdns can dynamically choose on each restart.
+    #
+    # Naming note:
+    # - LOCALDNS_BASE64_ENCODED_COREFILE (legacy key): stores whichever variant was selected
+    #   as the initial default (currently the no-hosts variant from CSE).
+    # - LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS: explicit with-hosts variant for dynamic selection.
+    # - LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS: explicit no-hosts variant for dynamic selection.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
@@ -1351,7 +1324,8 @@ enableLocalDNS() {
 # The caller in cse_main.sh checks /etc/localdns/hosts content directly to decide
 # which corefile to use, so this function does not need to signal success/failure.
 enableAKSHostsSetup() {
-    # handle nxdomain and no answer case
+    # Best-effort setup: log errors but never fail.
+    # The corefile will fall back to the no-hosts variant if hosts file is empty.
     # Allow overriding paths for testing (via environment variables)
     local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
     local hosts_setup_script="${AKS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-hosts-setup.sh}"

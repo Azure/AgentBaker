@@ -385,3 +385,56 @@ func (s *Scenario) IsWindows() bool {
 func (s *Scenario) IsLinux() bool {
 	return !s.IsWindows()
 }
+
+// IsHostsPluginEnabled returns true if the hosts plugin is explicitly enabled
+// via either NBC (traditional) or AKSNodeConfig (scriptless) paths.
+func (s *Scenario) IsHostsPluginEnabled() bool {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		return s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+	}
+	return false
+}
+
+// GetDefaultFQDNsForValidation returns a minimal set of FQDNs to validate in the default validation.
+// This mirrors the logic in GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+func (s *Scenario) GetDefaultFQDNsForValidation() []string {
+	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
+		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+		if strings.HasPrefix(location, "china") {
+			return []string{
+				"mcr.azure.cn",
+				"login.partner.microsoftonline.cn",
+				"acs-mirror.azureedge.net",
+			}
+		}
+		if strings.HasPrefix(location, "usgov") || strings.HasPrefix(location, "usdod") {
+			return []string{
+				"mcr.microsoft.com",
+				"login.microsoftonline.us",
+				"acs-mirror.azureedge.net",
+			}
+		}
+	}
+	return []string{
+		"mcr.microsoft.com",
+		"login.microsoftonline.com",
+		"acs-mirror.azureedge.net",
+	}
+}
+
+// GetContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the NBC's ContainerService.Location field. This mirrors the logic in
+// GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+func (s *Scenario) GetContainerRegistryFQDN() string {
+	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
+		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
+}

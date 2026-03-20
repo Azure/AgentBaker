@@ -31,7 +31,6 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./vhdbuilder/packer/install-ig.sh
 ./parts/linux/cloud-init/artifacts/aks-hosts-setup.sh
-./vhdbuilder/packer/test/test_aks_hosts_validation.sh
 EOF
 )
 

@@ -1447,11 +1447,9 @@ fi
 
 // quoteFQDNsForBash converts a slice of FQDNs to a bash array string
 func quoteFQDNsForBash(fqdns []string) string {
-	quoted := make([]string, len(fqdns))
-	for i, fqdn := range fqdns {
-		quoted[i] = fmt.Sprintf("%q", fqdn)
-	}
-	return strings.Join(quoted, " ")
+	return strings.Join(lo.Map(fqdns, func(fqdn string, _ int) string {
+		return fmt.Sprintf("%q", fqdn)
+	}), " ")
 }
 
 // ValidateAKSHostsSetupService checks that aks-hosts-setup.service ran successfully
@@ -1476,34 +1474,7 @@ fi
 		"aks-hosts-setup.service should have completed successfully")
 
 	// Check that aks-hosts-setup.timer is active for periodic refresh
-	timerScript := `set -euo pipefail
-timer="aks-hosts-setup.timer"
-active=$(systemctl is-active "$timer" 2>/dev/null || true)
-echo "aks-hosts-setup.timer: active=$active"
-if [ "$active" != "active" ]; then
-    echo "ERROR: aks-hosts-setup.timer is not active"
-    systemctl status "$timer" --no-pager || true
-    exit 1
-fi
-`
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, timerScript, 0,
-		"aks-hosts-setup.timer should be active for periodic hosts file refresh")
-}
-
-// getContainerRegistryFQDN returns the container registry FQDN for the cloud environment
-// determined by the NBC's ContainerService.Location field. This mirrors the logic in
-// GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
-func getContainerRegistryFQDN(s *Scenario) string {
-	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
-		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
-		if strings.HasPrefix(location, "china") {
-			return "mcr.azure.cn"
-		}
-		// usgovvirginia, usgovarizona, usdodeast, usdodcentral -> AzureUSGovernmentCloud
-		// but US Government still uses mcr.microsoft.com for container registry
-	}
-	// Default to public cloud container registry (also used by Fairfax/US Gov)
-	return "mcr.microsoft.com"
+	ValidateSystemdUnitIsRunning(ctx, s, "aks-hosts-setup.timer")
 }
 
 // ValidateLocalDNSHostsPluginBypass verifies that localdns resolves FQDNs from /etc/localdns/hosts

@@ -96,8 +96,9 @@ resolve_ipv6() {
     local domain="$1"
     local output
     output=$(timeout 3 nslookup -type=AAAA "${domain}" 2>/dev/null) || return 0
-    # Parse Address lines (skip server address with #), validate IPv6 format (must contain : and only hex/colons, min 3 chars)
-    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':' || return 0
+    # Parse Address lines (skip server address with #), validate IPv6 format
+    # Require at least two colons and min 7 chars to reject strings like "1:2" or ":ff"
+    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{7,}$' | grep ':.*:' || return 0
 }
 
 echo "Starting AKS critical FQDN hosts resolution at $(date)"
