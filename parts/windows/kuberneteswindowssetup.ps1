@@ -471,7 +471,6 @@ function BasePrep {
     Adjust-PageFileSize
     Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
     PREPROVISION_EXTENSION
-    Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
@@ -598,6 +597,8 @@ function NodePrep {
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
+
+    Update-ServiceFailureActions
 
     Write-Log "NodePrep completed successfully"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
