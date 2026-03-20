@@ -382,3 +382,94 @@ Describe "Get-BootstrapRegistryDomainName" {
     Get-BootstrapRegistryDomainName | Should -Be "mybootstrap.azurecr.io"
   }
 }
+
+Describe "DownloadFileWithOras" {
+  BeforeEach {
+    $global:OrasPath = "Mock-OrasCli"
+    $script:MockOrasExitCode = 0
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $global:LASTEXITCODE = $script:MockOrasExitCode
+    }
+    $global:OrasRegistryConfigFile = "C:\oras-config.json"
+    $global:AppInsightsClient = $null
+
+    Mock Set-ExitCode -MockWith {
+      Param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$ErrorMessage
+      )
+      throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+    }
+    Mock Get-Item -MockWith {
+      param($Path)
+      return New-Object -TypeName PSObject -Property @{ FullName = $Path }
+    }
+    # Mock Get-ChildItem to return a fake downloaded file from the oras pull temp directory
+    Mock Get-ChildItem -MockWith {
+      param($Path, [switch]$File)
+      return @([PSCustomObject]@{ Name = "downloaded-file.zip"; FullName = "C:\tmp\downloaded-file.zip"; Length = 1024 })
+    }
+    Mock Move-Item -MockWith {}
+    Mock Remove-Item -MockWith {} -ParameterFilter { $Recurse -eq $true -or $Path -eq 'c:\k.zip' }
+    Mock Test-Path -MockWith {
+      Param($Path)
+      return $false
+    } -ParameterFilter {
+      $null -ne $Path -and ($Path -eq 'c:\k.zip' -or $Path -eq 'c:\test.zip' -or $Path -eq 'c:')
+    }
+  }
+
+  It "should call oras with correct arguments on success" {
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath } | Should -Not -Throw
+  }
+
+  It "should throw when oras returns non-zero exit code" {
+    $script:MockOrasExitCode = 1
+
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath } | Should -Throw "*oras pull failed*"
+  }
+
+  It "should throw when no file is found after oras pull" {
+    Mock Get-ChildItem -MockWith {
+      param($Path, [switch]$File)
+      return @()
+    }
+
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath } | Should -Throw "*oras pull succeeded but no file found*"
+  }
+
+  It "should move downloaded file to destination path on success" {
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath } | Should -Not -Throw
+
+    Assert-MockCalled -CommandName 'Move-Item' -Exactly -Times 1 -ParameterFilter {
+      $Destination -eq $destPath
+    }
+  }
+
+  It "should use default platform windows/amd64 when not specified" {
+    $reference = "myregistry.azurecr.io/aks/packages/test:v1"
+    $destPath = "c:\test.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath } | Should -Not -Throw
+  }
+
+  It "should accept a custom platform parameter" {
+    $reference = "myregistry.azurecr.io/aks/packages/test:v1"
+    $destPath = "c:\test.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -Platform "linux/amd64" } | Should -Not -Throw
+  }
+}

@@ -557,3 +557,32 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 		},
 	})
 }
+
+func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that Windows nodes in network isolated clusters download kubelet binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: false,
+		},
+		Config: Config{
+			Cluster:         ClusterAzureBootstrapProfileCache,
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, nbc)
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				// Verify kubelet binaries were downloaded via ORAS instead of HTTP
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras")
+			},
+		},
+	})
+}
