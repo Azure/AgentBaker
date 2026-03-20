@@ -41,7 +41,7 @@ jobs:
 
       - name: Detect changed scripts and update template
         run: |
-          bash hack/hotfix-generate.sh "origin/${{ github.base_ref }}"
+          python3 hack/hotfix_generate.py "origin/${{ github.base_ref }}"
 
       - name: Check for changes
         id: check

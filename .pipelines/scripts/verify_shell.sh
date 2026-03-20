@@ -30,7 +30,6 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 # Known bash-only scripts that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./vhdbuilder/packer/install-ig.sh
-./hack/hotfix-generate.sh
 EOF
 )
 
