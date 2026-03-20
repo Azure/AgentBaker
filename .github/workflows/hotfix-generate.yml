@@ -81,6 +81,12 @@ jobs:
             echo "Template updated with hotfix entries."
           fi
 
+      - name: Setup Go
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Run make generate
         if: steps.check.outputs.changed == 'true'
         run: make generate
