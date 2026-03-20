@@ -1,5 +1,9 @@
 #!/bin/bash
 
+hotfix_test_ubuntu_dummy() {
+    echo "dummy function for ubuntu hotfix testing"
+}
+
 removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
