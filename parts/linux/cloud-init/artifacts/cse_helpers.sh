@@ -1,6 +1,11 @@
 #!/bin/bash
 # hotfix test: verify GH Action injects write_files block into nodecustomdata.yml
 # ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED
+
+hotfix_test_dummy_function() {
+    local msg="this is a dummy function for hotfix testing"
+    echo "$msg"
+}
 ERR_SYSTEMCTL_START_FAIL=4 # Service could not be started or enabled by systemctl
 ERR_CLOUD_INIT_TIMEOUT=5 # Timeout waiting for cloud-init runcmd to complete
 ERR_FILE_WATCH_TIMEOUT=6 # Timeout waiting for a file
