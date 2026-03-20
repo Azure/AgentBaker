@@ -128,14 +128,18 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
     }
 
     It 'returns true for rcv1p regions when opt-in is enabled' {
+        $script:lastRetryUri = $null
         Mock Retry-Command -MockWith {
+            param($Command, $Args, $Retries, $RetryDelaySeconds)
+            $script:lastRetryUri = $PSBoundParameters['Args'].Uri
             return [PSCustomObject]@{ Content = 'IsOptedInForRootCerts=true' }
         }
 
         $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
 
         $result | Should -Be $true
-        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts' }
+        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1
+        $script:lastRetryUri | Should -Be 'http://168.63.129.16/acms/isOptedInForRootCerts'
     }
 
     It 'returns false for rcv1p regions when opt-in is disabled' {
@@ -157,8 +161,10 @@ Describe 'Get-CACertificates' {
     }
 
     It 'uses the legacy endpoint when location is a ussec/usnat region' {
+        $script:retryUris = @()
         Mock Retry-Command -MockWith {
             param($Command, $Args, $Retries, $RetryDelaySeconds)
+            $script:retryUris += $PSBoundParameters['Args'].Uri
             return [PSCustomObject]@{
                 Content = '{"Certificates":[{"Name":"legacy.crt","CertBody":"legacy-body"}]}'
             }
@@ -167,8 +173,9 @@ Describe 'Get-CACertificates' {
         $result = Get-CACertificates -Location 'ussecwest'
 
         $result | Should -Be $true
-        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json' }
-        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 0 -ParameterFilter { $Args.Uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts' }
+        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1
+        $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+        $script:retryUris | Should -Not -Contain 'http://168.63.129.16/acms/isOptedInForRootCerts'
     }
 
     It 'returns false when certificate retrieval throws' {
