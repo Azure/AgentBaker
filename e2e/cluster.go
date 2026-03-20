@@ -354,7 +354,7 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating":
+		case "Updating", "Assigned", "Creating", "Starting":
 			return false, nil
 		default:
 			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)
