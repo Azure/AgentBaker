@@ -6,8 +6,8 @@ variables:
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
   E2E_GO_TEST_TIMEOUT: "75m"
 schedules:
-  - cron: "0 8 * * *"
-    displayName: Daily midnight PST
+  - cron: "0 9 * * *"
+    displayName: Daily 1am PST
     branches:
       include:
         - main

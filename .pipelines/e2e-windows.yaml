@@ -6,8 +6,8 @@ variables:
   SIG_FOR_PRODUCTION: False
 
 schedules:
-  - cron: "0 8 * * *"
-    displayName: Daily midnight PST
+  - cron: "0 10 * * *"
+    displayName: Daily 2am PST
     branches:
       include:
         - main
