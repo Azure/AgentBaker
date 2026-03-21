@@ -943,7 +943,7 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
-    elif isACL "$OS"; then
+    elif isACL "$OS" "$OS_VARIANT"; then
         installNvidiaContainerToolkitSysext
         installGPUDriverSysext
         enableNvidiaPersistenceMode
@@ -962,7 +962,7 @@ configGPUDrivers() {
     fi
 
     # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
-    if (isMarinerOrAzureLinux "$OS" || isACL "$OS") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+    if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
         systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
