@@ -840,21 +840,39 @@ func injectWriteFilesEntry(t testing.TB, vmss *armcompute.VirtualMachineScaleSet
 
 	reader, err := gzip.NewReader(bytes.NewReader(decoded))
 	require.NoError(t, err, "failed to create gzip reader")
+	defer reader.Close()
 	yamlBytes, err := io.ReadAll(reader)
-	reader.Close()
 	require.NoError(t, err, "failed to read gzip data")
 
-	entry := fmt.Sprintf("\n- path: %s\n  permissions: \"0644\"\n  owner: root\n  content: |\n    %s\n", filePath, content)
-	yamlStr := strings.Replace(string(yamlBytes), "write_files:", "write_files:"+entry, 1)
+	const writeFilesMarker = "write_files:"
+	yamlStr := string(yamlBytes)
+	idx := strings.Index(yamlStr, writeFilesMarker)
+	require.NotEqual(t, -1, idx, "cloud-init customData missing 'write_files:' section")
+
+	indentedContent := indentYAMLBlock(content, "    ")
+	entry := fmt.Sprintf("\n- path: %s\n  permissions: \"0644\"\n  owner: root\n  content: |\n%s\n", filePath, indentedContent)
+	insertPos := idx + len(writeFilesMarker)
+	yamlStr = yamlStr[:insertPos] + entry + yamlStr[insertPos:]
 
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	_, err = gw.Write([]byte(yamlStr))
 	require.NoError(t, err, "failed to gzip")
-	gw.Close()
+	require.NoError(t, gw.Close(), "failed to close gzip writer")
 
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
 	vmss.Properties.VirtualMachineProfile.OSProfile.CustomData = &encoded
+}
+
+func indentYAMLBlock(content, indent string) string {
+	if content == "" {
+		return indent
+	}
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = indent + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
