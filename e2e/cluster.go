@@ -75,17 +75,21 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 
 	g := dag.NewGroup(ctx)
 
-	bastion := dag.Go(g, bind(getOrCreateBastion, cluster))
-	dag.Run(g, bindRun(ensureMaintenanceConfiguration, cluster))
-	subnet := dag.Go(g, bind(getClusterSubnetID, cluster))
-	kube := dag.Go(g, bind(getClusterKubeClient, cluster))
-	identity := dag.Go(g, bind(getClusterKubeletIdentity, cluster))
-	dag.Run(g, bindRun(collectGarbageVMSS, cluster))
+	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
+		return getOrCreateBastion(ctx, cluster)
+	})
+	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
+	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
+	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
+	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
+		return getClusterKubeletIdentity(ctx, cluster)
+	})
+	dag.Run(g, func(ctx context.Context) error { return collectGarbageVMSS(ctx, cluster) })
 	if !isNetworkIsolated {
-		dag.Run(g, bindRun(addFirewallRules, cluster))
+		dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) })
 	}
 	if isNetworkIsolated {
-		dag.Run(g, bindRun(addNetworkIsolatedSettings, cluster))
+		dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) })
 	}
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
@@ -104,16 +108,6 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		ClusterParams:   extract.MustGet(),
 		Bastion:         bastion.MustGet(),
 	}, nil
-}
-
-// bind returns func(ctx) → (T, error) by binding arg to fn.
-func bind[A, T any](fn func(context.Context, A) (T, error), arg A) func(context.Context) (T, error) {
-	return func(ctx context.Context) (T, error) { return fn(ctx, arg) }
-}
-
-// bindRun returns func(ctx) → error by binding arg to fn.
-func bindRun[A any](fn func(context.Context, A) error, arg A) func(context.Context) error {
-	return func(ctx context.Context) error { return fn(ctx, arg) }
 }
 
 func addACR(cluster *armcontainerservice.ManagedCluster, needACR, isNonAnonymousPull bool) func(context.Context, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
