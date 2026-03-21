@@ -826,6 +826,37 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
+// injectWriteFilesEntry decodes the VMSS customData (base64 → gzip → YAML),
+// injects a cloud-init write_files entry with the given path and content,
+// then re-encodes it back onto the VMSS model. This is used by e2e tests to
+// verify that cloud-init write_files delivery works end-to-end.
+func injectWriteFilesEntry(t testing.TB, vmss *armcompute.VirtualMachineScaleSet, filePath, content string) {
+	t.Helper()
+	customDataPtr := vmss.Properties.VirtualMachineProfile.OSProfile.CustomData
+	require.NotNil(t, customDataPtr, "VMSS customData is nil")
+
+	decoded, err := base64.StdEncoding.DecodeString(*customDataPtr)
+	require.NoError(t, err, "failed to decode customData")
+
+	reader, err := gzip.NewReader(bytes.NewReader(decoded))
+	require.NoError(t, err, "failed to create gzip reader")
+	yamlBytes, err := io.ReadAll(reader)
+	reader.Close()
+	require.NoError(t, err, "failed to read gzip data")
+
+	entry := fmt.Sprintf("\n- path: %s\n  permissions: \"0644\"\n  owner: root\n  content: |\n    %s\n", filePath, content)
+	yamlStr := strings.Replace(string(yamlBytes), "write_files:", "write_files:"+entry, 1)
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err = gw.Write([]byte(yamlStr))
+	require.NoError(t, err, "failed to gzip")
+	gw.Close()
+
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	vmss.Properties.VirtualMachineProfile.OSProfile.CustomData = &encoded
+}
+
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
