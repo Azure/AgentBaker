@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
-	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -236,8 +235,9 @@ func TestCancelAll_CancelsRunningTasks(t *testing.T) {
 		return 0, errors.New("fail")
 	})
 
+	// g.Wait() guarantees all goroutines have returned (via WaitGroup),
+	// so cancelled is guaranteed to be true here — no sleep needed.
 	g.Wait()
-	time.Sleep(10 * time.Millisecond)
 	if !cancelled.Load() {
 		t.Fatal("expected context to be cancelled for running task")
 	}
@@ -379,9 +379,10 @@ func TestParentContextCancelled(t *testing.T) {
 func TestEffect_AsDep(t *testing.T) {
 	g := NewGroup(context.Background())
 
+	// order is shared between goroutines, but the dependency edge (e) provides
+	// a happens-before guarantee: close(e.done) in the first goroutine
+	// happens-before the second goroutine's read via e.wait().
 	var order []int
-	var mu atomic.Value
-	mu.Store([]int{})
 
 	e := Run(g, func(ctx context.Context) error {
 		order = append(order, 1)

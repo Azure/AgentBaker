@@ -70,7 +70,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 
 	cluster, err := getOrCreateCluster(ctx, clusterModel)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get or create cluster: %w", err)
 	}
 
 	g := dag.NewGroup(ctx)
@@ -94,7 +94,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	extract := dag.Go1(g, kube, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
 	}
 	return &Cluster{
 		Model:           cluster,
@@ -420,7 +420,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 }
 
 func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
-	existingMaintenance, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", nil)
+	_, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
 		_, err = createNewMaintenanceConfiguration(ctx, cluster)
@@ -429,7 +429,6 @@ func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerse
 	if err != nil {
 		return fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
 	}
-	_ = existingMaintenance
 	return nil
 }
 

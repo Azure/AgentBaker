@@ -1,3 +1,11 @@
+// Package tasks provides a reflection-based DAG executor where tasks are
+// structs implementing the [Task] interface and dependencies are discovered
+// automatically from a Deps struct field.
+//
+// For most e2e use cases, prefer the sibling package [dag] which uses
+// closures and generics for a lighter-weight, no-reflection API.
+// This package is useful when tasks are reusable objects with complex
+// dependency wiring that benefits from struct-based composition.
 package tasks
 
 import (
