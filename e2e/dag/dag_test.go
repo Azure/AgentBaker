@@ -8,7 +8,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Spawn
+// Go — value-producing tasks
 // ---------------------------------------------------------------------------
 
 func TestGo(t *testing.T) {
@@ -61,7 +61,7 @@ func TestGo_WithDeps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Do
+// Run — side-effect tasks
 // ---------------------------------------------------------------------------
 
 func TestRun(t *testing.T) {
@@ -99,7 +99,7 @@ func TestRun_WithDeps(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Then chain
+// Go1 / Go2 / Go3 chain
 // ---------------------------------------------------------------------------
 
 func TestGo1_Chain(t *testing.T) {
@@ -125,7 +125,7 @@ func TestGo1_Chain(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Then2 / Then3
+// Go2 / Go3
 // ---------------------------------------------------------------------------
 
 func TestGo2(t *testing.T) {
@@ -160,7 +160,7 @@ func TestGo3(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ThenDo / ThenDo2 / ThenDo3
+// Run1 / Run2 / Run3
 // ---------------------------------------------------------------------------
 
 func TestRun1(t *testing.T) {
@@ -372,8 +372,12 @@ func TestParentContextCancelled(t *testing.T) {
 		return nil
 	})
 
-	// Key invariant: Wait() returns without hanging.
-	g.Wait()
+	// Key invariant: Wait() returns without hanging and surfaces the
+	// parent context's cancellation error.
+	err := g.Wait()
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
 }
 
 func TestEffect_AsDep(t *testing.T) {
