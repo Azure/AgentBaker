@@ -116,13 +116,13 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
 # Reads VERSION_ID from /etc/os-release for use as the sysext version tag.
 # GPU sysexts are tagged by the OS image version, not the driver version.
 getACLVersionID() {
-    # shellcheck disable=SC1091
-    source /etc/os-release
-    if [ -z "${VERSION_ID}" ]; then
+    local version_id
+    version_id=$(. /etc/os-release && echo "${VERSION_ID}")
+    if [ -z "${version_id}" ]; then
         echo "ERROR: VERSION_ID not found in /etc/os-release" >&2
         return "${ERR_SYSEXT_VERSION_ID_NOT_FOUND}"
     fi
-    echo "${VERSION_ID}"
+    echo "${version_id}"
 }
 
 # Pulls a GPU-related sysext by name using the ACL MCR registry.
