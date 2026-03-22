@@ -660,3 +660,63 @@ func TestCycle_SelfDependency(t *testing.T) {
 		}
 	}
 }
+
+// TestPanic_GoTask verifies that a panic in a Go task is recovered and
+// surfaced as an error via Wait(), not crashing the process.
+func TestPanic_GoTask(t *testing.T) {
+	g := NewGroup(context.Background())
+	r := Go(g, func(ctx context.Context) (int, error) {
+		panic("unexpected nil pointer")
+	})
+
+	err := g.Wait()
+	if err == nil {
+		t.Fatal("expected error from panicking task")
+	}
+	if !strings.Contains(err.Error(), "task panicked") {
+		t.Fatalf("expected panic error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "unexpected nil pointer") {
+		t.Fatalf("expected panic message in error, got: %v", err)
+	}
+	// Result should be marked as failed.
+	if _, ok := r.Get(); ok {
+		t.Fatal("Get() should return false on panicked task")
+	}
+}
+
+// TestPanic_RunTask verifies that a panic in a Run task is recovered.
+func TestPanic_RunTask(t *testing.T) {
+	g := NewGroup(context.Background())
+	Run(g, func(ctx context.Context) error {
+		panic(errors.New("wrapped panic"))
+	})
+
+	err := g.Wait()
+	if err == nil {
+		t.Fatal("expected error from panicking task")
+	}
+	if !strings.Contains(err.Error(), "task panicked") {
+		t.Fatalf("expected panic error, got: %v", err)
+	}
+}
+
+// TestPanic_SkipsDownstream verifies that a panic in an upstream task
+// causes downstream tasks to be skipped (not run).
+func TestPanic_SkipsDownstream(t *testing.T) {
+	g := NewGroup(context.Background())
+	upstream := Go(g, func(ctx context.Context) (int, error) {
+		panic("boom")
+	})
+
+	var ran atomic.Bool
+	Go1(g, upstream, func(ctx context.Context, v int) (string, error) {
+		ran.Store(true)
+		return "", nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("downstream task should have been skipped after upstream panic")
+	}
+}

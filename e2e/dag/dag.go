@@ -25,7 +25,14 @@
 // On the first task error, the Group cancels its context, causing all pending
 // and in-flight tasks to observe cancellation and exit. [Group.Wait] blocks
 // until every goroutine returns and reports a [DAGError] containing all
-// collected errors.
+// collected errors. Panics inside task functions are recovered and surfaced
+// as errors; they never crash the process.
+//
+// Note: the package does not perform runtime cycle detection. Dependency
+// cycles created via the untyped [Go]/[Run] API (where a task's closure
+// captures a [Result] that transitively depends on itself) will cause
+// [Group.Wait] to deadlock. The typed variants (Go1–Go3, Run1–Run3) make
+// cycles harder to construct but do not prevent them entirely.
 //
 // Example:
 //
@@ -117,11 +124,24 @@ func (g *Group) recordError(err error) {
 var errSkipped = errors.New("skipped: dependency failed")
 
 // launch runs fn in a new goroutine after all deps complete.
-// If any dep failed or ctx is cancelled, onSkip is called instead of fn.
-func (g *Group) launch(deps []Dep, fn func(), onSkip func()) {
+// If any dep failed, ctx is cancelled, or fn panics, onFail is called
+// with the relevant error instead of (or after) fn.
+func (g *Group) launch(deps []Dep, fn func(), onFail func(error)) {
 	g.wg.Add(1)
 	go func() {
 		defer g.wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				var err error
+				if e, ok := r.(error); ok {
+					err = fmt.Errorf("dag: task panicked: %w", e)
+				} else {
+					err = fmt.Errorf("dag: task panicked: %v", r)
+				}
+				g.recordError(err)
+				onFail(err)
+			}
+		}()
 
 		for _, d := range deps {
 			d.wait()
@@ -129,13 +149,13 @@ func (g *Group) launch(deps []Dep, fn func(), onSkip func()) {
 
 		for _, d := range deps {
 			if d.failed() {
-				onSkip()
+				onFail(errSkipped)
 				return
 			}
 		}
 
 		if g.ctx.Err() != nil {
-			onSkip()
+			onFail(errSkipped)
 			return
 		}
 
@@ -174,9 +194,10 @@ func (r *Result[T]) Get() (T, bool) {
 }
 
 // MustGet returns the value, panicking if the task failed. Safe to call:
-//   - Inside Then/ThenDo callbacks (the scheduler guarantees deps succeeded)
-//   - Inside Spawn/Do callbacks when the Result is listed as a dep
-//   - After [Group.Wait] returned nil
+//   - Inside Go1/Go2/Go3 or Run1/Run2/Run3 callbacks (the scheduler
+//     guarantees deps succeeded before invoking the function).
+//   - Inside Go/Run callbacks when the Result is listed as a dep.
+//   - After [Group.Wait] returned nil.
 func (r *Result[T]) MustGet() T {
 	<-r.done
 	if r.err != nil {
@@ -231,9 +252,9 @@ func Go[T any](g *Group, fn func(ctx context.Context) (T, error), deps ...Dep) *
 			g.recordError(err)
 		}
 		r.finish(val, err)
-	}, func() {
+	}, func(err error) {
 		var zero T
-		r.finish(zero, errSkipped)
+		r.finish(zero, err)
 	})
 	return r
 }
@@ -248,9 +269,9 @@ func Go1[T, D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D
 			g.recordError(err)
 		}
 		r.finish(val, err)
-	}, func() {
+	}, func(err error) {
 		var zero T
-		r.finish(zero, errSkipped)
+		r.finish(zero, err)
 	})
 	return r
 }
@@ -265,9 +286,9 @@ func Go2[T, D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ct
 			g.recordError(err)
 		}
 		r.finish(val, err)
-	}, func() {
+	}, func(err error) {
 		var zero T
-		r.finish(zero, errSkipped)
+		r.finish(zero, err)
 	})
 	return r
 }
@@ -282,9 +303,9 @@ func Go3[T, D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *
 			g.recordError(err)
 		}
 		r.finish(val, err)
-	}, func() {
+	}, func(err error) {
 		var zero T
-		r.finish(zero, errSkipped)
+		r.finish(zero, err)
 	})
 	return r
 }
@@ -305,9 +326,7 @@ func Run(g *Group, fn func(ctx context.Context) error, deps ...Dep) *Effect {
 			g.recordError(err)
 		}
 		e.finish(err)
-	}, func() {
-		e.finish(errSkipped)
-	})
+	}, e.finish)
 	return e
 }
 
@@ -321,9 +340,7 @@ func Run1[D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1)
 			g.recordError(err)
 		}
 		e.finish(err)
-	}, func() {
-		e.finish(errSkipped)
-	})
+	}, e.finish)
 	return e
 }
 
@@ -337,9 +354,7 @@ func Run2[D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx 
 			g.recordError(err)
 		}
 		e.finish(err)
-	}, func() {
-		e.finish(errSkipped)
-	})
+	}, e.finish)
 	return e
 }
 
@@ -353,9 +368,7 @@ func Run3[D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Re
 			g.recordError(err)
 		}
 		e.finish(err)
-	}, func() {
-		e.finish(errSkipped)
-	})
+	}, e.finish)
 	return e
 }
 
