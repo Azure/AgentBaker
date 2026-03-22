@@ -3,13 +3,11 @@ package dag
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
-
-// ---------------------------------------------------------------------------
-// Go — value-producing tasks
-// ---------------------------------------------------------------------------
 
 func TestGo(t *testing.T) {
 	g := NewGroup(context.Background())
@@ -60,10 +58,6 @@ func TestGo_WithDeps(t *testing.T) {
 	_ = c.MustGet()
 }
 
-// ---------------------------------------------------------------------------
-// Run — side-effect tasks
-// ---------------------------------------------------------------------------
-
 func TestRun(t *testing.T) {
 	g := NewGroup(context.Background())
 	var called atomic.Bool
@@ -98,10 +92,6 @@ func TestRun_WithDeps(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Go1 / Go2 / Go3 chain
-// ---------------------------------------------------------------------------
-
 func TestGo1_Chain(t *testing.T) {
 	g := NewGroup(context.Background())
 	a := Go(g, func(ctx context.Context) (int, error) {
@@ -123,10 +113,6 @@ func TestGo1_Chain(t *testing.T) {
 		t.Fatalf("got %q, want %q", v, "ok")
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Go2 / Go3
-// ---------------------------------------------------------------------------
 
 func TestGo2(t *testing.T) {
 	g := NewGroup(context.Background())
@@ -158,10 +144,6 @@ func TestGo3(t *testing.T) {
 		t.Fatalf("got %d, want 6", v)
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Run1 / Run2 / Run3
-// ---------------------------------------------------------------------------
 
 func TestRun1(t *testing.T) {
 	g := NewGroup(context.Background())
@@ -214,10 +196,6 @@ func TestRun3(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Error propagation — cancel-all behavior
-// ---------------------------------------------------------------------------
-
 func TestCancelAll_CancelsRunningTasks(t *testing.T) {
 	g := NewGroup(context.Background())
 
@@ -235,8 +213,6 @@ func TestCancelAll_CancelsRunningTasks(t *testing.T) {
 		return 0, errors.New("fail")
 	})
 
-	// g.Wait() guarantees all goroutines have returned (via WaitGroup),
-	// so cancelled is guaranteed to be true here — no sleep needed.
 	g.Wait()
 	if !cancelled.Load() {
 		t.Fatal("expected context to be cancelled for running task")
@@ -245,7 +221,6 @@ func TestCancelAll_CancelsRunningTasks(t *testing.T) {
 
 func TestSkipsDownstream(t *testing.T) {
 	g := NewGroup(context.Background())
-
 	a := Go(g, func(ctx context.Context) (int, error) {
 		return 0, errors.New("a failed")
 	})
@@ -264,7 +239,6 @@ func TestSkipsDownstream(t *testing.T) {
 
 func TestTransitiveSkip(t *testing.T) {
 	g := NewGroup(context.Background())
-
 	a := Go(g, func(ctx context.Context) (int, error) {
 		return 0, errors.New("a failed")
 	})
@@ -284,10 +258,6 @@ func TestTransitiveSkip(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// DAG topologies
-// ---------------------------------------------------------------------------
-
 func TestDiamond(t *testing.T) {
 	//     a
 	//    / \
@@ -295,7 +265,6 @@ func TestDiamond(t *testing.T) {
 	//    \ /
 	//     d
 	g := NewGroup(context.Background())
-
 	a := Go(g, func(ctx context.Context) (int, error) { return 1, nil })
 	b := Go1(g, a, func(ctx context.Context, v int) (int, error) { return v + 10, nil })
 	c := Go1(g, a, func(ctx context.Context, v int) (int, error) { return v + 100, nil })
@@ -308,10 +277,6 @@ func TestDiamond(t *testing.T) {
 		t.Fatalf("got %d, want 112", d.MustGet())
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Result.Get / Result.MustGet safety
-// ---------------------------------------------------------------------------
 
 func TestGet_SafeOnError(t *testing.T) {
 	g := NewGroup(context.Background())
@@ -329,6 +294,23 @@ func TestGet_SafeOnError(t *testing.T) {
 	}
 }
 
+func TestGet_SuccessPath(t *testing.T) {
+	g := NewGroup(context.Background())
+	r := Go(g, func(ctx context.Context) (string, error) {
+		return "hello", nil
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	v, ok := r.Get()
+	if !ok {
+		t.Fatal("Get() should return true on success")
+	}
+	if v != "hello" {
+		t.Fatalf("got %q, want %q", v, "hello")
+	}
+}
+
 func TestMustGet_PanicsOnError(t *testing.T) {
 	g := NewGroup(context.Background())
 	r := Go(g, func(ctx context.Context) (int, error) {
@@ -343,10 +325,6 @@ func TestMustGet_PanicsOnError(t *testing.T) {
 	}()
 	r.MustGet()
 }
-
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
 
 func TestMultipleErrors(t *testing.T) {
 	g := NewGroup(context.Background())
@@ -368,12 +346,8 @@ func TestParentContextCancelled(t *testing.T) {
 	cancel()
 
 	g := NewGroup(ctx)
-	Run(g, func(ctx context.Context) error {
-		return nil
-	})
+	Run(g, func(ctx context.Context) error { return nil })
 
-	// Key invariant: Wait() returns without hanging and surfaces the
-	// parent context's cancellation error.
 	err := g.Wait()
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
@@ -383,11 +357,8 @@ func TestParentContextCancelled(t *testing.T) {
 func TestEffect_AsDep(t *testing.T) {
 	g := NewGroup(context.Background())
 
-	// order is shared between goroutines, but the dependency edge (e) provides
-	// a happens-before guarantee: close(e.done) in the first goroutine
-	// happens-before the second goroutine's read via e.wait().
+	// The dependency edge provides a happens-before guarantee.
 	var order []int
-
 	e := Run(g, func(ctx context.Context) error {
 		order = append(order, 1)
 		return nil
@@ -401,5 +372,291 @@ func TestEffect_AsDep(t *testing.T) {
 
 	if err := g.Wait(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestEmptyGroup(t *testing.T) {
+	g := NewGroup(context.Background())
+	if err := g.Wait(); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+func TestWait_NilOnSuccess(t *testing.T) {
+	g := NewGroup(context.Background())
+	Go(g, func(ctx context.Context) (int, error) { return 1, nil })
+	Run(g, func(ctx context.Context) error { return nil })
+
+	if err := g.Wait(); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+}
+
+// TestWait_DAGErrorPriorityOverCtxErr verifies that when a task fails
+// (causing internal cancel), Wait() returns *DAGError not context.Canceled.
+func TestWait_DAGErrorPriorityOverCtxErr(t *testing.T) {
+	g := NewGroup(context.Background())
+	Go(g, func(ctx context.Context) (int, error) {
+		return 0, errors.New("task failed")
+	})
+	Run(g, func(ctx context.Context) error {
+		<-ctx.Done()
+		return ctx.Err()
+	})
+
+	err := g.Wait()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var dagErr *DAGError
+	if !errors.As(err, &dagErr) {
+		t.Fatalf("expected *DAGError, got %T: %v", err, err)
+	}
+	found := false
+	for _, e := range dagErr.Errors {
+		if e.Error() == "task failed" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected 'task failed' in DAGError.Errors, got: %v", dagErr.Errors)
+	}
+}
+
+func TestWait_ParentContextDeadlineExceeded(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+	time.Sleep(5 * time.Millisecond)
+
+	g := NewGroup(ctx)
+	Run(g, func(ctx context.Context) error { return nil })
+
+	err := g.Wait()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded, got %v", err)
+	}
+}
+
+// TestCancellationNoise verifies that when task A fails and task B returns
+// ctx.Err() as noise, the real error is still present in DAGError.
+func TestCancellationNoise(t *testing.T) {
+	g := NewGroup(context.Background())
+	started := make(chan struct{})
+
+	Go(g, func(ctx context.Context) (int, error) {
+		<-started
+		return 0, errors.New("real error")
+	})
+	Run(g, func(ctx context.Context) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	})
+
+	err := g.Wait()
+	var dagErr *DAGError
+	if !errors.As(err, &dagErr) {
+		t.Fatalf("expected *DAGError, got %T: %v", err, err)
+	}
+	hasRealErr := false
+	for _, e := range dagErr.Errors {
+		if e.Error() == "real error" {
+			hasRealErr = true
+		}
+	}
+	if !hasRealErr {
+		t.Fatalf("real error not found in DAGError.Errors: %v", dagErr.Errors)
+	}
+	if !strings.Contains(dagErr.Error(), "real error") {
+		t.Fatalf("Error() should mention 'real error': %s", dagErr.Error())
+	}
+}
+
+func TestDAGError_Error(t *testing.T) {
+	dagErr := &DAGError{Errors: []error{
+		errors.New("beta"),
+		errors.New("alpha"),
+	}}
+	got := dagErr.Error()
+	want := "dag execution failed: alpha; beta"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestDAGError_ErrorSingle(t *testing.T) {
+	dagErr := &DAGError{Errors: []error{errors.New("only")}}
+	got := dagErr.Error()
+	want := "dag execution failed: only"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestGo1_SkipOnDepFailure(t *testing.T) {
+	g := NewGroup(context.Background())
+	a := Go(g, func(ctx context.Context) (int, error) { return 0, errors.New("a failed") })
+
+	var ran atomic.Bool
+	Go1(g, a, func(ctx context.Context, v int) (string, error) {
+		ran.Store(true)
+		return "", nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("Go1 callback should have been skipped when dep failed")
+	}
+}
+
+func TestGo2_SkipOnDepFailure(t *testing.T) {
+	g := NewGroup(context.Background())
+	a := Go(g, func(ctx context.Context) (int, error) { return 0, errors.New("a failed") })
+	b := Go(g, func(ctx context.Context) (int, error) { return 2, nil })
+
+	var ran atomic.Bool
+	Go2(g, a, b, func(ctx context.Context, x, y int) (int, error) {
+		ran.Store(true)
+		return x + y, nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("Go2 callback should have been skipped when dep failed")
+	}
+}
+
+func TestGo3_SkipOnDepFailure(t *testing.T) {
+	g := NewGroup(context.Background())
+	a := Go(g, func(ctx context.Context) (int, error) { return 1, nil })
+	b := Go(g, func(ctx context.Context) (int, error) { return 0, errors.New("b failed") })
+	c := Go(g, func(ctx context.Context) (int, error) { return 3, nil })
+
+	var ran atomic.Bool
+	Go3(g, a, b, c, func(ctx context.Context, x, y, z int) (int, error) {
+		ran.Store(true)
+		return x + y + z, nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("Go3 callback should have been skipped when dep failed")
+	}
+}
+
+func TestRun1_SkipOnDepFailure(t *testing.T) {
+	g := NewGroup(context.Background())
+	a := Go(g, func(ctx context.Context) (int, error) { return 0, errors.New("a failed") })
+
+	var ran atomic.Bool
+	Run1(g, a, func(ctx context.Context, v int) error {
+		ran.Store(true)
+		return nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("Run1 callback should have been skipped when dep failed")
+	}
+}
+
+func TestRun2_SkipOnDepFailure(t *testing.T) {
+	g := NewGroup(context.Background())
+	a := Go(g, func(ctx context.Context) (int, error) { return 0, errors.New("a failed") })
+	b := Go(g, func(ctx context.Context) (string, error) { return "x", nil })
+
+	var ran atomic.Bool
+	Run2(g, a, b, func(ctx context.Context, n int, s string) error {
+		ran.Store(true)
+		return nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("Run2 callback should have been skipped when dep failed")
+	}
+}
+
+func TestRun3_SkipOnDepFailure(t *testing.T) {
+	g := NewGroup(context.Background())
+	a := Go(g, func(ctx context.Context) (int, error) { return 1, nil })
+	b := Go(g, func(ctx context.Context) (int, error) { return 2, nil })
+	c := Go(g, func(ctx context.Context) (int, error) { return 0, errors.New("c failed") })
+
+	var ran atomic.Bool
+	Run3(g, a, b, c, func(ctx context.Context, x, y, z int) error {
+		ran.Store(true)
+		return nil
+	})
+
+	g.Wait()
+	if ran.Load() {
+		t.Fatal("Run3 callback should have been skipped when dep failed")
+	}
+}
+
+// TestCycle_TypedAPI_Impossible documents that the typed Go1/Go2/Go3 API
+// makes cyclic dependencies impossible at compile time: you cannot pass a
+// *Result before it is declared.
+func TestCycle_TypedAPI_Impossible(t *testing.T) {
+	//   a := Go1(g, b, ...)   // b not declared yet — won't compile
+	//   b := Go1(g, a, ...)
+}
+
+// TestCycle_UntypedAPI_Deadlocks verifies that a never-completing dep
+// (simulating a cycle) causes Wait() to deadlock. Context cancellation
+// does not unblock d.wait() since it's a plain channel read.
+// Prefer Go1-Go3 / Run1-Run3 for compile-time cycle safety.
+func TestCycle_UntypedAPI_Deadlocks(t *testing.T) {
+	g := NewGroup(context.Background())
+	placeholder := newEffect()
+
+	cycleTask := Go(g, func(ctx context.Context) (int, error) {
+		return 42, nil
+	}, placeholder)
+
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- g.Wait()
+	}()
+
+	select {
+	case <-waitDone:
+		t.Fatal("Wait() should not have returned — expected deadlock")
+	case <-time.After(100 * time.Millisecond):
+		placeholder.finish(errSkipped)
+		<-waitDone
+		if _, ok := cycleTask.Get(); ok {
+			t.Fatal("cyclic task should not have succeeded")
+		}
+	}
+}
+
+// TestCycle_SelfDependency verifies that a task depending on a never-completed
+// dep (simulating a self-reference) deadlocks Wait().
+func TestCycle_SelfDependency(t *testing.T) {
+	g := NewGroup(context.Background())
+	blocker := newResult[int]()
+
+	var ran atomic.Bool
+	Run(g, func(ctx context.Context) error {
+		ran.Store(true)
+		return nil
+	}, blocker)
+
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- g.Wait()
+	}()
+
+	select {
+	case <-waitDone:
+		t.Fatal("Wait() should not have returned — expected deadlock")
+	case <-time.After(100 * time.Millisecond):
+		blocker.finish(0, errSkipped)
+		<-waitDone
+		if ran.Load() {
+			t.Fatal("task should not have run — dep failed")
+		}
 	}
 }
