@@ -56,7 +56,11 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+        echo "Skipping holding walinuxagent"
+    else
+        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
@@ -294,7 +298,6 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
@@ -493,8 +496,12 @@ function nodePrep {
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-            # logs_to_events should not be run on & commands
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                # logs_to_events should not be run on & commands
+                aptmarkWALinuxAgent unhold &
+            fi
         fi
     else
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -516,7 +523,11 @@ function nodePrep {
                 systemctl restart --no-block apt-daily.service
 
             fi
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                aptmarkWALinuxAgent unhold &
+            fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
                 if [ "${IS_KATA}" = "true" ]; then

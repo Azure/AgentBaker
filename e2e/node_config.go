@@ -162,7 +162,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	return &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
-		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar() || nbc.AgentPoolProfile.IsACL(),
+		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
