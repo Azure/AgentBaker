@@ -490,9 +490,6 @@ function Install-CredentialProvider {
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
             }
             AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
-            if ($LASTEXITCODE -ne 0) {
-                throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
-            }
         }
 
         Create-Directory -FullPath $global:credentialProviderBinDir
