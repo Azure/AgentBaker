@@ -470,7 +470,7 @@ function Install-CredentialProvider {
             }
             $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
             # Handle both URL styles:
-            # 1) .../azure-acr-credential-provider/1.34.0/windows/... for delac url, e.g. https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.0/windows/amd64/azure-acr-credential-provider_1.34.0-1_amd64.zip
+            # 1) .../azure-acr-credential-provider/1.34.0/windows/... for dalec url, e.g. https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.0/windows/amd64/azure-acr-credential-provider_1.34.0-1_amd64.zip
             # 2) .../cloud-provider-azure/v1.34.0/binaries/... for legacy binaries url, e.g. https://packages.aks.azure.com/cloud-provider-azure/v1.34.0/binaries/azure-acr-credential-provider-linux-amd64-v1.34.0.tar.gz
             # If version is missing in URL, fall back to KubeBinariesVersion.
             $packageVersion = ([regex]::Match($global:CredentialProviderURL, '/v?(\d+(?:\.\d+)+)(?=/)')).Groups[1].Value
