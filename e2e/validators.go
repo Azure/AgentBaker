@@ -1680,6 +1680,66 @@ fi`)
 	s.T.Logf("PubkeyAuthentication is properly disabled as expected")
 }
 
+// collectSELinuxDiagnostics runs diagnostic commands on the node to capture SELinux state.
+// This helps debug failures where SELinux in enforcing mode denies systemctl operations
+// (e.g., spc_t context cannot stop/reload services labeled unlabeled_t).
+func collectSELinuxDiagnostics(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
+		CommandID: to.Ptr("RunShellScript"),
+		Script: []*string{to.Ptr(`#!/bin/bash
+echo "=== SELinux context (process label) ==="
+id -Z 2>&1
+
+echo "=== SELinux mode ==="
+getenforce 2>&1
+
+echo "=== SELinux policy store ==="
+ls -la /var/lib/selinux/ 2>&1
+
+echo "=== Base policy file ==="
+ls -la /etc/selinux/targeted/policy/ 2>&1
+
+echo "=== sshd.service SELinux label ==="
+ls -Z /usr/lib/systemd/system/sshd.service 2>&1 || ls -Z /lib/systemd/system/ssh.service 2>&1
+
+echo "=== AVC denials (last 20) ==="
+dmesg 2>&1 | grep -i "avc.*denied" | tail -20
+journalctl --boot=0 --no-pager 2>&1 | grep "USER_AVC\|avc:.*denied" | tail -20
+
+echo "=== systemctl stop sshd test ==="
+systemctl stop sshd 2>&1 && echo "stop: OK" || echo "stop: FAILED"
+
+echo "=== systemctl reload sshd test ==="
+systemctl reload sshd 2>&1 && echo "reload: OK" || echo "reload: FAILED"
+
+echo "=== systemctl restart sshd test ==="
+systemctl restart sshd 2>&1 && echo "restart: OK" || echo "restart: FAILED"
+
+echo "=== sshd final status ==="
+systemctl is-active sshd 2>&1
+`)},
+	}, nil)
+	if err != nil {
+		s.T.Logf("SELinux diagnostics: failed to start RunCommand: %v", err)
+		return
+	}
+
+	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		s.T.Logf("SELinux diagnostics: failed to complete RunCommand: %v", err)
+		return
+	}
+
+	respJson, err := runResp.MarshalJSON()
+	if err != nil {
+		s.T.Logf("SELinux diagnostics: failed to marshal response: %v", err)
+		return
+	}
+	s.T.Logf("SELinux diagnostics output: %s", string(respJson))
+}
+
 // ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
@@ -1739,6 +1799,8 @@ fi`)},
 
 	// Check if the command execution was successful by looking for our success message in the output
 	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
+		// Collect SELinux diagnostics to help debug failure on ACL/Flatcar VHDs
+		collectSELinuxDiagnostics(ctx, s)
 		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
 	}
 
