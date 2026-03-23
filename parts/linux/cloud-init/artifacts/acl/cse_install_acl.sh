@@ -21,7 +21,6 @@ downloadSysextFromVersion() {
 
 matchLocalSysext() {
     local seName=$1 desiredVer=$2 seArch=$3
-    printf "%s\n" "/opt/${seName}/downloads/${seName}-v${desiredVer}"[.~-]*"-${seArch}.raw" | sort -V | tail -n1
     local downloadDir="/opt/${seName}/downloads"
     # Try arch-specific versioned filename first (kubelet-style: name-vVER.X-arch.raw)
     local match
@@ -39,7 +38,6 @@ matchLocalSysext() {
 
 matchRemoteSysext() {
     local seURL=$1 desiredVer=$2 seArch=$3
-    retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${seURL}" | grep -Ex "v${desiredVer//./\\.}[.~-].*-azlinux3-${seArch}" | sort -V | tail -n1
     # Match either arch-specific tags (v{ver}[.~-]*-azlinux3-{arch}) or exact version tags ({ver})
     retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${seURL}" | grep -Ex "(v${desiredVer//./\\.}[.~-].*-azlinux3-${seArch}|${desiredVer//./\\.})" | sort -V | tail -n1
     test ${PIPESTATUS[0]} -eq 0
