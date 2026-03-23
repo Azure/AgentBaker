@@ -23,6 +23,22 @@ if [ "${NODE_EXPORTER_TLS_ENABLED:-false}" = "true" ]; then
 
     TLS_CLIENT_AUTH="${NODE_EXPORTER_TLS_CLIENT_AUTH:-NoClientCert}"
 
+    # Wait for kubelet serving certs to exist (max 5 minutes).
+    # Certs are created by kubelet during bootstrap and may not exist at boot time.
+    WAIT_TIMEOUT=300
+    WAIT_INTERVAL=5
+    WAIT_ELAPSED=0
+
+    while [ $WAIT_ELAPSED -lt $WAIT_TIMEOUT ]; do
+        if [ -f "/var/lib/kubelet/pki/kubelet-server-current.pem" ] || \
+           { [ -f "/etc/kubernetes/certs/kubeletserver.crt" ] && [ -f "/etc/kubernetes/certs/kubeletserver.key" ]; }; then
+            break
+        fi
+        echo "Waiting for kubelet serving certs... (${WAIT_ELAPSED}s/${WAIT_TIMEOUT}s)"
+        sleep $WAIT_INTERVAL
+        WAIT_ELAPSED=$((WAIT_ELAPSED + WAIT_INTERVAL))
+    done
+
     # Detect TLS cert paths
     # Priority: rotation cert > static certs
     CERT_FILE=""
@@ -37,7 +53,7 @@ if [ "${NODE_EXPORTER_TLS_ENABLED:-false}" = "true" ]; then
         KEY_FILE="/etc/kubernetes/certs/kubeletserver.key"
         echo "Using static kubelet serving certs: $CERT_FILE, $KEY_FILE"
     else
-        echo "WARNING: TLS enabled but no kubelet serving certs found. node-exporter will run without TLS."
+        echo "WARNING: TLS enabled but no kubelet serving certs found after ${WAIT_TIMEOUT}s. node-exporter will run without TLS."
     fi
 
     if [ -n "$CERT_FILE" ] && [ -n "$KEY_FILE" ]; then
@@ -54,9 +70,10 @@ EOF
 tls_server_config:
   cert_file: "$CERT_FILE"
   key_file: "$KEY_FILE"
+  client_auth_type: "NoClientCert"
 EOF
         fi
-        echo "TLS configured: client_auth_type=$TLS_CLIENT_AUTH"
+        echo "TLS configured with client_auth_type=$TLS_CLIENT_AUTH, cert=$CERT_FILE"
         TLS_CONFIG_ARG="--web.config.file=${TLS_CONFIG_PATH}"
     fi
 fi
