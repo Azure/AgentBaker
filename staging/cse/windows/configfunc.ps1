@@ -435,7 +435,7 @@ function Install-CredentialProvider {
         [Parameter(Mandatory = $false)][string]
         $CustomCloudContainerRegistryDNSSuffix
     )
-
+    $exitCode = $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER
     try {
         # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
         # And only when it's enabled, the credential provider flags are set.
@@ -454,12 +454,47 @@ function Install-CredentialProvider {
 
         Write-Log "Download credential provider binary from $global:CredentialProviderURL to $global:credentialProviderBinDir"
         $tempDir = New-TemporaryDirectory
-        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
-        DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
-        tar -xzf $credentialproviderbinaryPackage -C $tempDir
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+        if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+            $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
+            DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+            tar -xzf $credentialproviderbinaryPackage -C $tempDir
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+            }
+        } else {
+            # network isolated cluster
+            # download azure acr credential provider binaries via oras if BootstrapProfileContainerRegistryServer is set
+            $exitCode = $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER
+            if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
+            }
+            $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
+            # Handle both URL styles:
+            # 1) .../azure-acr-credential-provider/1.34.0/windows/... for delac url, e.g. https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.0/windows/amd64/azure-acr-credential-provider_1.34.0-1_amd64.zip
+            # 2) .../cloud-provider-azure/v1.34.0/binaries/... for legacy binaries url, e.g. https://packages.aks.azure.com/cloud-provider-azure/v1.34.0/binaries/azure-acr-credential-provider-linux-amd64-v1.34.0.tar.gz
+            # If version is missing in URL, fall back to KubeBinariesVersion.
+            $packageVersion = ([regex]::Match($global:CredentialProviderURL, '/v?(\d+(?:\.\d+)+)(?=/)')).Groups[1].Value
+            if ([string]::IsNullOrEmpty($packageVersion)) {
+                $packageVersion = ([regex]::Match($global:CredentialProviderURL, '(?:^|[._-])v?(\d+(?:\.\d+)+)(?:$|[._-])')).Groups[1].Value
+            }
+            if ([string]::IsNullOrEmpty($packageVersion)) {
+                Write-Warning "Unexpected CredentialProviderURL format, version is not found in URL. CredentialProviderURL: $global:CredentialProviderURL. Fall back to KubeBinariesVersion: $global:KubeBinariesVersion"
+                $packageVersion = $global:KubeBinariesVersion
+            }
+            Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadCredentialProviderBinariesWithOras" -TaskMessage "Start to download azure acr credential provider binaries with oras. KubeBinariesVersion: $global:KubeBinariesVersion, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+            $orasReference = "$($global:BootstrapProfileContainerRegistryServer)/aks/packages/kubernetes/azure-acr-credential-provider:v$($packageVersion)"
+            try {
+                Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $credentialproviderbinaryPackage } -Retries 5 -RetryDelaySeconds 10
+            }
+            catch {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+            }
+            AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+            }
         }
+
         Create-Directory -FullPath $global:credentialProviderBinDir
         cp "$tempDir\azure-acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider.exe"
         # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
@@ -467,7 +502,7 @@ function Install-CredentialProvider {
         cp "$global:credentialProviderBinDir\acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider"
         del $tempDir -Recurse
     } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
+        Set-ExitCode -ExitCode $exitCode -ErrorMessage "Error installing credential provider. Error: $_"
     }
 }
 
