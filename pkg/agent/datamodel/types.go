@@ -1798,18 +1798,6 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
 	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
 	EnableScriptlessCSECmd bool
-
-	// CustomDataWriteFiles is used by internal e2e tests to inject additional cloud-init write_files entries
-	// into rendered customData after NodeBootstrapping is produced.
-	CustomDataWriteFiles []CustomDataWriteFile
-}
-
-// CustomDataWriteFile defines a cloud-init write_files entry used by internal e2e tests.
-type CustomDataWriteFile struct {
-	Path        string
-	Permissions string
-	Owner       string
-	Content     string
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {

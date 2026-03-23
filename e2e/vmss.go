@@ -170,8 +170,8 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		if len(s.Runtime.NBC.CustomDataWriteFiles) > 0 {
-			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Runtime.NBC.CustomDataWriteFiles)
+		if len(s.Config.CustomDataWriteFiles) > 0 {
+			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
 		}
 		if s.Runtime.NBC.EnableScriptlessCSECmd {
@@ -830,24 +830,7 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
-// injectWriteFilesEntry decodes the VMSS customData (base64 → gzip → YAML),
-// injects a cloud-init write_files entry with the given path and content,
-// then re-encodes it back onto the VMSS model. This is used by e2e tests to
-// verify that cloud-init write_files delivery works end-to-end.
-func injectWriteFilesEntry(t testing.TB, vmss *armcompute.VirtualMachineScaleSet, filePath, content string) {
-	t.Helper()
-	customDataPtr := vmss.Properties.VirtualMachineProfile.OSProfile.CustomData
-	require.NotNil(t, customDataPtr, "VMSS customData is nil")
-
-	updatedCustomData, err := injectWriteFilesEntriesToCustomData(*customDataPtr, []datamodel.CustomDataWriteFile{{
-		Path:    filePath,
-		Content: content,
-	}})
-	require.NoError(t, err, "failed to inject write_files entry")
-	vmss.Properties.VirtualMachineProfile.OSProfile.CustomData = &updatedCustomData
-}
-
-func injectWriteFilesEntriesToCustomData(customData string, entries []datamodel.CustomDataWriteFile) (string, error) {
+func injectWriteFilesEntriesToCustomData(customData string, entries []CustomDataWriteFile) (string, error) {
 	if len(entries) == 0 {
 		return customData, nil
 	}

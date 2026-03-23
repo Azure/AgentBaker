@@ -519,12 +519,12 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{{
+				Path:    hotfixMarkerPath,
+				Content: hotfixMarkerContent,
+			}},
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = true
-				nbc.CustomDataWriteFiles = append(nbc.CustomDataWriteFiles, datamodel.CustomDataWriteFile{
-					Path:    hotfixMarkerPath,
-					Content: hotfixMarkerContent,
-				})
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt",
