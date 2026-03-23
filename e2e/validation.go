@@ -45,6 +45,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
 	ValidateRxBufferDefault(ctx, s)
 	ValidateKernelLogs(ctx, s)
+	ValidateWaagentLog(ctx, s)
 	ValidateScriptlessCSECmd(ctx, s)
 	ValidateNodeExporter(ctx, s)
 
@@ -71,6 +72,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped, scriptless), network isolated VHDs, and AzureLinux OSGuard.
+	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")

@@ -294,7 +294,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
-
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{

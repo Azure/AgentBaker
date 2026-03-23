@@ -155,6 +155,7 @@ ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags 
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
+ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, required for sysext tag resolution
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -182,6 +183,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -774,6 +776,11 @@ should_enable_managed_gpu_experience() {
 
 isMarinerOrAzureLinux() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -799,6 +806,11 @@ isMariner() {
 
 isAzureLinux() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -816,6 +828,14 @@ isFlatcar() {
 isACL() {
     local os=${1-$OS}
     if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    local os_variant=${2-$OS_VARIANT}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    # Also match when OS is AZURELINUX with VARIANT_ID=AZURECONTAINERLINUX (new os-release format)
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$ACL_OS_VARIANT" ]; then
         return 0
     fi
     return 1
@@ -875,8 +895,8 @@ getPackageJSON() {
     fi
 
     # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
-    if isACL "${os}"; then
-        search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.flatcar.current // .downloadURIs.default.current"
+    if isACL "${os}" "${osVariant}"; then
+        search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
 
     jq -r -c "${search}" <<< "${package}"

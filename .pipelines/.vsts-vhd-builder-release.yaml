@@ -137,6 +137,10 @@ parameters:
     displayName: Build Azure Container Linux TL Gen2
     type: boolean
     default: true
+  - name: buildaclarm64tlgen2
+    displayName: Build Azure Container Linux ARM64 TL Gen2
+    type: boolean
+    default: true
 
 variables:
   - name: MODE
@@ -866,14 +870,38 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260306.1064312'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]aclpreview'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260318.1072691'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-tl-gen2
+      - job: buildaclarm64tlgen2
+        condition: eq('${{ parameters.buildaclarm64tlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]aclpreview-arm64'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260318.1072692'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-arm64-tl-gen2
       - job: build2404arm64gb200gen2containerd
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         dependsOn: [ ]

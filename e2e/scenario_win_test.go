@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Masterminds/semver"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -65,6 +66,8 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -86,6 +89,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -106,7 +110,9 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -129,6 +135,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -149,6 +156,7 @@ func Test_Windows23H2AzureNetwork(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -170,6 +178,7 @@ func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -191,6 +200,7 @@ func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -213,6 +223,7 @@ func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -273,6 +284,8 @@ func Test_Windows2025(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -295,6 +308,8 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -323,6 +338,8 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -347,6 +364,7 @@ func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testin
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
 			},
 		},
 	})
@@ -374,6 +392,8 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -397,6 +417,8 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 				ValidateWindowsDisplayVersion(ctx, s, "21H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -418,6 +440,7 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsRunningWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 			},
 		},
 	})
@@ -439,6 +462,144 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Windows Server 2022 Azure Network Containerd - v1 to test Azure China Cloud MCR host",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`,
+					`https://docker.io`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
+					`https://mcr.azk8s.cn`)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			MockAzureChinaCloud: true,
+		},
+		Description: "Windows Server 2025 with Containerd - hyperv gen 2 to test Azure China Cloud MCR host",
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`)
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\docker.io\hosts.toml`,
+					`https://docker.io`)
+				ValidateFileHasContent(ctx, s,
+					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
+					`https://mcr.azk8s.cn`)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that Windows nodes in network isolated clusters configure containerd to use the bootstrap profile container registry for MCR images",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureBootstrapProfileCache,
+			VHD:     config.VHDWindows2025Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, nbc)
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.KubeletConfig["--image-credential-provider-config"] = "c:\\k\\credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+				orchestratorVersion, _ := semver.NewVersion(nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				if orchestratorVersion.LessThan(semver.MustParse("1.32.0")) {
+					nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf(
+						"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz",
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				} else {
+					nbc.K8sComponents.WindowsCredentialProviderURL = fmt.Sprintf(
+						"https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/%s/windows/amd64/azure-acr-credential-provider_%s-1_amd64.zip",
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+						nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Verify mcr.microsoft.com host config exist
+				ValidateFileExists(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml`)
+				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that Windows nodes in network isolated clusters download kubelet binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: false,
+		},
+		Config: Config{
+			Cluster:         ClusterAzureBootstrapProfileCache,
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, nbc)
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				// Verify kubelet binaries were downloaded via ORAS instead of HTTP
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras")
 			},
 		},
 	})

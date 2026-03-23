@@ -384,9 +384,23 @@ function nodePrep {
             # while it fails to install on NC24.
             if isMarinerOrAzureLinux "$OS"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+            elif isACL "$OS" "$OS_VARIANT"; then
+                logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
             # Start fabric manager service
             logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        else
+            # Disable fabric manager service if it's not needed
+            # The NVIDIA driver installation may automatically enable this service,
+            # but it will fail on single-GPU systems, so we explicitly disable it
+            # Check if the unit file exists using --no-legend and grep for reliable detection
+            if systemctl list-unit-files --no-pager --no-legend nvidia-fabricmanager.service 2>/dev/null | grep -q "nvidia-fabricmanager.service"; then
+                # Use systemctl helper wrappers for consistent retry/timeout behavior
+                systemctl_stop 20 5 25 nvidia-fabricmanager || true
+                systemctl_disable 20 5 25 nvidia-fabricmanager || true
+                # Reset any failed state so it doesn't show up in 'systemctl list-units --failed'
+                systemctl reset-failed nvidia-fabricmanager 2>/dev/null || true
+            fi
         fi
 
         # Configure MIG partitions if needed

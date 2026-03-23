@@ -135,7 +135,7 @@ configureHTTPProxyCA() {
     elif isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
-    elif isACL "$OS"; then
+    elif isACL "$OS" "$OS_VARIANT"; then
         # ACL is Flatcar-based but uses Azure Linux internals for CA trust.
         cert_dest="/etc/pki/ca-trust/source/anchors"
         update_cmd="update-ca-trust"
@@ -338,9 +338,16 @@ ensureContainerd() {
     ensureTeleportd
   fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
+  # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+  # On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+  # (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+  # On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+  # Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+  # to avoid compatibility issues between new VHDs and old CSE scripts.
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
@@ -936,6 +943,10 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
+    elif isACL "$OS" "$OS_VARIANT"; then
+        installNvidiaContainerToolkitSysext
+        installGPUDriverSysext
+        enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -945,9 +956,14 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
-    # Fix the NVIDIA /dev/char link issue
+    # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
+    fi
+
+    # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
+    if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
     retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT

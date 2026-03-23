@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/assert"
@@ -722,6 +723,69 @@ func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, servic
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("Windows service %s validation failed", serviceName))
+}
+
+func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		"$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue",
+		"if ($dotnetCmd) {",
+		"  throw \".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD\"",
+		"}",
+		"Write-Host \".NET is not installed\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		".NET should not be installed on the Windows node")
+}
+
+func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
+
+	command := []string{
+		fmt.Sprintf("sc.exe qfailure %s", serviceName),
+	}
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		strings.Join(command, "\n"),
+		0,
+		fmt.Sprintf("failed to validate restart configuration for Windows service %s", serviceName),
+	)
+
+	var RESET_PERIOD = "RESET_PERIOD"
+	var FAILURE_ACTIONS = "FAILURE_ACTIONS"
+
+	fields := map[string]string{}
+	sdtout := execResult.stdout
+	lines := strings.Split(sdtout, "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if strings.Contains(key, RESET_PERIOD) {
+			fields[RESET_PERIOD] = value
+		}
+		if strings.Contains(key, FAILURE_ACTIONS) {
+			fields[FAILURE_ACTIONS] = value
+		}
+	}
+	if fields[RESET_PERIOD] != "900" {
+		s.T.Fatalf("Expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout)
+	}
+	if fields[FAILURE_ACTIONS] != "RESTART -- Delay = 60000 milliseconds." {
+		s.T.Fatalf("Expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout)
+	}
+}
+
+func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *Scenario) {
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubelet")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "containerd")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
 }
 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
@@ -2301,4 +2365,79 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	}
 
 	s.T.Logf("No critical kernel issues found")
+}
+
+// ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
+// - AutoUpdate is disabled as expected
+// - The correct version is running as ExtHandler
+// - No errors from ExtHandler
+// Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
+func ValidateWaagentLog(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		return
+	}
+
+	// Skip on pinned-version VHDs that predate the waagent installation.
+	// These VHDs explicitly select a version number and are not updated.
+	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
+		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
+		return
+	}
+
+	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
+	if len(versions) == 0 || versions[0] == "<SKIP>" {
+		s.T.Log("Skipping waagent log validation: no walinuxagent version in components.json")
+		return
+	}
+	expectedVersion := versions[0]
+
+	const waagentLogFile = "/var/log/waagent.log"
+
+	logContents := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo cat "+waagentLogFile, 0,
+		"could not read waagent log").stdout
+
+	// 1. Verify AutoUpdate is disabled
+	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
+
+	// 2. Verify the correct version is running as ExtHandler (PID varies)
+	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
+	require.Contains(s.T, logContents, expectedRunningPattern,
+		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+
+	// 3. Check for ExtHandler errors
+	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
+	// of a known bug with VMSS that fails to propagate the FIPS additionalCapabilities.
+	// Until the VMSS bug is fixed, skip the "Cannot convert PFX to PEM" errors.
+	// TODO: Remove the conditional exclusion once the underlying VMSS issue is resolved.
+	isUbuntu2204FIPS := s.VHD == config.VHDUbuntu2204FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
+	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
+	if isUbuntu2204FIPS {
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+	}
+	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		strings.Join([]string{
+			"set -e",
+			grepCmd,
+		}, "\n"), 0,
+		"failed to scan waagent log for ExtHandler errors")
+
+	errOutput := strings.TrimSpace(extHandlerErrors.stdout)
+	if errOutput != "" {
+		logFileName := "waagent-exthandler-errors.log"
+		if err := writeToFile(s.T, logFileName, logContents); err != nil {
+			s.T.Logf("Warning: failed to write waagent log to file: %v", err)
+		} else {
+			s.T.Logf("Full waagent log written to: %s/%s", testDir(s.T), logFileName)
+		}
+		s.T.Fatalf("ExtHandler errors found in waagent.log:\n%s", errOutput)
+	}
+
+	s.T.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
 }

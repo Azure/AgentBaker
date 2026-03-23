@@ -686,21 +686,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-hosts-setup.sh",
-      "destination": "/home/packer/aks-hosts-setup.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-hosts-setup.service",
-      "destination": "/home/packer/aks-hosts-setup.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-hosts-setup.timer",
-      "destination": "/home/packer/aks-hosts-setup.timer"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
       "destination": "/home/packer/configure-azure-network.sh"
     },
@@ -812,7 +797,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /bin/bash -eu /opt/azure/containers/post-deprovision-walinuxagent.sh' || exit 125"
+        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh' || exit 125"
       ]
     }
   ],

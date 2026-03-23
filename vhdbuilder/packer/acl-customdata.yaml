@@ -10,7 +10,7 @@ storage:
   - path: /opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
     contents:
       inline: |
-        ID=azurecontainerlinux
+        ID=azurelinux
         SYSEXT_LEVEL=1.0
   - path: /etc/flatcar/update.conf
     overwrite: true
