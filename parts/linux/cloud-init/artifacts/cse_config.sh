@@ -1280,7 +1280,7 @@ enableLocalDNS() {
     generateLocalDNSFiles
 
     echo "localdns should be enabled."
-    systemctlEnableAndStart localdns 120 || exit $ERR_LOCALDNS_FAIL
+    systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
 
     # Enable localdns metrics exporter socket for Prometheus scraping

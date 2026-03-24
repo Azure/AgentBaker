@@ -1767,7 +1767,6 @@ func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	})
 }
 
-
 // Test_LocalDns_ExporterMetrics is a table-driven test that validates localdns metrics
 // exporter functionality across all supported VHD images.
 func Test_LocalDns_ExporterMetrics(t *testing.T) {
@@ -1797,16 +1796,6 @@ func Test_LocalDns_ExporterMetrics(t *testing.T) {
 			vhd:         config.VHDUbuntu2404Gen2Containerd,
 		},
 		{
-			name:        "AzureLinuxV2",
-			description: "Tests that an AzureLinuxV2 node with localdns enabled exports metrics correctly",
-			vhd:         config.VHDAzureLinuxV2Gen2,
-		},
-		{
-			name:        "MarinerV2",
-			description: "Tests that a CBLMarinerV2 node with localdns enabled exports metrics correctly",
-			vhd:         config.VHDCBLMarinerV2Gen2,
-		},
-		{
 			name:        "Ubuntu2204Arm64",
 			description: "Tests that a Ubuntu2204 ARM64 node with localdns enabled exports metrics correctly",
 			vhd:         config.VHDUbuntu2204Gen2Arm64Containerd,
@@ -1822,19 +1811,19 @@ func Test_LocalDns_ExporterMetrics(t *testing.T) {
 			vhd:         config.VHDUbuntu2404ArmContainerd,
 		},
 		{
-			name:        "AzureLinuxV2Arm64",
-			description: "Tests that an AzureLinuxV2 ARM64 node with localdns enabled exports metrics correctly",
-			vhd:         config.VHDAzureLinuxV2Gen2Arm64,
-		},
-		{
-			name:        "MarinerV2Arm64",
-			description: "Tests that a CBLMarinerV2 ARM64 node with localdns enabled exports metrics correctly",
-			vhd:         config.VHDCBLMarinerV2Gen2Arm64,
-		},
-		{
 			name:        "FlatcarArm64",
 			description: "Tests that a Flatcar ARM64 node with localdns enabled exports metrics correctly",
 			vhd:         config.VHDFlatcarGen2Arm64,
+		},
+		{
+			name:        "ACL",
+			description: "Tests that an ACL node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDACLGen2TL,
+		},
+		{
+			name:        "ACLArm64",
+			description: "Tests that an ACL ARM64 node with localdns enabled exports metrics correctly",
+			vhd:         config.VHDACLArm64Gen2TL,
 		},
 	}
 
@@ -1847,9 +1836,7 @@ func Test_LocalDns_ExporterMetrics(t *testing.T) {
 					Cluster: ClusterAzureNetwork,
 					VHD:     tt.vhd,
 					AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-						config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
-							EnableLocalDns: true,
-						}
+						// base config already has EnableLocalDns: true with full overrides
 					},
 					SkipDefaultValidation: true,
 					Validator: func(ctx context.Context, s *Scenario) {
@@ -1861,7 +1848,6 @@ func Test_LocalDns_ExporterMetrics(t *testing.T) {
 		})
 	}
 }
-
 
 func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
