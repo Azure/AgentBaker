@@ -4,6 +4,20 @@ $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containe
 # The minimum kubernetes version to use containerd 2.x
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 $global:WindowsDataDir = "C:\AzureData\windows"
+# Invokes nssm.exe with the given arguments and throws if the exit code is non-zero.
+function Invoke-Nssm
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$KubeDir,
+        [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$NssmArguments
+    )
+    & "$KubeDir\nssm.exe" @NssmArguments | RemoveNulls
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "nssm.exe $( $NssmArguments -join ' ' ) failed (exit code $LASTEXITCODE)"
+    }
+}
+
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
