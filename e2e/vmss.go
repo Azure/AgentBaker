@@ -154,7 +154,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		cse = nodeconfigutils.CSE
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
-				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig, cse)
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}

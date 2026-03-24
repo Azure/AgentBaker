@@ -207,11 +207,29 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	nbcCMD := fs.String("nbc-cmd", "", "path to the NBC command file")
 	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
 	if parseErr := fs.Parse(args); parseErr != nil {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
 		return provisionResult, errors.New(provisionResult.Error)
+	}
+	if nbcCMD != nil && *nbcCMD != "" {
+		slog.Info("NBC command file provided, executing script", "path", *nbcCMD)
+		cmd := exec.CommandContext(ctx, "/bin/bash", *nbcCMD)
+		var stdoutBuf, stderrBuf bytes.Buffer
+		cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+		err = a.cmdRun(cmd)
+		exitCode := -1
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
+		provisionResult.ExitCode = strconv.Itoa(exitCode)
+		provisionResult.Error = fmt.Sprintf("%v", err)
+		provisionResult.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
+		return provisionResult, err
 	}
 	if *provisionConfig == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)

@@ -11,6 +11,11 @@ import (
 const (
 	cloudConfigTemplate = `#cloud-config
 write_files:
+- path: /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s
 - path: /opt/azure/containers/aks-node-controller-config.json
   permissions: "0755"
   owner: root
@@ -19,13 +24,14 @@ write_files:
 	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
 )
 
-func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
+func CustomData(cfg *aksnodeconfigv1.Configuration, nbcCmd string) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON)
+	encodedNbcCmd := base64.StdEncoding.EncodeToString([]byte(nbcCmd))
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedNbcCmd, encodedAksNodeConfigJSON)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
