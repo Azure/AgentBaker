@@ -843,7 +843,7 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 
 func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using Flatcar VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Description: "Tests that a node using Flatcar VHD with network isolated cluster enabled",
 		Tags: Tags{
 			NetworkIsolated: true,
 			NonAnonymousACR: true,
