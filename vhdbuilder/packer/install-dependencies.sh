@@ -518,6 +518,38 @@ while IFS= read -r p; do
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
       fi
       ;;
+    "acr-mirror")
+      # Skipping is handled by empty versionsV2 arrays or <SKIP> in components.json
+      # for mariner, flatcar, acl, and osguard.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping acr-mirror installation for kata (IS_KATA=${IS_KATA})"
+      else
+        version="${PACKAGE_VERSIONS[0]}"
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        # The arm64 packages have "-arm64" inserted before the file extension,
+        # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
+        if [ "$(isARM64)" -eq 1 ]; then
+          evaluatedURL="${evaluatedURL%.*}-arm64.${evaluatedURL##*.}"
+        fi
+        MIRROR_DOWNLOAD_PATH="./$(basename "${evaluatedURL}")"
+        retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$evaluatedURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+        if [[ "$evaluatedURL" == *.deb ]]; then
+          apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+        elif [[ "$evaluatedURL" == *.rpm ]]; then
+          dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+        fi
+        rm "$MIRROR_DOWNLOAD_PATH"
+        /opt/acr/tools/overlaybd/install.sh
+        /opt/acr/tools/overlaybd/config-user-agent.sh azure
+        /opt/acr/tools/overlaybd/enable-http-auth.sh
+        /opt/acr/tools/overlaybd/config.sh download.enable false
+        /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+        /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+        /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+        systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+        echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
+      fi
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -526,47 +558,6 @@ while IFS= read -r p; do
   esac
   capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
-
-installAndConfigureArtifactStreaming() {
-  # arguments: package name, package extension
-  local PACKAGE_NAME="$1"
-  local PACKAGE_EXTENSION="$2"
-  if [ "$(isARM64)" -eq 1 ]; then
-    PACKAGE_NAME="${PACKAGE_NAME}-arm64"
-  fi
-  local MIRROR_PROXY_VERSION='0.3.1'
-  local MIRROR_DOWNLOAD_PATH="./${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  local MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$MIRROR_PROXY_URL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$PACKAGE_EXTENSION" = "deb" ]; then
-    apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$PACKAGE_EXTENSION" = "rpm" ]; then
-    dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  fi
-  rm "$MIRROR_DOWNLOAD_PATH"
-
-  /opt/acr/tools/overlaybd/install.sh
-  /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  /opt/acr/tools/overlaybd/enable-http-auth.sh
-  /opt/acr/tools/overlaybd/config.sh download.enable false
-  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-}
-
-UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-# Artifact Streaming enabled for all supported Ubuntu versions including 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
-fi
-
-# Artifact Streaming enabled for Azure Linux 3.0
-if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && ! isACL "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ]; then
-  installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
-fi
-
-capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
