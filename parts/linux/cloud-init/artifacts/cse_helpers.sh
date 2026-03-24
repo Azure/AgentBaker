@@ -842,9 +842,6 @@ isFlatcar() {
 
 isACL() {
     local os=${1-$OS}
-    if [ "$os" = "$ACL_OS_NAME" ]; then
-        return 0
-    fi
     local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$ACL_OS_NAME" ]; then
         return 0
@@ -909,7 +906,7 @@ getPackageJSON() {
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
 
-    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
+    # ACL is Flatcar-based; use flatcar download entries.
     if isACL "${os}" "${osVariant}"; then
         search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
@@ -1345,5 +1342,4 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
-
 #HELPERSEOF

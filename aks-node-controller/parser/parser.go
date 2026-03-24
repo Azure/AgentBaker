@@ -181,6 +181,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID":       config.GetServiceAccountImagePullProfile().GetDefaultTenantId(),
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":              config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
 		"CSE_TIMEOUT":                                        getCSETimeout(config),
+		"SKIP_WAAGENT_HOLD":                                  "true",
 	}
 
 	for i, cert := range config.CustomCaCerts {

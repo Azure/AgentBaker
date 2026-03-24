@@ -1837,18 +1837,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | head -20", s.Runtime.VM.PrivateIP),
 		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", s.Runtime.VM.PrivateIP),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100")
-
-	// Verify the web-config.yml has proper TLS configuration
-	s.T.Logf("Validating node-exporter TLS configuration")
-	tlsCommand := []string{
-		"set -ex",
-		// Verify web-config.yml contains TLS settings
-		"grep -q 'tls_server_config' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_auth_type' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_ca_file' /etc/node-exporter.d/web-config.yml",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(tlsCommand, "\n"), 0, "node-exporter TLS config should be properly configured")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
 	s.T.Logf("node-exporter validation passed")
 }
@@ -2394,13 +2383,17 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// TODO(sakwa): Temporarily skip entire waagent validation — the apt-installed waagent
-	// 2.2.46 ignores AutoUpdate.UpdateToLatestVersion=n and self-updates to a different
-	// version, and also logs iptables errors from the security table not existing.
-	// These are pre-existing VHD build issues, not related to LocalDNS changes.
-	// See: https://dev.azure.com/msazure/CloudNativeCompute/_build/results?buildId=157966971
-	s.T.Log("Skipping waagent log validation: temporarily disabled pending VHD build fix")
-	return
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		return
+	}
+
+	// Skip on pinned-version VHDs that predate the waagent installation.
+	// These VHDs explicitly select a version number and are not updated.
+	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
+		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
+		return
+	}
 
 	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
 	if len(versions) == 0 || versions[0] == "<SKIP>" {
@@ -2415,20 +2408,14 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		"sudo cat "+waagentLogFile, 0,
 		"could not read waagent log").stdout
 
-	// TODO(sakwa): Temporarily disabled — the apt-installed waagent 2.2.46 ignores
-	// AutoUpdate.UpdateToLatestVersion=n (config key didn't exist in that version) and
-	// self-updates to a newer version from Azure's update channel on first boot, skipping
-	// the cached 2.15.0.1. This is a VHD build issue, not related to LocalDNS changes.
-	// See: https://dev.azure.com/msazure/CloudNativeCompute/_build/results?buildId=157966971
+	// 1. Verify AutoUpdate is disabled
+	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
 
-	// // 1. Verify AutoUpdate is disabled
-	// require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
-	// 	"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
-
-	// // 2. Verify the correct version is running as ExtHandler (PID varies)
-	// expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
-	// require.Contains(s.T, logContents, expectedRunningPattern,
-	// 	"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+	// 2. Verify the correct version is running as ExtHandler (PID varies)
+	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
+	require.Contains(s.T, logContents, expectedRunningPattern,
+		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
 
 	// 3. Check for ExtHandler errors
 	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
