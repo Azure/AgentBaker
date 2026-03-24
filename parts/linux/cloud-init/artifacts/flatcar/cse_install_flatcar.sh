@@ -24,6 +24,12 @@ matchLocalSysext() {
 
 matchRemoteSysext() {
     local seURL=$1 desiredVer=$2 seArch=$3
+    if [[ "${seURL}" != mcr.microsoft.com/* ]]; then
+        # For network isolated cluster, acr cache rule does not support oras repo tags.
+        # return fixed renovateTag '-1' as workaround
+        echo "v${desiredVer}-1-azlinux3-${seArch}"
+        return 0
+    fi
     retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${seURL}" | grep -Ex "v${desiredVer//./\\.}[.~-].*-azlinux3-${seArch}" | sort -V | tail -n1
     test ${PIPESTATUS[0]} -eq 0
 }
@@ -38,7 +44,7 @@ mergeSysexts() {
         seMatch=$(matchLocalSysext "${seName}" "${desiredVer}" "${seArch}")
         if ! test -f "${seMatch}"; then
             echo "Failed to find valid ${seName} system extension for ${desiredVer} locally"
-
+            if test -f "${Boot}"
             seMatch=$(matchRemoteSysext "${seURL}" "${desiredVer}" "${seArch}")
             if [ -z "${seMatch}" ]; then
                 echo "Failed to find valid ${seName} system extension for ${desiredVer} remotely"
