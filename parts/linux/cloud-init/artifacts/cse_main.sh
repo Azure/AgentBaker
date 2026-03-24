@@ -56,11 +56,7 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
-        echo "Skipping holding walinuxagent"
-    else
-        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
-    fi
+    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
@@ -156,6 +152,10 @@ function basePrep {
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
     fi
+    if [ "${TELEPORT_ENABLED}" = "true" ]; then
+        logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+    fi
+
     setupCNIDirs
 
     # Network plugin already installed on Azure Linux OS Guard
@@ -294,8 +294,18 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Enable aks-hosts-setup to populate /etc/localdns/hosts with resolved AKS FQDN IPs.
+    # Startup ordering: aks-hosts-setup runs async via timer; localdns starts immediately
+    # with the no-hosts corefile. On subsequent restarts, localdns.sh dynamically selects
+    # the hosts-plugin variant if /etc/localdns/hosts has been populated by the timer.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup
+    fi
+
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
+        # Pass the no-hosts corefile as initial default.
+        # Both corefile variants are saved in /etc/localdns/environment for dynamic selection.
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS "${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}" || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
@@ -492,12 +502,8 @@ function nodePrep {
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
-                echo "Skipping unholding walinuxagent"
-            else
-                # logs_to_events should not be run on & commands
-                aptmarkWALinuxAgent unhold &
-            fi
+            # logs_to_events should not be run on & commands
+            aptmarkWALinuxAgent unhold &
         fi
     else
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -519,11 +525,7 @@ function nodePrep {
                 systemctl restart --no-block apt-daily.service
 
             fi
-            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
-                echo "Skipping unholding walinuxagent"
-            else
-                aptmarkWALinuxAgent unhold &
-            fi
+            aptmarkWALinuxAgent unhold &
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
                 if [ "${IS_KATA}" = "true" ]; then

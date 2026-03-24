@@ -83,6 +83,8 @@ ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter serv
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
+ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
+ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
@@ -825,6 +827,9 @@ isFlatcar() {
 
 isACL() {
     local os=${1-$OS}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
     local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$ACL_OS_NAME" ]; then
         return 0
@@ -889,7 +894,7 @@ getPackageJSON() {
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
 
-    # ACL is Flatcar-based; use flatcar download entries.
+    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
     if isACL "${os}" "${osVariant}"; then
         search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
@@ -1325,4 +1330,5 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
+
 #HELPERSEOF
