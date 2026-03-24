@@ -557,7 +557,7 @@ installAndConfigureArtifactStreaming() {
 
 # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
 # OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
-acrMirrorPackage=$(jq '.Packages[] | select(.name == "acr-mirror")' $COMPONENTS_FILEPATH)
+acrMirrorPackage=$(jq -c '.Packages[] | select(.name == "acr-mirror")' $COMPONENTS_FILEPATH)
 updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
 updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
 if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
