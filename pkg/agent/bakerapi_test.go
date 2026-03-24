@@ -355,6 +355,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			aclDistros = []datamodel.Distro{
 				datamodel.AKSACLGen2TL,
+				datamodel.AKSACLArm64Gen2TL,
 			}
 
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)

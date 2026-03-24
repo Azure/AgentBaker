@@ -7,7 +7,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 FLATCAR_OS_NAME="FLATCAR"
-ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
@@ -209,7 +209,8 @@ testPackagesInstalled() {
       OS=$AZURELINUX_OS_NAME
       OS_VARIANT=OSGUARD
     elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
-      OS=$ACL_OS_NAME
+      OS=$AZURELINUX_OS_NAME
+      OS_VARIANT=$ACL_OS_VARIANT
     else
       OS=${OS_SKU^^}
     fi
@@ -957,7 +958,7 @@ testPkgDownloaded() {
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
-    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
+    elif [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "${OS_VARIANT:-}"; then
       seFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*-${seArch}.raw" -print -quit 2>/dev/null) || seFile=""
       if [ -z "${seFile}" ]; then
         err $test "System extension ${packageName}-${packageVersion} for ${seArch} does not exist, content of downloads dir is $(ls -al "${downloadLocation}")"
@@ -1505,45 +1506,52 @@ testBccTools () {
   return 0
 }
 
-# testWALinuxAgentInstalled verifies that the WALinuxAgent GAFamily version was
-# installed post-deprovision and that waagent.conf is configured to use it.
+# testWALinuxAgentInstalled verifies that the WALinuxAgent version from
+# components.json was installed post-deprovision via the wireserver manifest
+# and that waagent.conf is configured to use it.
 # The test runs on a VM booted from the captured VHD image, so the post-deprovision
 # script has already executed and self-deleted. We verify its *results*:
-#   1. At least one WALinuxAgent-* directory exists under /var/lib/waagent/
+#   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
 #   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
 
-  # Check that at least one WALinuxAgent-* directory was installed
-  local -a dirs
-  mapfile -t dirs < <(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null | sort -V)
-  local dirCount=${#dirs[@]}
-  if [ "$dirCount" -lt 1 ]; then
-    err "$test" "Expected at least 1 WALinuxAgent directory under /var/lib/waagent/, found ${dirCount}"
+  # Read the expected version from components.json
+  local expectedVersion
+  expectedVersion=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "${COMPONENTS_FILEPATH}")
+  if [ -z "${expectedVersion}" ] || [ "${expectedVersion}" = "null" ]; then
+    err "$test" "Could not read walinuxagent version from ${COMPONENTS_FILEPATH}"
     return 1
   fi
-  echo "$test: Found ${dirCount} WALinuxAgent directories: ${dirs[*]}"
+  echo "$test: Expected WALinuxAgent version from components.json: ${expectedVersion}"
 
-  # Validate the newest directory (highest version) has expected artifacts
-  local installDir="${dirs[-1]}"
-  echo "$test: Validating pre-cached agent directory ${installDir}"
+  # Check that the exact expected version directory exists
+  local expectedDir="/var/lib/waagent/WALinuxAgent-${expectedVersion}"
+  if [ ! -d "${expectedDir}" ]; then
+    local actual
+    actual=$(find /var/lib/waagent -maxdepth 1 -type d -name "WALinuxAgent-*" 2>/dev/null || true)
+    err "$test" "Expected directory ${expectedDir} not found. Found: ${actual:-none}"
+    return 1
+  fi
+  echo "$test: Found expected directory ${expectedDir}"
 
+  # Validate the directory has expected artifacts
   local expectedFiles=("HandlerManifest.json" "manifest.xml")
   for f in "${expectedFiles[@]}"; do
-    if [ ! -f "${installDir}/${f}" ]; then
-      err "$test" "Expected file ${f} not found in ${installDir}, contents: $(ls -al "${installDir}")"
+    if [ ! -f "${expectedDir}/${f}" ]; then
+      err "$test" "Expected file ${f} not found in ${expectedDir}, contents: $(ls -al "${expectedDir}")"
       return 1
     fi
-    echo "$test: Found expected file ${installDir}/${f}"
+    echo "$test: Found expected file ${expectedDir}/${f}"
   done
 
-  if [ ! -d "${installDir}/bin" ]; then
-    err "$test" "bin/ directory not found in ${installDir}, contents: $(ls -al "${installDir}")"
+  if [ ! -d "${expectedDir}/bin" ]; then
+    err "$test" "bin/ directory not found in ${expectedDir}, contents: $(ls -al "${expectedDir}")"
     return 1
   fi
-  echo "$test: Found bin/ directory in ${installDir}"
+  echo "$test: Found bin/ directory in ${expectedDir}"
 
   # Verify waagent.conf has the expected AutoUpdate settings
   if grep -q '^AutoUpdate.Enabled=y' /etc/waagent.conf; then

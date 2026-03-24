@@ -350,4 +350,9 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
 
     $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2/aaa"\]'
   }
+
+  AfterEach {
+    $global:BootstrapProfileContainerRegistryServer = $null
+    $global:MCRRepositoryBase = $null
+  }
 }

@@ -56,7 +56,11 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+        echo "Skipping holding walinuxagent"
+    else
+        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
@@ -152,10 +156,6 @@ function basePrep {
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
     fi
-    if [ "${TELEPORT_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-    fi
-
     setupCNIDirs
 
     # Network plugin already installed on Azure Linux OS Guard
@@ -294,7 +294,6 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # This is to enable localdns using scriptless.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
@@ -375,9 +374,23 @@ function nodePrep {
             # while it fails to install on NC24.
             if isMarinerOrAzureLinux "$OS"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+            elif isACL "$OS" "$OS_VARIANT"; then
+                logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
             # Start fabric manager service
             logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        else
+            # Disable fabric manager service if it's not needed
+            # The NVIDIA driver installation may automatically enable this service,
+            # but it will fail on single-GPU systems, so we explicitly disable it
+            # Check if the unit file exists using --no-legend and grep for reliable detection
+            if systemctl list-unit-files --no-pager --no-legend nvidia-fabricmanager.service 2>/dev/null | grep -q "nvidia-fabricmanager.service"; then
+                # Use systemctl helper wrappers for consistent retry/timeout behavior
+                systemctl_stop 20 5 25 nvidia-fabricmanager || true
+                systemctl_disable 20 5 25 nvidia-fabricmanager || true
+                # Reset any failed state so it doesn't show up in 'systemctl list-units --failed'
+                systemctl reset-failed nvidia-fabricmanager 2>/dev/null || true
+            fi
         fi
 
         # Configure MIG partitions if needed
@@ -479,8 +492,12 @@ function nodePrep {
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-            # logs_to_events should not be run on & commands
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                # logs_to_events should not be run on & commands
+                aptmarkWALinuxAgent unhold &
+            fi
         fi
     else
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -502,7 +519,11 @@ function nodePrep {
                 systemctl restart --no-block apt-daily.service
 
             fi
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                aptmarkWALinuxAgent unhold &
+            fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
                 if [ "${IS_KATA}" = "true" ]; then

@@ -118,6 +118,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
+	AKSACLArm64Gen2TL,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -180,6 +181,7 @@ var AvailableGen2Distros = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
+	AKSACLArm64Gen2TL,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -267,6 +269,7 @@ var AvailableFlatcarDistros = []Distro{
 //nolint:gochecknoglobals
 var AvailableACLDistros = []Distro{
 	AKSACLGen2TL,
+	AKSACLArm64Gen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -753,6 +756,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGACLArm64Gen2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "aclgen2arm64TL",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -849,6 +859,7 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	return maintained
 }
 
+//nolint:dupl // each distro family needs its own map, structural similarity is expected.
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSUbuntuFipsContainerd2004:           SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
@@ -887,6 +898,7 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	}
 }
 
+//nolint:dupl // each distro family needs its own map, structural similarity is expected.
 func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSAzureLinuxV2:                  SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
@@ -907,6 +919,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV3CVMGen2:           SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3OSGuardGen2FIPSTL: SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
 		AKSACLGen2TL:                     SIGACLGen2TLImageConfigTemplate.WithOptions(opts...),
+		AKSACLArm64Gen2TL:                SIGACLArm64Gen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

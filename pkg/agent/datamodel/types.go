@@ -193,6 +193,7 @@ const (
 	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
 	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
 	AKSACLGen2TL                          Distro = "aks-acl-gen2-tl"
+	AKSACLArm64Gen2TL                     Distro = "aks-acl-arm64-gen2-tl"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -274,6 +275,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
+	AKSACLArm64Gen2TL,
 }
 
 type CustomConfigurationComponent string
@@ -1746,8 +1748,6 @@ type NodeBootstrappingConfiguration struct {
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
 	MigStrategy                     string
-	EnableACRTeleportPlugin         bool
-	TeleportdPluginURL              string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
 	RuncVersion                     string

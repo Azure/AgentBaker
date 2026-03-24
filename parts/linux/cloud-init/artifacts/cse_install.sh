@@ -15,14 +15,12 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }'; fi)
+OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
-TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
-TELEPORTD_PLUGIN_BIN_DIR="/opt/bin"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
@@ -414,44 +412,6 @@ installCrictl() {
         chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
-}
-
-downloadTeleportdPlugin() {
-    DOWNLOAD_URL=$1
-    TELEPORTD_VERSION=$2
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
-    if [ -z "${DOWNLOAD_URL}" ]; then
-        echo "download url parameter for downloadTeleportdPlugin was not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
-    fi
-    if [ -z "${TELEPORTD_VERSION}" ]; then
-        echo "teleportd version not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
-    fi
-    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
-}
-
-installTeleportdPlugin() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
-    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.8.0"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
-        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
-    else
-        logs_to_events "AKS.CSE.logDownloadURL" "echo $TELEPORTD_PLUGIN_DOWNLOAD_URL"
-        TELEPORTD_PLUGIN_DOWNLOAD_URL=$(update_base_url $TELEPORTD_PLUGIN_DOWNLOAD_URL)
-        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-    fi
-    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
 
 setupCNIDirs() {
@@ -849,6 +809,67 @@ datasource:
     Azure:
         apply_network_config: false
 EOF
+}
+
+# ==== GPU driver functions ====
+# Shared between Azure Linux (Mariner) and ACL distro install scripts.
+# These functions are only invoked on GPU-enabled VM SKUs during provisioning;
+# they are safe to define on all distros (no execution at source time).
+
+should_use_nvidia_open_drivers() {
+    # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
+    # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
+    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
+    local vm_sku
+    vm_sku=$(get_compute_sku)
+    if [ -z "$vm_sku" ]; then
+        echo "Error: Unable to determine VM SKU, cannot select GPU driver" >&2
+        return 2
+    fi
+    local lower="${vm_sku,,}"
+
+    # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
+    # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
+    case "$lower" in
+        *t4_v3*)
+            return 1
+            ;;
+        *nd40rs_v2*)
+            return 1
+            ;;
+        *nd40s_v3*)
+            return 1
+            ;;
+        standard_nc*s_v3*)
+            return 1
+            ;;
+    esac
+
+    # All other GPU SKUs (A100+) use open drivers
+    return 0
+}
+
+enableNvidiaPersistenceMode() {
+    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
+    touch ${PERSISTENCED_SERVICE_FILE_PATH}
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
+[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+Restart=always
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable nvidia-persistenced.service || exit 1
+    systemctl restart nvidia-persistenced.service || exit 1
 }
 
 #EOF

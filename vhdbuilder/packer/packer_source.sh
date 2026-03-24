@@ -233,10 +233,6 @@ copyPackerFiles() {
   NO_DUP_SVC_DEST=/etc/systemd/system/ensure-no-dup.service
   cpAndMode $NO_DUP_SVC_SRC $NO_DUP_SVC_DEST 600
 
-  TELED_SRC=/home/packer/teleportd.service
-  TELED_DEST=/etc/systemd/system/teleportd.service
-  cpAndMode $TELED_SRC $TELED_DEST 600
-
   SETUP_SEARCH_SRC=/home/packer/setup-custom-search-domains.sh
   SETUP_SEARCH_DEST=/opt/azure/containers/setup-custom-search-domains.sh
   cpAndMode $SETUP_SEARCH_SRC $SETUP_SEARCH_DEST 0744
@@ -338,7 +334,7 @@ copyPackerFiles() {
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
   # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
@@ -358,7 +354,7 @@ copyPackerFiles() {
   NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
 
   # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
     cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
     cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
@@ -446,7 +442,7 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
-  elif isACL "$OS"; then
+  elif isACL "$OS" "$OS_VARIANT"; then
     # ACL cannot share the isMarinerOrAzureLinux block because:
     # - containerd.service: ACL provides containerd via sysext.
     # - mariner-package-update.sh: Mariner-only package update script, not applicable to ACL.
@@ -475,7 +471,7 @@ copyPackerFiles() {
   fi
 
   # Handle the NOTICE file
-  if isFlatcar "$OS" || isACL "$OS"; then
+  if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # Append Flatcar specific license notices
     DIR=$(dirname "$NOTICE_DEST") && mkdir -p "${DIR}" && cp "$NOTICE_SRC" "$NOTICE_DEST"
     NOTICE_FLATCAR_SRC=/home/packer/NOTICE_FLATCAR.txt
@@ -495,8 +491,8 @@ copyPackerFiles() {
 
   # Copy the post-deprovision WALinuxAgent install script and its Python helper
   # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
-  if ! { isFlatcar "$OS" || isACL "$OS"; }; then
-    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 644
+  if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
+    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 755
     cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
   fi
 

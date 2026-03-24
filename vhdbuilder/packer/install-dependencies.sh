@@ -14,7 +14,7 @@ ACL_OS_NAME="AZURECONTAINERLINUX"
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
@@ -130,7 +130,7 @@ fi
 #   addMarinerNvidiaRepo / updateDnfWithNvidiaPkg / disableDNFAutomatic / enableCheckRestart — ACL has no dnf/rpm
 #   activateNfConntrack — nf_conntrack auto-loads via iptables dependency chain
 #   disableTimesyncd — ACL handles chrony separately above via disableNtpAndTimesyncdInstallChrony
-if isACL "$OS"; then
+if isACL "$OS" "$OS_VARIANT"; then
   # ACL's iptables.service loads host firewall rules that conflict with Cilium eBPF routing.
   disableSystemdIptables || exit 1
   # Repoint /etc/resolv.conf from the stub (127.0.0.53) to the real upstream file
@@ -144,9 +144,16 @@ configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warnin
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
+# Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+# On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+# (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+# On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+# Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+# to avoid compatibility issues between new VHDs and old CSE scripts.
 tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
 tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
@@ -435,7 +442,7 @@ while IFS= read -r p; do
       done
       ;;
     "inspektor-gadget")
-      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
         echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
@@ -467,7 +474,7 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-        elif isFlatcar || isACL; then
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
         fi
@@ -522,18 +529,21 @@ done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
-  PACKAGE_NAME=$1
-  PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.3.0'
-  MIRROR_DOWNLOAD_PATH="./$1.$2"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" = "deb" ]; then
-    apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$2" = "rpm" ]; then
-    dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  local PACKAGE_NAME="$1"
+  local PACKAGE_EXTENSION="$2"
+  if [ "$(isARM64)" -eq 1 ]; then
+    PACKAGE_NAME="${PACKAGE_NAME}-arm64"
   fi
-  rm $MIRROR_DOWNLOAD_PATH
+  local MIRROR_PROXY_VERSION='0.3.1'
+  local MIRROR_DOWNLOAD_PATH="./${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  local MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$MIRROR_PROXY_URL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  if [ "$PACKAGE_EXTENSION" = "deb" ]; then
+    apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  elif [ "$PACKAGE_EXTENSION" = "rpm" ]; then
+    dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  fi
+  rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
   /opt/acr/tools/overlaybd/config-user-agent.sh azure
@@ -547,14 +557,12 @@ installAndConfigureArtifactStreaming() {
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming enabled for all supported Ubuntu versions including 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-# Artifact Streaming enabled for Azure Linux 2.0 and 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
+# Artifact Streaming enabled for Azure Linux 3.0
+if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && ! isACL "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ]; then
   installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
 fi
 
