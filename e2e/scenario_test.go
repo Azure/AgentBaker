@@ -1774,7 +1774,7 @@ func Test_LocalDns_ExporterMetrics(t *testing.T) {
 	tests := []struct {
 		name        string
 		description string
-		vhd         *config.VHDConfig
+		vhd         *config.Image
 	}{
 		{
 			name:        "Ubuntu2204",
