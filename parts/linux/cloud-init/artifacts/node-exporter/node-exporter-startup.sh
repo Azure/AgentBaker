@@ -16,12 +16,21 @@ TLS_CONFIG_ARG=""
 #
 # To enable TLS, set NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter.
 # Optionally set NODE_EXPORTER_TLS_CLIENT_AUTH to control client cert requirements
-# (default: NoClientCert). Valid values: NoClientCert, RequireAndVerifyClientCert,
-# RequireAnyClientCert, VerifyClientCertIfGiven.
+# (default: NoClientCert). Valid values: NoClientCert, RequestClientCert,
+# RequireAnyClientCert, VerifyClientCertIfGiven, RequireAndVerifyClientCert.
 if [ "${NODE_EXPORTER_TLS_ENABLED:-false}" = "true" ]; then
     mkdir -p "$(dirname "$TLS_CONFIG_PATH")"
 
     TLS_CLIENT_AUTH="${NODE_EXPORTER_TLS_CLIENT_AUTH:-NoClientCert}"
+
+    # Validate client auth type against supported values
+    case "$TLS_CLIENT_AUTH" in
+        NoClientCert|RequestClientCert|RequireAnyClientCert|VerifyClientCertIfGiven|RequireAndVerifyClientCert) ;;
+        *)
+            echo "WARNING: unsupported NODE_EXPORTER_TLS_CLIENT_AUTH='$TLS_CLIENT_AUTH', defaulting to NoClientCert"
+            TLS_CLIENT_AUTH="NoClientCert"
+            ;;
+    esac
 
     # Wait for kubelet serving certs to exist (max 5 minutes).
     # Certs are created by kubelet during bootstrap and may not exist at boot time.
@@ -57,7 +66,7 @@ if [ "${NODE_EXPORTER_TLS_ENABLED:-false}" = "true" ]; then
     fi
 
     if [ -n "$CERT_FILE" ] && [ -n "$KEY_FILE" ]; then
-        if [ "$TLS_CLIENT_AUTH" = "RequireAndVerifyClientCert" ] || [ "$TLS_CLIENT_AUTH" = "RequireAnyClientCert" ] || [ "$TLS_CLIENT_AUTH" = "VerifyClientCertIfGiven" ]; then
+        if [ "$TLS_CLIENT_AUTH" != "NoClientCert" ]; then
             cat > "$TLS_CONFIG_PATH" <<EOF
 tls_server_config:
   cert_file: "$CERT_FILE"
@@ -73,7 +82,7 @@ tls_server_config:
   client_auth_type: "NoClientCert"
 EOF
         fi
-        echo "TLS configured with client_auth_type=$TLS_CLIENT_AUTH, cert=$CERT_FILE"
+        echo "TLS configured: client_auth_type=$TLS_CLIENT_AUTH, cert=$CERT_FILE"
         TLS_CONFIG_ARG="--web.config.file=${TLS_CONFIG_PATH}"
     fi
 fi

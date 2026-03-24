@@ -1512,13 +1512,15 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	// Validate that node-exporter is listening on port 19100 and serving metrics.
 	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
 	// so we validate by making a plain HTTP request to the metrics endpoint.
+	// Note: node-exporter binds to the node's IP (not 0.0.0.0), so we must use the node IP, not localhost.
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
 		// Verify node-exporter is listening on port 19100
 		"ss -tlnp | grep -q ':19100' || netstat -tlnp | grep -q ':19100'",
-		// Verify node-exporter responds to HTTP requests and returns Prometheus metrics
-		"curl -sf http://localhost:19100/metrics | grep -q 'node_'",
+		// Resolve the node IP the same way the startup script does, then curl the metrics endpoint
+		"NODE_IP=$(hostname -I | awk '{print $1}')",
+		"curl -sf http://${NODE_IP}:19100/metrics | grep -q 'node_'",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
