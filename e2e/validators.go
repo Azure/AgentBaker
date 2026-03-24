@@ -1806,30 +1806,17 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100
-	// We verify the port is open using ss/netstat rather than making a full mTLS request,
-	// since the e2e test environment may not have the correct client certs set up.
-	// The mTLS configuration is validated by checking that the web-config.yml exists
-	// and contains the expected TLS settings.
-	s.T.Logf("Validating node-exporter is listening on port 19100")
+	// Validate that node-exporter is listening on port 19100 and serving metrics.
+	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
+	// so we validate by making a plain HTTP request to the metrics endpoint.
+	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		"NODE_IP=$(hostname -I | awk '{print $1}')",
-		// Verify node-exporter is listening on port 19100
-		"ss -tlnp | grep -q ':19100' || netstat -tlnp | grep -q ':19100'",
+		// Extract the listen address from ss, replacing wildcard '*' or '0.0.0.0' with localhost.
+		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1 | sed 's/^\\*/127.0.0.1/; s/^0\\.0\\.0\\.0/127.0.0.1/')",
+		"curl -sf http://${LISTEN_ADDR}/metrics | grep -q 'node_'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100")
-
-	// Verify the web-config.yml has proper TLS configuration
-	s.T.Logf("Validating node-exporter TLS configuration")
-	tlsCommand := []string{
-		"set -ex",
-		// Verify web-config.yml contains TLS settings
-		"grep -q 'tls_server_config' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_auth_type' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_ca_file' /etc/node-exporter.d/web-config.yml",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(tlsCommand, "\n"), 0, "node-exporter TLS config should be properly configured")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
 	s.T.Logf("node-exporter validation passed")
 }
@@ -2375,13 +2362,17 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// TODO(sakwa): Temporarily skip entire waagent validation — the apt-installed waagent
-	// 2.2.46 ignores AutoUpdate.UpdateToLatestVersion=n and self-updates to a different
-	// version, and also logs iptables errors from the security table not existing.
-	// These are pre-existing VHD build issues, not related to LocalDNS changes.
-	// See: https://dev.azure.com/msazure/CloudNativeCompute/_build/results?buildId=157966971
-	s.T.Log("Skipping waagent log validation: temporarily disabled pending VHD build fix")
-	return
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		return
+	}
+
+	// Skip on pinned-version VHDs that predate the waagent installation.
+	// These VHDs explicitly select a version number and are not updated.
+	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
+		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
+		return
+	}
 
 	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
 	if len(versions) == 0 || versions[0] == "<SKIP>" {
@@ -2396,20 +2387,14 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 		"sudo cat "+waagentLogFile, 0,
 		"could not read waagent log").stdout
 
-	// TODO(sakwa): Temporarily disabled — the apt-installed waagent 2.2.46 ignores
-	// AutoUpdate.UpdateToLatestVersion=n (config key didn't exist in that version) and
-	// self-updates to a newer version from Azure's update channel on first boot, skipping
-	// the cached 2.15.0.1. This is a VHD build issue, not related to LocalDNS changes.
-	// See: https://dev.azure.com/msazure/CloudNativeCompute/_build/results?buildId=157966971
+	// 1. Verify AutoUpdate is disabled
+	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
 
-	// // 1. Verify AutoUpdate is disabled
-	// require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
-	// 	"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
-
-	// // 2. Verify the correct version is running as ExtHandler (PID varies)
-	// expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
-	// require.Contains(s.T, logContents, expectedRunningPattern,
-	// 	"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+	// 2. Verify the correct version is running as ExtHandler (PID varies)
+	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
+	require.Contains(s.T, logContents, expectedRunningPattern,
+		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
 
 	// 3. Check for ExtHandler errors
 	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because

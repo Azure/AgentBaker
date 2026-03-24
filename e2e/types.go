@@ -150,6 +150,14 @@ type ScenarioVM struct {
 	SSHClient *ssh.Client
 }
 
+// CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
+type CustomDataWriteFile struct {
+	Path        string
+	Permissions string
+	Owner       string
+	Content     string
+}
+
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
@@ -166,6 +174,10 @@ type Config struct {
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
+
+	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
+	// This is for e2e-only validation scenarios.
+	CustomDataWriteFiles []CustomDataWriteFile
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
