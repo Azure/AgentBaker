@@ -7,7 +7,7 @@ health-check.localdns.local:53 {
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
-{{- range $domain, $override := $.LocalDnsProfile.VnetDnsOverrides -}}
+{{- range $domain, $override := $.Config.LocalDnsProfile.VnetDnsOverrides -}}
 {{- $isRootDomain := eq $domain "." -}}
 {{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
 {{- $forwardPolicy := "sequential" -}}
@@ -23,11 +23,17 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{getLocalDnsNodeListenerIp}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    {{- end}}
     {{- if $isRootDomain}}
     forward . {{getAzureDnsIp}} {
     {{- else}}
     {{- if $fwdToClusterCoreDNS}}
-    forward . {{getCoreDnsServiceIp $}} {
+    forward . {{getCoreDnsServiceIp $.Config}} {
     {{- else}}
     forward . {{getAzureDnsIp}} {
     {{- end}}
@@ -67,7 +73,7 @@ health-check.localdns.local:53 {
 }
 {{- end}}
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
-{{- range $domain, $override := $.LocalDnsProfile.KubeDnsOverrides}}
+{{- range $domain, $override := $.Config.LocalDnsProfile.KubeDnsOverrides}}
 {{- $isRootDomain := eq $domain "." -}}
 {{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
 {{- $forwardPolicy := "" }}
@@ -84,8 +90,14 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{getLocalDnsClusterListenerIp}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    {{- end}}
     {{- if $fwdToClusterCoreDNS}}
-    forward . {{getCoreDnsServiceIp $}} {
+    forward . {{getCoreDnsServiceIp $.Config}} {
     {{- else}}
     forward . {{getAzureDnsIp}} {
     {{- end}}
