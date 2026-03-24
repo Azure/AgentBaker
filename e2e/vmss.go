@@ -209,6 +209,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
+		if len(s.Config.CustomDataWriteFiles) > 0 {
+			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
+			require.NoError(s.T, err, "failed to inject customData write_files entries")
+		}
 		if s.Runtime.NBC.EnableScriptlessCSECmd {
 			// Validate that the custom data doesn't contain any script content,
 			// which indicates that the scriptless CSE is working as intended
@@ -863,6 +867,81 @@ func generateVMSSName(s *Scenario) string {
 		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
+}
+
+func injectWriteFilesEntriesToCustomData(customData string, entries []CustomDataWriteFile) (string, error) {
+	if len(entries) == 0 {
+		return customData, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode customData: %w", err)
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(decoded))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer reader.Close()
+	yamlBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read gzip data: %w", err)
+	}
+
+	const writeFilesMarker = "write_files:"
+	yamlStr := string(yamlBytes)
+	idx := strings.Index(yamlStr, writeFilesMarker)
+	if idx == -1 {
+		return "", fmt.Errorf("cloud-init customData missing %q section", writeFilesMarker)
+	}
+
+	var entryBuilder strings.Builder
+	for _, entry := range entries {
+		if entry.Path == "" {
+			return "", fmt.Errorf("cloud-init write_files entry path cannot be empty")
+		}
+
+		permissions := entry.Permissions
+		if permissions == "" {
+			permissions = "0644"
+		}
+
+		owner := entry.Owner
+		if owner == "" {
+			owner = "root"
+		}
+
+		indentedContent := indentYAMLBlock(entry.Content, "    ")
+		entryBuilder.WriteString(fmt.Sprintf("\n- path: %s\n  permissions: %q\n  owner: %s\n  content: |\n%s\n", entry.Path, permissions, owner, indentedContent))
+	}
+
+	insertPos := idx + len(writeFilesMarker)
+	yamlStr = yamlStr[:insertPos] + entryBuilder.String() + yamlStr[insertPos:]
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err = gw.Write([]byte(yamlStr))
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip customData: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return encoded, nil
+}
+
+func indentYAMLBlock(content, indent string) string {
+	if content == "" {
+		return indent
+	}
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = indent + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {

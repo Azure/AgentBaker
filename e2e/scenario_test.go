@@ -578,6 +578,37 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_ScriptlessCSECmd_Hotfix tests the EnableScriptlessCSECmd path in
+// nodecustomdata.yml which is the foundation for the hotfix delivery mechanism.
+// It injects a unique marker into cloud-init write_files via BootstrapConfigMutator,
+// then verifies that marker landed on disk — proving cloud-init write_files delivery works.
+func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
+	const hotfixMarkerPath = "/opt/azure/containers/e2e-hotfix-marker.txt"
+	hotfixMarkerContent := fmt.Sprintf("HOTFIX_E2E_MARKER_%d", time.Now().UnixNano())
+
+	RunScenario(t, &Scenario{
+		Description: "tests that a node using EnableScriptlessCSECmd delivers write_files content to disk",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{{
+				Path:    hotfixMarkerPath,
+				Content: hotfixMarkerContent,
+			}},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt",
+					"Executing in scriptless CSE mode")
+				// This file does NOT exist on any VHD — it can only be present if cloud-init
+				// processed our write_files entry, proving the hotfix delivery mechanism works.
+				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
+			},
+		},
+	})
+}
+
 // Returns config for the 'gpu' E2E scenario
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
