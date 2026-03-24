@@ -1446,6 +1446,10 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
     forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
@@ -1509,6 +1513,10 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
     forward . 10.0.0.10 {
         policy sequential
         max_concurrent 2000
@@ -1627,7 +1635,7 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getLocalDnsCorefileBase64(tt.args.aksnodeconfig)
+			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, true)
 
 			if tt.wantContains == "" && got != "" {
 				t.Errorf("expected empty string, got %q", got)
@@ -1706,6 +1714,71 @@ func Test_shouldEnableLocalDns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := shouldEnableLocalDns(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("shouldEnableLocalDns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_shouldEnableHostsPlugin(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil config",
+			args: args{aksnodeconfig: nil},
+			want: "false",
+		},
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: "false",
+		},
+		{
+			name: "LocalDns disabled, HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: true},
+			}},
+			want: "false",
+		},
+		{
+			name: "LocalDns enabled, HostsPlugin disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+		{
+			name: "both LocalDns and HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true},
+			}},
+			want: "true",
+		},
+		{
+			name: "both disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnableHostsPlugin(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("shouldEnableHostsPlugin() = %v, want %v", got, tt.want)
 			}
 		})
 	}
