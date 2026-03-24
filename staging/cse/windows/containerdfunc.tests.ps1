@@ -49,10 +49,7 @@ BeforeAll {
     param($Name, $ErrorAction)
   }
 
-  # RemoveNulls filter required by Invoke-NssmExe in aa_commonfuncs.ps1
   filter RemoveNulls { $_ -replace '\0', '' }
-
-  . $PSScriptRoot\aa_commonfuncs.ps1
   . $PSScriptRoot\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1', '.ps1')
   # . $PSScriptRoot\..\..\parts\windows\windowscsehelper.ps1
