@@ -44,6 +44,7 @@ mergeSysexts() {
         seMatch=$(matchLocalSysext "${seName}" "${desiredVer}" "${seArch}")
         if ! test -f "${seMatch}"; then
             echo "Failed to find valid ${seName} system extension for ${desiredVer} locally"
+
             seMatch=$(matchRemoteSysext "${seURL}" "${desiredVer}" "${seArch}")
             if [ -z "${seMatch}" ]; then
                 echo "Failed to find valid ${seName} system extension for ${desiredVer} remotely"
