@@ -518,38 +518,6 @@ while IFS= read -r p; do
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
       fi
       ;;
-    "acr-mirror")
-      # Skipping is handled by empty versionsV2 arrays or <SKIP> in components.json
-      # for mariner, flatcar, acl, and osguard.
-      if [ "${IS_KATA}" = "true" ]; then
-        echo "Skipping acr-mirror installation for kata (IS_KATA=${IS_KATA})"
-      else
-        version="${PACKAGE_VERSIONS[0]}"
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        # The arm64 packages have "-arm64" inserted before the file extension,
-        # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
-        if [ "$(isARM64)" -eq 1 ]; then
-          evaluatedURL="${evaluatedURL%.*}-arm64.${evaluatedURL##*.}"
-        fi
-        MIRROR_DOWNLOAD_PATH="./$(basename "${evaluatedURL}")"
-        retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$evaluatedURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-        if [[ "$evaluatedURL" == *.deb ]]; then
-          apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-        elif [[ "$evaluatedURL" == *.rpm ]]; then
-          dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-        fi
-        rm "$MIRROR_DOWNLOAD_PATH"
-        /opt/acr/tools/overlaybd/install.sh
-        /opt/acr/tools/overlaybd/config-user-agent.sh azure
-        /opt/acr/tools/overlaybd/enable-http-auth.sh
-        /opt/acr/tools/overlaybd/config.sh download.enable false
-        /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-        /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-        /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-        systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-        echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
-      fi
-      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -558,6 +526,45 @@ while IFS= read -r p; do
   esac
   capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
+
+installAndConfigureArtifactStreaming() {
+  local downloadURL="$1"
+  local version="$2"
+  # The arm64 packages have "-arm64" inserted before the file extension,
+  # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
+  if [ "$(isARM64)" -eq 1 ]; then
+    downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
+  fi
+  local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  if [[ "$downloadURL" == *.deb ]]; then
+    apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  elif [[ "$downloadURL" == *.rpm ]]; then
+    dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  fi
+  rm "$MIRROR_DOWNLOAD_PATH"
+
+  /opt/acr/tools/overlaybd/install.sh
+  /opt/acr/tools/overlaybd/config-user-agent.sh azure
+  /opt/acr/tools/overlaybd/enable-http-auth.sh
+  /opt/acr/tools/overlaybd/config.sh download.enable false
+  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
+}
+
+# Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
+# OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
+acrMirrorPackage=$(jq '.Packages[] | select(.name == "acr-mirror")' $COMPONENTS_FILEPATH)
+updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
+  evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+  installAndConfigureArtifactStreaming "${evaluatedURL}" "${PACKAGE_VERSIONS[0]}"
+fi
+capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
