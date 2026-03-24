@@ -1515,8 +1515,8 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		// Extract the listen address directly from ss — no hostname resolution needed.
-		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1)",
+		// Extract the listen address from ss, replacing wildcard '*' or '0.0.0.0' with localhost.
+		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1 | sed 's/^\\*/127.0.0.1/; s/^0\\.0\\.0\\.0/127.0.0.1/')",
 		"curl -sf http://${LISTEN_ADDR}/metrics | grep -q 'node_'",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
