@@ -334,9 +334,6 @@ disableSystemdResolved() {
 }
 
 ensureContainerd() {
-  if [ "${TELEPORT_ENABLED}" = "true" ]; then
-    ensureTeleportd
-  fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
   # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
   # On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
@@ -424,10 +421,6 @@ EOF
 
 ensureNoDupOnPromiscuBridge() {
     systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-ensureTeleportd() {
-    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureArtifactStreaming() {
