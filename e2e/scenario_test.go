@@ -841,6 +841,39 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 	})
 }
 
+func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Flatcar VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",

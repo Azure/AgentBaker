@@ -24,7 +24,7 @@ matchLocalSysext() {
 
 matchRemoteSysext() {
     local seURL=$1 desiredVer=$2 seArch=$3
-    if [[ "${seURL}" != mcr.microsoft.com/* ]]; then
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # For network isolated cluster, acr cache rule does not support oras repo tags.
         # return fixed renovateTag '-1' as workaround
         echo "v${desiredVer}-1-azlinux3-${seArch}"
