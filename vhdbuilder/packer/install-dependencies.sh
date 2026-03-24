@@ -537,11 +537,14 @@ installAndConfigureArtifactStreaming() {
   fi
   local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
   retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [[ "$downloadURL" == *.deb ]]; then
-    apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [[ "$downloadURL" == *.rpm ]]; then
-    dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  fi
+  case "$downloadURL" in
+    *.deb)
+      apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *.rpm)
+      dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+  esac
   rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
@@ -561,8 +564,10 @@ acrMirrorPackage=$(echo "${packages}" | jq -c 'select(.name == "acr-mirror")')
 updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
 updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
 if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
-  evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-  installAndConfigureArtifactStreaming "${evaluatedURL}" "${PACKAGE_VERSIONS[0]}"
+  for version in ${PACKAGE_VERSIONS[@]}; do
+    evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+    installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
+  done
 fi
 capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
