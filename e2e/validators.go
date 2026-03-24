@@ -1515,11 +1515,9 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		// Verify node-exporter is listening on port 19100
-		"ss -tlnp | grep -q ':19100' || netstat -tlnp | grep -q ':19100'",
-		// Resolve the node IP this shoudl work regardless of distro... then validate we can get metrics from node-exporter
-		"NODE_IP=$(ip -o -4 addr show dev eth0 | awk '{print $4}' | cut -d '/' -f 1)",
-		"curl -sf http://${NODE_IP}:19100/metrics | grep -q 'node_'",
+		// Extract the listen address directly from ss — no hostname resolution needed.
+		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1)",
+		"curl -sf http://${LISTEN_ADDR}/metrics | grep -q 'node_'",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
