@@ -518,6 +518,9 @@ while IFS= read -r p; do
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
       fi
       ;;
+    "acr-mirror")
+      # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -543,6 +546,10 @@ installAndConfigureArtifactStreaming() {
       ;;
     *.rpm)
       dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *)
+      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
       ;;
   esac
   rm "$MIRROR_DOWNLOAD_PATH"
