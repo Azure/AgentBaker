@@ -294,18 +294,8 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # Enable aks-hosts-setup to populate /etc/localdns/hosts with resolved AKS FQDN IPs.
-    # Startup ordering: aks-hosts-setup runs async via timer; localdns starts immediately
-    # with the no-hosts corefile. On subsequent restarts, localdns.sh dynamically selects
-    # the hosts-plugin variant if /etc/localdns/hosts has been populated by the timer.
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableAKSHostsSetup" enableAKSHostsSetup
-    fi
-
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        # Pass the no-hosts corefile as initial default.
-        # Both corefile variants are saved in /etc/localdns/environment for dynamic selection.
-        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS "${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}" || exit $ERR_LOCALDNS_FAIL
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then

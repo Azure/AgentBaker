@@ -1243,19 +1243,24 @@ LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
-# In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
-# This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+# Both corefile variants (with/without hosts plugin) are read from globals set in cse_cmd.sh.
+# The no-hosts variant is used as the initial active corefile; both variants are persisted
+# to /etc/localdns/environment so localdns.sh can dynamically switch on restart.
 # generateLocalDNSFiles creates the localdns corefile and slice file.
-# Usage: generateLocalDNSFiles [corefile_base64]
-#   corefile_base64: optional base64-encoded corefile content to use.
-#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
+# It reads both corefile variants from globals set in cse_cmd.sh:
+#   LOCALDNS_GENERATED_COREFILE          — corefile WITH hosts plugin
+#   LOCALDNS_GENERATED_COREFILE_NO_HOSTS — corefile WITHOUT hosts plugin
+# The no-hosts variant is written as the initial active corefile.
+# Both variants are saved to /etc/localdns/environment so localdns.sh
+# can dynamically switch between them on restart.
 generateLocalDNSFiles() {
-    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
-
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    base64 -d <<< "${corefile_content}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    # Start with the no-hosts variant as the initial active corefile.
+    # The hosts-plugin variant will be selected dynamically by localdns.sh
+    # once /etc/localdns/hosts has been populated by aks-hosts-setup.
+    base64 -d <<< "${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the generated corefile includes hosts plugin
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
@@ -1267,16 +1272,10 @@ generateLocalDNSFiles() {
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
     # Save BOTH corefile variants so localdns can dynamically choose on each restart.
-    #
-    # Naming note:
-    # - LOCALDNS_BASE64_ENCODED_COREFILE (legacy key): stores whichever variant was selected
-    #   as the initial default (currently the no-hosts variant from CSE).
-    # - LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS: explicit with-hosts variant for dynamic selection.
-    # - LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS: explicit no-hosts variant for dynamic selection.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_content}
+LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}
 LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS=${LOCALDNS_GENERATED_COREFILE}
 LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS=${LOCALDNS_GENERATED_COREFILE_NO_HOSTS}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN}
@@ -1300,12 +1299,9 @@ EOF
 }
 
 # enableLocalDNS creates localdns files and starts the service.
-# Usage: enableLocalDNS [corefile_base64]
-#   corefile_base64: optional base64-encoded corefile content to use.
-#                    If not provided, falls back to LOCALDNS_GENERATED_COREFILE.
+# Both corefile variants (with/without hosts plugin) are read from globals
+# set in cse_cmd.sh. No parameters needed.
 enableLocalDNS() {
-    local corefile_content="${1:-${LOCALDNS_GENERATED_COREFILE}}"
-
     # Guard: Check if this VHD has localdns assets installed.
     # Older VHDs may not have localdns.service or the execution script.
     # This ensures backward compatibility when new CSE runs on old VHDs.
@@ -1318,8 +1314,16 @@ enableLocalDNS() {
         return 0
     fi
 
+    # If hosts plugin is enabled, start aks-hosts-setup to populate /etc/localdns/hosts
+    # with resolved AKS FQDN IPs. This runs async via timer; localdns starts immediately
+    # with the no-hosts corefile. On subsequent restarts, localdns.sh dynamically selects
+    # the hosts-plugin variant if /etc/localdns/hosts has been populated by the timer.
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableLocalDNS.enableAKSHostsSetup" enableAKSHostsSetup
+    fi
+
     echo "enableLocalDNS called, generating corefile..."
-    generateLocalDNSFiles "${corefile_content}"
+    generateLocalDNSFiles
     # Log corefile variant after it's been successfully written
     echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
 
@@ -1330,8 +1334,7 @@ enableLocalDNS() {
 
 # This function enables and starts the aks-hosts-setup timer.
 # The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
-# The caller in cse_main.sh checks /etc/localdns/hosts content directly to decide
-# which corefile to use, so this function does not need to signal success/failure.
+# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is true.
 enableAKSHostsSetup() {
     # Best-effort setup: log errors but never fail.
     # The corefile will fall back to the no-hosts variant if hosts file is empty.
