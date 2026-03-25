@@ -165,10 +165,6 @@ function basePrep {
     else
         echo "Skipping installContainerRuntime because containerd is already available"
     fi
-    if [ "${TELEPORT_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-    fi
-
     setupCNIDirs
 
     # Network plugin already installed on Azure Linux OS Guard
