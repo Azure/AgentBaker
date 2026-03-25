@@ -884,6 +884,9 @@ func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterAzureNetworkIsolated,
 			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
