@@ -128,26 +128,26 @@ verify_localdns_binary() {
 # This is used when the corefile goes missing.
 regenerate_localdns_corefile() {
     # Dynamically select which corefile variant to use based on current state.
-    # This allows localdns to switch from no-hosts to hosts-plugin variant if:
+    # This allows localdns to switch from base to full variant if:
     # 1. SHOULD_ENABLE_HOSTS_PLUGIN is true, AND
     # 2. /etc/localdns/hosts now exists and has valid content
     # This provides recovery from initial CSE timeout scenarios.
 
     local corefile_to_use
 
-    if [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS:-}" ] && \
-       [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS:-}" ]; then
+    if [ -n "${LOCALDNS_COREFILE_FULL:-}" ] && \
+       [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
         # Both corefile variants are available - do dynamic selection
         echo "Both corefile variants available, selecting based on current state..."
         corefile_to_use=$(select_localdns_corefile \
             "${SHOULD_ENABLE_HOSTS_PLUGIN}" \
-            "${LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS}" \
-            "${LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS}" \
+            "${LOCALDNS_COREFILE_FULL}" \
+            "${LOCALDNS_COREFILE_BASE}" \
             "/etc/localdns/hosts")
-    elif [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
-        # Fallback to legacy single corefile for backward compatibility
-        echo "Using legacy LOCALDNS_BASE64_ENCODED_COREFILE (no dynamic selection)"
-        corefile_to_use="${LOCALDNS_BASE64_ENCODED_COREFILE}"
+    elif [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
+        # Fallback to active corefile for backward compatibility
+        echo "Using LOCALDNS_COREFILE_ACTIVE (no dynamic selection)"
+        corefile_to_use="${LOCALDNS_COREFILE_ACTIVE}"
     else
         echo "No corefile variants available in environment. Cannot regenerate corefile."
         return 1
@@ -818,7 +818,7 @@ ${__SOURCED__:+return}
 
 # Regenerate corefile on every startup to enable dynamic variant selection.
 # ---------------------------------------------------------------------------------------------------------------------
-# This allows switching between WITH_HOSTS and NO_HOSTS variants based on current state.
+# This allows switching between FULL and BASE corefile variants based on current state.
 # On restarts, if /etc/localdns/hosts has been populated by aks-hosts-setup timer,
 # localdns will automatically switch to the hosts-plugin variant.
 # Note: select_localdns_corefile is called with timeout=0 (default), meaning it checks
