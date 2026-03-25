@@ -164,7 +164,7 @@ steps:
   - bash: |
       set -euo pipefail
       if [ "${BUILDER:-}" = "imagecustomizer" ]; then
-        echo "builder is imagecustomizer - VHD is not compatible with prefetch optimziation"
+        echo "builder is imagecustomizer - VHD is not compatible with prefetch optimization"
         echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
         exit 0
       fi
