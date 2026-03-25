@@ -267,6 +267,7 @@ Describe 'Install-CredentialProvider' {
 
     It 'uses legacy binaries URL for non-ni cluster' {
         $global:BootstrapProfileContainerRegistryServer = ""
+        $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.34.0/binaries/azure-acr-credential-provider-linux-amd64-v1.34.0.tar.gz'
         Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1
     }
