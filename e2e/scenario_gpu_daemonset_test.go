@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/components"
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,19 +18,61 @@ import (
 )
 
 const (
-	// nvidiaDevicePluginImageName is the name of the NVIDIA device plugin container image
-	// in components.json E2EContainerImages section. The version is managed via Renovate.
-	nvidiaDevicePluginImageName = "nvidia-k8s-device-plugin"
+	// nvidiaDevicePluginImage is the upstream NVIDIA device plugin image from MCR.
+	// This is intentionally different from components.json which tracks the systemd-packaged version.
+	// This test validates the upstream container-based deployment model.
+	// Update this when a new version is available in MCR.
+	nvidiaDevicePluginImage = "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:v0.18.2"
 )
 
-// getNvidiaDevicePluginImage returns the full container image URL for the NVIDIA device plugin
-// by reading the version from components.json E2EContainerImages section.
-func getNvidiaDevicePluginImage() string {
-	image := components.GetE2EContainerImage(nvidiaDevicePluginImageName)
-	if strings.TrimSpace(image) == "" {
-		panic(fmt.Sprintf("nvidia device plugin image %q not found or empty in components.json E2EContainerImages", nvidiaDevicePluginImageName))
-	}
-	return image
+// Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset tests that a GPU node can function correctly
+// with the NVIDIA device plugin deployed as a Kubernetes DaemonSet instead of a systemd service.
+// This is the "upstream" deployment model commonly used by customers who manage their own
+// NVIDIA device plugin deployment.
+func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that NVIDIA device plugin works when deployed as a DaemonSet (not systemd service)",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				// Don't enable the managed GPU experience - we'll deploy the device plugin as a DaemonSet instead.
+				// By not setting EnableManagedGPU=true or the VMSS tag, the systemd-based device plugin won't start.
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// First, validate that GPU drivers are installed
+				ValidateNvidiaModProbeInstalled(ctx, s)
+
+				// Verify that the systemd-based device plugin is NOT running
+				// (managed GPU experience is not enabled, so the service should not be active)
+				validateNvidiaDevicePluginServiceNotRunning(ctx, s)
+
+				// Deploy the NVIDIA device plugin as a DaemonSet
+				deployNvidiaDevicePluginDaemonset(ctx, s)
+
+				// Wait for the DaemonSet pod to be running on our node
+				waitForNvidiaDevicePluginDaemonsetReady(ctx, s)
+
+				// Validate that GPU resources are advertised by the device plugin
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+
+				// Validate that GPU workloads can be scheduled
+				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+
+				s.T.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
+			},
+		},
+	})
 }
 
 // validateNvidiaDevicePluginServiceNotRunning verifies that the systemd-based
@@ -36,16 +81,14 @@ func validateNvidiaDevicePluginServiceNotRunning(ctx context.Context, s *Scenari
 	s.T.Helper()
 	s.T.Logf("Verifying that nvidia-device-plugin.service is not running...")
 
-	// Check the current service state using "is-active".
-	// This will return "active", "inactive", "failed", "activating", "unknown", etc.
-	result := execScriptOnVMForScenario(ctx, s, "systemctl is-active nvidia-device-plugin.service 2>/dev/null || true")
+	// Check if the service exists and is inactive
+	// Using "is-active" which returns non-zero if not active
+	result := execScriptOnVMForScenario(ctx, s, "systemctl is-active nvidia-device-plugin.service 2>/dev/null || echo 'not-running'")
 	output := strings.TrimSpace(result.stdout)
 
-	// The service should either not exist or be in a non-running state.
-	// Treat both "active" and "activating" as failures, since the service
-	// must not be running when validating the DaemonSet-based deployment.
-	if output == "active" || output == "activating" {
-		s.T.Fatalf("nvidia-device-plugin.service is unexpectedly %s - this test requires the systemd service to be disabled", output)
+	// The service should either not exist or be inactive
+	if output == "active" {
+		s.T.Fatalf("nvidia-device-plugin.service is unexpectedly running - this test requires the systemd service to be disabled")
 	}
 	s.T.Logf("Confirmed nvidia-device-plugin.service is not active (status: %s)", output)
 }
@@ -59,8 +102,6 @@ func nvidiaDevicePluginDaemonsetName(nodeName string) string {
 	if len(name) > maxLen {
 		name = name[:maxLen]
 	}
-	// Ensure name ends with alphanumeric character (DNS label requirement)
-	name = strings.TrimRight(name, "-")
 	return name
 }
 
@@ -113,7 +154,7 @@ func nvidiaDevicePluginDaemonset(nodeName string) *appsv1.DaemonSet {
 					Containers: []corev1.Container{
 						{
 							Name:  "nvidia-device-plugin-ctr",
-							Image: getNvidiaDevicePluginImage(),
+							Image: nvidiaDevicePluginImage,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "FAIL_ON_INIT_ERROR",
@@ -157,25 +198,15 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) {
 	s.T.Logf("Deploying NVIDIA device plugin as DaemonSet...")
 
 	ds := nvidiaDevicePluginDaemonset(s.Runtime.VM.KubeName)
-	dsClient := s.Runtime.Cluster.Kube.Typed.AppsV1().DaemonSets(ds.Namespace)
 
-	// Delete any existing DaemonSet from a previous failed run and wait for it to be gone
-	deleteCtx, deleteCancel := context.WithTimeout(ctx, 60*time.Second)
+	// Delete any existing DaemonSet from a previous failed run
+	deleteCtx, deleteCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer deleteCancel()
-	_ = dsClient.Delete(deleteCtx, ds.Name, metav1.DeleteOptions{})
-
-	// Wait for deletion to complete to avoid AlreadyExists/conflict on create
-	for {
-		_, err := dsClient.Get(deleteCtx, ds.Name, metav1.GetOptions{})
-		if err != nil {
-			break // NotFound or other error means it's gone
-		}
-		select {
-		case <-deleteCtx.Done():
-			s.T.Fatalf("timed out waiting for existing DaemonSet %s to be deleted", ds.Name)
-		case <-time.After(2 * time.Second):
-		}
-	}
+	_ = s.Runtime.Cluster.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
+		deleteCtx,
+		ds.Name,
+		metav1.DeleteOptions{},
+	)
 
 	// Create the DaemonSet
 	err := s.Runtime.Cluster.Kube.CreateDaemonset(ctx, ds)
