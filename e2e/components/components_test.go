@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -147,4 +148,54 @@ func TestGetE2EContainerImage(t *testing.T) {
 		image := GetE2EContainerImage("nonexistent-image")
 		require.Empty(t, image, "expected empty image for unknown name")
 	})
+}
+
+// baseSemver extracts the major.minor.patch portion from a version string,
+// stripping any leading 'v' and trailing distro/packaging suffixes.
+// e.g. "v0.18.2-1" -> "0.18.2", "0.18.2-ubuntu22.04u1" -> "0.18.2"
+func baseSemver(version string) string {
+	re := regexp.MustCompile(`v?(\d+\.\d+\.\d+)`)
+	m := re.FindStringSubmatch(version)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// TestNvidiaDevicePluginVersionConsistency ensures the E2E container image version
+// (MCR tag) stays aligned with the managed deb package version on the base semver.
+// These are different artifacts (container image vs deb package) with different suffixes,
+// but the base version (e.g. 0.18.2) must match to ensure we test the same release.
+func TestNvidiaDevicePluginVersionConsistency(t *testing.T) {
+	e2eImage := GetE2EContainerImage("nvidia-k8s-device-plugin")
+	require.NotEmpty(t, e2eImage, "E2E container image not found in components.json")
+
+	// Extract version tag from the image URL (after the last ':')
+	parts := regexp.MustCompile(`:`).Split(e2eImage, -1)
+	require.Len(t, parts, 2, "expected image:tag format, got %s", e2eImage)
+	e2eBase := baseSemver(parts[1])
+	require.NotEmpty(t, e2eBase, "could not extract semver from E2E image tag %q", parts[1])
+
+	// Check against each distro/release that has the managed package
+	distroReleases := []struct {
+		distro  string
+		release string
+	}{
+		{"ubuntu", "r2204"},
+		{"ubuntu", "r2404"},
+		{"azurelinux", "v3.0"},
+	}
+
+	for _, dr := range distroReleases {
+		t.Run(fmt.Sprintf("%s/%s", dr.distro, dr.release), func(t *testing.T) {
+			versions := GetExpectedPackageVersions("nvidia-device-plugin", dr.distro, dr.release)
+			require.NotEmpty(t, versions, "no managed nvidia-device-plugin version found for %s/%s", dr.distro, dr.release)
+
+			managedBase := baseSemver(versions[0])
+			require.NotEmpty(t, managedBase, "could not extract semver from managed version %q", versions[0])
+			require.Equal(t, e2eBase, managedBase,
+				"E2E container image base version (%s from %s) does not match managed package version (%s from %s) for %s/%s",
+				e2eBase, parts[1], managedBase, versions[0], dr.distro, dr.release)
+		})
+	}
 }
