@@ -224,8 +224,6 @@ Describe 'Install-CredentialProvider' {
         $global:CredentialProviderURL = "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.0/windows/amd64/azure-acr-credential-provider_1.34.0-1_amd64.zip"
         $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
         $global:KubeBinariesVersion = "1.31.9"
-        $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER = 83
-        $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 39
         $script:lastDownloadReference = ""
 
         Mock Config-CredentialProvider
