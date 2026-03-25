@@ -463,7 +463,6 @@ function Install-CredentialProvider {
         } else {
             # network isolated cluster
             # download azure acr credential provider binaries via oras if BootstrapProfileContainerRegistryServer is set
-            $exitCode = $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER
             if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
             }
