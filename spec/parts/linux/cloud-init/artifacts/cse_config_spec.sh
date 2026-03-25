@@ -794,6 +794,11 @@ providers:
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             KUBELET_NODE_LABELS=""
+            LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "localdns corefile with hosts" | base64)
+            LOCALDNS_GENERATED_COREFILE_NO_HOSTS=$(echo -n "localdns corefile" | base64)
+            LOCALDNS_MEMORY_LIMIT="128M"
+            LOCALDNS_CPU_LIMIT="200.0%"
             # Create mock localdns assets that would be present on VHD
             mkdir -p /etc/systemd/system
             mkdir -p /opt/azure/containers/localdns
@@ -827,7 +832,6 @@ providers:
         AfterEach 'cleanup'
 
         It 'should enable localdns successfully when VHD has required assets'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             When run enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
@@ -838,7 +842,6 @@ providers:
 
         It 'should skip localdns when localdns.service is missing on old VHD'
             rm -f /etc/systemd/system/localdns.service
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             When run enableLocalDNS
             The status should be success
             The output should include "Warning: localdns.service not found on this VHD, skipping localdns setup"
@@ -847,7 +850,6 @@ providers:
 
         It 'should skip localdns when localdns.sh is missing on old VHD'
             rm -f /opt/azure/containers/localdns/localdns.sh
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             When run enableLocalDNS
             The status should be success
             The output should include "Warning: localdns.sh not found on this VHD, skipping localdns setup"
@@ -855,7 +857,6 @@ providers:
         End
 
         It 'should return error when systemctl fails to start localdns'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 1
