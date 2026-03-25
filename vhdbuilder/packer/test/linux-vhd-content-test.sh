@@ -190,7 +190,7 @@ testPackagesInstalled() {
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [ "$downloadLocation" = "" ]; then
+    if [ "$downloadLocation" = "" ] || [ "$downloadLocation" = "null" ]; then
       continue
     fi
     if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
