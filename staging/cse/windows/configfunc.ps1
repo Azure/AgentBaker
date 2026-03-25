@@ -436,7 +436,7 @@ function Install-CredentialProvider {
         $CustomCloudContainerRegistryDNSSuffix
     )
     try {
-        # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
+        # Out of tree credential provider is turned on as a must after 1.30, and is optional in 1.29, for cluster < 1.29, it's not enabled.
         # And only when it's enabled, the credential provider flags are set.
         $global:credentialProviderConfigPath = ""
         $global:credentialProviderBinDir = ""
