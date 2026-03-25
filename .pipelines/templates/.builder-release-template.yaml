@@ -301,7 +301,13 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk cleanup-prefetch
-    condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'),
+        eq(variables.PREFETCH_COMPATIBLE, 'True')
+      )
     displayName: Cleanup Prefetch Optimization Resources
     env:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
