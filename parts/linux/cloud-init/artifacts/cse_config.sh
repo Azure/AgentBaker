@@ -1253,10 +1253,21 @@ generateLocalDNSFiles() {
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
+
+    # Determine the base corefile to use as the initial active corefile.
+    # LOCALDNS_COREFILE_BASE is set by new CSE; fall back to LOCALDNS_GENERATED_COREFILE
+    # for backward compatibility when this VHD runs with an older CSE that only sets
+    # LOCALDNS_GENERATED_COREFILE.
+    local corefile_base="${LOCALDNS_COREFILE_BASE:-${LOCALDNS_GENERATED_COREFILE:-}}"
+    if [ -z "${corefile_base}" ]; then
+        echo "Error: neither LOCALDNS_COREFILE_BASE nor LOCALDNS_GENERATED_COREFILE is set"
+        exit $ERR_LOCALDNS_FAIL
+    fi
+
     # Start with the base corefile as the initial active corefile.
     # The experimental variant will be selected dynamically by localdns.sh
     # once /etc/localdns/hosts has been populated by aks-hosts-setup.
-    base64 -d <<< "${LOCALDNS_COREFILE_BASE}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the generated corefile includes hosts plugin
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
@@ -1271,9 +1282,9 @@ generateLocalDNSFiles() {
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_COREFILE_ACTIVE=${LOCALDNS_COREFILE_BASE}
-LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL}
-SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN}
+LOCALDNS_COREFILE_ACTIVE=${corefile_base}
+LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL:-}
+SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
