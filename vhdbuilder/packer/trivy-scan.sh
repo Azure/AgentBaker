@@ -46,6 +46,7 @@ CVE_DIFF_UPLOAD_REPORT_NAME=${30}
 CVE_LIST_UPLOAD_REPORT_NAME=${31}
 SCAN_RESOURCE_PREFIX=${32}
 
+source /opt/azure/containers/provision_source.sh
 source /opt/azure/containers/provision_source_distro.sh
 
 retrycmd_if_failure() {
@@ -143,6 +144,8 @@ else
     echo "invalid architecture ${arch,,}"
     exit 1
 fi
+
+systemctlEnableAndStart containerd 30 || exit 4
 
 mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
 

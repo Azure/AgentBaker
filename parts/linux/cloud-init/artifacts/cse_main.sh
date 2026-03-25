@@ -152,9 +152,13 @@ function basePrep {
         echo "Golden image; skipping dependencies installation"
     fi
 
-    # Container runtime already installed on Azure Linux OS Guard
-    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    # Container runtime already installed on Azure Linux OS Guard; an explicit containerd override can bypass FULL_INSTALL_REQUIRED for other Linux distros
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        echo "Skipping installContainerRuntime because containerd is already available"
+    elif [ "$FULL_INSTALL_REQUIRED" = "true" ] || [ -n "${CONTAINERD_PACKAGE_URL}" ]; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    else
+        echo "Skipping installContainerRuntime because containerd is already available"
     fi
     setupCNIDirs
 
@@ -169,6 +173,9 @@ function basePrep {
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
+
+    # pre-warm kubelet by checking its version.
+    nohup /bin/sh -c '/opt/bin/kubelet --version >/dev/null 2>&1' >/dev/null 2>&1 &
 
     createKubeManifestDir
 
@@ -192,6 +199,10 @@ function basePrep {
     # configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
     if isMarinerOrAzureLinux "$OS"; then
         logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
+    fi
+
+    if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
+      logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
 
     # containerd should not be configured until cni has been configured first
@@ -268,14 +279,6 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
-      logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
-    fi
-
-    if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
-    fi
-
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
@@ -350,11 +353,6 @@ function nodePrep {
 
     # By default, never reboot new nodes.
     REBOOTREQUIRED=false
-
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
 
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
@@ -484,9 +482,26 @@ function nodePrep {
         exit $VALIDATION_ERR
     fi
 
+    checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+        checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
+    fi
+
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
+    if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
+        logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+    fi
+
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
+
+
+    # Clean up GPU drivers if not a GPU node or if skipping driver install
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
+    fi
+
+    checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'

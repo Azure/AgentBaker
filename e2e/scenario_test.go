@@ -106,6 +106,25 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2Arm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Flatcar scenario on a cluster configured with Azure CNI",
