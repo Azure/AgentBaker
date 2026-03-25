@@ -161,6 +161,30 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
+  - bash: |
+      set -euo pipefail
+      if [ "${BUILDER:-}" = "imagecustomizer" ]; then
+        echo "builder is imagecustomizer - VHD is not compatible with prefetch optimization"
+        echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
+        exit 0
+      fi
+      if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+        if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+          echo "arm64 with trusted launch - VHD is incompatible with prefetch optimization"
+          echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
+          exit 0
+        fi
+        if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+          echo "arm64 with CVM - VHD is incompatible with prefetch optimization"
+          echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
+          exit 0
+        fi
+      fi
+      echo "VHD is compatible with prefetch optimization"
+      echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]True"
+    displayName: Determine Prefetch Optimization compatibility
+    condition: eq(variables.GENERATE_PUBLISHING_INFO, 'True')
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -177,16 +201,13 @@ steps:
         fi
         echo "DESTINATION_STORAGE_CONTAINER is set to ${CLASSIC_BLOB_STAGING}"
     condition: |
-      or(
-        and(
-          succeeded(),
-          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+      and(
+        succeeded(),
+        eq(variables.ENVIRONMENT, 'tme'),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
-          eq(variables.ENVIRONMENT, 'tme')
-        ),
-        and(
-          eq(variables.BUILDER, 'imagecustomizer'),
-          eq(variables.ENVIRONMENT, 'tme')
+          eq(variables.PREFETCH_COMPATIBLE, 'False')
         )
       )
     displayName: Set Destination Storage Container to Staging
@@ -248,7 +269,13 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk prefetch
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'),
+        eq(variables.PREFETCH_COMPATIBLE, 'True')
+      )
     displayName: Run Prefetch Optimization and Convert to VHD blob
     retryCountOnTaskFailure: 3
     env:
@@ -274,7 +301,13 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk cleanup-prefetch
-    condition: and(eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'),
+        eq(variables.PREFETCH_COMPATIBLE, 'True')
+      )
     displayName: Cleanup Prefetch Optimization Resources
     env:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
@@ -339,7 +372,16 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk convert-sig-to-classic-storage-account-blob
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.RUN_PREFETCH_OPTIMIZATION, 'True'), ne(variables.BUILDER, 'imagecustomizer'))
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        ne(variables.BUILDER, 'imagecustomizer'),
+        or(
+          eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+          eq(variables.PREFETCH_COMPATIBLE, 'False')
+        )
+      )
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -358,16 +400,13 @@ steps:
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     condition: |
-      or(
-        and(
-          succeeded(),
-          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+      and(
+        succeeded(),
+        eq(variables.ENVIRONMENT, 'tme'),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
-          eq(variables.ENVIRONMENT, 'tme')
-        ),
-        and(
-          eq(variables.BUILDER, 'imagecustomizer'),
-          eq(variables.ENVIRONMENT, 'tme')
+          eq(variables.PREFETCH_COMPATIBLE, 'False')
         )
       )
     displayName: Copy to Immutable Storage Container
