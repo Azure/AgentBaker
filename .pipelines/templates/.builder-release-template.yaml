@@ -370,6 +370,7 @@ steps:
       and(
         succeeded(),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        ne(variables.BUILDER, 'imagecustomizer'),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
