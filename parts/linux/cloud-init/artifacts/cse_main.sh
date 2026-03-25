@@ -56,7 +56,11 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+        echo "Skipping holding walinuxagent"
+    else
+        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+    fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
@@ -161,10 +165,6 @@ function basePrep {
     else
         echo "Skipping installContainerRuntime because containerd is already available"
     fi
-    if [ "${TELEPORT_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-    fi
-
     setupCNIDirs
 
     # Network plugin already installed on Azure Linux OS Guard
