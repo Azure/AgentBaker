@@ -182,11 +182,11 @@ func buildIgnitionTarball(entries []ignitionTarEntry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
+func cloudInitToButane(customData cloudInit, butaneYamlPath string) flatcar1_1.Config {
 	butaneconfig := flatcar1_1.Config{}
-	b, e := parts.Templates.ReadFile(kubernetesFlatcarNodeCustomDataYaml)
+	b, e := parts.Templates.ReadFile(butaneYamlPath)
 	if e != nil {
-		panic(fmt.Errorf("yaml file %s does not exist", kubernetesFlatcarNodeCustomDataYaml))
+		panic(fmt.Errorf("yaml file %s does not exist", butaneYamlPath))
 	}
 	if e = yaml.Unmarshal(b, &butaneconfig); e != nil {
 		panic(fmt.Errorf("failed to unmarshal butane config: %w", e))
@@ -241,7 +241,11 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		panic(fmt.Errorf("no write files found in customData"))
 	}
 
-	var butaneconfig = cloudInitToButane(customData)
+	butaneYamlPath := kubernetesFlatcarNodeCustomDataYaml
+	if config.IsACL() {
+		butaneYamlPath = kubernetesACLNodeCustomDataYaml
+	}
+	var butaneconfig = cloudInitToButane(customData, butaneYamlPath)
 	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
 	if e != nil {
 		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
