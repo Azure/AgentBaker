@@ -1,5 +1,6 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+    . $PSScriptRoot\networkisolatedclusterfunc.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
 
     $capturedContent = $null
