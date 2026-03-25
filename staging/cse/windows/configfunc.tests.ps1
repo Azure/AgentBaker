@@ -253,7 +253,6 @@ Describe 'Install-CredentialProvider' {
     }
     AfterEach {
         $global:BootstrapProfileContainerRegistryServer = $null
-        Remove-Item Function:\global:DownloadFileWithOras -ErrorAction SilentlyContinue
     }
 
     It 'returns early when out-of-tree credential provider flags are not configured' {
