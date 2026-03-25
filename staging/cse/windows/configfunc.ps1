@@ -435,7 +435,6 @@ function Install-CredentialProvider {
         [Parameter(Mandatory = $false)][string]
         $CustomCloudContainerRegistryDNSSuffix
     )
-    $exitCode = $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER
     try {
         # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
         # And only when it's enabled, the credential provider flags are set.
@@ -485,11 +484,11 @@ function Install-CredentialProvider {
             $orasReference = "$($global:BootstrapProfileContainerRegistryServer)/aks/packages/kubernetes/azure-acr-credential-provider:v$($packageVersion)"
             try {
                 Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $credentialproviderbinaryPackage } -Retries 5 -RetryDelaySeconds 10
+                AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
             }
             catch {
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
             }
-            AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
         }
 
         Create-Directory -FullPath $global:credentialProviderBinDir
@@ -499,7 +498,7 @@ function Install-CredentialProvider {
         cp "$global:credentialProviderBinDir\acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider"
         del $tempDir -Recurse
     } catch {
-        Set-ExitCode -ExitCode $exitCode -ErrorMessage "Error installing credential provider. Error: $_"
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
     }
 }
 
