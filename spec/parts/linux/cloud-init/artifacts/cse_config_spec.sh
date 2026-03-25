@@ -794,8 +794,8 @@ providers:
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
-            LOCALDNS_COREFILE_FULL=$(echo -n "localdns corefile with hosts" | base64)
-            LOCALDNS_COREFILE_BASE=$(echo -n "localdns corefile" | base64)
+            LOCALDNS_GENERATED_COREFILE_EXPERIMENTAL=$(echo -n "localdns corefile with hosts" | base64)
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "localdns corefile" | base64)
             LOCALDNS_MEMORY_LIMIT="128M"
             LOCALDNS_CPU_LIMIT="200.0%"
             # Create mock localdns assets that would be present on VHD
@@ -857,8 +857,8 @@ providers:
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
-            LOCALDNS_COREFILE_FULL=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
-            LOCALDNS_COREFILE_BASE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_GENERATED_COREFILE_EXPERIMENTAL=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
             LOCALDNS_CPU_LIMIT="250%"
             # Create mock localdns assets that would be present on VHD
@@ -926,8 +926,8 @@ providers:
         # Environment file creation with both corefile variants.
         It 'should create environment file with all corefile variants for dynamic selection'
             # Set up both corefile variants
-            LOCALDNS_COREFILE_FULL=$(echo -n "corefile with hosts plugin" | base64)
-            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            LOCALDNS_GENERATED_COREFILE_EXPERIMENTAL=$(echo -n "corefile with hosts plugin" | base64)
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "corefile without hosts plugin" | base64)
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             LOCALDNS_ENV_FILE="$TMP_DIR/environment"
 
@@ -938,8 +938,7 @@ providers:
             The stdout should include "Enable localdns succeeded."
             The path "$LOCALDNS_ENV_FILE" should be file
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_ACTIVE="
-            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_FULL=${LOCALDNS_COREFILE_FULL}"
-            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE=${LOCALDNS_COREFILE_BASE}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_GENERATED_COREFILE_EXPERIMENTAL}"
             The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
         End
 
