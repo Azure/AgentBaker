@@ -75,6 +75,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+		ValidateLocalDNSExporterMetrics(ctx, s)
 	}
 
 	ValidateInspektorGadget(ctx, s)

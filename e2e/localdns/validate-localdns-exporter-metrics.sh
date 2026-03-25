@@ -187,19 +187,58 @@ echo ""
 echo "=== Security Hardening Validation ==="
 echo ""
 
-# Step 9: Verify systemd security properties are configured FIRST (before spawning instances)
-# This is faster and doesn't require running processes
-echo "9. Verifying all 16 systemd security directives are configured..."
+# We need a live instance to query runtime-effective security properties via systemctl show.
+# localdns-exporter@.service is a template unit — systemd only loads properties for instantiated
+# units. The workers are Accept=yes (per-connection) and exit immediately after responding.
+# To keep an instance alive for inspection, we hold an open connection that sends no HTTP request,
+# so the worker spawns and blocks waiting on stdin.
+
+# Step 9: Spawn a persistent worker instance by holding a connection open
+echo "9. Spawning a persistent worker instance for security inspection..."
+sleep 120 | nc 127.0.0.1 9353 > /dev/null 2>&1 &
+NC_PID=$!
+sleep 2
+
+# Ensure cleanup of the held connection on exit (normal or error)
+cleanup_nc() {
+    kill "$NC_PID" 2>/dev/null || true
+    wait "$NC_PID" 2>/dev/null || true
+}
+trap cleanup_nc EXIT
+
+echo "   ✓ Connection held open (PID: $NC_PID)"
 echo ""
 
-# Fetch all security-related properties in batches (systemctl has limits)
-SECURITY_PROPS_1=$(systemctl show localdns-exporter@.service \
+# Step 10: Find the active instance
+echo "10. Finding active localdns-exporter instance..."
+ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
+if [ -z "$ACTIVE_INSTANCES" ]; then
+    echo "   ⚠️  No active instances found (socket activation may be delayed), retrying..."
+    sleep 3
+    ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
+fi
+
+if [ -z "$ACTIVE_INSTANCES" ]; then
+    echo "   ❌ ERROR: No localdns-exporter instances found after retry"
+    exit 1
+fi
+INSTANCE_NAME=$(echo "$ACTIVE_INSTANCES" | head -n 1)
+echo "   ✓ Found instance: $INSTANCE_NAME"
+echo ""
+
+# Step 11: Verify all 16 systemd security directives via systemctl show on the live instance.
+# This checks the runtime-effective values — what systemd actually enforces — not just what's
+# in the unit file. This catches drop-in overrides, syntax errors, and unsupported directives.
+echo "11. Verifying all 16 systemd security directives on live instance..."
+echo ""
+
+SECURITY_PROPS_1=$(systemctl show "$INSTANCE_NAME" \
     --property=DynamicUser,PrivateTmp,ProtectSystem,ProtectHome,ReadOnlyPaths,NoNewPrivileges \
     2>/dev/null || true)
-SECURITY_PROPS_2=$(systemctl show localdns-exporter@.service \
+SECURITY_PROPS_2=$(systemctl show "$INSTANCE_NAME" \
     --property=ProtectKernelTunables,ProtectKernelModules,ProtectControlGroups,RestrictAddressFamilies \
     2>/dev/null || true)
-SECURITY_PROPS_3=$(systemctl show localdns-exporter@.service \
+SECURITY_PROPS_3=$(systemctl show "$INSTANCE_NAME" \
     --property=RestrictNamespaces,LockPersonality,RestrictRealtime,RestrictSUIDSGID,RemoveIPC,PrivateMounts \
     2>/dev/null || true)
 
@@ -211,10 +250,8 @@ echo "   Retrieved security properties:"
 echo "$SECURITY_PROPS" | sed 's/^/     /'
 echo ""
 
-# Check all 16 security directives
 FAILED_CHECKS=0
 
-# 1. DynamicUser=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^DynamicUser=yes$"; then
     echo "   ❌ ERROR: DynamicUser not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -222,7 +259,6 @@ else
     echo "   ✓ DynamicUser=yes"
 fi
 
-# 2. PrivateTmp=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^PrivateTmp=yes$"; then
     echo "   ❌ ERROR: PrivateTmp not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -230,7 +266,6 @@ else
     echo "   ✓ PrivateTmp=yes"
 fi
 
-# 3. ProtectSystem=strict
 if ! echo "$SECURITY_PROPS" | grep -q "^ProtectSystem=strict$"; then
     echo "   ❌ ERROR: ProtectSystem not strict"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -238,7 +273,6 @@ else
     echo "   ✓ ProtectSystem=strict"
 fi
 
-# 4. ProtectHome=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^ProtectHome=yes$"; then
     echo "   ❌ ERROR: ProtectHome not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -246,7 +280,6 @@ else
     echo "   ✓ ProtectHome=yes"
 fi
 
-# 5. ReadOnlyPaths=/ (exact match, not a prefix)
 if ! echo "$SECURITY_PROPS" | grep -qE "^ReadOnlyPaths=/$|^ReadOnlyPaths=/ "; then
     echo "   ❌ ERROR: ReadOnlyPaths not set to /"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -254,7 +287,6 @@ else
     echo "   ✓ ReadOnlyPaths=/"
 fi
 
-# 6. NoNewPrivileges=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^NoNewPrivileges=yes$"; then
     echo "   ❌ ERROR: NoNewPrivileges not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -262,7 +294,6 @@ else
     echo "   ✓ NoNewPrivileges=yes"
 fi
 
-# 7. ProtectKernelTunables=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^ProtectKernelTunables=yes$"; then
     echo "   ❌ ERROR: ProtectKernelTunables not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -270,7 +301,6 @@ else
     echo "   ✓ ProtectKernelTunables=yes"
 fi
 
-# 8. ProtectKernelModules=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^ProtectKernelModules=yes$"; then
     echo "   ❌ ERROR: ProtectKernelModules not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -278,7 +308,6 @@ else
     echo "   ✓ ProtectKernelModules=yes"
 fi
 
-# 9. ProtectControlGroups=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^ProtectControlGroups=yes$"; then
     echo "   ❌ ERROR: ProtectControlGroups not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -286,12 +315,10 @@ else
     echo "   ✓ ProtectControlGroups=yes"
 fi
 
-# 10. RestrictAddressFamilies - check for AF_UNIX (may be formatted different ways)
 if ! echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_UNIX"; then
     echo "   ❌ ERROR: RestrictAddressFamilies does not include AF_UNIX"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 else
-    # Also verify AF_INET/AF_INET6 are NOT present
     if echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_INET[^6]|RestrictAddressFamilies=.*AF_INET6"; then
         echo "   ❌ ERROR: RestrictAddressFamilies includes AF_INET/AF_INET6 (should be AF_UNIX only)"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -300,7 +327,6 @@ else
     fi
 fi
 
-# 11. RestrictNamespaces=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^RestrictNamespaces=yes$"; then
     echo "   ❌ ERROR: RestrictNamespaces not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -308,7 +334,6 @@ else
     echo "   ✓ RestrictNamespaces=yes"
 fi
 
-# 12. LockPersonality=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^LockPersonality=yes$"; then
     echo "   ❌ ERROR: LockPersonality not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -316,7 +341,6 @@ else
     echo "   ✓ LockPersonality=yes"
 fi
 
-# 13. RestrictRealtime=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^RestrictRealtime=yes$"; then
     echo "   ❌ ERROR: RestrictRealtime not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -324,7 +348,6 @@ else
     echo "   ✓ RestrictRealtime=yes"
 fi
 
-# 14. RestrictSUIDSGID=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^RestrictSUIDSGID=yes$"; then
     echo "   ❌ ERROR: RestrictSUIDSGID not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -332,7 +355,6 @@ else
     echo "   ✓ RestrictSUIDSGID=yes"
 fi
 
-# 15. RemoveIPC=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^RemoveIPC=yes$"; then
     echo "   ❌ ERROR: RemoveIPC not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -340,7 +362,6 @@ else
     echo "   ✓ RemoveIPC=yes"
 fi
 
-# 16. PrivateMounts=yes
 if ! echo "$SECURITY_PROPS" | grep -q "^PrivateMounts=yes$"; then
     echo "   ❌ ERROR: PrivateMounts not enabled"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -357,127 +378,93 @@ fi
 echo "✓ All 16 security directives are properly configured"
 echo ""
 
-# Step 10: Trigger a scrape to spawn an instance for runtime validation
-echo "10. Triggering scrape to spawn a worker instance for runtime validation..."
-curl -s http://127.0.0.1:9353/metrics > /dev/null &
-CURL_PID=$!
-sleep 2  # Increased from 1 to 2 seconds for reliability
-echo "   ✓ Scrape triggered"
-echo ""
+# Step 12: Get PID of the instance for runtime enforcement checks
+echo "12. Getting PID of instance..."
+INSTANCE_PID=$(systemctl show "$INSTANCE_NAME" --property=MainPID --value 2>/dev/null || echo "0")
 
-# Step 11: Find active instance
-echo "11. Finding active localdns-exporter instance..."
-ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
-if [ -z "$ACTIVE_INSTANCES" ]; then
-    echo "   ⚠️  No active instances found (socket activation may be delayed)"
-    wait $CURL_PID 2>/dev/null || true
-    sleep 2
-    ACTIVE_INSTANCES=$(systemctl list-units --all 'localdns-exporter@*.service' --no-pager --no-legend --plain | awk '{print $1}' || true)
-fi
-
-if [ -z "$ACTIVE_INSTANCES" ]; then
-    echo "   ⚠️  No instances found after retry, skipping runtime validation"
-    echo "   (This may happen if socket activation is very slow or disabled)"
+if [ "$INSTANCE_PID" = "0" ] || [ -z "$INSTANCE_PID" ]; then
+    echo "   ⚠️  Instance PID not found, skipping process-level checks"
 else
-    INSTANCE_NAME=$(echo "$ACTIVE_INSTANCES" | head -n 1)
-    echo "   ✓ Found instance: $INSTANCE_NAME"
+    echo "   ✓ Instance PID: $INSTANCE_PID"
     echo ""
 
-    # Step 12: Get PID of the instance
-    echo "12. Getting PID of instance..."
-    INSTANCE_PID=$(systemctl show "$INSTANCE_NAME" --property=MainPID --value 2>/dev/null || echo "0")
+    # Step 13: Verify not running as root (DynamicUser runtime enforcement)
+    echo "13. Verifying DynamicUser runtime enforcement (not running as root)..."
+    INSTANCE_USER=$(ps -o user= -p "$INSTANCE_PID" 2>/dev/null || echo "unknown")
+    if [ "$INSTANCE_USER" = "root" ]; then
+        echo "   ❌ ERROR: Instance running as root (DynamicUser not enforced at runtime)"
+        exit 1
+    fi
+    echo "   ✓ Running as dynamic user: $INSTANCE_USER"
+    echo ""
 
-    if [ "$INSTANCE_PID" = "0" ] || [ -z "$INSTANCE_PID" ]; then
-        echo "   ⚠️  Instance PID not found, skipping process-level checks"
-    else
-        echo "   ✓ Instance PID: $INSTANCE_PID"
-        echo ""
+    # Step 14: Verify no network sockets (RestrictAddressFamilies runtime enforcement)
+    echo "14. Verifying RestrictAddressFamilies runtime enforcement (no network sockets)..."
 
-        # Step 13: Verify not running as root (DynamicUser runtime enforcement)
-        echo "13. Verifying DynamicUser runtime enforcement (not running as root)..."
-        INSTANCE_USER=$(ps -o user= -p "$INSTANCE_PID" 2>/dev/null || echo "unknown")
-        if [ "$INSTANCE_USER" = "root" ]; then
-            echo "   ❌ ERROR: Instance running as root (DynamicUser not enforced at runtime)"
-            exit 1
-        fi
-        echo "   ✓ Running as dynamic user: $INSTANCE_USER"
-        echo ""
+    # Use /proc filesystem for portability (works on all distros without lsof)
+    # Note: Socket-activated services inherit the accepted connection as stdin/stdout (fd 0/1).
+    # This inherited socket is AF_INET but is expected and allowed. We only care about
+    # NEW sockets the service creates, not the inherited activation socket.
+    NETWORK_SOCKETS=0
+    INHERITED_SOCKET_INODE=""
 
-        # Step 14: Verify no network sockets (RestrictAddressFamilies runtime enforcement)
-        echo "14. Verifying RestrictAddressFamilies runtime enforcement (no network sockets)..."
-
-        # Use /proc filesystem for portability (works on all distros without lsof)
-        # Check socket types by examining /proc/$PID/fd and using ss to inspect socket details
-        #
-        # Note: Socket-activated services inherit the accepted connection as stdin/stdout (fd 0/1).
-        # This inherited socket is AF_INET but is expected and allowed. We only care about
-        # NEW sockets the service creates, not the inherited activation socket.
-        NETWORK_SOCKETS=0
-        INHERITED_SOCKET_INODE=""
-
-        if [ -d "/proc/$INSTANCE_PID/fd" ]; then
-            # Find the stdin socket inode (the inherited activation socket)
-            if [ -L "/proc/$INSTANCE_PID/fd/0" ]; then
-                STDIN_TARGET=$(readlink "/proc/$INSTANCE_PID/fd/0" 2>/dev/null || echo "")
-                if [[ "$STDIN_TARGET" =~ ^socket:\[([0-9]+)\]$ ]]; then
-                    INHERITED_SOCKET_INODE="${BASH_REMATCH[1]}"
-                fi
+    if [ -d "/proc/$INSTANCE_PID/fd" ]; then
+        # Find the stdin socket inode (the inherited activation socket)
+        if [ -L "/proc/$INSTANCE_PID/fd/0" ]; then
+            STDIN_TARGET=$(readlink "/proc/$INSTANCE_PID/fd/0" 2>/dev/null || echo "")
+            if [[ "$STDIN_TARGET" =~ ^socket:\[([0-9]+)\]$ ]]; then
+                INHERITED_SOCKET_INODE="${BASH_REMATCH[1]}"
             fi
+        fi
 
-            # Iterate through file descriptors to find sockets
-            for fd in /proc/"$INSTANCE_PID"/fd/*; do
-                if [ -L "$fd" ]; then
-                    FD_TARGET=$(readlink "$fd" 2>/dev/null || echo "")
-                    # Check if it's a socket (starts with "socket:[")
-                    if [[ "$FD_TARGET" =~ ^socket:\[([0-9]+)\]$ ]]; then
-                        SOCKET_INODE="${BASH_REMATCH[1]}"
+        # Iterate through file descriptors to find sockets
+        for fd in /proc/"$INSTANCE_PID"/fd/*; do
+            if [ -L "$fd" ]; then
+                FD_TARGET=$(readlink "$fd" 2>/dev/null || echo "")
+                if [[ "$FD_TARGET" =~ ^socket:\[([0-9]+)\]$ ]]; then
+                    SOCKET_INODE="${BASH_REMATCH[1]}"
 
-                        # Skip the inherited stdin/stdout socket from socket activation
-                        if [ -n "$INHERITED_SOCKET_INODE" ] && [ "$SOCKET_INODE" = "$INHERITED_SOCKET_INODE" ]; then
-                            continue
-                        fi
+                    # Skip the inherited stdin/stdout socket from socket activation
+                    if [ -n "$INHERITED_SOCKET_INODE" ] && [ "$SOCKET_INODE" = "$INHERITED_SOCKET_INODE" ]; then
+                        continue
+                    fi
 
-                        # Use ss to check if this socket is TCP/UDP (network socket)
-                        # ss -xpn shows unix sockets, ss -tupn shows TCP/UDP sockets
-                        if ss -tupn 2>/dev/null | grep -q "inode:$SOCKET_INODE"; then
-                            NETWORK_SOCKETS=$((NETWORK_SOCKETS + 1))
-                            echo "   Found unexpected network socket: inode=$SOCKET_INODE"
-                        fi
+                    # Use ss to check if this socket is TCP/UDP (network socket)
+                    if ss -tupn 2>/dev/null | grep -q "inode:$SOCKET_INODE"; then
+                        NETWORK_SOCKETS=$((NETWORK_SOCKETS + 1))
+                        echo "   Found unexpected network socket: inode=$SOCKET_INODE"
                     fi
                 fi
-            done
-        else
-            echo "   ⚠️  WARNING: Cannot access /proc/$INSTANCE_PID/fd, skipping socket inspection"
-        fi
-
-        if [ "$NETWORK_SOCKETS" != "0" ]; then
-            echo "   ❌ ERROR: Instance has $NETWORK_SOCKETS unexpected network socket(s) (RestrictAddressFamilies not enforced)"
-            exit 1
-        fi
-        echo "   ✓ No unexpected network sockets (AF_UNIX only, restriction enforced)"
-        echo ""
-
-        # Step 15: Verify namespace isolation (RestrictNamespaces runtime enforcement)
-        echo "15. Verifying namespace isolation..."
-        if [ -d "/proc/$INSTANCE_PID/ns" ]; then
-            NS_COUNT=$(find /proc/"$INSTANCE_PID"/ns/ -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
-            if [ "$NS_COUNT" -lt 5 ]; then
-                echo "   ⚠️  WARNING: Only $NS_COUNT namespaces (expected 5+ for proper isolation)"
-            else
-                echo "   ✓ Process has $NS_COUNT namespaces (properly isolated)"
             fi
-        else
-            echo "   ⚠️  Cannot verify namespaces (proc not accessible)"
-        fi
-        echo ""
+        done
+    else
+        echo "   ⚠️  WARNING: Cannot access /proc/$INSTANCE_PID/fd, skipping socket inspection"
     fi
+
+    if [ "$NETWORK_SOCKETS" != "0" ]; then
+        echo "   ❌ ERROR: Instance has $NETWORK_SOCKETS unexpected network socket(s) (RestrictAddressFamilies not enforced)"
+        exit 1
+    fi
+    echo "   ✓ No unexpected network sockets (AF_UNIX only, restriction enforced)"
+    echo ""
+
+    # Step 15: Verify namespace isolation (RestrictNamespaces runtime enforcement)
+    echo "15. Verifying namespace isolation..."
+    if [ -d "/proc/$INSTANCE_PID/ns" ]; then
+        NS_COUNT=$(find /proc/"$INSTANCE_PID"/ns/ -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
+        if [ "$NS_COUNT" -lt 5 ]; then
+            echo "   ⚠️  WARNING: Only $NS_COUNT namespaces (expected 5+ for proper isolation)"
+        else
+            echo "   ✓ Process has $NS_COUNT namespaces (properly isolated)"
+        fi
+    else
+        echo "   ⚠️  Cannot verify namespaces (proc not accessible)"
+    fi
+    echo ""
 fi
 
-# Wait for curl to finish
-wait $CURL_PID 2>/dev/null || true
-
 echo "=== ✓ Security Hardening Validation Passed ==="
-echo "Configuration: All 16 systemd security directives verified"
-if [ -n "$INSTANCE_PID" ] && [ "$INSTANCE_PID" != "0" ]; then
+echo "Configuration: All 16 systemd security directives verified on live instance"
+if [ -n "${INSTANCE_PID:-}" ] && [ "${INSTANCE_PID:-0}" != "0" ]; then
     echo "Runtime: DynamicUser, RestrictAddressFamilies, and namespace isolation enforced"
 fi
