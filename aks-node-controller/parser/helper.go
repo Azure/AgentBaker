@@ -723,8 +723,8 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 // with or without the hosts plugin, depending on the includeHostsPlugin parameter.
 //
 // The generated content is returned as a base64-encoded string and stored in environment variables:
-//   - LOCALDNS_GENERATED_COREFILE (with hosts plugin)
-//   - LOCALDNS_GENERATED_COREFILE_NO_HOSTS (without hosts plugin)
+//   - LOCALDNS_COREFILE_FULL (with all optional plugins)
+//   - LOCALDNS_COREFILE_BASE (without optional plugins)
 //
 // The actual file writing happens in shell scripts (cse_config.sh) which decode and write
 // the selected variant to /opt/azure/containers/localdns/localdns.corefile.
