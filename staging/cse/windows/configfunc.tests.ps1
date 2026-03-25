@@ -229,11 +229,11 @@ Describe 'Install-CredentialProvider' {
         Mock Config-CredentialProvider
         Mock New-TemporaryDirectory -MockWith { "C:\temp\credprovider" }
         Mock DownloadFileOverHttp
-        function global:DownloadFileWithOras {
+        Mock DownloadFileWithOras -MockWith {
             param(
                 [string]$Reference,
                 [string]$DestinationPath,
-                [int]$ExitCode
+                [string]$Platform
             )
             $script:lastDownloadReference = $Reference
         }
