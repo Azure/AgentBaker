@@ -134,3 +134,17 @@ func TestRemoveLeadingV(t *testing.T) {
 		})
 	}
 }
+
+func TestGetE2EContainerImage(t *testing.T) {
+	t.Run("returns image for known name", func(t *testing.T) {
+		image := GetE2EContainerImage("nvidia-k8s-device-plugin")
+		require.NotEmpty(t, image, "expected non-empty image for nvidia-k8s-device-plugin")
+		require.Contains(t, image, "mcr.microsoft.com/oss/v2/nvidia/k8s-device-plugin:")
+		require.NotContains(t, image, "*", "wildcard should be replaced with version")
+	})
+
+	t.Run("returns empty for unknown name", func(t *testing.T) {
+		image := GetE2EContainerImage("nonexistent-image")
+		require.Empty(t, image, "expected empty image for unknown name")
+	})
+}
