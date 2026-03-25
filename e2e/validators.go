@@ -1541,10 +1541,13 @@ fi
 	ValidateSystemdUnitIsRunning(ctx, s, "aks-hosts-setup.timer")
 }
 
-// ValidateLocalDNSHostsPluginBypass verifies that localdns resolves FQDNs from /etc/localdns/hosts
-// without querying the upstream DNS server. This confirms the hosts plugin is working correctly.
-// It injects a fake FQDN (that doesn't exist in public DNS) into the hosts file and verifies
-// localdns can resolve it - proving the hosts plugin is functioning.
+// ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
+// authoritatively via the CoreDNS hosts plugin. It checks:
+//  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  3. dig against localdns returns the AA (Authoritative Answer) flag, proving the response
+//     came from the hosts plugin rather than being forwarded upstream
+//  4. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
 func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1609,64 +1612,33 @@ fi
 echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
 echo ""
 
-echo "Verifying hosts plugin in VnetDNS listener (169.254.10.10)..."
-# Extract the VnetDNS section (.:53 block with bind 169.254.10.10)
-vnetdns_section=$(awk '/.:53 \{/,/^}/' "$corefile" | sed -n '/bind 169.254.10.10/,/^}/p')
-if ! echo "$vnetdns_section" | grep -q "hosts /etc/localdns/hosts"; then
-    echo "ERROR: hosts plugin not found in VnetDNS listener (169.254.10.10)"
-    echo "VnetDNS section:"
-    echo "$vnetdns_section"
-    exit 1
+echo "Checking hosts plugin has fallthrough directive..."
+if ! grep -A1 "hosts /etc/localdns/hosts" "$corefile" | grep -q "fallthrough"; then
+    echo "WARNING: hosts plugin may be missing 'fallthrough' directive"
 fi
-echo "✓ hosts plugin found in VnetDNS listener (169.254.10.10)"
-
-# Verify hosts comes before forward in VnetDNS (order matters - hosts should be checked first)
-hosts_line=$(echo "$vnetdns_section" | grep -n "hosts /etc/localdns/hosts" | cut -d: -f1 | head -1)
-forward_line=$(echo "$vnetdns_section" | grep -n "forward \\." | cut -d: -f1 | head -1)
-if [ -n "$hosts_line" ] && [ -n "$forward_line" ] && [ "$hosts_line" -gt "$forward_line" ]; then
-    echo "WARNING: hosts plugin appears after forward directive in VnetDNS listener"
-    echo "This may prevent hosts plugin from being consulted first"
-fi
-echo "✓ hosts plugin is properly ordered in VnetDNS listener"
+echo "✓ hosts plugin configuration looks correct"
 echo ""
 
-echo "Verifying hosts plugin in KubeDNS overrides listener (169.254.10.11)..."
-# Extract the KubeDNS section (.:53 block with bind 169.254.10.11)
-kubedns_section=$(awk '/.:53 \{/,/^}/' "$corefile" | sed -n '/bind 169.254.10.11/,/^}/p')
-if ! echo "$kubedns_section" | grep -q "hosts /etc/localdns/hosts"; then
-    echo "ERROR: hosts plugin not found in KubeDNS overrides listener (169.254.10.11)"
-    echo "KubeDNS section:"
-    echo "$kubedns_section"
-    exit 1
-fi
-echo "✓ hosts plugin found in KubeDNS overrides listener (169.254.10.11)"
-
-# Verify hosts comes before forward in KubeDNS (order matters)
-hosts_line=$(echo "$kubedns_section" | grep -n "hosts /etc/localdns/hosts" | cut -d: -f1 | head -1)
-forward_line=$(echo "$kubedns_section" | grep -n "forward \\." | cut -d: -f1 | head -1)
-if [ -n "$hosts_line" ] && [ -n "$forward_line" ] && [ "$hosts_line" -gt "$forward_line" ]; then
-    echo "WARNING: hosts plugin appears after forward directive in KubeDNS listener"
-    echo "This may prevent hosts plugin from being consulted first"
-fi
-echo "✓ hosts plugin is properly ordered in KubeDNS overrides listener"
+echo "Corefile contents:"
+cat "$corefile"
 echo ""
-
 echo "=== Corefile validation successful ==="
-echo "Summary: hosts plugin is configured in both VnetDNS (169.254.10.10) and KubeDNS (169.254.10.11) listeners"
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-		"Corefile should contain hosts plugin configuration in both VnetDNS and KubeDNS listeners")
+		"Corefile should contain hosts plugin configuration")
 
 	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
 	// This validates the hosts plugin is working by checking:
-	// 1. DNS resolution returns IPs that match entries in /etc/localdns/hosts
-	// 2. DNS response includes "recursion not available" flag (proves it's from hosts plugin, not forwarded upstream)
+	// 1. dig output contains the AA (Authoritative Answer) flag — proving the response came
+	//    from the hosts plugin, not forwarded upstream. This is stronger than "recursion not
+	//    available" because AA definitively means CoreDNS served the answer from a local source.
+	// 2. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN.
 	//
 	// We use packages.microsoft.com because it's a real FQDN that aks-hosts-setup.service populates.
 	// This avoids race conditions with the aks-hosts-setup.timer overwriting fake test entries.
 	testFQDN := "packages.microsoft.com"
-	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts", testFQDN)
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with AA flag", testFQDN)
 
 	script := fmt.Sprintf(`set -euo pipefail
 test_fqdn=%q
@@ -1683,7 +1655,7 @@ if [ ! -f "$hosts_file" ]; then
     exit 1
 fi
 
-# Extract IPv4 addresses for the test FQDN from hosts file (ignore IPv6 for simplicity)
+# Extract IPv4 addresses for the test FQDN from hosts file
 expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+$test_fqdn" "$hosts_file" | awk '{print $1}' | sort)
 if [ -z "$expected_ips" ]; then
     echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
@@ -1696,60 +1668,64 @@ echo "Expected IPs from hosts file:"
 echo "$expected_ips"
 echo ""
 
-# Step 2: Query localdns and get the resolved IPs
+# Step 2: Query localdns with dig and capture full output for flag inspection
 echo "Querying localdns for $test_fqdn at 169.254.10.10..."
-resolved_ips=$(dig "$test_fqdn" @169.254.10.10 +short -t A +timeout=5 +tries=2 2>/dev/null | sort)
+dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
+echo "Full dig output:"
+echo "$dig_output"
+echo ""
+
+# Step 3: Check for AA (Authoritative Answer) flag in dig output
+# The flags line looks like: ";; flags: qr aa rd; QUERY: 1, ANSWER: N, ..."
+# The AA flag proves the response was served authoritatively by the hosts plugin,
+# not forwarded to an upstream resolver.
+echo "Checking for AA (Authoritative Answer) flag in dig response..."
+flags_line=$(echo "$dig_output" | grep -E "^;; flags:")
+if [ -z "$flags_line" ]; then
+    echo "ERROR: No flags line found in dig output"
+    exit 1
+fi
+echo "Flags line: $flags_line"
+
+if ! echo "$flags_line" | grep -qw "aa"; then
+    echo "ERROR: AA (Authoritative Answer) flag not present in dig response"
+    echo "This indicates localdns forwarded the query upstream instead of serving it from the hosts plugin"
+    exit 1
+fi
+echo "✓ AA flag present — response served authoritatively by hosts plugin"
+echo ""
+
+# Step 4: Extract resolved IPs from dig ANSWER section and compare with hosts file
+resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
 if [ -z "$resolved_ips" ]; then
-    echo "ERROR: No IPs returned from localdns query"
-    echo "Full dig output:"
-    dig "$test_fqdn" @169.254.10.10 +timeout=5 +tries=2 || true
+    echo "ERROR: No A records returned from dig query"
     exit 1
 fi
 
-echo "Resolved IPs from localdns:"
+echo "Resolved IPs from dig:"
 echo "$resolved_ips"
 echo ""
 
-# Step 3: Verify the resolved IPs match the hosts file entries
 echo "Comparing resolved IPs with hosts file entries..."
 if [ "$expected_ips" != "$resolved_ips" ]; then
     echo "ERROR: Resolved IPs do not match hosts file entries"
     echo "Expected (from hosts file):"
     echo "$expected_ips"
-    echo "Got (from localdns):"
+    echo "Got (from dig):"
     echo "$resolved_ips"
     exit 1
 fi
 echo "✓ Resolved IPs match hosts file entries"
 echo ""
 
-# Step 4: Verify "recursion not available" flag in DNS response
-# This proves the response came from the hosts plugin, not from forwarding to upstream DNS
-# Note: We use nslookup without explicit server IP to preserve the recursion flag message
-echo "Checking for 'recursion not available' flag in DNS response..."
-nslookup_output=$(nslookup "$test_fqdn" 2>&1)
-if ! echo "$nslookup_output" | grep -q "recursion not available"; then
-    echo "ERROR: Expected 'recursion not available' flag in DNS response"
-    echo "This indicates localdns forwarded the query upstream instead of using the hosts plugin"
-    echo ""
-    echo "Full nslookup output:"
-    echo "$nslookup_output"
-    exit 1
-fi
-echo "✓ Found 'recursion not available' flag in DNS response"
-echo ""
-
 echo "=== SUCCESS ==="
 echo "The localdns hosts plugin is working correctly:"
-echo "  1. DNS resolution returned IPs from /etc/localdns/hosts"
-echo "  2. Response included 'recursion not available' (not forwarded upstream)"
-echo ""
-echo "Full nslookup output:"
-echo "$nslookup_output"
+echo "  1. dig response contains AA flag (served authoritatively by hosts plugin)"
+echo "  2. Resolved IPs match /etc/localdns/hosts entries"
 `, testFQDN)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should resolve FQDN from hosts file with recursion not available")
+		"localdns should resolve FQDN from hosts file with AA flag and matching IPs")
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs

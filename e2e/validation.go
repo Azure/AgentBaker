@@ -83,7 +83,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			ValidateAKSHostsSetupService(ctx, s)
 			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
 			ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
-			// Validate localdns resolves fake FQDN from hosts file (proves hosts plugin bypass)
+			// Validate hosts plugin serves responses authoritatively (AA flag + IP match)
 			ValidateLocalDNSHostsPluginBypass(ctx, s)
 		}
 	}
