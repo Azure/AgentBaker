@@ -359,7 +359,7 @@ Describe 'long running cse helper functions'
                 CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                 When call check_cse_timeout
                 The status should eq 1
-                The stderr should include "Error: CSE has been running for 781 seconds"
+                The stderr should include "exceeding the limit of 780 seconds"
                 The stdout should eq ""
             End
         End
