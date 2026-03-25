@@ -75,9 +75,9 @@ EOF
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------ regenerate_localdns_corefile ---------------------------------------------
-        It 'should regenerate corefile successfully when LOCALDNS_BASE64_ENCODED_COREFILE is set'
+        It 'should regenerate corefile successfully when LOCALDNS_COREFILE_ACTIVE is set'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_ACTIVE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run regenerate_localdns_corefile
@@ -89,9 +89,9 @@ EOF
 
         It 'should fail to regenerate when no corefile variants are available'
             rm -f "$LOCALDNS_CORE_FILE"
-            unset LOCALDNS_BASE64_ENCODED_COREFILE
-            unset LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS
-            unset LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS
+            unset LOCALDNS_COREFILE_ACTIVE
+            unset LOCALDNS_COREFILE_FULL
+            unset LOCALDNS_COREFILE_BASE
             When run regenerate_localdns_corefile
             The status should be failure
             The stdout should include "No corefile variants available in environment. Cannot regenerate corefile."
@@ -99,7 +99,7 @@ EOF
 
         It 'should set correct permissions on regenerated corefile'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_ACTIVE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run regenerate_localdns_corefile
@@ -122,9 +122,9 @@ EOF
             The status should be success
         End
 
-        It 'should regenerate and succeed if corefile is missing and LOCALDNS_BASE64_ENCODED_COREFILE is set'
+        It 'should regenerate and succeed if corefile is missing and LOCALDNS_COREFILE_ACTIVE is set'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_ACTIVE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run verify_localdns_corefile
@@ -135,9 +135,9 @@ EOF
 
         It 'should return failure if localdns corefile does not exist and regeneration fails'
             rm -f "$LOCALDNS_CORE_FILE"
-            unset LOCALDNS_BASE64_ENCODED_COREFILE
-            unset LOCALDNS_BASE64_ENCODED_COREFILE_WITH_HOSTS
-            unset LOCALDNS_BASE64_ENCODED_COREFILE_NO_HOSTS
+            unset LOCALDNS_COREFILE_ACTIVE
+            unset LOCALDNS_COREFILE_FULL
+            unset LOCALDNS_COREFILE_BASE
             When run verify_localdns_corefile
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
