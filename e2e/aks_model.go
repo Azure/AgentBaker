@@ -858,7 +858,9 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 }
 
 func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
-	return createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, nil)
+	return createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, map[string]*string{
+		"e2e-test": to.Ptr("true"),
+	})
 }
 
 func createPrivateZoneWithTags(ctx context.Context, nodeResourceGroup, privateZoneName string, tags map[string]*string) (*armprivatedns.PrivateZone, error) {
