@@ -502,8 +502,12 @@ function nodePrep {
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-            # logs_to_events should not be run on & commands
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                # logs_to_events should not be run on & commands
+                aptmarkWALinuxAgent unhold &
+            fi
         fi
     else
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -525,7 +529,11 @@ function nodePrep {
                 systemctl restart --no-block apt-daily.service
 
             fi
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                aptmarkWALinuxAgent unhold &
+            fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
                 if [ "${IS_KATA}" = "true" ]; then
