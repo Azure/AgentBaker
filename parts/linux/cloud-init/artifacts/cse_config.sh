@@ -1244,23 +1244,23 @@ LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # Both corefile variants are read from globals set in cse_cmd.sh.
-# The base variant is used as the initial active corefile; both variants are persisted
+# The standard corefile is used as the initial active corefile; both variants are persisted
 # to /etc/localdns/environment so localdns.sh can dynamically switch on restart.
 # generateLocalDNSFiles creates the localdns corefile and slice file.
 # It reads both corefile variants from globals set in cse_cmd.sh:
-#   LOCALDNS_COREFILE_FULL — corefile with all optional plugins (e.g. hosts plugin)
-#   LOCALDNS_COREFILE_BASE — vanilla corefile without optional plugins
-# The base variant is written as the initial active corefile.
+#   LOCALDNS_GENERATED_COREFILE              — standard corefile (backward compatible)
+#   LOCALDNS_GENERATED_COREFILE_EXPERIMENTAL — corefile with experimental plugins (e.g. hosts plugin)
+# The standard variant is written as the initial active corefile.
 # Both variants are saved to /etc/localdns/environment so localdns.sh
 # can dynamically switch between them on restart.
 generateLocalDNSFiles() {
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    # Start with the base variant as the initial active corefile.
-    # The full variant will be selected dynamically by localdns.sh
+    # Start with the standard corefile as the initial active corefile.
+    # The experimental variant will be selected dynamically by localdns.sh
     # once /etc/localdns/hosts has been populated by aks-hosts-setup.
-    base64 -d <<< "${LOCALDNS_COREFILE_BASE}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+    base64 -d <<< "${LOCALDNS_GENERATED_COREFILE}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the generated corefile includes hosts plugin
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
@@ -1275,9 +1275,8 @@ generateLocalDNSFiles() {
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_COREFILE_ACTIVE=${LOCALDNS_COREFILE_BASE}
-LOCALDNS_COREFILE_FULL=${LOCALDNS_COREFILE_FULL}
-LOCALDNS_COREFILE_BASE=${LOCALDNS_COREFILE_BASE}
+LOCALDNS_COREFILE_ACTIVE=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_GENERATED_COREFILE_EXPERIMENTAL}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
