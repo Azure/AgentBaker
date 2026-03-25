@@ -34,7 +34,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
 
-{{if IsAzlOSGuard}}
+{{if IsACL }}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceACL"}}
+{{- else if IsAzlOSGuard}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -55,13 +62,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSourceFlatcar"}}
-{{- else if IsACL }}
-- path: {{GetCSEHelpersScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceACL"}}
 {{- else }}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
@@ -108,7 +108,14 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
 
-{{if IsAzlOSGuard}}
+{{if IsACL }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsACL"}}
+{{- else if IsAzlOSGuard}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -129,13 +136,6 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
-{{- else if IsACL }}
-- path: {{GetCSEInstallScriptDistroFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsACL"}}
 {{- else }}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
@@ -210,7 +210,8 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-{{if IsAzlOSGuard}}
+{{if IsACL}}
+{{- else if IsAzlOSGuard}}
 {{- else if IsMariner}}
 - path: /opt/azure/containers/mariner-package-update.sh
   permissions: "0544"

@@ -1342,7 +1342,7 @@ var _ = Describe("cloudInitToButane", func() {
 
 	It("should convert bootcmds to a systemd unit and shell script", func() {
 		var config = cloudInit{BootCommands: []string{"echo hello world", "ls 'some dir'"}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
@@ -1385,7 +1385,7 @@ var _ = Describe("cloudInitToButane", func() {
 				Content:     string(gzipped),
 			},
 		}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
 		tarball, err := decodeButaneResource(file.Contents)
@@ -1414,7 +1414,7 @@ var _ = Describe("cloudInitToButane", func() {
 				Content:     encoded,
 			},
 		}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
 		tarball, err := decodeButaneResource(file.Contents)
@@ -1434,7 +1434,7 @@ var _ = Describe("cloudInitToButane", func() {
 
 	It("should create a system unit but not a shell script with no bootcmds", func() {
 		var config = cloudInit{BootCommands: []string{}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(BeEmpty())
 		Expect(butane.Systemd.Units).NotTo(BeEmpty())
