@@ -127,29 +127,10 @@ verify_localdns_binary() {
 # Regenerate the localdns corefile from base64 encoded content.
 # This is used when the corefile goes missing.
 regenerate_localdns_corefile() {
-    # Dynamically select which corefile variant to use based on current state.
-    # This allows localdns to switch from standard to experimental variant if:
-    # 1. SHOULD_ENABLE_HOSTS_PLUGIN is true, AND
-    # 2. /etc/localdns/hosts now exists and has valid content
-    # This provides recovery from initial CSE timeout scenarios.
-
     local corefile_to_use
-
-    if [ -n "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ] && \
-       [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
-        # Both corefile variants are available - do dynamic selection
-        echo "Both corefile variants available, selecting based on current state..."
-        corefile_to_use=$(select_localdns_corefile \
-            "${SHOULD_ENABLE_HOSTS_PLUGIN}" \
-            "${LOCALDNS_COREFILE_EXPERIMENTAL}" \
-            "${LOCALDNS_COREFILE_ACTIVE}" \
-            "/etc/localdns/hosts")
-    elif [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
-        # Fallback to active corefile (no dynamic selection)
-        echo "Using LOCALDNS_COREFILE_ACTIVE (no dynamic selection)"
-        corefile_to_use="${LOCALDNS_COREFILE_ACTIVE}"
-    else
-        echo "No corefile variants available in environment. Cannot regenerate corefile."
+    corefile_to_use=$(select_localdns_corefile)
+    if [ -z "${corefile_to_use}" ]; then
+        echo "No corefile selected. Cannot regenerate corefile."
         return 1
     fi
 
@@ -746,70 +727,57 @@ start_localdns_watchdog() {
     fi
 }
 
+# Selects the appropriate corefile variant based on environment state.
+# Reads globals from the localdns environment file:
+#   LOCALDNS_COREFILE_ACTIVE         — base corefile (no experimental plugins)
+#   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
+#   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
+#
+# Selection logic:
+#   1. If both ACTIVE and EXPERIMENTAL are available, dynamically choose based on
+#      whether the hosts file has been populated by aks-hosts-setup.
+#   2. If only ACTIVE is available, use it (no dynamic selection).
+#   3. If nothing is available, return empty string (caller handles error).
+#
+# Echoes the selected base64-encoded corefile to stdout.
+# All diagnostic messages go to stderr.
 select_localdns_corefile() {
-    local should_enable_hosts_plugin="${1}"
-    local corefile_with_hosts="${2}"
-    local corefile_no_hosts="${3}"
-    local hosts_file_path="${4}"
-    local timeout="${5:-0}"  # Default to 0 (no wait) for restarts; can be overridden for initial CSE
+    local hosts_file_path="/etc/localdns/hosts"
 
-    echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${should_enable_hosts_plugin:-<unset>}" >&2
+    # Case 1: Both corefile variants available — dynamic selection
+    if [ -n "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ] && \
+       [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
+        echo "Both corefile variants available, selecting based on current state..." >&2
+        echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}" >&2
 
-    if [ "${should_enable_hosts_plugin}" = "true" ]; then
-        echo "Hosts plugin is enabled, checking ${hosts_file_path} for content..." >&2
-
-        # During initial CSE, caller may set timeout > 0 to wait for aks-hosts-setup
-        # During restarts, timeout defaults to 0 (check immediately)
-        local wait_interval=5
-        local elapsed=0
-
-        while [ $elapsed -le $timeout ]; do
-            if [ -f "${hosts_file_path}" ]; then
-                if grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
-                    if [ $elapsed -eq 0 ]; then
-                        echo "Hosts file has IP mappings, using corefile with hosts plugin" >&2
-                    else
-                        echo "aks-hosts-setup produced hosts file with IP mappings after ${elapsed}s, using corefile with hosts plugin" >&2
-                    fi
-                    echo "${corefile_with_hosts}"
-                    return 0
-                fi
+        if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-}" = "true" ]; then
+            echo "Hosts plugin is enabled, checking ${hosts_file_path} for content..." >&2
+            if [ -f "${hosts_file_path}" ] && \
+               grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
+                echo "Hosts file has IP mappings, using corefile with hosts plugin" >&2
+                echo "${LOCALDNS_COREFILE_EXPERIMENTAL}"
+                return 0
             fi
-
-            # If timeout is 0, don't wait - check once and fall through
-            if [ $timeout -eq 0 ]; then
-                break
-            fi
-
-            if [ $elapsed -eq 0 ]; then
-                echo "Waiting for aks-hosts-setup to populate ${hosts_file_path} (timeout: ${timeout}s)..." >&2
-            fi
-
-            sleep $wait_interval
-            elapsed=$((elapsed + wait_interval))
-        done
-
-        # Timeout reached or hosts file not ready - check final state and fall back
-        if [ -f "${hosts_file_path}" ]; then
-            if [ $timeout -gt 0 ]; then
-                echo "Warning: ${hosts_file_path} exists but has no IP mappings after ${timeout}s timeout, falling back to corefile without hosts plugin" >&2
-            else
-                echo "Info: ${hosts_file_path} exists but has no IP mappings yet, falling back to corefile without hosts plugin" >&2
-            fi
+            echo "Info: ${hosts_file_path} not ready yet, falling back to corefile without hosts plugin" >&2
+            echo "${LOCALDNS_COREFILE_ACTIVE}"
+            return 0
         else
-            if [ $timeout -gt 0 ]; then
-                echo "Warning: ${hosts_file_path} does not exist after ${timeout}s timeout, falling back to corefile without hosts plugin" >&2
-            else
-                echo "Info: ${hosts_file_path} does not exist yet, falling back to corefile without hosts plugin" >&2
-            fi
+            echo "Hosts plugin is not enabled, using corefile without hosts plugin" >&2
+            echo "${LOCALDNS_COREFILE_ACTIVE}"
+            return 0
         fi
-        echo "${corefile_no_hosts}"
-        return 0
-    else
-        echo "Hosts plugin is not enabled (SHOULD_ENABLE_HOSTS_PLUGIN != 'true'), using corefile without hosts plugin" >&2
-        echo "${corefile_no_hosts}"
+    fi
+
+    # Case 2: Only ACTIVE available — no dynamic selection
+    if [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
+        echo "Using LOCALDNS_COREFILE_ACTIVE (no dynamic selection)" >&2
+        echo "${LOCALDNS_COREFILE_ACTIVE}"
         return 0
     fi
+
+    # Case 3: Nothing available
+    echo "No corefile variants available in environment." >&2
+    return 0
 }
 
 ${__SOURCED__:+return}
