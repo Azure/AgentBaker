@@ -248,6 +248,7 @@ Describe 'Install-CredentialProvider' {
         Mock Set-ExitCode -MockWith {
             Param($ExitCode, $ErrorMessage)
             throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+            return
         }
     }
     AfterEach {
@@ -262,6 +263,12 @@ Describe 'Install-CredentialProvider' {
         Assert-MockCalled -CommandName 'Config-CredentialProvider' -Times 0
         $script:lastDownloadReference | Should -Be ""
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 0
+    }
+
+    It 'uses legacy binaries URL for non-ni cluster' {
+        $global:BootstrapProfileContainerRegistryServer = ""
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Times 1
     }
 
     It 'uses version parsed from dalec URL for ORAS reference' {

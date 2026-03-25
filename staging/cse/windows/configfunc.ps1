@@ -478,16 +478,18 @@ function Install-CredentialProvider {
             if ([string]::IsNullOrEmpty($packageVersion)) {
                 Write-Warning "Unexpected CredentialProviderURL format, version is not found in URL. CredentialProviderURL: $global:CredentialProviderURL. Fall back to KubeBinariesVersion: $global:KubeBinariesVersion"
                 $packageVersion = $global:KubeBinariesVersion
+                $packageVersion = $packageVersion.TrimStart('v')
             }
             Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadCredentialProviderBinariesWithOras" -TaskMessage "Start to download azure acr credential provider binaries with oras. KubeBinariesVersion: $global:KubeBinariesVersion, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
             $orasReference = "$($global:BootstrapProfileContainerRegistryServer)/aks/packages/kubernetes/azure-acr-credential-provider:v$($packageVersion)"
             try {
                 Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $credentialproviderbinaryPackage } -Retries 5 -RetryDelaySeconds 10
-                AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
             }
             catch {
+                del $tempDir -Recurse -Force -ErrorAction SilentlyContinue
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CREDENTIAL_PROVIDER -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
             }
+            AKS-Expand-Archive -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
         }
 
         Create-Directory -FullPath $global:credentialProviderBinDir
