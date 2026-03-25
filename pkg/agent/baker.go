@@ -1233,10 +1233,17 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
-		"GetGeneratedLocalDNSCoreFileNoHosts": func() (string, error) {
+		"GetGeneratedLocalDNSCoreFileBase": func() (string, error) {
 			output, err := GenerateLocalDNSCoreFile(config, profile, false)
 			if err != nil {
-				return "", fmt.Errorf("failed generate corefile (no hosts) for localdns using template: %w", err)
+				return "", fmt.Errorf("failed generate base corefile for localdns using template: %w", err)
+			}
+			return base64.StdEncoding.EncodeToString([]byte(output)), nil
+		},
+		"GetGeneratedLocalDNSCoreFileExperimental": func() (string, error) {
+			output, err := GenerateLocalDNSCoreFile(config, profile, true)
+			if err != nil {
+				return "", fmt.Errorf("failed generate experimental corefile for localdns using template: %w", err)
 			}
 			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
