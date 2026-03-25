@@ -84,6 +84,7 @@ EOF
             The status should be success
             The stdout should include "Regenerating localdns corefile at $LOCALDNS_CORE_FILE"
             The stdout should include "Successfully regenerated localdns corefile."
+            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE"
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
@@ -93,7 +94,8 @@ EOF
             unset LOCALDNS_COREFILE_EXPERIMENTAL
             When run regenerate_localdns_corefile
             The status should be failure
-            The stdout should include "No corefile variants available in environment. Cannot regenerate corefile."
+            The stdout should include "No corefile selected. Cannot regenerate corefile."
+            The stderr should include "No corefile variants available in environment."
         End
 
         It 'should set correct permissions on regenerated corefile'
@@ -104,6 +106,7 @@ EOF
             When run regenerate_localdns_corefile
             The status should be success
             The stdout should include "Successfully regenerated localdns corefile."
+            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE"
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
@@ -130,6 +133,7 @@ EOF
             The status should be success
             The stdout should include "Attempting to regenerate localdns corefile..."
             The stdout should include "Localdns corefile regenerated successfully."
+            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE"
         End
 
         It 'should return failure if localdns corefile does not exist and regeneration fails'
@@ -140,7 +144,8 @@ EOF
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
-            The stdout should include "No corefile variants available in environment. Cannot regenerate corefile."
+            The stdout should include "No corefile selected. Cannot regenerate corefile."
+            The stderr should include "No corefile variants available in environment."
         End
 
         It 'should return failure if localdns corefile is empty and regeneration fails'
@@ -149,6 +154,7 @@ EOF
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
+            The stderr should include "No corefile variants available in environment."
         End
 
         It 'should return failure if LOCALDNS_CORE_FILE is unset'
