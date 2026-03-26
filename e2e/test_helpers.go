@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -542,9 +543,11 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 		Publisher: publisher,
 	})
 	if err != nil {
-		toolkit.Logf(ctx, "warning: failed to get latest VM extension version, falling back to %s: %v", fallbackExtensionVersion, err)
+		log.Printf("warning: failed to get latest VM extension version, falling back to %s: %v", fallbackExtensionVersion, err)
 		extensionVersion = fallbackExtensionVersion
 	}
+
+	log.Printf("Using VM extension version %s for extension type %s in region %s", extensionVersion, extensionName, region)
 
 	return &armcompute.VirtualMachineScaleSetExtension{
 		Name: to.Ptr(extensionName),
