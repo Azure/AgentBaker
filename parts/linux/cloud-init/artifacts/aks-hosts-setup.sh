@@ -86,8 +86,7 @@ resolve_ipv4() {
         if [ "$a" -le 255 ] && [ "$b" -le 255 ] && [ "$c" -le 255 ] && [ "$d" -le 255 ]; then
             echo "${a}.${b}.${c}.${d}"
         fi
-    done
-    return 0
+    done || return 0
 }
 
 # Function to resolve IPv6 addresses for a domain
@@ -97,8 +96,9 @@ resolve_ipv6() {
     local output
     output=$(timeout 3 nslookup -type=AAAA "${domain}" 2>/dev/null) || return 0
     # Parse Address lines (skip server address with #), validate IPv6 format
-    # Require at least two colons and min 7 chars to reject strings like "1:2" or ":ff"
-    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{7,}$' | grep ':.*:' || return 0
+    # Three checks: only hex+colon chars (min 3), at least two colons, at least one hex digit
+    # This rejects malformed strings like ":::::::" (no hex), "1:2" (one colon), ":ff" (one colon)
+    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':.*:' | grep '[0-9a-fA-F]' || return 0
 }
 
 echo "Starting AKS critical FQDN hosts resolution at $(date)"

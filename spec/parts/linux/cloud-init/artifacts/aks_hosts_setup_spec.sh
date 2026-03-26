@@ -448,6 +448,7 @@ if [[ "$record_type" == "AAAA" ]]; then
     echo "Address: fe80::1"
     echo "Address: 1:2"
     echo "Address: :ff"
+    echo "Address: :::::::"
 fi
 MOCK_EOF
             chmod +x "${MOCK_BIN}/nslookup"
@@ -464,6 +465,8 @@ MOCK_EOF
             # Tightened IPv6 validation rejects too-short strings with fewer than 2 colons
             The contents of file "$HOSTS_FILE" should not include "1:2"
             The contents of file "$HOSTS_FILE" should not include ":ff"
+            # Rejects all-colon strings with no hex digits
+            The contents of file "$HOSTS_FILE" should not include ":::::::"
         End
 
         It 'rejects IPv4 addresses with out-of-range octets'
