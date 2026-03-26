@@ -779,6 +779,12 @@ EOF
     local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
     date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
+    # Remove the early-start blocker drop-in set during ACL sysext installation
+    # (see installKubeletKubectlFromPkg in cse_install_acl.sh).  The condition is
+    # now satisfied (/etc/default/kubelet exists), so we just delete the file.
+    # On non-ACL nodes the file does not exist, so this is a harmless no-op.
+    rm -f /etc/systemd/system/kubelet.service.d/00-block-early-start.conf
+
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it

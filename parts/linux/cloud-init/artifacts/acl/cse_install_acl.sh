@@ -93,6 +93,24 @@ installCriCtlPackage() {
 }
 
 installKubeletKubectlFromPkg() {
+    # Kubelet can auto-start during CSE (e.g. after daemon-reload in
+    # ensureContainerd) before /etc/default/kubelet is written.  Starting
+    # without that env file causes standalone-mode failures.
+    #
+    # We use a ConditionPathExists drop-in instead of masking because
+    # masking (ln -sf /dev/null) overwrites the VHD-baked kubelet.service
+    # at /etc/systemd/system/kubelet.service, and unmasking only removes
+    # the symlink — the original file is gone, so systemd falls back to
+    # the sysext's minimal unit (no EnvironmentFile, no ExecStartPre,
+    # standalone mode).  The drop-in makes systemd silently skip the unit
+    # without touching the service file; ensureKubelet removes it once
+    # /etc/default/kubelet is ready.
+    mkdir -p /etc/systemd/system/kubelet.service.d
+    cat > /etc/systemd/system/kubelet.service.d/00-block-early-start.conf <<'EOF'
+[Unit]
+ConditionPathExists=/etc/default/kubelet
+EOF
+
     if mergeSysexts kubelet "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubelet-sysext "$1" \
                     kubectl "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubectl-sysext "$1"; then
         ln -snf /usr/bin/{kubelet,kubectl} /opt/bin/
