@@ -965,7 +965,7 @@ configGPUDrivers() {
         systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    systemctlEnableAndStart containerd 30 || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 
     # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
     # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
