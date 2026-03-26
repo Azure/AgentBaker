@@ -518,6 +518,9 @@ while IFS= read -r p; do
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
       fi
       ;;
+    "acr-mirror")
+      # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -528,21 +531,27 @@ while IFS= read -r p; do
 done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
-  # arguments: package name, package extension
-  local PACKAGE_NAME="$1"
-  local PACKAGE_EXTENSION="$2"
+  local downloadURL="$1"
+  local version="$2"
+  # The arm64 packages have "-arm64" inserted before the file extension,
+  # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
   if [ "$(isARM64)" -eq 1 ]; then
-    PACKAGE_NAME="${PACKAGE_NAME}-arm64"
+    downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
   fi
-  local MIRROR_PROXY_VERSION='0.3.1'
-  local MIRROR_DOWNLOAD_PATH="./${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  local MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$MIRROR_PROXY_URL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$PACKAGE_EXTENSION" = "deb" ]; then
-    apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$PACKAGE_EXTENSION" = "rpm" ]; then
-    dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  fi
+  local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  case "$downloadURL" in
+    *.deb)
+      apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *.rpm)
+      dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *)
+      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+      ;;
+  esac
   rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
@@ -553,19 +562,20 @@ installAndConfigureArtifactStreaming() {
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 
-UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-# Artifact Streaming enabled for all supported Ubuntu versions including 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
+# Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
+# OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
+acrMirrorPackage=$(echo "${packages}" | jq -c 'select(.name == "acr-mirror")')
+updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
+  for version in ${PACKAGE_VERSIONS[@]}; do
+    evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+    installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
+  done
 fi
-
-# Artifact Streaming enabled for Azure Linux 3.0
-if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && ! isACL "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ]; then
-  installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
-fi
-
 capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
 # k8s will use images in the k8s.io namespaces - create it
