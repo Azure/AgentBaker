@@ -71,8 +71,8 @@ function Register-NodeResetScriptTask {
 
 function Register-CACertificatesRefreshTask {
     Param(
-        [Parameter(Mandatory = $true)][string]
-        $Location
+        [Parameter(Mandatory = $false)][string]
+        $Location = ""
     )
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterCACertificatesRefreshTask" -TaskMessage "Start to register CA certificates refresh task"
@@ -84,7 +84,13 @@ function Register-CACertificatesRefreshTask {
         return
     }
 
-    $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$Location' | Out-Null }"
+    # Include -Location only when it was provided, so older VHDs whose Get-CACertificates
+    # does not accept -Location can still execute the scheduled task successfully.
+    if ([string]::IsNullOrEmpty($Location)) {
+        $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates | Out-Null }"
+    } else {
+        $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$Location' | Out-Null }"
+    }
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"$refreshCommand`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     $trigger = New-JobTrigger -Daily -At "19:00" -DaysInterval 1
@@ -261,10 +267,14 @@ function Get-CustomCloudCertEndpointModeFromLocation {
 
 function Should-InstallCACertificatesRefreshTask {
     Param(
-        [Parameter(Mandatory = $true)][string]
-        $Location
+        [Parameter(Mandatory = $false)][string]
+        $Location = ""
     )
 
+    # When Location is not supplied (older callers), default to legacy mode.
+    if ([string]::IsNullOrEmpty($Location)) {
+        return $true
+    }
     $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
     if ($certEndpointMode -eq "legacy") {
         return $true
@@ -282,15 +292,22 @@ function Should-InstallCACertificatesRefreshTask {
 
 function Get-CACertificates {
     Param(
-        [Parameter(Mandatory = $true)][string]
-        $Location
+        [Parameter(Mandatory = $false)][string]
+        $Location = ""
     )
 
     $caFolder = "C:\ca"
     Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
 
-    $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
-    Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
+    # When Location is not supplied (older callers), fall back to the legacy endpoint
+    # which was the original behavior before the rcv1p changes.
+    if ([string]::IsNullOrEmpty($Location)) {
+        $certEndpointMode = "legacy"
+        Write-Log "Get CA certificates. Location not provided, defaulting to legacy endpoint mode"
+    } else {
+        $certEndpointMode = Get-CustomCloudCertEndpointModeFromLocation -Location $Location
+        Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
+    }
 
     try {
         if ($certEndpointMode -eq "legacy") {

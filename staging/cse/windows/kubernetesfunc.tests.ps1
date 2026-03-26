@@ -187,4 +187,56 @@ Describe 'Get-CACertificates' {
 
         $result | Should -Be $false
     }
+
+    It 'falls back to legacy endpoint when called without -Location (backward compat)' {
+        $script:retryUris = @()
+        Mock Retry-Command -MockWith {
+            param($Command, $Args, $Retries, $RetryDelaySeconds)
+            $script:retryUris += $PSBoundParameters['Args'].Uri
+            return [PSCustomObject]@{
+                Content = '{"Certificates":[{"Name":"compat.crt","CertBody":"compat-body"}]}'
+            }
+        }
+
+        $result = Get-CACertificates
+
+        $result | Should -Be $true
+        Assert-MockCalled -CommandName Retry-Command -Exactly -Times 1
+        $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+    }
+}
+
+Describe 'Should-InstallCACertificatesRefreshTask - backward compat' {
+    It 'returns true when called without -Location (backward compat)' {
+        $result = Should-InstallCACertificatesRefreshTask
+
+        $result | Should -Be $true
+    }
+}
+
+Describe 'Register-CACertificatesRefreshTask - backward compat' {
+    BeforeEach {
+        $script:lastScheduledTaskArgument = $null
+
+        Mock Logs-To-Event -MockWith { }
+        Mock New-ScheduledTaskPrincipal -MockWith { return @{ Kind = 'principal' } }
+        Mock New-JobTrigger -MockWith { return @{ Kind = 'trigger' } }
+        Mock New-ScheduledTask -MockWith { return @{ Kind = 'definition' } }
+        Mock Register-ScheduledTask -MockWith { }
+        Mock New-ScheduledTaskAction -MockWith {
+            param($Execute, $Argument)
+            $script:lastScheduledTaskArgument = $Argument
+            return @{ Execute = $Execute; Argument = $Argument }
+        }
+    }
+
+    It 'creates a scheduled task without -Location when called without it (backward compat)' {
+        Mock Get-ScheduledTask -MockWith { return $null }
+
+        Register-CACertificatesRefreshTask
+
+        Assert-MockCalled -CommandName Register-ScheduledTask -Exactly -Times 1
+        $script:lastScheduledTaskArgument | Should -Match ([regex]::Escape("Get-CACertificates |"))
+        $script:lastScheduledTaskArgument | Should -Not -Match "Location"
+    }
 }
