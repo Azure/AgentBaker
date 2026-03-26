@@ -530,7 +530,10 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 		region = *location
 	}
 
-	const fallbackExtensionVersion = "1.406"
+	// If you update the version here, also update
+	// Test_CreateVMExtensionLinuxAKSNode_Timing in
+	// e2e/scenario_gpu_managed_experience_test.go
+	const fallbackExtensionVersion = "1.413"
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
 	extensionVersion, err := CachedGetLatestVMExtensionImageVersion(ctx, GetLatestExtensionVersionRequest{
