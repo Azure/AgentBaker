@@ -451,7 +451,11 @@ function ensure_sig_vhd_exists() {
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
+				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+					TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				else
+					TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
+				fi
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
 			fi
