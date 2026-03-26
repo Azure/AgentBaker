@@ -1227,7 +1227,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.ShouldEnableHostsPlugin()
 		},
 		"GetGeneratedLocalDNSCoreFile": func() (string, error) {
-			output, err := GenerateLocalDNSCoreFile(config, profile, true)
+			// Legacy variable: kept for backward compat with old VHDs that only know
+			// LOCALDNS_GENERATED_COREFILE. Must use includeHostsPlugin=false because
+			// old VHDs don't provision /etc/localdns/hosts.
+			output, err := GenerateLocalDNSCoreFile(config, profile, false)
 			if err != nil {
 				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
 			}
