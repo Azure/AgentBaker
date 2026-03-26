@@ -299,6 +299,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -373,6 +376,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -447,6 +453,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -594,6 +603,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
