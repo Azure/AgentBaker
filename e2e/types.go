@@ -405,7 +405,8 @@ func (s *Scenario) IsHostsPluginEnabled() bool {
 		return s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
 	}
 	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
-		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableLocalDns &&
+			s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
 	}
 	return false
 }

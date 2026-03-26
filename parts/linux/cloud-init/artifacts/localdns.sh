@@ -611,6 +611,12 @@ cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
 
+    # Kill orphaned background annotation process if still running.
+    if [ -n "${ANNOTATION_PID:-}" ] && kill -0 "${ANNOTATION_PID}" 2>/dev/null; then
+        echo "Killing background annotation process (PID: ${ANNOTATION_PID})"
+        kill "${ANNOTATION_PID}" 2>/dev/null || true
+    fi
+
     # Remove iptables rules and revert DNS configuration
     cleanup_iptables_and_dns || return 1
 
@@ -878,7 +884,8 @@ echo "Startup complete - serving node and pod DNS traffic."
 # Run annotation in background to avoid blocking CSE completion
 # The annotation is a best-effort operation that should not delay node provisioning
 annotate_node_with_hosts_plugin_status &
-echo "Started hosts plugin annotation in background (PID: $!)"
+ANNOTATION_PID=$!
+echo "Started hosts plugin annotation in background (PID: ${ANNOTATION_PID})"
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------

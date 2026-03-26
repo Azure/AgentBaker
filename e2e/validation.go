@@ -79,10 +79,12 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
 		if s.IsHostsPluginEnabled() {
+			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
+			// This validator triggers aks-hosts-setup.service to run, so it must come before
+			// ValidateAKSHostsSetupService which checks the service result.
+			ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
 			// Validate aks-hosts-setup service ran successfully and timer is active
 			ValidateAKSHostsSetupService(ctx, s)
-			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically)
-			ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
 			// Validate hosts plugin serves responses authoritatively (AA flag + IP match)
 			ValidateLocalDNSHostsPluginBypass(ctx, s)
 		}

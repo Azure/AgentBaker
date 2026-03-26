@@ -1561,7 +1561,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	var err error
 	var annotationValue string
 	var exists bool
-	maxAttempts := 60 // 5 minutes with exponential backoff
+	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
@@ -1574,7 +1574,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 		}
 
 		if attempt == maxAttempts {
-			s.T.Fatalf("Timeout: node %q annotation %q not found or not 'enabled' after %d attempts (5 minutes). Current value: exists=%v, value=%q",
+			s.T.Fatalf("Timeout: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q",
 				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
 		}
 
