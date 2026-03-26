@@ -237,6 +237,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if config.Config.EnableScriptlessCSECmd {
 		nbc.EnableScriptlessCSECmd = true
 	}
+	if config.Config.EnableScriptlessPhase2 {
+		nbc.EnableScriptlessPhase2 = true
+	}
 
 	if s.IsWindows() {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
