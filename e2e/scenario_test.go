@@ -395,8 +395,31 @@ func Test_ACL_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_ACL_GPUNC(t *testing.T) {
-	runScenarioACLGPU(t, "Standard_NC6s_v3")
+func Test_ACL_GPUNC_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node with VM size Standard_NC6s_v3 using an ACL VHD and the scriptless installer can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+		},
+	})
 }
 
 func Test_ACL_GPUA100(t *testing.T) {
