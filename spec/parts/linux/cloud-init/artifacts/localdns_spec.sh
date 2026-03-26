@@ -66,22 +66,22 @@ EOF
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------ regenerate_localdns_corefile ---------------------------------------------
-        It 'should regenerate corefile successfully when LOCALDNS_COREFILE_ACTIVE is set'
+        It 'should regenerate corefile successfully when LOCALDNS_COREFILE_BASE is set'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_COREFILE_ACTIVE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_BASE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run regenerate_localdns_corefile
             The status should be success
             The stdout should include "Regenerating localdns corefile at $LOCALDNS_CORE_FILE"
             The stdout should include "Successfully regenerated localdns corefile."
-            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE"
+            The stderr should include "Using LOCALDNS_COREFILE_BASE"
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
         It 'should fail to regenerate when no corefile variants are available'
             rm -f "$LOCALDNS_CORE_FILE"
-            unset LOCALDNS_COREFILE_ACTIVE
+            unset LOCALDNS_COREFILE_BASE
             unset LOCALDNS_COREFILE_EXPERIMENTAL
             When run regenerate_localdns_corefile
             The status should be failure
@@ -91,13 +91,13 @@ EOF
 
         It 'should set correct permissions on regenerated corefile'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_COREFILE_ACTIVE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_BASE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run regenerate_localdns_corefile
             The status should be success
             The stdout should include "Successfully regenerated localdns corefile."
-            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE"
+            The stderr should include "Using LOCALDNS_COREFILE_BASE"
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
@@ -115,21 +115,21 @@ EOF
             The status should be success
         End
 
-        It 'should regenerate and succeed if corefile is missing and LOCALDNS_COREFILE_ACTIVE is set'
+        It 'should regenerate and succeed if corefile is missing and LOCALDNS_COREFILE_BASE is set'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_COREFILE_ACTIVE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_BASE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run verify_localdns_corefile
             The status should be success
             The stdout should include "Attempting to regenerate localdns corefile..."
             The stdout should include "Localdns corefile regenerated successfully."
-            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE"
+            The stderr should include "Using LOCALDNS_COREFILE_BASE"
         End
 
         It 'should return failure if localdns corefile does not exist and regeneration fails'
             rm -f "$LOCALDNS_CORE_FILE"
-            unset LOCALDNS_COREFILE_ACTIVE
+            unset LOCALDNS_COREFILE_BASE
             unset LOCALDNS_COREFILE_EXPERIMENTAL
             When run verify_localdns_corefile
             The status should be failure
