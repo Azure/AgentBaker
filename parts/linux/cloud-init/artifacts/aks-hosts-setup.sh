@@ -79,10 +79,11 @@ echo "Detected cloud environment: ${local_cloud}"
 # Filters output to only include valid IPv4 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
 resolve_ipv4() {
     local domain="$1"
+    # dig +short returns one IP per line, no parsing needed
     local output
-    output=$(timeout 3 nslookup -type=A "${domain}" 2>/dev/null) || return 0
-    # Parse Address lines (skip server address with #), validate IPv4 format with octet range 0-255
-    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | while IFS='.' read -r a b c d; do
+    output=$(timeout 3 dig +short -t A "${domain}" 2>/dev/null) || return 0
+    # Validate IPv4 format with octet range 0-255
+    echo "${output}" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | while IFS='.' read -r a b c d; do
         if [ "$a" -le 255 ] && [ "$b" -le 255 ] && [ "$c" -le 255 ] && [ "$d" -le 255 ]; then
             echo "${a}.${b}.${c}.${d}"
         fi
@@ -93,12 +94,12 @@ resolve_ipv4() {
 # Filters output to only include valid IPv6 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
 resolve_ipv6() {
     local domain="$1"
+    # dig +short returns one IP per line, no parsing needed
     local output
-    output=$(timeout 3 nslookup -type=AAAA "${domain}" 2>/dev/null) || return 0
-    # Parse Address lines (skip server address with #), validate IPv6 format
+    output=$(timeout 3 dig +short -t AAAA "${domain}" 2>/dev/null) || return 0
     # Three checks: only hex+colon chars (min 3), at least two colons, at least one hex digit
     # This rejects malformed strings like ":::::::" (no hex), "1:2" (one colon), ":ff" (one colon)
-    echo "${output}" | awk '/^Address: / && !/^Address: .*#/ {print $2}' | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':.*:' | grep '[0-9a-fA-F]' || return 0
+    echo "${output}" | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':.*:' | grep '[0-9a-fA-F]' || return 0
 }
 
 echo "Starting AKS critical FQDN hosts resolution at $(date)"
