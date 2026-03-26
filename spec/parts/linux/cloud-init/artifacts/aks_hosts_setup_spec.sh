@@ -25,7 +25,7 @@ EOF
         echo "${test_script}"
     }
 
-    # Helper to build a test script with a mock nslookup prepended to PATH.
+    # Helper to build a test script with a mock dig prepended to PATH.
     # Used only for edge-case tests that need controlled DNS output
     # (failure handling, invalid response filtering).
     build_mock_test_script() {
@@ -47,22 +47,20 @@ EOF
         echo "${test_script}"
     }
 
-    # Creates a mock nslookup executable that simulates DNS failure (NXDOMAIN).
+    # Creates a mock dig executable that simulates DNS failure (empty output).
     create_failure_mock() {
         local mock_bin_dir="$1"
         mkdir -p "${mock_bin_dir}"
-        cat > "${mock_bin_dir}/nslookup" << 'MOCK_EOF'
+        cat > "${mock_bin_dir}/dig" << 'MOCK_EOF'
 #!/usr/bin/env bash
-echo "Server:		127.0.0.53"
-echo "Address:	127.0.0.53#53"
-echo ""
-echo "** server can't find domain: NXDOMAIN"
+# Simulate DNS failure: dig +short returns empty output
+exit 0
 MOCK_EOF
-        chmod +x "${mock_bin_dir}/nslookup"
+        chmod +x "${mock_bin_dir}/dig"
     }
 
     # -----------------------------------------------------------------------
-    # Tests using real nslookup (no mocks)
+    # Tests using real dig (no mocks)
     # -----------------------------------------------------------------------
 
     Describe 'DNS resolution and hosts file creation (AzurePublicCloud)'
@@ -307,7 +305,7 @@ EOF
 
     # -----------------------------------------------------------------------
     # Mock-based tests below
-    # These require controlled nslookup output to verify error handling
+    # These require controlled dig output to verify error handling
     # and response filtering logic that cannot be triggered with real DNS.
     # -----------------------------------------------------------------------
 
@@ -377,14 +375,12 @@ EOF
         End
 
         It 'filters out SERVFAIL responses from hosts file'
-            cat > "${MOCK_BIN}/nslookup" << 'MOCK_EOF'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
 #!/usr/bin/env bash
-echo "Server:		127.0.0.53"
-echo "Address:	127.0.0.53#53"
-echo ""
-echo "** server can't find domain: SERVFAIL"
+# Simulate SERVFAIL: dig +short returns empty output
+exit 0
 MOCK_EOF
-            chmod +x "${MOCK_BIN}/nslookup"
+            chmod +x "${MOCK_BIN}/dig"
             TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
 
             When run command bash "${TEST_SCRIPT}"
@@ -394,27 +390,25 @@ MOCK_EOF
         End
 
         It 'does not write non-IP strings to hosts file'
-            cat > "${MOCK_BIN}/nslookup" << 'MOCK_EOF'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
 #!/usr/bin/env bash
 record_type=""
 for arg in "$@"; do
-    if [[ "$arg" == "-type=A" ]]; then
+    if [[ "$arg" == "A" ]]; then
         record_type="A"
-    elif [[ "$arg" == "-type=AAAA" ]]; then
+    elif [[ "$arg" == "AAAA" ]]; then
         record_type="AAAA"
     fi
 done
 
-echo "Server:		127.0.0.53"
-echo "Address:	127.0.0.53#53"
-echo ""
+# dig +short outputs one result per line, no prefix
 if [[ "$record_type" == "A" ]]; then
-    echo "Address: 1.2.3.4"
-    echo "Address: not-an-ip"
-    echo "Address: NXDOMAIN"
+    echo "1.2.3.4"
+    echo "not-an-ip"
+    echo "NXDOMAIN"
 fi
 MOCK_EOF
-            chmod +x "${MOCK_BIN}/nslookup"
+            chmod +x "${MOCK_BIN}/dig"
             TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
 
             When run command bash "${TEST_SCRIPT}"
@@ -427,31 +421,29 @@ MOCK_EOF
         End
 
         It 'does not write invalid IPv6 strings to hosts file'
-            cat > "${MOCK_BIN}/nslookup" << 'MOCK_EOF'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
 #!/usr/bin/env bash
 record_type=""
 for arg in "$@"; do
-    if [[ "$arg" == "-type=A" ]]; then
+    if [[ "$arg" == "A" ]]; then
         record_type="A"
-    elif [[ "$arg" == "-type=AAAA" ]]; then
+    elif [[ "$arg" == "AAAA" ]]; then
         record_type="AAAA"
     fi
 done
 
-echo "Server:		127.0.0.53"
-echo "Address:	127.0.0.53#53"
-echo ""
+# dig +short outputs one result per line, no prefix
 if [[ "$record_type" == "AAAA" ]]; then
-    echo "Address: 2001:db8::1"
-    echo "Address: not-an-ipv6"
-    echo "Address: SERVFAIL"
-    echo "Address: fe80::1"
-    echo "Address: 1:2"
-    echo "Address: :ff"
-    echo "Address: :::::::"
+    echo "2001:db8::1"
+    echo "not-an-ipv6"
+    echo "SERVFAIL"
+    echo "fe80::1"
+    echo "1:2"
+    echo ":ff"
+    echo ":::::::"
 fi
 MOCK_EOF
-            chmod +x "${MOCK_BIN}/nslookup"
+            chmod +x "${MOCK_BIN}/dig"
             TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
 
             When run command bash "${TEST_SCRIPT}"
@@ -470,29 +462,27 @@ MOCK_EOF
         End
 
         It 'rejects IPv4 addresses with out-of-range octets'
-            cat > "${MOCK_BIN}/nslookup" << 'MOCK_EOF'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
 #!/usr/bin/env bash
 record_type=""
 for arg in "$@"; do
-    if [[ "$arg" == "-type=A" ]]; then
+    if [[ "$arg" == "A" ]]; then
         record_type="A"
-    elif [[ "$arg" == "-type=AAAA" ]]; then
+    elif [[ "$arg" == "AAAA" ]]; then
         record_type="AAAA"
     fi
 done
 
-echo "Server:		127.0.0.53"
-echo "Address:	127.0.0.53#53"
-echo ""
+# dig +short outputs one result per line, no prefix
 if [[ "$record_type" == "A" ]]; then
-    echo "Address: 10.0.0.1"
-    echo "Address: 999.999.999.999"
-    echo "Address: 256.1.1.1"
-    echo "Address: 1.2.3.400"
-    echo "Address: 255.255.255.255"
+    echo "10.0.0.1"
+    echo "999.999.999.999"
+    echo "256.1.1.1"
+    echo "1.2.3.400"
+    echo "255.255.255.255"
 fi
 MOCK_EOF
-            chmod +x "${MOCK_BIN}/nslookup"
+            chmod +x "${MOCK_BIN}/dig"
             TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
 
             When run command bash "${TEST_SCRIPT}"
