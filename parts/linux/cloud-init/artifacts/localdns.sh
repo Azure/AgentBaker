@@ -792,13 +792,13 @@ ${__SOURCED__:+return}
 
 # Regenerate corefile on every startup to enable dynamic variant selection.
 # ---------------------------------------------------------------------------------------------------------------------
-# This allows switching between EXPERIMENTAL and STANDARD corefile variants based on current state.
+# This allows switching between EXPERIMENTAL and ACTIVE corefile variants based on current state.
 # On restarts, if /etc/localdns/hosts has been populated by aks-hosts-setup timer,
 # localdns will automatically switch to the hosts-plugin variant.
-# Note: select_localdns_corefile is called with timeout=0 (default), meaning it checks
-# the hosts file once and falls back to the no-hosts variant immediately if missing/empty.
-# This is intentional — we don't block localdns startup waiting for DNS resolution.
-# The aks-hosts-setup timer will populate the hosts file, and the next restart will pick it up.
+# select_localdns_corefile checks the hosts file once and falls back to the
+# no-hosts variant immediately if missing/empty. This is intentional — we don't
+# block localdns startup waiting for DNS resolution. The aks-hosts-setup timer
+# will populate the hosts file, and the next restart will pick it up.
 regenerate_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 
 # Verify localdns required files exists.
