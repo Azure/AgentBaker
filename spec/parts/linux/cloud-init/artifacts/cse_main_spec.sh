@@ -5,7 +5,7 @@
 #   LOCALDNS_COREFILE_BASE         — base corefile (no experimental plugins)
 #   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
 #   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
-# It checks /etc/localdns/hosts for valid IP mappings to decide which variant to use.
+# It checks LOCALDNS_HOSTS_FILE (default /etc/localdns/hosts) for valid IP mappings to decide which variant to use.
 
 Describe 'select_localdns_corefile()'
     LOCALDNS_PATH="parts/linux/cloud-init/artifacts/localdns.sh"
@@ -20,9 +20,9 @@ Describe 'select_localdns_corefile()'
         # shellcheck disable=SC1090
         __SOURCED__=1 . "${LOCALDNS_PATH}"
 
-        # Create temp directory for test hosts file
+        # Create temp directory for test hosts file — avoids writing to /etc
         TEST_DIR=$(mktemp -d)
-        HOSTS_FILE="${TEST_DIR}/hosts"
+        LOCALDNS_HOSTS_FILE="${TEST_DIR}/hosts"
     }
 
     cleanup() {
@@ -30,6 +30,7 @@ Describe 'select_localdns_corefile()'
         unset LOCALDNS_COREFILE_BASE
         unset LOCALDNS_COREFILE_EXPERIMENTAL
         unset SHOULD_ENABLE_HOSTS_PLUGIN
+        unset LOCALDNS_HOSTS_FILE
     }
 
     BeforeEach 'setup'
@@ -40,9 +41,7 @@ Describe 'select_localdns_corefile()'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            # Create hosts file with valid IP mappings at the path the function checks
-            mkdir -p /etc/localdns
-            echo "10.0.0.1 mcr.microsoft.com" > /etc/localdns/hosts
+            echo "10.0.0.1 mcr.microsoft.com" > "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_WITH_HOSTS}"
@@ -55,8 +54,7 @@ Describe 'select_localdns_corefile()'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            mkdir -p /etc/localdns
-            echo "# comment only" > /etc/localdns/hosts
+            echo "# comment only" > "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
@@ -68,7 +66,7 @@ Describe 'select_localdns_corefile()'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            rm -f /etc/localdns/hosts
+            rm -f "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
@@ -80,8 +78,7 @@ Describe 'select_localdns_corefile()'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            mkdir -p /etc/localdns
-            echo "2001:db8::1 mcr.microsoft.com" > /etc/localdns/hosts
+            echo "2001:db8::1 mcr.microsoft.com" > "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_WITH_HOSTS}"
@@ -95,9 +92,7 @@ Describe 'select_localdns_corefile()'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="false"
-            # Create hosts file with valid IP mappings (should be ignored)
-            mkdir -p /etc/localdns
-            echo "10.0.0.1 mcr.microsoft.com" > /etc/localdns/hosts
+            echo "10.0.0.1 mcr.microsoft.com" > "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
