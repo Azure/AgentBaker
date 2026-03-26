@@ -15,10 +15,15 @@
     "libnvidia-encode-580": "580.105.08-0ubuntu1",
     "xserver-xorg-video-nvidia-580": "580.105.08-0ubuntu1",
     "libnvidia-fbc1-580": "580.105.08-0ubuntu1",
-    "nvidia-driver-580-open": "580.105.08-0ubuntu1"
+    "nvidia-driver-580-open": "580.105.08-0ubuntu1",
+    "nvidia-modprobe": "590.44.01-0ubuntu1",
+    "nvidia-persistenced": "590.44.01-0ubuntu1"
+
   },
   "versions-wave2": {
     "cuda-toolkit-13": "13.0.2-1",
+    "cuda-toolkit-config-common": "13.1.80-1",
+    "cuda-toolkit-13-config-common": "13.1.80-1",
     "nvidia-container-toolkit-base": "1.18.0-1",
     "libnvidia-container1": "1.18.0-1",
     "libnvidia-container-tools": "1.18.0-1",
