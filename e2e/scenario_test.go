@@ -396,37 +396,20 @@ func Test_ACL_DisableSSH(t *testing.T) {
 }
 
 func Test_ACL_GPUNC_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node with VM size Standard_NC6s_v3 using an ACL VHD and scriptless CSE can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-				nbc.EnableScriptlessCSECmd = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
-				ValidateScriptlessCSECmd(ctx, s)
-			},
-		},
-	})
+	runScenarioACLGPUScriptless(t, "Standard_NC6s_v3")
 }
 
 func Test_ACL_GPUA100_Scriptless(t *testing.T) {
+	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4")
+}
+
+func Test_ACL_GPUA10_Scriptless(t *testing.T) {
+	runScenarioACLGRIDScriptless(t, "Standard_NV6ads_A10_v5")
+}
+
+func runScenarioACLGPUScriptless(t *testing.T, vmSize string) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node with VM size Standard_NC24ads_A100_v4 using an ACL VHD and scriptless CSE can be properly bootstrapped",
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -434,14 +417,14 @@ func Test_ACL_GPUA100_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 				nbc.EnableScriptlessCSECmd = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -453,9 +436,9 @@ func Test_ACL_GPUA100_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_ACL_GPUA10_Scriptless(t *testing.T) {
+func runScenarioACLGRIDScriptless(t *testing.T, vmSize string) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node with VM size Standard_NV6ads_A10_v5 using an ACL VHD and scriptless CSE can be properly bootstrapped, and that the GRID license is valid",
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped, and that the GRID license is valid", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -463,14 +446,14 @@ func Test_ACL_GPUA10_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 				nbc.EnableScriptlessCSECmd = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
