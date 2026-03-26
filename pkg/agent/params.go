@@ -93,9 +93,6 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 		if config.ContainerdVersion != "" {
 			addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
 		}
-		if config.TeleportdPluginURL != "" {
-			addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
-		}
 		addValue(parametersMap, "containerdPackageURL", config.ContainerdPackageURL)
 	} else {
 		addValue(parametersMap, "cliTool", "docker")

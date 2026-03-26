@@ -19,10 +19,8 @@ OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 
 OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
-TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
-TELEPORTD_PLUGIN_BIN_DIR="/opt/bin"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
@@ -416,44 +414,6 @@ installCrictl() {
     fi
 }
 
-downloadTeleportdPlugin() {
-    DOWNLOAD_URL=$1
-    TELEPORTD_VERSION=$2
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
-    if [ -z "${DOWNLOAD_URL}" ]; then
-        echo "download url parameter for downloadTeleportdPlugin was not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
-    fi
-    if [ -z "${TELEPORTD_VERSION}" ]; then
-        echo "teleportd version not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
-    fi
-    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
-}
-
-installTeleportdPlugin() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
-    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.8.0"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
-        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
-    else
-        logs_to_events "AKS.CSE.logDownloadURL" "echo $TELEPORTD_PLUGIN_DOWNLOAD_URL"
-        TELEPORTD_PLUGIN_DOWNLOAD_URL=$(update_base_url $TELEPORTD_PLUGIN_DOWNLOAD_URL)
-        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-    fi
-    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
-}
-
 setupCNIDirs() {
     mkdir -p $CNI_BIN_DIR
     chown -R root:root $CNI_BIN_DIR
@@ -658,8 +618,12 @@ installKubeletKubectlFromURL() {
             fi
         fi
     fi
-    install -m0755 "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
-    install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    mv "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
+    mv "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    chown root:root /opt/bin/kubelet /opt/bin/kubectl
+    chmod 0755 /opt/bin/kubelet /opt/bin/kubectl
 
     rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }
@@ -726,8 +690,9 @@ labelContainerImage() {
 }
 
 retagMCRImagesForChina() {
+    waitForContainerdReady || exit $ERR_CTR_OPERATION_ERROR
     # shellcheck disable=SC2016
-        allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
     if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return

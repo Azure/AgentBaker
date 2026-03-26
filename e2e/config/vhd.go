@@ -218,6 +218,15 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
+	VHDAzureLinuxV3Gen2Arm64 = &Image{
+		Name:         "azurelinuxv3gen2arm64",
+		OS:           OSAzureLinux,
+		Arch:         "arm64",
+		Distro:       datamodel.AKSAzureLinuxV3Arm64Gen2,
+		Gallery:      imageGalleryLinux,
+		OSDiskSizeGB: 60,
+	}
+
 	VHDACLGen2TL = &Image{
 		Name:         "aclgen2TL",
 		OS:           OSACL,

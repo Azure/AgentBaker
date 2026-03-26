@@ -909,9 +909,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return output
 		},
-		"TeleportEnabled": func() bool {
-			return config.EnableACRTeleportPlugin
-		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()
 		},
@@ -1515,13 +1512,8 @@ root = "{{GetDataDir}}"{{- end}}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if TeleportEnabled }}
-    snapshotter = "teleportd"
+    {{- if IsKata }}
     disable_snapshot_annotations = false
-    {{- else}}
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1568,12 +1560,6 @@ root = "{{GetDataDir}}"{{- end}}
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1603,10 +1589,6 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
-{{- if TeleportEnabled }}
-  snapshotter = "teleportd"
-  disable_snapshot_annotations = false
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -1655,12 +1637,6 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1691,10 +1667,6 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 
 [plugins."io.containerd.cri.v1.images"]
-{{- if TeleportEnabled }}
-  snapshotter = "teleportd"
-  disable_snapshot_annotations = false
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -1730,12 +1702,6 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1760,13 +1726,8 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if TeleportEnabled }}
-    snapshotter = "teleportd"
+    {{- if IsKata }}
     disable_snapshot_annotations = false
-    {{- else}}
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1798,12 +1759,6 @@ root = "{{GetDataDir}}"{{- end}}
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]

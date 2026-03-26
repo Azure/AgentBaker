@@ -106,6 +106,25 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2Arm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Flatcar scenario on a cluster configured with Azure CNI",
@@ -602,6 +621,37 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_ScriptlessCSECmd_Hotfix tests the EnableScriptlessCSECmd path in
+// nodecustomdata.yml which is the foundation for the hotfix delivery mechanism.
+// It injects a unique marker into cloud-init write_files via BootstrapConfigMutator,
+// then verifies that marker landed on disk — proving cloud-init write_files delivery works.
+func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
+	const hotfixMarkerPath = "/opt/azure/containers/e2e-hotfix-marker.txt"
+	hotfixMarkerContent := fmt.Sprintf("HOTFIX_E2E_MARKER_%d", time.Now().UnixNano())
+
+	RunScenario(t, &Scenario{
+		Description: "tests that a node using EnableScriptlessCSECmd delivers write_files content to disk",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{{
+				Path:    hotfixMarkerPath,
+				Content: hotfixMarkerContent,
+			}},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt",
+					"Executing in scriptless CSE mode")
+				// This file does NOT exist on any VHD — it can only be present if cloud-init
+				// processed our write_files entry, proving the hotfix delivery mechanism works.
+				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
+			},
+		},
+	})
+}
+
 // Returns config for the 'gpu' E2E scenario
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -810,6 +860,75 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate SSH daemon is disabled via RunCommand
 				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Flatcar VHD with network isolated cluster enabled",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using ACL VHD with network isolated cluster enabled",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
