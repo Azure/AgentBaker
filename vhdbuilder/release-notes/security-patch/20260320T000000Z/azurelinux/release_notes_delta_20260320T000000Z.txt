@@ -1,0 +1,41 @@
+Release notes for security patch 20260320T000000Z timestamp
+Package difference between 20260310T000000Z and 20260320T000000Z
+
+Reboot required (kernel update)
+
+=== New Packages ===
+kernel  6.6.126.1-1.azl3  azurelinux-official-base
+
+=== Package Updates ===
+zlib  1.3.2-1.azl3  azurelinux-official-base
+systemd-networkd  255-26.azl3  azurelinux-official-base
+systemd-resolved  255-26.azl3  azurelinux-official-base
+systemd-udev  255-26.azl3  azurelinux-official-base
+systemd-rpm-macros  255-26.azl3  azurelinux-official-base
+systemd-pam  255-26.azl3  azurelinux-official-base
+systemd-libs  255-26.azl3  azurelinux-official-base
+systemd  255-26.azl3  azurelinux-official-base
+python3-curses  3.12.9-9.azl3  azurelinux-official-base
+python3-libs  3.12.9-9.azl3  azurelinux-official-base
+python3  3.12.9-9.azl3  azurelinux-official-base
+openssl-libs  3.3.5-4.azl3  azurelinux-official-base
+openssl  3.3.5-4.azl3  azurelinux-official-base
+libxml2  2.11.5-9.azl3  azurelinux-official-base
+libarchive  3.7.7-5.azl3  azurelinux-official-base
+hyperv-daemons-license  6.6.126.1-1.azl3  azurelinux-official-base
+hypervvssd  6.6.126.1-1.azl3  azurelinux-official-base
+hypervkvpd  6.6.126.1-1.azl3  azurelinux-official-base
+hypervfcopyd  6.6.126.1-1.azl3  azurelinux-official-base
+hyperv-daemons  6.6.126.1-1.azl3  azurelinux-official-base
+grub2-efi-binary  2.06-27.azl3  azurelinux-official-base
+grub2-configuration  2.06-27.azl3  azurelinux-official-base
+grub2-tools-minimal  2.06-27.azl3  azurelinux-official-base
+grub2  2.06-27.azl3  azurelinux-official-base
+glib  2.78.6-8.azl3  azurelinux-official-base
+dracut-hostonly  102-13.azl3  azurelinux-official-base
+dracut-hyperv  102-13.azl3  azurelinux-official-base
+dracut-vrf  102-13.azl3  azurelinux-official-base
+dracut  102-13.azl3  azurelinux-official-base
+containerd2  2.0.0-18.azl3  azurelinux-official-base
+azurelinux-release  3.0-40.azl3  azurelinux-official-base
+SymCrypt-OpenSSL  1.9.4-2.azl3  azurelinux-official-base
