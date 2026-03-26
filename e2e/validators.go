@@ -1521,21 +1521,8 @@ func quoteFQDNsForBash(fqdns []string) string {
 func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Check that aks-hosts-setup.service completed successfully (oneshot service)
-	serviceScript := `set -euo pipefail
-svc="aks-hosts-setup.service"
-# For oneshot services, check if it ran successfully (exit code 0)
-result=$(systemctl show -p Result "$svc" --value 2>/dev/null || echo "unknown")
-echo "aks-hosts-setup.service result: $result"
-if [ "$result" != "success" ]; then
-    echo "ERROR: aks-hosts-setup.service did not complete successfully"
-    systemctl status "$svc" --no-pager || true
-    journalctl -u "$svc" --no-pager -n 50 || true
-    exit 1
-fi
-`
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, serviceScript, 0,
-		"aks-hosts-setup.service should have completed successfully")
+	// Check that aks-hosts-setup.service (oneshot) completed without failure
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-hosts-setup.service")
 
 	// Check that aks-hosts-setup.timer is active for periodic refresh
 	ValidateSystemdUnitIsRunning(ctx, s, "aks-hosts-setup.timer")
