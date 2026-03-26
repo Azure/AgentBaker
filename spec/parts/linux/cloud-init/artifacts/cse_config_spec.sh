@@ -6,6 +6,10 @@ check_file_permissions() {
     printf "0%s" "$(stat -c "%a" "$LOCALDNS_ENV_FILE")"
 }
 
+check_cloud_env_permissions() {
+    printf "0%s" "$(stat -c "%a" "$AKS_CLOUD_ENV_FILE")"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
@@ -1096,11 +1100,12 @@ SETUP_EOF
             The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
         End
 
-        It 'should set 0644 permissions on cloud-env file'
+        It 'should set correct permissions on cloud-env file'
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
             The file "$AKS_CLOUD_ENV_FILE" should be exist
+            The result of function check_cloud_env_permissions should equal "0644"
         End
 
         It 'should skip when TARGET_CLOUD is unset'
