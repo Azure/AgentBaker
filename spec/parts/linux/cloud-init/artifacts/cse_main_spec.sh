@@ -2,7 +2,7 @@
 
 # Unit tests for select_localdns_corefile() function
 # select_localdns_corefile() reads globals from the environment:
-#   LOCALDNS_COREFILE_ACTIVE         — base corefile (no experimental plugins)
+#   LOCALDNS_COREFILE_BASE         — base corefile (no experimental plugins)
 #   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
 #   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
 # It checks /etc/localdns/hosts for valid IP mappings to decide which variant to use.
@@ -27,7 +27,7 @@ Describe 'select_localdns_corefile()'
 
     cleanup() {
         rm -rf "${TEST_DIR}"
-        unset LOCALDNS_COREFILE_ACTIVE
+        unset LOCALDNS_COREFILE_BASE
         unset LOCALDNS_COREFILE_EXPERIMENTAL
         unset SHOULD_ENABLE_HOSTS_PLUGIN
     }
@@ -37,7 +37,7 @@ Describe 'select_localdns_corefile()'
 
     Context 'when both corefile variants are available and hosts plugin is enabled'
         It 'returns EXPERIMENTAL when hosts file has valid IP mappings'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             # Create hosts file with valid IP mappings at the path the function checks
@@ -51,8 +51,8 @@ Describe 'select_localdns_corefile()'
             The stderr should include "using corefile with hosts plugin"
         End
 
-        It 'returns ACTIVE when hosts file exists but has no IP mappings'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+        It 'returns BASE when hosts file exists but has no IP mappings'
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             mkdir -p /etc/localdns
@@ -64,8 +64,8 @@ Describe 'select_localdns_corefile()'
             The stderr should include "not ready yet, falling back to corefile without hosts plugin"
         End
 
-        It 'returns ACTIVE when hosts file does not exist'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+        It 'returns BASE when hosts file does not exist'
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             rm -f /etc/localdns/hosts
@@ -77,7 +77,7 @@ Describe 'select_localdns_corefile()'
         End
 
         It 'handles IPv6 addresses in hosts file'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             mkdir -p /etc/localdns
@@ -91,8 +91,8 @@ Describe 'select_localdns_corefile()'
     End
 
     Context 'when both corefile variants are available and hosts plugin is disabled'
-        It 'returns ACTIVE when SHOULD_ENABLE_HOSTS_PLUGIN=false'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+        It 'returns BASE when SHOULD_ENABLE_HOSTS_PLUGIN=false'
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="false"
             # Create hosts file with valid IP mappings (should be ignored)
@@ -105,8 +105,8 @@ Describe 'select_localdns_corefile()'
             The stderr should include "Hosts plugin is not enabled"
         End
 
-        It 'returns ACTIVE when SHOULD_ENABLE_HOSTS_PLUGIN is empty'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+        It 'returns BASE when SHOULD_ENABLE_HOSTS_PLUGIN is empty'
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN=""
 
@@ -116,8 +116,8 @@ Describe 'select_localdns_corefile()'
             The stderr should include "Hosts plugin is not enabled"
         End
 
-        It 'returns ACTIVE when SHOULD_ENABLE_HOSTS_PLUGIN is any value other than "true"'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+        It 'returns BASE when SHOULD_ENABLE_HOSTS_PLUGIN is any value other than "true"'
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="yes"
 
@@ -128,26 +128,26 @@ Describe 'select_localdns_corefile()'
         End
     End
 
-    Context 'when only ACTIVE is available (no dynamic selection)'
-        It 'returns ACTIVE when EXPERIMENTAL is not set'
-            LOCALDNS_COREFILE_ACTIVE="${COREFILE_NO_HOSTS}"
+    Context 'when only BASE is available (no dynamic selection)'
+        It 'returns BASE when EXPERIMENTAL is not set'
+            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             unset LOCALDNS_COREFILE_EXPERIMENTAL
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
             The status should be success
-            The stderr should include "Using LOCALDNS_COREFILE_ACTIVE (no dynamic selection)"
+            The stderr should include "Using LOCALDNS_COREFILE_BASE (no dynamic selection)"
         End
     End
 
     Context 'when no corefile variants are available'
-        It 'returns empty string when neither variant is set'
-            unset LOCALDNS_COREFILE_ACTIVE
+        It 'returns failure when neither variant is set'
+            unset LOCALDNS_COREFILE_BASE
             unset LOCALDNS_COREFILE_EXPERIMENTAL
 
             When call select_localdns_corefile
             The output should equal ""
-            The status should be success
+            The status should be failure
             The stderr should include "No corefile variants available in environment"
         End
     End
