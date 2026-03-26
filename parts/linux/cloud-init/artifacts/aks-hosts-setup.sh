@@ -160,7 +160,7 @@ echo "Writing addresses to ${HOSTS_FILE}..."
 HOSTS_TMP="${HOSTS_FILE}.tmp.$$"
 
 # Write content to temp file with explicit error checking
-if ! echo "${HOSTS_CONTENT}" > "${HOSTS_TMP}"; then
+if ! printf '%s\n' "${HOSTS_CONTENT}" > "${HOSTS_TMP}"; then
     echo "ERROR: Failed to write to temporary file ${HOSTS_TMP}"
     rm -f "${HOSTS_TMP}"  # Clean up temp file
     exit 1
