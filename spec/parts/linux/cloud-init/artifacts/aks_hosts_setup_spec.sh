@@ -4,10 +4,11 @@
 Describe 'aks-hosts-setup.sh'
     SCRIPT_PATH="parts/linux/cloud-init/artifacts/aks-hosts-setup.sh"
 
-    # Helper to build a test script that uses the real system nslookup.
+    # Helper to build a test script that uses the real system dig.
     # Overrides only HOSTS_FILE and TARGET_CLOUD, preserving everything else
     # (cloud selection, resolution loop, atomic write) from the real script.
-    # Lines 1-9 of the real script are: shebang, set, blank, comments, and HOSTS_FILE=.
+    # Uses sed to strip the shebang, set -euo pipefail, and HOSTS_FILE= lines
+    # so the test is not brittle to comment changes at the top of the script.
     build_test_script() {
         local test_dir="$1"
         local hosts_file="$2"
@@ -20,7 +21,7 @@ set -uo pipefail
 HOSTS_FILE="${hosts_file}"
 export TARGET_CLOUD="${target_cloud}"
 EOF
-        tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
         echo "${test_script}"
     }
@@ -42,7 +43,7 @@ export PATH="${mock_bin_dir}:\$PATH"
 HOSTS_FILE="${hosts_file}"
 export TARGET_CLOUD="${target_cloud}"
 EOF
-        tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
         echo "${test_script}"
     }
