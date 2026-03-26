@@ -943,6 +943,25 @@ providers:
             The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
         End
 
+        # Old CSE + new VHD backward compatibility.
+        # An old AgentBaker service only sets LOCALDNS_GENERATED_COREFILE (not LOCALDNS_COREFILE_BASE).
+        # The new VHD's generateLocalDNSFiles must fall back to the legacy variable.
+        It 'should fall back to LOCALDNS_GENERATED_COREFILE when LOCALDNS_COREFILE_BASE is unset (old CSE + new VHD)'
+            unset LOCALDNS_COREFILE_BASE
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "legacy corefile from old CSE" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "localdns should be enabled."
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_CORE_FILE" should be file
+            The contents of file "$LOCALDNS_CORE_FILE" should include "legacy corefile from old CSE"
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE="
+        End
+
         # Environment file permissions.
         It 'should set correct permissions on environment file'
             LOCALDNS_ENV_FILE="$TMP_DIR/environment"
