@@ -938,7 +938,7 @@ providers:
             The stdout should include "Enable localdns succeeded."
             The path "$LOCALDNS_ENV_FILE" should be file
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
-            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_ACTIVE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE="
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL}"
             The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
         End
