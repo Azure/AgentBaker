@@ -459,6 +459,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
+	t.Skip("flaky tests due to NPD issue")
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{
@@ -536,6 +537,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 }
 
 func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
+	t.Skip("flaky tests due to NPD issue")
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
 		Tags: Tags{

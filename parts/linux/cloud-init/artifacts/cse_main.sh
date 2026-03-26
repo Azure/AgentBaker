@@ -205,6 +205,23 @@ function basePrep {
       logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
 
+     # Determine if GPU driver installation should be skipped
+    export -f should_skip_nvidia_drivers
+    skip_nvidia_driver_install=$(should_skip_nvidia_drivers)
+
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to determine if nvidia driver install should be skipped"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
+
+    # Install and configure GPU drivers if this is a GPU node
+    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        echo $(date),$(hostname), "Start configuring GPU drivers"
+
+        # Install GPU drivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
+    fi
+
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 
@@ -356,10 +373,7 @@ function nodePrep {
 
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
-        echo $(date),$(hostname), "Start configuring GPU drivers"
-
-        # Install GPU drivers
-        logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
+        echo $(date),$(hostname), "Start configuring additional GPU drivers"
 
         # Install fabric manager if needed
         if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then

@@ -964,13 +964,6 @@ configGPUDrivers() {
     if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
         systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
     fi
-
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
-
-    # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
-    # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
-    # the startup ordering in that case.
-    systemctl restart node-problem-detector || true
 }
 
 validateGPUDrivers() {
