@@ -748,7 +748,7 @@ start_localdns_watchdog() {
 # Echoes the selected base64-encoded corefile to stdout.
 # All diagnostic messages go to stderr.
 select_localdns_corefile() {
-    local hosts_file_path="/etc/localdns/hosts"
+    local hosts_file_path="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
 
     # Case 1: Both corefile variants available — dynamic selection
     if [ -n "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ] && \

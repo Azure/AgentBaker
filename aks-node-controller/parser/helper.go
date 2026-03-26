@@ -727,9 +727,10 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 //   - LOCALDNS_COREFILE_BASE (standard, without experimental plugins)
 //   - LOCALDNS_COREFILE_EXPERIMENTAL (with experimental plugins e.g. hosts plugin)
 //
-// The actual file writing happens in shell scripts (cse_config.sh) which decode and write
-// the selected variant to /opt/azure/containers/localdns/localdns.corefile.
-// Runtime selection between variants happens in cse_main.sh based on the availability of /etc/localdns/hosts.
+// The actual file writing happens in shell scripts (cse_config.sh), which decode and write
+// a selected variant to /opt/azure/containers/localdns/localdns.corefile after populating the env file.
+// Runtime selection between LOCALDNS_COREFILE_BASE and LOCALDNS_COREFILE_EXPERIMENTAL happens in localdns.sh
+// (via select_localdns_corefile(), invoked on localdns service start/restart) based on the availability of /etc/localdns/hosts.
 func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {
 	if aksnodeconfig == nil {
 		return ""
