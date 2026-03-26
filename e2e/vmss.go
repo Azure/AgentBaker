@@ -210,16 +210,6 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
 
-		// For MockUnknownCloud, inject an unsupported cloud name into the CSE script
-		// to test that aks-hosts-setup.sh gracefully handles unrecognized clouds
-		if s.Tags.MockUnknownCloud {
-			s.T.Log("E2E: Injecting TARGET_CLOUD=UnsupportedCloudE2ETest override into CSE script")
-			cse = strings.Replace(cse,
-				`TARGET_ENVIRONMENT="`,
-				`TARGET_CLOUD="UnsupportedCloudE2ETest" # E2E override for testing unsupported cloud`+"\n"+`TARGET_ENVIRONMENT="`,
-				1)
-		}
-
 		if len(s.Config.CustomDataWriteFiles) > 0 {
 			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
