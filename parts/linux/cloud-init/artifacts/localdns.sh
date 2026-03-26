@@ -128,7 +128,7 @@ verify_localdns_binary() {
 # This is used when the corefile goes missing.
 regenerate_localdns_corefile() {
     local corefile_to_use
-    corefile_to_use=$(select_localdns_corefile)
+    corefile_to_use=$(select_localdns_corefile) || true
     if [ -z "${corefile_to_use}" ]; then
         echo "No corefile selected. Cannot regenerate corefile."
         return 1
@@ -735,15 +735,15 @@ start_localdns_watchdog() {
 
 # Selects the appropriate corefile variant based on environment state.
 # Reads globals from the localdns environment file:
-#   LOCALDNS_COREFILE_ACTIVE         — base corefile (no experimental plugins)
+#   LOCALDNS_COREFILE_BASE         — base corefile (no experimental plugins)
 #   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
 #   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
 #
 # Selection logic:
-#   1. If both ACTIVE and EXPERIMENTAL are available, dynamically choose based on
+#   1. If both BASE and EXPERIMENTAL are available, dynamically choose based on
 #      whether the hosts file has been populated by aks-hosts-setup.
-#   2. If only ACTIVE is available, use it (no dynamic selection).
-#   3. If nothing is available, return empty string (caller handles error).
+#   2. If only BASE is available, use it (no dynamic selection).
+#   3. If nothing is available, return failure (caller handles error).
 #
 # Echoes the selected base64-encoded corefile to stdout.
 # All diagnostic messages go to stderr.
@@ -752,7 +752,7 @@ select_localdns_corefile() {
 
     # Case 1: Both corefile variants available — dynamic selection
     if [ -n "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ] && \
-       [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
+       [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
         echo "Both corefile variants available, selecting based on current state..." >&2
         echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}" >&2
 
@@ -765,25 +765,25 @@ select_localdns_corefile() {
                 return 0
             fi
             echo "Info: ${hosts_file_path} not ready yet, falling back to corefile without hosts plugin" >&2
-            echo "${LOCALDNS_COREFILE_ACTIVE}"
+            echo "${LOCALDNS_COREFILE_BASE}"
             return 0
         else
             echo "Hosts plugin is not enabled, using corefile without hosts plugin" >&2
-            echo "${LOCALDNS_COREFILE_ACTIVE}"
+            echo "${LOCALDNS_COREFILE_BASE}"
             return 0
         fi
     fi
 
-    # Case 2: Only ACTIVE available — no dynamic selection
-    if [ -n "${LOCALDNS_COREFILE_ACTIVE:-}" ]; then
-        echo "Using LOCALDNS_COREFILE_ACTIVE (no dynamic selection)" >&2
-        echo "${LOCALDNS_COREFILE_ACTIVE}"
+    # Case 2: Only BASE available — no dynamic selection
+    if [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
+        echo "Using LOCALDNS_COREFILE_BASE (no dynamic selection)" >&2
+        echo "${LOCALDNS_COREFILE_BASE}"
         return 0
     fi
 
-    # Case 3: Nothing available
+    # Case 3: Nothing available — signal failure so callers don't proceed with empty corefile
     echo "No corefile variants available in environment." >&2
-    return 0
+    return 1
 }
 
 ${__SOURCED__:+return}
@@ -792,7 +792,7 @@ ${__SOURCED__:+return}
 
 # Regenerate corefile on every startup to enable dynamic variant selection.
 # ---------------------------------------------------------------------------------------------------------------------
-# This allows switching between EXPERIMENTAL and ACTIVE corefile variants based on current state.
+# This allows switching between EXPERIMENTAL and BASE corefile variants based on current state.
 # On restarts, if /etc/localdns/hosts has been populated by aks-hosts-setup timer,
 # localdns will automatically switch to the hosts-plugin variant.
 # select_localdns_corefile checks the hosts file once and falls back to the
