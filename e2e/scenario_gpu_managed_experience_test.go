@@ -637,11 +637,9 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	require.NotEmpty(t, *ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty")
 	require.NotEmpty(t, *ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty")
 
-	// // TODO: @surajssd, uncomment this when you update the aks vm extension
-	// // version that is different than 1.406.
-	// // Ensure we actually hit Azure and didn't just get the fallback version
-	// require.NotEqual(t, "1.406", *ext.Properties.TypeHandlerVersion,
-	// 	"extension version is the hardcoded fallback — Azure API may not have been reached")
+	// Ensure we actually hit Azure and didn't just get the fallback version
+	require.NotEqual(t, "1.413", *ext.Properties.TypeHandlerVersion,
+		"extension version is the hardcoded fallback — Azure API may not have been reached")
 
 	// Cache consistency: both calls should return the same version
 	require.Equal(t, *ext.Properties.TypeHandlerVersion, *ext2.Properties.TypeHandlerVersion,
