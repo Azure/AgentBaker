@@ -84,7 +84,8 @@ jobs:
         name: Commit changes
         run: |
           set -e
-          echo "committing changes..."
+          echo "committing changes"
+          echo "..."
           for file in $(git status --porcelain | awk '{print $2}'); do
             CONTENT=$(base64 -w 0 $file)
             FILENAME=$(basename $file)
