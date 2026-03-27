@@ -83,6 +83,7 @@ func cmdRunnerDryRun(cmd *exec.Cmd) error {
 
 type ProvisionFlags struct {
 	ProvisionConfig string
+	NBCCMD          string
 }
 
 type ProvisionStatusFiles struct {
@@ -171,6 +172,16 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
 		return provisionResult, errors.New(provisionResult.Error)
 	}
+
+	if flags.NBCCMD != "" {
+		nbcCMD := exec.CommandContext(ctx, "/bin/bash", flags.NBCCMD)
+		if nbcCMD != cmd {
+			slog.Info("Detected difference between AKSNodeConfig command and NBC command, ", "originalCmd: ", cmd.String(), "nbcCmd: ", nbcCMD.String())
+		}
+		slog.Info("Overriding CSE command with NBC command for scriptless phase 2", "nbcCmd", nbcCMD.String())
+		cmd = nbcCMD
+	}
+
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
@@ -214,23 +225,7 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
 		return provisionResult, errors.New(provisionResult.Error)
 	}
-	if nbcCMD != nil && *nbcCMD != "" {
-		slog.Info("NBC command file provided, executing script", "path", *nbcCMD)
-		cmd := exec.CommandContext(ctx, "/bin/bash", *nbcCMD)
-		var stdoutBuf, stderrBuf bytes.Buffer
-		cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
-		cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-		err = a.cmdRun(cmd)
-		exitCode := -1
-		if cmd.ProcessState != nil {
-			exitCode = cmd.ProcessState.ExitCode()
-		}
-		slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
-		provisionResult.ExitCode = strconv.Itoa(exitCode)
-		provisionResult.Error = fmt.Sprintf("%v", err)
-		provisionResult.Output = strings.Join([]string{stdoutBuf.String(), stderrBuf.String()}, "\n")
-		return provisionResult, err
-	}
+
 	if *provisionConfig == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = "--provision-config is required"
@@ -239,7 +234,7 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 	if *dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	}
-	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig, NBCCMD: *nbcCMD})
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,

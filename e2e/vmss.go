@@ -113,7 +113,7 @@ set -euo pipefail
 mkdir -p /opt/azure/bin
 curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
-/opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
+/opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
 SCRIPT
 chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
 
@@ -159,7 +159,7 @@ write_files:
     mkdir -p /opt/azure/bin
     curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
+    /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 coreos:
   units:
@@ -193,11 +193,19 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
-	var cse, customData string
-	nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-	require.NoError(s.T, err)
+	var cse, customData, nbcCMD string
+	if s.Runtime.NBC != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
+		require.NoError(s.T, err)
+	}
+
+	if s.Runtime.NBC.EnableScriptlessPhase2 {
+		nbcCMD = nodeBootstrapping.CSE
+	}
+
 	if s.Runtime.AKSNodeConfig != nil {
-		nbcCMD := nodeBootstrapping.CSE
+		cse = nodeconfigutils.CSE
+
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
 				var data string

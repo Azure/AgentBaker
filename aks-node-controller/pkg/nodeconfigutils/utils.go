@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
