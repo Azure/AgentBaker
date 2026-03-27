@@ -1174,7 +1174,10 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 
 func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
+		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
