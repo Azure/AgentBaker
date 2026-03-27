@@ -808,11 +808,8 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 
 				// Then validate NPD configuration and GPU monitoring
 				ValidateNPDGPUCountPlugin(ctx, s)
-				ValidateNPDGPUCountCondition(ctx, s)
+				ValidateNPDGPUCountAndIBLinkHealthy(ctx, s)
 				ValidateNPDGPUCountAfterFailure(ctx, s)
-
-				// Validate the if IB NPD is reporting the flapping condition
-				ValidateNPDIBLinkFlappingCondition(ctx, s)
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
 			},
 		}}

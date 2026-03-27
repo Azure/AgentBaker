@@ -300,10 +300,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDDevicePluginAndDCGMHealthy(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
 				// verify nvidia grid license status checks are reporting status correctly
 				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
@@ -374,10 +373,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDDevicePluginAndDCGMHealthy(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
 				// verify nvidia grid license status checks are reporting status correctly
 				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
@@ -448,10 +446,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDDevicePluginAndDCGMHealthy(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
 			},
 		},
@@ -525,10 +522,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDDevicePluginAndDCGMHealthy(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
 			},
 		},
@@ -595,10 +591,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
-				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
-				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDDevicePluginAndDCGMHealthy(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
 				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
 				// verify nvidia grid license status checks are reporting status correctly
 				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)

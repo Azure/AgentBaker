@@ -1001,38 +1001,71 @@ func ValidateNPDGPUCountPlugin(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD GPU count plugin configuration does not exist")
 }
 
+// expectedNPDCondition describes a single NPD condition to check.
+type expectedNPDCondition struct {
+	conditionType   string
+	conditionReason string
+	conditionStatus corev1.ConditionStatus
+	conditionMessage    string
+	conditionMessageErr string
+}
+
 func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, conditionReason string, conditionStatus corev1.ConditionStatus, conditionMessage, conditionMessageErr string) {
 	s.T.Helper()
-	// Wait for NPD to report initial condition
-	var condition *corev1.NodeCondition
+	validateNPDConditions(ctx, s, []expectedNPDCondition{
+		{conditionType, conditionReason, conditionStatus, conditionMessage, conditionMessageErr},
+	})
+}
+
+// validateNPDConditions polls the node once per interval and checks all expected conditions
+// against each response. This avoids sequential 3-minute polling loops when multiple
+// independent conditions need to be verified on the same node.
+func validateNPDConditions(ctx context.Context, s *Scenario, expected []expectedNPDCondition) {
+	s.T.Helper()
+
+	matched := make([]*corev1.NodeCondition, len(expected))
+	found := make([]bool, len(expected))
+
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
-			return false, nil // Continue polling on transient errors
+			return false, nil
 		}
 
-		// Check for condition with correct reason
-		for i := range node.Status.Conditions {
-			if string(node.Status.Conditions[i].Type) == conditionType && string(node.Status.Conditions[i].Reason) == conditionReason {
-				condition = &node.Status.Conditions[i] // Found the partial condition we are looking for
+		for i, exp := range expected {
+			if found[i] {
+				continue
 			}
-
-			if strings.Contains(node.Status.Conditions[i].Message, conditionMessage) {
-				condition = &node.Status.Conditions[i]
-				return true, nil // Found the exact condition we are looking for
+			for j := range node.Status.Conditions {
+				c := &node.Status.Conditions[j]
+				if string(c.Type) == exp.conditionType && string(c.Reason) == exp.conditionReason {
+					matched[i] = c
+				}
+				if strings.Contains(c.Message, exp.conditionMessage) {
+					matched[i] = c
+					found[i] = true
+					break
+				}
 			}
 		}
 
-		return false, nil // Continue polling until the condition is found or timeout occurs
+		for _, f := range found {
+			if !f {
+				return false, nil
+			}
+		}
+		return true, nil
 	})
-	if err != nil && condition == nil {
-		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
-	}
 
-	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
-	require.Equal(s.T, condition.Status, conditionStatus, "expected %s condition to be %s", conditionType, conditionStatus)
-	require.Contains(s.T, condition.Message, conditionMessage, conditionMessageErr)
+	for i, exp := range expected {
+		if err != nil && matched[i] == nil {
+			require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", exp.conditionType, exp.conditionReason, s.Runtime.VM.KubeName)
+		}
+		require.NotNil(s.T, matched[i], "expected to find %s condition with %s reason on node", exp.conditionType, exp.conditionReason)
+		require.Equal(s.T, matched[i].Status, exp.conditionStatus, "expected %s condition to be %s", exp.conditionType, exp.conditionStatus)
+		require.Contains(s.T, matched[i].Message, exp.conditionMessage, exp.conditionMessageErr)
+	}
 }
 
 func ValidateNPDGPUCountCondition(ctx context.Context, s *Scenario) {
@@ -1078,6 +1111,18 @@ func ValidateNPDIBLinkFlappingCondition(ctx context.Context, s *Scenario) {
 	// Validate that NPD is reporting no IB link flapping
 	validateNPDCondition(ctx, s, "IBLinkFlapping", "NoIBLinkFlapping", corev1.ConditionFalse,
 		"IB link is stable", "expected IBLinkFlapping message to indicate no flapping")
+}
+
+// ValidateNPDGPUCountAndIBLinkHealthy checks both the GPU count and IB link healthy-state
+// conditions in a single polling loop instead of two sequential 3-minute polls.
+func ValidateNPDGPUCountAndIBLinkHealthy(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	validateNPDConditions(ctx, s, []expectedNPDCondition{
+		{"GPUMissing", "NoGPUMissing", corev1.ConditionFalse,
+			"All GPUs are present", "expected GPUMissing message to indicate correct count"},
+		{"IBLinkFlapping", "NoIBLinkFlapping", corev1.ConditionFalse,
+			"IB link is stable", "expected IBLinkFlapping message to indicate no flapping"},
+	})
 }
 
 func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) {
@@ -1153,6 +1198,18 @@ func ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx context.Context, s *Sce
 	// Validate that NPD is reporting healthy Nvidia DCGM services
 	validateNPDCondition(ctx, s, "UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
 		"NVIDIA DCGM services are running properly", "expected UnhealthyNvidiaDCGMServices message to indicate healthy status")
+}
+
+// ValidateNPDDevicePluginAndDCGMHealthy checks both the device plugin and DCGM healthy-state
+// conditions in a single polling loop instead of two sequential 3-minute polls.
+func ValidateNPDDevicePluginAndDCGMHealthy(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	validateNPDConditions(ctx, s, []expectedNPDCondition{
+		{"UnhealthyNvidiaDevicePlugin", "HealthyNvidiaDevicePlugin", corev1.ConditionFalse,
+			"NVIDIA device plugin is running properly", "expected UnhealthyNvidiaDevicePlugin message to indicate healthy status"},
+		{"UnhealthyNvidiaDCGMServices", "HealthyNvidiaDCGMServices", corev1.ConditionFalse,
+			"NVIDIA DCGM services are running properly", "expected UnhealthyNvidiaDCGMServices message to indicate healthy status"},
+	})
 }
 
 func ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx context.Context, s *Scenario) {
