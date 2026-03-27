@@ -469,18 +469,6 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
             fi
         fi
     fi
-
-    cloud-init status --wait
-    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    # logic taken from https://repodepot.azure.com/scripts/cloud-init/setup_repodepot.sh
-    ubuntuRel=$(lsb_release --release | awk '{print $2}')
-    ubuntuDist=$(lsb_release -c | awk '{print $2}')
-    # initialize archive.ubuntu.com repo
-    init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
-    init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
-    # update apt list
-    echo "Running apt-get update"
-    aptget_update
 elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
     if [ "$install_ca_refresh_schedule" -eq 1 ]; then
         script_path="$(readlink -f "$0")"
