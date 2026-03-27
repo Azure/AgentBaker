@@ -79,6 +79,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"})
 	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
 	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
 	switch {
