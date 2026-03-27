@@ -229,9 +229,6 @@ func runScenario(t testing.TB, s *Scenario) error {
 
 func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
-	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
-	}
 
 	var err error
 	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
@@ -239,6 +236,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	if config.Config.EnableScriptlessCSECmd {
 		nbc.EnableScriptlessCSECmd = true
+	}
+	if config.Config.EnableScriptlessPhase2 {
+		nbc.EnableScriptlessPhase2 = true
 	}
 
 	if s.IsWindows() {

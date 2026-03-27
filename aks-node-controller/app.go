@@ -83,6 +83,7 @@ func cmdRunnerDryRun(cmd *exec.Cmd) error {
 
 type ProvisionFlags struct {
 	ProvisionConfig string
+	NBCCMD          string
 }
 
 type ProvisionStatusFiles struct {
@@ -171,6 +172,16 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
 		return provisionResult, errors.New(provisionResult.Error)
 	}
+
+	if flags.NBCCMD != "" {
+		nbcCMD := exec.CommandContext(ctx, "/bin/bash", flags.NBCCMD)
+		if nbcCMD != cmd {
+			slog.Info("Detected difference between AKSNodeConfig command and NBC command, ", "originalCmd: ", cmd.String(), "nbcCmd: ", nbcCMD.String())
+		}
+		slog.Info("Overriding CSE command with NBC command for scriptless phase 2", "nbcCmd", nbcCMD.String())
+		cmd = nbcCMD
+	}
+
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
@@ -207,12 +218,14 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	nbcCMD := fs.String("nbc-cmd", "", "path to the NBC command file")
 	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
 	if parseErr := fs.Parse(args); parseErr != nil {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
 		return provisionResult, errors.New(provisionResult.Error)
 	}
+
 	if *provisionConfig == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = "--provision-config is required"
@@ -221,7 +234,7 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 	if *dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	}
-	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig, NBCCMD: *nbcCMD})
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,

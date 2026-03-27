@@ -537,6 +537,25 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_Scriptless_Phase2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableKubeletConfigFile = true
+				nbc.EnableScriptlessPhase2 = true
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 	err := RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
