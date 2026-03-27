@@ -44,6 +44,7 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
+	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
