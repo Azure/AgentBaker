@@ -273,6 +273,7 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return &existingCluster.ManagedCluster, nil
 		}
 		fallthrough
+
 	case "Failed":
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
@@ -286,8 +287,19 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
+
+	case "Creating":
+		// For other non-terminal provisioning states (e.g., Creating, Updating, Scaling, Migrating, Upgrading, Starting, Stopping, Deleting, Canceling, Restoring), wait for the cluster to become ready.
+		toolkit.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
+		return waitUntilClusterReady(ctx, clusterName, location)
+
+	case "Starting":
+		// For other non-terminal provisioning states (e.g., Creating, Updating, Scaling, Migrating, Upgrading, Starting, Stopping, Deleting, Canceling, Restoring), wait for the cluster to become ready.
+		toolkit.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
+		return waitUntilClusterReady(ctx, clusterName, location)
+
 	default:
-		// other provisioning state,  deleting, , stopping,,cancaled,cancelling,"Creating", "Updating", "Scaling", "Migrating", "Upgrading", "Starting", "Restoring": .. plus many others.
+		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
 	}
@@ -342,7 +354,7 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating":
+		case "Updating", "Assigned", "Creating", "Starting":
 			return false, nil
 		default:
 			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)

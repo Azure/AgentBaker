@@ -36,6 +36,8 @@ param(
     $CSEResultFilePath
 )
 
+$ErrorActionPreference = "Stop"
+
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
 # https://learn.microsoft.com/en-gb/troubleshoot/windows-client/shell-experience/command-line-string-limitation
 
@@ -353,9 +355,13 @@ function BasePrep {
     Create-Directory -FullPath "c:\k"
     Write-Log "Remove `"NT AUTHORITY\Authenticated Users`" write permissions on files in c:\k"
     icacls.exe "c:\k" /inheritance:r
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to set inheritance on c:\k (exit code $LASTEXITCODE)" }
     icacls.exe "c:\k" /grant:r SYSTEM:`(OI`)`(CI`)`(F`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to grant SYSTEM permissions on c:\k (exit code $LASTEXITCODE)" }
     icacls.exe "c:\k" /grant:r BUILTIN\Administrators:`(OI`)`(CI`)`(F`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to grant Administrators permissions on c:\k (exit code $LASTEXITCODE)" }
     icacls.exe "c:\k" /grant:r BUILTIN\Users:`(OI`)`(CI`)`(RX`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to grant Users permissions on c:\k (exit code $LASTEXITCODE)" }
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
     Get-ProvisioningScripts
@@ -546,6 +552,7 @@ function NodePrep {
 
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
+    if ($LASTEXITCODE -ne 0) { throw "netsh advfirewall failed to disable firewall (exit code $LASTEXITCODE)" }
 
     # To ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Enable-WindowsCiliumNetworking -ErrorAction SilentlyContinue) {
@@ -598,6 +605,7 @@ function NodePrep {
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
+
     Write-Log "NodePrep completed successfully"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
 }
