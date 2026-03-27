@@ -44,6 +44,11 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	}
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
@@ -78,6 +83,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"})
 	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
 	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
 	switch {
