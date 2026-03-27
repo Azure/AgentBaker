@@ -164,20 +164,16 @@ configureCustomCaCertificate() {
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
-    systemctl restart containerd
 }
 
 configureContainerdUlimits() {
   CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  mkdir -p "$(dirname "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}")"
   touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
   chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
   tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
 $(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
 EOF
-
-  systemctl daemon-reload
-  systemctl restart containerd
 }
 
 # file paths defined outside so configureAzureJson can be unit tested
@@ -301,9 +297,10 @@ EOF
 }
 
 configureCNI() {
-    # needed for the iptables rules to work on bridges
-    retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
+    # needed for bridge iptables rules and customer-configured conntrack sysctls
+    retrycmd_if_failure 120 5 25 modprobe -a br_netfilter nf_conntrack || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
+    echo -n "nf_conntrack" > /etc/modules-load.d/nf_conntrack.conf
     configureCNIIPTables
 }
 
@@ -381,7 +378,7 @@ net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
@@ -424,6 +421,7 @@ ensureNoDupOnPromiscuBridge() {
 }
 
 ensureArtifactStreaming() {
+  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
   retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
   time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
@@ -565,6 +563,8 @@ configureKubeletAndKubectl() {
 ensurePodInfraContainerImage() {
     POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
     POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
+
+    waitForContainerdReady || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
 
     pod_infra_container_image=$(get_sandbox_image)
 
@@ -776,16 +776,21 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
     fi
 
-    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
-    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
-        echo "failed to start measure-tls-bootstrapping-latency.service"
-    fi
+    local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
+    date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
+        rm -f "${tls_bootstrapping_start_time_filepath}"
         journalctl -u kubelet.service --no-pager || true
         exit $ERR_KUBELET_START_FAIL
+    fi
+
+    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
+        rm -f "${tls_bootstrapping_start_time_filepath}"
+        echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 }
 
@@ -923,6 +928,7 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
         ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"

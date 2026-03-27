@@ -190,6 +190,9 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
+				Tags: Tags{
+					GPU: true,
+				},
 				Config: Config{
 					Cluster:                ClusterKubenet,
 					VHD:                    tc.vhd,
