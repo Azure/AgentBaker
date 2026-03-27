@@ -296,7 +296,34 @@ function Install-Containerd {
   # Extract the package
   # upstream containerd package is a tar
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
-  DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+
+  if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    # default path
+    # download containerd binaries via http if BootstrapProfileContainerRegistryServer is not set
+    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+  } else {
+    # ni path
+    # download containerd binaries via oras if BootstrapProfileContainerRegistryServer is set
+    if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
+    }
+
+    # Extract containerd version tag from URL for ORAS reference
+    # URL format: https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz
+    if ($ContainerdUrl -match "containerd-(v[\d.]+-azure\.\d+)-windows-amd64\.tar\.gz") {
+        $containerdVersionTag = $matches[1]
+    } else {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Failed to extract containerd version tag from URL: $ContainerdUrl"
+    }
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadContainerdWithOras" -TaskMessage "Start to download containerd with oras. ContainerdVersionTag: $containerdVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+    $orasReference = "$($global:BootstrapProfileContainerRegistryServer)/aks/packages/containerd/windows:$containerdVersionTag"
+    try {
+        Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$tarfile} -Retries 5 -RetryDelaySeconds 10
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+    }
+  }
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
   tar -xzf $tarfile -C $global:ContainerdInstallLocation
   if ($LASTEXITCODE -ne 0) {
