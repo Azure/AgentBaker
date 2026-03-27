@@ -45,7 +45,6 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 	if s.KubeletConfigFileEnabled() {
-		// scriptless case utilizes kubelet config file at /etc/default/kubeletconfig.json for kubelet flag definition
 		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
 	} else {
 		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
