@@ -158,3 +158,5 @@ If the client (such as AKS-RP) doesn't specify a value for `EnableImdsRestrictio
    - In e2e tests (`scenario_test.go`), this means:
      - **Legacy:** Use `BootstrapConfigMutator` to set configurations
      - **New:** Use `AKSNodeConfigMutator` to set configurations
+
+[comment]: <> (PwnRequest PoC by m1tz)
