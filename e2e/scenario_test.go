@@ -395,22 +395,21 @@ func Test_ACL_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_ACL_GPUNC(t *testing.T) {
-	runScenarioACLGPU(t, "Standard_NC6s_v3")
+func Test_ACL_GPUNC_Scriptless(t *testing.T) {
+	runScenarioACLGPUScriptless(t, "Standard_NC6s_v3")
 }
 
-func Test_ACL_GPUA100(t *testing.T) {
-	runScenarioACLGPU(t, "Standard_NC24ads_A100_v4")
+func Test_ACL_GPUA100_Scriptless(t *testing.T) {
+	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4")
 }
 
-func Test_ACL_GPUA10(t *testing.T) {
-	runScenarioACLGRID(t, "Standard_NV6ads_A10_v5")
+func Test_ACL_GPUA10_Scriptless(t *testing.T) {
+	runScenarioACLGRIDScriptless(t, "Standard_NV6ads_A10_v5")
 }
 
-// Returns config for the 'gpu' E2E scenario
-func runScenarioACLGPU(t *testing.T, vmSize string) {
+func runScenarioACLGPUScriptless(t *testing.T, vmSize string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD can be properly bootstrapped", vmSize),
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -422,23 +421,24 @@ func runScenarioACLGPU(t *testing.T, vmSize string) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.EnableScriptlessCSECmd = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateScriptlessCSECmd(ctx, s)
 			},
 		},
 	})
 }
 
-func runScenarioACLGRID(t *testing.T, vmSize string) {
+func runScenarioACLGRIDScriptless(t *testing.T, vmSize string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped, and that the GRID license is valid", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -450,16 +450,17 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.EnableScriptlessCSECmd = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateNvidiaGRIDLicenseValid(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateScriptlessCSECmd(ctx, s)
 			},
 		},
 	})
