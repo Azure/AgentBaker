@@ -44,7 +44,12 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
-	ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	if s.AKSNodeConfigMutator != nil {
+		// scriptless case utilizes kubelet config file at /etc/default/kubeletconfig.json for kubelet flag definition
+		ValidateJSONFileHasKeyValuePair(ctx, s, "/etc/default/kubeletconfig.json", "rotateCertificates", "true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	}
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
@@ -611,6 +616,27 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
 		}
 	}
+}
+
+func ValidateJSONFileHasKeyValuePair[T comparable](ctx context.Context, s *Scenario, fileName, key string, value T) {
+	s.T.Helper()
+	rawJSON, err := getFileContent(ctx, s, fileName)
+	if err != nil {
+		s.T.Fatalf("Expected JSON file %s to have key %q associated with value %v. Could not determine JSON contents due to %s", fileName, key, value, err.Error())
+	}
+	jsonContent := make(map[string]any)
+	if err := json.Unmarshal([]byte(rawJSON), &jsonContent); err != nil {
+		s.T.Fatalf("Expected JSON file %s to have key %q assocaited with value %v. Could not determine JSON contents due to %s", fileName, key, value, err.Error())
+	}
+	rawValue, hasKey := jsonContent[key]
+	if !hasKey {
+		s.T.Fatalf("Expected JSON file %s to have key %[1]q associated with value %v, but was missing key %[1]q", fileName, key, value)
+	}
+	actualValue, ok := rawValue.(T)
+	if !ok {
+		s.T.Fatalf("Expected JSOn file %s to have key %[1]q associated with value %v, but actual value associated with key %[1]q has unexpected type", fileName, key, value)
+	}
+	require.Equal(s.T, value, actualValue)
 }
 
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
