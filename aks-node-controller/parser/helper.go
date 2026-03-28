@@ -834,6 +834,13 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 	return defaultLocalDnsMemoryLimitInMb
 }
 
+// getLocalDnsCriticalFqdns returns the comma-separated list of critical FQDNs
+// from the LocalDnsProfile. These FQDNs are passed from the RP so the hosts
+// setup script doesn't need cloud-specific logic.
+func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
+	return getStringifiedStringArray(config.GetLocalDnsProfile().GetCriticalFqdns(), ",")
+}
+
 // ---------------------- End of localdns related helper code ----------------------//
 
 // ---------------------- Start of cse timeout helper code ----------------------//
