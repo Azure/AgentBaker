@@ -523,10 +523,13 @@ while IFS= read -r p; do
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
       ;;
     "aznfs")
-      # aznfs RPM is fetched directly from PMC and installed via installAznfsPkgFromPMC
-      # in cse_install_mariner.sh. The version and URL are tracked here in components.json
-      # for auditability and to enable future renovate automation.
-      # No download action needed here as the install function handles it.
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        mkdir -p "${downloadDir}"
+        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}"
+        retrycmd_curl_file 120 5 25 "${downloadDir}/aznfs-${version}.x86_64.rpm" "${evaluatedURL}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+        echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."

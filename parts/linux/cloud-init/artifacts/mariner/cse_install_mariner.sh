@@ -243,21 +243,24 @@ installAznfsPkgFromPMC() {
     return
   fi
 
-  # Download the aznfs RPM directly from PMC instead of installing the rhel9 PMC repo
-  # to avoid potential package versioning conflicts with AzureLinux packages.
-  # When aznfs is published to https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/
-  # this should be updated to use the official AzureLinux repo.
-  local aznfs_version="3.0.15-1"
-  local aznfs_rpm_file="/tmp/aznfs-${aznfs_version}.x86_64.rpm"
-  local aznfs_rpm_url="https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${aznfs_version}.x86_64.rpm"
-  retrycmd_curl_file 120 5 25 "${aznfs_rpm_file}" "${aznfs_rpm_url}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+  # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
+  # (via components.json) to avoid installing the rhel9 PMC repo into the
+  # RPM DB, which could cause versioning conflicts with AzureLinux packages.
+  local aznfs_download_dir="/opt/aznfs/downloads"
+  local aznfs_rpm_file
+  aznfs_rpm_file=$(find "${aznfs_download_dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | head -1)
+  if [ -z "${aznfs_rpm_file}" ]; then
+    echo "Error: aznfs RPM not found in ${aznfs_download_dir}"
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
+
+  echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
   if ! AZNFS_NONINTERACTIVE_INSTALL=1 rpm -i "${aznfs_rpm_file}"; then
-    echo "Failed to install aznfs RPM, retrying with dnf localinstall"
+    echo "rpm -i failed, retrying with dnf localinstall"
     if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
   fi
-  rm -f "${aznfs_rpm_file}"
 
   # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
   local aznfs_config="/opt/microsoft/aznfs/data/config"
