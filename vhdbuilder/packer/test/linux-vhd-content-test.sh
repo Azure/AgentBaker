@@ -51,7 +51,7 @@ elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
   SKIP_GIT_CLONE=true
 else
-  sudo tdnf install -y git
+  sudo dnf install -y git
 fi
 
 if [ "$SKIP_GIT_CLONE" = "true" ]; then
