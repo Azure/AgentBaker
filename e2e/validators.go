@@ -1601,12 +1601,12 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
 	// Wait for resources to be available and add delay for device health
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	waitUntilResourceAvailable(ctx, s, resourceName)
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
@@ -1625,7 +1625,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							"nvidia.com/gpu": resource.MustParse(fmt.Sprintf("%d", gpuCount)),
+							corev1.ResourceName(resourceName): resource.MustParse(fmt.Sprintf("%d", gpuCount)),
 						},
 					},
 				},

@@ -282,7 +282,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -357,7 +357,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -431,7 +431,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -507,7 +507,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3)
+				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -578,7 +578,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -623,7 +623,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.GPUInstanceProfile = "MIG2g"
+				nbc.GPUInstanceProfile = "MIG1g"
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Mixed"
 			},
@@ -651,14 +651,14 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				ValidateMIGModeEnabled(ctx, s)
 
 				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 2g.20gb")
+				ValidateMIGInstancesCreated(ctx, s, "MIG 1g")
 
 				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
-				migResourceName := "nvidia.com/mig-2g.20gb"
-				ValidateNodeAdvertisesGPUResources(ctx, s, 3, migResourceName)
+				migResourceName := "nvidia.com/mig-1g.10g"
+				ValidateNodeAdvertisesGPUResources(ctx, s, 2, migResourceName)
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3)
+				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
 			},
 		},
 	})
