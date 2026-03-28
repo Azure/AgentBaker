@@ -524,10 +524,11 @@ while IFS= read -r p; do
       ;;
     "aznfs")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
         mkdir -p "${downloadDir}"
-        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}"
-        retrycmd_curl_file 120 5 25 "${downloadDir}/aznfs-${version}.x86_64.rpm" "${evaluatedURL}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+        aznfsFilename=$(basename "${evaluatedURL}")
+        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
+        retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
         echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;

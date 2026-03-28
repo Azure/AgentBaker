@@ -255,11 +255,8 @@ installAznfsPkgFromPMC() {
   fi
 
   echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
-  if ! AZNFS_NONINTERACTIVE_INSTALL=1 rpm -i "${aznfs_rpm_file}"; then
-    echo "rpm -i failed, retrying with dnf localinstall"
-    if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
-      exit $ERR_APT_INSTALL_TIMEOUT
-    fi
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+    exit $ERR_APT_INSTALL_TIMEOUT
   fi
 
   # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
@@ -276,9 +273,16 @@ installAznfsPkgFromPMC() {
 
   # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
   # services at the same time while we only need aznfswatchdogv4
-  if systemctl list-unit-files | grep -q aznfswatchdog.service; then
-    systemctl disable aznfswatchdog
-    systemctl stop aznfswatchdog
+  # Best-effort disable/stop to avoid failing VHD build under set -e
+  if systemctl is-enabled aznfswatchdog >/dev/null 2>&1; then
+    if ! systemctl disable aznfswatchdog; then
+      echo "Warning: failed to disable aznfswatchdog service; continuing"
+    fi
+  fi
+  if systemctl is-active aznfswatchdog >/dev/null 2>&1; then
+    if ! systemctl stop aznfswatchdog; then
+      echo "Warning: failed to stop aznfswatchdog service; continuing"
+    fi
   fi
 }
 
