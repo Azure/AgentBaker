@@ -95,7 +95,10 @@ func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
 #!/bin/bash
 set -euo pipefail
 
-mkdir -p /opt/azure/containers /opt/azure/bin
+mkdir -p /opt/azure/containers /opt/azure/bin /var/lib/waagent
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
 cat <<'EOF' | base64 -d > /opt/azure/containers/aks-node-controller-config-hack.json
 %s
