@@ -1000,6 +1000,7 @@ SETUP_EOF
 
             # Set up test environment
             TARGET_CLOUD="AzurePublicCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com"
 
             # Mock systemctl function
             systemctlEnableAndStartNoBlock() {
@@ -1009,13 +1010,13 @@ SETUP_EOF
 
             # Export variables so the real function can use them
             export AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
-            export AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
+            export AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
         }
 
         cleanup() {
             rm -rf "$TEST_TEMP_DIR"
             unset AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
-            unset AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD
+            unset AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
         }
 
         BeforeEach 'setup'
@@ -1075,29 +1076,30 @@ SETUP_EOF
             The output should include "is not executable, skipping aks-hosts-setup"
         End
 
-        It 'should create cloud-env file with TARGET_CLOUD value'
-            TARGET_CLOUD="AzurePublicCloud"
+        It 'should create cloud-env file with LOCALDNS_CRITICAL_FQDNS'
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
             The file "$AKS_CLOUD_ENV_FILE" should be exist
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzurePublicCloud"
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com"
         End
 
-        It 'should write correct cloud-env for AzureChinaCloud'
+        It 'should write cloud-env with China FQDNs when passed by RP'
             TARGET_CLOUD="AzureChinaCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com"
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureChinaCloud"
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com"
         End
 
-        It 'should write correct cloud-env for AzureUSGovernmentCloud'
+        It 'should write cloud-env with US Gov FQDNs when passed by RP'
             TARGET_CLOUD="AzureUSGovernmentCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com"
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "TARGET_CLOUD=AzureUSGovernmentCloud"
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com"
         End
 
         It 'should set correct permissions on cloud-env file'
@@ -1108,78 +1110,35 @@ SETUP_EOF
             The result of function check_cloud_env_permissions should equal "0644"
         End
 
-        It 'should skip when TARGET_CLOUD is unset'
-            unset TARGET_CLOUD
+        It 'should skip when LOCALDNS_CRITICAL_FQDNS is unset'
+            unset LOCALDNS_CRITICAL_FQDNS
             When call enableAKSHostsSetup
             The status should be success
-            The output should include "WARNING: TARGET_CLOUD is not set"
-            The output should include "Cannot run aks-hosts-setup without knowing cloud environment"
+            The output should include "WARNING: LOCALDNS_CRITICAL_FQDNS is not set"
             The output should include "Skipping aks-hosts-setup"
         End
 
-        It 'should skip when TARGET_CLOUD is empty string'
-            TARGET_CLOUD=""
+        It 'should skip when LOCALDNS_CRITICAL_FQDNS is empty string'
+            LOCALDNS_CRITICAL_FQDNS=""
             When call enableAKSHostsSetup
             The status should be success
-            The output should include "WARNING: TARGET_CLOUD is not set"
+            The output should include "WARNING: LOCALDNS_CRITICAL_FQDNS is not set"
             The output should include "Skipping aks-hosts-setup"
         End
 
-        It 'should skip when TARGET_CLOUD is unsupported (USNatCloud)'
+        It 'should work with any cloud as long as FQDNs are provided'
             TARGET_CLOUD="USNatCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.com"
             When call enableAKSHostsSetup
             The status should be success
-            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: USNatCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            The output should include "Skipping aks-hosts-setup"
-            The file "$AKS_CLOUD_ENV_FILE" should not be exist
+            The output should include "aks-hosts-setup timer enabled successfully."
+            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.microsoft.com,login.microsoftonline.com"
         End
 
-        It 'should skip when TARGET_CLOUD is unsupported (USSecCloud)'
-            TARGET_CLOUD="USSecCloud"
+        It 'should log LOCALDNS_CRITICAL_FQDNS when set'
             When call enableAKSHostsSetup
             The status should be success
-            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: USSecCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            The output should include "Skipping aks-hosts-setup"
-            The file "$AKS_CLOUD_ENV_FILE" should not be exist
-        End
-
-        It 'should skip when TARGET_CLOUD is unsupported (AzureStackCloud)'
-            TARGET_CLOUD="AzureStackCloud"
-            When call enableAKSHostsSetup
-            The status should be success
-            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: AzureStackCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            The output should include "Skipping aks-hosts-setup"
-            The file "$AKS_CLOUD_ENV_FILE" should not be exist
-        End
-
-        It 'should skip when TARGET_CLOUD is unsupported (AzureGermanCloud)'
-            TARGET_CLOUD="AzureGermanCloud"
-            When call enableAKSHostsSetup
-            The status should be success
-            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: AzureGermanCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            The output should include "Skipping aks-hosts-setup"
-            The file "$AKS_CLOUD_ENV_FILE" should not be exist
-        End
-
-        It 'should skip when TARGET_CLOUD is unsupported (unknown cloud)'
-            TARGET_CLOUD="SomeRandomCloud"
-            When call enableAKSHostsSetup
-            The status should be success
-            The output should include "WARNING: The following cloud is not supported by aks-hosts-setup: SomeRandomCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            The output should include "Skipping aks-hosts-setup"
-            The file "$AKS_CLOUD_ENV_FILE" should not be exist
-        End
-
-        It 'should log TARGET_CLOUD value when set'
-            TARGET_CLOUD="AzurePublicCloud"
-            When call enableAKSHostsSetup
-            The status should be success
-            The output should include "Setting TARGET_CLOUD=AzurePublicCloud for aks-hosts-setup"
+            The output should include "Setting LOCALDNS_CRITICAL_FQDNS for aks-hosts-setup"
         End
     End
 

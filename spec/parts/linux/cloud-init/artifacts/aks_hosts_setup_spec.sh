@@ -5,21 +5,21 @@ Describe 'aks-hosts-setup.sh'
     SCRIPT_PATH="parts/linux/cloud-init/artifacts/aks-hosts-setup.sh"
 
     # Helper to build a test script that uses the real system dig.
-    # Overrides only HOSTS_FILE and TARGET_CLOUD, preserving everything else
-    # (cloud selection, resolution loop, atomic write) from the real script.
+    # Overrides only HOSTS_FILE and LOCALDNS_CRITICAL_FQDNS, preserving everything else
+    # (resolution loop, atomic write) from the real script.
     # Uses sed to strip the shebang, set -euo pipefail, and HOSTS_FILE= lines
     # so the test is not brittle to comment changes at the top of the script.
     build_test_script() {
         local test_dir="$1"
         local hosts_file="$2"
-        local target_cloud="${3:-AzurePublicCloud}"
+        local fqdns="${3:-mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com}"
         local test_script="${test_dir}/aks-hosts-setup-test.sh"
 
         cat > "${test_script}" << EOF
 #!/usr/bin/env bash
 set -uo pipefail
 HOSTS_FILE="${hosts_file}"
-export TARGET_CLOUD="${target_cloud}"
+export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
 EOF
         sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
@@ -33,7 +33,7 @@ EOF
         local test_dir="$1"
         local hosts_file="$2"
         local mock_bin_dir="$3"
-        local target_cloud="${4:-AzurePublicCloud}"
+        local fqdns="${4:-mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com}"
         local test_script="${test_dir}/aks-hosts-setup-test.sh"
 
         cat > "${test_script}" << EOF
@@ -41,7 +41,7 @@ EOF
 set -uo pipefail
 export PATH="${mock_bin_dir}:\$PATH"
 HOSTS_FILE="${hosts_file}"
-export TARGET_CLOUD="${target_cloud}"
+export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
 EOF
         sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
@@ -64,11 +64,11 @@ MOCK_EOF
     # Tests using real dig (no mocks)
     # -----------------------------------------------------------------------
 
-    Describe 'DNS resolution and hosts file creation (AzurePublicCloud)'
+    Describe 'DNS resolution and hosts file creation (public cloud FQDNs)'
         setup() {
             TEST_DIR=$(mktemp -d)
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}")
         }
 
         cleanup() {
@@ -86,10 +86,10 @@ MOCK_EOF
             The output should include "AKS critical FQDN hosts resolution completed"
         End
 
-        It 'detects AzurePublicCloud environment'
+        It 'reports the number of FQDNs received from RP'
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "Detected cloud environment: AzurePublicCloud"
+            The output should include "Received 6 critical FQDNs from RP"
         End
 
         It 'resolves all public cloud FQDNs'
@@ -123,10 +123,9 @@ MOCK_EOF
         End
     End
 
-    Describe 'Cloud-specific FQDN selection'
-        # These tests use real nslookup. Sovereign cloud domains may not resolve
-        # from CI, so we assert on which FQDNs the script *attempts* to resolve
-        # (visible in stdout) rather than checking hosts file contents.
+    Describe 'FQDN list parsing'
+        # These tests verify the script resolves whatever FQDNs the RP passes.
+        # No cloud-specific logic in the script — the RP controls the FQDN list.
         setup() {
             TEST_DIR=$(mktemp -d)
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
@@ -139,27 +138,27 @@ MOCK_EOF
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        It 'selects AzureChinaCloud FQDNs'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureChinaCloud")
+        It 'resolves China cloud FQDNs when passed by RP'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com")
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "Detected cloud environment: AzureChinaCloud"
+            The output should include "Received 5 critical FQDNs from RP"
             # Should resolve China-specific endpoints
             The output should include "Resolving addresses for mcr.azure.cn"
             The output should include "Resolving addresses for mcr.azk8s.cn"
             The output should include "Resolving addresses for login.partner.microsoftonline.cn"
             The output should include "Resolving addresses for management.chinacloudapi.cn"
             The output should include "Resolving addresses for packages.microsoft.com"
-            # Should NOT attempt public cloud endpoints
+            # Should NOT attempt public cloud endpoints (they weren't passed)
             The output should not include "Resolving addresses for login.microsoftonline.com"
             The output should not include "Resolving addresses for management.azure.com"
         End
 
-        It 'selects AzureUSGovernmentCloud FQDNs'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureUSGovernmentCloud")
+        It 'resolves US Gov cloud FQDNs when passed by RP'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com,acs-mirror.azureedge.net,packages.microsoft.com")
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "Detected cloud environment: AzureUSGovernmentCloud"
+            The output should include "Received 6 critical FQDNs from RP"
             The output should include "Resolving addresses for mcr.microsoft.com"
             The output should include "Resolving addresses for login.microsoftonline.us"
             The output should include "Resolving addresses for management.usgovcloudapi.net"
@@ -168,104 +167,55 @@ MOCK_EOF
             The output should not include "Resolving addresses for management.azure.com"
         End
 
-        It 'exits with error for unknown cloud values'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "SomeUnknownCloud")
+        It 'resolves arbitrary sovereign cloud FQDNs when passed by RP'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.microsoft.com,login.microsoftonline.com")
             When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: SomeUnknownCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            The output should not include "Cannot determine which FQDNs to resolve for hosts file"
-            The output should not include "Exiting without modifying hosts file"
+            The status should be success
+            The output should include "Received 2 critical FQDNs from RP"
+            The output should include "Resolving addresses for mcr.microsoft.com"
+            The output should include "Resolving addresses for login.microsoftonline.com"
         End
 
-        It 'exits with error for USNatCloud (no longer supported)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USNatCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: USNatCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        End
-
-        It 'exits with error for USSecCloud (no longer supported)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "USSecCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: USSecCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        End
-
-        It 'exits with error for AzureStackCloud (no longer supported)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureStackCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: AzureStackCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        End
-
-        It 'exits with error for AzureGermanCloud (no longer supported)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureGermanCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: AzureGermanCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        End
-
-        It 'exits with error for AzureGermanyCloud (no longer supported)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureGermanyCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: AzureGermanyCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        End
-
-        It 'exits with error for AzureBleuCloud (no longer supported)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzureBleuCloud")
-            When run command bash "${TEST_SCRIPT}"
-            The status should be failure
-            The output should include "ERROR: The following cloud is not supported: AzureBleuCloud"
-            The output should include "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        End
-
-        It 'fails when TARGET_CLOUD is unset'
-            local test_script="${TEST_DIR}/aks-hosts-setup-test-nocloud.sh"
+        It 'exits gracefully when LOCALDNS_CRITICAL_FQDNS is unset'
+            local test_script="${TEST_DIR}/aks-hosts-setup-test-nofqdns.sh"
             cat > "${test_script}" << EOF
 #!/usr/bin/env bash
 set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
-unset TARGET_CLOUD
+unset LOCALDNS_CRITICAL_FQDNS
 EOF
             tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
-            The status should be failure
-            The output should include "ERROR: TARGET_CLOUD is not set"
-            The output should include "Cannot determine which FQDNs to resolve"
+            The status should be success
+            The output should include "LOCALDNS_CRITICAL_FQDNS is not set or empty"
             The output should include "Exiting without modifying hosts file"
         End
 
-        It 'fails when TARGET_CLOUD is empty string'
+        It 'exits gracefully when LOCALDNS_CRITICAL_FQDNS is empty string'
             local test_script="${TEST_DIR}/aks-hosts-setup-test-empty.sh"
             cat > "${test_script}" << EOF
 #!/usr/bin/env bash
 set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
-export TARGET_CLOUD=""
+export LOCALDNS_CRITICAL_FQDNS=""
 EOF
             tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
-            The status should be failure
-            The output should include "ERROR: TARGET_CLOUD is not set"
-            The output should include "Cannot determine which FQDNs to resolve"
+            The status should be success
+            The output should include "LOCALDNS_CRITICAL_FQDNS is not set or empty"
+            The output should include "Exiting without modifying hosts file"
         End
 
-        It 'includes packages.microsoft.com for all clouds (common FQDN)'
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzurePublicCloud")
+        It 'handles single FQDN correctly'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.microsoft.com")
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "Resolving addresses for packages.microsoft.com"
+            The output should include "Received 1 critical FQDNs from RP"
+            The output should include "Resolving addresses for mcr.microsoft.com"
         End
     End
 
@@ -273,7 +223,7 @@ EOF
         setup() {
             TEST_DIR=$(mktemp -d)
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
-            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}")
         }
 
         cleanup() {
@@ -316,7 +266,7 @@ EOF
             MOCK_BIN="${TEST_DIR}/mock_bin"
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
             create_failure_mock "${MOCK_BIN}"
-            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
         }
 
         cleanup() {
@@ -367,7 +317,7 @@ EOF
 
         It 'filters out NXDOMAIN responses from hosts file'
             create_failure_mock "${MOCK_BIN}"
-            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
@@ -382,7 +332,7 @@ EOF
 exit 0
 MOCK_EOF
             chmod +x "${MOCK_BIN}/dig"
-            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
@@ -410,7 +360,7 @@ if [[ "$record_type" == "A" ]]; then
 fi
 MOCK_EOF
             chmod +x "${MOCK_BIN}/dig"
-            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
@@ -445,7 +395,7 @@ if [[ "$record_type" == "AAAA" ]]; then
 fi
 MOCK_EOF
             chmod +x "${MOCK_BIN}/dig"
-            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
@@ -484,7 +434,7 @@ if [[ "$record_type" == "A" ]]; then
 fi
 MOCK_EOF
             chmod +x "${MOCK_BIN}/dig"
-            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "AzurePublicCloud")
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
