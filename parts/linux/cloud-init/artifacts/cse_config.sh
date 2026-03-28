@@ -1371,33 +1371,18 @@ enableAKSHostsSetup() {
         return
     fi
 
-    # Write the cloud environment as a systemd EnvironmentFile so aks-hosts-setup.sh
-    # can use $TARGET_CLOUD directly — both when called from CSE (already in env) and
+    # Write the FQDN list as a systemd EnvironmentFile so aks-hosts-setup.sh
+    # can use $LOCALDNS_CRITICAL_FQDNS directly — both when called from CSE (already in env) and
     # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
-    if [ -z "${TARGET_CLOUD:-}" ]; then
-        echo "WARNING: TARGET_CLOUD is not set. Cannot run aks-hosts-setup without knowing cloud environment."
-        echo "aks-hosts-setup requires TARGET_CLOUD to determine which FQDNs to resolve."
+    if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
+        echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
         echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
         return
     fi
 
-    # Validate that TARGET_CLOUD is one of the supported clouds
-    # This must match the case statement in aks-hosts-setup.sh
-    case "${TARGET_CLOUD}" in
-        AzurePublicCloud|AzureChinaCloud|AzureUSGovernmentCloud)
-            # Supported cloud, continue
-            ;;
-        *)
-            echo "WARNING: The following cloud is not supported by aks-hosts-setup: ${TARGET_CLOUD}"
-            echo "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-            echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
-            return
-            ;;
-    esac
-
-    echo "Setting TARGET_CLOUD=${TARGET_CLOUD} for aks-hosts-setup"
+    echo "Setting LOCALDNS_CRITICAL_FQDNS for aks-hosts-setup"
     mkdir -p "$(dirname "${cloud_env_file}")"
-    echo "TARGET_CLOUD=${TARGET_CLOUD}" > "${cloud_env_file}"
+    echo "LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS}" > "${cloud_env_file}"
     chmod 0644 "${cloud_env_file}"
 
     # Create an empty hosts file so the localdns hosts plugin can start watching it

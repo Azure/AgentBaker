@@ -2465,6 +2465,9 @@ type LocalDNSProfile struct {
 	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
 	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
+	// CriticalFQDNs is the list of critical FQDNs to resolve for the hosts plugin.
+	// Passed from RP so the script doesn't need cloud-specific logic.
+	CriticalFQDNs []string `json:"criticalFQDNs,omitempty"`
 }
 
 type LocalDNSCoreFileData struct {

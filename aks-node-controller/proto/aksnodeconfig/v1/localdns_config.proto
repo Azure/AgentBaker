@@ -24,6 +24,10 @@ message LocalDnsProfile {
   // When true and LocalDNS is enabled, the Corefile will include a hosts plugin block
   // that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
   bool enable_hosts_plugin = 6;
+
+  // List of critical FQDNs to resolve for the hosts plugin.
+  // Passed from RP so the script doesn't need cloud-specific logic.
+  repeated string critical_fqdns = 7;
 }
 
 // Represents DNS override settings for both VnetDNS and KubeDNS traffic.

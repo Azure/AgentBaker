@@ -173,6 +173,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SHOULD_ENABLE_HOSTS_PLUGIN":                         shouldEnableHostsPlugin(config),
 		"LOCALDNS_CPU_LIMIT":                                 getLocalDnsCpuLimitInPercentage(config),
 		"LOCALDNS_MEMORY_LIMIT":                              getLocalDnsMemoryLimitInMb(config),
+		"LOCALDNS_CRITICAL_FQDNS":                            getLocalDnsCriticalFqdns(config),
 		"LOCALDNS_GENERATED_COREFILE":                        getLocalDnsCorefileBase64WithHostsPlugin(config, false),
 		"LOCALDNS_COREFILE_BASE":                             getLocalDnsCorefileBase64WithHostsPlugin(config, false),
 		"LOCALDNS_COREFILE_EXPERIMENTAL":                     getLocalDnsCorefileBase64WithHostsPlugin(config, true),

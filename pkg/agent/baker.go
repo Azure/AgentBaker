@@ -1256,6 +1256,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
+		"GetLocalDNSCriticalFQDNs": func() string {
+			if profile.LocalDNSProfile == nil {
+				return ""
+			}
+			return strings.Join(profile.LocalDNSProfile.CriticalFQDNs, ",")
+		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
 		"BlockIptables": func() bool {
