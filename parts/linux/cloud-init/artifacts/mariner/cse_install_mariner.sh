@@ -243,22 +243,40 @@ installAznfsPkgFromPMC() {
     return
   fi
 
-  local aznfs_rpm_file="/tmp/packages.microsoft-prod.rpm"
-  local aznfs_pkg_url="https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm"
-  retrycmd_curl_file 120 5 25 "${aznfs_rpm_file}" "${aznfs_pkg_url}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-  if ! dnf_install 30 1 600 "${aznfs_rpm_file}"; then
-    exit $ERR_APT_INSTALL_TIMEOUT
-  fi
-  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 aznfs-3.0.15-1; then
-    exit $ERR_APT_INSTALL_TIMEOUT
+  # Download the aznfs RPM directly from PMC instead of installing the rhel9 PMC repo
+  # to avoid potential package versioning conflicts with AzureLinux packages.
+  # When aznfs is published to https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/
+  # this should be updated to use the official AzureLinux repo.
+  local aznfs_version="3.0.15-1"
+  local aznfs_rpm_file="/tmp/aznfs-${aznfs_version}.x86_64.rpm"
+  local aznfs_rpm_url="https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${aznfs_version}.x86_64.rpm"
+  retrycmd_curl_file 120 5 25 "${aznfs_rpm_file}" "${aznfs_rpm_url}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 rpm -i "${aznfs_rpm_file}"; then
+    echo "Failed to install aznfs RPM, retrying with dnf localinstall"
+    if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
   fi
   rm -f "${aznfs_rpm_file}"
-  # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
-  systemctl disable aznfswatchdog
-  systemctl stop aznfswatchdog
 
-  echo "Importing Microsoft RPM GPG key into RPM database"
-  gpg --import /etc/pki/rpm-gpg/RPM-GPG-KEY-Microsoft || echo "Warning: failed to import Microsoft RPM GPG key"
+  # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
+  local aznfs_config="/opt/microsoft/aznfs/data/config"
+  if [ -f "${aznfs_config}" ]; then
+    sed -i 's/AUTOUPDATE=.*/AUTOUPDATE=false/' "${aznfs_config}"
+    echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
+  fi
+
+  # Restart aznfs services to pick up the config change
+  if systemctl list-unit-files | grep -q aznfswatchdogv4; then
+    systemctl restart aznfswatchdogv4
+  fi
+
+  # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
+  # services at the same time while we only need aznfswatchdogv4
+  if systemctl list-unit-files | grep -q aznfswatchdog.service; then
+    systemctl disable aznfswatchdog
+    systemctl stop aznfswatchdog
+  fi
 }
 
 installToolFromLocalRepo() {
