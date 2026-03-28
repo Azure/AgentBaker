@@ -2230,6 +2230,41 @@
           }
         }
       }
+    },
+    {
+      "name": "aznfs",
+      "downloadLocation": "/opt/aznfs/downloads",
+      "downloadURIs": {
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "3.0.15-1"
+              }
+            ],
+            "downloadURL": "https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${version}.x86_64.rpm"
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [

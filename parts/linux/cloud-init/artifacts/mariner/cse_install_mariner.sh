@@ -237,6 +237,55 @@ installKubeletKubectlFromPkg() {
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
 }
 
+installAznfsPkgFromPMC() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "aznfs package install is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
+  # (via components.json) to avoid installing the rhel9 PMC repo into the
+  # RPM DB, which could cause versioning conflicts with AzureLinux packages.
+  local aznfs_download_dir="/opt/aznfs/downloads"
+  local aznfs_rpm_file
+  aznfs_rpm_file=$(find "${aznfs_download_dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | head -1)
+  if [ -z "${aznfs_rpm_file}" ]; then
+    echo "Error: aznfs RPM not found in ${aznfs_download_dir}"
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
+
+  echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
+
+  # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
+  local aznfs_config="/opt/microsoft/aznfs/data/config"
+  if [ -f "${aznfs_config}" ]; then
+    sed -i 's/AUTOUPDATE=.*/AUTOUPDATE=false/' "${aznfs_config}"
+    echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
+  fi
+
+  # Restart aznfs services to pick up the config change
+  if systemctl list-unit-files | grep -q aznfswatchdogv4; then
+    systemctl restart aznfswatchdogv4
+  fi
+
+  # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
+  # services at the same time while we only need aznfswatchdogv4
+  # Best-effort disable/stop to avoid failing VHD build under set -e
+  if systemctl is-enabled aznfswatchdog >/dev/null 2>&1; then
+    if ! systemctl disable aznfswatchdog; then
+      echo "Warning: failed to disable aznfswatchdog service; continuing"
+    fi
+  fi
+  if systemctl is-active aznfswatchdog >/dev/null 2>&1; then
+    if ! systemctl stop aznfswatchdog; then
+      echo "Warning: failed to stop aznfswatchdog service; continuing"
+    fi
+  fi
+}
+
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
