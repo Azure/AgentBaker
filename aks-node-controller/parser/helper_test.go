@@ -1884,3 +1884,75 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 		})
 	}
 }
+
+func Test_getLocalDnsCriticalFqdns(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when CriticalFqdns is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when CriticalFqdns is empty",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns:  []string{},
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns comma-separated FQDNs",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns: []string{
+						"mcr.microsoft.com",
+						"packages.microsoft.com",
+						"login.microsoftonline.com",
+					},
+				},
+			}},
+			want: "mcr.microsoft.com,packages.microsoft.com,login.microsoftonline.com",
+		},
+		{
+			name: "returns single FQDN without trailing comma",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns:  []string{"mcr.microsoft.com"},
+				},
+			}},
+			want: "mcr.microsoft.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsCriticalFqdns(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsCriticalFqdns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

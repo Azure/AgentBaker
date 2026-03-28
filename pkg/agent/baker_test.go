@@ -273,6 +273,46 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
+		Describe("GetLocalDNSCriticalFQDNs template func", func() {
+			It("returns empty string when LocalDNSProfile is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				funcMap := getContainerServiceFuncMap(config)
+				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(fn()).To(Equal(""))
+			})
+			It("returns empty string when CriticalFQDNs is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					CriticalFQDNs:  nil,
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(fn()).To(Equal(""))
+			})
+			It("returns comma-separated FQDNs", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					CriticalFQDNs: []string{
+						"mcr.microsoft.com",
+						"packages.microsoft.com",
+						"login.microsoftonline.com",
+					},
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(fn()).To(Equal("mcr.microsoft.com,packages.microsoft.com,login.microsoftonline.com"))
+			})
+			It("returns single FQDN without trailing comma", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					CriticalFQDNs:  []string{"mcr.microsoft.com"},
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(fn()).To(Equal("mcr.microsoft.com"))
+			})
+		})
+
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
