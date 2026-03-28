@@ -2263,26 +2263,6 @@
               }
             ]
           }
-        },
-        "ubuntu": {
-          "default": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
-        },
-        "flatcar": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
         }
       }
     }
