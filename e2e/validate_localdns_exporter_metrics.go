@@ -53,4 +53,5 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) {
 	result := execScriptOnVMForScenario(ctx, s, "sudo "+remotePath)
 	require.Equal(s.T, "0", result.exitCode,
 		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
+	s.T.Logf("localdns exporter metrics validation output:\n%s", result.stdout)
 }

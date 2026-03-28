@@ -34,7 +34,20 @@ if ! ss -tln | grep -q ':9353'; then
     ss -tln | grep -E ':(9353|53)' || true
     exit 1
 fi
-echo "   ✓ Port 9353 is listening"
+# Detect the actual listen address (may be node IP via CSE drop-in, not 127.0.0.1)
+LISTEN_ADDR=$(ss -tln | grep ':9353' | awk '{print $4}' | head -1)
+LISTEN_ADDR=${LISTEN_ADDR//\*/127.0.0.1}
+LISTEN_ADDR=${LISTEN_ADDR//0.0.0.0/127.0.0.1}
+echo "   ✓ Port 9353 is listening on ${LISTEN_ADDR}"
+
+# Log drop-in and effective socket config for debugging
+echo "   Drop-in directory contents:"
+ls -la /etc/systemd/system/localdns-exporter.socket.d/ 2>/dev/null || echo "     (no drop-in directory)"
+if [ -f /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf ]; then
+    echo "   Drop-in config:"
+    cat /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf | sed 's/^/     /'
+fi
+echo "   Effective systemd Listen property: $(systemctl show localdns-exporter.socket --property=Listen 2>/dev/null || echo 'unknown')"
 echo ""
 
 # Verify raw systemd accounting values are > 0 to confirm accounting is enabled and working.
@@ -64,8 +77,8 @@ echo "   ✓ Both non-zero — systemd resource accounting is working"
 echo ""
 
 # Scrape the exporter endpoint.
-echo "3. Checking HTTP status from http://127.0.0.1:9353/metrics..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9353/metrics || true)
+echo "3. Checking HTTP status from http://${LISTEN_ADDR}/metrics..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${LISTEN_ADDR}/metrics" || true)
 HTTP_CODE=${HTTP_CODE:-000}
 if [ "$HTTP_CODE" -ne 200 ]; then
     echo "   ❌ ERROR: Metrics endpoint returned HTTP $HTTP_CODE"
@@ -75,7 +88,7 @@ echo "   ✓ HTTP 200 OK received"
 echo ""
 
 echo "4. Fetching metrics body..."
-METRICS=$(curl -s http://127.0.0.1:9353/metrics || true)
+METRICS=$(curl -s "http://${LISTEN_ADDR}/metrics" || true)
 if [ -z "$METRICS" ]; then
     echo "   ❌ ERROR: No response body from metrics endpoint"
     exit 1
@@ -290,7 +303,7 @@ echo ""
 
 # Step 11: Spawn a persistent worker instance by holding a connection open
 echo "11. Spawning a persistent worker instance for security inspection..."
-sleep 120 | nc 127.0.0.1 9353 > /dev/null 2>&1 &
+sleep 120 | nc ${LISTEN_ADDR%%:*} ${LISTEN_ADDR##*:} > /dev/null 2>&1 &
 NC_PID=$!
 sleep 2
 
