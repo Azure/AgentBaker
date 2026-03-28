@@ -1292,22 +1292,33 @@ enableLocalDNS() {
     # Override socket listen address to bind to node IP instead of localhost (VHD default).
     # vmagent scrapes metrics via the CCP overlay proxy using the node's IP, not 127.0.0.1.
     # The empty ListenStream= clears the VHD-baked default before setting the new address.
+    # Use get_primary_nic_ip (IMDS cache) instead of hostname -I which can return empty
+    # when the network interface isn't fully configured during CSE.
     local node_ip
-    node_ip=$(hostname -I | awk '{print $1}')
-    echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353 instead of VHD default (127.0.0.1:9353)"
-    mkdir -p /etc/systemd/system/localdns-exporter.socket.d
-    tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+    node_ip=$(get_primary_nic_ip)
+    if [ -z "${node_ip}" ]; then
+        echo "localdns-exporter: WARNING: get_primary_nic_ip returned empty, falling back to hostname -I"
+        node_ip=$(hostname -I | awk '{print $1}')
+    fi
+    if [ -z "${node_ip}" ]; then
+        echo "localdns-exporter: WARNING: could not determine node IP, skipping socket drop-in"
+        echo "localdns-exporter: socket will use VHD default (127.0.0.1:9353)"
+    else
+        echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353 instead of VHD default (127.0.0.1:9353)"
+        mkdir -p /etc/systemd/system/localdns-exporter.socket.d
+        tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
 [Socket]
 ListenStream=
 ListenStream=${node_ip}:9353
 EOF
-    echo "localdns-exporter: drop-in created at /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf"
-    cat /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf
-    systemctl daemon-reload
+        echo "localdns-exporter: drop-in created at /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf"
+        cat /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf
+        systemctl daemon-reload
+    fi
 
     # Enable localdns metrics exporter socket for Prometheus scraping
     # This is optional observability - don't block provisioning if it fails
-    echo "Enabling localdns-exporter.socket for metrics collection on ${node_ip}:9353."
+    echo "Enabling localdns-exporter.socket for metrics collection."
     if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
         # Log the effective listen address to verify the drop-in took effect
         local effective_listen
