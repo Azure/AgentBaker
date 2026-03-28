@@ -1289,11 +1289,30 @@ enableLocalDNS() {
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
 
+    # Override socket listen address to bind to node IP instead of localhost (VHD default).
+    # vmagent scrapes metrics via the CCP overlay proxy using the node's IP, not 127.0.0.1.
+    # The empty ListenStream= clears the VHD-baked default before setting the new address.
+    local node_ip
+    node_ip=$(hostname -I | awk '{print $1}')
+    echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353 instead of VHD default (127.0.0.1:9353)"
+    mkdir -p /etc/systemd/system/localdns-exporter.socket.d
+    tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+[Socket]
+ListenStream=
+ListenStream=${node_ip}:9353
+EOF
+    echo "localdns-exporter: drop-in created at /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf"
+    cat /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf
+    systemctl daemon-reload
+
     # Enable localdns metrics exporter socket for Prometheus scraping
     # This is optional observability - don't block provisioning if it fails
-    echo "Enabling localdns-exporter.socket for metrics collection."
+    echo "Enabling localdns-exporter.socket for metrics collection on ${node_ip}:9353."
     if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
-        echo "Enable localdns-exporter.socket succeeded."
+        # Log the effective listen address to verify the drop-in took effect
+        local effective_listen
+        effective_listen=$(systemctl show localdns-exporter.socket --property=Listen 2>/dev/null || echo "unknown")
+        echo "Enable localdns-exporter.socket succeeded. Effective listen: ${effective_listen}"
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     else
         echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
