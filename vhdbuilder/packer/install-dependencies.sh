@@ -522,6 +522,12 @@ while IFS= read -r p; do
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
       ;;
+    "aznfs")
+      # aznfs RPM is fetched directly from PMC and installed via installAznfsPkgFromPMC
+      # in cse_install_mariner.sh. The version and URL are tracked here in components.json
+      # for auditability and to enable future renovate automation.
+      # No download action needed here as the install function handles it.
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
