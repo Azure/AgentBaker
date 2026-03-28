@@ -3,7 +3,7 @@ set -euo pipefail
 
 # aks-hosts-setup.sh
 # Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts.
-# TARGET_CLOUD is set by CSE (cse_cmd.sh) and persisted via /etc/localdns/cloud-env
+# LOCALDNS_CRITICAL_FQDNS is set by CSE (cse_cmd.sh) and persisted via /etc/localdns/cloud-env
 # as a systemd EnvironmentFile so it's available on both initial and timer-triggered runs.
 
 HOSTS_FILE="/etc/localdns/hosts"
@@ -11,69 +11,21 @@ HOSTS_FILE="/etc/localdns/hosts"
 # Ensure the directory exists
 mkdir -p "$(dirname "$HOSTS_FILE")"
 
-# Use TARGET_CLOUD directly. It's available from:
+# Use LOCALDNS_CRITICAL_FQDNS directly. It's available from:
 #   1. CSE environment (initial run from enableAKSHostsSetup)
 #   2. Systemd EnvironmentFile (timer-triggered runs via aks-hosts-setup.service)
-# If TARGET_CLOUD is not set, exit immediately - we must not guess the cloud environment
-# as this could cache incorrect DNS entries in the hosts file.
-if [ -z "${TARGET_CLOUD:-}" ]; then
-    echo "ERROR: TARGET_CLOUD is not set. Cannot determine which FQDNs to resolve."
-    echo "This likely means the cloud environment file is missing or CSE did not set TARGET_CLOUD."
-    echo "Exiting without modifying hosts file to avoid caching incorrect DNS entries."
-    exit 1
+# If LOCALDNS_CRITICAL_FQDNS is not set or empty, exit gracefully — this means
+# the RP didn't pass FQDNs (old RP). The corefile falls back to the no-hosts variant.
+if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
+    echo "LOCALDNS_CRITICAL_FQDNS is not set or empty. RP did not pass critical FQDNs."
+    echo "Exiting without modifying hosts file. Corefile will use no-hosts variant."
+    exit 0
 fi
-local_cloud="${TARGET_CLOUD}"
 
-# Select critical FQDNs based on the cloud environment.
-# Each cloud has its own service endpoints for container registry, identity, ARM, and packages.
-# This mirrors the cloud detection in GetCloudTargetEnv (pkg/agent/datamodel/sig_config.go).
+# Parse the comma-separated FQDN list into an array.
+IFS=',' read -ra CRITICAL_FQDNS <<< "${LOCALDNS_CRITICAL_FQDNS}"
 
-# FQDNs common to all clouds.
-COMMON_FQDNS=(
-    "packages.microsoft.com"            # Microsoft packages
-)
-
-# Cloud-specific FQDNs.
-case "${local_cloud}" in
-    AzureChinaCloud)
-        CLOUD_FQDNS=(
-            "acs-mirror.azureedge.net"          # K8s binaries mirror
-            "mcr.azure.cn"                      # Container registry (China)(New)
-            "mcr.azk8s.cn"                      # Container registry (China)(Old, migrating from this to mcr.azure.cn)
-            "login.partner.microsoftonline.cn"  # Azure AD (China)
-            "management.chinacloudapi.cn"       # ARM (China)
-        )
-        ;;
-    AzureUSGovernmentCloud)
-        CLOUD_FQDNS=(
-            "acs-mirror.azureedge.net"          # K8s binaries mirror
-            "mcr.microsoft.com"                 # Container registry
-            "login.microsoftonline.us"          # Azure AD (US Gov)
-            "management.usgovcloudapi.net"      # ARM (US Gov)
-            "packages.aks.azure.com"            # AKS packages
-        )
-        ;;
-    AzurePublicCloud)
-        CLOUD_FQDNS=(
-            "acs-mirror.azureedge.net"          # K8s binaries mirror
-            "mcr.microsoft.com"                 # Container registry
-            "login.microsoftonline.com"         # Azure AD / Entra ID
-            "management.azure.com"              # ARM
-            "packages.aks.azure.com"            # AKS packages
-        )
-        ;;
-    *)
-        # Unsupported cloud environment - exit with error
-        echo "ERROR: The following cloud is not supported: ${local_cloud}"
-        echo "Supported clouds: AzurePublicCloud, AzureChinaCloud, AzureUSGovernmentCloud"
-        exit 1
-        ;;
-esac
-
-# Combine common + cloud-specific FQDNs.
-CRITICAL_FQDNS=("${COMMON_FQDNS[@]}" "${CLOUD_FQDNS[@]}")
-
-echo "Detected cloud environment: ${local_cloud}"
+echo "Received ${#CRITICAL_FQDNS[@]} critical FQDNs from RP"
 
 # Function to resolve IPv4 addresses for a domain
 # Filters output to only include valid IPv4 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
@@ -188,7 +140,9 @@ INVALID_LINES=()
 VALID_ENTRIES=0
 while IFS= read -r line; do
     # Skip comments and empty lines
-    [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]] && continue
+    if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
+        continue
+    fi
 
     # Check if line has at least two fields (IP and FQDN)
     ip=$(echo "$line" | awk '{print $1}')
