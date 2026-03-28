@@ -1892,7 +1892,7 @@
               {
                 "k8sVersion": "1.32",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-acr-credential-provider-sysext",
-                "latestVersion": "v1.32.11-1-azlinux3"
+                "latestVersion": "v1.32.15-1-azlinux3"
               },
               {
                 "k8sVersion": "1.33",
