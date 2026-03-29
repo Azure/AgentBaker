@@ -487,6 +487,13 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
+    # Configure localdns metrics exporter socket before ensureKubelet so that
+    # addKubeletNodeLabel takes effect. This is in nodePrep (not basePrep) because
+    # the socket must bind to the actual node IP, which differs in VHD caching flows.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket
+    fi
+
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
     if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
