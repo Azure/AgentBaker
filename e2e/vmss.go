@@ -209,6 +209,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
+
 		if len(s.Config.CustomDataWriteFiles) > 0 {
 			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
