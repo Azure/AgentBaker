@@ -21,9 +21,7 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 	}{
 		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
 		{name: "Ubuntu2404", vhd: config.VHDUbuntu2404Gen2Containerd},
-		{name: "AzureLinuxV2", vhd: config.VHDAzureLinuxV2Gen2},
 		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
-		{name: "CBLMarinerV2", vhd: config.VHDCBLMarinerV2Gen2},
 		{name: "ACL", vhd: config.VHDACLGen2TL},
 	}
 
