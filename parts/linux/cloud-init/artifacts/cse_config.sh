@@ -1314,6 +1314,11 @@ EOF
 
     # Enable localdns metrics exporter socket for Prometheus scraping.
     # This is optional observability — don't block provisioning if it fails.
+    # Guard: skip if the socket unit doesn't exist (old VHD without exporter files).
+    if ! systemctl cat localdns-exporter.socket &>/dev/null; then
+        echo "localdns-exporter: socket unit not found on this VHD, skipping"
+        return 0
+    fi
     echo "Enabling localdns-exporter.socket for metrics collection."
     if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
         echo "Enable localdns-exporter.socket succeeded."
