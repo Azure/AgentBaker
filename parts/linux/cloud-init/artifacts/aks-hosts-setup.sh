@@ -5,6 +5,10 @@ set -euo pipefail
 # Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts.
 # LOCALDNS_CRITICAL_FQDNS is set by CSE (cse_cmd.sh) and persisted via /etc/localdns/cloud-env
 # as a systemd EnvironmentFile so it's available on both initial and timer-triggered runs.
+#
+# Logging: All output goes to journald via the aks-hosts-setup.service unit.
+#   View logs:   journalctl -u aks-hosts-setup --no-pager
+#   Collected by aks-log-collector.sh into the guest agent log archive.
 
 HOSTS_FILE="/etc/localdns/hosts"
 
@@ -49,8 +53,10 @@ resolve_ipv6() {
     # dig +short returns one IP per line, no parsing needed
     local output
     output=$(timeout 3 dig +short -t AAAA "${domain}" 2>/dev/null) || return 0
-    # Three checks: only hex+colon chars (min 3), at least two colons, at least one hex digit
-    # This rejects malformed strings like ":::::::" (no hex), "1:2" (one colon), ":ff" (one colon)
+    # Three-stage filter rejects malformed dig output:
+    #   1. Only hex digits and colons, minimum 3 chars (rejects hostnames, error strings)
+    #   2. At least two colons (rejects "1:2", ":ff" — too short to be valid IPv6)
+    #   3. At least one hex digit (rejects all-colon strings like ":::::::")
     echo "${output}" | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':.*:' | grep '[0-9a-fA-F]' || return 0
 }
 
