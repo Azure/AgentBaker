@@ -70,6 +70,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2004-fips-gen2-containerd
+
     - job: build2404gen2containerd
       timeoutInMinutes: 360
       steps:
@@ -90,6 +91,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2404-gen2-containerd
+
     - job: build2204gen2containerd
       timeoutInMinutes: 360
       steps:
@@ -110,6 +112,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-gen2-containerd
+
     - job: build2204arm64gen2containerd
       timeoutInMinutes: 360
       steps:
@@ -130,6 +133,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-arm64-gen2-containerd
+
     - job: buildAzureLinuxV3gen2
       timeoutInMinutes: 360
       steps:
@@ -151,6 +155,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv3-gen2
+
     - job: buildAzureLinuxV3ARM64gen2fips
       timeoutInMinutes: 360
       steps:
@@ -172,6 +177,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv3-gen2-arm64-fips
+
     - job: buildAzureLinuxOSGuardV3gen2fipsTL
       timeoutInMinutes: 360
       steps:
@@ -196,6 +202,48 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxosguardv3-gen2-fips-trustedlaunch
+
+    - job: buildacltlgen2
+      timeoutInMinutes: 360
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]acl'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
+            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]aclpreview'
+            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260318.1072691'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: acl-tl-gen2
+
+    - job: buildaclarm64tlgen2
+      timeoutInMinutes: 360
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]acl'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
+            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]aclpreview-arm64'
+            echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260318.1072692'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: acl-arm64-tl-gen2
 
   - stage: e2e
     dependsOn: build

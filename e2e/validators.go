@@ -44,6 +44,11 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	}
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
@@ -78,6 +83,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"})
 	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
 	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
 	switch {
@@ -1509,30 +1515,17 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100
-	// We verify the port is open using ss/netstat rather than making a full mTLS request,
-	// since the e2e test environment may not have the correct client certs set up.
-	// The mTLS configuration is validated by checking that the web-config.yml exists
-	// and contains the expected TLS settings.
-	s.T.Logf("Validating node-exporter is listening on port 19100")
+	// Validate that node-exporter is listening on port 19100 and serving metrics.
+	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
+	// so we validate by making a plain HTTP request to the metrics endpoint.
+	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		"NODE_IP=$(hostname -I | awk '{print $1}')",
-		// Verify node-exporter is listening on port 19100
-		"ss -tlnp | grep -q ':19100' || netstat -tlnp | grep -q ':19100'",
+		// Extract the listen address from ss, replacing wildcard '*' or '0.0.0.0' with localhost.
+		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1 | sed 's/^\\*/127.0.0.1/; s/^0\\.0\\.0\\.0/127.0.0.1/')",
+		"curl -sf http://${LISTEN_ADDR}/metrics | grep -q 'node_'",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100")
-
-	// Verify the web-config.yml has proper TLS configuration
-	s.T.Logf("Validating node-exporter TLS configuration")
-	tlsCommand := []string{
-		"set -ex",
-		// Verify web-config.yml contains TLS settings
-		"grep -q 'tls_server_config' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_auth_type' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_ca_file' /etc/node-exporter.d/web-config.yml",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(tlsCommand, "\n"), 0, "node-exporter TLS config should be properly configured")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
 	s.T.Logf("node-exporter validation passed")
 }
@@ -1950,7 +1943,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessCSECmd {
+	if nbc != nil && nbc.EnableScriptlessCSECmd && !s.VHD.Flatcar {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }

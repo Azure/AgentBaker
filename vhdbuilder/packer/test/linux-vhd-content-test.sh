@@ -19,6 +19,8 @@ IMG_SKU="$5"
 FEATURE_FLAGS="$6"
 GIT_COMMIT_HASH="$7"
 
+systemctl daemon-reload && systemctl restart containerd
+
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
 #   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
@@ -190,7 +192,7 @@ testPackagesInstalled() {
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [ "$downloadLocation" = "" ]; then
+    if [ "$downloadLocation" = "" ] || [ "$downloadLocation" = "null" ]; then
       continue
     fi
     if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
