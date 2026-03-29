@@ -11,6 +11,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       checks: write
+      issues: write
     steps:
       - name: Check out repository code
         uses: actions/checkout@v6
@@ -21,18 +22,21 @@ jobs:
         shell: powershell
         run: |
           Get-Module -ListAvailable -Name Pester
+          if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
           Invoke-Pester parts/windows/*.tests.ps1 -Passthru -OutputFile test-results/parts_windows.xml -OutputFormat JUnitXML
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
         if: (!cancelled())
         shell: pwsh
         run: |
           Get-Module -ListAvailable -Name Pester
+          if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
           Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru -OutputFile test-results/vhdbuilder_packer_windows.xml -OutputFormat JUnitXML
       - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
         if: (!cancelled())
         shell: powershell
         run: |
           Get-Module -ListAvailable -Name Pester
+          if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
           Install-Module -Name powershell-yaml -Force
           Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru -OutputFile test-results/staging_cse_windows.xml -OutputFormat JUnitXML
       - name: Publish Test Results
