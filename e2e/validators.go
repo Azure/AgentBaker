@@ -1482,6 +1482,17 @@ func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
 }
 
+func RestartNodeProblemDetector(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Log("restarting node-problem-detector to pick up managed GPU health checks")
+	command := []string{
+		"set -ex",
+		"sudo systemctl restart node-problem-detector",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"failed to restart Node Problem Detector (NPD) service")
+}
+
 func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 

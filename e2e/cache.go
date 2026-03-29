@@ -245,3 +245,18 @@ var CachedVMSizeSupportsNVMe = cachedFunc(func(ctx context.Context, req VMSizeSK
 var CachedIsVMSizeGen2Only = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
 	return config.Azure.IsVMSizeGen2Only(ctx, req.Location, req.VMSize)
 })
+
+// GetLatestExtensionVersionRequest is the cache key for VM extension version lookups.
+type GetLatestExtensionVersionRequest struct {
+	Location  string
+	ExtType   string
+	Publisher string
+}
+
+// CachedGetLatestVMExtensionImageVersion caches the result of querying the Azure API
+// for the latest VM extension image version.
+var CachedGetLatestVMExtensionImageVersion = cachedFunc(
+	func(ctx context.Context, req GetLatestExtensionVersionRequest) (string, error) {
+		return config.Azure.GetLatestVMExtensionImageVersion(ctx, req.Location, req.ExtType, req.Publisher)
+	},
+)
