@@ -12,6 +12,7 @@ jobs:
     permissions:
       checks: write
       issues: write
+      pull-requests: write
     steps:
       - name: Check out repository code
         uses: actions/checkout@v6
@@ -21,16 +22,41 @@ jobs:
         if: (!cancelled())
         shell: powershell
         run: |
+
           Get-Module -ListAvailable -Name Pester
           if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
-          Invoke-Pester parts/windows/*.tests.ps1 -Passthru -OutputFile test-results/parts_windows.xml -OutputFormat JUnitXML
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "parts/windows/*.tests.ps1"
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "test-results/coverage_parts_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = JaCoCo
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/parts_windows.xml"
+          Invoke-Pester -Configuration $config
+
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
         if: (!cancelled())
         shell: pwsh
         run: |
           Get-Module -ListAvailable -Name Pester
           if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
-          Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru -OutputFile test-results/vhdbuilder_packer_windows.xml -OutputFormat JUnitXML
+
+           $config = New-PesterConfiguration
+          $config.Run.Path = "vhdbuilder/packer/windows/*.tests.ps1"
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "test-results/coverage_vhdbuilder_packer_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = JaCoCo
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/vhdbuilder_packer_windows.xml"
+          Invoke-Pester -Configuration $config
+
       - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
         if: (!cancelled())
         shell: powershell
@@ -38,7 +64,19 @@ jobs:
           Get-Module -ListAvailable -Name Pester
           if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
           Install-Module -Name powershell-yaml -Force
-          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru -OutputFile test-results/staging_cse_windows.xml -OutputFormat JUnitXML
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "staging/cse/windows/*.tests.ps1"
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "test-results/coverage_staging_cse_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = JaCoCo
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/staging_cse_windows.xml"
+          Invoke-Pester -Configuration $config
+
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/windows@v2
         if: (!cancelled())
