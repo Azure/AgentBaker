@@ -488,10 +488,10 @@ function nodePrep {
     fi
 
     # Configure localdns metrics exporter socket before ensureKubelet so that
-    # addKubeletNodeLabel takes effect. This is in nodePrep (not basePrep) because
-    # the socket must bind to the actual node IP, which differs in VHD caching flows.
+    # addKubeletNodeLabel takes effect at kubelet startup.
+    # This is optional observability — don't block provisioning if it fails.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket
+        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket || true
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
