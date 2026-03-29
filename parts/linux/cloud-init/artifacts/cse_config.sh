@@ -1288,6 +1288,39 @@ enableLocalDNS() {
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+    # Exporter socket setup is in configureLocalDNSExporterSocket() (nodePrep),
+    # because addKubeletNodeLabel must run before ensureKubelet.
+}
+
+# Configures the localdns metrics exporter socket to listen on the node IP.
+# Must run in nodePrep before ensureKubelet so the kubelet node label is applied.
+# The VHD default binds to 0.0.0.0 which already works for vmagent scraping.
+# The drop-in narrows binding to the node IP for tighter scoping when available.
+configureLocalDNSExporterSocket() {
+    local node_ip
+    node_ip=$(get_primary_nic_ip)
+    if [ -n "${node_ip}" ]; then
+        echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353"
+        mkdir -p /etc/systemd/system/localdns-exporter.socket.d
+        tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+[Socket]
+ListenStream=
+ListenStream=${node_ip}:9353
+EOF
+        systemctl daemon-reload
+    else
+        echo "localdns-exporter: get_primary_nic_ip returned empty, using VHD default (0.0.0.0:9353)"
+    fi
+
+    # Enable localdns metrics exporter socket for Prometheus scraping.
+    # This is optional observability — don't block provisioning if it fails.
+    echo "Enabling localdns-exporter.socket for metrics collection."
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
+        echo "Enable localdns-exporter.socket succeeded."
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    else
+        echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
+    fi
 }
 
 configureManagedGPUExperience() {
