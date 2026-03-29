@@ -10,6 +10,7 @@ jobs:
     name: Pester test
     runs-on: windows-latest
     permissions:
+      contents: read
       checks: write
       issues: write
       pull-requests: write
