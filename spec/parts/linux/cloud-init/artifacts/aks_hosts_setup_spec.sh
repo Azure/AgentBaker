@@ -184,7 +184,7 @@ set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
 unset LOCALDNS_CRITICAL_FQDNS
 EOF
-            tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
@@ -201,7 +201,7 @@ set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
 export LOCALDNS_CRITICAL_FQDNS=""
 EOF
-            tail -n +10 "${SCRIPT_PATH}" >> "${test_script}"
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
