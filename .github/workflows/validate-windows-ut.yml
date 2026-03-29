@@ -15,14 +15,17 @@ jobs:
         with:
           fetch-depth: 1
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
+        if: (!cancelled())
         shell: powershell
         run: |
           Invoke-Pester parts/windows/*.tests.ps1 -Passthru -OutputFile test-results/parts_windows.xml -OutputFormat JUnitXML
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
+        if: (!cancelled())
         shell: pwsh
         run: |
           Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru -OutputFile vhdbuilder_packer_windows.xml -OutputFormat JUnitXML
       - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
+        if: (!cancelled())
         shell: powershell
         run: |
           Install-Module -Name powershell-yaml -Force
