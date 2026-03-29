@@ -377,7 +377,6 @@ Describe 'RegisterContainerDService' {
     Mock Assert-FileExists
     Mock Invoke-Nssm
     Mock Start-Service
-    Mock Write-Log
   }
 
   Context 'when containerd service does not exist' {
