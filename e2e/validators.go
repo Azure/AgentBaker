@@ -1518,12 +1518,16 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	// Validate that node-exporter is listening on port 19100 and serving metrics.
 	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
 	// so we validate by making a plain HTTP request to the metrics endpoint.
+	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
+	// are visible in test logs rather than silently swallowed.
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
 		// Extract the listen address from ss, replacing wildcard '*' or '0.0.0.0' with localhost.
 		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1 | sed 's/^\\*/127.0.0.1/; s/^0\\.0\\.0\\.0/127.0.0.1/')",
-		"curl -sf http://${LISTEN_ADDR}/metrics | grep -q 'node_'",
+		"echo \"node-exporter listen address: ${LISTEN_ADDR}\"",
+		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | head -20",
+		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | grep -q 'node_'",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
