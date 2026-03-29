@@ -289,18 +289,18 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		return nil, nil
 
 	case "Creating":
-		// For other non-terminal provisioning states (e.g., Creating, Updating, Scaling, Migrating, Upgrading, Starting, Stopping, Deleting, Canceling, Restoring), wait for the cluster to become ready.
+		// For Creating state, wait for the cluster to become ready.
 		toolkit.Logf(ctx, "Cluster is currently being created. Will wait for creation to finish: %s", clusterName)
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	case "Starting":
-		// For other non-terminal provisioning states (e.g., Creating, Updating, Scaling, Migrating, Upgrading, Starting, Stopping, Deleting, Canceling, Restoring), wait for the cluster to become ready.
+		// For Starting state, wait for the cluster to become ready.
 		toolkit.Logf(ctx, "Cluster is currently being started. Will wait for start to finish: %s", clusterName)
 		return waitUntilClusterReady(ctx, clusterName, location)
 
 	default:
 		// For other non-terminal provisioning states (e.g., Updating, Scaling, Migrating, Upgrading, Restoring), wait for the cluster to become ready.
-		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
+		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state for cluster %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
 		return waitUntilClusterReady(ctx, clusterName, location)
 	}
 }
