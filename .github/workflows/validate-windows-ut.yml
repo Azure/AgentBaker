@@ -17,13 +17,21 @@ jobs:
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
         shell: powershell
         run: |
-          Invoke-Pester parts/windows/*.tests.ps1 -Passthru
+          Invoke-Pester parts/windows/*.tests.ps1 -Passthru -OutputFile test-results/parts_windows.xml -OutputFormat JUnitXML
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
         shell: pwsh
         run: |
-          Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru
+          Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru -OutputFile vhdbuilder_packer_windows.xml -OutputFormat JUnitXML
       - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
         shell: powershell
         run: |
           Install-Module -Name powershell-yaml -Force
-          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
+          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru -OutputFile test-results/staging_cse_windows.xml -OutputFormat JUnitXML
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action/windows@v2
+        if: (!cancelled())
+        with:
+          files: |
+            test-results/parts_windows.xml
+            test-results/vhdbuilder_packer_windows.xml
+            test-results/staging_cse_windows.xml

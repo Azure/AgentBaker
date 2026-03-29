@@ -27,6 +27,7 @@ cmd/_test_output
 *.test
 *.coverprofile
 **/junit.xml
+test-results
 
 .idea
 .vs
