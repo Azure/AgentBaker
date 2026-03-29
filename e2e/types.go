@@ -412,9 +412,11 @@ func (s *Scenario) IsHostsPluginEnabled() bool {
 
 // GetDefaultFQDNsForValidation returns a minimal set of FQDNs to validate in the default validation.
 // This mirrors the logic in GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+// Uses Runtime.Cluster.Model.Location rather than NBC-specific fields so it works for both
+// legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
 func (s *Scenario) GetDefaultFQDNsForValidation() []string {
-	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
-		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
 		if strings.HasPrefix(location, "china") {
 			return []string{
 				"mcr.azure.cn",
@@ -438,11 +440,11 @@ func (s *Scenario) GetDefaultFQDNsForValidation() []string {
 }
 
 // GetContainerRegistryFQDN returns the container registry FQDN for the cloud environment
-// determined by the NBC's ContainerService.Location field. This mirrors the logic in
-// GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
+// determined by the cluster's location. Uses Runtime.Cluster.Model.Location so it works
+// for both legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
 func (s *Scenario) GetContainerRegistryFQDN() string {
-	if s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil {
-		location := strings.ToLower(s.Runtime.NBC.ContainerService.Location)
+	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
 		if strings.HasPrefix(location, "china") {
 			return "mcr.azure.cn"
 		}
