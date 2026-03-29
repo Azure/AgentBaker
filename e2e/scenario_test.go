@@ -403,6 +403,10 @@ func Test_ACL_GPUA100_Scriptless(t *testing.T) {
 	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4")
 }
 
+func Test_ACL_GPUH200_Scriptless(t *testing.T) {
+	runScenarioACLGPUScriptless(t, "Standard_ND96isr_H200_v5")
+}
+
 func Test_ACL_GPUA10_Scriptless(t *testing.T) {
 	runScenarioACLGRIDScriptless(t, "Standard_NV6ads_A10_v5")
 }
