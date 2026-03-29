@@ -44,7 +44,11 @@ jobs:
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputFormat = "JUnitXml"
           $config.TestResult.OutputPath = "test-results/parts_windows.xml"
-          Invoke-Pester -Configuration $config
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
 
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
         if: (!cancelled())
@@ -62,7 +66,11 @@ jobs:
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputFormat = "JUnitXml"
           $config.TestResult.OutputPath = "test-results/vhdbuilder_packer_windows.xml"
-          Invoke-Pester -Configuration $config
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
 
       - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
         if: (!cancelled())
@@ -80,7 +88,11 @@ jobs:
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputFormat = "JUnitXml"
           $config.TestResult.OutputPath = "test-results/staging_cse_windows.xml"
-          Invoke-Pester -Configuration $config
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/windows@v2
