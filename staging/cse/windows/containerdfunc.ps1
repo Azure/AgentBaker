@@ -245,7 +245,7 @@ server = "https://$Registry"
     X-Forwarded-For = ["$Registry"]
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ([System.Text.Encoding]::ASCII)
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
