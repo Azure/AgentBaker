@@ -691,6 +691,9 @@ export_resource_metrics() {
         echo "# HELP localdns_cpu_usage_seconds_total Total CPU time consumed in Seconds"
         echo "# TYPE localdns_cpu_usage_seconds_total counter"
         echo "localdns_cpu_usage_seconds_total $cpu_sec"
+        echo "# HELP localdns_metrics_last_update_timestamp_seconds Unix timestamp of last metrics generation"
+        echo "# TYPE localdns_metrics_last_update_timestamp_seconds gauge"
+        echo "localdns_metrics_last_update_timestamp_seconds $(date +%s)"
     } > "$tmp"; then
         echo "WARNING: Failed to write resource metrics to temp file $tmp. Export skipped."
         rm -f "$tmp"

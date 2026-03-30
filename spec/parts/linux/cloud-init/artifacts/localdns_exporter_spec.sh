@@ -66,10 +66,12 @@ Describe 'localdns_exporter.sh HTTP request routing'
         The output should include "# TYPE localdns_service_status gauge"
         The output should include "# TYPE localdns_memory_usage_bytes gauge"
         The output should include "# TYPE localdns_cpu_usage_seconds_total counter"
+        The output should include "# TYPE localdns_metrics_last_update_timestamp_seconds gauge"
         # Verify metric names are present (values will vary)
         The output should include "localdns_service_status"
         The output should include "localdns_memory_usage_bytes"
         The output should include "localdns_cpu_usage_seconds_total"
+        The output should include "localdns_metrics_last_update_timestamp_seconds"
         # Verify forward-info metrics are present (either actual metrics or fallback)
         The output should include "localdns_vnetdns_forward_info"
         The output should include "localdns_kubedns_forward_info"
