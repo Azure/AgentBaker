@@ -149,6 +149,26 @@ fi
 echo "   ✓ localdns_memory_usage_bytes=$MEM_VALUE (valid, non-zero)"
 echo ""
 
+# Validate staleness timestamp metric — check data line exists and value is a valid recent timestamp.
+echo "6b. Validating metrics staleness timestamp..."
+TIMESTAMP_LINE=$(echo "$METRICS" | grep -E "^localdns_metrics_last_update_timestamp_seconds " || true)
+if [ -z "$TIMESTAMP_LINE" ]; then
+    echo "   ❌ ERROR: Missing localdns_metrics_last_update_timestamp_seconds data point"
+    echo "$METRICS" | grep "localdns_metrics" || true
+    exit 1
+fi
+TIMESTAMP_VALUE=$(echo "$TIMESTAMP_LINE" | awk '{print $2}')
+echo "   Raw metric: $TIMESTAMP_LINE"
+CURRENT_TIME=$(date +%s)
+# Timestamp should be within the last 120 seconds (2 watchdog cycles)
+if [ "$TIMESTAMP_VALUE" -gt 0 ] 2>/dev/null && [ "$((CURRENT_TIME - TIMESTAMP_VALUE))" -lt 120 ]; then
+    echo "   ✓ localdns_metrics_last_update_timestamp_seconds=$TIMESTAMP_VALUE (recent, within 120s of now)"
+else
+    echo "   ❌ ERROR: Staleness timestamp is zero or too old: $TIMESTAMP_VALUE (current time: $CURRENT_TIME)"
+    exit 1
+fi
+echo ""
+
 # Check for VnetDNS forward IP metric
 echo "7. Validating VnetDNS forward IP metric..."
 if ! echo "$METRICS" | grep -q "localdns_vnetdns_forward_info"; then
