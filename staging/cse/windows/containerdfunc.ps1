@@ -10,6 +10,7 @@ function Get-Root-RegistryPath {
   return "C:\ProgramData\containerd\certs.d"
 }
 
+# Function so it can be mocked in tests.
 function Out-File-Ascii {
  [CmdletBinding()]
  param(
@@ -17,6 +18,8 @@ function Out-File-Ascii {
     [Parameter(Mandatory = $true)][string]$FilePath
   )
 
+  # Due to powershell 5.1 being in use sometimes, we can't specify the encoding to be ([System.Text.Encoding]::ASCII) directly in Out-File,
+  # To work around this, we specify the encoding as the string "ascii" which is supported in powershell 5.1 and greater and also results in ascii encoding.
   $Content | Out-File -FilePath $FilePath -Encoding "ascii"
 }
 
