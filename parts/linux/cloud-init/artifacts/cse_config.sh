@@ -1297,6 +1297,15 @@ enableLocalDNS() {
 # The VHD default binds to 0.0.0.0 which already works for vmagent scraping.
 # The drop-in narrows binding to the node IP for tighter scoping when available.
 configureLocalDNSExporterSocket() {
+    # Guard: skip everything if the socket unit doesn't exist (old VHD without exporter files).
+    # This avoids creating stale drop-in dirs and prevents the 8-minute retry loop in
+    # systemctlEnableAndStartNoBlock when the unit is missing.
+    if ! systemctl cat localdns-exporter.socket &>/dev/null; then
+        echo "localdns-exporter: socket unit not found on this VHD, skipping"
+        return 0
+    fi
+
+    # Create drop-in to narrow socket binding from 0.0.0.0 to the node IP.
     local node_ip
     node_ip=$(get_primary_nic_ip)
     if [ -n "${node_ip}" ]; then
@@ -1314,11 +1323,6 @@ EOF
 
     # Enable localdns metrics exporter socket for Prometheus scraping.
     # This is optional observability — don't block provisioning if it fails.
-    # Guard: skip if the socket unit doesn't exist (old VHD without exporter files).
-    if ! systemctl cat localdns-exporter.socket &>/dev/null; then
-        echo "localdns-exporter: socket unit not found on this VHD, skipping"
-        return 0
-    fi
     echo "Enabling localdns-exporter.socket for metrics collection."
     if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
         echo "Enable localdns-exporter.socket succeeded."
