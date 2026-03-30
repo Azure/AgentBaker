@@ -19,7 +19,9 @@ if [ -f .env ]; then
 fi
 
 # If test name is provided as argument, override TAGS_TO_RUN
+TEST_NAME=""
 if [ $# -gt 0 ]; then
+    TEST_NAME="$1"
     export TAGS_TO_RUN="name=$1"
     echo "Running specific test: $1"
 else
@@ -45,8 +47,13 @@ echo "=========================================="
 echo ""
 
 # Run the tests
+# Pass test name as -run filter if a specific test was requested
 echo "Starting e2e tests..."
-go test -parallel $PARALLEL -timeout $TIMEOUT -v -count 1
+RUN_ARGS=()
+if [ -n "$TEST_NAME" ]; then
+    RUN_ARGS=(-run "$TEST_NAME")
+fi
+go test "${RUN_ARGS[@]}" -parallel "$PARALLEL" -timeout "$TIMEOUT" -v -count 1
 
 echo ""
 echo "=========================================="
