@@ -207,7 +207,7 @@ function ProcessAndWriteContainerdConfig {
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
-  $processedTemplate | Out-File -FilePath $configFile -Encoding ascii
+  $processedTemplate | Out-File -FilePath $configFile -Encoding ([System.Text.Encoding]::ASCII)
 }
 
 function Enable-Logging {
@@ -285,7 +285,7 @@ server = "https://$mcrRegistry"
   override_path = true
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ([System.Text.Encoding]::ASCII)
   Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 

@@ -9,14 +9,14 @@ BeforeAll {
     Write-Host "$Message"
   }
 
-  function Set-ExitCode {
+  Mock Set-ExitCode -MockWith {
     param($ExitCode, $ErrorMessage)
     Write-Host "MOCK: Exit Code would be: $ExitCode, Error: $ErrorMessage"
     # Don't actually exit in tests
   }
 
   # Define Create-Directory stub function (used by Set-ContainerdRegistryConfig)
-  function Create-Directory {
+  Mock Create-Directory  -MockWith{
     param($FullPath, $DirectoryUsage)
     # Do nothing in tests - just a stub
   }
@@ -27,25 +27,25 @@ BeforeAll {
     Write-Host "SET-CONTENT: Path: $Path, Content: $Value"
   }
 
-  function Get-WindowsPauseVersion {
+  Mock Get-WindowsPauseVersion -MockWith{
     return "ltsc2022"
   }
 
-  function Get-WindowsVersion {
+  Mock Get-WindowsVersion -MockWith {
     return "ltsc2022"
   }
 
   # Stub for Assert-FileExists (defined in windowscsehelper.ps1, not loaded here)
-  function Assert-FileExists {
+  Mock Assert-FileExists -MockWith {
     param($Filename, $ExitCode)
   }
 
   # Stubs for Windows-only service management cmdlets unavailable on Linux
-  function Get-Service {
+  Mock Get-Service -MockWith {
     param($Name, $ErrorAction)
   }
 
-  function Start-Service {
+  Mock Start-Service -MockWith {
     param($Name, $ErrorAction)
   }
 
@@ -56,26 +56,32 @@ BeforeAll {
 }
 
 Describe "ProcessAndWriteContainerdConfig" {
-  BeforeAll {
+  BeforeEach {
     Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
       return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
     }
 
-    # Mock Out-File for registry config writes to avoid file system errors
-    Mock Out-File -ParameterFilter { $FilePath -like "*certs.d*" } -MockWith { }
+    # Mock Out-File to capture content without writing to disk
+    Mock Out-File -MockWith {
+      param($FilePath, $Encoding)
+    }
   }
 
   Context 'containerd template v1 ' {
-    BeforeAll {
+    BeforeEach {
       $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
       $cniBinDir = 'C:/cni/bin'
       $cniConfDir = 'C:/cni/conf'
-      $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.6'
+      $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1'
 
       $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
       $global:ContainerdInstallLocation = $containerdDir
       $global:WindowsDataDir = $PSScriptRoot
       $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
+
+      Mock Out-File -MockWith {
+        param($FilePath, $Encoding)
+      }
     }
 
     It "Should process containerdtemplate.toml with basic configuration" {
@@ -83,7 +89,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
@@ -103,7 +109,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should include hyperv runtimes when hyperv is enabled" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
@@ -113,7 +119,7 @@ Describe "ProcessAndWriteContainerdConfig" {
 
     It "Should handle older containerd versions (<1.7.9) by removing annotations" {
       # Call the function under test and ensure it doesn't throw
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $content = Get-Content -Path $configPath -Raw
 
@@ -124,9 +130,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     }
   }
 
-
   Context 'containerd template v2' {
-
     BeforeAll {
       $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
       $cniBinDir = 'C:/cni/bin'
@@ -144,7 +148,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
@@ -164,7 +168,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should include hyperv runtimes when hyperv is enabled" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
@@ -191,7 +195,7 @@ Describe "Set-ContainerdRegistryConfig" {
 
     # Mock Out-File to capture content without writing to disk
     Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
+        param($FilePath, $Encoding)
     }
   }
 
@@ -317,7 +321,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
     $script:capturedEncoding = $null
     $script:capturedContent = $null
     Mock Out-File -MockWith {
-      param($InputObject, $FilePath, $Encoding)
+      param($InputObject,$FilePath, $Encoding)
       $script:capturedFilePath = $FilePath
       $script:capturedEncoding = $Encoding
       $script:capturedContent = $InputObject
