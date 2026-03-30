@@ -447,11 +447,13 @@ if ! echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_UNIX"; then
     echo "   ❌ ERROR: RestrictAddressFamilies does not include AF_UNIX"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 else
-    if echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_INET[^6]|RestrictAddressFamilies=.*AF_INET6"; then
-        echo "   ❌ ERROR: RestrictAddressFamilies includes AF_INET/AF_INET6 (should be AF_UNIX only)"
+    # AF_INET and AF_INET6 are expected alongside AF_UNIX for socket-activation compatibility
+    # with future systemd versions (seccomp filter must allow the inherited socket's address family)
+    if ! echo "$SECURITY_PROPS" | grep -qE "RestrictAddressFamilies=.*AF_INET"; then
+        echo "   ❌ ERROR: RestrictAddressFamilies does not include AF_INET (required for socket activation)"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
     else
-        echo "   ✓ RestrictAddressFamilies=AF_UNIX"
+        echo "   ✓ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6"
     fi
 fi
 
