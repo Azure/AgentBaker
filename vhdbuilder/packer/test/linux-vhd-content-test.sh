@@ -694,7 +694,13 @@ testAutologinDisabled() {
   local os_sku=$1
   echo "$test:Start"
 
-  if [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ]; then
+  if [ "$os_sku" = "AzureContainerLinux" ]; then
+    echo "$test: Skipping on AzureContainerLinux (UKI images embed flatcar.autologin in kernel cmdline)"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if [ "$os_sku" = "Flatcar" ]; then
     local failed=0
 
     # Test 1: Check actual behavior using loginctl
