@@ -29,13 +29,13 @@ echo ""
 
 # Check if socket is listening
 echo "1. Checking if port 9353 is listening..."
-if ! ss -tln | grep -q ':9353'; then
+if ! ss -tln | grep -q ':9353[[:space:]]'; then
     echo "   ❌ ERROR: Port 9353 not listening"
-    ss -tln | grep -E ':(9353|53)' || true
+    ss -tln | grep -E ':(9353|53)[[:space:]]' || true
     exit 1
 fi
 # Detect the actual listen address (may be node IP via CSE drop-in, not 127.0.0.1)
-LISTEN_ADDR=$(ss -tln | grep ':9353' | awk '{print $4}' | head -1)
+LISTEN_ADDR=$(ss -tln | grep ':9353[[:space:]]' | awk '{print $4}' | head -1)
 LISTEN_ADDR=${LISTEN_ADDR//\*/127.0.0.1}
 LISTEN_ADDR=${LISTEN_ADDR//0.0.0.0/127.0.0.1}
 echo "   ✓ Port 9353 is listening on ${LISTEN_ADDR}"
