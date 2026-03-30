@@ -248,6 +248,9 @@ try {
 
 $global:OperationId = New-Guid
 
+try
+{
+
 if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
     # From 2025-06 The CSE packages is released on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
@@ -610,8 +613,6 @@ function NodePrep {
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
 }
 
-try
-{
     Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
 
     # Exit early if the script has been executed
@@ -678,10 +679,11 @@ finally
         Set-Content -Path $completionFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
 
-    if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
-        Write-Log "Do not call Upload-GuestVMLogs because there is no cse script package downloaded"
-    }
-    else {
+    # Upload-GuestVMLogs is defined in the CSE scripts package (configfunc.ps1).
+    # If the CSE scripts package failed to download or load, the function will not be available.
+    if (Get-Command -Name Upload-GuestVMLogs -ErrorAction SilentlyContinue) {
         Upload-GuestVMLogs -ExitCode $global:ExitCode
+    } else {
+        Write-Log "Upload-GuestVMLogs is not available, skipping log upload (CSE scripts package may not have been loaded)"
     }
 }
