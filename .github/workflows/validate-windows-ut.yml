@@ -46,6 +46,11 @@ jobs:
           $config.TestResult.OutputFormat = "JUnitXml"
           $config.TestResult.OutputPath = "test-results/parts_windows.xml"
 
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
           $result = Invoke-Pester -Configuration $config
 
           $result
@@ -68,6 +73,11 @@ jobs:
           $config.TestResult.OutputFormat = "JUnitXml"
           $config.TestResult.OutputPath = "test-results/vhdbuilder_packer_windows.xml"
 
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
           $result = Invoke-Pester -Configuration $config
 
           $result
@@ -89,6 +99,11 @@ jobs:
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputFormat = "JUnitXml"
           $config.TestResult.OutputPath = "test-results/staging_cse_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
 
           $result = Invoke-Pester -Configuration $config
 

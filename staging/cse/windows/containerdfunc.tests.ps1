@@ -1,3 +1,11 @@
+
+# need this so it can be mocked
+function Set-ExitCode {
+  param($ExitCode, $ErrorMessage)
+  Write-Log "Exiting with code $ExitCode. Error: $ErrorMessage"
+  exit $ExitCode
+}
+
 BeforeAll {
   if (-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)) {
     New-PSDrive -Name C -PSProvider FileSystem -Root ([System.IO.Path]::GetTempPath()) | Out-Null
@@ -9,14 +17,14 @@ BeforeAll {
     Write-Host "$Message"
   }
 
-  Mock Set-ExitCode -MockWith {
+  function Set-ExitCode {
     param($ExitCode, $ErrorMessage)
     Write-Host "MOCK: Exit Code would be: $ExitCode, Error: $ErrorMessage"
     # Don't actually exit in tests
   }
 
   # Define Create-Directory stub function (used by Set-ContainerdRegistryConfig)
-  Mock Create-Directory  -MockWith{
+  function Create-Directory {
     param($FullPath, $DirectoryUsage)
     # Do nothing in tests - just a stub
   }
@@ -27,16 +35,16 @@ BeforeAll {
     Write-Host "SET-CONTENT: Path: $Path, Content: $Value"
   }
 
-  Mock Get-WindowsPauseVersion -MockWith{
+  function Get-WindowsPauseVersion{
     return "ltsc2022"
   }
 
-  Mock Get-WindowsVersion -MockWith {
+  function Get-WindowsVersion {
     return "ltsc2022"
   }
 
   # Stub for Assert-FileExists (defined in windowscsehelper.ps1, not loaded here)
-  Mock Assert-FileExists -MockWith {
+  function Assert-FileExists {
     param($Filename, $ExitCode)
   }
 
@@ -84,7 +92,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       }
     }
 
-    It "Should process containerdtemplate.toml with basic configuration" {
+    It "Should process containerdtemplate.toml with basic configuration" -Tag Focus {
       # Set up paths for the test
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
