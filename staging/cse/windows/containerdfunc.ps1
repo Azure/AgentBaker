@@ -224,14 +224,19 @@ function Enable-Logging {
   }
 }
 
+function Get-Root-RegistryPath {
+  return "C:\ProgramData\containerd\certs.d"
+}
+
 function Set-ContainerdRegistryConfig {
   Param(
     [Parameter(Mandatory = $true)][string] $Registry,
     [Parameter(Mandatory = $true)][string] $RegistryHost
   )
 
-  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $registryPath = Join-Path $rootRegistryPath $Registry
+  $certRootRegistryPath = Get-Root-RegistryPath
+
+  $registryPath = Join-Path $certRootRegistryPath $Registry
   $hostsTomlPath = Join-Path $registryPath "hosts.toml"
 
   Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
@@ -257,8 +262,8 @@ function Set-BootstrapProfileRegistryContainerdHost {
   else {
     "mcr.microsoft.com"
   }
-  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $certRootRegistryPath = Get-Root-RegistryPath
+  $mcrRegistryPath = Join-Path $certRootRegistryPath $mcrRegistry
   $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
 
   $registryHost = [string]$global:BootstrapProfileContainerRegistryServer

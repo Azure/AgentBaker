@@ -26,7 +26,7 @@ BeforeAll {
   # Define Create-Directory stub function (used by Set-ContainerdRegistryConfig)
   function Create-Directory {
     param($FullPath, $DirectoryUsage)
-    # Do nothing in tests - just a stub
+    New-Item -ItemType Directory -Path $FullPath -ErrorAction SilentlyContinue | Out-Null
   }
 
   # Mock Set-Content to avoid permission denied errors
@@ -65,19 +65,30 @@ BeforeAll {
 
 Describe "ProcessAndWriteContainerdConfig" {
   BeforeEach {
-    Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
-      return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
-    }
+      $script:capturedFilePath = $null
+      $script:capturedEncoding = $null
+      $script:capturedContent = $null
 
-    # Mock Out-File to capture content without writing to disk
-    Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
-    }
+      # Mock Out-File -MockWith {
+      #   param(
+      #     [Parameter(ValueFromPipeline=$TRUE)]$InputObject,
+      #     $FilePath,
+      #     $Encoding
+      #   )
+      #   $script:capturedFilePath = $FilePath
+      #   $script:capturedEncoding = $Encoding
+      #   $script:capturedContent = $InputObject
+      # }
+
+      Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
+        return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
+      }
   }
 
   Context 'containerd template v1 ' {
     BeforeEach {
       $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+      $registryPath = "$containerdDir"
       $cniBinDir = 'C:/cni/bin'
       $cniConfDir = 'C:/cni/conf'
       $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1'
@@ -86,9 +97,10 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:ContainerdInstallLocation = $containerdDir
       $global:WindowsDataDir = $PSScriptRoot
       $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
+      Create-Directory -FullPath $registryPath -DirectoryUsage "storing cert registry config for tests"
 
-      Mock Out-File -MockWith {
-        param($FilePath, $Encoding)
+      Mock Get-Root-RegistryPath -MockWith {
+        return $registryPath
       }
     }
 
@@ -99,7 +111,6 @@ Describe "ProcessAndWriteContainerdConfig" {
 
       ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
-      $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Not -BeNullOrEmpty
 
@@ -194,16 +205,21 @@ Describe "Set-ContainerdRegistryConfig" {
     }
   }
 
-  BeforeEach {
+BeforeEach {
+    $script:capturedFilePath = $null
+    $script:capturedEncoding = $null
+    $script:capturedContent = $null
+    Mock Out-File -MockWith {
+      param($InputObject,$FilePath, $Encoding)
+      $script:capturedFilePath = $FilePath
+      $script:capturedEncoding = $Encoding
+      $script:capturedContent = $InputObject
+    }
+
     # Mock Create-Directory to track calls
     Mock Create-Directory -MockWith {
       param($FullPath, $DirectoryUsage)
       # Do nothing in tests - we'll verify the call was made
-    }
-
-    # Mock Out-File to capture content without writing to disk
-    Mock Out-File -MockWith {
-        param($FilePath, $Encoding)
     }
   }
 
@@ -249,9 +265,6 @@ Describe "Set-ContainerdRegistryConfig" {
     $registry = "docker.io"
     $registryHost = "registry-1.docker.io"
 
-    # Mock Out-File to do nothing (we verify structure by checking function implementation)
-    Mock Out-File -MockWith { }
-
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     # Verify Out-File was called with correct path
@@ -273,8 +286,6 @@ Describe "Set-ContainerdRegistryConfig" {
     $registry = "myregistry.example.com"
     $registryHost = "mirror.example.com"
 
-    Mock Out-File -MockWith { }
-
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     # Verify Create-Directory was called with correct registry path
@@ -291,12 +302,6 @@ Describe "Set-ContainerdRegistryConfig" {
   It "Should write to correct hosts.toml file path" {
     $registry = "test.registry.io"
     $registryHost = "test.mirror.io"
-    $script:capturedFilePath = $null
-
-    Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
-      $script:capturedFilePath = $FilePath
-    }
 
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
@@ -306,12 +311,6 @@ Describe "Set-ContainerdRegistryConfig" {
   It "Should use ascii encoding when writing hosts.toml" {
     $registry = "docker.io"
     $registryHost = "registry-1.docker.io"
-    $script:capturedEncoding = $null
-
-    Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
-      $script:capturedEncoding = $Encoding
-    }
 
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
@@ -334,7 +333,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
       $script:capturedEncoding = $Encoding
       $script:capturedContent = $InputObject
     }
-  }
+}
 
   It "Should write hosts.toml for default mcr.microsoft.com when MCRRepositoryBase is not set" {
     $global:BootstrapProfileContainerRegistryServer = "myacr.azurecr.io"
@@ -389,6 +388,16 @@ Describe 'RegisterContainerDService' {
     Mock Assert-FileExists
     Mock Invoke-Nssm
     Mock Start-Service
+
+    $script:capturedFilePath = $null
+    $script:capturedEncoding = $null
+    $script:capturedContent = $null
+    Mock Out-File -MockWith {
+      param($InputObject,$FilePath, $Encoding)
+      $script:capturedFilePath = $FilePath
+      $script:capturedEncoding = $Encoding
+      $script:capturedContent = $InputObject
+    }
   }
 
   Context 'when containerd service does not exist' {

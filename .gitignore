@@ -29,6 +29,7 @@ cmd/_test_output
 **/junit.xml
 test-results
 coverage
+#staging/cse/windows/containerdfunc.tests.suites
 
 .idea
 .vs
