@@ -4,6 +4,7 @@ Documentation=https://github.com/Azure/AgentBaker
 
 [Service]
 Type=simple
+Environment=LOCALDNS_SCRIPT_PATH=/opt/azure/containers/localdns
 ExecStart=/opt/azure/containers/localdns/localdns_exporter.sh
 StandardInput=socket
 StandardOutput=socket
@@ -20,7 +21,7 @@ NoNewPrivileges=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
-RestrictAddressFamilies=AF_UNIX
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictNamespaces=yes
 LockPersonality=yes
 RestrictRealtime=yes
