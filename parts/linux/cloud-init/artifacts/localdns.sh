@@ -645,7 +645,7 @@ cleanup_localdns_configs() {
 # Failures are non-fatal to avoid affecting DNS service availability.
 export_resource_metrics() {
     local resources_prom_file="${LOCALDNS_SCRIPT_PATH}/resources.prom"
-    local raw_cpu raw_mem cpu_sec mem_mb service_status tmp
+    local raw_cpu raw_mem cpu_sec mem_bytes service_status tmp
 
     local unit="localdns.service"
 
@@ -668,9 +668,10 @@ export_resource_metrics() {
         raw_mem=0
     fi
 
-    # Convert: CPU nanoseconds → seconds, memory bytes → megabytes
-    cpu_sec=$(awk -v val="$raw_cpu" 'BEGIN {printf "%.4f", val / 1000000000}')
-    mem_mb=$(awk -v val="$raw_mem" 'BEGIN {printf "%.2f", val / 1048576}')
+    # Convert CPU nanoseconds → seconds (%.9f preserves nanosecond precision for rate() calculations)
+    # Memory is already in bytes from systemd — expose as-is per Prometheus base-unit convention
+    cpu_sec=$(awk -v val="$raw_cpu" 'BEGIN {printf "%.9f", val / 1000000000}')
+    mem_bytes="$raw_mem"
 
     # Write Prometheus metrics to temp file, then atomically rename
     if ! tmp="$(mktemp "${resources_prom_file}.XXXXXX")"; then
@@ -684,9 +685,9 @@ export_resource_metrics() {
         else
             echo "localdns_service_status{status=\"inactive\"} 0"
         fi
-        echo "# HELP localdns_memory_usage_mb Current memory usage in Megabytes"
-        echo "# TYPE localdns_memory_usage_mb gauge"
-        echo "localdns_memory_usage_mb $mem_mb"
+        echo "# HELP localdns_memory_usage_bytes Current memory usage in bytes"
+        echo "# TYPE localdns_memory_usage_bytes gauge"
+        echo "localdns_memory_usage_bytes $mem_bytes"
         echo "# HELP localdns_cpu_usage_seconds_total Total CPU time consumed in Seconds"
         echo "# TYPE localdns_cpu_usage_seconds_total counter"
         echo "localdns_cpu_usage_seconds_total $cpu_sec"
