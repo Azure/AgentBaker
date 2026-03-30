@@ -182,3 +182,90 @@ func Test_LocalDNSHostsPlugin_Brownfield_Scriptless(t *testing.T) {
 		})
 	}
 }
+
+// Test_LocalDNSHostsPlugin_Rollback tests disabling the hosts plugin on an already-running VM
+// using the legacy (bash CSE) bootstrap path. This simulates a production rollback where an
+// operator needs to turn off the hosts plugin without reprovisioning nodes.
+//
+// Phase 1 (automatic via ValidateCommonLinux): VM boots with EnableHostsPlugin=true, so the
+// full hosts-plugin validation suite runs automatically — hosts file populated, service healthy,
+// localdns restarted, AA flag proves authoritative response. This confirms the hosts plugin
+// is fully working before we disable it.
+//
+// Phase 2: disableHostsPluginOnRunningVM mutates the VM via SSH — patches environment file
+// with SHOULD_ENABLE_HOSTS_PLUGIN=false, clears experimental corefile, removes cloud-env
+// and hosts files, stops aks-hosts-setup timer, restarts localdns.
+//
+// Phase 3: validateHostsPluginDisabled runs comprehensive checks — environment file state,
+// removed files, inactive timer, corefile without hosts directive, AA flag absent from dig,
+// and DNS still resolves through localdns.
+//
+// Run a single distro with: go test -run "Test_LocalDNSHostsPlugin_Rollback/Ubuntu2204" -v
+func Test_LocalDNSHostsPlugin_Rollback(t *testing.T) {
+	tests := []struct {
+		name string
+		vhd  *config.Image
+	}{
+		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
+		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RunScenario(t, &Scenario{
+				Description: "Tests hosts plugin rollback (disable on running VM) on " + tt.name,
+				Config: Config{
+					Cluster: ClusterKubenet,
+					VHD:     tt.vhd,
+					BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
+					},
+					Validator: func(ctx context.Context, s *Scenario) {
+						// Phase 1 already ran via ValidateCommonLinux (IsHostsPluginEnabled=true)
+						// Phase 2: Disable hosts plugin on running VM
+						disableHostsPluginOnRunningVM(ctx, s)
+						// Phase 3: Validate hosts plugin is fully disabled
+						validateHostsPluginDisabled(ctx, s)
+					},
+				},
+			})
+		})
+	}
+}
+
+// Test_LocalDNSHostsPlugin_Rollback_Scriptless tests disabling the hosts plugin on an
+// already-running VM using the scriptless (aks-node-controller) bootstrap path.
+// Same three-phase flow as Test_LocalDNSHostsPlugin_Rollback — the disable path is
+// identical for both legacy and scriptless since it only patches files and stops services
+// (no corefile generation needed).
+//
+// Run a single distro with: go test -run "Test_LocalDNSHostsPlugin_Rollback_Scriptless/Ubuntu2204" -v
+func Test_LocalDNSHostsPlugin_Rollback_Scriptless(t *testing.T) {
+	tests := []struct {
+		name string
+		vhd  *config.Image
+	}{
+		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
+		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RunScenario(t, &Scenario{
+				Description: "Tests hosts plugin rollback (scriptless) on " + tt.name,
+				Config: Config{
+					Cluster:         ClusterKubenet,
+					VHD:             tt.vhd,
+					AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+						config.LocalDnsProfile.EnableHostsPlugin = true
+					},
+					Validator: func(ctx context.Context, s *Scenario) {
+						// Phase 1 already ran via ValidateCommonLinux (IsHostsPluginEnabled=true)
+						// Phase 2: Disable hosts plugin on running VM
+						disableHostsPluginOnRunningVM(ctx, s)
+						// Phase 3: Validate hosts plugin is fully disabled
+						validateHostsPluginDisabled(ctx, s)
+					},
+				},
+			})
+		})
+	}
+}
