@@ -1,11 +1,4 @@
 
-# need this so it can be mocked
-function Set-ExitCode {
-  param($ExitCode, $ErrorMessage)
-  Write-Log "Exiting with code $ExitCode. Error: $ErrorMessage"
-  exit $ExitCode
-}
-
 BeforeAll {
   if (-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)) {
     New-PSDrive -Name C -PSProvider FileSystem -Root ([System.IO.Path]::GetTempPath()) | Out-Null
@@ -65,21 +58,6 @@ BeforeAll {
 
 Describe "ProcessAndWriteContainerdConfig" {
   BeforeEach {
-      $script:capturedFilePath = $null
-      $script:capturedEncoding = $null
-      $script:capturedContent = $null
-
-      # Mock Out-File -MockWith {
-      #   param(
-      #     [Parameter(ValueFromPipeline=$TRUE)]$InputObject,
-      #     $FilePath,
-      #     $Encoding
-      #   )
-      #   $script:capturedFilePath = $FilePath
-      #   $script:capturedEncoding = $Encoding
-      #   $script:capturedContent = $InputObject
-      # }
-
       Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
         return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
       }
@@ -104,7 +82,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       }
     }
 
-    It "Should process containerdtemplate.toml with basic configuration" -Tag Focus {
+    It "Should process containerdtemplate.toml with basic configuration" {
       # Set up paths for the test
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
@@ -207,13 +185,12 @@ Describe "Set-ContainerdRegistryConfig" {
 
 BeforeEach {
     $script:capturedFilePath = $null
-    $script:capturedEncoding = $null
     $script:capturedContent = $null
-    Mock Out-File -MockWith {
-      param($InputObject,$FilePath, $Encoding)
+
+    Mock Out-File-Ascii -MockWith {
+      param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
-      $script:capturedEncoding = $Encoding
-      $script:capturedContent = $InputObject
+      $script:capturedContent = $Content
     }
 
     # Mock Create-Directory to track calls
@@ -236,9 +213,8 @@ BeforeEach {
     }
 
     # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
-      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
-      $Encoding -eq ([System.Text.Encoding]::ASCII)
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml"
     }
   }
 
@@ -254,10 +230,9 @@ BeforeEach {
       $DirectoryUsage -eq "storing containerd registry hosts config"
     }
 
-    # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
-      $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml" -and
-      $Encoding -eq ([System.Text.Encoding]::ASCII)
+    # Verify Out-File-Ascii was called with correct path
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml"
     }
   }
 
@@ -268,9 +243,8 @@ BeforeEach {
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
-      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
-      $Encoding -eq ([System.Text.Encoding]::ASCII)
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml"
     }
 
     # Note: The content structure is verified by the function's implementation
@@ -293,8 +267,8 @@ BeforeEach {
       $FullPath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com"
     }
 
-    # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -ParameterFilter {
+    # Verify Out-File-Ascii was called with correct path
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com\hosts.toml"
     }
   }
@@ -307,15 +281,6 @@ BeforeEach {
 
     $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\test.registry.io\hosts.toml"
   }
-
-  It "Should use ascii encoding when writing hosts.toml" {
-    $registry = "docker.io"
-    $registryHost = "registry-1.docker.io"
-
-    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
-
-    $script:capturedEncoding | Should -Be ([System.Text.Encoding]::ASCII)
-  }
 }
 
 Describe "Set-BootstrapProfileRegistryContainerdHost" {
@@ -325,13 +290,11 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
     }
 
     $script:capturedFilePath = $null
-    $script:capturedEncoding = $null
     $script:capturedContent = $null
-    Mock Out-File -MockWith {
-      param($InputObject,$FilePath, $Encoding)
+    Mock Out-File-Ascii -MockWith {
+      param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
-      $script:capturedEncoding = $Encoding
-      $script:capturedContent = $InputObject
+      $script:capturedContent = $Content
     }
 }
 
@@ -348,7 +311,6 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
       $DirectoryUsage -eq "storing containerd registry hosts config"
     }
     $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml"
-    $script:capturedEncoding | Should -Be ([System.Text.Encoding]::ASCII)
     $script:capturedContent | Should -Match 'server = "https://mcr.microsoft.com"'
     $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2"\]'
     $script:capturedContent | Should -Match 'override_path = true'
@@ -390,13 +352,11 @@ Describe 'RegisterContainerDService' {
     Mock Start-Service
 
     $script:capturedFilePath = $null
-    $script:capturedEncoding = $null
     $script:capturedContent = $null
-    Mock Out-File -MockWith {
-      param($InputObject,$FilePath, $Encoding)
+    Mock Out-File-Ascii -MockWith {
+      param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
-      $script:capturedEncoding = $Encoding
-      $script:capturedContent = $InputObject
+      $script:capturedContent = $Content
     }
   }
 

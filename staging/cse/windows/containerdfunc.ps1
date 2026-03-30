@@ -4,6 +4,23 @@ $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containe
 # The minimum kubernetes version to use containerd 2.x
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 $global:WindowsDataDir = "C:\AzureData\windows"
+
+# Function so it can be overriden in tests.
+function Get-Root-RegistryPath {
+  return "C:\ProgramData\containerd\certs.d"
+}
+
+function Out-File-Ascii {
+ [CmdletBinding()]
+ param(
+    [Parameter(ValueFromPipeline = $true)]$Content,
+    [Parameter(Mandatory = $true)][string]$FilePath
+  )
+
+  $Content | Out-File -FilePath $FilePath -Encoding "ascii"
+}
+
+
 # Invokes nssm.exe with the given arguments and throws if the exit code is non-zero.
 function Invoke-Nssm
 {
@@ -207,7 +224,7 @@ function ProcessAndWriteContainerdConfig {
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
-  $processedTemplate | Out-File -FilePath $configFile -Encoding ([System.Text.Encoding]::ASCII)
+  $processedTemplate | Out-File-Ascii -FilePath $configFile
 }
 
 function Enable-Logging {
@@ -222,10 +239,6 @@ function Enable-Logging {
   else {
     Write-Log "Containerd hyperv logging script not avalaible"
   }
-}
-
-function Get-Root-RegistryPath {
-  return "C:\ProgramData\containerd\certs.d"
 }
 
 function Set-ContainerdRegistryConfig {
@@ -250,7 +263,7 @@ server = "https://$Registry"
     X-Forwarded-For = ["$Registry"]
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ([System.Text.Encoding]::ASCII)
+  $content | Out-File-Ascii -FilePath $hostsTomlPath
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
@@ -290,7 +303,7 @@ server = "https://$mcrRegistry"
   override_path = true
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ([System.Text.Encoding]::ASCII)
+  $content | Out-File-Ascii -FilePath $hostsTomlPath
   Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 
