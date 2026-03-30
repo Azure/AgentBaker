@@ -422,7 +422,7 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureArtifactStreaming() {
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
   time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 
