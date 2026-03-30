@@ -654,8 +654,8 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				ValidateMIGInstancesCreated(ctx, s, "MIG 1g")
 
 				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
-				migResourceName := "nvidia.com/mig-1g.10g"
-				ValidateNodeAdvertisesGPUResources(ctx, s, 2, migResourceName)
+				migResourceName := "nvidia.com/mig-1g.10gb"
+				ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName)
 
 				// Validate that MIG workloads can be scheduled
 				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
