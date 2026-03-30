@@ -1622,9 +1622,10 @@ echo "=== Corefile validation successful ==="
 	//    available" because AA definitively means CoreDNS served the answer from a local source.
 	// 2. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN.
 	//
-	// We use packages.microsoft.com because it's a real FQDN that aks-hosts-setup.service populates.
+	// We use the first FQDN from GetDefaultFQDNsForValidation() (e.g. mcr.microsoft.com) because
+	// it's a real FQDN that aks-hosts-setup.service populates from the NBC's CriticalFQDNs list.
 	// This avoids race conditions with the aks-hosts-setup.timer overwriting fake test entries.
-	testFQDN := "packages.microsoft.com"
+	testFQDN := s.GetDefaultFQDNsForValidation()[0]
 	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with AA flag", testFQDN)
 
 	script := fmt.Sprintf(`set -euo pipefail

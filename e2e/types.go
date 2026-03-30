@@ -410,28 +410,9 @@ func (s *Scenario) IsHostsPluginEnabled() bool {
 	return false
 }
 
-// GetDefaultFQDNsForValidation returns a minimal set of FQDNs to validate in the default validation.
-// This mirrors the logic in GetCloudTargetEnv (pkg/agent/utils.go) and aks-hosts-setup.sh.
-// Uses Runtime.Cluster.Model.Location rather than NBC-specific fields so it works for both
-// legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
+// GetDefaultFQDNsForValidation returns the public cloud FQDNs to validate in hosts file checks.
+// AgentBaker e2e only runs in public cloud, so sovereign cloud branches are unnecessary.
 func (s *Scenario) GetDefaultFQDNsForValidation() []string {
-	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
-		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
-		if strings.HasPrefix(location, "china") {
-			return []string{
-				"mcr.azure.cn",
-				"login.partner.microsoftonline.cn",
-				"acs-mirror.azureedge.net",
-			}
-		}
-		if strings.HasPrefix(location, "usgov") || strings.HasPrefix(location, "usdod") {
-			return []string{
-				"mcr.microsoft.com",
-				"login.microsoftonline.us",
-				"acs-mirror.azureedge.net",
-			}
-		}
-	}
 	return []string{
 		"mcr.microsoft.com",
 		"login.microsoftonline.com",
