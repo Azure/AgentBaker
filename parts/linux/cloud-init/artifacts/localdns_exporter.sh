@@ -14,8 +14,10 @@ set -euo pipefail
 # ("Transport endpoint is not connected") due to namespace isolation.
 
 # Pre-generated .prom files written by localdns.sh
-RESOURCES_PROM_FILE="/opt/azure/containers/localdns/resources.prom"
-FORWARD_IPS_PROM_FILE="/opt/azure/containers/localdns/forward_ips.prom"
+# LOCALDNS_SCRIPT_PATH is set via Environment= in localdns-exporter@.service
+LOCALDNS_SCRIPT_PATH="${LOCALDNS_SCRIPT_PATH:-/opt/azure/containers/localdns}"
+RESOURCES_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/resources.prom"
+FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
 
 # Read the HTTP request line to extract the path
 # Format: "GET /metrics HTTP/1.1"
