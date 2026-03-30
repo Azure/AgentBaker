@@ -222,7 +222,7 @@ Describe "Set-ContainerdRegistryConfig" {
     # Verify Out-File was called with correct path
     Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
-      $Encoding -eq "ascii"
+      $Encoding -eq ([System.Text.Encoding]::ASCII)
     }
   }
 
@@ -241,7 +241,7 @@ Describe "Set-ContainerdRegistryConfig" {
     # Verify Out-File was called with correct path
     Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml" -and
-      $Encoding -eq "ascii"
+      $Encoding -eq ([System.Text.Encoding]::ASCII)
     }
   }
 
@@ -257,7 +257,7 @@ Describe "Set-ContainerdRegistryConfig" {
     # Verify Out-File was called with correct path
     Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
-      $Encoding -eq "ascii"
+      $Encoding -eq ([System.Text.Encoding]::ASCII)
     }
 
     # Note: The content structure is verified by the function's implementation
@@ -315,7 +315,7 @@ Describe "Set-ContainerdRegistryConfig" {
 
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
-    $script:capturedEncoding | Should -Be "ascii"
+    $script:capturedEncoding | Should -Be ([System.Text.Encoding]::ASCII)
   }
 }
 
@@ -349,7 +349,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
       $DirectoryUsage -eq "storing containerd registry hosts config"
     }
     $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml"
-    $script:capturedEncoding | Should -Be "ascii"
+    $script:capturedEncoding | Should -Be ([System.Text.Encoding]::ASCII)
     $script:capturedContent | Should -Match 'server = "https://mcr.microsoft.com"'
     $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2"\]'
     $script:capturedContent | Should -Match 'override_path = true'
