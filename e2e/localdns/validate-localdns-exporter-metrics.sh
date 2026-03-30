@@ -11,7 +11,7 @@ echo ""
 # (CPUUsageNSec, MemoryCurrent) accumulates clearly measurable values before we scrape.
 # We run 10 parallel workers each sending 100 sequential queries (1000 total) to ensure
 # CoreDNS uses enough CPU/memory to show up even after the exporter's truncation
-# (%.4f seconds for CPU, %.2f MB for memory).
+# (%.9f seconds for CPU, raw bytes for memory).
 echo "0. Generating DNS load through localdns to prime resource accounting..."
 for worker in $(seq 1 10); do
     (
@@ -125,9 +125,9 @@ echo ""
 
 # Validate memory usage metric — check data line exists and value is a valid number.
 echo "6. Validating memory usage metric..."
-MEM_LINE=$(echo "$METRICS" | grep -E "^localdns_memory_usage_mb " || true)
+MEM_LINE=$(echo "$METRICS" | grep -E "^localdns_memory_usage_bytes " || true)
 if [ -z "$MEM_LINE" ]; then
-    echo "   ❌ ERROR: Missing localdns_memory_usage_mb data point"
+    echo "   ❌ ERROR: Missing localdns_memory_usage_bytes data point"
     echo "   (found only comments/metadata or metric not present at all)"
     echo "$METRICS" | grep "localdns_memory" || true
     exit 1
@@ -146,7 +146,7 @@ if echo "$MEM_VALUE" | grep -Eq '^0+(\.0+)?$'; then
     echo "   Raw systemd MemoryCurrent was $RAW_MEM_BYTES (from step 2)"
     exit 1
 fi
-echo "   ✓ localdns_memory_usage_mb=$MEM_VALUE (valid, non-zero)"
+echo "   ✓ localdns_memory_usage_bytes=$MEM_VALUE (valid, non-zero)"
 echo ""
 
 # Check for VnetDNS forward IP metric

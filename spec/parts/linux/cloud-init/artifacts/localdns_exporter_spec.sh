@@ -10,7 +10,7 @@ Describe 'localdns_exporter.sh HTTP request routing'
         The output should include "Content-Type: text/plain"
         The output should include "404 Not Found - Metrics available at /metrics"
         The output should not include "localdns_service_status"
-        The output should not include "localdns_memory_usage_mb"
+        The output should not include "localdns_memory_usage_bytes"
     End
 
     It 'should return 404 for /health path'
@@ -64,11 +64,11 @@ Describe 'localdns_exporter.sh HTTP request routing'
         The output should include "Content-Type: text/plain; version=0.0.4"
         # Verify metric type declarations are present
         The output should include "# TYPE localdns_service_status gauge"
-        The output should include "# TYPE localdns_memory_usage_mb gauge"
+        The output should include "# TYPE localdns_memory_usage_bytes gauge"
         The output should include "# TYPE localdns_cpu_usage_seconds_total counter"
         # Verify metric names are present (values will vary)
         The output should include "localdns_service_status"
-        The output should include "localdns_memory_usage_mb"
+        The output should include "localdns_memory_usage_bytes"
         The output should include "localdns_cpu_usage_seconds_total"
         # Verify forward-info metrics are present (either actual metrics or fallback)
         The output should include "localdns_vnetdns_forward_info"
