@@ -86,6 +86,11 @@ func RunScenario(t *testing.T, s *Scenario) error {
 	return runScenario(t, s)
 }
 
+func RunScenarioSequential(t *testing.T, s *Scenario) error {
+	// Default path
+	return runScenario(t, s)
+}
+
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	// This is hard to understand. Some functional magic is used to run the original scenario in two stages.
 	// 1. Stage 1: Run the original scenario with pre-provisioning enabled, but skip the main validation and validate only pre-provisioning.
