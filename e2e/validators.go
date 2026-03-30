@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
@@ -1526,6 +1527,163 @@ func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
 
 	// Check that aks-hosts-setup.timer is active for periodic refresh
 	ValidateSystemdUnitIsRunning(ctx, s, "aks-hosts-setup.timer")
+}
+
+// validateNoHostsPlugin verifies that the hosts plugin is NOT active on the VM.
+// This is the baseline check for brownfield tests — confirming the VM was provisioned
+// without the hosts plugin before we enable it mid-lifecycle via SSH.
+// It checks three conditions:
+//  1. /etc/localdns/environment has SHOULD_ENABLE_HOSTS_PLUGIN=false
+//  2. /etc/localdns/cloud-env does NOT exist
+//  3. The active corefile does NOT contain the hosts plugin directive
+func validateNoHostsPlugin(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	script := `set -euo pipefail
+errors=0
+
+echo "=== Validating hosts plugin is NOT active ==="
+
+# Check 1: SHOULD_ENABLE_HOSTS_PLUGIN must be false in /etc/localdns/environment
+env_file="/etc/localdns/environment"
+if [ -f "$env_file" ]; then
+    val=$(grep '^SHOULD_ENABLE_HOSTS_PLUGIN=' "$env_file" | cut -d= -f2- || true)
+    if [ "$val" != "false" ] && [ -n "$val" ]; then
+        echo "ERROR: SHOULD_ENABLE_HOSTS_PLUGIN=$val (expected 'false')"
+        errors=$((errors + 1))
+    else
+        echo "OK: SHOULD_ENABLE_HOSTS_PLUGIN=false"
+    fi
+else
+    echo "OK: $env_file does not exist (hosts plugin not configured)"
+fi
+
+# Check 2: /etc/localdns/cloud-env must NOT exist
+cloud_env="/etc/localdns/cloud-env"
+if [ -f "$cloud_env" ]; then
+    echo "ERROR: $cloud_env exists but should not when hosts plugin is disabled"
+    cat "$cloud_env"
+    errors=$((errors + 1))
+else
+    echo "OK: $cloud_env does not exist"
+fi
+
+# Check 3: Active corefile must NOT contain hosts plugin directive
+corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
+if [ -f "$corefile" ]; then
+    if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+        echo "ERROR: Active corefile contains 'hosts /etc/localdns/hosts' but should not"
+        errors=$((errors + 1))
+    else
+        echo "OK: Active corefile does not contain hosts plugin directive"
+    fi
+else
+    echo "WARN: Corefile $corefile not found (localdns may not have started yet)"
+fi
+
+echo ""
+if [ $errors -gt 0 ]; then
+    echo "FAILED: $errors checks failed — hosts plugin appears to be active"
+    exit 1
+else
+    echo "SUCCESS: Hosts plugin is not active on this VM"
+    exit 0
+fi
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts plugin should not be active before brownfield enablement")
+}
+
+// enableHostsPluginOnRunningVM enables the hosts plugin on an already-running VM via SSH.
+// This simulates a brownfield rollout where existing nodes get the hosts plugin activated
+// without reprovisioning. The NBC is passed as an explicit parameter rather than read from
+// s.Runtime.NBC because scriptless tests don't store an NBC on ScenarioRuntime.
+//
+// Go-side: generates the experimental corefile (with hosts plugin) using the NBC, base64-encodes it.
+// SSH-side: patches /etc/localdns/environment, creates /etc/localdns/cloud-env, touches the hosts
+// file, and starts the aks-hosts-setup timer/service.
+//
+// The caller is responsible for restarting localdns after this function returns (consistent with
+// the greenfield pattern in ValidateCommonLinux).
+func enableHostsPluginOnRunningVM(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) {
+	s.T.Helper()
+
+	// Shallow-copy the NBC so we don't mutate the original (which would change IsHostsPluginEnabled())
+	nbcCopy := *nbc
+	// Deep-copy AgentPoolProfile so we can set EnableHostsPlugin without affecting the original
+	appCopy := *nbcCopy.AgentPoolProfile
+	nbcCopy.AgentPoolProfile = &appCopy
+	// Deep-copy LocalDNSProfile
+	profCopy := *appCopy.LocalDNSProfile
+	appCopy.LocalDNSProfile = &profCopy
+	profCopy.EnableHostsPlugin = true
+
+	// Generate the experimental corefile (with hosts plugin blocks)
+	experimentalCorefile, err := agent.GenerateLocalDNSCoreFile(&nbcCopy, &appCopy, true)
+	require.NoError(s.T, err, "failed to generate experimental corefile for brownfield enablement")
+	require.NotEmpty(s.T, experimentalCorefile, "experimental corefile should not be empty")
+
+	experimentalB64 := base64.StdEncoding.EncodeToString([]byte(experimentalCorefile))
+	criticalFQDNs := strings.Join(s.GetDefaultFQDNsForValidation(), ",")
+
+	// SSH script that patches the VM to enable hosts plugin
+	script := fmt.Sprintf(`set -euo pipefail
+
+echo "=== Enabling hosts plugin on running VM (brownfield) ==="
+
+# Step 1: Read existing LOCALDNS_COREFILE_BASE from /etc/localdns/environment
+# Use cut -d= -f2- (not -f2) to preserve base64 '=' padding chars
+env_file="/etc/localdns/environment"
+existing_base=""
+if [ -f "$env_file" ]; then
+    existing_base=$(grep '^LOCALDNS_COREFILE_BASE=' "$env_file" | cut -d= -f2- || true)
+    if [ -z "$existing_base" ]; then
+        # Fall back to legacy variable name
+        existing_base=$(grep '^LOCALDNS_BASE64_ENCODED_COREFILE=' "$env_file" | cut -d= -f2- || true)
+    fi
+fi
+if [ -z "$existing_base" ]; then
+    echo "ERROR: Could not read existing base corefile from $env_file"
+    cat "$env_file" || true
+    exit 1
+fi
+echo "OK: Read existing base corefile (${#existing_base} chars)"
+
+# Step 2: Rewrite /etc/localdns/environment with hosts plugin enabled
+# Use printf to construct the file content with shell variable expansion,
+# avoiding heredoc issues with base64 padding characters
+printf '%%s\n%%s\n%%s\n%%s\n' \
+    "LOCALDNS_BASE64_ENCODED_COREFILE=${existing_base}" \
+    "LOCALDNS_COREFILE_BASE=${existing_base}" \
+    "LOCALDNS_COREFILE_EXPERIMENTAL=%s" \
+    "SHOULD_ENABLE_HOSTS_PLUGIN=true" | sudo tee "$env_file" > /dev/null
+echo "OK: Rewrote $env_file with hosts plugin enabled"
+echo "Environment file contents:"
+cat "$env_file"
+echo ""
+
+# Step 3: Write /etc/localdns/cloud-env with critical FQDNs
+cloud_env="/etc/localdns/cloud-env"
+printf '%%s\n' "LOCALDNS_CRITICAL_FQDNS=%s" | sudo tee "$cloud_env" > /dev/null
+echo "OK: Wrote $cloud_env"
+
+# Step 4: Touch /etc/localdns/hosts so aks-hosts-setup can write to it
+sudo touch /etc/localdns/hosts
+sudo chmod 0644 /etc/localdns/hosts
+echo "OK: Created /etc/localdns/hosts"
+
+# Step 5: Enable and start aks-hosts-setup timer/service
+sudo systemctl enable --now aks-hosts-setup.timer
+sudo systemctl start aks-hosts-setup.service
+echo "OK: Started aks-hosts-setup.timer and aks-hosts-setup.service"
+
+echo ""
+echo "SUCCESS: Hosts plugin brownfield enablement complete"
+echo "Caller should restart localdns to pick up the new corefile"
+`, experimentalB64, criticalFQDNs)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"failed to enable hosts plugin on running VM (brownfield)")
 }
 
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
