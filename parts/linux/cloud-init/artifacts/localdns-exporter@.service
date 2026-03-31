@@ -11,7 +11,7 @@ StandardOutput=socket
 StandardError=journal
 
 # Security hardening - run as unprivileged dynamic user
-# Exporter only reads systemd properties and world-readable .prom file
+# Exporter only reads pre-generated world-readable .prom metrics files (no systemd queries)
 DynamicUser=yes
 PrivateTmp=yes
 ProtectSystem=strict
