@@ -323,8 +323,12 @@ echo ""
 
 # Step 11: Spawn a persistent worker instance by holding a connection open
 echo "11. Spawning a persistent worker instance for security inspection..."
-# Use bash /dev/tcp instead of nc for portability (nc may not be installed on all distros)
-( exec 3<>/dev/tcp/${LISTEN_ADDR%%:*}/${LISTEN_ADDR##*:}; sleep 120 ) &
+# Hold a raw TCP connection open so the socket-activated exporter worker stays alive
+# for security inspection. nc is available on all AKS VHD distros (Ubuntu, AzureLinux, Flatcar).
+# Note: do NOT use bash /dev/tcp here — Flatcar compiles bash without --enable-net-redirections.
+HOLD_HOST="${LISTEN_ADDR%%:*}"
+HOLD_PORT="${LISTEN_ADDR##*:}"
+( sleep 120 | nc "${HOLD_HOST}" "${HOLD_PORT}" ) &>/dev/null &
 NC_PID=$!
 sleep 2
 
