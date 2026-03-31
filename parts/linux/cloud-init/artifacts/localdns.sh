@@ -648,16 +648,20 @@ export_resource_metrics() {
 
     local unit="localdns.service"
 
-    # Determine service status
-    if systemctl is-active "$unit" >/dev/null 2>&1; then
+    # Determine service status by checking if the CoreDNS child process is alive.
+    # Note: systemctl is-active would always return "active" here because this function
+    # runs inside localdns.sh which IS the localdns.service ExecStart process.
+    if [ -n "${COREDNS_PID:-}" ] && kill -0 "$COREDNS_PID" 2>/dev/null; then
         service_status="active"
     else
         service_status="inactive"
     fi
 
-    # Read raw cgroup resource values
-    raw_cpu=$(systemctl show "$unit" --property=CPUUsageNSec --value 2>/dev/null || echo "0")
-    raw_mem=$(systemctl show "$unit" --property=MemoryCurrent --value 2>/dev/null || echo "0")
+    # Read raw cgroup resource values in a single systemctl call to reduce overhead
+    local show_output
+    show_output=$(systemctl show "$unit" --property=CPUUsageNSec,MemoryCurrent 2>/dev/null || echo "")
+    raw_cpu=$(echo "$show_output" | awk -F= '/^CPUUsageNSec=/{print $2}')
+    raw_mem=$(echo "$show_output" | awk -F= '/^MemoryCurrent=/{print $2}')
 
     # Handle empty or [not set] values
     if [ -z "$raw_cpu" ] || [ "$raw_cpu" = "[not set]" ]; then
@@ -677,7 +681,7 @@ export_resource_metrics() {
         echo "WARNING: Failed to create temp file for ${resources_prom_file}. Resource metrics export skipped."
         return 0
     elif ! {
-        echo "# HELP localdns_service_status Service status from systemctl is-active (1=active, 0=inactive)"
+        echo "# HELP localdns_service_status CoreDNS process status (1=active, 0=inactive)"
         echo "# TYPE localdns_service_status gauge"
         if [ "$service_status" = "active" ]; then
             echo "localdns_service_status{status=\"active\"} 1"

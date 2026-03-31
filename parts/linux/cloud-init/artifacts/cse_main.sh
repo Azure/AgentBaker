@@ -487,14 +487,20 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
-    # Configure localdns metrics exporter socket before ensureKubelet so that
-    # addKubeletNodeLabel takes effect at kubelet startup.
+    # Add localdns-exporter kubelet node label before ensureKubelet so it's
+    # included in --node-labels at kubelet startup (~0ms, just a variable append).
+    # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
+    logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Configure localdns metrics exporter socket after ensureKubelet.
     # This is optional observability — don't block provisioning if it fails.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket || true
     fi
-
-    logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
     if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
