@@ -1293,12 +1293,12 @@ enableLocalDNS() {
 }
 
 # Configures the localdns metrics exporter socket to listen on the node IP.
-# Must run in nodePrep before ensureKubelet so the kubelet node label is applied.
+# Runs after ensureKubelet (the kubelet node label is added separately before ensureKubelet).
 # The VHD default binds to 0.0.0.0 which already works for vmagent scraping.
 # The drop-in narrows binding to the node IP for tighter scoping when available.
 configureLocalDNSExporterSocket() {
     # Guard: skip everything if the socket unit doesn't exist (old VHD without exporter files).
-    # This avoids creating stale drop-in dirs and prevents the 8-minute retry loop in
+    # This avoids creating stale drop-in dirs and prevents the retry loop in
     # systemctlEnableAndStartNoBlock when the unit is missing.
     if ! systemctl cat localdns-exporter.socket &>/dev/null; then
         echo "localdns-exporter: socket unit not found on this VHD, skipping"
@@ -1323,10 +1323,10 @@ EOF
 
     # Enable localdns metrics exporter socket for Prometheus scraping.
     # This is optional observability — don't block provisioning if it fails.
+    # Note: the kubelet node label is added separately in cse_main.sh before ensureKubelet.
     echo "Enabling localdns-exporter.socket for metrics collection."
-    if systemctlEnableAndStart localdns-exporter.socket 30; then
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
         echo "Enable localdns-exporter.socket succeeded."
-        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     else
         echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
     fi

@@ -21,9 +21,9 @@ FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
 
 # Read the HTTP request line to extract the path
 # Format: "GET /metrics HTTP/1.1"
-# Handle read failure gracefully (client disconnected or incomplete request)
-if ! read -r REQUEST_LINE; then
-    # Client disconnected or sent an incomplete request; exit without error
+# Handle read failure gracefully (client disconnected, incomplete request, or timeout)
+if ! read -r -t 5 REQUEST_LINE; then
+    # Client disconnected, sent an incomplete request, or timed out; exit without error
     exit 0
 fi
 REQUEST_PATH=$(echo "$REQUEST_LINE" | awk '{print $2}')
@@ -44,7 +44,7 @@ if [ -f "$RESOURCES_PROM_FILE" ]; then
     cat "$RESOURCES_PROM_FILE"
 else
     # Fallback if .prom file doesn't exist yet (before first watchdog tick)
-    echo "# HELP localdns_service_status Service status from systemctl is-active (1=active, 0=inactive)"
+    echo "# HELP localdns_service_status CoreDNS process status (1=active, 0=inactive)"
     echo "# TYPE localdns_service_status gauge"
     echo "localdns_service_status{status=\"unknown\"} 0"
     echo "# HELP localdns_memory_usage_bytes Current memory usage in bytes"
