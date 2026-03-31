@@ -234,8 +234,14 @@ EOF
         End
 
         It 'should export VnetDNS forward IP to prom file with correct format'
-            # Setup corefile with VnetDNS block using brace syntax (matches production)
+            # Setup corefile with health-check block + VnetDNS block (matches production layout).
+            # The health-check block has bind 169.254.10.10/11 but no forward directive —
+            # the parser must not produce false positives from it.
             cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
 .:53 {
     bind 169.254.10.10
     forward . 168.63.129.16 {
@@ -255,8 +261,12 @@ EOF
         End
 
         It 'should export KubeDNS forward IP to prom file with correct format'
-            # Setup corefile with both VnetDNS and KubeDNS blocks using brace syntax
+            # Setup corefile with health-check + VnetDNS + KubeDNS blocks (matches production layout)
             cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
 .:53 {
     bind 169.254.10.10
     forward . 168.63.129.16 {
@@ -284,8 +294,12 @@ EOF
         End
 
         It 'should export multiple VnetDNS forward IPs to prom file'
-            # Setup corefile with VnetDNS block with multiple forward IPs and brace syntax
+            # Setup corefile with health-check + VnetDNS block with multiple forward IPs
             cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
 .:53 {
     bind 169.254.10.10
     forward . 168.63.129.16 {
@@ -307,8 +321,12 @@ EOF
         End
 
         It 'should export multiple KubeDNS forward IPs to prom file'
-            # Setup corefile with both VnetDNS and KubeDNS blocks with multiple forward IPs and brace syntax
+            # Setup corefile with health-check + VnetDNS + KubeDNS blocks with multiple forward IPs
             cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
 .:53 {
     bind 169.254.10.10
     forward . 168.63.129.16 {
@@ -340,8 +358,12 @@ EOF
         End
 
         It 'should export missing status when no forward IPs are configured'
-            # Setup corefile without forward directive in VnetDNS block
+            # Setup corefile with health-check block but no forward directive in VnetDNS/KubeDNS blocks
             cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
 .:53 {
     bind 169.254.10.10
     # No forward directive here
