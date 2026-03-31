@@ -422,6 +422,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 		Properties: &armstorage.AccountPropertiesCreateParameters{
 			AllowBlobPublicAccess: to.Ptr(false),
 			AllowSharedKeyAccess:  to.Ptr(false),
+			MinimumTLSVersion:     to.Ptr(armstorage.MinimumTLSVersionTLS12),
 		},
 	}, nil)
 	if err != nil {
