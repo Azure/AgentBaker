@@ -3,7 +3,7 @@ set -euo pipefail
 
 # aks-hosts-setup.sh
 # Resolves A and AAAA records for critical AKS FQDNs and populates /etc/localdns/hosts.
-# LOCALDNS_CRITICAL_FQDNS is set by CSE (cse_cmd.sh) and persisted via /etc/localdns/cloud-env
+# LOCALDNS_CRITICAL_FQDNS is set by CSE (cse_cmd.sh) and persisted via /etc/localdns/environment
 # as a systemd EnvironmentFile so it's available on both initial and timer-triggered runs.
 #
 # Logging: All output goes to journald via the aks-hosts-setup.service unit.
