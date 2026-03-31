@@ -1098,6 +1098,63 @@ func randomInt(bound int) int {
 	return int(n.Int64())
 }
 
+// RerunCSE regenerates a CSE command from the given NBC and pushes it to
+// the existing VMSS, triggering re-execution of the Custom Script Extension.
+// This simulates production behavior when AKS-RP re-runs CSE after an
+// agentpool setting change (e.g., toggling EnableHostsPlugin).
+//
+// The function always uses the legacy (bash CSE) path for regeneration,
+// regardless of the original bootstrap path. This works because:
+//   - Legacy CSE embeds all env vars (SHOULD_ENABLE_HOSTS_PLUGIN, etc.) inline
+//   - The CSE scripts are the same shell code in both legacy and scriptless paths
+//   - On re-run, the CSE scripts re-execute enableLocalDNS() with the new env vars
+func RerunCSE(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) {
+	s.T.Helper()
+
+	ab, err := agent.NewAgentBaker()
+	require.NoError(s.T, err, "failed to create AgentBaker")
+
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
+	require.NoError(s.T, err, "failed to regenerate node bootstrapping for CSE re-run")
+
+	newCSE := nodeBootstrapping.CSE
+	require.NotEmpty(s.T, newCSE, "regenerated CSE command is empty")
+
+	s.T.Logf("Re-running CSE on VMSS %s (CSE length: %d)", s.Runtime.VMSSName, len(newCSE))
+
+	cluster := s.Runtime.Cluster
+	resourceGroupName := *cluster.Model.Properties.NodeResourceGroup
+
+	ext := armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr("vmssCSE"),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+			Type:                    to.Ptr("CustomScript"),
+			TypeHandlerVersion:      to.Ptr("2.1"),
+			AutoUpgradeMinorVersion: to.Ptr(true),
+			Settings:                map[string]interface{}{},
+			ProtectedSettings: map[string]interface{}{
+				"commandToExecute": newCSE,
+			},
+		},
+	}
+
+	poller, err := config.Azure.VMSSExtensions.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		s.Runtime.VMSSName,
+		"vmssCSE",
+		ext,
+		nil,
+	)
+	require.NoError(s.T, err, "failed to begin CSE extension update")
+
+	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	require.NoError(s.T, err, "CSE re-run failed")
+
+	s.T.Log("CSE re-run completed successfully")
+}
+
 func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
 	if vmss != nil && vmss.Properties != nil &&
 		vmss.Properties.VirtualMachineProfile != nil && vmss.Properties.VirtualMachineProfile.NetworkProfile != nil {
