@@ -1532,10 +1532,9 @@ func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
 // validateNoHostsPlugin verifies that the hosts plugin is NOT active on the VM.
 // This is the baseline check for brownfield tests — confirming the VM was provisioned
 // without the hosts plugin before we enable it mid-lifecycle via SSH.
-// It checks three conditions:
+// It checks two conditions:
 //  1. /etc/localdns/environment has SHOULD_ENABLE_HOSTS_PLUGIN=false
-//  2. /etc/localdns/cloud-env does NOT exist
-//  3. The active corefile does NOT contain the hosts plugin directive
+//  2. The active corefile does NOT contain the hosts plugin directive
 func validateNoHostsPlugin(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1558,17 +1557,7 @@ else
     echo "OK: $env_file does not exist (hosts plugin not configured)"
 fi
 
-# Check 2: /etc/localdns/cloud-env must NOT exist
-cloud_env="/etc/localdns/cloud-env"
-if [ -f "$cloud_env" ]; then
-    echo "ERROR: $cloud_env exists but should not when hosts plugin is disabled"
-    cat "$cloud_env"
-    errors=$((errors + 1))
-else
-    echo "OK: $cloud_env does not exist"
-fi
-
-# Check 3: Active corefile must NOT contain hosts plugin directive
+# Check 2: Active corefile must NOT contain hosts plugin directive
 corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
 if [ -f "$corefile" ]; then
     if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
@@ -1600,7 +1589,7 @@ fi
 // s.Runtime.NBC because scriptless tests don't store an NBC on ScenarioRuntime.
 //
 // Go-side: generates the experimental corefile (with hosts plugin) using the NBC, base64-encodes it.
-// SSH-side: patches /etc/localdns/environment, creates /etc/localdns/cloud-env, touches the hosts
+// SSH-side: patches /etc/localdns/environment, writes FQDNs to environment file, touches the hosts
 // file, and starts the aks-hosts-setup timer/service.
 //
 // The caller is responsible for restarting localdns after this function returns (consistent with
@@ -1662,10 +1651,14 @@ echo "Environment file contents:"
 cat "$env_file"
 echo ""
 
-# Step 3: Write /etc/localdns/cloud-env with critical FQDNs
-cloud_env="/etc/localdns/cloud-env"
-printf '%%s\n' "LOCALDNS_CRITICAL_FQDNS=%s" | sudo tee "$cloud_env" > /dev/null
-echo "OK: Wrote $cloud_env"
+# Step 3: Add critical FQDNs to /etc/localdns/environment
+# The environment file was written by the original CSE; brownfield enable appends FQDNs
+if grep -q '^LOCALDNS_CRITICAL_FQDNS=' "$env_file" 2>/dev/null; then
+    sudo sed -i "s|^LOCALDNS_CRITICAL_FQDNS=.*|LOCALDNS_CRITICAL_FQDNS=%s|" "$env_file"
+else
+    printf '\nLOCALDNS_CRITICAL_FQDNS=%%s\n' "%s" | sudo tee -a "$env_file" > /dev/null
+fi
+echo "OK: Updated LOCALDNS_CRITICAL_FQDNS in $env_file"
 
 # Step 4: Touch /etc/localdns/hosts so aks-hosts-setup can write to it
 sudo touch /etc/localdns/hosts
@@ -1680,88 +1673,17 @@ echo "OK: Started aks-hosts-setup.timer and aks-hosts-setup.service"
 echo ""
 echo "SUCCESS: Hosts plugin brownfield enablement complete"
 echo "Caller should restart localdns to pick up the new corefile"
-`, experimentalB64, criticalFQDNs)
+`, experimentalB64, criticalFQDNs, criticalFQDNs)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"failed to enable hosts plugin on running VM (brownfield)")
 }
 
-// disableHostsPluginOnRunningVM disables the hosts plugin on an already-running VM via SSH.
-// This simulates a production rollback where existing nodes get the hosts plugin deactivated
-// without reprovisioning. Unlike enableHostsPluginOnRunningVM, no NBC parameter is needed —
-// the disable path doesn't generate corefiles, it just patches the environment file, removes
-// state files, stops the timer, and restarts localdns.
-//
-// The localdns restart is included in this function (unlike the enable path where the caller
-// restarts) because disable is a complete operation with no intermediate "wait for service
-// to populate" step.
-func disableHostsPluginOnRunningVM(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-
-	script := `set -euo pipefail
-
-echo "=== Disabling hosts plugin on running VM (rollback) ==="
-
-# Step 1: Read existing LOCALDNS_COREFILE_BASE from /etc/localdns/environment
-# Use cut -d= -f2- (not -f2) to preserve base64 '=' padding chars
-env_file="/etc/localdns/environment"
-existing_base=""
-if [ -f "$env_file" ]; then
-    existing_base=$(grep '^LOCALDNS_COREFILE_BASE=' "$env_file" | cut -d= -f2- || true)
-    if [ -z "$existing_base" ]; then
-        # Fall back to legacy variable name
-        existing_base=$(grep '^LOCALDNS_BASE64_ENCODED_COREFILE=' "$env_file" | cut -d= -f2- || true)
-    fi
-fi
-if [ -z "$existing_base" ]; then
-    echo "ERROR: Could not read existing base corefile from $env_file"
-    cat "$env_file" || true
-    exit 1
-fi
-echo "OK: Read existing base corefile (${#existing_base} chars)"
-
-# Step 2: Rewrite /etc/localdns/environment with hosts plugin disabled
-# Clear LOCALDNS_COREFILE_EXPERIMENTAL to prevent any accidental use
-printf '%s\n%s\n%s\n%s\n' \
-    "LOCALDNS_BASE64_ENCODED_COREFILE=${existing_base}" \
-    "LOCALDNS_COREFILE_BASE=${existing_base}" \
-    "LOCALDNS_COREFILE_EXPERIMENTAL=" \
-    "SHOULD_ENABLE_HOSTS_PLUGIN=false" | sudo tee "$env_file" > /dev/null
-echo "OK: Rewrote $env_file with hosts plugin disabled"
-echo "Environment file contents:"
-cat "$env_file"
-echo ""
-
-# Step 3: Remove /etc/localdns/cloud-env (FQDN source)
-sudo rm -f /etc/localdns/cloud-env
-echo "OK: Removed /etc/localdns/cloud-env"
-
-# Step 4: Remove /etc/localdns/hosts
-sudo rm -f /etc/localdns/hosts
-echo "OK: Removed /etc/localdns/hosts"
-
-# Step 5: Disable and stop aks-hosts-setup.timer
-sudo systemctl disable --now aks-hosts-setup.timer
-echo "OK: Disabled and stopped aks-hosts-setup.timer"
-
-# Step 6: Restart localdns — select_localdns_corefile() reads SHOULD_ENABLE_HOSTS_PLUGIN=false
-# and picks LOCALDNS_COREFILE_BASE (no hosts plugin)
-sudo systemctl restart localdns
-echo "OK: Restarted localdns"
-
-echo ""
-echo "SUCCESS: Hosts plugin rollback complete"
-`
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"failed to disable hosts plugin on running VM (rollback)")
-}
-
 // validateHostsPluginDisabled comprehensively validates that the hosts plugin has been
-// successfully disabled on a running VM. This is used after disableHostsPluginOnRunningVM
-// to verify the rollback worked correctly.
+// successfully disabled on a running VM. This is used after RerunCSE with
+// EnableHostsPlugin=false to verify the rollback worked correctly.
 //
-// It checks 6 on-VM conditions via SSH, then verifies DNS still works through localdns
+// It checks 4 on-VM conditions via SSH, then verifies DNS still works through localdns
 // and that the AA flag is absent (proving responses are forwarded upstream, not served
 // from the hosts plugin).
 func validateHostsPluginDisabled(ctx context.Context, s *Scenario) {
@@ -1788,28 +1710,7 @@ else
     errors=$((errors + 1))
 fi
 
-# Check 2: LOCALDNS_COREFILE_EXPERIMENTAL must be empty in /etc/localdns/environment
-if [ -f "$env_file" ]; then
-    exp_val=$(grep '^LOCALDNS_COREFILE_EXPERIMENTAL=' "$env_file" | cut -d= -f2- || true)
-    if [ -z "$exp_val" ]; then
-        echo "OK: LOCALDNS_COREFILE_EXPERIMENTAL is empty"
-    else
-        echo "ERROR: LOCALDNS_COREFILE_EXPERIMENTAL is not empty (${#exp_val} chars)"
-        errors=$((errors + 1))
-    fi
-fi
-
-# Check 3: /etc/localdns/cloud-env must NOT exist
-cloud_env="/etc/localdns/cloud-env"
-if [ -f "$cloud_env" ]; then
-    echo "ERROR: $cloud_env still exists but should have been removed"
-    cat "$cloud_env"
-    errors=$((errors + 1))
-else
-    echo "OK: $cloud_env does not exist"
-fi
-
-# Check 4: /etc/localdns/hosts must NOT exist
+# Check 2: /etc/localdns/hosts must NOT exist
 hosts_file="/etc/localdns/hosts"
 if [ -f "$hosts_file" ]; then
     echo "ERROR: $hosts_file still exists but should have been removed"
@@ -1818,7 +1719,7 @@ else
     echo "OK: $hosts_file does not exist"
 fi
 
-# Check 5: Active corefile must NOT contain hosts plugin directive
+# Check 3: Active corefile must NOT contain hosts plugin directive
 corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
 if [ -f "$corefile" ]; then
     if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
@@ -1832,7 +1733,7 @@ else
     errors=$((errors + 1))
 fi
 
-# Check 6: aks-hosts-setup.timer must be inactive
+# Check 4: aks-hosts-setup.timer must be inactive
 if systemctl is-active --quiet aks-hosts-setup.timer 2>/dev/null; then
     echo "ERROR: aks-hosts-setup.timer is still active"
     errors=$((errors + 1))
