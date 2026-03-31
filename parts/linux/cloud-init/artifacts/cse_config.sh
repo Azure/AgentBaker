@@ -1288,8 +1288,8 @@ enableLocalDNS() {
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
-    # Exporter socket setup is in configureLocalDNSExporterSocket() (nodePrep),
-    # because addKubeletNodeLabel must run before ensureKubelet.
+    # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
+    # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
 }
 
 # Configures the localdns metrics exporter socket to listen on the node IP.
@@ -1298,8 +1298,9 @@ enableLocalDNS() {
 # The drop-in narrows binding to the node IP for tighter scoping when available.
 configureLocalDNSExporterSocket() {
     # Guard: skip everything if the socket unit doesn't exist (old VHD without exporter files).
-    # This avoids creating stale drop-in dirs and prevents the retry loop in
-    # systemctlEnableAndStartNoBlock when the unit is missing.
+    # This is a backward compatibility check for VHDs built before the exporter was added.
+    # Without this guard, we'd create an orphaned drop-in directory and
+    # systemctlEnableAndStartNoBlock would hit its retry loop (~100 retries × 5s) for a missing unit.
     if ! systemctl cat localdns-exporter.socket &>/dev/null; then
         echo "localdns-exporter: socket unit not found on this VHD, skipping"
         return 0

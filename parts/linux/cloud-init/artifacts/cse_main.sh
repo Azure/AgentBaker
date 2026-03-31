@@ -489,8 +489,10 @@ function nodePrep {
 
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).
+    # Only add the label if the exporter socket unit exists on this VHD — otherwise
+    # the node would advertise exporter=enabled but have no exporter to scrape.
     # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     fi
 
