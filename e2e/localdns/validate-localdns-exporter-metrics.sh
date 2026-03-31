@@ -323,7 +323,8 @@ echo ""
 
 # Step 11: Spawn a persistent worker instance by holding a connection open
 echo "11. Spawning a persistent worker instance for security inspection..."
-sleep 120 | nc ${LISTEN_ADDR%%:*} ${LISTEN_ADDR##*:} > /dev/null 2>&1 &
+# Use bash /dev/tcp instead of nc for portability (nc may not be installed on all distros)
+( exec 3<>/dev/tcp/${LISTEN_ADDR%%:*}/${LISTEN_ADDR##*:}; sleep 120 ) &
 NC_PID=$!
 sleep 2
 
