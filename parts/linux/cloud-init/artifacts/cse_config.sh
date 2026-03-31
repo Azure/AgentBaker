@@ -1322,18 +1322,19 @@ enableLocalDNS() {
         return 0
     fi
 
-    # If hosts plugin is enabled, start aks-hosts-setup to populate /etc/localdns/hosts
-    # with resolved AKS FQDN IPs. This runs async via timer; localdns starts immediately
-    # with the no-hosts corefile. On subsequent restarts, localdns.sh dynamically selects
-    # the hosts-plugin variant if /etc/localdns/hosts has been populated by the timer.
-    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS.enableAKSHostsSetup" enableAKSHostsSetup
-    fi
-
     echo "enableLocalDNS called, generating corefile..."
     generateLocalDNSFiles
     # Log corefile variant after it's been successfully written
     echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
+
+    # Enable or disable the hosts plugin based on SHOULD_ENABLE_HOSTS_PLUGIN.
+    # This follows the configureManagedGPUExperience() pattern — the setting is mutable,
+    # so on CSE re-run we must handle both enable and disable (cleanup) paths.
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableLocalDNS.enableAKSHostsSetup" enableAKSHostsSetup
+    else
+        logs_to_events "AKS.CSE.enableLocalDNS.disableAKSHostsSetup" disableAKSHostsSetup
+    fi
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
@@ -1393,6 +1394,38 @@ enableAKSHostsSetup() {
     else
         echo "Warning: Failed to enable aks-hosts-setup timer"
     fi
+}
+
+# disableAKSHostsSetup disables the hosts plugin on a node where it was previously enabled.
+# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is false.
+# This handles the production rollback case where a customer disables the hosts plugin
+# on an existing agentpool and AKS-RP re-runs CSE with SHOULD_ENABLE_HOSTS_PLUGIN=false.
+# All operations are idempotent — safe to call when hosts plugin was never enabled.
+disableAKSHostsSetup() {
+    local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
+
+    echo "disableAKSHostsSetup called, cleaning up hosts plugin state..."
+
+    # Stop and disable the hosts-setup timer if it exists and is active.
+    # This prevents further updates to the hosts file.
+    if [ -f "${hosts_setup_timer}" ]; then
+        systemctl disable --now aks-hosts-setup.timer 2>/dev/null || true
+        echo "Disabled and stopped aks-hosts-setup.timer"
+    else
+        echo "aks-hosts-setup.timer not found on this VHD, skipping"
+    fi
+
+    # Remove the hosts file. Without it, select_localdns_corefile() in localdns.sh
+    # will fall back to the base corefile even if SHOULD_ENABLE_HOSTS_PLUGIN were somehow still true.
+    if [ -f "${hosts_file}" ]; then
+        rm -f "${hosts_file}"
+        echo "Removed ${hosts_file}"
+    else
+        echo "${hosts_file} does not exist, skipping"
+    fi
+
+    echo "disableAKSHostsSetup complete"
 }
 
 configureManagedGPUExperience() {
