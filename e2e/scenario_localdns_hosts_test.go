@@ -91,11 +91,11 @@ func Test_LocalDNSHostsPlugin_Scriptless(t *testing.T) {
 // Phase 1: VM boots with EnableHostsPlugin=false — ValidateCommonLinux validates LocalDNS service
 // is active and DNS resolves via 169.254.10.10, but skips hosts plugin validators.
 //
-// Phase 1b: validateNoHostsPlugin confirms SHOULD_ENABLE_HOSTS_PLUGIN=false, no cloud-env,
+// Phase 1b: validateNoHostsPlugin confirms SHOULD_ENABLE_HOSTS_PLUGIN=false,
 // no hosts directive in active corefile.
 //
 // Phase 2: enableHostsPluginOnRunningVM mutates the VM via SSH — patches environment file,
-// creates cloud-env, starts aks-hosts-setup timer/service.
+// writes FQDNs to environment file, starts aks-hosts-setup timer/service.
 //
 // Phase 3: Full hosts plugin validation — hosts file populated, service healthy, localdns restarted,
 // AA flag proves authoritative response from hosts plugin.
