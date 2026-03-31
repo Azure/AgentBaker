@@ -279,3 +279,105 @@ func Test_LocalDNSHostsPlugin_Rollback_Scriptless(t *testing.T) {
 		})
 	}
 }
+
+// Test_LocalDNSHostsPlugin_DisableNeverEnabled tests that the disable path is idempotent —
+// calling disableAKSHostsSetup() on a node where the hosts plugin was never enabled
+// does not cause errors. This is the common case: most nodes boot with
+// EnableHostsPlugin=false and the else branch in enableLocalDNS() runs harmlessly.
+//
+// The test boots with EnableHostsPlugin=false, then validates:
+// 1. LocalDNS is running and DNS resolves through 169.254.10.10
+// 2. Hosts plugin is NOT active (no hosts file, no timer, base corefile)
+// 3. All validators pass without errors
+func Test_LocalDNSHostsPlugin_DisableNeverEnabled(t *testing.T) {
+	tests := []struct {
+		name string
+		vhd  *config.Image
+	}{
+		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
+		{name: "AzureLinuxV3", vhd: config.VHDAzureLinuxV3Gen2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RunScenario(t, &Scenario{
+				Description: "Tests disable path is idempotent (never enabled) on " + tt.name,
+				Config: Config{
+					Cluster: ClusterKubenet,
+					VHD:     tt.vhd,
+					BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = false
+					},
+					Validator: func(ctx context.Context, s *Scenario) {
+						// ValidateCommonLinux already ran — LocalDNS enabled, hosts plugin skipped
+						// Explicitly verify hosts plugin is not active
+						validateNoHostsPlugin(ctx, s)
+					},
+				},
+			})
+		})
+	}
+}
+
+// Test_LocalDNSHostsPlugin_BackwardCompat_NewCSEOldServiceUnit tests backward compatibility
+// for the cloud-env consolidation. After this change, new CSE no longer writes
+// /etc/localdns/cloud-env. On old VHDs where aks-hosts-setup.service still reads from
+// cloud-env, the timer fires but aks-hosts-setup.sh sees empty LOCALDNS_CRITICAL_FQDNS
+// and exits gracefully. We verify this by enabling hosts plugin but clearing the FQDNs.
+func Test_LocalDNSHostsPlugin_BackwardCompat_NewCSEOldServiceUnit(t *testing.T) {
+	tests := []struct {
+		name string
+		vhd  *config.Image
+	}{
+		{name: "Ubuntu2204", vhd: config.VHDUbuntu2204Gen2Containerd},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			RunScenario(t, &Scenario{
+				Description: "Tests backward compat (new CSE, old service unit) on " + tt.name,
+				Config: Config{
+					Cluster: ClusterKubenet,
+					VHD:     tt.vhd,
+					BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+						// Enable hosts plugin but clear CriticalFQDNs to simulate
+						// the old-VHD scenario where FQDNs aren't available
+						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
+						nbc.AgentPoolProfile.LocalDNSProfile.CriticalFQDNs = nil
+					},
+					Validator: func(ctx context.Context, s *Scenario) {
+						// With empty CriticalFQDNs, enableAKSHostsSetup() should skip
+						// starting the timer (LOCALDNS_CRITICAL_FQDNS guard).
+						// LocalDNS should still be running with the base corefile.
+						ValidateLocalDNSService(ctx, s, "enabled")
+						ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+
+						// Verify hosts plugin did NOT activate (no FQDNs = graceful skip)
+						script := `set -euo pipefail
+errors=0
+
+# hosts file should not have IP mappings (no FQDNs were provided)
+hosts_file="/etc/localdns/hosts"
+if [ -f "$hosts_file" ] && grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "$hosts_file"; then
+    echo "ERROR: hosts file has IP mappings but no CriticalFQDNs were provided"
+    errors=$((errors + 1))
+else
+    echo "OK: hosts file has no IP mappings (expected — no CriticalFQDNs)"
+fi
+
+# Active corefile should NOT include hosts plugin
+corefile="/opt/azure/containers/localdns/localdns.corefile"
+if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+    echo "ERROR: active corefile contains hosts plugin directive"
+    errors=$((errors + 1))
+else
+    echo "OK: active corefile does not contain hosts plugin"
+fi
+
+exit $errors`
+						execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+							"backward compat validation failed")
+					},
+				},
+			})
+		})
+	}
+}
