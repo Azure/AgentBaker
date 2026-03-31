@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 TimeoutStartSec=60
-EnvironmentFile=-/etc/localdns/cloud-env
+EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/aks-hosts-setup.sh
 
 [Install]

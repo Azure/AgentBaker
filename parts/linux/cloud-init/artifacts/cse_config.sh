@@ -1286,6 +1286,7 @@ LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_base}
 LOCALDNS_COREFILE_BASE=${corefile_base}
 LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL:-}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
+LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -1350,7 +1351,6 @@ enableAKSHostsSetup() {
     local hosts_setup_script="${AKS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-hosts-setup.sh}"
     local hosts_setup_service="${AKS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-hosts-setup.service}"
     local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
-    local cloud_env_file="${AKS_CLOUD_ENV_FILE:-/etc/localdns/cloud-env}"
 
     # Guard: verify required artifacts exist on this VHD.
     # Older VHDs (or certain build modes) may not include them.
@@ -1371,19 +1371,13 @@ enableAKSHostsSetup() {
         return
     fi
 
-    # Write the FQDN list as a systemd EnvironmentFile so aks-hosts-setup.sh
-    # can use $LOCALDNS_CRITICAL_FQDNS directly — both when called from CSE (already in env) and
-    # when triggered by the systemd timer (injected via EnvironmentFile= in the .service unit).
+    # LOCALDNS_CRITICAL_FQDNS is written to /etc/localdns/environment by generateLocalDNSFiles().
+    # Verify it is set before proceeding; if not, skip hosts setup.
     if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
         echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
         echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
         return
     fi
-
-    echo "Setting LOCALDNS_CRITICAL_FQDNS for aks-hosts-setup"
-    mkdir -p "$(dirname "${cloud_env_file}")"
-    echo "LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS}" > "${cloud_env_file}"
-    chmod 0644 "${cloud_env_file}"
 
     # Create an empty hosts file so the localdns hosts plugin can start watching it
     # immediately. The file will be populated by aks-hosts-setup timer asynchronously.
