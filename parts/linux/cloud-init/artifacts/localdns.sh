@@ -219,12 +219,11 @@ replace_azurednsip_in_corefile() {
     #   - Tracks bind IP from "bind 169.254.10.10" or "bind 169.254.10.11"
     #   - Extracts forward IPs from "forward . <ip> ..." lines
     #   - Resets state on block close "}"
-    local forward_entries bind_ip zone fwd_ip
+    local forward_entries bind_ip block fwd_ip
     local vnetdns_found=false kubedns_found=false
     forward_entries=$(awk '
         /^[^ #].*:53 / {
-            zone = $0
-            sub(/:53 .*/, "", zone)
+            block = $1
             bind_ip = ""
         }
         /bind / {
@@ -235,10 +234,10 @@ replace_azurednsip_in_corefile() {
         /forward \. / && bind_ip != "" {
             for (i=3; i<=NF; i++) {
                 if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)
-                    print bind_ip "|" zone "|" $i
+                    print bind_ip "|" block "|" $i
             }
         }
-        /^}/ { zone = ""; bind_ip = "" }
+        /^}/ { block = ""; bind_ip = "" }
     ' "${UPDATED_LOCALDNS_CORE_FILE}")
 
     # Write Prometheus metrics to temp file, then atomically rename
@@ -250,9 +249,9 @@ replace_azurednsip_in_corefile() {
     elif ! {
         echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
         echo "# TYPE localdns_vnetdns_forward_info gauge"
-        while IFS='|' read -r bind_ip zone fwd_ip; do
+        while IFS='|' read -r bind_ip block fwd_ip; do
             [ "$bind_ip" = "169.254.10.10" ] || continue
-            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${zone}:53\",status=\"ok\"} 1"
+            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
             vnetdns_found=true
         done <<< "$forward_entries"
         if [ "$vnetdns_found" = false ]; then
@@ -260,9 +259,9 @@ replace_azurednsip_in_corefile() {
         fi
         echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
         echo "# TYPE localdns_kubedns_forward_info gauge"
-        while IFS='|' read -r bind_ip zone fwd_ip; do
+        while IFS='|' read -r bind_ip block fwd_ip; do
             [ "$bind_ip" = "169.254.10.11" ] || continue
-            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${zone}:53\",status=\"ok\"} 1"
+            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
             kubedns_found=true
         done <<< "$forward_entries"
         if [ "$kubedns_found" = false ]; then
