@@ -1438,4 +1438,55 @@ EOF
             The stdout should include "DNS configuration refreshed successfully"
         End
     End
+
+    Describe 'export_resource_metrics'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
+            mkdir -p "$LOCALDNS_SCRIPT_PATH"
+
+            # Mock systemctl to return controllable values
+            systemctl() {
+                echo "CPUUsageNSec=1500000000"
+                echo "MemoryCurrent=8388608"
+            }
+        }
+        cleanup() {
+            rm -rf "/tmp/localdnstest"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should write active status when COREDNS_PID is alive'
+            COREDNS_PID=$$
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="active"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_cpu_usage_seconds_total 1.500000000'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_memory_usage_bytes 8388608'
+        End
+
+        It 'should write inactive status when COREDNS_PID is empty'
+            COREDNS_PID=""
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="inactive"} 0'
+        End
+
+        It 'should default to zero when systemctl returns not set'
+            systemctl() {
+                echo "CPUUsageNSec=[not set]"
+                echo "MemoryCurrent=[not set]"
+            }
+            COREDNS_PID=$$
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_cpu_usage_seconds_total 0.000000000'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_memory_usage_bytes 0'
+        End
+    End
 End
