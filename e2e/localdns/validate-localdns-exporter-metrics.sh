@@ -7,6 +7,15 @@ set -euo pipefail
 echo "=== LocalDNS Metrics Exporter Validation ==="
 echo ""
 
+# Check if the exporter socket unit exists on this VHD.
+# VHDs built before the exporter feature was added won't have it — that's expected.
+# Skip validation gracefully so we don't false-fail on older VHDs.
+# But if the unit IS installed, the exporter must be working — any failure after this point is a real bug.
+if ! systemctl cat localdns-exporter.socket &>/dev/null; then
+    echo "localdns-exporter.socket unit not found on this VHD — exporter not installed, skipping validation"
+    exit 0
+fi
+
 # Generate sustained DNS traffic through localdns so that systemd resource accounting
 # (CPUUsageNSec, MemoryCurrent) accumulates clearly measurable values before we scrape.
 # We run 10 parallel workers each sending 100 sequential queries (1000 total) to ensure
