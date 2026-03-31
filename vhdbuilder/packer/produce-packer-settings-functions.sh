@@ -164,7 +164,7 @@ function create_windows_storage_account() {
 			--tags "now=${CREATE_TIME}" \
 			--allow-shared-key-access false \
 			--min-tls-version TLS1_2 \
-			--location ""${AZURE_LOCATION}""
+			--location "${AZURE_LOCATION}"
 		echo "creating new container system"
 		az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
 	else
