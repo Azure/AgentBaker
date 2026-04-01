@@ -7,14 +7,10 @@ set -euo pipefail
 echo "=== LocalDNS Metrics Exporter Validation ==="
 echo ""
 
-# Check if the exporter socket unit exists on this VHD.
-# VHDs built before the exporter feature was added won't have it — that's expected.
-# Skip validation gracefully so we don't false-fail on older VHDs.
-# But if the unit IS installed, the exporter must be working — any failure after this point is a real bug.
-if ! systemctl cat localdns-exporter.socket &>/dev/null; then
-    echo "localdns-exporter.socket unit not found on this VHD — exporter not installed, skipping validation"
-    exit 0
-fi
+# NOTE: The Go e2e framework checks for the kubernetes.azure.com/localdns-exporter node label
+# before running this script. If we get here, the label exists, which means CSE confirmed the
+# exporter socket unit is installed on this VHD. Every check below MUST hard-fail on errors —
+# there is no "skip gracefully" path. If something is broken, we want to know.
 
 # Generate sustained DNS traffic through localdns so that systemd resource accounting
 # (CPUUsageNSec, MemoryCurrent) accumulates clearly measurable values before we scrape.
