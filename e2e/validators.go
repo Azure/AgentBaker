@@ -1680,7 +1680,7 @@ echo "Caller should restart localdns to pick up the new corefile"
 }
 
 // validateHostsPluginDisabled comprehensively validates that the hosts plugin has been
-// successfully disabled on a running VM. This is used after RerunCSE with
+// successfully disabled on a running VM. This is used after ReimageVMSSInstance with
 // EnableHostsPlugin=false to verify the rollback worked correctly.
 //
 // It checks 4 on-VM conditions via SSH, then verifies DNS still works through localdns

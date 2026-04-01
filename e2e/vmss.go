@@ -1108,6 +1108,13 @@ func randomInt(bound int) int {
 //   - Legacy CSE embeds all env vars (SHOULD_ENABLE_HOSTS_PLUGIN, etc.) inline
 //   - The CSE scripts are the same shell code in both legacy and scriptless paths
 //   - On re-run, the CSE scripts re-execute enableLocalDNS() with the new env vars
+//
+// WARNING: CSE re-run is a no-op on Linux VMs that have already completed
+// provisioning, because cse_main.sh exits early when /opt/azure/containers/provision.complete
+// exists (lines 6-8). For rollback testing that requires CSE to re-execute from
+// scratch, use ReimageVMSSInstance instead — it wipes the OS disk (removing
+// provision.complete) and re-runs CSE on a fresh boot, exercising the actual
+// production node image upgrade code path.
 func RerunCSE(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) {
 	s.T.Helper()
 
@@ -1153,6 +1160,122 @@ func RerunCSE(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrapping
 	require.NoError(s.T, err, "CSE re-run failed")
 
 	s.T.Log("CSE re-run completed successfully")
+}
+
+// ReimageVMSSInstance regenerates the CSE from the given NBC, updates the VMSS
+// extension, then reimages the VM instance (wiping the OS disk) so that the CSE
+// runs from scratch on a fresh boot — without a stale provision.complete file.
+//
+// This simulates the production "node image upgrade" path: the VM gets a fresh OS
+// disk, CSE executes enableLocalDNS() from the beginning, and the new environment
+// variables (e.g., SHOULD_ENABLE_HOSTS_PLUGIN=false) take full effect.
+//
+// After reimage completes, the function re-establishes SSH connectivity and waits
+// for the node to rejoin the Kubernetes cluster in Ready state.
+func ReimageVMSSInstance(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) {
+	s.T.Helper()
+	defer toolkit.LogStepCtxf(ctx, "reimaging VMSS instance %s", s.Runtime.VMSSName)()
+
+	// Step 1: Generate new CSE from the modified NBC
+	ab, err := agent.NewAgentBaker()
+	require.NoError(s.T, err, "failed to create AgentBaker")
+
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
+	require.NoError(s.T, err, "failed to regenerate node bootstrapping for reimage")
+
+	newCSE := nodeBootstrapping.CSE
+	require.NotEmpty(s.T, newCSE, "regenerated CSE command is empty")
+
+	cluster := s.Runtime.Cluster
+	resourceGroupName := *cluster.Model.Properties.NodeResourceGroup
+	instanceID := *s.Runtime.VM.VM.InstanceID
+
+	// Step 2: Update the VMSS extension with the new CSE
+	ext := armcompute.VirtualMachineScaleSetExtension{
+		Name: to.Ptr("vmssCSE"),
+		Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+			Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+			Type:                    to.Ptr("CustomScript"),
+			TypeHandlerVersion:      to.Ptr("2.1"),
+			AutoUpgradeMinorVersion: to.Ptr(true),
+			Settings:                map[string]interface{}{},
+			ProtectedSettings: map[string]interface{}{
+				"commandToExecute": newCSE,
+			},
+		},
+	}
+
+	extPoller, err := config.Azure.VMSSExtensions.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		s.Runtime.VMSSName,
+		"vmssCSE",
+		ext,
+		nil,
+	)
+	require.NoError(s.T, err, "failed to begin CSE extension update for reimage")
+
+	_, err = extPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	require.NoError(s.T, err, "CSE extension update failed for reimage")
+
+	// Step 3: Close existing SSH connection (VM is about to be reimaged)
+	if s.Runtime.VM.SSHClient != nil {
+		_ = s.Runtime.VM.SSHClient.Close()
+		s.Runtime.VM.SSHClient = nil
+	}
+
+	// Step 4: Reimage the VMSS instance (wipes OS disk, re-runs CSE from scratch)
+	// ForceUpdateOSDiskForEphemeral is required because our VMSS uses ephemeral OS disks
+	// (DiffDiskSettings.Option = Local in getBaseVMSSModel). Without this flag, reimage
+	// may be skipped when the VMSS model hasn't changed.
+	s.T.Logf("Reimaging VMSS instance %s/%s (instance %s)", resourceGroupName, s.Runtime.VMSSName, instanceID)
+	reimagePoller, err := config.Azure.VMSSVM.BeginReimage(
+		ctx,
+		resourceGroupName,
+		s.Runtime.VMSSName,
+		instanceID,
+		&armcompute.VirtualMachineScaleSetVMsClientBeginReimageOptions{
+			VMScaleSetVMReimageInput: &armcompute.VirtualMachineScaleSetVMReimageParameters{
+				ForceUpdateOSDiskForEphemeral: to.Ptr(true),
+			},
+		},
+	)
+	require.NoError(s.T, err, "failed to begin VMSS instance reimage")
+
+	_, err = reimagePoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	require.NoError(s.T, err, "VMSS instance reimage failed")
+
+	s.T.Log("Reimage completed, waiting for VM to reach running state")
+
+	// Step 5: Wait for VM to be running again
+	err = waitForVMRunningState(ctx, s, s.Runtime.VM.VM)
+	require.NoError(s.T, err, "VM did not reach running state after reimage")
+
+	// Step 6: Re-fetch private IP (may change after reimage)
+	newIP, err := getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, instanceID)
+	require.NoError(s.T, err, "failed to get VM private IP after reimage")
+	s.Runtime.VM.PrivateIP = newIP
+
+	// Step 7: Re-establish SSH connection
+	sshClient, err := DialSSHOverBastion(ctx, cluster.Bastion, newIP, config.VMSSHPrivateKey)
+	require.NoError(s.T, err, "failed to re-establish SSH after reimage")
+	s.Runtime.VM.SSHClient = sshClient
+
+	// Step 8: Wait for the node to rejoin the cluster in Ready state
+	s.Runtime.VM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+
+	// Step 9: Verify CSE succeeded on the reimaged VM
+	// Re-fetch VM with instance view to get updated extension statuses
+	vmResp, err := config.Azure.VMSSVM.Get(ctx, resourceGroupName, s.Runtime.VMSSName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+		Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+	})
+	require.NoError(s.T, err, "failed to get VM instance view after reimage")
+	s.Runtime.VM.VM = &vmResp.VirtualMachineScaleSetVM
+
+	err = getCustomScriptExtensionStatus(s, s.Runtime.VM.VM)
+	require.NoError(s.T, err, "CSE failed after reimage")
+
+	s.T.Log("VMSS instance reimage completed successfully — VM is running, SSH connected, node Ready, CSE succeeded")
 }
 
 func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
