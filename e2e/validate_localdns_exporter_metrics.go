@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 //go:embed localdns/validate-localdns-exporter-metrics.sh
@@ -21,6 +22,22 @@ var validateLocalDNSExporterMetricsScript string
 // SSH commands, then decode and execute it on the VM.
 func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) {
 	s.T.Helper()
+
+	// Check if the node has the localdns-exporter label. This label is only set by CSE
+	// when the VHD has localdns-exporter.socket installed (see cse_main.sh). If the label
+	// is absent, the VHD predates the exporter feature — skip validation with a warning
+	// so it's visible in test output rather than silently passing.
+	// If the label IS present, the exporter must be fully working — any failure is a real bug.
+	const exporterLabelKey = "kubernetes.azure.com/localdns-exporter"
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+	if _, exists := node.Labels[exporterLabelKey]; !exists {
+		s.T.Logf("WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
+			s.Runtime.VM.KubeName, exporterLabelKey)
+		return
+	}
+	s.T.Logf("node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
 
 	encoded := base64.StdEncoding.EncodeToString([]byte(validateLocalDNSExporterMetricsScript))
 	remotePath := "/home/azureuser/validate_localdns_exporter_metrics.sh"
