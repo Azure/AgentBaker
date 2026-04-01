@@ -46,6 +46,20 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
+# On ACL, removing /etc/machine-id triggers systemd first-boot detection, which
+# runs preset-all and auto-enables services with [Install] WantedBy= before CSE
+# can configure them, causing failures.
+# These services are stashed outside systemd's path at VHD build time. Restore
+# them here so CSE can selectively re-enable only what's needed later.
+if isACL "$OS" "$OS_VARIANT"; then
+    if [ -d /opt/azure/containers/deferred-units ]; then
+        mv /opt/azure/containers/deferred-units/*.service /etc/systemd/system/ 2>/dev/null || true
+        systemctl daemon-reload
+    fi
+    systemctl_stop 5 1 10 snapshot-update.timer || true
+    systemctl_disable 5 1 10 snapshot-update.timer || true
+fi
+
 get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
