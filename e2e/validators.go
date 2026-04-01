@@ -1526,16 +1526,17 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100 and serving metrics.
+	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
 	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
 	// so we validate by making a plain HTTP request to the metrics endpoint.
 	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
 	// are visible in test logs rather than silently swallowed.
+	// We intentionally do not rewrite wildcard ('*' or '0.0.0.0') listen addresses — node-exporter
+	// should always bind to the node IP; if it doesn't, the test should fail.
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		// Extract the listen address from ss, replacing wildcard '*' or '0.0.0.0' with localhost.
-		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1 | sed 's/^\\*/127.0.0.1/; s/^0\\.0\\.0\\.0/127.0.0.1/')",
+		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1)",
 		"echo \"node-exporter listen address: ${LISTEN_ADDR}\"",
 		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | head -20",
 		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | grep -q 'node_'",
