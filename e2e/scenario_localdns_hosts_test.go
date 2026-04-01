@@ -183,18 +183,20 @@ func Test_LocalDNSHostsPlugin_Brownfield_Scriptless(t *testing.T) {
 	}
 }
 
-// Test_LocalDNSHostsPlugin_Rollback tests disabling the hosts plugin on an already-running VM
-// using the legacy (bash CSE) bootstrap path. This simulates a production rollback where a
-// customer disables the hosts plugin on an existing agentpool and AKS-RP re-runs CSE.
+// Test_LocalDNSHostsPlugin_Rollback tests disabling the hosts plugin via node image upgrade
+// using the legacy (bash CSE) bootstrap path. This simulates the production rollback path:
+// AKS-RP sets EnableHostsPlugin=false and triggers a node image upgrade, which reimages the
+// VM (wiping the OS disk so provision.complete is removed), then CSE runs from scratch with
+// the new setting — enableLocalDNS() hits the else branch and calls disableAKSHostsSetup().
 //
 // Phase 1 (automatic via ValidateCommonLinux): VM boots with EnableHostsPlugin=true, so the
 // full hosts-plugin validation suite runs automatically — hosts file populated, service healthy,
 // localdns restarted, AA flag proves authoritative response. This confirms the hosts plugin
 // is fully working before we disable it.
 //
-// Phase 2: RerunCSE regenerates the CSE with EnableHostsPlugin=false and pushes it to the
-// existing VMSS. The CSE re-runs enableLocalDNS() which hits the new else branch —
-// disableAKSHostsSetup() stops the timer and removes the hosts file.
+// Phase 2: ReimageVMSSInstance updates the CSE extension with EnableHostsPlugin=false, then
+// reimages the VM instance. The OS disk is wiped, CSE re-runs from scratch (no stale
+// provision.complete), and the disable path executes correctly.
 //
 // Phase 3: validateHostsPluginDisabled runs comprehensive checks — environment file state,
 // removed files, inactive timer, corefile without hosts directive, AA flag absent from dig,
@@ -221,14 +223,14 @@ func Test_LocalDNSHostsPlugin_Rollback(t *testing.T) {
 					},
 					Validator: func(ctx context.Context, s *Scenario) {
 						// Phase 1 already ran via ValidateCommonLinux (IsHostsPluginEnabled=true)
-						// Phase 2: Re-run CSE with EnableHostsPlugin=false (production disable path)
+						// Phase 2: Reimage VM with EnableHostsPlugin=false (simulates node image upgrade)
 						nbcCopy := *s.Runtime.NBC
 						appCopy := *nbcCopy.AgentPoolProfile
 						nbcCopy.AgentPoolProfile = &appCopy
 						localDNSCopy := *appCopy.LocalDNSProfile
 						appCopy.LocalDNSProfile = &localDNSCopy
 						localDNSCopy.EnableHostsPlugin = false
-						RerunCSE(ctx, s, &nbcCopy)
+						ReimageVMSSInstance(ctx, s, &nbcCopy)
 						// Phase 3: Validate hosts plugin is fully disabled
 						validateHostsPluginDisabled(ctx, s)
 					},
@@ -238,11 +240,11 @@ func Test_LocalDNSHostsPlugin_Rollback(t *testing.T) {
 	}
 }
 
-// Test_LocalDNSHostsPlugin_Rollback_Scriptless tests disabling the hosts plugin on an
-// already-running VM using the scriptless (aks-node-controller) bootstrap path.
-// Same three-phase flow as Test_LocalDNSHostsPlugin_Rollback. RerunCSE uses the legacy
-// CSE generation path (ab.GetNodeBootstrapping) since it embeds env vars directly in the
-// CSE command string, avoiding the need to update the on-disk AKSNodeConfig JSON.
+// Test_LocalDNSHostsPlugin_Rollback_Scriptless tests disabling the hosts plugin via node
+// image upgrade using the scriptless (aks-node-controller) bootstrap path.
+// Same three-phase flow as Test_LocalDNSHostsPlugin_Rollback. ReimageVMSSInstance uses the
+// legacy CSE generation path (ab.GetNodeBootstrapping) since it embeds env vars directly in
+// the CSE command string, avoiding the need to update the on-disk AKSNodeConfig JSON.
 //
 // Run a single distro with: go test -run "Test_LocalDNSHostsPlugin_Rollback_Scriptless/Ubuntu2204" -v
 func Test_LocalDNSHostsPlugin_Rollback_Scriptless(t *testing.T) {
@@ -265,12 +267,12 @@ func Test_LocalDNSHostsPlugin_Rollback_Scriptless(t *testing.T) {
 					},
 					Validator: func(ctx context.Context, s *Scenario) {
 						// Phase 1 already ran via ValidateCommonLinux (IsHostsPluginEnabled=true)
-						// Phase 2: Re-run CSE with EnableHostsPlugin=false (production disable path)
+						// Phase 2: Reimage VM with EnableHostsPlugin=false (simulates node image upgrade)
 						// Scriptless path doesn't store NBC, so regenerate one for CSE generation
 						nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 						require.NoError(s.T, err)
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = false
-						RerunCSE(ctx, s, nbc)
+						ReimageVMSSInstance(ctx, s, nbc)
 						// Phase 3: Validate hosts plugin is fully disabled
 						validateHostsPluginDisabled(ctx, s)
 					},
