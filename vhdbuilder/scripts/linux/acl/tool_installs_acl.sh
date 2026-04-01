@@ -28,3 +28,15 @@ disableNtpAndTimesyncdInstallChrony() {
 
     systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
+# Move unit files out of systemd's search path to prevent first-boot preset-all
+# from auto-enabling them. CSE restores them before selectively enabling.
+deferFirstBootPresetServices() {
+    local defer_dir="/opt/azure/containers/deferred-units"
+    mkdir -p "${defer_dir}"
+    for svc in kms.service mig-partition.service localdns.service secure-tls-bootstrap.service; do
+        if [ -f "/etc/systemd/system/${svc}" ]; then
+            mv "/etc/systemd/system/${svc}" "${defer_dir}/${svc}"
+        fi
+    done
+}
