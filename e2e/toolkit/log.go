@@ -23,6 +23,7 @@ func Logf(ctx context.Context, format string, args ...any) {
 	t, ok := ctx.Value(testLoggerKey{}).(testing.TB)
 	if !ok || t == nil {
 		log.Printf(format+"WARNING: No *testing.T in Context, this function should only be called from ", args...)
+		return
 	}
 	t.Helper()
 	t.Logf(format, args...)
