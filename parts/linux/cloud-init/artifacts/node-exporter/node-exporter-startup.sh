@@ -6,7 +6,7 @@ else
     NODE_IP=$(hostname -I | awk '{print $1}')
 fi
 
-TLS_CONFIG_PATH="/etc/node-exporter.d/web-config.yml"
+TLS_CONFIG_PATH="${NODE_EXPORTER_TLS_CONFIG_PATH:-/etc/node-exporter.d/web-config.yml}"
 TLS_CONFIG_ARG=""
 
 # TLS is disabled by default for backward compatibility:
@@ -34,13 +34,18 @@ if [ "${NODE_EXPORTER_TLS_ENABLED:-false}" = "true" ]; then
 
     # Wait for kubelet serving certs to exist (max 5 minutes).
     # Certs are created by kubelet during bootstrap and may not exist at boot time.
-    WAIT_TIMEOUT=300
+    # NODE_EXPORTER_WAIT_TIMEOUT overrides the default for unit testing.
+    WAIT_TIMEOUT="${NODE_EXPORTER_WAIT_TIMEOUT:-300}"
+    # Use the same overridable paths as the detection block below.
+    ROTATION_CERT_WAIT="${NODE_EXPORTER_ROTATION_CERT:-/var/lib/kubelet/pki/kubelet-server-current.pem}"
+    STATIC_CERT_CRT_WAIT="${NODE_EXPORTER_STATIC_CERT_CRT:-/etc/kubernetes/certs/kubeletserver.crt}"
+    STATIC_CERT_KEY_WAIT="${NODE_EXPORTER_STATIC_CERT_KEY:-/etc/kubernetes/certs/kubeletserver.key}"
     WAIT_INTERVAL=5
     WAIT_ELAPSED=0
 
     while [ $WAIT_ELAPSED -lt $WAIT_TIMEOUT ]; do
-        if [ -f "/var/lib/kubelet/pki/kubelet-server-current.pem" ] || \
-           { [ -f "/etc/kubernetes/certs/kubeletserver.crt" ] && [ -f "/etc/kubernetes/certs/kubeletserver.key" ]; }; then
+        if [ -f "$ROTATION_CERT_WAIT" ] || \
+           { [ -f "$STATIC_CERT_CRT_WAIT" ] && [ -f "$STATIC_CERT_KEY_WAIT" ]; }; then
             break
         fi
         echo "Waiting for kubelet serving certs... (${WAIT_ELAPSED}s/${WAIT_TIMEOUT}s)"
@@ -48,18 +53,24 @@ if [ "${NODE_EXPORTER_TLS_ENABLED:-false}" = "true" ]; then
         WAIT_ELAPSED=$((WAIT_ELAPSED + WAIT_INTERVAL))
     done
 
-    # Detect TLS cert paths
+    # Detect TLS cert paths.
+    # NODE_EXPORTER_ROTATION_CERT / NODE_EXPORTER_STATIC_CERT_CRT / KEY
+    # are overridable for unit testing; production values are the canonical paths.
+    ROTATION_CERT="${NODE_EXPORTER_ROTATION_CERT:-/var/lib/kubelet/pki/kubelet-server-current.pem}"
+    STATIC_CERT_CRT="${NODE_EXPORTER_STATIC_CERT_CRT:-/etc/kubernetes/certs/kubeletserver.crt}"
+    STATIC_CERT_KEY="${NODE_EXPORTER_STATIC_CERT_KEY:-/etc/kubernetes/certs/kubeletserver.key}"
+
     # Priority: rotation cert > static certs
     CERT_FILE=""
     KEY_FILE=""
 
-    if [ -f "/var/lib/kubelet/pki/kubelet-server-current.pem" ]; then
-        CERT_FILE="/var/lib/kubelet/pki/kubelet-server-current.pem"
-        KEY_FILE="/var/lib/kubelet/pki/kubelet-server-current.pem"
+    if [ -f "$ROTATION_CERT" ]; then
+        CERT_FILE="$ROTATION_CERT"
+        KEY_FILE="$ROTATION_CERT"
         echo "Using kubelet serving certificate rotation cert: $CERT_FILE"
-    elif [ -f "/etc/kubernetes/certs/kubeletserver.crt" ] && [ -f "/etc/kubernetes/certs/kubeletserver.key" ]; then
-        CERT_FILE="/etc/kubernetes/certs/kubeletserver.crt"
-        KEY_FILE="/etc/kubernetes/certs/kubeletserver.key"
+    elif [ -f "$STATIC_CERT_CRT" ] && [ -f "$STATIC_CERT_KEY" ]; then
+        CERT_FILE="$STATIC_CERT_CRT"
+        KEY_FILE="$STATIC_CERT_KEY"
         echo "Using static kubelet serving certs: $CERT_FILE, $KEY_FILE"
     else
         echo "WARNING: TLS enabled but no kubelet serving certs found after ${WAIT_TIMEOUT}s. node-exporter will run without TLS."
@@ -110,4 +121,4 @@ if [ -n "${NODE_EXPORTER_EXTRA_ARGS:-}" ]; then
     ARGS+=("${EXTRA[@]}")
 fi
 
-exec /opt/bin/node-exporter "${ARGS[@]}"
+exec "${NODE_EXPORTER_BIN:-/opt/bin/node-exporter}" "${ARGS[@]}"

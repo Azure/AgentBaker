@@ -1318,4 +1318,113 @@ providers:
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
     End
+
+    # ---------------------------------------------------------------------------
+    # configureNodeExporter
+    #
+    # High-risk regression #2 (PR #7704): configureNodeExporter calls
+    # systemctlEnableAndStart with a 30-second timeout, but node-exporter's
+    # startup script can wait up to 5 minutes for kubelet certs to appear.
+    # When systemd activation times out, systemctlEnableAndStart returns non-zero.
+    # The function MUST propagate ERR_NODE_EXPORTER_START_FAIL (not swallow it)
+    # so the failure is visible in CSE event logs and operator tooling.
+    #
+    # Backward-compatibility guard: the function must silently skip on VHDs that
+    # predate PR #7704 (no sentinel file) so provisioning is not broken for those
+    # nodes when a newer CSE is delivered via CRP custom data.
+    # ---------------------------------------------------------------------------
+    Describe 'configureNodeExporter'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            # Override the sentinel path so tests do not require writes to /etc.
+            # export is required so configureNodeExporter can read it (When call
+            # runs in the current shell, but export makes the intent explicit).
+            export NODE_EXPORTER_SKIP_FILE="$TMP_DIR/skip_vhd_node_exporter"
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+            unset NODE_EXPORTER_SKIP_FILE
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # ------------------------------------------------------------------
+        # Backward-compatibility: old VHDs have no sentinel file.
+        # A newer CSE script must silently skip, never attempt to start a
+        # service that does not exist on the VHD.
+        # ------------------------------------------------------------------
+        It 'skips silently and returns 0 when the sentinel file is absent (pre-PR-7704 VHD)'
+            systemctlEnableAndStart() { echo "systemctlEnableAndStart $@"; return 0; }
+
+            # Do NOT create the sentinel file — simulates an old VHD.
+            When call configureNodeExporter
+            The status should be success
+            The output should include "skipping configuration"
+            The output should not include "systemctlEnableAndStart node-exporter"
+        End
+
+        # ------------------------------------------------------------------
+        # High-risk regression #2a: service start timeout propagation.
+        #
+        # systemctlEnableAndStart is given only 30 seconds, but the startup
+        # script can block for up to 5 minutes waiting for kubelet certs
+        # (created by kubelet only after it connects to the API server).
+        # When this timeout fires, the function MUST return ERR_NODE_EXPORTER_START_FAIL
+        # rather than zero so the failure appears in CSE event logs.
+        # ------------------------------------------------------------------
+        It 'returns ERR_NODE_EXPORTER_START_FAIL when node-exporter service fails to activate'
+            touch "$TMP_DIR/skip_vhd_node_exporter"
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                # Simulate systemd activation timeout (service did not reach "active"
+                # within the 30-second window passed by configureNodeExporter).
+                return 1
+            }
+
+            When call configureNodeExporter
+            The status should eq "$ERR_NODE_EXPORTER_START_FAIL"
+            The output should include "Failed to start node-exporter service"
+        End
+
+        # ------------------------------------------------------------------
+        # High-risk regression #2b: path unit failure propagation.
+        #
+        # node-exporter.service may start, but the restart.path unit that
+        # watches for cert rotation could fail to activate.  A silent failure
+        # here means TLS certs are never reloaded when kubelet rotates them,
+        # degrading security over time.  The error code must be propagated.
+        # ------------------------------------------------------------------
+        It 'returns ERR_NODE_EXPORTER_START_FAIL when node-exporter-restart.path fails to activate'
+            touch "$TMP_DIR/skip_vhd_node_exporter"
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                case "$1" in
+                    node-exporter) return 0 ;;
+                    # restart.path fails — cert-rotation watcher is broken.
+                    *) return 1 ;;
+                esac
+            }
+
+            When call configureNodeExporter
+            The status should eq "$ERR_NODE_EXPORTER_START_FAIL"
+            The output should include "Failed to start node-exporter-restart.path"
+        End
+
+        # ------------------------------------------------------------------
+        # Happy path: both units activate successfully.
+        # ------------------------------------------------------------------
+        It 'enables both units and returns 0 when activation succeeds'
+            touch "$TMP_DIR/skip_vhd_node_exporter"
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 0
+            }
+
+            When call configureNodeExporter
+            The status should be success
+            The output should include "systemctlEnableAndStart node-exporter 30"
+            The output should include "systemctlEnableAndStart node-exporter-restart.path 30"
+            The output should include "Node Exporter started successfully"
+        End
+    End
 End

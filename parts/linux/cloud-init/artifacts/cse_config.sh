@@ -814,9 +814,12 @@ EOF
 
 configureNodeExporter() {
     echo "Configuring Node Exporter"
-    # Check for skip file to determine if node-exporter was installed on this VHD
-    if [ ! -f /etc/node-exporter.d/skip_vhd_node_exporter ]; then
-        echo "Node Exporter assets not found on this VHD (missing /etc/node-exporter.d/skip_vhd_node_exporter); skipping configuration."
+    # Check for skip file to determine if node-exporter was installed on this VHD.
+    # NODE_EXPORTER_SKIP_FILE is overridable for unit testing; production value is
+    # /etc/node-exporter.d/skip_vhd_node_exporter (written by install-node-exporter.sh).
+    local skip_file="${NODE_EXPORTER_SKIP_FILE:-/etc/node-exporter.d/skip_vhd_node_exporter}"
+    if [ ! -f "$skip_file" ]; then
+        echo "Node Exporter assets not found on this VHD (missing ${skip_file}); skipping configuration."
         return 0
     fi
 
