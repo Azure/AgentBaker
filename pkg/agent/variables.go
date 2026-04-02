@@ -65,6 +65,9 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
 	cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+	if cs.IsAKSCustomCloud() {
+		cloudInitData["initAKSCustomCloudRepos"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudReposScript, config)
+	}
 
 	if config.IsFlatcar() || config.IsACL() {
 		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar and ACL do not have cloud-init
