@@ -168,6 +168,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 
+- path: {{GetInitAKSCustomCloudReposFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloudRepos"}}
+
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
