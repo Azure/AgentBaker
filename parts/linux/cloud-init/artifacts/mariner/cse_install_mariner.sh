@@ -351,7 +351,7 @@ updateDnfWithNvidiaPkg() {
 
   readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
   local nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
-  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} 300 || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
