@@ -181,4 +181,11 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "azureNetworkUdevRule"}}
+
+- path: {{GetInitAKSCustomCloudReposFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloudRepos"}}
 {{- end }}
