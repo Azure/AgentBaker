@@ -153,4 +153,11 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+
+- path: {{GetInitAKSCustomCloudReposFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloudRepos"}}
 {{- end }}
