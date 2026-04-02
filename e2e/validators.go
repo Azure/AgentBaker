@@ -2148,3 +2148,25 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
 }
+
+// ValidateCollectWindowsLogsScript runs c:\k\debug\collect-windows-logs.ps1 on the node
+// and verifies that a zip archive was produced by the script.
+func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		"cd c:/",
+		"mkdir logs-for-test",
+		"cd logs-for-test",
+		"$startTime = Get-Date",
+		"Remove-Item \"*_logs.zip\" -ErrorAction SilentlyContinue",
+		"$ErrorActionPreference = \"SilentlyContinue\"",
+		"& c:\\k\\debug\\collect-windows-logs.ps1",
+		"$ErrorActionPreference = \"Stop\"",
+		"$zipFile = Get-ChildItem -Filter \"*_logs.zip\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
+		"if (-not $zipFile) { throw \"collect-windows-logs.ps1 did not create a zip file\" }",
+		"Write-Host \"Zip file created: $($zipFile.FullName) (Size: $($zipFile.Length) bytes)\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"collect-windows-logs.ps1 failed or did not produce a zip file")
+}
