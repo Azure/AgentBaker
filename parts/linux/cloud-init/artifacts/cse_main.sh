@@ -396,12 +396,15 @@ function nodePrep {
         # for which the user has specified a partitioning profile.
         # it is valid to use mig-capable gpus without a partitioning profile.
         if [ "${MIG_NODE}" = "true" ]; then
-            # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-            # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-            # Commands such as `nvidia-smi --gpu-reset` may succeed,
-            # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
-            # this will not be required per nvidia for next gen H100.
-            REBOOTREQUIRED=true
+            if [ "${MIG_NEEDS_REBOOT}" = "true" ]; then
+                # A100 (Ampere) has a bit in the infoROM to enable MIG mode.
+                # Changing this bit requires a VM reboot on Azure (hypervisor/platform reset).
+                REBOOTREQUIRED=true
+            else
+                # H100 (Hopper) and newer architectures support enabling MIG mode
+                # dynamically without a reboot. A GPU reset is sufficient.
+                logs_to_events "AKS.CSE.gpuResetForMIG" nvidia-smi --gpu-reset
+            fi
 
             # this service applies the partitioning scheme with nvidia-smi.
             # we should consider moving to mig-parted which is simpler/newer.

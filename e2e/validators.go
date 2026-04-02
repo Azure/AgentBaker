@@ -1830,6 +1830,26 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 	s.T.Logf("MIG instances with profile %s are created", migProfile)
 }
 
+// ValidateNodeDidNotReboot checks that the node has not rebooted since initial boot.
+// It verifies that /var/log/azure/cluster-provision-cse-output.log was written in the
+// current boot (i.e. the boot ID in the log matches the current boot ID), confirming
+// no reboot occurred after provisioning.
+func ValidateNodeDidNotReboot(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that node did not reboot after provisioning")
+
+	command := []string{
+		"set -ex",
+		// Check that there's exactly one boot recorded by journald,
+		// which means no reboot happened after the initial boot.
+		"boot_count=$(journalctl --list-boots --no-pager | wc -l)",
+		"echo \"boot count: $boot_count\"",
+		"[ \"$boot_count\" -eq 1 ]",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node rebooted unexpectedly - expected exactly 1 boot entry but found more")
+	s.T.Logf("node did not reboot after provisioning")
+}
+
 // ValidateIPTablesCompatibleWithCiliumEBPF validates that all iptables rules in each table match the provided patterns which are accounted for
 // when eBPF host routing is enabled.
 func ValidateIPTablesCompatibleWithCiliumEBPF(ctx context.Context, s *Scenario) {

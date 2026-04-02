@@ -125,3 +125,51 @@ var FabricManagerGPUSizes = map[string]bool{
 	"standard_nc48ads_a100_v4": false,
 	"standard_nc96ads_a100_v4": false,
 }
+
+// MIGRebootRequiredSizes maps MIG-capable GPU VM sizes to whether they need a reboot
+// after enabling MIG mode. Ampere (A100) requires a reboot because changing the MIG mode
+// bit in the infoROM requires a platform-level reset on Azure. Hopper (H100, H200) and
+// newer architectures support dynamic MIG mode changes without reboot.
+//
+//nolint:gochecknoglobals
+var MIGRebootRequiredSizes = map[string]bool{
+	// A100 (Ampere) - requires reboot to change MIG mode infoROM bit.
+	"standard_nd96asr_v4":        true,
+	"standard_nd112asr_a100_v4":  true,
+	"standard_nd120asr_a100_v4":  true,
+	"standard_nd96amsr_a100_v4":  true,
+	"standard_nd112amsr_a100_v4": true,
+	"standard_nd120amsr_a100_v4": true,
+	"standard_nd96ams_a100_v4":   true,
+	"standard_nd96ams_v4":        true,
+	"standard_nc24ads_a100_v4":   true,
+	"standard_nc48ads_a100_v4":   true,
+	"standard_nc96ads_a100_v4":   true,
+	// H100 (Hopper) - supports dynamic MIG mode changes without reboot.
+	"standard_nd46s_h100_v5":    false,
+	"standard_nd48s_h100_v5":    false,
+	"standard_nd50s_h100_v5":    false,
+	"standard_nd92is_h100_v5":   false,
+	"standard_nd96is_h100_v5":   false,
+	"standard_nd100is_h100_v5":  false,
+	"standard_nd92isr_h100_v5":  false,
+	"standard_nd96isr_h100_v5":  false,
+	"standard_nd100isr_h100_v5": false,
+	// H200 (Hopper) - supports dynamic MIG mode changes without reboot.
+	"standard_nd96is_h200_v5":   false,
+	"standard_nd96isr_h200_v5":  false,
+	"standard_nd96isrf_h200_v5": false,
+}
+
+// MIGNeedsReboot returns true if the given VM size requires a reboot after enabling MIG mode.
+// Returns true for unknown MIG-capable sizes as a safe default, since a reboot is always safe
+// while skipping one when needed would leave MIG in a broken state.
+func MIGNeedsReboot(vmSize string) bool {
+	lower := strings.ToLower(vmSize)
+	needsReboot, known := MIGRebootRequiredSizes[lower]
+	if !known {
+		// Unknown MIG-capable SKU: default to requiring reboot for safety.
+		return true
+	}
+	return needsReboot
+}
