@@ -2,10 +2,21 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
+schedules:
+  - cron: "0 8 * * *"
+    displayName: Daily midnight PST
+    branches:
+      include:
+        - main
+    always: true
 trigger:
   branches:
     include:
       - main
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
 pr:
   branches:
     include:
@@ -14,24 +25,8 @@ pr:
       - main
   paths:
     include:
-      - .pipelines/e2e.yaml
-      - .pipelines/templates/e2e-template.yaml
-      - .pipelines/scripts/e2e_run.sh
-      - e2e
-      - parts/linux
-      - parts/common/components.json
-      - pkg/agent
-      - go.mod
-      - go.sum
-    exclude:
-      - pkg/agent/datamodel/sig_config*.go # SIG config changes
-      - pkg/agent/datamodel/*.json # SIG version changes
-      - pkg/agent/testdata/AKSWindows* # Windows test data
-      - parts/common/components.json # centralized components management file
-      - staging/cse/windows/README
-      - /**/*.md
-      - e2e/scenario_win_test.go
-
+      - e2e/**
+      - '**/*.go'
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:

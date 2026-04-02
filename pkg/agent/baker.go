@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
@@ -53,7 +54,7 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
-	if config.IsFlatcar() {
+	if config.IsFlatcar() || config.IsACL() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
@@ -79,36 +80,106 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
-func toButaneFile(file cloudInitWriteFile) (*base0_5.File, error) {
-	newfile := base0_5.File{}
-	newfile.Path = file.Path
-	newfile.User.Name = &file.Owner
-	newfile.Overwrite = to.BoolPtr(true)
-	mode, e := strconv.ParseInt(file.Permissions, 8, 32)
-	if e != nil {
-		return nil, fmt.Errorf("failed to parse file mode: %w", e)
-	}
-	newfile.Mode = to.IntPtr(int(mode))
-	switch file.Encoding {
-	case "gzip":
-		newfile.Contents.Inline = &file.Content
-		// This is hit for AKSCustomCloud file
-		if file.Content != "" {
-			newfile.Contents.Compression = &file.Encoding
+const (
+	encodingGZIP   = "gzip"
+	encodingBase64 = "base64"
+)
+
+const (
+	ignitionFilesTarPath      = "/var/lib/ignition/ignition-files.tar"
+	ignitionBootcmdScriptPath = "/etc/ignition-bootcmds.sh"
+	ignitionTarUnitName       = "ignition-file-extract.service"
+)
+
+type ignitionTarEntry struct {
+	path     string
+	mode     int64
+	owner    string
+	contents []byte
+}
+
+// buildIgnitionTarEntries converts cloud-init write_files and bootcmds into tar entries.
+func buildIgnitionTarEntries(customData cloudInit) ([]ignitionTarEntry, error) {
+	entries := make([]ignitionTarEntry, 0, len(customData.WriteFiles)+1)
+
+	for _, file := range customData.WriteFiles {
+		mode, err := strconv.ParseInt(file.Permissions, 8, 32)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file mode: %w", err)
 		}
-	case "base64":
-		inline, e := base64.StdEncoding.DecodeString(file.Content)
-		if e != nil {
-			return nil, fmt.Errorf("failed to decode base64 content: %w", e)
+
+		var contents []byte
+		switch {
+		case file.Content == "" || file.Encoding == "":
+			contents = []byte(file.Content)
+		case file.Encoding == encodingGZIP:
+			decoded, err := getGzipDecodedValue([]byte(file.Content))
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode gzip content for %s: %w", file.Path, err)
+			}
+			contents = decoded
+		case file.Encoding == encodingBase64:
+			decoded, err := base64.StdEncoding.DecodeString(file.Content)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode base64 content: %w", err)
+			}
+			contents = decoded
+		default:
+			return nil, fmt.Errorf("unsupported encoding %s for %s", file.Encoding, file.Path)
 		}
-		newfile.Contents.Inline = to.StringPtr(string(inline))
-		newfile.Contents.Compression = nil
-	case "":
-		newfile.Contents.Inline = to.StringPtr(file.Content)
-	default:
-		return nil, fmt.Errorf("unsupported encoding: %s", file.Encoding)
+
+		entry := ignitionTarEntry{
+			path:     file.Path,
+			mode:     mode,
+			owner:    file.Owner,
+			contents: contents,
+		}
+		entries = append(entries, entry)
 	}
-	return &newfile, nil
+
+	if len(customData.BootCommands) > 0 {
+		contents := strings.Join(append([]string{"#!/bin/sh"}, customData.BootCommands...), "\n")
+		entries = append(entries, ignitionTarEntry{
+			path:     ignitionBootcmdScriptPath,
+			mode:     0o755,
+			owner:    "root",
+			contents: []byte(contents),
+		})
+	}
+
+	return entries, nil
+}
+
+// buildIgnitionTarball builds a tar archive with relative paths for extraction at root.
+func buildIgnitionTarball(entries []ignitionTarEntry) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	tarWriter := tar.NewWriter(buf)
+
+	for _, entry := range entries {
+		path := strings.TrimLeft(entry.path, "/")
+		header := &tar.Header{
+			Name: path,
+			Mode: entry.mode,
+			Size: int64(len(entry.contents)),
+			Uid:  0,
+			Gid:  0,
+		}
+		if entry.owner != "" && entry.owner != "root" {
+			header.Uname = entry.owner
+		}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return nil, fmt.Errorf("failed to write tar header for %s: %w", entry.path, err)
+		}
+		if _, err := tarWriter.Write(entry.contents); err != nil {
+			return nil, fmt.Errorf("failed to write tar contents for %s: %w", entry.path, err)
+		}
+	}
+
+	if err := tarWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close tar writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
@@ -121,33 +192,38 @@ func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
 		panic(fmt.Errorf("failed to unmarshal butane config: %w", e))
 	}
 
-	newfiles := make([]base0_5.File, 0)
-	var newfile *base0_5.File
-	for _, file := range customData.WriteFiles {
-		newfile, e = toButaneFile(file)
-		if e != nil {
-			panic(fmt.Errorf("failed to convert cloudInit file to butane file: %w", e))
-		}
-		newfiles = append(newfiles, *newfile)
+	entries, err := buildIgnitionTarEntries(customData)
+	if err != nil {
+		panic(fmt.Errorf("failed to convert cloudInit data to tar entries: %w", err))
 	}
-	if len(customData.BootCommands) > 0 {
-		var contents = strings.Join(append([]string{"#!/bin/sh"}, customData.BootCommands...), "\n")
-		newfiles = append(newfiles, base0_5.File{
-			Path:      "/etc/ignition-bootcmds.sh",
-			User:      base0_5.NodeUser{Name: to.StringPtr("root")},
-			Group:     base0_5.NodeGroup{Name: to.StringPtr("root")},
-			Mode:      to.IntPtr(0o755),
-			Overwrite: to.BoolPtr(true),
-			Contents:  base0_5.Resource{Inline: to.StringPtr(contents)},
-		})
+	if len(entries) == 0 {
+		return butaneconfig
 	}
 
-	butaneconfig.Storage.Files = append(newfiles, butaneconfig.Storage.Files...)
+	tarball, err := buildIgnitionTarball(entries)
+	if err != nil {
+		panic(fmt.Errorf("failed to build ignition tarball: %w", err))
+	}
+	compressedTarball := getGzippedBufferFromBytes(tarball)
+	dataURL := "data:;base64," + base64.StdEncoding.EncodeToString(compressedTarball)
+
+	tarFile := base0_5.File{
+		Path:      ignitionFilesTarPath,
+		Mode:      to.IntPtr(0o600),
+		Overwrite: to.BoolPtr(true),
+		Contents: base0_5.Resource{
+			Source:      to.StringPtr(dataURL),
+			Compression: to.StringPtr(encodingGZIP),
+		},
+	}
+	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
 	return butaneconfig
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
+// getFlatcarLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
+// { "customData": "<customData string>" } for Flatcar-based distros (Flatcar and ACL).
+// ACL (Azure Container Linux) is Flatcar-based and uses the same Ignition/Butane pipeline,
+// so this function handles both cases.
 func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
 	parameters := getParameters(config)
@@ -178,35 +254,7 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		panic(fmt.Errorf("failed to marshal Ignition config: %w", e))
 	}
 
-	envelope := flatcar1_1.Config{
-		Config: base0_5.Config{
-			Variant: "flatcar",
-			Version: "1.1.0",
-			Ignition: base0_5.Ignition{
-				Config: base0_5.IgnitionConfig{
-					Replace: base0_5.Resource{
-						Inline: to.StringPtr(string(ignjson)),
-						// TODO: butane 0.24.0 broke support for explicit compression
-						// so we depend on automatic resource compression.
-						// Compression: to.StringPtr("gzip"),
-					},
-				},
-			},
-		},
-	}
-	wrapped, report, e := envelope.ToIgn3_4(butanecommon.TranslateOptions{})
-	if e != nil {
-		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
-	}
-	if len(report.Entries) > 0 {
-		panic(fmt.Errorf("butane -> ignition: warning:\n%s", report.String()))
-	}
-	// Marshal the Ignition config to JSON
-	enc, err := json.Marshal(wrapped)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal Ignition config: %w", err))
-	}
-	escstr := escapeSingleLine(string(enc))
+	escstr := escapeSingleLine(string(ignjson))
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", escstr)
 }
@@ -573,7 +621,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar()
+			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar() || profile.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -652,12 +700,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsFlatcar": func() bool {
 			return config.IsFlatcar()
 		},
+		"IsACL": func() bool {
+			return config.IsACL()
+		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
 			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
 		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
+		},
+		"IsAzlOSGuard": func() bool {
+			return profile.Distro.IsAzureLinuxOSGuardDistro() ||
+				profile.Distro == datamodel.CustomizedImageLinuxGuard
 		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
@@ -853,9 +908,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				panic(err)
 			}
 			return output
-		},
-		"TeleportEnabled": func() bool {
-			return config.EnableACRTeleportPlugin
 		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()
@@ -1135,13 +1187,17 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData && !config.IsFlatcar()
+			return !config.DisableCustomData && !config.IsFlatcar() && !config.IsACL()
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
 		},
 		"GetBootstrapProfileContainerRegistryServer": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
+		},
+		// Used for internal e2e test only, won't be set by RP or used in production.
+		"GetNetworkIsolatedClusterTestMode": func() bool {
+			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressTestMode()
 		},
 		"GetMCRRepositoryBase": func() string {
 			if config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase == "" {
@@ -1172,7 +1228,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if err != nil {
 				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
 			}
-			return output, nil
+			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
 		"GetLocalDNSCPULimitInPercentage": func() string {
 			return profile.GetLocalDNSCPULimitInPercentage()
@@ -1181,9 +1237,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
+		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
+		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
 	}
 }
 
@@ -1454,13 +1512,8 @@ root = "{{GetDataDir}}"{{- end}}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if TeleportEnabled }}
-    snapshotter = "teleportd"
+    {{- if IsKata }}
     disable_snapshot_annotations = false
-    {{- else}}
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1507,12 +1560,6 @@ root = "{{GetDataDir}}"{{- end}}
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1542,10 +1589,6 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
-{{- if TeleportEnabled }}
-  snapshotter = "teleportd"
-  disable_snapshot_annotations = false
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -1594,12 +1637,6 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1630,10 +1667,6 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 
 [plugins."io.containerd.cri.v1.images"]
-{{- if TeleportEnabled }}
-  snapshotter = "teleportd"
-  disable_snapshot_annotations = false
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -1669,12 +1702,6 @@ root = "{{GetDataDir}}"{{- end}}
 [metrics]
   address = "0.0.0.0:10257"
 
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1699,13 +1726,8 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if TeleportEnabled }}
-    snapshotter = "teleportd"
+    {{- if IsKata }}
     disable_snapshot_annotations = false
-    {{- else}}
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
@@ -1737,12 +1759,6 @@ root = "{{GetDataDir}}"{{- end}}
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
-{{- if TeleportEnabled }}
-[proxy_plugins]
-  [proxy_plugins.teleportd]
-    type = "snapshot"
-    address = "/run/teleportd/snapshotter.sock"
-{{- end}}
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1797,11 +1813,8 @@ func GenerateLocalDNSCoreFile(
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
 
-	if profile.LocalDNSProfile == nil {
-		return "", fmt.Errorf("localdns profile is nil")
-	}
-	if !profile.ShouldEnableLocalDNS() {
-		return "", fmt.Errorf("EnableLocalDNS is set to false, corefile will not be generated")
+	if profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
+		return "", nil
 	}
 
 	funcMapForHasSuffix := template.FuncMap{
@@ -1816,8 +1829,8 @@ func GenerateLocalDNSCoreFile(
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 
-	// Return gzipped base64 encoded Corefile. Used in nodecustomdata.
-	return getBase64EncodedGzippedCustomScriptFromStr(corefileBuffer.String()), nil
+	// Return the rendered Corefile as a plain string.
+	return corefileBuffer.String(), nil
 }
 
 // Template to create corefile that will be used by localdns service.

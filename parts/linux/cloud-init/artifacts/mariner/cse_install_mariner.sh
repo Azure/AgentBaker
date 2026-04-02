@@ -86,6 +86,21 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
+downloadGridDrivers() {
+    # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) require NVIDIA GRID (vGPU guest)
+    # drivers instead of CUDA drivers.
+    GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
+        grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+
+    if [ -z "$GRID_PACKAGE" ]; then
+        echo "No nvidia-vgpu-guest-driver package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    fi
+
+    echo "Installing: ${GRID_PACKAGE}"
+    dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -95,17 +110,43 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
-    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
+    # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
+    #
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
+    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_PACKAGE=$(dnf repoquery -y --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+    VM_SKU=$(get_compute_sku)
+
+    # Converged GPU sizes use GRID drivers instead of CUDA drivers
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA GRID driver (converged)"
+        downloadGridDrivers
+        return
+    fi
+
+    local driver_ret
+    should_use_nvidia_open_drivers
+    driver_ret=$?
+    if [ "$driver_ret" -eq 2 ]; then
+        echo "Failed to determine GPU driver type"
+        exit $ERR_MISSING_CUDA_PACKAGE
+    elif [ "$driver_ret" -eq 0 ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    else
+        echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
+        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+    fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
-      echo "No cuda packages found"
-      exit $ERR_MISSING_CUDA_PACKAGE
-    elif ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
-      exit $ERR_APT_INSTALL_TIMEOUT
+        echo "No CUDA package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
     fi
+
+    echo "Installing: ${CUDA_PACKAGE}"
+    dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
 createNvidiaSymlinkToAllDeviceNodes() {
@@ -121,7 +162,14 @@ EOF
 
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
-    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    # cuda-open is used for A100+, H100, H200, GB200, etc; cuda is used for T4, V100
+    if rpm -qa cuda-open | grep -q .; then
+        # cuda-open package format: cuda-open-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda-open | head -1 | cut -d - -f 3)
+    else
+        # cuda package format: cuda-{version}-{release}_{kernel}
+        NVIDIA_DRIVER_VERSION=$(rpm -qa cuda | head -1 | cut -d - -f 2)
+    fi
     for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
@@ -150,30 +198,7 @@ installNvidiaContainerToolkit() {
 
 }
 
-enableNvidiaPersistenceMode() {
-    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
-    touch ${PERSISTENCED_SERVICE_FILE_PATH}
-    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
-[Unit]
-Description=NVIDIA Persistence Daemon
-Wants=syslog.target
-
-[Service]
-Type=forking
-ExecStart=/usr/bin/nvidia-persistenced --verbose
-ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
-Restart=always
-TimeoutSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl enable nvidia-persistenced.service || exit 1
-    systemctl restart nvidia-persistenced.service || exit 1
-}
-
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then
@@ -183,7 +208,7 @@ installCredentialProviderFromPMC() {
         os_version="${OS_VERSION}"
     fi
    	PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
 	echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -206,7 +231,7 @@ installCredentialProviderFromPMC() {
     echo "$(getPackageCacheDir "${packageName}")/downloads"
   }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
 	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
     installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
@@ -282,7 +307,7 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
         os_version="${OS_VERSION}"
     fi
     PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
     if [ -z "$packageVersion" ]; then
         packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
@@ -384,16 +409,18 @@ installRPMPackageFromFile() {
     echo "installing ${packageName} version ${desiredVersion}"
     local downloadDir
     downloadDir="$(getPackageDownloadDir "${packageName}")"
-    local rpmPattern="${packageName}-${desiredVersion}"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+    # check cached rpms for matching filename
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
             rm -rf "${downloadDir}"
             return 0
         fi
+
         # query all package versions and get the latest version for matching k8s version
+        # e.g. 1.34.0-5.azl3
         fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
@@ -401,13 +428,14 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         return 1
     fi
 
+    rpmFile="${downloadDir}/${rpmFile}"
     local rpmArgs=("${rpmFile}")
     local -a cachedRpmFiles=()
     mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
@@ -422,11 +450,7 @@ installRPMPackageFromFile() {
       cachedBaseName=$(basename "${cachedRpm}")
 
       case "${cachedBaseName}" in
-        ${packageName}-${desiredVersion}-*.rpm)
-          rpmArgs+=("${cachedRpm}")
-          continue
-          ;;
-        ${packageName}-*.rpm)
+        *${packageName}*)
           echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
           continue
           ;;

@@ -49,11 +49,15 @@ const (
 	kubernetesCSEHelpersScript            = "linux/cloud-init/artifacts/cse_helpers.sh"
 	kubernetesCSEHelpersScriptUbuntu      = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
 	kubernetesCSEHelpersScriptMariner     = "linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+	kubernetesCSEHelpersScriptAzlOSGuard  = "linux/cloud-init/artifacts/azlosguard/cse_helpers_osguard.sh"
 	kubernetesCSEHelpersScriptFlatcar     = "linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh"
+	kubernetesCSEHelpersScriptACL         = "linux/cloud-init/artifacts/acl/cse_helpers_acl.sh"
 	kubernetesCSEInstall                  = "linux/cloud-init/artifacts/cse_install.sh"
 	kubernetesCSEInstallUbuntu            = "linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 	kubernetesCSEInstallMariner           = "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+	kubernetesCSEInstallAzlOSGuard        = "linux/cloud-init/artifacts/azlosguard/cse_install_osguard.sh"
 	kubernetesCSEInstallFlatcar           = "linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
+	kubernetesCSEInstallACL               = "linux/cloud-init/artifacts/acl/cse_install_acl.sh"
 	kubernetesCSEConfig                   = "linux/cloud-init/artifacts/cse_config.sh"
 	kubernetesCSESendLogs                 = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCSERedactCloudConfig        = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
@@ -95,6 +99,10 @@ const (
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
+
+	// Azure network configuration files.
+	configureAzureNetworkScript = "linux/cloud-init/artifacts/configure-azure-network.sh"
+	azureNetworkUdevRule        = "linux/cloud-init/artifacts/99-azure-network.rules"
 
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
 )

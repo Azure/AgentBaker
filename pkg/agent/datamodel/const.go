@@ -122,10 +122,11 @@ const (
 )
 
 const (
-	OSSKUCBLMariner = "CBLMariner"
-	OSSKUMariner    = "Mariner"
-	OSSKUAzureLinux = "AzureLinux"
-	OSSKUFlatcar    = "Flatcar"
+	OSSKUCBLMariner          = "CBLMariner"
+	OSSKUMariner             = "Mariner"
+	OSSKUAzureLinux          = "AzureLinux"
+	OSSKUFlatcar             = "Flatcar"
+	OSSKUAzureContainerLinux = "AzureContainerLinux"
 )
 
 // Feature Flags.
@@ -135,4 +136,10 @@ const (
 	EnableIPv6DualStack   = "EnableIPv6DualStack"
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
+)
+
+// CSE Constants.
+const (
+	DefaultCSETimeout = 900   // 15 minutes
+	MaxCSETimeout     = 21600 // 6 hours
 )

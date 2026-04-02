@@ -4,21 +4,20 @@ kernel_arguments:
   should_not_exist:
     - flatcar.autologin
 storage:
+  directories:
+  - path: /opt/aks-sysext-rw/usr/local/bin
   files:
-  - path: /etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
-    mode: 0644
+  - path: /opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
     contents:
       inline: |
         ID=flatcar
         SYSEXT_LEVEL=1.0
   - path: /etc/flatcar/update.conf
-    mode: 0644
     overwrite: true
     contents:
       inline: |
         SERVER=disabled
   - path: /etc/systemd/system/containerd.service.d/50-default-config.conf
-    mode: 0644
     contents:
       inline: |
         [Service]
@@ -26,12 +25,10 @@ storage:
   # Temporary: for compatibility with azure-npm and before https://github.com/flatcar/Flatcar/issues/1852 is resolved
   # simply copy the protocols file from baselayout to /etc.
   - path: /etc/tmpfiles.d/protocols.conf
-    mode: 0644
     contents:
       inline: |
         C /etc/protocols - - - - /usr/share/baselayout/protocols
   - path: /etc/nsswitch.conf
-    mode: 0644
     overwrite: true
     contents:
       inline: |
@@ -55,8 +52,14 @@ storage:
         automount:   files
         aliases:     files
   links:
-  - path: /etc/extensions/aks-sysext/usr/local/bin
-    target: /opt/bin
+  - path: /etc/extensions/aks-sysext
+    target: /opt/aks-sysext
+    hard: false
+  - path: /opt/aks-sysext/usr/local/bin
+    target: /opt/aks-sysext-rw/usr/local/bin
+    hard: false
+  - path: /etc/containerd/config.toml
+    target: /usr/share/containerd/config.toml
     hard: false
 systemd:
   units:

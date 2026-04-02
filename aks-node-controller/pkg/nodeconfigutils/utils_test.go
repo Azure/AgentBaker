@@ -1,7 +1,13 @@
 package nodeconfigutils
 
 import (
+	"encoding/base64"
+	"io"
+	"mime"
+	"mime/multipart"
+	"net/textproto"
 	"os"
+	"strings"
 	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
@@ -202,6 +208,67 @@ func TestMarsalConfiguratioV1(t *testing.T) {
 	data, err := MarshalConfigurationV1(cfg)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"version":"v1","auth_config":{"subscription_id":"test-subscription"}, "workload_runtime":"WORKLOAD_RUNTIME_OCI_CONTAINER"}`, string(data))
+}
+
+func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
+	cfg := &aksnodeconfigv1.Configuration{
+		Version: "v1",
+		AuthConfig: &aksnodeconfigv1.AuthConfig{
+			SubscriptionId: "test-subscription",
+		},
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+			ResourceGroup: "test-rg",
+			Location:      "eastus",
+		},
+		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
+			ApiServerName: "test-api-server",
+		},
+	}
+
+	customData, err := CustomData(cfg)
+	require.NoError(t, err)
+
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+
+	sections := strings.SplitN(string(decoded), "\r\n\r\n", 2)
+	require.Len(t, sections, 2)
+
+	message := textproto.MIMEHeader{}
+	for _, line := range strings.Split(sections[0], "\r\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ": ", 2)
+		require.Len(t, parts, 2)
+		message.Add(parts[0], parts[1])
+	}
+	mediaType, params, err := mime.ParseMediaType(message.Get("Content-Type"))
+	require.NoError(t, err)
+	require.Equal(t, "multipart/mixed", mediaType)
+
+	reader := multipart.NewReader(strings.NewReader(sections[1]), params["boundary"])
+
+	part, err := reader.NextPart()
+	require.NoError(t, err)
+	require.Equal(t, "text/cloud-boothook", part.Header.Get("Content-Type"))
+	boothook, err := io.ReadAll(part)
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(string(boothook), "#cloud-boothook\n"))
+	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-config.json")
+	require.Contains(t, string(boothook), "launching aks-node-controller service")
+	require.Contains(t, string(boothook), "systemctl start --no-block aks-node-controller.service")
+
+	part, err = reader.NextPart()
+	require.NoError(t, err)
+	require.Equal(t, "text/cloud-config", part.Header.Get("Content-Type"))
+	cloudConfig, err := io.ReadAll(part)
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(string(cloudConfig), "#cloud-config\n"))
+	require.Contains(t, string(cloudConfig), "runcmd:")
+
+	_, err = reader.NextPart()
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestMarshalUnmarshalWithPopulatedConfig(t *testing.T) {

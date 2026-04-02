@@ -1,7 +1,6 @@
 package config
 
 import (
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -21,6 +20,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const (
+	DefaultV5VMSKU = "Standard_D2ds_v5"
+)
+
 var (
 	Config         = mustLoadConfig()
 	Azure          = mustNewAzureClient()
@@ -38,19 +41,18 @@ func ResourceGroupName(location string) string {
 }
 
 func PrivateACRNameNotAnon(location string) string {
-	return "e2eprivateacrnonanon" + location // will have anonymous pull enabled
+	return "abe2eprivatenonanon" + location // will have anonymous pull enabled
 }
 
 func PrivateACRName(location string) string {
-	return "e2eprivateacr" + location // will not have anonymous pull enabled
+	return "abe2eprivate" + location // will not have anonymous pull enabled
 }
 
 type Configuration struct {
 	// The defaults should only be used when running tests locally, as the CI will set these env vars.
 	// We have separate Linux and Windows consts to have different defaults - they use the same env vars.
 	ACRSecretName                          string        `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
-	AirgapNSGName                          string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
-	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
+	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"aks-managed-repository/*"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
@@ -60,6 +62,9 @@ type Configuration struct {
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
+	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
+	EnableScriptlessCSECmd                 bool          `env:"ENABLE_SCRIPTLESS_CSE_CMD" envDefault:"false"`
+	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
@@ -68,10 +73,13 @@ type Configuration struct {
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                               bool          `env:"KEEP_VMSS"`
+	NetworkIsolatedNSGName                 string        `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
+	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestGalleryImagePrefix                 string        `env:"TEST_GALLERY_IMAGE_PREFIX" envDefault:"abe2etest"`
@@ -81,8 +89,6 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
-	SysSSHPublicKey                        string        `env:"SYS_SSH_PUBLIC_KEY"`
-	SysSSHPrivateKeyB64                    string        `env:"SYS_SSH_PRIVATE_KEY_B64"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -130,7 +136,7 @@ func (c *Configuration) VMIdentityResourceID(location string) string {
 }
 
 func mustLoadConfig() *Configuration {
-	VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewED25519KeyPair()
+	VMSSHPrivateKey, VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewRSAKeyPair()
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %s\n", err)
@@ -164,43 +170,20 @@ func mustLoadConfig() *Configuration {
 	return cfg
 }
 
-func mustGetNewED25519KeyPair() ([]byte, string) {
-	public, privateKeyFileName, err := getNewED25519KeyPair()
+// Returns a newly generated RSA public/private key pair with the private key in PEM format.
+func mustGetNewRSAKeyPair() ([]byte, []byte, string) {
+	// Generate new key pair
+	privatePEMBytes, publicKeyBytes, err := getNewRSAKeyPair()
 	if err != nil {
-		panic(fmt.Sprintf("failed to generate ED25519 key pair: %v", err))
+		panic(fmt.Sprintf("failed to generate RSA key pair: %v", err))
 	}
 
-	return public, privateKeyFileName
-}
-
-// Returns a newly generated ED25519 public/private key pair with the private key in PEM format.
-func getNewED25519KeyPair() (publicKeyBytes []byte, privateKeyFileName string, e error) {
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	privateKeyFileName, err := writePrivateKeyToTempFile(privatePEMBytes)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create rsa private key: %w", err)
+		panic(fmt.Sprintf("failed to write private key to temp file: %v", err))
 	}
 
-	sshPubKey, err := ssh.NewPublicKey(publicKey)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create ssh public key: %w", err)
-	}
-
-	publicKeyBytes = ssh.MarshalAuthorizedKey(sshPubKey)
-
-	// ----- PRIVATE KEY (OpenSSH format) -----
-	pemBlock, err := ssh.MarshalPrivateKey(privateKey, "azureuser")
-	if err != nil {
-		return nil, "", err
-	}
-
-	VMSSHPrivateKey = pem.EncodeToMemory(pemBlock)
-
-	privateKeyFileName, err = writePrivateKeyToTempFile(VMSSHPrivateKey)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to write private key to temp file: %w", err)
-	}
-
-	return
+	return privatePEMBytes, publicKeyBytes, privateKeyFileName
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
