@@ -793,23 +793,6 @@ should_enable_managed_gpu_experience() {
     local should_enforce
     should_enforce=$(get_imds_vm_tag_value "EnableManagedGPUExperience")
     echo "$should_enforce"
-<<<<<<< HEAD
-}
-
-should_e2e_mock_azure_china_cloud() {
-    set -x
-    local should_enforce
-    should_enforce=$(get_imds_vm_tag_value "E2EMockAzureChinaCloud")
-    echo "$should_enforce"
-}
-
-should_enable_managed_gpu_experience() {
-    set -x
-    local should_enforce
-    should_enforce=$(get_imds_vm_tag_value "EnableManagedGPUExperience")
-    echo "$should_enforce"
-=======
->>>>>>> origin/main
 }
 
 isMarinerOrAzureLinux() {
