@@ -396,13 +396,18 @@ function nodePrep {
         # for which the user has specified a partitioning profile.
         # it is valid to use mig-capable gpus without a partitioning profile.
         if [ "${MIG_NODE}" = "true" ]; then
-            if [ "${MIG_NEEDS_REBOOT}" = "true" ]; then
-                # A100 (Ampere) has a bit in the infoROM to enable MIG mode.
-                # Changing this bit requires a VM reboot on Azure (hypervisor/platform reset).
+            # Determine if a reboot is needed to activate MIG mode based on GPU
+            # compute capability. Ampere (SM 8.x, e.g. A100) requires a VM reboot
+            # because changing the MIG mode bit in the infoROM needs a platform-level
+            # reset on Azure. Hopper and newer (SM >= 9.0, e.g. H100/H200) support
+            # dynamic MIG mode changes — nvidia-smi -mig 1 takes effect immediately.
+            gpu_compute_cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1)
+            # Strip the dot for integer comparison (e.g. "8.0" -> "80", "9.0" -> "90").
+            gpu_compute_cap_int=$(echo "${gpu_compute_cap}" | tr -d '.')
+            if [ -z "${gpu_compute_cap_int}" ] || [ "${gpu_compute_cap_int}" -lt 90 ]; then
+                # Ampere or older, or if detection failed (safe default: reboot).
                 REBOOTREQUIRED=true
             fi
-            # H100 (Hopper) and newer architectures support enabling MIG mode
-            # dynamically without a reboot — nvidia-smi -mig 1 takes effect immediately.
 
             # this service applies the partitioning scheme with nvidia-smi.
             # we should consider moving to mig-parted which is simpler/newer.
