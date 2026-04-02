@@ -125,7 +125,7 @@ capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0
 # The kernel has an OOT patch that auto-enables lockdown when secure boot is detected
-if isMarinerOrAzureLinux "$OS" && [[ "$OS_VERSION" == "3.0" ]]; then
+if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
   disableKernelLockdownCmdline
 fi
 capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
