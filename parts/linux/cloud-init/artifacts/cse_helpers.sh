@@ -247,6 +247,14 @@ _retrycmd_internal() {
     local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
+        # Check CSE timeout BEFORE starting each attempt. This prevents launching a new long-running
+        # operation (e.g. a 300-600s GPU install) when we are already near the global provisioning
+        # timeout, which would push total CSE execution past the 16-minute client window.
+        if ! check_cse_timeout "$shouldLog"; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
+        fi
+
         timeout "$timeoutVal" "${@}"
         exitStatus=$?
 
@@ -254,7 +262,7 @@ _retrycmd_internal() {
             break
         fi
 
-        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
+        # Check again after failure, before sleeping, to exit as early as possible.
         if ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
@@ -308,12 +316,25 @@ retrycmd_nslookup() {
 
 _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
-    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
+    # maxBudget (4th arg): if > 0, the total wall-clock seconds this operation is allowed to spend across all retries.
+    # A value of 0 disables the per-operation budget (falls back to the global CSE timeout guard only).
+    retries=$1; waitSleep=$2; timeout=$3; maxBudget=$4; filePath=$5; url=$6; checksToRun=( "${@:7}" )
+    local opStartTime
+    opStartTime=$(date +%s)
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do
         # Use eval to execute the checksToRun string as a command
         ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
+        fi
+        # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window
+        if [ "${maxBudget}" -gt 0 ]; then
+            local opElapsed
+            opElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$opElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${opElapsed}s, exiting early." >&2
+                return 2
+            fi
         fi
         # check if global cse timeout is approaching
         if ! check_cse_timeout; then
@@ -331,16 +352,20 @@ _retry_file_curl_internal() {
     done
 }
 
+# Usage: retrycmd_get_tarball <retries> <wait_sleep> <timeout> <tarball> <url> [max_budget_s=0]
+# max_budget_s: optional per-operation budget in seconds (0 = no cap)
 retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    tar_retries=$1; wait_sleep=$2; timeout=$3; tarball=$4; url=$5; max_budget=${6:-0}
     check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
-    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" "$timeout" "$max_budget" "$tarball" "$url" "$check_tarball_valid"
 }
 
+# Usage: retrycmd_curl_file <retries> <wait_sleep> <timeout> <filepath> <url> [max_budget_s=0]
+# max_budget_s: optional per-operation budget in seconds (0 = no cap)
 retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5; max_budget=${6:-0}
     check_file_exists="[ -f \"$filepath\" ]"
-    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$max_budget" "$filepath" "$url" "$check_file_exists"
 }
 
 retrycmd_pull_from_registry_with_oras() {
