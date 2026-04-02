@@ -400,11 +400,9 @@ function nodePrep {
                 # A100 (Ampere) has a bit in the infoROM to enable MIG mode.
                 # Changing this bit requires a VM reboot on Azure (hypervisor/platform reset).
                 REBOOTREQUIRED=true
-            else
-                # H100 (Hopper) and newer architectures support enabling MIG mode
-                # dynamically without a reboot. A GPU reset is sufficient.
-                logs_to_events "AKS.CSE.gpuResetForMIG" nvidia-smi --gpu-reset
             fi
+            # H100 (Hopper) and newer architectures support enabling MIG mode
+            # dynamically without a reboot — nvidia-smi -mig 1 takes effect immediately.
 
             # this service applies the partitioning scheme with nvidia-smi.
             # we should consider moving to mig-parted which is simpler/newer.
