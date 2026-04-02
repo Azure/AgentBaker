@@ -352,10 +352,17 @@ _retry_file_curl_internal() {
 }
 
 # Usage: retrycmd_get_tarball <retries> <wait_sleep> <timeout> <tarball> <url> [max_budget_s=0]
+# Backward-compatible with old 4-arg callers: <retries> <wait_sleep> <tarball> <url>
+# When the 3rd arg is non-numeric (i.e. a file path), the old signature is assumed and timeout defaults to 60s.
 # max_budget_s: optional per-operation budget in seconds (0 = no cap)
 retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; timeout=$3; tarball=$4; url=$5; max_budget=${6:-0}
-    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    local tar_retries=$1; local wait_sleep=$2
+    if [[ "$3" =~ ^[0-9]+$ ]]; then
+        local timeout=$3; local tarball=$4; local url=$5; local max_budget=${6:-0}
+    else
+        local timeout=60; local tarball=$3; local url=$4; local max_budget=0
+    fi
+    local check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
     _retry_file_curl_internal "$tar_retries" "$wait_sleep" "$timeout" "$max_budget" "$tarball" "$url" "$check_tarball_valid"
 }
 

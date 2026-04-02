@@ -162,6 +162,25 @@ Describe 'long running cse helper functions'
                     The stdout should include "2 file curl retries"
                     The stderr should include "CSE timeout approaching, exiting early"
                 End
+                It "get_tarball (old 4-arg signature) returns 1 if tar curl fails and retries are exhausted"
+                    timeout() {
+                        echo "curl mock failure"
+                        return 1
+                    }
+                    When call retrycmd_get_tarball 2 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    The status should eq 1
+                    The stdout should include "2 file curl retries"
+                    The stdout should include "curl mock failure"
+                End
+                It "get_tarball (old 4-arg signature) returns 0 if curl tar succeeds"
+                    mkdir -p /tmp/test_tarball
+                    echo "test content" > /tmp/test_tarball/testfile
+                    tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball testfile
+                    When call retrycmd_get_tarball 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    rm -r /tmp/test_tarball
+                    The status should eq 0
+                    The stdout should include "1 file curl retries"
+                End
             End
             Describe 'retrycmd_curl_file'
                 It "curl_file returns 1 if curl fails and retries are exhausted"
