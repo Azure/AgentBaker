@@ -50,13 +50,15 @@ $lockedFiles = @(
   "hosts-config-agent.err.log",
   "hosts-config-agent.log",
   "windows-exporter.err.log",
-  "windows-exporter.log"
+  "windows-exporter.log",
+  "aks-windows-exporter.err.log",
+  "aks-windows-exporter.log"
 )
 
-$timeStamp = get-date -format 'yyyyMMdd-hhmmss'
+$timeStamp = get-date -format 'yyyyMMdd-HHmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
 
-$paths = @() # All log file paths will be collected 
+$paths = @() # All log file paths will be collected
 
 # Log the script output. It is the first log file to avoid other impact.
 $outputLogFile = "$ENV:TEMP\collect-windows-logs-output.log"
@@ -248,7 +250,7 @@ if ($enableAll -or $enableSnapshotSize) {
   $listOfSnapshotFolders = Get-ChildItem $snapshotPath | Where-Object {$_.PSIsContainer -eq $true} | Sort-Object
   $totalSize = 0
   foreach ($i in $listOfSnapshotFolders) {
-  	$folderSize = 0   
+  	$folderSize = 0
   	Get-ChildItem -Path $i.FullName -recurse -Attributes !SparseFile | Where-Object {$_.PSIsContainer -eq $false} | ForEach-Object {
   		$folderSize = $folderSize + $_.Length
   	}
@@ -289,13 +291,13 @@ else {
   Write-Host "crictl.exe command not available"
 }
 
-# use runhcs shim diagnostic tool 
+# use runhcs shim diagnostic tool
 $res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
 if ($res) {
   Write-Host "Collecting logs of runhcs shim diagnostic tool"
   shimdiag.exe list --pids > "$ENV:TEMP\$timeStamp-shimdiag-list-with-pids.txt"
   $paths += "$ENV:TEMP\$timeStamp-shimdiag-list-with-pids.txt"
-  
+
   $tempShimdiagFile = Join-Path ([System.IO.Path]::GetTempPath()) ("shimdiag.txt")
   $shimdiagList = shimdiag.exe list
   Set-Content -Path $tempShimdiagFile -Value $shimdiagList
@@ -320,6 +322,17 @@ if ($res) {
 }
 else {
   Write-Host "hcsdiag.exe command not available"
+}
+
+# run hnsdiag list
+$res = Get-Command hnsdiag.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs from hnsdiag tool"
+  hnsdiag.exe list all > "$ENV:TEMP\$timeStamp-hnsdiag-list.txt"
+  $paths += "$ENV:TEMP\$timeStamp-hnsdiag-list.txt"
+}
+else {
+  Write-Host "hnsdiag.exe command not available"
 }
 
 # log containerd info
