@@ -1509,20 +1509,18 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
+	// Validate that node-exporter is listening on port 19100 and serving metrics on the node IP.
+	// We use the node's private IP (known from the test framework) to validate the real scrape path —
+	// the same IP that prometheus/ama-metrics would use. This avoids parsing ss output and works on all distros.
 	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
 	// so we validate by making a plain HTTP request to the metrics endpoint.
-	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
-	// are visible in test logs rather than silently swallowed.
-	// We intentionally do not rewrite wildcard ('*' or '0.0.0.0') listen addresses — node-exporter
-	// should always bind to the node IP; if it doesn't, the test should fail.
-	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
+	nodeIP := s.Runtime.VM.PrivateIP
+	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics on node IP %s", nodeIP)
 	command := []string{
 		"set -ex",
-		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1)",
-		"echo \"node-exporter listen address: ${LISTEN_ADDR}\"",
-		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | head -20",
-		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | grep -q 'node_'",
+		fmt.Sprintf("echo \"node IP: %s\"", nodeIP),
+		fmt.Sprintf("curl -s --max-time 10 http://%s:19100/metrics 2>&1 | head -20", nodeIP),
+		fmt.Sprintf("curl -s --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", nodeIP),
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
