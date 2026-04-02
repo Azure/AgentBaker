@@ -576,9 +576,9 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 	})
 }
 
-func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
+func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that Windows nodes in network isolated clusters download kubelet binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
+		Description: "Tests that Windows nodes in network isolated clusters download kubelet/containerd binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
 		Tags: Tags{
 			NetworkIsolated: true,
 			NonAnonymousACR: false,
@@ -593,6 +593,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+						TestMode:                true,
 					},
 				}
 			},
@@ -600,6 +601,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				// Verify kubelet binaries were downloaded via ORAS instead of HTTP
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download containerd with oras")
 			},
 		},
 	})
