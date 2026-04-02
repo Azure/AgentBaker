@@ -162,7 +162,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 				continue
 			}
 
-			lastSeenNode = node
+			lastSeenNode = node.DeepCopy()
 			nodeTaints, _ := json.Marshal(node.Spec.Taints)
 			nodeConditions, _ := json.Marshal(node.Status.Conditions)
 
@@ -175,7 +175,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 			}
 
 			t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-			return false, nil
+			continue
 		}
 
 		return false, nil
@@ -186,7 +186,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 			t.Fatalf("%q haven't appeared in k8s API server: %v", vmssName, err)
 		} else {
 			nodeString, _ := json.Marshal(lastSeenNode)
-			t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, lastSeenNode.Name, lastSeenNode.Status, string(nodeString))
+			t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s Err: %v", vmssName, lastSeenNode.Name, lastSeenNode.Status, string(nodeString), err)
 		}
 		return ""
 	}
