@@ -1041,6 +1041,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetInitAKSCustomCloudFilepath": func() string {
 			return initAKSCustomCloudFilepath
 		},
+		"GetInitAKSCustomCloudReposFilepath": func() string {
+			return initAKSCustomCloudReposFilepath
+		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
 			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
 		},
