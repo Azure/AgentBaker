@@ -86,37 +86,19 @@ installCriCtlPackage() {
   dnf_install 30 1 600 ${packageName} || exit 1
 }
 
-should_use_nvidia_open_drivers() {
-    # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
-    # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
-    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
-    local vm_sku
-    vm_sku=$(get_compute_sku)
-    if [ -z "$vm_sku" ]; then
-        echo "Error: Unable to determine VM SKU, cannot select GPU driver" >&2
-        return 2
+downloadGridDrivers() {
+    # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) require NVIDIA GRID (vGPU guest)
+    # drivers instead of CUDA drivers.
+    GRID_PACKAGE=$(dnf repoquery -y --available "nvidia-vgpu-guest-driver*" | \
+        grep -E "nvidia-vgpu-guest-driver-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+
+    if [ -z "$GRID_PACKAGE" ]; then
+        echo "No nvidia-vgpu-guest-driver package found for kernel ${KERNEL_VERSION} (vm_sku=${VM_SKU})"
+        exit $ERR_MISSING_CUDA_PACKAGE
     fi
-    local lower="${vm_sku,,}"
 
-    # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
-    # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
-    case "$lower" in
-        *t4_v3*)
-            return 1
-            ;;
-        *nd40rs_v2*)
-            return 1
-            ;;
-        *nd40s_v3*)
-            return 1
-            ;;
-        standard_nc*s_v3*)
-            return 1
-            ;;
-    esac
-
-    # All other GPU SKUs (A100+) use open drivers
-    return 0
+    echo "Installing: ${GRID_PACKAGE}"
+    dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
 downloadGPUDrivers() {
@@ -128,15 +110,25 @@ downloadGPUDrivers() {
     # 2. NVIDIA OpenRM driver:
     # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
-    # Legacy GPUs (T4, V100) require proprietary drivers; A100+ use NVIDIA open drivers.
-    # VM SKU is retrieved from IMDS to determine which driver to use.
+    # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
+    # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
+    #
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
+    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+    VM_SKU=$(get_compute_sku)
+
+    # Converged GPU sizes use GRID drivers instead of CUDA drivers
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        echo "VM SKU ${VM_SKU} uses NVIDIA GRID driver (converged)"
+        downloadGridDrivers
+        return
+    fi
 
     local driver_ret
     should_use_nvidia_open_drivers
     driver_ret=$?
-    # Get VM SKU for logging (export already done by should_use_nvidia_open_drivers)
-    VM_SKU=$(get_compute_sku)
     if [ "$driver_ret" -eq 2 ]; then
         echo "Failed to determine GPU driver type"
         exit $ERR_MISSING_CUDA_PACKAGE
@@ -204,29 +196,6 @@ installNvidiaContainerToolkit() {
       fi
     done
 
-}
-
-enableNvidiaPersistenceMode() {
-    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
-    touch ${PERSISTENCED_SERVICE_FILE_PATH}
-    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
-[Unit]
-Description=NVIDIA Persistence Daemon
-Wants=syslog.target
-
-[Service]
-Type=forking
-ExecStart=/usr/bin/nvidia-persistenced --verbose
-ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
-Restart=always
-TimeoutSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl enable nvidia-persistenced.service || exit 1
-    systemctl restart nvidia-persistenced.service || exit 1
 }
 
 installCredentialProviderFromPkg() {
@@ -440,16 +409,18 @@ installRPMPackageFromFile() {
     echo "installing ${packageName} version ${desiredVersion}"
     local downloadDir
     downloadDir="$(getPackageDownloadDir "${packageName}")"
-    local rpmPattern="${packageName}-${desiredVersion}"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+    # check cached rpms for matching filename
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
             rm -rf "${downloadDir}"
             return 0
         fi
+
         # query all package versions and get the latest version for matching k8s version
+        # e.g. 1.34.0-5.azl3
         fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
@@ -457,13 +428,14 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -type f -name "${rpmPattern}*.rpm" -print -quit 2>/dev/null) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         return 1
     fi
 
+    rpmFile="${downloadDir}/${rpmFile}"
     local rpmArgs=("${rpmFile}")
     local -a cachedRpmFiles=()
     mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
@@ -478,11 +450,7 @@ installRPMPackageFromFile() {
       cachedBaseName=$(basename "${cachedRpm}")
 
       case "${cachedBaseName}" in
-        ${packageName}-${desiredVersion}-*.rpm)
-          rpmArgs+=("${cachedRpm}")
-          continue
-          ;;
-        ${packageName}-*.rpm)
+        *${packageName}*)
           echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
           continue
           ;;

@@ -3,7 +3,7 @@
 bootcmd:
 - |
   mkdir -p /opt/bin
-  for bin in aks-secure-tls-bootstrap-client ci-syslog-watcher.sh logrotate.sh teleportd; do
+  for bin in aks-secure-tls-bootstrap-client ci-syslog-watcher.sh logrotate.sh; do
     [ -e /opt/bin/${bin} ] && continue
     [ -e /usr/local/bin/${bin} ] || continue
     ln -s /usr/local/bin/${bin} /opt/bin/
@@ -55,6 +55,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionSourceFlatcar"}}
+{{- else if IsACL }}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceACL"}}
 {{- else }}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
@@ -122,6 +129,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
+{{- else if IsACL }}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsACL"}}
 {{- else }}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
@@ -138,7 +152,7 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
-{{ if not (or IsMariner IsFlatcar) -}}
+{{ if not (or IsMariner IsFlatcar IsACL) -}}
 - path: /opt/azure/manifest.json
   permissions: "0644"
   encoding: gzip
@@ -218,7 +232,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
-{{- else if not IsFlatcar }}
+{{- else if not (or IsFlatcar IsACL) }}
 - path: /opt/azure/containers/ubuntu-snapshot-update.sh
   permissions: "0544"
   encoding: gzip
@@ -275,6 +289,7 @@ write_files:
   content: |
     [Service]
     ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    LimitNOFILE=1048576
     #EOF
 
 - path: /etc/crictl.yaml

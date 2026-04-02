@@ -8,11 +8,13 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
@@ -30,6 +32,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/install-ig.sh
+source /home/packer/install-node-exporter.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -118,6 +121,22 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+
+# ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
+# so these must be called separately (mirrored in the Mariner/AzureLinux block below).
+# Other Mariner functions are safe to skip for ACL:
+#   setMarinerNetworkdConfig — ACL doesn't ship systemd-bootstrap's 99-dhcp-en.network
+#   fixCBLMarinerPermissions — product_uuid already 444; no rsyslog on ACL
+#   addMarinerNvidiaRepo / updateDnfWithNvidiaPkg / disableDNFAutomatic / enableCheckRestart — ACL has no dnf/rpm
+#   activateNfConntrack — nf_conntrack auto-loads via iptables dependency chain
+#   disableTimesyncd — ACL handles chrony separately above via disableNtpAndTimesyncdInstallChrony
+if isACL "$OS" "$OS_VARIANT"; then
+  # ACL's iptables.service loads host firewall rules that conflict with Cilium eBPF routing.
+  disableSystemdIptables || exit 1
+  # Repoint /etc/resolv.conf from the stub (127.0.0.53) to the real upstream file
+  # so DNS queries go directly through localdns.
+  disableSystemdResolvedCache
+fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
 # Configure SSH service during VHD build for Ubuntu 22.10+
@@ -125,9 +144,16 @@ configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warnin
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
+# Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+# On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+# (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+# On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+# Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+# to avoid compatibility issues between new VHDs and old CSE scripts.
 tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
 tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
@@ -416,12 +442,18 @@ while IFS= read -r p; do
       done
       ;;
     "inspektor-gadget")
-      if isMariner "$OS" || isFlatcar "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
         echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
-        # installIG is defined in install-ig.sh
-        installIG "${p}" "${ig_version}" "${downloadDir}"
+        if isUbuntu "$OS"; then
+          # Ubuntu: download ig deb via apt; ig_install_deb_stack expects it at downloadDir
+          downloadPkgFromVersion "ig" "${ig_version}" "${downloadDir}"
+          installIG "${ig_version}" "${downloadDir}"
+        elif isAzureLinux "$OS"; then
+          # Azure Linux 3.0: ig_install_rpm_stack handles its own RPM downloads
+          installIG "${ig_version}" "${downloadDir}"
+        fi
       fi
       ;;
     "kubernetes-binaries")
@@ -442,7 +474,7 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-        elif isFlatcar; then
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
         fi
@@ -475,6 +507,20 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "node-exporter")
+      # Skipping is handled by empty versionsV2 arrays in components.json
+      # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
+      if [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
+      else
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+      fi
+      ;;
+    "acr-mirror")
+      # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -485,19 +531,28 @@ while IFS= read -r p; do
 done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
-  # arguments: package name, package extension
-  PACKAGE_NAME=$1
-  PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.3.0'
-  MIRROR_DOWNLOAD_PATH="./$1.$2"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.z5.web.core.windows.net/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" = "deb" ]; then
-    apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$2" = "rpm" ]; then
-    dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  local downloadURL="$1"
+  local version="$2"
+  # The arm64 packages have "-arm64" inserted before the file extension,
+  # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
+  if [ "$(isARM64)" -eq 1 ]; then
+    downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
   fi
-  rm $MIRROR_DOWNLOAD_PATH
+  local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  case "$downloadURL" in
+    *.deb)
+      apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *.rpm)
+      dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *)
+      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+      ;;
+  esac
+  rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
   /opt/acr/tools/overlaybd/config-user-agent.sh azure
@@ -507,21 +562,20 @@ installAndConfigureArtifactStreaming() {
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 
-UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-# Artifact Streaming enabled for all supported Ubuntu versions including 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
+# Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
+# OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
+acrMirrorPackage=$(echo "${packages}" | jq -c 'select(.name == "acr-mirror")')
+updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
+if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
+  for version in ${PACKAGE_VERSIONS[@]}; do
+    evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+    installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
+  done
 fi
-
-# Artifact Streaming enabled for Azure Linux 2.0 and 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ] && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)" -ne 1 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-elif ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$OS_VERSION" = "3.0" ] && [ "$(isARM64)" -ne 1 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-azurelinux3 rpm
-fi
-
 capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
 
 # k8s will use images in the k8s.io namespaces - create it
@@ -575,7 +629,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   mkdir -p /opt/{actions,gpu}
 
-  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}

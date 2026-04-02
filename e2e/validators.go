@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +44,11 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	}
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
 	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
@@ -77,6 +83,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"})
 	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
 	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
 	switch {
@@ -724,6 +731,69 @@ func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, servic
 		fmt.Sprintf("Windows service %s validation failed", serviceName))
 }
 
+func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		"$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue",
+		"if ($dotnetCmd) {",
+		"  throw \".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD\"",
+		"}",
+		"Write-Host \".NET is not installed\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		".NET should not be installed on the Windows node")
+}
+
+func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
+
+	command := []string{
+		fmt.Sprintf("sc.exe qfailure %s", serviceName),
+	}
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		strings.Join(command, "\n"),
+		0,
+		fmt.Sprintf("failed to validate restart configuration for Windows service %s", serviceName),
+	)
+
+	var RESET_PERIOD = "RESET_PERIOD"
+	var FAILURE_ACTIONS = "FAILURE_ACTIONS"
+
+	fields := map[string]string{}
+	sdtout := execResult.stdout
+	lines := strings.Split(sdtout, "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if strings.Contains(key, RESET_PERIOD) {
+			fields[RESET_PERIOD] = value
+		}
+		if strings.Contains(key, FAILURE_ACTIONS) {
+			fields[FAILURE_ACTIONS] = value
+		}
+	}
+	if fields[RESET_PERIOD] != "900" {
+		s.T.Fatalf("Expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout)
+	}
+	if fields[FAILURE_ACTIONS] != "RESTART -- Delay = 60000 milliseconds." {
+		s.T.Fatalf("Expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout)
+	}
+}
+
+func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *Scenario) {
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubelet")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "containerd")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{
@@ -756,6 +826,13 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	if s.VHD.IgnoreFailedCgroupTelemetryServices {
 		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
+	}
+	if s.VHD.OS == config.OSACL {
+		// systemd-sysupdate.service: known upstream Flatcar issue (flatcar/Flatcar#1979). The timer
+		// (OnBootSec=15min) fires the service which exits with "No transfer definitions found" because
+		// ACL VHDs don't ship sysupdate transfer configs. Whether it fails depends on whether the timer
+		// fires before the validator checks.
+		unitFailureAllowList["systemd-sysupdate.service"] = true
 	}
 
 	type systemdUnit struct {
@@ -1405,6 +1482,70 @@ func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
 }
 
+func RestartNodeProblemDetector(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Log("restarting node-problem-detector to pick up managed GPU health checks")
+	command := []string{
+		"set -ex",
+		"sudo systemctl restart node-problem-detector",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"failed to restart Node Problem Detector (NPD) service")
+}
+
+func ValidateNodeExporter(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/node-exporter.d/skip_vhd_node_exporter"
+	serviceName := "node-exporter.service"
+
+	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have node-exporter installed (Ubuntu, Mariner, Azure Linux).
+	// Flatcar, ACL, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_node_exporter sentinel file found, validating node-exporter installation")
+
+	// Validate service is running
+	ValidateSystemdUnitIsRunning(ctx, s, serviceName)
+	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+
+	// Validate service is enabled
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+
+	// Validate binary exists and is executable
+	// The binary is installed at /usr/bin and symlinked to /opt/bin for consistency with other binaries (kubelet, etc.)
+	ValidateFileExists(ctx, s, "/usr/bin/node-exporter")
+	ValidateFileExists(ctx, s, "/opt/bin/node-exporter")
+	ValidateFileExists(ctx, s, "/opt/bin/node-exporter-startup.sh")
+
+	// Validate configuration files exist
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
+
+	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
+	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
+	// so we validate by making a plain HTTP request to the metrics endpoint.
+	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
+	// are visible in test logs rather than silently swallowed.
+	// We intentionally do not rewrite wildcard ('*' or '0.0.0.0') listen addresses — node-exporter
+	// should always bind to the node IP; if it doesn't, the test should fail.
+	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
+	command := []string{
+		"set -ex",
+		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1)",
+		"echo \"node-exporter listen address: ${LISTEN_ADDR}\"",
+		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | head -20",
+		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | grep -q 'node_'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
+
+	s.T.Logf("node-exporter validation passed")
+}
+
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	command := []string{
 		"set -ex",
@@ -1818,7 +1959,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessCSECmd {
+	if nbc != nil && nbc.EnableScriptlessCSECmd && !s.VHD.Flatcar {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
@@ -1867,19 +2008,26 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 		pattern string
 		exclude string // optional pattern to exclude false positives
 	}
+	// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+	// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
+	ioFSExclude := `sr[0-9]|Shutdown timeout set to`
+	if s.VHD != nil && s.VHD.OS == config.OSACL {
+		// ACL-only: exclude benign BTRFS udev race warnings ("duplicate device") and loop device I/O errors
+		// from sysext squashfs read-ahead overshooting the backing file boundary.
+		ioFSExclude += `|duplicate device|loop[0-9]`
+	}
+
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
 			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
-			// exclude boot parameter logs like "Kernel command line: ... panic=-1 ...", which are normal and not indicative of a kernel panic
-			exclude: `panic=`,
+			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot)
+			exclude: `panic[-=]`,
 		},
 		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
 		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
 		"IO/FS": {
 			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
-			// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
-			// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
-			exclude: `sr[0-9]|Shutdown timeout set to`,
+			exclude: ioFSExclude,
 		},
 	}
 
@@ -1929,4 +2077,101 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	}
 
 	s.T.Logf("No critical kernel issues found")
+}
+
+// ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
+// - AutoUpdate is disabled as expected
+// - The correct version is running as ExtHandler
+// - No errors from ExtHandler
+// Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
+func ValidateWaagentLog(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		return
+	}
+
+	// Skip on pinned-version VHDs that predate the waagent installation.
+	// These VHDs explicitly select a version number and are not updated.
+	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
+		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
+		return
+	}
+
+	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
+	if len(versions) == 0 || versions[0] == "<SKIP>" {
+		s.T.Log("Skipping waagent log validation: no walinuxagent version in components.json")
+		return
+	}
+	expectedVersion := versions[0]
+
+	const waagentLogFile = "/var/log/waagent.log"
+
+	logContents := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo cat "+waagentLogFile, 0,
+		"could not read waagent log").stdout
+
+	// 1. Verify AutoUpdate is disabled
+	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
+
+	// 2. Verify the correct version is running as ExtHandler (PID varies)
+	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
+	require.Contains(s.T, logContents, expectedRunningPattern,
+		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+
+	// 3. Check for ExtHandler errors
+	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
+	// of a known bug with VMSS that fails to propagate the FIPS additionalCapabilities.
+	// Until the VMSS bug is fixed, skip the "Cannot convert PFX to PEM" errors.
+	// TODO: Remove the conditional exclusion once the underlying VMSS issue is resolved.
+	isUbuntu2204FIPS := s.VHD == config.VHDUbuntu2204FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
+	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
+	if isUbuntu2204FIPS {
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+	}
+	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		strings.Join([]string{
+			"set -e",
+			grepCmd,
+		}, "\n"), 0,
+		"failed to scan waagent log for ExtHandler errors")
+
+	errOutput := strings.TrimSpace(extHandlerErrors.stdout)
+	if errOutput != "" {
+		logFileName := "waagent-exthandler-errors.log"
+		if err := writeToFile(s.T, logFileName, logContents); err != nil {
+			s.T.Logf("Warning: failed to write waagent log to file: %v", err)
+		} else {
+			s.T.Logf("Full waagent log written to: %s/%s", testDir(s.T), logFileName)
+		}
+		s.T.Fatalf("ExtHandler errors found in waagent.log:\n%s", errOutput)
+	}
+
+	s.T.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+}
+
+// ValidateCollectWindowsLogsScript runs c:\k\debug\collect-windows-logs.ps1 on the node
+// and verifies that a zip archive was produced by the script.
+func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		"cd c:/",
+		"mkdir logs-for-test",
+		"cd logs-for-test",
+		"$startTime = Get-Date",
+		"Remove-Item \"*_logs.zip\" -ErrorAction SilentlyContinue",
+		"$ErrorActionPreference = \"SilentlyContinue\"",
+		"& c:\\k\\debug\\collect-windows-logs.ps1",
+		"$ErrorActionPreference = \"Stop\"",
+		"$zipFile = Get-ChildItem -Filter \"*_logs.zip\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
+		"if (-not $zipFile) { throw \"collect-windows-logs.ps1 did not create a zip file\" }",
+		"Write-Host \"Zip file created: $($zipFile.FullName) (Size: $($zipFile.Length) bytes)\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }

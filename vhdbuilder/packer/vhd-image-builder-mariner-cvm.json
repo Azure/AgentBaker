@@ -16,7 +16,6 @@
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
-    "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
@@ -95,6 +94,11 @@
     },
     {
       "type": "file",
+      "source": "image-fetcher/bin/image-fetcher-linux-amd64",
+      "destination": "/home/packer/image-fetcher"
+    },
+    {
+      "type": "file",
       "source": "aks-node-controller/bin/aks-node-controller-linux-amd64",
       "destination": "/home/packer/aks-node-controller"
     },
@@ -122,6 +126,16 @@
       "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/post-deprovision-walinuxagent.sh",
+      "destination": "/home/packer/post-deprovision-walinuxagent.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install_walinuxagent.py",
+      "destination": "/home/packer/install_walinuxagent.py"
     },
     {
       "type": "file",
@@ -285,11 +299,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/teleportd.service",
-      "destination": "/home/packer/teleportd.service"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
       "destination": "/home/packer/setup-custom-search-domains.sh"
     },
@@ -352,6 +361,36 @@
       "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-node-exporter.sh",
+      "destination": "/home/packer/install-node-exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh",
+      "destination": "/home/packer/node-exporter-startup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service",
+      "destination": "/home/packer/node-exporter.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service",
+      "destination": "/home/packer/node-exporter-restart.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path",
+      "destination": "/home/packer/node-exporter-restart.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/node-exporter.d/web-config.yml",
+      "destination": "/home/packer/node-exporter-web-config.yml"
     },
     {
       "type": "file",
@@ -651,7 +690,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {
@@ -664,7 +703,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} /bin/bash -eux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} /bin/bash -eux /home/packer/install-dependencies.sh"
       ]
     },
     {
@@ -701,7 +740,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
       ]
     },
     {
@@ -751,7 +790,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh' || exit 125"
       ]
     }
   ],

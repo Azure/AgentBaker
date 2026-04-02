@@ -23,11 +23,13 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionSourceMariner":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
 			"provisionSourceAzlOSGuard":             getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptAzlOSGuard, config),
 			"provisionSourceFlatcar":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptFlatcar, config),
+			"provisionSourceACL":                    getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptACL, config),
 			"provisionInstalls":                     getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
 			"provisionInstallsUbuntu":               getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
 			"provisionInstallsMariner":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
 			"provisionInstallsAzlOSGuard":           getBase64EncodedGzippedCustomScript(kubernetesCSEInstallAzlOSGuard, config),
 			"provisionInstallsFlatcar":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallFlatcar, config),
+			"provisionInstallsACL":                  getBase64EncodedGzippedCustomScript(kubernetesCSEInstallACL, config),
 			"provisionConfigs":                      getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
 			"provisionSendLogs":                     getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
 			"provisionRedactCloudConfig":            getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
@@ -81,8 +83,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		}
 	}
 
-	if config.IsFlatcar() {
-		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar does not have cloud-init
+	if config.IsFlatcar() || config.IsACL() {
+		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar and ACL do not have cloud-init
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {

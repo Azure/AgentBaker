@@ -81,25 +81,58 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	return vm, err
 }
 
-// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
+// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary.
 // Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
-// check aks-node-controller.service for details
-// a new binary is downloaded from the given URL and run with provision command
+// (check aks-node-controller.service for details).
+//
+// Uses a cloud-boothook to write the config file and create a systemd service unit early in boot (during cloud-init init).
+// The systemd service waits for network-online.target before downloading the binary and running provisioning,
+// avoiding the race condition where runcmd or boothook scripts execute before networking is available.
+// Flatcar cannot use boothooks (coreos-cloudinit doesn't support MIME multipart), so it uses cloud-config
+// with a coreos.units block to define and start the service instead.
 func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
-	cloudConfigTemplate := `#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s
-runcmd:
- - mkdir -p /opt/azure/bin
- - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
- - chmod +x /opt/azure/bin/aks-node-controller-hack
- - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+	cloudConfigTemplate := `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+mkdir -p /opt/azure/containers /opt/azure/bin
+
+cat <<'EOF' | base64 -d > /opt/azure/containers/aks-node-controller-config-hack.json
+%s
+EOF
+chmod 0755 /opt/azure/containers/aks-node-controller-config-hack.json
+
+cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
+#!/bin/bash
+set -euo pipefail
+mkdir -p /opt/azure/bin
+curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+chmod +x /opt/azure/bin/aks-node-controller-hack
+/opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
+SCRIPT
+chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
+
+cat <<'UNIT' > /etc/systemd/system/aks-node-controller-hack.service
+[Unit]
+Description=Downloads and runs the AKS node controller hack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+
+[Install]
+WantedBy=basic.target
+UNIT
+
+systemctl daemon-reload
+systemctl start --no-block aks-node-controller-hack.service
 `
 	if s.VHD.Flatcar {
+		// Flatcar uses coreos-cloudinit which only supports a subset of cloud-config features
+		// and does not handle MIME multipart or boothooks. Use coreos.units to define the service instead.
+		// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 		cloudConfigTemplate = `#cloud-config
 write_files:
 - path: /opt/azure/containers/aks-node-controller-config-hack.json
@@ -114,7 +147,7 @@ write_files:
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+    curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
     /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
@@ -154,7 +187,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		cse = nodeconfigutils.CSE
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
-				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				var data string
+				var err error
+				if s.VHD.Flatcar {
+					data, err = nodeconfigutils.CustomDataFlatcar(s.Runtime.AKSNodeConfig)
+				} else {
+					data, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				}
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}
@@ -170,7 +209,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		if s.Runtime.NBC.EnableScriptlessCSECmd {
+		if len(s.Config.CustomDataWriteFiles) > 0 {
+			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
+			require.NoError(s.T, err, "failed to inject customData write_files entries")
+		}
+		if s.Runtime.NBC.EnableScriptlessCSECmd && !s.VHD.Flatcar {
 			// Validate that the custom data doesn't contain any script content,
 			// which indicates that the scriptless CSE is working as intended
 			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
@@ -379,9 +422,6 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
 func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -392,7 +432,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		})
 
 		if pager.More() {
-			page, err := pager.NextPage(ctxTimeout)
+			page, err := pager.NextPage(ctx)
 			if err == nil && len(page.Value) > 0 {
 				vmssVM := page.Value[0]
 				// Verify it has network profile
@@ -406,7 +446,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		}
 
 		select {
-		case <-ctxTimeout.Done():
+		case <-ctx.Done():
 			if lastErr != nil {
 				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
 			}
@@ -570,6 +610,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
+		"waagent.log":                      "sudo cat /var/log/waagent.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
 
@@ -826,6 +867,81 @@ func generateVMSSName(s *Scenario) string {
 		return generateVMSSNameWindows()
 	}
 	return generateVMSSNameLinux(s.T)
+}
+
+func injectWriteFilesEntriesToCustomData(customData string, entries []CustomDataWriteFile) (string, error) {
+	if len(entries) == 0 {
+		return customData, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode customData: %w", err)
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(decoded))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer reader.Close()
+	yamlBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read gzip data: %w", err)
+	}
+
+	const writeFilesMarker = "write_files:"
+	yamlStr := string(yamlBytes)
+	idx := strings.Index(yamlStr, writeFilesMarker)
+	if idx == -1 {
+		return "", fmt.Errorf("cloud-init customData missing %q section", writeFilesMarker)
+	}
+
+	var entryBuilder strings.Builder
+	for _, entry := range entries {
+		if entry.Path == "" {
+			return "", fmt.Errorf("cloud-init write_files entry path cannot be empty")
+		}
+
+		permissions := entry.Permissions
+		if permissions == "" {
+			permissions = "0644"
+		}
+
+		owner := entry.Owner
+		if owner == "" {
+			owner = "root"
+		}
+
+		indentedContent := indentYAMLBlock(entry.Content, "    ")
+		entryBuilder.WriteString(fmt.Sprintf("\n- path: %s\n  permissions: %q\n  owner: %s\n  content: |\n%s\n", entry.Path, permissions, owner, indentedContent))
+	}
+
+	insertPos := idx + len(writeFilesMarker)
+	yamlStr = yamlStr[:insertPos] + entryBuilder.String() + yamlStr[insertPos:]
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err = gw.Write([]byte(yamlStr))
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip customData: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return encoded, nil
+}
+
+func indentYAMLBlock(content, indent string) string {
+	if content == "" {
+		return indent
+	}
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = indent + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {

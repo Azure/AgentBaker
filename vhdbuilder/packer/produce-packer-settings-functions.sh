@@ -163,7 +163,8 @@ function create_windows_storage_account() {
 			--sku "Standard_RAGRS" \
 			--tags "now=${CREATE_TIME}" \
 			--allow-shared-key-access false \
-			--location ""${AZURE_LOCATION}""
+			--min-tls-version TLS1_2 \
+			--location "${AZURE_LOCATION}"
 		echo "creating new container system"
 		az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
 	else
@@ -268,6 +269,20 @@ function prepare_windows_vhd() {
 	WINDOWS_IMAGE_VERSION=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" <$CDIR/windows/windows_settings.json)
 	WINDOWS_IMAGE_NAME=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" <$CDIR/windows/windows_settings.json)
 	OS_DISK_SIZE=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" <$CDIR/windows/windows_settings.json)
+
+	local sku_publisher
+	if sku_publisher=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sku_publisher}" ] && [ "${sku_publisher}" != "null" ]; then
+			WINDOWS_IMAGE_PUBLISHER="${sku_publisher}"
+		fi
+	fi
+	local sku_offer
+	if sku_offer=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sku_offer}" ] && [ "${sku_offer}" != "null" ]; then
+			WINDOWS_IMAGE_OFFER="${sku_offer}"
+		fi
+	fi
+
 	if [ "null" != "${OS_DISK_SIZE}" ]; then
 		echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
 		os_disk_size_gb=${OS_DISK_SIZE}
@@ -278,6 +293,8 @@ function prepare_windows_vhd() {
 	imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
 
 	echo "Got base image data: "
+	echo "  WINDOWS_IMAGE_PUBLISHER: ${WINDOWS_IMAGE_PUBLISHER}"
+	echo "  WINDOWS_IMAGE_OFFER: ${WINDOWS_IMAGE_OFFER}"
 	echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
 	echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
 	echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
@@ -435,7 +452,11 @@ function ensure_sig_vhd_exists() {
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
+				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+					TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				else
+					TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
+				fi
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
 			fi

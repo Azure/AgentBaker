@@ -19,16 +19,17 @@
 #WindowsPatches: [...#WindowsPatch]
 
 #WindowsBaseVersion: {
-  comment?:           string
-  os_disk_size:      string
-  base_image_sku:     string,
-  base_image_version: string
-  windows_image_name: string
-  patches_to_apply:   #WindowsPatches
+  comment?:              string
+  os_disk_size:          string
+  base_image_publisher?: string
+  base_image_offer?:     string
+  base_image_sku:        string
+  base_image_version:    string
+  windows_image_name:    string
+  patches_to_apply:      #WindowsPatches
 }
 
 #WindowsComments: [...string]
-
 
 #WindowsBaseVersions: {
   "2022-containerd": #WindowsBaseVersion

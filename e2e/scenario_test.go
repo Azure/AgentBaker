@@ -106,6 +106,25 @@ func Test_Flatcar_ARM64(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2Arm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
 func Test_Flatcar_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Flatcar scenario on a cluster configured with Azure CNI",
@@ -175,6 +194,273 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 					Deadline:               (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
+			},
+		},
+	})
+}
+
+func Test_ACL(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+			},
+		},
+	})
+}
+
+func Test_ACL_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLArm64Gen2TL,
+			// v6 (Cobalt 100) only supports NVMe disk controllers, not ResourceDisk
+			UseNVMe: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
+				nbc.IsARM64 = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+			},
+		},
+	})
+}
+
+func Test_ACL_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using ACL and the self-contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+		},
+	})
+}
+
+func Test_ACL_CustomCATrust(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{
+						encodedTestCert,
+					},
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
+				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+			},
+		},
+	})
+}
+
+func Test_ACL_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "ACL scenario on a cluster configured with Azure CNI",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+		},
+	})
+}
+
+func Test_ACL_AzureCNI_ChronyRestarts(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test ACL scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_ACL_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using an ACL VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
+		Tags: Tags{
+			BootstrapTokenFallback: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled:                true,
+					Deadline:               (10 * time.Second).String(),
+					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
+				}
+			},
+		},
+	})
+}
+
+func Test_ACL_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test ACL scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_ACL_DisableSSH(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using ACL VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SSHStatus = datamodel.SSHOff
+			},
+			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
+			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate SSH daemon is disabled via RunCommand
+				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_ACL_GPUNC_Scriptless(t *testing.T) {
+	runScenarioACLGPUScriptless(t, "Standard_NC6s_v3")
+}
+
+func Test_ACL_GPUA100_Scriptless(t *testing.T) {
+	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4")
+}
+
+func Test_ACL_GPUA10_Scriptless(t *testing.T) {
+	runScenarioACLGRIDScriptless(t, "Standard_NV6ads_A10_v5")
+}
+
+func runScenarioACLGPUScriptless(t *testing.T, vmSize string) {
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+				nbc.EnableScriptlessCSECmd = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateScriptlessCSECmd(ctx, s)
+			},
+		},
+	})
+}
+
+func runScenarioACLGRIDScriptless(t *testing.T, vmSize string) {
+	RunScenario(t, &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+				nbc.EnableScriptlessCSECmd = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateScriptlessCSECmd(ctx, s)
 			},
 		},
 	})
@@ -307,6 +593,37 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_ScriptlessCSECmd_Hotfix tests the EnableScriptlessCSECmd path in
+// nodecustomdata.yml which is the foundation for the hotfix delivery mechanism.
+// It injects a unique marker into cloud-init write_files via BootstrapConfigMutator,
+// then verifies that marker landed on disk — proving cloud-init write_files delivery works.
+func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
+	const hotfixMarkerPath = "/opt/azure/containers/e2e-hotfix-marker.txt"
+	hotfixMarkerContent := fmt.Sprintf("HOTFIX_E2E_MARKER_%d", time.Now().UnixNano())
+
+	RunScenario(t, &Scenario{
+		Description: "tests that a node using EnableScriptlessCSECmd delivers write_files content to disk",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{{
+				Path:    hotfixMarkerPath,
+				Content: hotfixMarkerContent,
+			}},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt",
+					"Executing in scriptless CSE mode")
+				// This file does NOT exist on any VHD — it can only be present if cloud-init
+				// processed our write_files entry, proving the hotfix delivery mechanism works.
+				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
 			},
 		},
 	})
@@ -520,6 +837,75 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate SSH daemon is disabled via RunCommand
 				ValidateSSHServiceDisabled(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using Flatcar VHD with network isolated cluster enabled",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDFlatcarGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using ACL VHD with network isolated cluster enabled",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -1424,6 +1810,9 @@ func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 func Test_AzureLinuxV3_MA35D(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
+		Tags: Tags{
+			GPU: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1452,6 +1841,7 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
 		Tags: Tags{
+			GPU:        true,
 			Scriptless: true,
 		},
 		Config: Config{
@@ -1633,6 +2023,35 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_GPUA10(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node with A10 GPU SKU using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaGRIDLicenseValid(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaPersistencedRunning(ctx, s)
 			},
 		},
 	})
@@ -1969,7 +2388,7 @@ func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},

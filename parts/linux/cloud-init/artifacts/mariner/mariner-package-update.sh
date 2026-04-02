@@ -56,7 +56,7 @@ tdnf_download() {
     retries=5
     dnf_download_output=/tmp/dnf-update.out
     for i in $(seq 1 $retries); do
-        ! (tdnf install --repo "$repo" "$package_name" -y --downloadonly --downloaddir "$download_dir" 2>&1 | tee $dnf_download_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        ! (tdnf reinstall --repo "$repo" "$package_name" -y --downloadonly --downloaddir "$download_dir" 2>&1 | tee $dnf_download_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
         cat $dnf_download_output && break || \
         cat $dnf_download_output
 
@@ -65,7 +65,7 @@ tdnf_download() {
         else sleep 5
         fi
     done
-    echo Executed dnf install $package_name -y $i times
+    echo Executed tdnf reinstall $package_name -y $i times
 }
 
 redact_token() {

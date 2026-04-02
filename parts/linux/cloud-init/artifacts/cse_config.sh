@@ -135,6 +135,10 @@ configureHTTPProxyCA() {
     elif isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
+    elif isACL "$OS" "$OS_VARIANT"; then
+        # ACL is Flatcar-based but uses Azure Linux internals for CA trust.
+        cert_dest="/etc/pki/ca-trust/source/anchors"
+        update_cmd="update-ca-trust"
     elif isFlatcar "$OS"; then
         cert_dest="/etc/ssl/certs"
         update_cmd="update-ca-certificates"
@@ -160,20 +164,16 @@ configureCustomCaCertificate() {
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
-    systemctl restart containerd
 }
 
 configureContainerdUlimits() {
   CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  mkdir -p "$(dirname "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}")"
   touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
   chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
   tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
 $(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
 EOF
-
-  systemctl daemon-reload
-  systemctl restart containerd
 }
 
 # file paths defined outside so configureAzureJson can be unit tested
@@ -297,9 +297,10 @@ EOF
 }
 
 configureCNI() {
-    # needed for the iptables rules to work on bridges
-    retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
+    # needed for bridge iptables rules and customer-configured conntrack sysctls
+    retrycmd_if_failure 120 5 25 modprobe -a br_netfilter nf_conntrack || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
+    echo -n "nf_conntrack" > /etc/modules-load.d/nf_conntrack.conf
     configureCNIIPTables
 }
 
@@ -330,13 +331,17 @@ disableSystemdResolved() {
 }
 
 ensureContainerd() {
-  if [ "${TELEPORT_ENABLED}" = "true" ]; then
-    ensureTeleportd
-  fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
+  # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+  # On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+  # (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+  # On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+  # Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+  # to avoid compatibility issues between new VHDs and old CSE scripts.
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
@@ -373,7 +378,7 @@ net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
@@ -415,11 +420,8 @@ ensureNoDupOnPromiscuBridge() {
     systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-ensureTeleportd() {
-    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureArtifactStreaming() {
+  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
   retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
   time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
@@ -544,7 +546,7 @@ configureKubeletAndKubectl() {
     # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
     # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
     if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
-       { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
        { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
     then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
@@ -561,6 +563,8 @@ configureKubeletAndKubectl() {
 ensurePodInfraContainerImage() {
     POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
     POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
+
+    waitForContainerdReady || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
 
     pod_infra_container_image=$(get_sandbox_image)
 
@@ -752,7 +756,7 @@ EOF
         # Install credential provider from URL:
         # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
         # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
-        if { ! isFlatcar && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+        if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
            { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
         then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
@@ -772,16 +776,21 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
     fi
 
-    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
-    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
-        echo "failed to start measure-tls-bootstrapping-latency.service"
-    fi
+    local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
+    date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
+        rm -f "${tls_bootstrapping_start_time_filepath}"
         journalctl -u kubelet.service --no-pager || true
         exit $ERR_KUBELET_START_FAIL
+    fi
+
+    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
+        rm -f "${tls_bootstrapping_start_time_filepath}"
+        echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 }
 
@@ -801,6 +810,25 @@ EOF
     # service type=Simple, which does not exit non-zero
     # on failure if ExecStart failed to invoke.
     systemctlEnableAndStart mig-partition 300
+}
+
+configureNodeExporter() {
+    echo "Configuring Node Exporter"
+    # Check for skip file to determine if node-exporter was installed on this VHD
+    if [ ! -f /etc/node-exporter.d/skip_vhd_node_exporter ]; then
+        echo "Node Exporter assets not found on this VHD (missing /etc/node-exporter.d/skip_vhd_node_exporter); skipping configuration."
+        return 0
+    fi
+
+    if ! systemctlEnableAndStart node-exporter 30; then
+        echo "Failed to start node-exporter service"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    if ! systemctlEnableAndStart node-exporter-restart.path 30; then
+        echo "Failed to start node-exporter-restart.path"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    echo "Node Exporter started successfully"
 }
 
 ensureSysctl() {
@@ -900,6 +928,7 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
         ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
@@ -913,6 +942,10 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
+    elif isACL "$OS" "$OS_VARIANT"; then
+        installNvidiaContainerToolkitSysext
+        installGPUDriverSysext
+        enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -922,12 +955,17 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
-    # Fix the NVIDIA /dev/char link issue
+    # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
 
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
+    if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
+    fi
+
+    systemctlEnableAndStart containerd 30 || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 
     # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
     # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
@@ -1063,7 +1101,7 @@ configureSSHPubkeyAuth() {
 
   # AAD SSH extension will append following section to the end of sshd_config,
   # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
-  # Match User *@*,????????-????-????-????-????????????    # Added by aadsshlogin installer
+  # Match User *@*,????????-????-????-????-???????????? # Added by aadsshlogin installer
   # AuthenticationMethods publickey
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k

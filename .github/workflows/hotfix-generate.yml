@@ -1,0 +1,89 @@
+name: Hotfix Template Update
+# This workflow is for temporary use and will deprecate once we move to the
+# final stage of scriptless, as hotfixes will be applied directly to the
+# aks-node-controller instead of nodecustomdata.yml template.
+
+# Triggers:
+# 1. Automatically when a PR targets an official/* release branch
+# 2. Manually when a "hotfix" label is added to any PR
+on:
+  pull_request:
+    branches:
+      - 'official/**'
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  hotfix-generate:
+    # Run if: PR targets official/* branch, OR "hotfix" label was just added (same-repo PRs only)
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        (github.event_name == 'pull_request' && startsWith(github.base_ref, 'official/')) ||
+        (github.event_name == 'pull_request_target' && github.event.label.name == 'hotfix')
+      )
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
+
+      - name: Retrieve App private key
+        uses: azure/cli@v2
+        id: app-private-key
+        with:
+          azcliversion: latest
+          inlineScript: |
+            private_key=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KV_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
+            echo "::add-mask::$private_key"
+            echo "private-key=$private_key" >> $GITHUB_OUTPUT
+
+      - name: Generate App token
+        uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ steps.app-private-key.outputs.private-key }}
+          repositories: AgentBaker
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Detect changed scripts and update template
+        run: |
+          python3 hack/hotfix_generate.py "origin/${{ github.base_ref }}"
+
+      - name: Commit changes via API
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          FILE="parts/linux/cloud-init/nodecustomdata.yml"
+          if git diff --quiet "$FILE"; then
+            echo "No template changes needed."
+            exit 0
+          fi
+          CONTENT=$(base64 -w 0 "$FILE")
+          SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha')
+          gh api "repos/${{ github.repository }}/contents/${FILE}" \
+            -X PUT \
+            -f message="chore: auto-generate hotfix template entries" \
+            -f content="$CONTENT" \
+            -f branch="${{ github.head_ref }}" \
+            -f sha="$SHA"

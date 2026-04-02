@@ -517,7 +517,7 @@ KUBELET_EOF
 
         Mock tdnf
             # Mock tdnf download for kubelet package
-            if [[ "$@" == *"install"* ]] && [[ "$@" == *"kubelet"* ]]; then
+            if [[ "$@" == *"reinstall"* ]] && [[ "$@" == *"kubelet"* ]]; then
                 package_name=$(echo "$@" | grep -oP 'kubelet-[\d.]+')
                 download_dir=$(echo "$@" | grep -oP -- '--downloaddir \K[^ ]+')
                 echo "tdnf mock: downloading $package_name to $download_dir"
@@ -540,7 +540,6 @@ KUBELET_EOF
 
                 # Create a mock RPM file (just a marker)
                 touch "$download_dir/${package_name}.x86_64.rpm"
-                echo "Executed dnf install $package_name -y 1 times"
             else
                 echo "tdnf mock called with args: $@"
             fi
@@ -618,18 +617,18 @@ KUBELET_EOF
 
                 # Mock tdnf to copy the same kubelet binary
                 Mock tdnf
-                    if [[ "$@" == *"install"* ]] && [[ "$@" == *"kubelet"* ]]; then
+                    if [[ "$@" == *"reinstall"* ]] && [[ "$@" == *"kubelet"* ]]; then
                         download_dir=$(echo "$@" | grep -oP -- '--downloaddir \K[^ ]+')
                         mkdir -p "$download_dir/usr/bin"
                         # Copy the same kubelet to simulate same binary
                         cp "${KUBELET_EXECUTABLE}" "$download_dir/usr/bin/kubelet"
                         touch "$download_dir/kubelet-1.29.10.x86_64.rpm"
-                        echo "Executed dnf install kubelet-1.29.10 -y 1 times"
                     fi
                 End
 
                 When run kubelet_update
                 The status should be success
+                The output should include "Executed tdnf reinstall kubelet-1.29.10 -y 1 times"
                 The output should include "kubelet binary is the same, no need to update"
             End
 

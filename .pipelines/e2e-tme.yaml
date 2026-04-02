@@ -1,0 +1,11 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  SKIP_E2E_TESTS: false
+
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: Linux Tests
+      IgnoreScenariosWithMissingVhd: false
+      variableGroup: ab-e2e-tme
+

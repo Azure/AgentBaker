@@ -147,6 +147,40 @@ oom_score = -999
 			},
 		},
 		{
+			name:       "AKSUbuntu2204 with cloud provider config overrides",
+			folder:     "AKSUbuntu2204+CloudProviderOverrides",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.ClusterConfig.CloudProviderConfig = &aksnodeconfigv1.CloudProviderConfig{
+					Backoff:              to.Ptr(false),
+					BackoffMode:          "v1",
+					BackoffRetries:       to.Ptr[int32](9),
+					BackoffExponent:      to.Ptr(1.5),
+					BackoffDuration:      to.Ptr[int32](12),
+					BackoffJitter:        to.Ptr(0.5),
+					RateLimit:            to.Ptr(false),
+					RateLimitQps:         to.Ptr(3.2),
+					RateLimitQpsWrite:    to.Ptr(4.2),
+					RateLimitBucket:      to.Ptr[int32](42),
+					RateLimitBucketWrite: to.Ptr[int32](43),
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "false", vars["CLOUDPROVIDER_BACKOFF"])
+				assert.Equal(t, "v1", vars["CLOUDPROVIDER_BACKOFF_MODE"])
+				assert.Equal(t, "9", vars["CLOUDPROVIDER_BACKOFF_RETRIES"])
+				assert.Equal(t, "1.5", vars["CLOUDPROVIDER_BACKOFF_EXPONENT"])
+				assert.Equal(t, "12", vars["CLOUDPROVIDER_BACKOFF_DURATION"])
+				assert.Equal(t, "0.5", vars["CLOUDPROVIDER_BACKOFF_JITTER"])
+				assert.Equal(t, "false", vars["CLOUDPROVIDER_RATELIMIT"])
+				assert.Equal(t, "3.2", vars["CLOUDPROVIDER_RATELIMIT_QPS"])
+				assert.Equal(t, "4.2", vars["CLOUDPROVIDER_RATELIMIT_QPS_WRITE"])
+				assert.Equal(t, "42", vars["CLOUDPROVIDER_RATELIMIT_BUCKET"])
+				assert.Equal(t, "43", vars["CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE"])
+			},
+		},
+		{
 			name:       "AKSUbuntu2204 with custom osConfig",
 			folder:     "AKSUbuntu2204+CustomOSConfig",
 			k8sVersion: "1.24.2",

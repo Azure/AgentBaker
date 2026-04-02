@@ -78,11 +78,11 @@ ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
+ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter service
+
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
-ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
-ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
@@ -153,6 +153,7 @@ ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags 
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
 ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
+ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, required for sysext tag resolution
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -165,7 +166,7 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
     OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 else
@@ -179,6 +180,8 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -504,19 +507,20 @@ systemctlEnableAndStart() {
     service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
-    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be started"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
         echo "$service could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+    service=$1; timeout=$2
 
     systemctl_restart_no_block 100 5 $timeout $service
     RESTART_STATUS=$?
@@ -531,21 +535,36 @@ systemctlEnableAndStartNoBlock() {
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
+}
 
-    # wait for the specified delay seconds before checking the service status to make sure
-    # it hasn't gone into a failed state
-    sleep $status_check_delay_seconds
+checkServiceHealth() {
+    local service=$1
+    local state=$(systemctl show -p ActiveState --value "$service")
 
-    if systemctl is-failed $service; then
-        echo "$service is in a failed state"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
-        return 1
+    if [ "$state" = "active" ]; then
+       return 0
     fi
 
-    # systemctl status only exits with code 0 iff the service is "active",
-    # thus we handle the "activating" case by checking for a non-zero exit code
-    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+    systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
+
+    if [ "$state" = "failed" ]; then
+        echo "$service is in a failed state"
+        return 1
+    elif [ "$state" = "activating" ]; then
         echo "$service is still activating, continuing anyway..."
+    fi
+}
+
+waitForContainerdReady() {
+    local ret=0
+
+    echo "Waiting for containerd to become ready..."
+    retrycmd_if_failure 60 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+        echo "containerd did not become ready"
+        systemctl status containerd --no-pager -l > /var/log/azure/containerd-status.log || true
+        return 1
     fi
 }
 
@@ -771,6 +790,11 @@ should_enable_managed_gpu_experience() {
 
 isMarinerOrAzureLinux() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -796,6 +820,11 @@ isMariner() {
 
 isAzureLinux() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -805,6 +834,19 @@ isAzureLinux() {
 isFlatcar() {
     local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isACL() {
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    # Also match when OS is AZURELINUX with VARIANT_ID=AZURECONTAINERLINUX (new os-release format)
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$ACL_OS_VARIANT" ]; then
         return 0
     fi
     return 1
@@ -861,6 +903,11 @@ getPackageJSON() {
     # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
     elif isUbuntu "${os}"; then
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
+    fi
+
+    # ACL is Flatcar-based; use flatcar download entries.
+    if isACL "${os}" "${osVariant}"; then
+        search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
 
     jq -r -c "${search}" <<< "${package}"

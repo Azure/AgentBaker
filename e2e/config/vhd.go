@@ -42,6 +42,7 @@ var (
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
 	OSFlatcar    OS = "flatcar"
+	OSACL        OS = "azurecontainerlinux"
 )
 
 var (
@@ -90,20 +91,6 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 	}
-	VHDAzureLinuxV2Gen2Arm64 = &Image{
-		Name:    "AzureLinuxV2gen2arm64",
-		OS:      OSAzureLinux,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSAzureLinuxV2Arm64Gen2,
-		Gallery: imageGalleryLinux,
-	}
-	VHDAzureLinuxV2Gen2 = &Image{
-		Name:    "AzureLinuxV2gen2",
-		OS:      OSAzureLinux,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSAzureLinuxV2Gen2,
-		Gallery: imageGalleryLinux,
-	}
 	VHDAzureLinuxV3Gen2 = &Image{
 		Name:    "AzureLinuxV3gen2",
 		OS:      OSAzureLinux,
@@ -120,20 +107,6 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
-	}
-	VHDCBLMarinerV2Gen2Arm64 = &Image{
-		Name:    "CBLMarinerV2gen2arm64",
-		OS:      OSMariner,
-		Arch:    "arm64",
-		Distro:  datamodel.AKSCBLMarinerV2Arm64Gen2,
-		Gallery: imageGalleryLinux,
-	}
-	VHDCBLMarinerV2Gen2 = &Image{
-		Name:    "CBLMarinerV2gen2",
-		OS:      OSMariner,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSCBLMarinerV2Gen2,
-		Gallery: imageGalleryLinux,
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
@@ -217,12 +190,33 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
-	VHDWindows2019Containerd = &Image{
-		Name:    "windows-2019-containerd",
-		OS:      "windows",
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2019Containerd,
-		Gallery: imageGalleryWindows,
+	VHDAzureLinuxV3Gen2Arm64 = &Image{
+		Name:         "azurelinuxv3gen2arm64",
+		OS:           OSAzureLinux,
+		Arch:         "arm64",
+		Distro:       datamodel.AKSAzureLinuxV3Arm64Gen2,
+		Gallery:      imageGalleryLinux,
+		OSDiskSizeGB: 60,
+	}
+
+	VHDACLGen2TL = &Image{
+		Name:         "aclgen2TL",
+		OS:           OSACL,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSACLGen2TL,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
+	}
+
+	VHDACLArm64Gen2TL = &Image{
+		Name:         "aclgen2arm64TL",
+		OS:           OSACL,
+		Arch:         "arm64",
+		Distro:       datamodel.AKSACLArm64Gen2TL,
+		Gallery:      imageGalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
 	}
 
 	VHDWindows2022Containerd = &Image{
