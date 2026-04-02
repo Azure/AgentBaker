@@ -89,8 +89,10 @@ const (
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
 
-	// script for initializing AKS custom cloud environment.
+	// script for initializing AKS custom cloud environment (cert refresh + scheduling).
 	initAKSCustomCloudScript = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
+	// script for repo depot initialization and chrony configuration (custom cloud only).
+	initAKSCustomCloudReposScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-repos.sh"
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
@@ -113,6 +115,7 @@ const (
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
 	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	initAKSCustomCloudReposFilepath      = "/opt/azure/containers/init-aks-custom-cloud-repos.sh"
 )
 
 const (
