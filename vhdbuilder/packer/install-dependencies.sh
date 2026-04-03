@@ -244,6 +244,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
+    installAznfsPkgFromPMC
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
   updateAptWithNvidiaPkg
@@ -520,6 +521,16 @@ while IFS= read -r p; do
       ;;
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+      ;;
+    "aznfs")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
+        mkdir -p "${downloadDir}"
+        aznfsFilename=$(basename "${evaluatedURL}")
+        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
+        retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+        echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
