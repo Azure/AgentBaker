@@ -123,7 +123,7 @@ ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
-ERR_IMDS_FETCH_FAILED=231 # Error fetching or caching IMDS instance metadata
+ERR_IMDS_FETCH_FAILED=234 # Error fetching or caching IMDS instance metadata
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
@@ -147,11 +147,12 @@ ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install shoul
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_NVIDIA_DCGM_INSTALL=235 # Error installing NVIDIA DCGM packages from cache
 ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
 ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
-ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_PULL_POD_INFRA_CONTAINER_IMAGE=233 # Error pulling pause image
 ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
 ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, required for sysext tag resolution
 
