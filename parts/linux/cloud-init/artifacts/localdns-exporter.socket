@@ -1,0 +1,18 @@
+[Unit]
+Description=Localdns Prometheus Exporter Socket
+Documentation=https://github.com/Azure/AgentBaker
+
+[Socket]
+# Bind to all interfaces so vmagent can scrape via the node's InternalIP.
+# CSE may override this with a node-IP-specific drop-in for tighter binding.
+ListenStream=0.0.0.0:9353
+# Accept=yes means "Spawn a new service instance for every connection"
+# This enables on-demand execution: the exporter script only runs when VMAgent scrapes
+Accept=yes
+# Limit concurrent worker processes to prevent unbounded spawning from port scans or
+# misbehaving scrapers. Normal operation uses 1 connection at a time (single scraper).
+# Excess connections are refused (TCP RST); Prometheus retries on the next scrape interval.
+MaxConnections=10
+
+[Install]
+WantedBy=sockets.target

@@ -25,12 +25,21 @@ Describe 'localdns.sh'
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
-            echo ".:5353 {" >> "$LOCALDNS_CORE_FILE"
-            echo "    forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
-            echo "}" >> "$LOCALDNS_CORE_FILE"
-            echo ".:5353 {" >> "$UPDATED_LOCALDNS_CORE_FILE"
-            echo "    forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
-            echo "}" >> "$UPDATED_LOCALDNS_CORE_FILE"
+            # Use production-realistic corefile format with brace syntax
+            cat > "$LOCALDNS_CORE_FILE" <<'EOF'
+.:5353 {
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:5353 {
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -211,6 +220,174 @@ EOF
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            # Ensure brace is NOT captured as an IP in the prom file
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+        End
+
+        It 'should create forward_ips.prom file when corefile is updated'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+            # Ensure brace is NOT captured as an IP in the prom file
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+        End
+
+        It 'should export VnetDNS forward IP to prom file with correct format'
+            # Setup corefile with health-check block + VnetDNS block (matches production layout).
+            # The health-check block has bind 169.254.10.10/11 but no forward directive —
+            # the parser must not produce false positives from it.
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
+            # Verify complete metric format with both IP and status labels
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export KubeDNS forward IP to prom file with correct format'
+            # Setup corefile with health-check + VnetDNS + KubeDNS blocks (matches production layout)
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+.:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_kubedns_forward_info"
+            # Verify complete metric format with both IP and status labels
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export multiple VnetDNS forward IPs to prom file'
+            # Setup corefile with health-check + VnetDNS block with multiple forward IPs
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify all 4 IPs are exported as separate metric lines
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.2",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.3",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.4",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export multiple KubeDNS forward IPs to prom file'
+            # Setup corefile with health-check + VnetDNS + KubeDNS blocks with multiple forward IPs
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+.:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify all 4 IPs are exported for both VnetDNS and KubeDNS
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.2",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.3",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.4",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.2",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.3",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.4",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export missing status when no forward IPs are configured'
+            # Setup corefile with health-check block but no forward directive in VnetDNS/KubeDNS blocks
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    # No forward directive here
+}
+.:53 {
+    bind 169.254.10.11
+    # No forward directive here
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify status="missing" when no forward IPs are found
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should set correct permissions on forward_ips.prom file'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The path "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be file
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+            Assert check_file_permissions "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" "644"
         End
 
         It 'should fail if resolv.conf not found'
@@ -1259,6 +1436,57 @@ EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
             The stdout should include "DNS configuration refreshed successfully"
+        End
+    End
+
+    Describe 'export_resource_metrics'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
+            mkdir -p "$LOCALDNS_SCRIPT_PATH"
+
+            # Mock systemctl to return controllable values
+            systemctl() {
+                echo "CPUUsageNSec=1500000000"
+                echo "MemoryCurrent=8388608"
+            }
+        }
+        cleanup() {
+            rm -rf "/tmp/localdnstest"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should write active status when COREDNS_PID is alive'
+            COREDNS_PID=$$
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="active"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_cpu_usage_seconds_total 1.500000000'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_memory_usage_bytes 8388608'
+        End
+
+        It 'should write inactive status when COREDNS_PID is empty'
+            COREDNS_PID=""
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="inactive"} 0'
+        End
+
+        It 'should default to zero when systemctl returns not set'
+            systemctl() {
+                echo "CPUUsageNSec=[not set]"
+                echo "MemoryCurrent=[not set]"
+            }
+            COREDNS_PID=$$
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_cpu_usage_seconds_total 0.000000000'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_memory_usage_bytes 0'
         End
     End
 End
