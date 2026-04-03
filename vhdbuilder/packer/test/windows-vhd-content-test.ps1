@@ -750,6 +750,22 @@ function Test-SSHDConfig
 }
 
 
+# Verify .NET is not installed at all on the VHD (dotnet command should not be available)
+function Test-DotnetNotInstalled
+{
+    if ($windowsSKU -like "*23H2*") {
+        Write-OutputWithTimestamp "Skipping Test-DotnetNotInstalled for deprecated SKU: $windowsSKU"
+        return
+    }
+    $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+    if ($dotnetCmd)
+    {
+        Write-ErrorWithTimestamp ".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD"
+        exit 1
+    }
+    Write-OutputWithTimestamp ".NET is not installed on the VHD"
+}
+
 # Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
 function Test-ValidateImageBinarySignature {
     # imageBinaryNotSigned is used to record binaries in image that are not signed
@@ -848,6 +864,9 @@ Test-ToolsToCacheOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask
+
+Write-OutputWithTimestamp "Test: DotnetNotInstalled"
+Test-DotnetNotInstalled
 
 Write-OutputWithTimestamp "Test: ValidateImageBinarySignature"
 Test-ValidateImageBinarySignature

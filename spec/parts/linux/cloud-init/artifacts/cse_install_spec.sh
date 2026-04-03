@@ -270,7 +270,8 @@ Describe 'cse_install.sh'
             echo "installKubeletKubectlFromURL"
         }
 
-        BeforeEach() {
+        BeforeEach 'setup'
+        setup() {
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"

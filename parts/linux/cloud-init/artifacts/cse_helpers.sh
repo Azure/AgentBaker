@@ -52,6 +52,8 @@ ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started 
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_AMDAMA_DRIVER_NOT_FOUND=95 # AMD AMA driver package not found for current kernel version
+ERR_AMDAMA_INSTALL_FAIL=96 # Unable to install AMD AMA package
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
 ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
 ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
@@ -76,11 +78,11 @@ ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
+ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter service
+
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
-ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
-ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
@@ -150,6 +152,15 @@ ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Expor
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
 ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
+ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, required for sysext tag resolution
+
+# ----------------------- AKS Node Controller----------------------------------
+ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+# -----------------------------------------------------------------------------
+
+# This probably wasn't launched via a login shell, so ensure the PATH is correct.
+[ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -162,7 +173,7 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
     OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 else
@@ -176,6 +187,8 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -501,19 +514,20 @@ systemctlEnableAndStart() {
     service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
-    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be started"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
         echo "$service could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+    service=$1; timeout=$2
 
     systemctl_restart_no_block 100 5 $timeout $service
     RESTART_STATUS=$?
@@ -528,21 +542,36 @@ systemctlEnableAndStartNoBlock() {
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
+}
 
-    # wait for the specified delay seconds before checking the service status to make sure
-    # it hasn't gone into a failed state
-    sleep $status_check_delay_seconds
+checkServiceHealth() {
+    local service=$1
+    local state=$(systemctl show -p ActiveState --value "$service")
 
-    if systemctl is-failed $service; then
-        echo "$service is in a failed state"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
-        return 1
+    if [ "$state" = "active" ]; then
+       return 0
     fi
 
-    # systemctl status only exits with code 0 iff the service is "active",
-    # thus we handle the "activating" case by checking for a non-zero exit code
-    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+    systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
+
+    if [ "$state" = "failed" ]; then
+        echo "$service is in a failed state"
+        return 1
+    elif [ "$state" = "activating" ]; then
         echo "$service is still activating, continuing anyway..."
+    fi
+}
+
+waitForContainerdReady() {
+    local ret=0
+
+    echo "Waiting for containerd to become ready..."
+    retrycmd_if_failure 60 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+        echo "containerd did not become ready"
+        systemctl status containerd --no-pager -l > /var/log/azure/containerd-status.log || true
+        return 1
     fi
 }
 
@@ -565,32 +594,6 @@ semverCompare() {
     return 1
 }
 
-
-
-apt_get_download() {
-  retries=$1; wait_sleep=$2; shift && shift;
-  local ret=0
-  pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 "$retries"); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-
-    # Pull the first quoted URL from --print-uris
-    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
-           | awk -F"'" 'NR==1 && $2 {print $2}')"
-    if [ -n "$url" ]; then
-      # This avoids issues with the naming in the package. `apt-get download`
-      # encodes the package names with special characters and does not decode
-      # them when saving to disk, but `curl -J` handles the names correctly.
-      if curl -fLJO -- "$url"; then ret=0; break; fi
-    fi
-
-    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
-  done
-  popd || return 1
-  return "$ret"
-}
-
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -599,6 +602,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local seArch=$(getCPUArch)
+    case ${seArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${seArch}" ;;
+    esac
 }
 
 isARM64() {
@@ -734,6 +745,13 @@ get_imds_vm_tag_value() {
     echo "${tag_value,,}"
 }
 
+isAmdAmaEnabledNode() {
+    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+        return 0
+    fi
+    return 1
+}
+
 should_skip_nvidia_drivers() {
     set -x
     # Case-insensitive match for both tag name and value
@@ -777,22 +795,13 @@ should_enable_managed_gpu_experience() {
     echo "$should_enforce"
 }
 
-should_e2e_mock_azure_china_cloud() {
-    set -x
-    local should_enforce
-    should_enforce=$(get_imds_vm_tag_value "E2EMockAzureChinaCloud")
-    echo "$should_enforce"
-}
-
-should_enable_managed_gpu_experience() {
-    set -x
-    local should_enforce
-    should_enforce=$(get_imds_vm_tag_value "EnableManagedGPUExperience")
-    echo "$should_enforce"
-}
-
 isMarinerOrAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -800,8 +809,8 @@ isMarinerOrAzureLinux() {
 }
 
 isAzureLinuxOSGuard() {
-    local os=$1
-    local os_variant=$2
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$AZURELINUX_OSGUARD_OS_VARIANT" ]; then
         return 0
     fi
@@ -809,7 +818,7 @@ isAzureLinuxOSGuard() {
 }
 
 isMariner() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -817,7 +826,12 @@ isMariner() {
 }
 
 isAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -825,8 +839,29 @@ isAzureLinux() {
 }
 
 isFlatcar() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isACL() {
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    # Also match when OS is AZURELINUX with VARIANT_ID=AZURECONTAINERLINUX (new os-release format)
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$ACL_OS_VARIANT" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isUbuntu() {
+    local os=${1-$OS}
+    if [ "$os" = "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -849,139 +884,71 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
 }
 
-# sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
-# Otherwise set RELEASE to "current"
-updateRelease() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
-    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
+# Returns the JSON for the given package on the given OS and OS version.
+getPackageJSON() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    local osVariant=${4:-DEFAULT}
+    local osLowerCase=${os,,}
+
+    # By default, use the first match from these:
+    # .downloadURIs.${osLowerCase}.${osVariant}/current
+    # .downloadURIs.${osLowerCase}.current
+    # .downloadURIs.default.current
+    local search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.default.current"
+
+    # For AZURELINUX, check the OS version (e.g. 3.0) prefixed with "v" before "current" (e.g. v3.0).
     if isMarinerOrAzureLinux "${os}"; then
-        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
-            RELEASE="\"v${osVersion}\""
-        fi
-        return 0
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
+    # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
+    elif isUbuntu "${os}"; then
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
-    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
-        RELEASE="\"r${osVersionWithoutDot}\""
+
+    # ACL is Flatcar-based; use flatcar download entries.
+    if isACL "${os}" "${osVariant}"; then
+        search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
+
+    jq -r -c "${search}" <<< "${package}"
 }
 
 # sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
 updatePackageVersions() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
-
-    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
-    # Otherwise get the versions from .downloadURIs.${osLowerCase
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
-        osLowerCase="default"
-    fi
-
-    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
-    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
-        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
-        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-        for version in "${latestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        for version in "${previousLatestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        return 0
-    fi
-
-    # Fallback to versions if versionsV2 is null
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
-        return 0
-    fi
-    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
-    for version in "${versions[@]}"; do
-        PACKAGE_VERSIONS+=("${version}")
-    done
-    return 0
+    readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
+    return
 }
 
 # sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
 updateMultiArchVersions() {
-  local imageToBePulled="$1"
-
-  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
-    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
-    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-    for version in "${latestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    for version in "${previousLatestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    return
-  fi
-
-  # check if multiArchVersions not exists
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
     MULTI_ARCH_VERSIONS=()
+    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
     return
-  fi
-
-  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
-  for version in "${versions[@]}"; do
-    MULTI_ARCH_VERSIONS+=("${version}")
-  done
 }
 
+# sets PACKAGE_DOWNLOAD_URL to the URL of the package based on the os and osVersion
 updatePackageDownloadURL() {
-    local package=$1
-    local os=$2
-    local osVersion=$3
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-
-    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
-        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-        return
-    fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
-    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    PACKAGE_DOWNLOAD_URL=$(jq -r ".downloadURL | values" <<< "$(getPackageJSON "$@")")
     return
 }
 
-# Function to get latestVersion for a given k8sVersion from components.json
+# Get latestVersion for a given k8sVersion from components.json based on the os and osVersion
 getLatestPkgVersionFromK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
-    local os="$3"
-    local os_version="$4"
 
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${package}" "${os}" "${os_version}"
+    updatePackageVersions "${package}" "${@:3}"
 
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
@@ -1316,10 +1283,10 @@ extract_tarball() {
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
-            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
         *)
-            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
 }

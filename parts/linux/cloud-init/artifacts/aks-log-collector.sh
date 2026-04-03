@@ -199,8 +199,6 @@ collectToZip collect/du_inodes.txt df -ail
 collectToZip collect/diskinfo.txt lsblk
 collectToZip collect/lscpu.txt lscpu
 collectToZip collect/lscpu.json lscpu -J
-collectToZip collect/lshw.txt lshw
-collectToZip collect/lshw.json lshw -json
 collectToZip collect/lsipc.txt lsipc
 collectToZip collect/lsns.json lsns -J --output-all
 collectToZip collect/lspci.txt lspci -vkPP

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -73,6 +74,7 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 }
 
 func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace string, labelSelector string, fieldSelector string, maxRetries int) (*corev1.Pod, error) {
+	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
 
 	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -144,12 +146,7 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
-	startTime := time.Now()
-	t.Logf("waiting for node %s to be ready in k8s API", vmssName)
-	defer func() {
-		t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
-	}()
-
+	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
 	var node *corev1.Node = nil
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "failed to start watching nodes")
@@ -277,9 +274,9 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 		Logs:       string(logs),
 	}, "", "  ")
 	if err != nil {
-		logf(ctx, "couldn't debug info: %s", info)
+		toolkit.Logf(ctx, "couldn't debug info: %s", info)
 	}
-	logf(ctx, string(info))
+	toolkit.Log(ctx, string(info))
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
@@ -296,14 +293,14 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isAirgap bool, privateACRName string) error {
-	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isNetworkIsolated bool, privateACRName string) error {
+	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isNetworkIsolated)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
+	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isNetworkIsolated)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
@@ -325,11 +322,10 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 }
 
 func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
-	logf(ctx, "Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+	defer toolkit.LogStepCtxf(ctx, "creating kubernetes secret %s in namespace %s for registry %s", secretName, namespace, registryName)()
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
-		logf(ctx, "failed to create Kubernetes client: %v", err)
-		return err
+		return fmt.Errorf("create Kubernetes client: %w", err)
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
@@ -356,22 +352,20 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secr
 	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if !errorsk8s.IsAlreadyExists(err) {
-			logf(ctx, "failed to create Kubernetes secret: %v", err)
-			return err
+			return fmt.Errorf("create Kubernetes secret: %w", err)
 		}
 	}
-	logf(ctx, "Kubernetes secret %s created", secretName)
 	return nil
 }
 
-func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isNetworkIsolated bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
-	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
+	if isNetworkIsolated {
+		image = fmt.Sprintf("%s.azurecr.io/aks-managed-repository/cbl-mariner/base/core:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
-	logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
+	toolkit.Logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{

@@ -26,7 +26,7 @@ type Tags struct {
 	ImageName              string
 	OS                     string
 	Arch                   string
-	Airgap                 bool
+	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
@@ -35,6 +35,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	VMSeriesCoverageTest   bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -148,6 +149,14 @@ type ScenarioVM struct {
 	SSHClient *ssh.Client
 }
 
+// CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
+type CustomDataWriteFile struct {
+	Path        string
+	Permissions string
+	Owner       string
+	Content     string
+}
+
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
@@ -164,6 +173,10 @@ type Config struct {
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
+
+	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
+	// This is for e2e-only validation scenarios.
+	CustomDataWriteFiles []CustomDataWriteFile
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
@@ -187,6 +200,9 @@ type Config struct {
 
 	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
 	ReturnErrorOnVMSSCreation bool
+
+	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
+	UseNVMe bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -217,6 +233,14 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 		ID: to.Ptr(string(resourceID)),
+	}
+
+	// Override OS disk size if the VHD requires a non-default size.
+	if s.VHD.OSDiskSizeGB > 0 {
+		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+		if osDisk != nil {
+			osDisk.DiskSizeGB = to.Ptr(s.VHD.OSDiskSizeGB)
+		}
 	}
 
 	s.updateTags(ctx, vmss)

@@ -4,3 +4,9 @@ Description=Package Update Service
 [Service]
 Type=oneshot
 ExecStart=/opt/azure/containers/mariner-package-update.sh
+
+TimeoutStartSec=60min
+
+KillMode=control-group
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL

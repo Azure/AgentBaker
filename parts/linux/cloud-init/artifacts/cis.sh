@@ -299,6 +299,7 @@ configureLimits() {
 EOF
 }
 
+# Configure waagent to not delete root password on first boot
 configureAzureAgent() {
     sed -i -e 's/\(Provisioning.DeleteRootPassword\).*/\1=n/' /etc/waagent.conf
 }
@@ -311,7 +312,7 @@ applyCIS() {
     fixUmaskSettings
     maskNfsServer
     addFailLockDir
-    if isMarinerOrAzureLinux "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" ; then
+    if isMarinerOrAzureLinux "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" ; then
         echo "Further functions only work for Ubuntu"
         return
     fi
@@ -321,7 +322,8 @@ applyCIS() {
     configureSudo
     configureRootPath
     configureLimits
-    configureAzureAgent
+    # configureAzureAgent -- Disabling this for now, until we sync with waagent team on desired behavior.
+
     # Apply system configuration to running system
     sysctl --write --system
 }

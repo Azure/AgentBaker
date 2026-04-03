@@ -116,20 +116,22 @@ Describe 'cse_helpers.sh'
         End
     End
 
-    Describe 'pkgVersionsV2'
-        It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
+    Describe 'getPackageJSON'
+        It 'with pkgVersionsV2 against UBUNTU 20.04 returns JSON for OS release "r2004"'
             package=$(readPackage "pkgVersionsV2")
             os="UBUNTU"
             osVersion="20.04"
-            When call updateRelease "$package" "$os" "$osVersion"
-            The variable RELEASE should equal "\"r2004\""
+            osVariant=""
+            When call getPackageJSON "$package" "$os" "$osVersion" "$osVariant"
+            The output should equal '{"versionsV2":[{"renovateTag":"name=pkgVersionsV2, os=ubuntu, release=20.04","latestVersion":"dummyVersion2"}]}'
         End
-        It 'returns release version current for package pkgVersionsV2 in Mariner.uknown_release'
+        It 'with pkgVersionsV2 against Mariner unknown_release returns JSON for OS release "current"'
             package=$(readPackage "pkgVersionsV2")
             os="MARINER"
-            osVersion="uknown_release"
-            When call updateRelease "$package" "$os" "$osVersion"
-            The variable RELEASE should equal "current"
+            osVersion="unknown_release"
+            osVariant=""
+            When call getPackageJSON "$package" "$os" "$osVersion" "$osVariant"
+            The output should equal '{"versionsV2":[{"renovateTag":"<DO_NOT_UPDATE>","latestVersion":"dummyVersion5"},{"renovateTag":"<DO_NOT_UPDATE>","latestVersion":"dummyVersion6.1","previousLatestVersion":"dummyVersion6.0"}]}'
         End
     End
 
@@ -137,7 +139,7 @@ Describe 'cse_helpers.sh'
         It 'returns multiArchVersionsV2 for containerImage mcr.microsoft.com/dummyImageWithMultiArchVersionsV2'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2")
             When call updateMultiArchVersions "$containerImage"
-            The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion1.1 dummyVersion2.1 dummyVersion1 dummyVersion2"
+            The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion1.1 dummyVersion1 dummyVersion2.1 dummyVersion2"
         End
         It 'returns multiArchVersions for containerImage mcr.microsoft.com/dummyImageWithOldMultiArchVersions'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithOldMultiArchVersions")
@@ -158,28 +160,28 @@ Describe 'cse_helpers.sh'
             k8sVersion="1.32.3"
             OS="UBUNTU"
             OS_VERSION="22.04"
-            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION" "$OS_VARIANT"
             The output should equal "1.32.3-ubuntu22.04u4"
         End
         It 'returns correct latestVersion for AzureLinux'
             k8sVersion="1.32.3"
             OS="AZURELINUX"
             OS_VERSION="3.0"
-            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION" "$OS_VARIANT"
             The output should equal '1.32.3-4.azl3'
         End
         It 'returns highest latestVersion for Ubuntu if no matching k8s version'
             k8sVersion="1.34.0"
             OS="UBUNTU"
             OS_VERSION="22.04"
-            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION" "$OS_VARIANT"
             The output should equal "1.32.3-ubuntu22.04u4"
         End
         It 'returns highest latestVersion for AzureLinux if no matching k8s version'
             k8sVersion="1.34.0"
             OS="AZURELINUX"
             OS_VERSION="3.0"
-            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION"
+            When call getLatestPkgVersionFromK8sVersion "$k8sVersion" "fake-azure-acr-credential-provider" "$OS" "$OS_VERSION" "$OS_VARIANT"
             The output should equal '1.32.3-4.azl3'
         End
     End
@@ -673,6 +675,35 @@ EOF
             The output should eq ""
             The status should be success
 			rm -f existing_file
+        End
+    End
+
+    Describe 'getSystemdArch'
+        It 'returns x86-64 for amd64 architecture'
+            # Mock getCPUArch to return amd64
+            getCPUArch() {
+                echo "amd64"
+            }
+            When call getSystemdArch
+            The output should equal "x86-64"
+        End
+
+        It 'returns arm64 for arm64 architecture'
+            # Mock getCPUArch to return arm64
+            getCPUArch() {
+                echo "arm64"
+            }
+            When call getSystemdArch
+            The output should equal "arm64"
+        End
+
+        It 'returns the same value for unknown architectures'
+            # Mock getCPUArch to return unknown architecture
+            getCPUArch() {
+                echo "unknown"
+            }
+            When call getSystemdArch
+            The output should equal "unknown"
         End
     End
 End

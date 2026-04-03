@@ -15,14 +15,12 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }'; fi)
+OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
-TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
-TELEPORTD_PLUGIN_BIN_DIR="/opt/bin"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
@@ -59,14 +57,13 @@ installContainerdWithComponentsJson() {
     fi
 
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
-    PACKAGE_VERSIONS=()
     if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
     fi
     if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${AZURELINUX_KATA_OS_NAME}
     fi
-    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
 
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
@@ -136,12 +133,34 @@ installContainerRuntime() {
     installContainerdWithManifestJson
 }
 
+installFixedCNI() {
+    # Old versions of VHDs will not have components.json. If it does not exist, we will try our best to download the hardcoded version for CNI here during provisioning.
+    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requires a hardcoded CNI download.
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || [ -z "$(jq -r '.Packages[] | select(.name == "containernetworking-plugins") | .name' < $COMPONENTS_FILEPATH)" ]; then
+        echo "WARNING: no containernetworking-plugins component present, falling back to cni-plugin"
+        installCNILegacy
+        return
+    fi
+}
+
 installNetworkPlugin() {
     if [ "${NETWORK_PLUGIN}" = "azure" ]; then
         installAzureCNI
     fi
-    installCNI #reference plugins. Mostly for kubenet but loopback plugin is used by containerd until containerd 2
-    rm -rf $CNI_DOWNLOADS_DIR &
+    # Check if required CNI plugins are already cached
+    local required_plugins=("bridge" "host-local" "loopback")
+       local all_plugins_exist=true
+    for plugin in "${required_plugins[@]}"; do
+        if [ ! -f "$CNI_BIN_DIR/$plugin" ]; then
+            all_plugins_exist=false
+            break
+        fi
+    done
+    if [ "$all_plugins_exist" = "false" ]; then
+        echo "One or more required CNI plugins not found in $CNI_BIN_DIR; installing fixed CNI plugins without removing existing binaries"
+        installFixedCNI
+        rm -rf "${CNI_DOWNLOADS_DIR:?}" &
+    fi
 }
 
 # downloadCredentialProvider is always called during build time by install-dependencies.sh.
@@ -286,7 +305,7 @@ evalPackageDownloadURL() {
 }
 
 downloadAzureCNI() {
-    mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
+    mkdir -p ${1:-$CNI_DOWNLOADS_DIR}
     # At VHD build time, the VNET_CNI_PLUGINS_URL is usually not set.
     # So, we will get the URL passed from install-depenencies.sh which is actually from components.json
     # At node provisioning time, if AKS-RP sets the VNET_CNI_PLUGINS_URL, then we will use that.
@@ -301,6 +320,66 @@ downloadAzureCNI() {
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+installCNILegacy() {
+    # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
+    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually"
+        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
+        # definitely not handling arm here.
+        # handles amd64 and arm64 via CPU_ARCH
+        if [ -z "${CPU_ARCH:-}" ]; then
+            CPU_ARCH="$(getCPUArch)"
+        fi
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-${CPU_ARCH}-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
+        return
+    fi
+
+    #always just use what is listed in components.json so we don't have to sync.
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+
+    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    os=${UBUNTU_OS_NAME}
+    if [ -z "$UBUNTU_RELEASE" ]; then
+        os=${OS}
+        os_version="current"
+    fi
+    os_version="${UBUNTU_RELEASE}"
+    if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
+    updatePackageVersions "${cniPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
+
+    #should change to ne
+    # shellcheck disable=SC3010
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    packageVersion=${PACKAGE_VERSIONS[0]}
+
+    # Is there a ${arch} variable I can use instead of the iff
+    if [ "$(isARM64)" -eq 1 ]; then
+        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
+    else
+        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
+    fi
+
+    if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
+        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+    else
+        echo "CNI tarball should already be unzipped by components.json"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+
+    chown -R root:root $CNI_BIN_DIR
 }
 
 downloadCrictl() {
@@ -335,44 +414,6 @@ installCrictl() {
     fi
 }
 
-downloadTeleportdPlugin() {
-    DOWNLOAD_URL=$1
-    TELEPORTD_VERSION=$2
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
-    if [ -z "${DOWNLOAD_URL}" ]; then
-        echo "download url parameter for downloadTeleportdPlugin was not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
-    fi
-    if [ -z "${TELEPORTD_VERSION}" ]; then
-        echo "teleportd version not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
-    fi
-    mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
-}
-
-installTeleportdPlugin() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
-    CURRENT_VERSION=$(teleportd --version 2>/dev/null | sed 's/teleportd version v//g')
-    local TARGET_VERSION="0.8.0"
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
-        echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
-    else
-        logs_to_events "AKS.CSE.logDownloadURL" "echo $TELEPORTD_PLUGIN_DOWNLOAD_URL"
-        TELEPORTD_PLUGIN_DOWNLOAD_URL=$(update_base_url $TELEPORTD_PLUGIN_DOWNLOAD_URL)
-        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-    fi
-    rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
-}
-
 setupCNIDirs() {
     mkdir -p $CNI_BIN_DIR
     chown -R root:root $CNI_BIN_DIR
@@ -381,64 +422,6 @@ setupCNIDirs() {
     mkdir -p $CNI_CONFIG_DIR
     chown -R root:root $CNI_CONFIG_DIR
     chmod 755 $CNI_CONFIG_DIR
-}
-
-
-# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
-# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
-# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
-installCNI() {
-    # Old versions of VHDs will not have components.json. If it does not exist, we will fall back to the hardcoded download for CNI.
-    # Network Isolated Cluster / Bring Your Own ACR will not work with a vhd that requres a hardcoded CNI download.
-    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually"
-        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
-        # definitely not handling arm here.
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-        extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
-        return
-    fi
-
-    #always just use what is listed in components.json so we don't have to sync.
-    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
-
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
-    os=${UBUNTU_OS_NAME}
-    if [ -z "$UBUNTU_RELEASE" ]; then
-        os=${OS}
-        os_version="current"
-    fi
-    os_version="${UBUNTU_RELEASE}"
-    if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-        os=${MARINER_KATA_OS_NAME}
-    fi
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
-
-    #should change to ne
-    # shellcheck disable=SC3010
-    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
-        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    packageVersion=${PACKAGE_VERSIONS[0]}
-
-    # Is there a ${arch} variable I can use instead of the iff
-    if [ "$(isARM64)" -eq 1 ]; then
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
-    fi
-
-    if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
-    else
-        echo "CNI tarball should already be unzipped by components.json"
-        exit $ERR_CNI_VERSION_INVALID
-    fi
-
-    chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
@@ -635,8 +618,12 @@ installKubeletKubectlFromURL() {
             fi
         fi
     fi
-    install -m0755 "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
-    install -m0755 "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    mv "/opt/bin/kubelet-${KUBERNETES_VERSION}" /opt/bin/kubelet
+    mv "/opt/bin/kubectl-${KUBERNETES_VERSION}" /opt/bin/kubectl
+
+    chown root:root /opt/bin/kubelet /opt/bin/kubectl
+    chmod 0755 /opt/bin/kubelet /opt/bin/kubectl
 
     rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }
@@ -651,7 +638,7 @@ pullContainerImage() {
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
 
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher $CONTAINER_IMAGE_URL
         code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
@@ -703,8 +690,9 @@ labelContainerImage() {
 }
 
 retagMCRImagesForChina() {
+    waitForContainerdReady || exit $ERR_CTR_OPERATION_ERROR
     # shellcheck disable=SC2016
-        allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
     if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return
@@ -826,6 +814,67 @@ datasource:
     Azure:
         apply_network_config: false
 EOF
+}
+
+# ==== GPU driver functions ====
+# Shared between Azure Linux (Mariner) and ACL distro install scripts.
+# These functions are only invoked on GPU-enabled VM SKUs during provisioning;
+# they are safe to define on all distros (no execution at source time).
+
+should_use_nvidia_open_drivers() {
+    # Checks if the VM SKU should use NVIDIA open drivers (vs proprietary drivers).
+    # Legacy GPUs (T4, V100) use NVIDIA proprietary drivers; A100+ use NVIDIA open drivers.
+    # Returns: 0 (true) for open drivers, 1 (false) for proprietary drivers, 2 on error
+    local vm_sku
+    vm_sku=$(get_compute_sku)
+    if [ -z "$vm_sku" ]; then
+        echo "Error: Unable to determine VM SKU, cannot select GPU driver" >&2
+        return 2
+    fi
+    local lower="${vm_sku,,}"
+
+    # T4 GPUs (NC*_T4_v3 family) use proprietary drivers
+    # V100 GPUs: NDv2 (nd40rs_v2), NDv3 (nd40s_v3), NCsv3 (nc*s_v3) use proprietary drivers
+    case "$lower" in
+        *t4_v3*)
+            return 1
+            ;;
+        *nd40rs_v2*)
+            return 1
+            ;;
+        *nd40s_v3*)
+            return 1
+            ;;
+        standard_nc*s_v3*)
+            return 1
+            ;;
+    esac
+
+    # All other GPU SKUs (A100+) use open drivers
+    return 0
+}
+
+enableNvidiaPersistenceMode() {
+    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
+    touch ${PERSISTENCED_SERVICE_FILE_PATH}
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH}
+[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+Restart=always
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable nvidia-persistenced.service || exit 1
+    systemctl restart nvidia-persistenced.service || exit 1
 }
 
 #EOF
