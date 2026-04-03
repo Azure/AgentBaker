@@ -225,7 +225,7 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 		},
 	}
 
-	customData, err := CustomData(cfg)
+	customData, err := CustomData(cfg, "")
 	require.NoError(t, err)
 
 	decoded, err := base64.StdEncoding.DecodeString(customData)

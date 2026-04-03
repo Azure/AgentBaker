@@ -27,6 +27,11 @@ cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-config.json
 EOF
 chmod 0644 /opt/azure/containers/aks-node-controller-config.json
 
+cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+%s
+EOF
+chmod 0755 /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
@@ -52,14 +57,14 @@ runcmd:
 // It encodes the node configuration as JSON, embeds it in a cloud-boothook script that writes the config
 // to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
 // processes each MIME part according to its Content-Type during the VM's first boot.
-func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
+func CustomData(cfg *aksnodeconfigv1.Configuration, nbcCMD string) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, encodedAksNodeConfigJSON)
+	boothook := fmt.Sprintf(boothookTemplate, encodedAksNodeConfigJSON, nbcCMD)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)

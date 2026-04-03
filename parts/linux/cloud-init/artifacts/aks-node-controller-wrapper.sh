@@ -3,6 +3,7 @@ set -uo pipefail
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
+NBC_CMD_PATH="${NBC_CMD:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
 log() {
@@ -16,7 +17,7 @@ log() {
 ${__SOURCED__:+return}
 
 log "Launching aks-node-controller with config ${CONFIG_PATH}"
-"$BIN_PATH" provision --provision-config="$CONFIG_PATH" &
+"$BIN_PATH" provision --provision-config="$CONFIG_PATH" --nbc-cmd="$NBC_CMD_PATH" &
 child_pid=$!
 log "Spawned aks-node-controller (pid ${child_pid})"
 
