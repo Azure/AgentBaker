@@ -36,6 +36,8 @@ param(
     $CSEResultFilePath
 )
 
+$ErrorActionPreference = "Stop"
+
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
 # https://learn.microsoft.com/en-gb/troubleshoot/windows-client/shell-experience/command-line-string-limitation
 
@@ -246,6 +248,9 @@ try {
 
 $global:OperationId = New-Guid
 
+try
+{
+
 if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
     # From 2025-06 The CSE packages is released on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
@@ -353,9 +358,13 @@ function BasePrep {
     Create-Directory -FullPath "c:\k"
     Write-Log "Remove `"NT AUTHORITY\Authenticated Users`" write permissions on files in c:\k"
     icacls.exe "c:\k" /inheritance:r
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to set inheritance on c:\k (exit code $LASTEXITCODE)" }
     icacls.exe "c:\k" /grant:r SYSTEM:`(OI`)`(CI`)`(F`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to grant SYSTEM permissions on c:\k (exit code $LASTEXITCODE)" }
     icacls.exe "c:\k" /grant:r BUILTIN\Administrators:`(OI`)`(CI`)`(F`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to grant Administrators permissions on c:\k (exit code $LASTEXITCODE)" }
     icacls.exe "c:\k" /grant:r BUILTIN\Users:`(OI`)`(CI`)`(RX`)
+    if ($LASTEXITCODE -ne 0) { throw "icacls.exe failed to grant Users permissions on c:\k (exit code $LASTEXITCODE)" }
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
     Get-ProvisioningScripts
@@ -546,6 +555,7 @@ function NodePrep {
 
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
+    if ($LASTEXITCODE -ne 0) { throw "netsh advfirewall failed to disable firewall (exit code $LASTEXITCODE)" }
 
     # To ensure we don't introduce any incompatibility between base CSE + CSE package versions
     if (Get-Command -Name Enable-WindowsCiliumNetworking -ErrorAction SilentlyContinue) {
@@ -598,12 +608,11 @@ function NodePrep {
         $timer.Stop()
         Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
+
     Write-Log "NodePrep completed successfully"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "NodePrep completed successfully"
 }
 
-try
-{
     Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
 
     # Exit early if the script has been executed
@@ -670,10 +679,11 @@ finally
         Set-Content -Path $completionFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
     }
 
-    if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
-        Write-Log "Do not call Upload-GuestVMLogs because there is no cse script package downloaded"
-    }
-    else {
+    # Upload-GuestVMLogs is defined in the CSE scripts package (configfunc.ps1).
+    # If the CSE scripts package failed to download or load, the function will not be available.
+    if (Get-Command -Name Upload-GuestVMLogs -ErrorAction SilentlyContinue) {
         Upload-GuestVMLogs -ExitCode $global:ExitCode
+    } else {
+        Write-Log "Upload-GuestVMLogs is not available, skipping log upload (CSE scripts package may not have been loaded)"
     }
 }

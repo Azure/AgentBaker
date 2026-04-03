@@ -1,3 +1,4 @@
+
 BeforeAll {
   if (-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)) {
     New-PSDrive -Name C -PSProvider FileSystem -Root ([System.IO.Path]::GetTempPath()) | Out-Null
@@ -18,7 +19,7 @@ BeforeAll {
   # Define Create-Directory stub function (used by Set-ContainerdRegistryConfig)
   function Create-Directory {
     param($FullPath, $DirectoryUsage)
-    # Do nothing in tests - just a stub
+    New-Item -ItemType Directory -Path $FullPath -ErrorAction SilentlyContinue | Out-Null
   }
 
   # Mock Set-Content to avoid permission denied errors
@@ -27,7 +28,7 @@ BeforeAll {
     Write-Host "SET-CONTENT: Path: $Path, Content: $Value"
   }
 
-  function Get-WindowsPauseVersion {
+  function Get-WindowsPauseVersion{
     return "ltsc2022"
   }
 
@@ -35,32 +36,50 @@ BeforeAll {
     return "ltsc2022"
   }
 
+  # Stub for Assert-FileExists (defined in windowscsehelper.ps1, not loaded here)
+  function Assert-FileExists {
+    param($Filename, $ExitCode)
+  }
+
+  # Stubs for Windows-only service management cmdlets unavailable on Linux
+  Mock Get-Service -MockWith {
+    param($Name, $ErrorAction)
+  }
+
+  Mock Start-Service -MockWith {
+    param($Name, $ErrorAction)
+  }
+
+  filter RemoveNulls { $_ -replace '\0', '' }
   . $PSScriptRoot\containerdfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1', '.ps1')
   # . $PSScriptRoot\..\..\parts\windows\windowscsehelper.ps1
 }
 
 Describe "ProcessAndWriteContainerdConfig" {
-  BeforeAll {
-    Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
-      return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
-    }
-
-    # Mock Out-File for registry config writes to avoid file system errors
-    Mock Out-File -ParameterFilter { $FilePath -like "*certs.d*" } -MockWith { }
+  BeforeEach {
+      Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
+        return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
+      }
   }
 
   Context 'containerd template v1 ' {
-    BeforeAll {
+    BeforeEach {
       $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+      $registryPath = "$containerdDir"
       $cniBinDir = 'C:/cni/bin'
       $cniConfDir = 'C:/cni/conf'
-      $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.6'
+      $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1'
 
       $global:KubeClusterConfigPath = [Io.path]::Combine("", "kubeclusterconfig.json")
       $global:ContainerdInstallLocation = $containerdDir
       $global:WindowsDataDir = $PSScriptRoot
       $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
+      Create-Directory -FullPath $registryPath -DirectoryUsage "storing cert registry config for tests"
+
+      Mock Get-Root-RegistryPath -MockWith {
+        return $registryPath
+      }
     }
 
     It "Should process containerdtemplate.toml with basic configuration" {
@@ -68,9 +87,8 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
-      $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Not -BeNullOrEmpty
 
@@ -88,7 +106,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should include hyperv runtimes when hyperv is enabled" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
@@ -98,7 +116,7 @@ Describe "ProcessAndWriteContainerdConfig" {
 
     It "Should handle older containerd versions (<1.7.9) by removing annotations" {
       # Call the function under test and ensure it doesn't throw
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "1.6.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $content = Get-Content -Path $configPath -Raw
 
@@ -109,9 +127,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     }
   }
 
-
   Context 'containerd template v2' {
-
     BeforeAll {
       $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
       $cniBinDir = 'C:/cni/bin'
@@ -129,7 +145,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $global:DefaultContainerdWindowsSandboxIsolation = "process" # default to process isolation
       $global:ContainerdWindowsRuntimeHandlers = "" # default to no hyperv handlers
 
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $configPath | Should -Exist
       $content = Get-Content -Path $configPath -Raw
@@ -149,7 +165,7 @@ Describe "ProcessAndWriteContainerdConfig" {
     It "Should include hyperv runtimes when hyperv is enabled" {
       $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
       $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
-      { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
+      ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir
 
       $content = Get-Content -Path $configPath -Raw
       $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
@@ -167,16 +183,20 @@ Describe "Set-ContainerdRegistryConfig" {
     }
   }
 
-  BeforeEach {
+BeforeEach {
+    $script:capturedFilePath = $null
+    $script:capturedContent = $null
+
+    Mock Out-File-Ascii -MockWith {
+      param($Content,$FilePath)
+      $script:capturedFilePath = $FilePath
+      $script:capturedContent = $Content
+    }
+
     # Mock Create-Directory to track calls
     Mock Create-Directory -MockWith {
       param($FullPath, $DirectoryUsage)
       # Do nothing in tests - we'll verify the call was made
-    }
-
-    # Mock Out-File to capture content without writing to disk
-    Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
     }
   }
 
@@ -193,9 +213,8 @@ Describe "Set-ContainerdRegistryConfig" {
     }
 
     # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
-      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
-      $Encoding -eq "ascii"
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml"
     }
   }
 
@@ -211,10 +230,9 @@ Describe "Set-ContainerdRegistryConfig" {
       $DirectoryUsage -eq "storing containerd registry hosts config"
     }
 
-    # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
-      $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml" -and
-      $Encoding -eq "ascii"
+    # Verify Out-File-Ascii was called with correct path
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml"
     }
   }
 
@@ -222,15 +240,11 @@ Describe "Set-ContainerdRegistryConfig" {
     $registry = "docker.io"
     $registryHost = "registry-1.docker.io"
 
-    # Mock Out-File to do nothing (we verify structure by checking function implementation)
-    Mock Out-File -MockWith { }
-
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -Exactly -Times 1 -ParameterFilter {
-      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml" -and
-      $Encoding -eq "ascii"
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+      $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml"
     }
 
     # Note: The content structure is verified by the function's implementation
@@ -246,8 +260,6 @@ Describe "Set-ContainerdRegistryConfig" {
     $registry = "myregistry.example.com"
     $registryHost = "mirror.example.com"
 
-    Mock Out-File -MockWith { }
-
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     # Verify Create-Directory was called with correct registry path
@@ -255,8 +267,8 @@ Describe "Set-ContainerdRegistryConfig" {
       $FullPath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com"
     }
 
-    # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File' -ParameterFilter {
+    # Verify Out-File-Ascii was called with correct path
+    Assert-MockCalled -CommandName 'Out-File-Ascii' -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com\hosts.toml"
     }
   }
@@ -264,31 +276,10 @@ Describe "Set-ContainerdRegistryConfig" {
   It "Should write to correct hosts.toml file path" {
     $registry = "test.registry.io"
     $registryHost = "test.mirror.io"
-    $script:capturedFilePath = $null
-
-    Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
-      $script:capturedFilePath = $FilePath
-    }
 
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\test.registry.io\hosts.toml"
-  }
-
-  It "Should use ascii encoding when writing hosts.toml" {
-    $registry = "docker.io"
-    $registryHost = "registry-1.docker.io"
-    $script:capturedEncoding = $null
-
-    Mock Out-File -MockWith {
-      param($FilePath, $Encoding)
-      $script:capturedEncoding = $Encoding
-    }
-
-    Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
-
-    $script:capturedEncoding | Should -Be "ascii"
   }
 }
 
@@ -299,15 +290,13 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
     }
 
     $script:capturedFilePath = $null
-    $script:capturedEncoding = $null
     $script:capturedContent = $null
-    Mock Out-File -MockWith {
-      param($InputObject, $FilePath, $Encoding)
+    Mock Out-File-Ascii -MockWith {
+      param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
-      $script:capturedEncoding = $Encoding
-      $script:capturedContent = $InputObject
+      $script:capturedContent = $Content
     }
-  }
+}
 
   It "Should write hosts.toml for default mcr.microsoft.com when MCRRepositoryBase is not set" {
     $global:BootstrapProfileContainerRegistryServer = "myacr.azurecr.io"
@@ -322,7 +311,6 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
       $DirectoryUsage -eq "storing containerd registry hosts config"
     }
     $script:capturedFilePath | Should -Be "C:\ProgramData\containerd\certs.d\mcr.microsoft.com\hosts.toml"
-    $script:capturedEncoding | Should -Be "ascii"
     $script:capturedContent | Should -Match 'server = "https://mcr.microsoft.com"'
     $script:capturedContent | Should -Match '\[host\."https://myacr.azurecr.io/v2"\]'
     $script:capturedContent | Should -Match 'override_path = true'
@@ -354,5 +342,79 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
   AfterEach {
     $global:BootstrapProfileContainerRegistryServer = $null
     $global:MCRRepositoryBase = $null
+  }
+}
+
+Describe 'RegisterContainerDService' {
+  BeforeEach {
+    Mock Assert-FileExists
+    Mock Invoke-Nssm
+    Mock Start-Service
+
+    $script:capturedFilePath = $null
+    $script:capturedContent = $null
+    Mock Out-File-Ascii -MockWith {
+      param($Content,$FilePath)
+      $script:capturedFilePath = $FilePath
+      $script:capturedContent = $Content
+    }
+  }
+
+  Context 'when containerd service does not exist' {
+    BeforeEach {
+      $script:GetServiceCallCount = 0
+      $mockRunningSvc = [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
+      Mock Get-Service -MockWith {
+        $script:GetServiceCallCount++
+        if ($script:GetServiceCallCount -eq 1) { return $null }
+        return $mockRunningSvc
+      }
+      Mock sc.exe
+    }
+
+    It 'does not call sc.exe when service does not exist' {
+      RegisterContainerDService -kubedir 'C:\k'
+
+      Assert-MockCalled sc.exe -Exactly -Times 0
+    }
+  }
+
+  Context 'when containerd service already exists' {
+    BeforeEach {
+      $script:GetServiceCallCount = 0
+      $mockExistingSvc = [PSCustomObject]@{Name = 'containerd'; Status = 'Stopped'}
+      $mockRunningSvc = [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
+      Mock Get-Service -MockWith {
+        $script:GetServiceCallCount++
+        if ($script:GetServiceCallCount -eq 1) { return $mockExistingSvc }
+        return $mockRunningSvc
+      }
+    }
+
+    It 'calls sc.exe delete to remove the existing service' {
+      Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
+
+      RegisterContainerDService -kubedir 'C:\k'
+
+      Assert-MockCalled sc.exe -Exactly -Times 1
+    }
+
+    It 'does not throw when sc.exe delete succeeds' {
+      Mock sc.exe -MockWith { $global:LASTEXITCODE = 0 }
+
+      { RegisterContainerDService -kubedir 'C:\k' } | Should -Not -Throw
+    }
+
+    It 'throws when sc.exe delete fails' {
+      Mock sc.exe -MockWith { $global:LASTEXITCODE = 1 }
+
+      { RegisterContainerDService -kubedir 'C:\k' } | Should -Throw '*sc.exe failed to delete existing containerd service*'
+    }
+
+    It 'includes the exit code in the error message when sc.exe fails' {
+      Mock sc.exe -MockWith { $global:LASTEXITCODE = 5 }
+
+      { RegisterContainerDService -kubedir 'C:\k' } | Should -Throw '*exit code 5*'
+    }
   }
 }

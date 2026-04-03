@@ -1,3 +1,17 @@
+# Invokes nssm.exe with the given arguments and throws if the exit code is non-zero.
+function Invoke-Nssm
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$KubeDir,
+        [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$NssmArguments
+    )
+    & "$KubeDir\nssm.exe" @NssmArguments | RemoveNulls
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "nssm.exe $( $NssmArguments -join ' ' ) failed (exit code $LASTEXITCODE)"
+    }
+}
+
 function Write-AzureConfig {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -189,7 +203,8 @@ function Get-KubePackage {
         if ($urls.ContainsKey($global:KubeBinariesVersion)) {
             Write-Log "Found $global:KubeBinariesVersion in $mappingFile"
             $KubeBinariesSASURL = $urls[$global:KubeBinariesVersion]
-        } else {
+        }
+        else {
             Write-Log "Did not find $global:KubeBinariesVersion in $mappingFile"
         }
     }
@@ -232,7 +247,7 @@ function Get-KubePackage {
 
 function Add-KubeletNodeLabel {
     Param(
-        [Parameter(Mandatory=$true)][string]
+        [Parameter(Mandatory = $true)][string]
         $Label
     )
 
@@ -250,7 +265,7 @@ function Add-KubeletNodeLabel {
 
 function Remove-KubeletNodeLabel {
     Param(
-        [Parameter(Mandatory=$true)][string]
+        [Parameter(Mandatory = $true)][string]
         $Label
     )
 
@@ -261,16 +276,17 @@ function Remove-KubeletNodeLabel {
 
 function Get-TagValue {
     Param(
-        [Parameter(Mandatory=$true)][string]
+        [Parameter(Mandatory = $true)][string]
         $TagName,
-        [Parameter(Mandatory=$true)][string]
+        [Parameter(Mandatory = $true)][string]
         $DefaultValue
     )
 
     $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
     try {
-        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
-    } catch {
+        $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri = $uri; Method = "Get"; ContentType = "application/json"; Headers = @{"Metadata" = "true" } } -Retries 3 -RetryDelaySeconds 5
+    }
+    catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
     }
 
@@ -359,45 +375,49 @@ function New-NSSMService {
     }
 
     # setup kubelet
-    & "$KubeDir\nssm.exe" install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppDirectory $KubeDir | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppParameters $KubeletStartFile | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet DisplayName Kubelet | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet Description Kubelet | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStdout C:\k\kubelet.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStderr C:\k\kubelet.err.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubelet AppRotateBytes 10485760 | RemoveNulls
-    # Do not use & when calling DependOnService since 'docker csi-proxy'
+    Invoke-Nssm -KubeDir $KubeDir install Kubelet C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppDirectory $KubeDir
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppParameters $KubeletStartFile
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet DisplayName Kubelet
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRestartDelay 5000
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet Description Kubelet
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppStdout C:\k\kubelet.log
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppStderr C:\k\kubelet.err.log
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppStdoutCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppStderrCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set Kubelet AppRotateBytes 10485760
+
+    # Do not use Invoke-Nssm when calling DependOnService since 'docker csi-proxy'
     # is parsed as a single string instead of two separate strings
+    $LASTEXITCODE = 0
     Invoke-Expression "$KubeDir\nssm.exe set Kubelet DependOnService $kubeletDependOnServices | RemoveNulls"
+    if (-not $?) { throw "Invoke-Expression failed to invoke before calling nssm.exe (PowerShell invocation failed - exit code $?)" }
+    if ($LASTEXITCODE -ne 0) { throw "nssm.exe failed to set Kubelet DependOnService (exit code $LASTEXITCODE)" }
 
     # setup kubeproxy
-    & "$KubeDir\nssm.exe" install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppDirectory $KubeDir | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppParameters $KubeProxyStartFile | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy DisplayName Kubeproxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy DependOnService Kubelet | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy Description Kubeproxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppStdout C:\k\kubeproxy.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppStderr C:\k\kubeproxy.err.log | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set Kubeproxy AppRotateBytes 10485760 | RemoveNulls
+    Invoke-Nssm -KubeDir $KubeDir install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppDirectory $KubeDir
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppParameters $KubeProxyStartFile
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy DisplayName Kubeproxy
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy DependOnService Kubelet
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy Description Kubeproxy
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppStdout C:\k\kubeproxy.log
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppStderr C:\k\kubeproxy.err.log
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set Kubeproxy AppRotateBytes 10485760
 }
 
 # Renamed from Write-KubernetesStartFiles
