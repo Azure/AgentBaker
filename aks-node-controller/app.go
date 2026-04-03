@@ -133,59 +133,68 @@ func (a *App) run(ctx context.Context, args []string) error {
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
-	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
-	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
-		return provisionResult, errors.New(provisionResult.Error)
-	}
 
-	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
-	if err != nil {
-		// We try our best to continue unmarshal even if there are unexpected situations such as unknown fields.
-		// It usually happens when a newer version of aksNodeConfig is being parsed by an older version of aks-node-controller.
-		// This allows older versions of aks-node-controller to read configurations that may have fields added in newer versions.
-		// Log the error and continue processing.
-		// Feature owner should be aware that any unrecognized fields will be ignored in older versions of VHD image.
+	var cmd *exec.Cmd
+	if flags.ProvisionConfig != "" {
+		inputJSON, err := os.ReadFile(flags.ProvisionConfig)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
+			return provisionResult, errors.New(provisionResult.Error)
+		}
 
-		slog.Info("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
-			"This may be due to version mismatch. "+
-			"Usually it is newer aksNodeConfig being parsed by older aks-node-controller. "+
-			"Continuing with partial configuration, but unrecognized fields will be ignored.",
-			"error", err)
-	}
-	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
-	// Disallow "v0" after some time (allow some time to update consumers)
-	if config.Version != "v0" && config.Version != "v1" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
-		return provisionResult, errors.New(provisionResult.Error)
-	}
+		config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
+		if err != nil {
+			// We try our best to continue unmarshal even if there are unexpected situations such as unknown fields.
+			// It usually happens when a newer version of aksNodeConfig is being parsed by an older version of aks-node-controller.
+			// This allows older versions of aks-node-controller to read configurations that may have fields added in newer versions.
+			// Log the error and continue processing.
+			// Feature owner should be aware that any unrecognized fields will be ignored in older versions of VHD image.
 
-	if config.Version == "v0" {
-		slog.Error("v0 version is deprecated, please use v1 instead")
-	}
+			slog.Info("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
+				"This may be due to version mismatch. "+
+				"Usually it is newer aksNodeConfig being parsed by older aks-node-controller. "+
+				"Continuing with partial configuration, but unrecognized fields will be ignored.",
+				"error", err)
+		}
+		// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
+		// Disallow "v0" after some time (allow some time to update consumers)
+		if config.Version != "v0" && config.Version != "v1" {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
+			return provisionResult, errors.New(provisionResult.Error)
+		}
 
-	cmd, err := parser.BuildCSECmd(ctx, config)
-	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
-		return provisionResult, errors.New(provisionResult.Error)
+		if config.Version == "v0" {
+			slog.Error("v0 version is deprecated, please use v1 instead")
+		}
+
+		cmd, err = parser.BuildCSECmd(ctx, config)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
+			return provisionResult, errors.New(provisionResult.Error)
+		}
 	}
 
 	if flags.NBCCMD != "" {
-		nbcCMD := exec.CommandContext(ctx, "/bin/bash", flags.NBCCMD)
-		if nbcCMD != cmd {
-			slog.Info("Detected difference between AKSNodeConfig command and NBC command, ", "originalCmd: ", cmd.String(), "nbcCmd: ", nbcCMD.String())
+		nbcCMDContent, err := os.ReadFile(flags.NBCCMD)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = fmt.Sprintf("read NBC command file %s: %v", flags.NBCCMD, err)
+			return provisionResult, errors.New(provisionResult.Error)
 		}
-		slog.Info("Overriding CSE command with NBC command for scriptless phase 2", "nbcCmd", nbcCMD.String())
+		nbcScript := strings.TrimSpace(string(nbcCMDContent))
+		slog.Info("Using NBC command for scriptless phase 2", "nbcCmdFile", flags.NBCCMD)
+		nbcCMD := exec.CommandContext(ctx, "/bin/bash", "-c", nbcScript)
+		nbcCMD.Env = cmd.Env
 		cmd = nbcCMD
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err = a.cmdRun(cmd)
+	err := a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -226,9 +235,9 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 		return provisionResult, errors.New(provisionResult.Error)
 	}
 
-	if *provisionConfig == "" {
+	if *provisionConfig == "" && *nbcCMD == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = "--provision-config is required"
+		provisionResult.Error = "--provision-config or --nbc-cmd is required"
 		return provisionResult, errors.New(provisionResult.Error)
 	}
 	if *dryRun {
