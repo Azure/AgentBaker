@@ -427,6 +427,25 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+    # Install DOCA OFED for InfiniBand-capable nodes
+    if [ "${NEEDS_INFINIBAND}" = "true" ]; then
+        export -f should_skip_doca_ofed
+        skip_doca_ofed_install=$(should_skip_doca_ofed)
+        if [ "$?" -ne 0 ]; then
+            echo "Failed to determine if DOCA OFED install should be skipped"
+            exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+
+        if [ "${skip_doca_ofed_install}" != "true" ]; then
+            echo $(date),$(hostname), "Start configuring DOCA OFED for InfiniBand"
+            logs_to_events "AKS.CSE.installDocaOfedFromCache" installDocaOfedFromCache || exit $ERR_APT_INSTALL_TIMEOUT
+            logs_to_events "AKS.CSE.configureInfiniBand" configureInfiniBand
+            echo $(date),$(hostname), "End configuring DOCA OFED for InfiniBand"
+        else
+            echo "Skipping DOCA OFED installation (SkipDocaOfedInstall tag set)"
+        fi
+    fi
+
     # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
     if isAmdAmaEnabledNode; then
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma

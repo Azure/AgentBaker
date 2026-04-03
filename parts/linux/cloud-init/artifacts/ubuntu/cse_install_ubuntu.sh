@@ -191,6 +191,119 @@ cleanUpGPUDrivers() {
     done
 }
 
+updateAptWithMellanoxPkg() {
+    local mellanox_gpg_keyring_path="/etc/apt/keyrings/GPG-KEY-Mellanox.gpg"
+    mkdir -p "$(dirname "${mellanox_gpg_keyring_path}")"
+
+    local mellanox_sources_list_path="/etc/apt/sources.list.d/doca.list"
+    local cpu_arch
+    cpu_arch=$(getCPUArch)
+    # Mellanox repo uses x86_64/aarch64, not amd64/arm64
+    local repo_arch=""
+    if [ "$cpu_arch" = "amd64" ]; then
+        repo_arch="x86_64"
+    elif [ "$cpu_arch" = "arm64" ]; then
+        repo_arch="aarch64"
+    else
+        echo "Unknown CPU architecture: ${cpu_arch}"
+        return
+    fi
+
+    local mellanox_ubuntu_version=""
+    if [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+        mellanox_ubuntu_version="ubuntu22.04"
+    elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+        mellanox_ubuntu_version="ubuntu24.04"
+    else
+        echo "Mellanox DOCA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
+        return
+    fi
+
+    # Download GPG key
+    retrycmd_curl_file 120 5 25 "${mellanox_gpg_keyring_path}" \
+        "https://linux.mellanox.com/public/keys/GPG-KEY-Mellanox.pub" \
+        || exit $ERR_APT_UPDATE_TIMEOUT
+
+    # Add repo - use latest DOCA repo
+    echo "deb [signed-by=${mellanox_gpg_keyring_path}] https://linux.mellanox.com/public/repo/doca/latest/${mellanox_ubuntu_version}/${repo_arch}/ /" \
+        >"${mellanox_sources_list_path}"
+
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+removeMellanoxRepos() {
+    if [ -f /etc/apt/sources.list.d/doca.list ]; then
+        rm -f /etc/apt/sources.list.d/doca.list
+        echo "Removed Mellanox DOCA apt repository"
+    fi
+    if [ -f /etc/apt/keyrings/GPG-KEY-Mellanox.gpg ]; then
+        rm -f /etc/apt/keyrings/GPG-KEY-Mellanox.gpg
+        echo "Removed Mellanox GPG key"
+    fi
+}
+
+downloadDocaOfedPackages() {
+    local downloadDir="${1:-/opt/doca-ofed/downloads}"
+    mkdir -p "${downloadDir}"
+
+    # Use apt-cache to resolve the full dependency tree of doca-ofed,
+    # then download all packages as .deb files for air-gapped installation at CSE time
+    local pkg_list
+    pkg_list=$(apt-cache depends --recurse --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances \
+        doca-ofed 2>/dev/null | grep "^\w" | sort -u)
+
+    pushd "${downloadDir}" >/dev/null || exit
+    for pkg in ${pkg_list}; do
+        apt-get download "${pkg}" 2>/dev/null || true
+    done
+    # Also download doca-ofed meta-package itself
+    apt-get download doca-ofed 2>/dev/null || exit $ERR_APT_INSTALL_TIMEOUT
+    popd >/dev/null || exit
+
+    echo "Downloaded doca-ofed packages to ${downloadDir}"
+    echo "Total packages: $(find "${downloadDir}" -maxdepth 1 -name '*.deb' 2>/dev/null | wc -l)"
+}
+
+installDocaOfedFromCache() {
+    local downloadDir="/opt/doca-ofed/downloads"
+    if [ ! -d "${downloadDir}" ] || [ -z "$(ls -A "${downloadDir}" 2>/dev/null)" ]; then
+        echo "No DOCA OFED packages found in ${downloadDir}, skipping"
+        return 1
+    fi
+
+    echo "Installing DOCA OFED packages from cache..."
+
+    # Unset ARCH to prevent DKMS postinstall scripts from failing
+    # during kernel module compilation
+    local original_arch="${ARCH:-}"
+    unset ARCH
+    DEBIAN_FRONTEND=noninteractive dpkg -i "${downloadDir}"/*.deb 2>&1 || {
+        # Fix any broken dependencies using only local packages
+        apt-get install -f -y --no-install-recommends 2>&1 || {
+            echo "Failed to install DOCA OFED packages"
+            if [ -n "${original_arch}" ]; then
+                export ARCH="${original_arch}"
+            fi
+            return 1
+        }
+    }
+    if [ -n "${original_arch}" ]; then
+        export ARCH="${original_arch}"
+    fi
+
+    echo "DOCA OFED packages installed successfully"
+
+    # Clean up cached packages
+    rm -rf "${downloadDir}"
+}
+
+configureInfiniBand() {
+    # Blacklist ib_ipoib module (not needed for GPU-accelerated nodes)
+    echo "blacklist ib_ipoib" >/etc/modprobe.d/ib_ipoib.conf
+    echo "Blacklisted ib_ipoib kernel module"
+}
+
 installCriCtlPackage() {
     version="${1:-}"
     packageName="kubernetes-cri-tools=${version}"

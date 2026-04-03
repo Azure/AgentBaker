@@ -125,3 +125,46 @@ var FabricManagerGPUSizes = map[string]bool{
 	"standard_nc48ads_a100_v4": false,
 	"standard_nc96ads_a100_v4": false,
 }
+
+/* InfiniBandSizes : these sizes have InfiniBand/RDMA-capable NICs (Mellanox ConnectX).
+RDMA-capable SKUs on Azure follow the naming convention of having 'r' in the size name.
+These nodes need DOCA OFED drivers installed for high-performance networking.
+see https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/overview#rdma-capable-instances
+*/
+//nolint:gochecknoglobals
+var InfiniBandSizes = map[string]bool{
+	// ND-series with RDMA (A100)
+	"standard_nd96asr_v4":        true,
+	"standard_nd112asr_a100_v4":  true,
+	"standard_nd120asr_a100_v4":  true,
+	"standard_nd96amsr_a100_v4":  true,
+	"standard_nd112amsr_a100_v4": true,
+	"standard_nd120amsr_a100_v4": true,
+	// ND-series with RDMA (H100)
+	"standard_nd92isr_h100_v5":  true,
+	"standard_nd96isr_h100_v5":  true,
+	"standard_nd100isr_h100_v5": true,
+	// ND-series with RDMA (H200)
+	"standard_nd96isr_h200_v5":  true,
+	"standard_nd96isrf_h200_v5": true,
+	// HPC-series with RDMA (HB v3)
+	"standard_hb120rs_v3":    true,
+	"standard_hb120-16rs_v3": true,
+	"standard_hb120-32rs_v3": true,
+	"standard_hb120-64rs_v3": true,
+	"standard_hb120-96rs_v3": true,
+	// HPC-series with RDMA (HB v4)
+	"standard_hb176rs_v4":     true,
+	"standard_hb176-24rs_v4":  true,
+	"standard_hb176-48rs_v4":  true,
+	"standard_hb176-96rs_v4":  true,
+	"standard_hb176-144rs_v4": true,
+	// HPC-series with RDMA (HC)
+	"standard_hc44rs": true,
+}
+
+// IsInfiniBandSKU returns true if the given VM size has InfiniBand/RDMA capability.
+func IsInfiniBandSKU(size string) bool {
+	val, ok := InfiniBandSizes[strings.ToLower(size)]
+	return ok && val
+}

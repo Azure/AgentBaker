@@ -247,6 +247,7 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
   updateAptWithNvidiaPkg
+  updateAptWithMellanoxPkg
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
@@ -529,6 +530,15 @@ while IFS= read -r p; do
   esac
   capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
+
+# Download DOCA OFED packages for InfiniBand-capable nodes
+# These packages are cached on the VHD and installed at provisioning time
+# only when the node has InfiniBand capability
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    downloadDocaOfedPackages "/opt/doca-ofed/downloads"
+    echo "  - doca-ofed packages (cached)" >> ${VHD_LOGS_FILEPATH}
+fi
+capture_benchmark "${SCRIPT_NAME}_download_doca_ofed"
 
 installAndConfigureArtifactStreaming() {
   local downloadURL="$1"
@@ -1082,6 +1092,12 @@ collect_grid_compatibility_data
 # to install extra packages required for the managed gpu experience.
 removeNvidiaRepos
 capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
+
+# mellanox repos are non msft public endpoints and should not be present on VHDs.
+# The installation logic during provisioning time will use the cached deb files
+# to install DOCA OFED packages for InfiniBand-capable nodes.
+removeMellanoxRepos
+capture_benchmark "${SCRIPT_NAME}_remove_mellanox_repos"
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
