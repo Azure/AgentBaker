@@ -31,8 +31,16 @@ source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-[ -f /home/packer/install-ig.sh ] && source /home/packer/install-ig.sh
-[ -f /home/packer/install-node-exporter.sh ] && source /home/packer/install-node-exporter.sh
+INSTALL_IG="false"
+if [ -f /home/packer/install-ig.sh ]; then
+  source /home/packer/install-ig.sh
+  INSTALL_IG="true"
+fi
+INSTALL_NODE_EXPORTER="false"
+if [ -f /home/packer/install-node-exporter.sh ]; then
+  source /home/packer/install-node-exporter.sh
+  INSTALL_NODE_EXPORTER="true"
+fi
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
@@ -446,8 +454,8 @@ while IFS= read -r p; do
       done
       ;;
     "inspektor-gadget")
-      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
-        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+      if [ "${INSTALL_IG}" != "true" ] || isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA}, INSTALL_IG=${INSTALL_IG})"
       else
         ig_version="${PACKAGE_VERSIONS[0]}"
         if isUbuntu "$OS"; then
@@ -514,8 +522,8 @@ while IFS= read -r p; do
     "node-exporter")
       # Skipping is handled by empty versionsV2 arrays in components.json
       # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
-      if [ "${IS_KATA}" = "true" ]; then
-        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
+      if [ "${INSTALL_NODE_EXPORTER}" != "true" ] || [ "${IS_KATA}" = "true" ]; then
+        echo "Skipping node-exporter installation (IS_KATA=${IS_KATA}, INSTALL_NODE_EXPORTER=${INSTALL_NODE_EXPORTER})"
       else
         # Download and install node-exporter-kubernetes at VHD build time.
         # node-exporter is installed on the VHD so CSE only needs to enable+start it.
