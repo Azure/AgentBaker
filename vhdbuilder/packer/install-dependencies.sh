@@ -122,6 +122,15 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+skipCloudInitReadyReport || exit 1
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  install -m 0644 /home/packer/DataSourceAzure.py \
+    /usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py || exit 1
+  python3 -m py_compile /usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py || exit 1
+  rm -f /home/packer/DataSourceAzure.py
+fi
+
 # ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
 # so these must be called separately (mirrored in the Mariner/AzureLinux block below).
 # Other Mariner functions are safe to skip for ACL:

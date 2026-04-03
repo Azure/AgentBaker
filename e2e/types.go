@@ -171,6 +171,11 @@ type Config struct {
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
 	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
 
+	// UseCustomDataOnlyProvisioning switches an AKSNodeConfig scenario to a CustomData-only E2E flow.
+	// It omits the VMSS Custom Script Extension and uses CustomData to run aks-node-controller provision
+	// directly during cloud-init instead.
+	UseCustomDataOnlyProvisioning bool
+
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
