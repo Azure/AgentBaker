@@ -1114,7 +1114,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=test, os=ubuntu, release=24.04",
-                "latestVersion": "2.1.6-ubuntu24.04u1"
+                "latestVersion": "2.3.0~beta.0-ubuntu24.04u1"
               }
             ]
           },
