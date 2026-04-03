@@ -71,10 +71,28 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
+	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped, scriptless), network isolated VHDs, and AzureLinux OSGuard.
 	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+
+		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
+		if s.IsHostsPluginEnabled() {
+			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
+			// This validator triggers aks-hosts-setup.service to run, so it must come before
+			// ValidateAKSHostsSetupService which checks the service result.
+			ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
+			// Validate aks-hosts-setup service ran successfully and timer is active
+			ValidateAKSHostsSetupService(ctx, s)
+			// Restart localdns so it regenerates its corefile with the hosts plugin variant.
+			// On first boot, localdns and aks-hosts-setup start concurrently — localdns often
+			// starts before the hosts file is populated, so it uses the base corefile (no hosts plugin).
+			// Restarting after the hosts file is confirmed populated lets localdns pick the right corefile.
+			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo systemctl restart localdns", 0, "failed to restart localdns")
+			// Validate hosts plugin serves responses authoritatively (AA flag + IP match)
+			ValidateLocalDNSHostsPluginBypass(ctx, s)
+		}
 	}
 
 	ValidateInspektorGadget(ctx, s)

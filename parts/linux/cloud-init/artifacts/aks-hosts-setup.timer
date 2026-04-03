@@ -1,0 +1,16 @@
+[Unit]
+Description=Run AKS hosts setup periodically
+
+[Timer]
+# Run immediately on boot
+OnBootSec=0
+# Refresh every 15 minutes. AKS critical FQDN IPs can change due to load balancer
+# rotation, Traffic Manager failover, or regional DNS updates. 15 minutes balances
+# freshness against unnecessary DNS traffic — stale IPs would cause the hosts plugin
+# to serve unreachable addresses until the next refresh.
+OnUnitActiveSec=15min
+# Timer accuracy (how much systemd can delay)
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

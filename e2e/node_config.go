@@ -293,6 +293,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 					ServeStale:                  "Immediate",
 				},
 			},
+			CriticalFqdns: []string{
+				"mcr.microsoft.com",
+				"login.microsoftonline.com",
+				"acs-mirror.azureedge.net",
+			},
 		},
 		NeedsCgroupv2: to.Ptr(true),
 		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
@@ -528,6 +533,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 									ServeStale:                  "Immediate",
 								},
 							},
+							CriticalFQDNs: []string{
+								"mcr.microsoft.com",
+								"login.microsoftonline.com",
+								"acs-mirror.azureedge.net",
+							},
 						},
 					},
 				},
@@ -676,6 +686,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
 						ServeStale:                  "Immediate",
 					},
+				},
+				CriticalFQDNs: []string{
+					"mcr.microsoft.com",
+					"login.microsoftonline.com",
+					"acs-mirror.azureedge.net",
 				},
 			},
 		},

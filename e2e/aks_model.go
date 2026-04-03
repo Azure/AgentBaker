@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -856,6 +858,12 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 }
 
 func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
+	return createPrivateZoneWithTags(ctx, nodeResourceGroup, privateZoneName, map[string]*string{
+		"e2e-test": to.Ptr("true"),
+	})
+}
+
+func createPrivateZoneWithTags(ctx context.Context, nodeResourceGroup, privateZoneName string, tags map[string]*string) (*armprivatedns.PrivateZone, error) {
 	pzResp, err := config.Azure.PrivateZonesClient.Get(
 		ctx,
 		nodeResourceGroup,
@@ -867,6 +875,7 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 	}
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
+		Tags:     tags,
 	}
 	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
 		ctx,
@@ -888,7 +897,10 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 }
 
 func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
-	networkLinkName := "link-ABE2ETests"
+	return createPrivateDNSLinkWithName(ctx, vnet, nodeResourceGroup, privateZoneName, "link-ABE2ETests")
+}
+
+func createPrivateDNSLinkWithName(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName, networkLinkName string) error {
 	_, err := config.Azure.VirutalNetworkLinksClient.Get(
 		ctx,
 		nodeResourceGroup,
@@ -972,6 +984,89 @@ func addRecordSetToPrivateDNSZone(ctx context.Context, privateEndpoint *armnetwo
 	}
 
 	toolkit.Logf(ctx, "Record Set created or updated")
+	return nil
+}
+
+// cleanupPrivateDNSZone deletes a Private DNS zone (best effort cleanup for tests)
+func cleanupPrivateDNSZone(ctx context.Context, resourceGroup, zoneName string) {
+	// Create a new context with timeout for cleanup
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+
+	toolkit.Logf(cleanupCtx, "Deleting Private DNS zone %s in resource group %s", zoneName, resourceGroup)
+
+	// First, delete all VNET links (required before zone deletion)
+	linkPager := config.Azure.VirutalNetworkLinksClient.NewListPager(resourceGroup, zoneName, nil)
+	for linkPager.More() {
+		linkPage, err := linkPager.NextPage(cleanupCtx)
+		if err != nil {
+			toolkit.Logf(cleanupCtx, "Failed to list VNET links for zone %s: %v", zoneName, err)
+			break
+		}
+
+		for _, link := range linkPage.Value {
+			if link == nil || link.Name == nil {
+				continue
+			}
+
+			toolkit.Logf(cleanupCtx, "Deleting VNET link %s from zone %s...", *link.Name, zoneName)
+			linkPoller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, *link.Name, nil)
+			if err != nil {
+				toolkit.Logf(cleanupCtx, "Failed to start deletion of VNET link %s: %v", *link.Name, err)
+				continue
+			}
+
+			_, err = linkPoller.PollUntilDone(cleanupCtx, nil)
+			if err != nil {
+				toolkit.Logf(cleanupCtx, "Failed to delete VNET link %s: %v", *link.Name, err)
+				continue
+			}
+			toolkit.Logf(cleanupCtx, "Deleted VNET link %s", *link.Name)
+		}
+	}
+
+	// Now delete the Private DNS zone itself
+	poller, err := config.Azure.PrivateZonesClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, nil)
+	if err != nil {
+		toolkit.Logf(cleanupCtx, "Failed to start deletion of Private DNS zone %s: %v", zoneName, err)
+		return
+	}
+
+	_, err = poller.PollUntilDone(cleanupCtx, nil)
+	if err != nil {
+		toolkit.Logf(cleanupCtx, "Failed to complete deletion of Private DNS zone %s: %v", zoneName, err)
+		return
+	}
+
+	toolkit.Logf(cleanupCtx, "Successfully deleted Private DNS zone %s", zoneName)
+}
+
+// deletePrivateDNSVNETLink deletes a specific VNET link from a Private DNS zone.
+// This is used to clean up individual test resources without affecting other parallel tests.
+func deletePrivateDNSVNETLink(ctx context.Context, resourceGroup, zoneName, linkName string) error {
+	// Create a new context with timeout for cleanup
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
+
+	toolkit.Logf(cleanupCtx, "Deleting VNET link %s from Private DNS zone %s in resource group %s", linkName, zoneName, resourceGroup)
+
+	linkPoller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(cleanupCtx, resourceGroup, zoneName, linkName, nil)
+	if err != nil {
+		// If the link doesn't exist, that's fine (already cleaned up or never created)
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
+			toolkit.Logf(cleanupCtx, "VNET link %s not found (already deleted or never existed)", linkName)
+			return nil
+		}
+		return fmt.Errorf("failed to start deletion of VNET link %s: %w", linkName, err)
+	}
+
+	_, err = linkPoller.PollUntilDone(cleanupCtx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to complete deletion of VNET link %s: %w", linkName, err)
+	}
+
+	toolkit.Logf(cleanupCtx, "Successfully deleted VNET link %s from zone %s", linkName, zoneName)
 	return nil
 }
 

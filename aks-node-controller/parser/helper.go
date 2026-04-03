@@ -719,11 +719,19 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 	}
 }
 
-// getLocalDnsCorefileBase64 returns the base64 encoded LocalDns corefile.
-// base64 encoded corefile returned from this function will decoded and written
-// to /opt/azure/containers/localdns/localdns.corefile in cse_config.sh
-// and then used by localdns systemd unit to start localdns systemd unit.
-func getLocalDnsCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// getLocalDnsCorefileBase64WithHostsPlugin generates and returns the base64-encoded LocalDns corefile
+// with or without the hosts plugin, depending on the includeHostsPlugin parameter.
+//
+// The generated content is returned as a base64-encoded string and stored in environment variables:
+//   - LOCALDNS_GENERATED_COREFILE (kept for backward compat with old VHDs)
+//   - LOCALDNS_COREFILE_BASE (standard, without experimental plugins)
+//   - LOCALDNS_COREFILE_EXPERIMENTAL (with experimental plugins e.g. hosts plugin)
+//
+// The actual file writing happens in shell scripts (cse_config.sh), which decode and write
+// a selected variant to /opt/azure/containers/localdns/localdns.corefile after populating the env file.
+// Runtime selection between LOCALDNS_COREFILE_BASE and LOCALDNS_COREFILE_EXPERIMENTAL happens in localdns.sh
+// (via select_localdns_corefile(), invoked on localdns service start/restart) based on the availability of /etc/localdns/hosts.
+func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
@@ -737,17 +745,33 @@ func getLocalDnsCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 		return ""
 	}
 
-	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig)
+	variant := "with hosts plugin"
+	if !includeHostsPlugin {
+		variant = "without hosts plugin"
+	}
+
+	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, includeHostsPlugin)
 	if err != nil {
-		return fmt.Sprintf("error getting localdns corfile from aks node config: %v", err)
+		return fmt.Sprintf("error getting localdns corefile (%s) from aks node config: %v", variant, err)
 	}
 	return base64.StdEncoding.EncodeToString([]byte(localDnsConfig))
 }
 
+// localDnsCorefileTemplateData wraps the AKS node config with additional template control flags.
+type localDnsCorefileTemplateData struct {
+	Config             *aksnodeconfigv1.Configuration
+	IncludeHostsPlugin bool
+}
+
 // Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
-func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+// includeHostsPlugin controls whether the hosts plugin block is included in the generated Corefile.
+func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
 	var corefileBuffer bytes.Buffer
-	if err := localDnsCorefileTemplate.Execute(&corefileBuffer, aksnodeconfig); err != nil {
+	templateData := localDnsCorefileTemplateData{
+		Config:             aksnodeconfig,
+		IncludeHostsPlugin: includeHostsPlugin,
+	}
+	if err := localDnsCorefileTemplate.Execute(&corefileBuffer, templateData); err != nil {
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 	return corefileBuffer.String(), nil
@@ -785,6 +809,13 @@ func shouldEnableLocalDns(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return fmt.Sprintf("%v", aksnodeconfig != nil && aksnodeconfig.GetLocalDnsProfile() != nil && aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns())
 }
 
+// shouldEnableHostsPlugin returns true if LocalDNS is enabled and the hosts plugin
+// is explicitly enabled. When true, the localdns Corefile will include a hosts plugin
+// block that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
+func shouldEnableHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	return fmt.Sprintf("%v", shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetEnableHostsPlugin())
+}
+
 // getLocalDnsCpuLimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
 func getLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetCpuLimitInMilliCores() != 0 {
@@ -801,6 +832,13 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 		return fmt.Sprintf("%dM", aksnodeconfig.GetLocalDnsProfile().GetMemoryLimitInMb())
 	}
 	return defaultLocalDnsMemoryLimitInMb
+}
+
+// getLocalDnsCriticalFqdns returns the comma-separated list of critical FQDNs
+// from the LocalDnsProfile. These FQDNs are passed from the RP so the hosts
+// setup script doesn't need cloud-specific logic.
+func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
+	return getStringifiedStringArray(config.GetLocalDnsProfile().GetCriticalFqdns(), ",")
 }
 
 // ---------------------- End of localdns related helper code ----------------------//
