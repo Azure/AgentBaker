@@ -12,7 +12,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -147,53 +147,92 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
 	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
-	var node *corev1.Node = nil
-	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "failed to start watching nodes")
-	defer watcher.Stop()
+	var node *corev1.Node
 
-	for event := range watcher.ResultChan() {
-		if event.Type != watch.Added && event.Type != watch.Modified {
+	for {
+		if ctx.Err() != nil {
+			break
+		}
+
+		// List existing nodes first to catch any that appeared while we weren't watching,
+		// and use the list's resource version to start the watch without missing events.
+		nodeList, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("failed to list nodes: %v, retrying...", err)
+			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		var nodeFromEvent *corev1.Node
-		switch v := event.Object.(type) {
-		case *corev1.Node:
-			nodeFromEvent = v
-
-		default:
-			t.Logf("skipping object type %T", event.Object)
-			continue
-		}
-
-		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
-			continue
-		}
-
-		// found the right node. Use it!
-		node = nodeFromEvent
-		nodeTaints, _ := json.Marshal(node.Spec.Taints)
-		nodeConditions, _ := json.Marshal(node.Status.Conditions)
-
-		for _, cond := range node.Status.Conditions {
-			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-				return node.Name
+		for i := range nodeList.Items {
+			n := &nodeList.Items[i]
+			if !strings.HasPrefix(n.Name, vmssName) {
+				continue
+			}
+			node = n
+			if name, ready := checkNodeReady(t, node); ready {
+				return name
 			}
 		}
 
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+		watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{
+			ResourceVersion: nodeList.ResourceVersion,
+		})
+		if err != nil {
+			t.Logf("failed to start watching nodes: %v, retrying...", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		for event := range watcher.ResultChan() {
+			if event.Type != watch.Added && event.Type != watch.Modified {
+				continue
+			}
+
+			nodeFromEvent, ok := event.Object.(*corev1.Node)
+			if !ok {
+				t.Logf("skipping object type %T", event.Object)
+				continue
+			}
+
+			if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
+				continue
+			}
+
+			node = nodeFromEvent
+			if name, ready := checkNodeReady(t, node); ready {
+				watcher.Stop()
+				return name
+			}
+		}
+
+		watcher.Stop()
+		t.Logf("watch for node %q closed, re-establishing...", vmssName)
 	}
 
 	if node == nil {
-		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
+		t.Fatalf("%q never appeared in k8s API server", vmssName)
 		return ""
 	}
 
 	nodeString, _ := json.Marshal(node)
-	t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, node.Name, node.Status, string(nodeString))
+	t.Fatalf("failed to wait for %q (%s) to be ready: %s", vmssName, node.Name, string(nodeString))
 	return node.Name
+}
+
+// checkNodeReady logs the node's status and returns (nodeName, true) if the node is ready.
+func checkNodeReady(t testing.TB, node *corev1.Node) (string, bool) {
+	nodeTaints, _ := json.Marshal(node.Spec.Taints)
+	nodeConditions, _ := json.Marshal(node.Status.Conditions)
+
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+			t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+			return node.Name, true
+		}
+	}
+
+	t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+	return "", false
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
