@@ -526,8 +526,8 @@ copyPackerFiles() {
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 
   # Copy the post-deprovision WALinuxAgent install script and its Python helper
-  # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
-  if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
+  # Skip for Flatcar, ACL, and GB200, which do not manually install WALinuxAgent
+  if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "GB200" <<< "$FEATURE_FLAGS"; }; then
     cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 755
     cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
   fi
