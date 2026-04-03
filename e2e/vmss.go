@@ -286,7 +286,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		// GalleryImageNotFound can happen transiently after image replication completes
 		// due to Azure eventual consistency - the gallery API reports success but the
 		// compute fabric in the target region hasn't fully propagated the image yet
-		if respErr.ErrorCode == "GalleryImageNotFound" {
+		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
 			return true
 		}
 		return false
