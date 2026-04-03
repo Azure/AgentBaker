@@ -333,8 +333,8 @@ copyPackerFiles() {
   IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
-  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for Mariner, OSGuard, Flatcar, ACL, Kata, and GB200
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || grep -q "GB200" <<< "$FEATURE_FLAGS"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
@@ -353,8 +353,8 @@ copyPackerFiles() {
   NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
   NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
 
-  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+  # Skip for OSGuard, Flatcar, ACL, Kata, Mariner, and GB200 (only AzureLinux 3.0 gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS" || grep -q "GB200" <<< "$FEATURE_FLAGS"; }; then
     cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
     cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
