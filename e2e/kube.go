@@ -149,10 +149,13 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssN
 	var lastSeenNode *corev1.Node
 	var nodeName string
 
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 90*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		nodes, listErr := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if listErr != nil {
 			t.Logf("failed to list nodes: %v", listErr)
+			if errorsk8s.IsForbidden(listErr) || errorsk8s.IsUnauthorized(listErr) {
+				return false, listErr
+			}
 			return false, nil
 		}
 
