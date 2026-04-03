@@ -1129,6 +1129,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUNeedsFabricManager": func() bool {
 			return GPUNeedsFabricManager(profile.VMSize)
 		},
+		"NeedsInfiniBand": func() bool {
+			return datamodel.IsInfiniBandSKU(profile.VMSize)
+		},
 		"GPUDriverVersion": func() string {
 			return GetGPUDriverVersion(profile.VMSize)
 		},

@@ -753,6 +753,14 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+should_skip_doca_ofed() {
+    set -x
+    # Case-insensitive match for both tag name and value
+    local should_skip
+    should_skip=$(get_imds_vm_tag_value "SkipDocaOfedInstall")
+    echo "$should_skip"
+}
+
 should_disable_kubelet_serving_certificate_rotation() {
     set -x
     local should_disable
