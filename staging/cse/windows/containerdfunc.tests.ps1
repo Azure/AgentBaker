@@ -36,8 +36,9 @@ BeforeAll {
   }
 
   . $PSScriptRoot\containerdfunc.ps1
+  . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
+  . $PSScriptRoot\networkisolatedclusterfunc.ps1
   . $PSCommandPath.Replace('.tests.ps1', '.ps1')
-  # . $PSScriptRoot\..\..\parts\windows\windowscsehelper.ps1
 }
 
 Describe "ProcessAndWriteContainerdConfig" {
@@ -354,5 +355,172 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
   AfterEach {
     $global:BootstrapProfileContainerRegistryServer = $null
     $global:MCRRepositoryBase = $null
+  }
+}
+
+Describe 'Install-Containerd' {
+  BeforeEach {
+    Mock Logs-To-Event
+    Mock Get-Service -MockWith { $null }
+    Mock Create-Directory
+    Mock Add-SystemPathEntry
+    Mock ProcessAndWriteContainerdConfig
+    Mock RegisterContainerDService
+    Mock Enable-Logging
+    Mock Remove-Item
+    Mock Move-Item
+
+    $global:ContainerdInstallLocation = [Io.path]::Combine($ENV:TEMP, "containerd")
+    $global:BootstrapProfileContainerRegistryServer = $null
+  }
+
+  Context 'BootstrapProfileContainerRegistryServer is set - downloads with ORAS' {
+    BeforeEach {
+      Mock DownloadFileWithOras -MockWith {}
+      Mock tar -MockWith { $global:LASTEXITCODE = 0 }
+
+      # Mock containerd.exe version check - Push/Pop-Location are mocked to prevent
+      # directory changes, and Set-ExitCode is mocked so that the catch block in
+      # Install-Containerd (when .\containerd.exe -v fails) does not terminate the test.
+      Mock Push-Location
+      Mock Pop-Location
+      Mock Set-ExitCode
+
+      $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+    }
+
+    AfterEach {
+      $global:BootstrapProfileContainerRegistryServer = $null
+    }
+
+    It "Should not call DownloadFileOverHttp when BootstrapProfileContainerRegistryServer is set" {
+      Mock DownloadFileOverHttp
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 0
+    }
+
+    It "Should call DownloadFileWithOras with correct reference when BootstrapProfileContainerRegistryServer is set" {
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
+        $Reference -eq 'myregistry.azurecr.io/aks/packages/containerd/containerd:v1.7.20' -and
+        $DestinationPath -like '*containerd.tar.gz'
+      }
+    }
+
+    It "Should call Logs-To-Event with ORAS task name when BootstrapProfileContainerRegistryServer is set" {
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'Logs-To-Event' -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.DownloadContainerdWithOras' }
+    }
+
+    It "Should extract correct version tag for containerd 2.x" {
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
+        $Reference -eq 'myregistry.azurecr.io/aks/packages/containerd/containerd:v2.0.4'
+      }
+    }
+
+    It "Should strip https:// scheme from BootstrapProfileContainerRegistryServer in ORAS reference" {
+      $global:BootstrapProfileContainerRegistryServer = "https://myregistry.azurecr.io"
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
+        $Reference -eq 'myregistry.azurecr.io/aks/packages/containerd/containerd:v1.7.20'
+      }
+    }
+
+    It "Should strip http:// scheme and trailing slash from BootstrapProfileContainerRegistryServer in ORAS reference" {
+      $global:BootstrapProfileContainerRegistryServer = "http://myregistry.azurecr.io/"
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
+        $Reference -eq 'myregistry.azurecr.io/aks/packages/containerd/containerd:v1.7.20'
+      }
+    }
+
+    It "Should preserve repo prefix in BootstrapProfileContainerRegistryServer when constructing ORAS reference" {
+      $global:BootstrapProfileContainerRegistryServer = "https://myregistry.azurecr.io/some/prefix/"
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
+        $Reference -eq 'myregistry.azurecr.io/some/prefix/aks/packages/containerd/containerd:v1.7.20'
+      }
+    }
+
+    It "Should call Set-ExitCode after exhausting retries when DownloadFileWithOras keeps failing" {
+      Mock DownloadFileWithOras -MockWith { throw "oras pull failed" }
+      Mock Start-Sleep -MockWith {}
+      Mock Set-ExitCode -MockWith {
+        Param($ExitCode, $ErrorMessage)
+        throw "Set-ExitCode: $ExitCode - $ErrorMessage"
+      }
+
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      { Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir" } | Should -Throw "*Exhausted retries for oras pull*"
+      Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 5
+    }
+  }
+
+  Context 'BootstrapProfileContainerRegistryServer is set but DownloadFileWithOras is not available' {
+    BeforeEach {
+      Mock Set-ExitCode -MockWith {
+        Param($ExitCode, $ErrorMessage)
+        throw "Set-ExitCode: $ExitCode - $ErrorMessage"
+      }
+      Mock Get-Command -MockWith { return $null } -ParameterFilter { $Name -eq 'DownloadFileWithOras' }
+
+      $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+    }
+
+    AfterEach {
+      $global:BootstrapProfileContainerRegistryServer = $null
+    }
+
+    It "Should call Set-ExitCode when DownloadFileWithOras function is not available" {
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      { Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir" } | Should -Throw "*DownloadFileWithOras function is not available*"
+    }
+  }
+
+  Context 'BootstrapProfileContainerRegistryServer is set but URL does not match expected pattern' {
+    BeforeEach {
+      Mock Set-ExitCode -MockWith {
+        Param($ExitCode, $ErrorMessage)
+        throw "Set-ExitCode: $ExitCode - $ErrorMessage"
+      }
+
+      $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+    }
+
+    AfterEach {
+      $global:BootstrapProfileContainerRegistryServer = $null
+    }
+
+    It "Should call Set-ExitCode when URL does not contain expected containerd version pattern" {
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/some-unknown-format.tar.gz"
+      { Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir" } | Should -Throw "*Failed to extract containerd version tag from URL*"
+    }
+  }
+
+  Context 'BootstrapProfileContainerRegistryServer is not set - falls back to HTTP download' {
+    BeforeEach {
+      $global:BootstrapProfileContainerRegistryServer = $null
+      Mock DownloadFileOverHttp
+      Mock tar -MockWith { $global:LASTEXITCODE = 0 }
+      Mock Push-Location
+      Mock Pop-Location
+      Mock Set-ExitCode
+    }
+
+    It "Should call DownloadFileOverHttp when BootstrapProfileContainerRegistryServer is not set" {
+      $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+      Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+      Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter {
+        $Url -eq $containerdUrl
+      }
+    }
   }
 }
