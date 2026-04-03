@@ -1122,7 +1122,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.30-ubuntu22.04u2"
+                "latestVersion": "2.2.2-ubuntu22.04u1"
               }
             ]
           },
@@ -1130,7 +1130,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.30-ubuntu20.04u2"
+                "latestVersion": "2.2.2-ubuntu20.04u1"
               }
             ]
           }
