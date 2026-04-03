@@ -22,7 +22,7 @@ Describe 'long running cse helper functions'
             "retrycmd_if_failure" 1 1 1 1 sleep 5
             "retrycmd_silent"   1 1 1 1 sleep 5
             "_retrycmd_internal"    1 1 1 1 false sleep
-            "retrycmd_get_tarball"  1 1 1 "/tmp/nonexistent.tar" "https://dummy.url/file.tar"
+            "retrycmd_get_tarball"  1 1 1 1 "/tmp/nonexistent.tar" "https://dummy.url/file.tar"
             "retrycmd_get_tarball_from_registry_with_oras"   1 3 1 "/tmp/nonexistent.tar" "dummy.registry/binary:v1"
             "systemctl_restart" 1 1 1 1 "nonexistent.service"
             "systemctl_stop"    1 1 1 1 "nonexistent.service"
@@ -113,6 +113,22 @@ Describe 'long running cse helper functions'
                 The stdout should eq ""
                 The stderr should eq ""
             End
+            It "returns 2 before running the command when CSE timeout is already exceeded"
+                # Simulate CSE started 800 seconds ago (past the 780s limit)
+                CSE_STARTTIME_SECONDS=$(( $(date +%s) - 800 ))
+                # Track whether the actual command ran
+                command_ran=false
+                run_sentinel() {
+                    command_ran=true
+                }
+                export -f run_sentinel
+                # shouldLog=true so the CSE timeout message is emitted
+                When call _retrycmd_internal 3 1 5 "true" run_sentinel
+                The status should eq 2
+                The stderr should include "CSE timeout approaching, exiting early"
+                # The command must not have been invoked at all
+                Assert test "$command_ran" = "false"
+            End
         End
 
         Describe 'file curl'
@@ -122,7 +138,7 @@ Describe 'long running cse helper functions'
                         echo "curl mock failure"
                         return 1
                     }
-                    When call retrycmd_get_tarball 2 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    When call retrycmd_get_tarball 2 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
                     The status should eq 1
                     The stdout should include "2 file curl retries"
                     The stdout should include "curl mock failure"
@@ -131,7 +147,7 @@ Describe 'long running cse helper functions'
                     mkdir -p /tmp/test_tarball
                     echo "test content" > /tmp/test_tarball/testfile
                     tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball testfile
-                    When call retrycmd_get_tarball 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    When call retrycmd_get_tarball 1 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
                     rm -r /tmp/test_tarball
                     The status should eq 0
                     The stdout should include "1 file curl retries"
@@ -140,11 +156,30 @@ Describe 'long running cse helper functions'
                     CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
                     CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                     mkdir -p /tmp/test_tarball
-                    When call retrycmd_get_tarball 2 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    When call retrycmd_get_tarball 2 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
                     rm -r /tmp/test_tarball
                     The status should eq 2
                     The stdout should include "2 file curl retries"
                     The stderr should include "CSE timeout approaching, exiting early"
+                End
+                It "get_tarball (old 4-arg signature) returns 1 if tar curl fails and retries are exhausted"
+                    timeout() {
+                        echo "curl mock failure"
+                        return 1
+                    }
+                    When call retrycmd_get_tarball 2 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    The status should eq 1
+                    The stdout should include "2 file curl retries"
+                    The stdout should include "curl mock failure"
+                End
+                It "get_tarball (old 4-arg signature) returns 0 if curl tar succeeds"
+                    mkdir -p /tmp/test_tarball
+                    echo "test content" > /tmp/test_tarball/testfile
+                    tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball testfile
+                    When call retrycmd_get_tarball 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                    rm -r /tmp/test_tarball
+                    The status should eq 0
+                    The stdout should include "1 file curl retries"
                 End
             End
             Describe 'retrycmd_curl_file'
@@ -180,25 +215,25 @@ Describe 'long running cse helper functions'
                         echo "curl mock timeout" >> $CURL_OUTPUT
                         return 124
                     }
-                    When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
+                    When call _retry_file_curl_internal 2 1 1 0 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
                     The status should eq 1
                     The stdout should include "2 file curl retries"
                 End
                 It "returns 0 if checksToRun succeed"
-                    When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 0 && echo working"
+                    When call _retry_file_curl_internal 1 1 1 0 "/tmp/nonexistent" "https://dummy.url/file" "return 0 && echo working"
                     The status should eq 0
                     The stdout should eq "1 file curl retries"
                 End
                 It "returns 0 if checksToRun is unset"
                     # checksToRun arg is unset
-                    When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
+                    When call _retry_file_curl_internal 1 1 1 0 "/tmp/nonexistent" "https://dummy.url/file"
                     The status should eq 0
                     The stdout should eq "1 file curl retries"
                 End
                 It "returns 2 if checksToRun fail and global cse timeout is reached"
                     CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
                     CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
-                    When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 3"
+                    When call _retry_file_curl_internal 2 1 1 0 "/tmp/nonexistent" "https://dummy.url/file" "return 3"
                     The status should eq 2
                     The stdout should be defined
                     The stderr should include "Error: CSE has been running for"
@@ -211,9 +246,28 @@ Describe 'long running cse helper functions'
                         echo "curl mock timeout" >> $CURL_OUTPUT
                         return 124
                     }
-                    When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
+                    When call _retry_file_curl_internal 2 1 1 0 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
                     The status should eq 1
                     The stdout should include "curl mock timeout"
+                End
+                It "returns 2 and logs message when per-operation budget is exceeded"
+                    # Mock date so the first call (opStartTime) returns 0 and all subsequent
+                    # calls return a value far in the future, simulating elapsed > budget.
+                    _spec_date_first_call=true
+                    date() {
+                        if [ "$_spec_date_first_call" = "true" ]; then
+                            _spec_date_first_call=false
+                            echo "0"
+                        else
+                            echo "9999"
+                        fi
+                    }
+                    export -f date
+                    # budget=10s; mocked elapsed will be 9999-0=9999 >= 10 after first fail
+                    When call _retry_file_curl_internal 5 0 1 10 "/tmp/nonexistent" "https://dummy.url/file" "return 1"
+                    The status should eq 2
+                    The stdout should include "5 file curl retries"
+                    The stderr should include "Operation budget of 10s exceeded"
                 End
             End
         End
