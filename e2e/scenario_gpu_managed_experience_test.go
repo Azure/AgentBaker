@@ -681,7 +681,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
