@@ -163,7 +163,8 @@ function create_windows_storage_account() {
 			--sku "Standard_RAGRS" \
 			--tags "now=${CREATE_TIME}" \
 			--allow-shared-key-access false \
-			--location ""${AZURE_LOCATION}""
+			--min-tls-version TLS1_2 \
+			--location "${AZURE_LOCATION}"
 		echo "creating new container system"
 		az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
 	else
