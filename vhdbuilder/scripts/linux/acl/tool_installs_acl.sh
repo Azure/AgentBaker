@@ -32,6 +32,9 @@ disableNtpAndTimesyncdInstallChrony() {
 # Move unit files out of systemd's search path to prevent first-boot preset-all
 # from auto-enabling them. CSE restores them before selectively enabling.
 deferFirstBootPresetServices() {
+    systemctl stop docker.socket || true
+    systemctl mask docker.socket || true
+
     local defer_dir="/opt/azure/containers/deferred-units"
     mkdir -p "${defer_dir}"
     for svc in kms.service mig-partition.service localdns.service secure-tls-bootstrap.service; do
