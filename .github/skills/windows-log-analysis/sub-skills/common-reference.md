@@ -323,7 +323,7 @@ This table maps log file patterns to the sub-skill(s) that analyze them. Use it 
 | `kubelet.log` / `kubelet.err.log` | analyze-kubelet, analyze-csi, analyze-gpu |
 | `kubeproxy.log` / `kubeproxy.err.log` | analyze-kubeproxy |
 | `csi-proxy.log` / `csi-proxy.err.log` | analyze-csi |
-| `containerd.err-*.log` | analyze-termination, analyze-images |
+| `containerd.err.log` / `containerd.err-*.log` | analyze-termination, analyze-images |
 | `*nvidia-smi*` | analyze-gpu |
 | `excludedportrange.txt` | analyze-kubeproxy |
 | `reservedports.txt` | analyze-kubeproxy |
