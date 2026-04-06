@@ -246,22 +246,38 @@ downloadDocaOfedPackages() {
     local downloadDir="${1:-/opt/doca-ofed/downloads}"
     mkdir -p "${downloadDir}"
 
-    # Use apt-cache to resolve the full dependency tree of doca-ofed,
-    # then download all packages as .deb files for air-gapped installation at CSE time
+    # Use apt-cache to resolve the full dependency tree of doca-basic,
+    # then download all packages as .deb files for air-gapped installation at CSE time.
+    # doca-basic provides the core RDMA/InfiniBand stack (rdma-core, libibverbs,
+    # librdmacm, infiniband-diags, mlnx-ofed-kernel-dkms, etc.) without the
+    # heavyweight extras in doca-ofed (openmpi, ibutils2, sharp, ucx, opensm).
     local pkg_list
     pkg_list=$(apt-cache depends --recurse --no-recommends --no-suggests \
         --no-conflicts --no-breaks --no-replaces --no-enhances \
-        doca-ofed 2>/dev/null | grep "^\w" | sort -u)
+        doca-basic 2>/dev/null | grep "^\w" | sort -u)
+
+    # DKMS kernel module compilation (mlnx-ofed-kernel-dkms postinstall) requires
+    # build dependencies that are NOT in doca-basic's dependency tree. Resolve and
+    # include their transitive dependencies so the install is fully air-gapped.
+    local dkms_build_deps="libelf-dev libssl-dev flex bison"
+    local extra_pkg_list
+    extra_pkg_list=$(apt-cache depends --recurse --no-recommends --no-suggests \
+        --no-conflicts --no-breaks --no-replaces --no-enhances \
+        ${dkms_build_deps} 2>/dev/null | grep "^\w" | sort -u)
+
+    # Merge both lists, deduplicate, and download
+    local all_pkgs
+    all_pkgs=$(echo -e "${pkg_list}\n${extra_pkg_list}" | sort -u)
 
     pushd "${downloadDir}" >/dev/null || exit
-    for pkg in ${pkg_list}; do
+    for pkg in ${all_pkgs}; do
         apt-get download "${pkg}" 2>/dev/null || true
     done
-    # Also download doca-ofed meta-package itself
-    apt-get download doca-ofed 2>/dev/null || exit $ERR_APT_INSTALL_TIMEOUT
+    # Also download doca-basic meta-package itself
+    apt-get download doca-basic 2>/dev/null || exit $ERR_APT_INSTALL_TIMEOUT
     popd >/dev/null || exit
 
-    echo "Downloaded doca-ofed packages to ${downloadDir}"
+    echo "Downloaded doca-basic packages to ${downloadDir}"
     echo "Total packages: $(find "${downloadDir}" -maxdepth 1 -name '*.deb' 2>/dev/null | wc -l)"
 }
 
