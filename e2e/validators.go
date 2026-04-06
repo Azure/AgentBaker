@@ -1526,15 +1526,19 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
 
-	// Validate that node-exporter is listening on port 19100 and serving metrics.
+	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
 	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
 	// so we validate by making a plain HTTP request to the metrics endpoint.
+	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
+	// are visible in test logs rather than silently swallowed.
+	// We curl the node's private IP directly rather than discovering the listen address from ss,
+	// so we validate that the metrics endpoint is reachable on the actual node IP used by monitoring infrastructure.
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		// Extract the listen address from ss, replacing wildcard '*' or '0.0.0.0' with localhost.
-		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1 | sed 's/^\\*/127.0.0.1/; s/^0\\.0\\.0\\.0/127.0.0.1/')",
-		"curl -sf http://${LISTEN_ADDR}/metrics | grep -q 'node_'",
+		fmt.Sprintf("echo \"node IP: %s\"", s.Runtime.VM.PrivateIP),
+		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | head -20", s.Runtime.VM.PrivateIP),
+		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", s.Runtime.VM.PrivateIP),
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
@@ -2147,4 +2151,26 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	}
 
 	s.T.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+}
+
+// ValidateCollectWindowsLogsScript runs c:\k\debug\collect-windows-logs.ps1 on the node
+// and verifies that a zip archive was produced by the script.
+func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		"cd c:/",
+		"mkdir logs-for-test",
+		"cd logs-for-test",
+		"$startTime = Get-Date",
+		"Remove-Item \"*_logs.zip\" -ErrorAction SilentlyContinue",
+		"$ErrorActionPreference = \"SilentlyContinue\"",
+		"& c:\\k\\debug\\collect-windows-logs.ps1",
+		"$ErrorActionPreference = \"Stop\"",
+		"$zipFile = Get-ChildItem -Filter \"*_logs.zip\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
+		"if (-not $zipFile) { throw \"collect-windows-logs.ps1 did not create a zip file\" }",
+		"Write-Host \"Zip file created: $($zipFile.FullName) (Size: $($zipFile.Length) bytes)\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
