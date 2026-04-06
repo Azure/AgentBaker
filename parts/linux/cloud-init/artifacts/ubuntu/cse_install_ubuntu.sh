@@ -219,9 +219,9 @@ updateAptWithMellanoxPkg() {
         return
     fi
 
-    # Download GPG key
+    # Download GPG key from the repo-specific path
     retrycmd_curl_file 120 5 25 "${mellanox_gpg_keyring_path}" \
-        "https://linux.mellanox.com/public/keys/GPG-KEY-Mellanox.pub" \
+        "https://linux.mellanox.com/public/repo/doca/latest/${mellanox_ubuntu_version}/${repo_arch}/GPG-KEY-Mellanox.pub" \
         || exit $ERR_APT_UPDATE_TIMEOUT
 
     # Add repo - use latest DOCA repo
