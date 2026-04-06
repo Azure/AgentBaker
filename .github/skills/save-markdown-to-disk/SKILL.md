@@ -39,6 +39,6 @@ UNIQUE_DELIMITER
 If you don't have the create tool available, you can write base64 encoded content to avoid shell escaping issues. However, due to the issues mentioned above, you must base64 encode the content in the HEREDOC and decode it when writing to the file. You must base64 encode the content yourself - do not rely on external tools. Here's how you extract the base64 content and write it to a file:
 
 ```bash
-# Base64 encode the markdown content and write it to a file
-echo "<your_base64_encoded_content_here>" | base64 --decode encoded_content.txt > final_markdown.md
+# Base64 decode the markdown content and write it to a file
+echo "<your_base64_encoded_content_here>" | base64 --decode > final_markdown.md
 ```
