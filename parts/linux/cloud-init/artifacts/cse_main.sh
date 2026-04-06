@@ -401,13 +401,21 @@ function nodePrep {
             # because changing the MIG mode bit in the infoROM needs a platform-level
             # reset on Azure. Hopper and newer (SM >= 9.0, e.g. H100/H200) support
             # dynamic MIG mode changes — nvidia-smi -mig 1 takes effect immediately.
-            gpu_compute_cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1)
+            gpu_compute_cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | xargs)
             # Strip the dot for integer comparison (e.g. "8.0" -> "80", "9.0" -> "90").
             gpu_compute_cap_int=$(echo "${gpu_compute_cap}" | tr -d '.')
-            if [ -z "${gpu_compute_cap_int}" ] || [ "${gpu_compute_cap_int}" -lt 90 ]; then
-                # Ampere or older, or if detection failed (safe default: reboot).
-                REBOOTREQUIRED=true
-            fi
+            case "${gpu_compute_cap_int}" in
+                ""|*[!0-9]*)
+                    echo "Unable to determine GPU compute capability from nvidia-smi output: '${gpu_compute_cap}'"
+                    REBOOTREQUIRED=true
+                    ;;
+                *)
+                    if [ "${gpu_compute_cap_int}" -lt 90 ]; then
+                        # Ampere or older requires a reboot.
+                        REBOOTREQUIRED=true
+                    fi
+                    ;;
+            esac
 
             # this service applies the partitioning scheme with nvidia-smi.
             # we should consider moving to mig-parted which is simpler/newer.
