@@ -1218,6 +1218,49 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_ArtifactStreaming(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new azure linux v3 node using artifact streaming can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_ArtifactStreaming_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new azure linux v3 node using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
