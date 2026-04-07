@@ -1541,6 +1541,45 @@ testdomain456.com:53 {
     }
 }`
 
+// normalizeCorefileString normalizes a corefile string for comparison by collapsing
+// blank lines and whitespace runs.
+func normalizeCorefileString(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.TrimSpace(s)
+	s = regexp.MustCompile(`\n\s*\n+`).ReplaceAllString(s, "\n")
+	s = regexp.MustCompile(`[ \t]+`).ReplaceAllString(s, " ")
+	return s
+}
+
+// assertCorefileBase64Contains decodes a base64 corefile and checks it contains (or does not contain) the expected substrings.
+func assertCorefileBase64Contains(t *testing.T, got, wantContains, wantNotContains string) {
+	t.Helper()
+	if wantContains == "" && wantNotContains == "" {
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+		return
+	}
+	if wantContains != "" {
+		decoded, err := base64.StdEncoding.DecodeString(got)
+		if err != nil {
+			t.Fatalf("failed to decode base64: %v", err)
+		}
+		if !strings.Contains(normalizeCorefileString(string(decoded)), normalizeCorefileString(wantContains)) {
+			t.Errorf("expected decoded corefile to contain %q, got:\n%s", wantContains, string(decoded))
+		}
+	}
+	if wantNotContains != "" {
+		decoded, err := base64.StdEncoding.DecodeString(got)
+		if err != nil {
+			t.Fatalf("failed to decode base64: %v", err)
+		}
+		if strings.Contains(string(decoded), wantNotContains) {
+			t.Errorf("expected decoded corefile NOT to contain %q, got:\n%s", wantNotContains, string(decoded))
+		}
+	}
+}
+
 func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	type args struct {
 		aksnodeconfig      *aksnodeconfigv1.Configuration
@@ -1680,51 +1719,7 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
-
-			if tt.wantContains == "" && tt.wantNotContains == "" && got != "" {
-				t.Errorf("expected empty string, got %q", got)
-				return
-			}
-
-			normalize := func(s string) string {
-				s = strings.ReplaceAll(s, "\r\n", "\n")
-				s = strings.TrimSpace(s)
-
-				// Collapse multiple blank lines into one
-				re := regexp.MustCompile(`\n\s*\n+`)
-				s = re.ReplaceAllString(s, "\n")
-
-				// Remove extra indentation
-				re = regexp.MustCompile(`[ \t]+`)
-				s = re.ReplaceAllString(s, " ")
-
-				return s
-			}
-
-			if tt.wantContains != "" {
-				decoded, err := base64.StdEncoding.DecodeString(got)
-				if err != nil {
-					t.Fatalf("failed to decode base64: %v", err)
-				}
-
-				decodedNorm := normalize(string(decoded))
-				wantNorm := normalize(tt.wantContains)
-
-				if !strings.Contains(decodedNorm, wantNorm) {
-					t.Errorf("expected decoded corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
-				}
-			}
-
-			if tt.wantNotContains != "" {
-				decoded, err := base64.StdEncoding.DecodeString(got)
-				if err != nil {
-					t.Fatalf("failed to decode base64: %v", err)
-				}
-
-				if strings.Contains(string(decoded), tt.wantNotContains) {
-					t.Errorf("expected decoded corefile NOT to contain %q, got:\n%s", tt.wantNotContains, string(decoded))
-				}
-			}
+			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
 		})
 	}
 }
