@@ -352,6 +352,9 @@ configureInfiniBand() {
     # Blacklist ib_ipoib module (not needed for GPU-accelerated nodes)
     echo "blacklist ib_ipoib" >/etc/modprobe.d/ib_ipoib.conf
     echo "Blacklisted ib_ipoib kernel module"
+
+    # Reload OFED kernel modules without rebooting.
+    /etc/init.d/openibd restart
 }
 
 installCriCtlPackage() {
