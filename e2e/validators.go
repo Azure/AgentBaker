@@ -25,7 +25,6 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
@@ -1509,11 +1508,13 @@ echo ""
 errors=0
 for fqdn in "${fqdns[@]}"; do
     echo "Checking FQDN: $fqdn"
+    # Escape dots in FQDN for use in regex (. is a regex wildcard)
+    fqdn_escaped=$(echo "$fqdn" | sed 's/\./\\./g')
 
     # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
     # rather than requiring every currently resolved IP to be present. This avoids
     # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
-    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn"'([[:space:]]|$)' "$hosts_file"; then
+    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn_escaped"'([[:space:]]|$)' "$hosts_file"; then
         echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
     else
         echo "  ERROR: No IPv4 entry found for $fqdn in hosts file"
@@ -1552,272 +1553,6 @@ func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
 
 	// Check that aks-hosts-setup.timer is active for periodic refresh
 	ValidateSystemdUnitIsRunning(ctx, s, "aks-hosts-setup.timer")
-}
-
-// validateNoHostsPlugin verifies that the hosts plugin is NOT active on the VM.
-// This is the baseline check for brownfield tests — confirming the VM was provisioned
-// without the hosts plugin before we enable it mid-lifecycle via SSH.
-// It checks two conditions:
-//  1. /etc/localdns/environment has SHOULD_ENABLE_HOSTS_PLUGIN=false
-//  2. The active corefile does NOT contain the hosts plugin directive
-func validateNoHostsPlugin(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-
-	script := `set -euo pipefail
-errors=0
-
-echo "=== Validating hosts plugin is NOT active ==="
-
-# Check 1: SHOULD_ENABLE_HOSTS_PLUGIN must be false in /etc/localdns/environment
-env_file="/etc/localdns/environment"
-if [ -f "$env_file" ]; then
-    val=$(grep '^SHOULD_ENABLE_HOSTS_PLUGIN=' "$env_file" | cut -d= -f2- || true)
-    if [ "$val" != "false" ] && [ -n "$val" ]; then
-        echo "ERROR: SHOULD_ENABLE_HOSTS_PLUGIN=$val (expected 'false')"
-        errors=$((errors + 1))
-    else
-        echo "OK: SHOULD_ENABLE_HOSTS_PLUGIN=false"
-    fi
-else
-    echo "OK: $env_file does not exist (hosts plugin not configured)"
-fi
-
-# Check 2: Active corefile must NOT contain hosts plugin directive
-corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
-if [ -f "$corefile" ]; then
-    if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
-        echo "ERROR: Active corefile contains 'hosts /etc/localdns/hosts' but should not"
-        errors=$((errors + 1))
-    else
-        echo "OK: Active corefile does not contain hosts plugin directive"
-    fi
-else
-    echo "WARN: Corefile $corefile not found (localdns may not have started yet)"
-fi
-
-echo ""
-if [ $errors -gt 0 ]; then
-    echo "FAILED: $errors checks failed — hosts plugin appears to be active"
-    exit 1
-else
-    echo "SUCCESS: Hosts plugin is not active on this VM"
-    exit 0
-fi
-`
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"hosts plugin should not be active before brownfield enablement")
-}
-
-// enableHostsPluginOnRunningVM enables the hosts plugin on an already-running VM via SSH.
-// This simulates a brownfield rollout where existing nodes get the hosts plugin activated
-// without reprovisioning. The NBC is passed as an explicit parameter rather than read from
-// s.Runtime.NBC because scriptless tests don't store an NBC on ScenarioRuntime.
-//
-// Go-side: generates the experimental corefile (with hosts plugin) using the NBC, base64-encodes it.
-// SSH-side: patches /etc/localdns/environment, writes FQDNs to environment file, touches the hosts
-// file, and starts the aks-hosts-setup timer/service.
-//
-// The caller is responsible for restarting localdns after this function returns (consistent with
-// the greenfield pattern in ValidateCommonLinux).
-func enableHostsPluginOnRunningVM(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) {
-	s.T.Helper()
-
-	// Shallow-copy the NBC so we don't mutate the original (which would change IsHostsPluginEnabled())
-	nbcCopy := *nbc
-	// Deep-copy AgentPoolProfile so we can set EnableHostsPlugin without affecting the original
-	appCopy := *nbcCopy.AgentPoolProfile
-	nbcCopy.AgentPoolProfile = &appCopy
-	// Deep-copy LocalDNSProfile
-	profCopy := *appCopy.LocalDNSProfile
-	appCopy.LocalDNSProfile = &profCopy
-	profCopy.EnableHostsPlugin = true
-
-	// Generate the experimental corefile (with hosts plugin blocks)
-	experimentalCorefile, err := agent.GenerateLocalDNSCoreFile(&nbcCopy, &appCopy, true)
-	require.NoError(s.T, err, "failed to generate experimental corefile for brownfield enablement")
-	require.NotEmpty(s.T, experimentalCorefile, "experimental corefile should not be empty")
-
-	experimentalB64 := base64.StdEncoding.EncodeToString([]byte(experimentalCorefile))
-	criticalFQDNs := strings.Join(s.GetDefaultFQDNsForValidation(), ",")
-
-	// SSH script that patches the VM to enable hosts plugin
-	script := fmt.Sprintf(`set -euo pipefail
-
-echo "=== Enabling hosts plugin on running VM (brownfield) ==="
-
-# Step 1: Read existing LOCALDNS_COREFILE_BASE from /etc/localdns/environment
-# Use cut -d= -f2- (not -f2) to preserve base64 '=' padding chars
-env_file="/etc/localdns/environment"
-existing_base=""
-if [ -f "$env_file" ]; then
-    existing_base=$(grep '^LOCALDNS_COREFILE_BASE=' "$env_file" | cut -d= -f2- || true)
-    if [ -z "$existing_base" ]; then
-        # Fall back to legacy variable name
-        existing_base=$(grep '^LOCALDNS_BASE64_ENCODED_COREFILE=' "$env_file" | cut -d= -f2- || true)
-    fi
-fi
-if [ -z "$existing_base" ]; then
-    echo "ERROR: Could not read existing base corefile from $env_file"
-    cat "$env_file" || true
-    exit 1
-fi
-echo "OK: Read existing base corefile (${#existing_base} chars)"
-
-# Step 2: Rewrite /etc/localdns/environment with hosts plugin enabled
-# Use printf to construct the file content with shell variable expansion,
-# avoiding heredoc issues with base64 padding characters
-printf '%%s\n%%s\n%%s\n%%s\n' \
-    "LOCALDNS_BASE64_ENCODED_COREFILE=${existing_base}" \
-    "LOCALDNS_COREFILE_BASE=${existing_base}" \
-    "LOCALDNS_COREFILE_EXPERIMENTAL=%s" \
-    "SHOULD_ENABLE_HOSTS_PLUGIN=true" | sudo tee "$env_file" > /dev/null
-echo "OK: Rewrote $env_file with hosts plugin enabled"
-echo "Environment file contents:"
-cat "$env_file"
-echo ""
-
-# Step 3: Add critical FQDNs to /etc/localdns/environment
-# The environment file was written by the original CSE; brownfield enable appends FQDNs
-if grep -q '^LOCALDNS_CRITICAL_FQDNS=' "$env_file" 2>/dev/null; then
-    sudo sed -i "s|^LOCALDNS_CRITICAL_FQDNS=.*|LOCALDNS_CRITICAL_FQDNS=%s|" "$env_file"
-else
-    printf '\nLOCALDNS_CRITICAL_FQDNS=%%s\n' "%s" | sudo tee -a "$env_file" > /dev/null
-fi
-echo "OK: Updated LOCALDNS_CRITICAL_FQDNS in $env_file"
-
-# Step 4: Touch /etc/localdns/hosts so aks-hosts-setup can write to it
-sudo touch /etc/localdns/hosts
-sudo chmod 0644 /etc/localdns/hosts
-echo "OK: Created /etc/localdns/hosts"
-
-# Step 5: Enable and start aks-hosts-setup timer/service
-sudo systemctl enable --now aks-hosts-setup.timer
-sudo systemctl start aks-hosts-setup.service
-echo "OK: Started aks-hosts-setup.timer and aks-hosts-setup.service"
-
-echo ""
-echo "SUCCESS: Hosts plugin brownfield enablement complete"
-echo "Caller should restart localdns to pick up the new corefile"
-`, experimentalB64, criticalFQDNs, criticalFQDNs)
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"failed to enable hosts plugin on running VM (brownfield)")
-}
-
-// validateHostsPluginDisabled comprehensively validates that the hosts plugin has been
-// successfully disabled on a running VM. This is used after ReimageVMSSInstance with
-// EnableHostsPlugin=false to verify the rollback worked correctly.
-//
-// It checks 4 on-VM conditions via SSH, then verifies DNS still works through localdns
-// and that the AA flag is absent (proving responses are forwarded upstream, not served
-// from the hosts plugin).
-func validateHostsPluginDisabled(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-
-	// On-VM checks via single SSH script
-	script := `set -euo pipefail
-errors=0
-
-echo "=== Validating hosts plugin is fully disabled ==="
-
-# Check 1: SHOULD_ENABLE_HOSTS_PLUGIN must be false in /etc/localdns/environment
-env_file="/etc/localdns/environment"
-if [ -f "$env_file" ]; then
-    val=$(grep '^SHOULD_ENABLE_HOSTS_PLUGIN=' "$env_file" | cut -d= -f2- || true)
-    if [ "$val" = "false" ]; then
-        echo "OK: SHOULD_ENABLE_HOSTS_PLUGIN=false"
-    else
-        echo "ERROR: SHOULD_ENABLE_HOSTS_PLUGIN=$val (expected 'false')"
-        errors=$((errors + 1))
-    fi
-else
-    echo "ERROR: $env_file does not exist"
-    errors=$((errors + 1))
-fi
-
-# Check 2: /etc/localdns/hosts must NOT exist
-hosts_file="/etc/localdns/hosts"
-if [ -f "$hosts_file" ]; then
-    echo "ERROR: $hosts_file still exists but should have been removed"
-    errors=$((errors + 1))
-else
-    echo "OK: $hosts_file does not exist"
-fi
-
-# Check 3: Active corefile must NOT contain hosts plugin directive
-corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
-if [ -f "$corefile" ]; then
-    if grep -q "hosts /etc/localdns/hosts" "$corefile"; then
-        echo "ERROR: Active corefile still contains 'hosts /etc/localdns/hosts'"
-        errors=$((errors + 1))
-    else
-        echo "OK: Active corefile does not contain hosts plugin directive"
-    fi
-else
-    echo "ERROR: Corefile $corefile not found"
-    errors=$((errors + 1))
-fi
-
-# Check 4: aks-hosts-setup.timer must be inactive
-if systemctl is-active --quiet aks-hosts-setup.timer 2>/dev/null; then
-    echo "ERROR: aks-hosts-setup.timer is still active"
-    errors=$((errors + 1))
-else
-    echo "OK: aks-hosts-setup.timer is inactive"
-fi
-
-echo ""
-if [ $errors -gt 0 ]; then
-    echo "FAILED: $errors checks failed — hosts plugin may not be fully disabled"
-    exit 1
-else
-    echo "SUCCESS: All on-VM checks passed — hosts plugin is fully disabled"
-    exit 0
-fi
-`
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"hosts plugin should be fully disabled after rollback")
-
-	// Verify DNS still works through localdns (the service itself should still be running)
-	ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
-
-	// Verify the AA flag is absent — proves responses are forwarded upstream,
-	// not served from the hosts plugin
-	testFQDN := s.GetDefaultFQDNsForValidation()[0]
-	s.T.Logf("Verifying AA flag is absent for %s after hosts plugin disable", testFQDN)
-
-	aaCheckScript := fmt.Sprintf(`set -euo pipefail
-test_fqdn=%q
-
-echo "=== Verifying AA flag is absent after hosts plugin disable ==="
-echo "Querying localdns for $test_fqdn at 169.254.10.10..."
-dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
-echo "Full dig output:"
-echo "$dig_output"
-echo ""
-
-# Extract the flags line
-flags_line=$(echo "$dig_output" | grep -E "^;; flags:" || true)
-if [ -z "$flags_line" ]; then
-    echo "ERROR: No flags line found in dig output"
-    exit 1
-fi
-echo "Flags line: $flags_line"
-
-# AA flag must NOT be present — response should be forwarded upstream
-if echo "$flags_line" | grep -qw "aa"; then
-    echo "ERROR: AA (Authoritative Answer) flag is still present after hosts plugin disable"
-    echo "This indicates localdns is still serving from the hosts plugin instead of forwarding upstream"
-    exit 1
-fi
-echo "OK: AA flag is absent — response was forwarded upstream (not served by hosts plugin)"
-echo ""
-echo "=== SUCCESS: Hosts plugin is confirmed disabled ==="
-`, testFQDN)
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, aaCheckScript, 0,
-		"AA flag should be absent after hosts plugin disable (response should be forwarded upstream)")
 }
 
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
@@ -1936,7 +1671,9 @@ if [ ! -f "$hosts_file" ]; then
 fi
 
 # Extract IPv4 addresses for the test FQDN from hosts file
-expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+$test_fqdn" "$hosts_file" | awk '{print $1}' | sort)
+# Escape dots in FQDN for regex (. matches any char in ERE)
+test_fqdn_escaped=$(echo "$test_fqdn" | sed 's/\./\\./g')
+expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_escaped}([[:space:]]|$)" "$hosts_file" | awk '{print $1}' | sort)
 if [ -z "$expected_ips" ]; then
     echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
     echo "Hosts file contents:"
@@ -1976,7 +1713,8 @@ echo "✓ AA flag present — response served authoritatively by hosts plugin"
 echo ""
 
 # Step 4: Extract resolved IPs from dig ANSWER section and compare with hosts file
-resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
+# Reuse escaped FQDN for regex matching of dig output
+resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
 if [ -z "$resolved_ips" ]; then
     echo "ERROR: No A records returned from dig query"
     exit 1
