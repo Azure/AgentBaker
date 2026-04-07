@@ -31,33 +31,77 @@ IFS=',' read -ra CRITICAL_FQDNS <<< "${LOCALDNS_CRITICAL_FQDNS}"
 
 echo "Received ${#CRITICAL_FQDNS[@]} critical FQDNs from RP"
 
+# Determine upstream DNS server(s) for dig queries.
+# Once localdns is running, /etc/resolv.conf points to 169.254.10.10 (localdns itself).
+# If the hosts plugin is active, dig without @server would get answers from
+# /etc/localdns/hosts — creating a self-referential loop where stale IPs can never refresh.
+# To break this loop, we resolve against the upstream DNS server(s) that localdns forwards to,
+# persisted by localdns.sh (replace_azurednsip_in_corefile) to /etc/localdns/upstream-dns.
+# If the file doesn't exist yet (first run during CSE, before localdns starts), we don't pin
+# any upstream — dig uses the system resolver, which still points to the real upstream at that point.
+UPSTREAM_DNS_FILE="/etc/localdns/upstream-dns"
+UPSTREAM_DNS_SERVERS=""
+if [ -f "${UPSTREAM_DNS_FILE}" ]; then
+    # File contains space-separated DNS server IPs (e.g., "10.0.0.4 10.0.0.5" or "168.63.129.16").
+    UPSTREAM_DNS_SERVERS=$(cat "${UPSTREAM_DNS_FILE}" 2>/dev/null | tr '\n' ' ')
+fi
+if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
+    echo "Using upstream DNS servers: ${UPSTREAM_DNS_SERVERS}"
+else
+    echo "No upstream DNS file found, using system resolver"
+fi
+
 # Function to resolve IPv4 addresses for a domain
 # Filters output to only include valid IPv4 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
+# Tries each upstream DNS server until one succeeds. If no upstream servers are configured,
+# uses the system resolver (appropriate for first run before localdns starts).
 resolve_ipv4() {
     local domain="$1"
-    # dig +short returns one IP per line, no parsing needed
-    local output
-    output=$(timeout 3 dig +short -t A "${domain}" 2>/dev/null) || return 0
-    # Validate IPv4 format with octet range 0-255
-    echo "${output}" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | while IFS='.' read -r a b c d; do
-        if [ "$a" -le 255 ] && [ "$b" -le 255 ] && [ "$c" -le 255 ] && [ "$d" -le 255 ]; then
-            echo "${a}.${b}.${c}.${d}"
+    local output=""
+    if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
+        for server in ${UPSTREAM_DNS_SERVERS}; do
+            output=$(timeout 3 dig +short -t A "${domain}" @"${server}" 2>/dev/null) && break
+        done
+    else
+        output=$(timeout 3 dig +short -t A "${domain}" 2>/dev/null) || return 0
+    fi
+    # Validate IPv4 format with octet range 0-255.
+    # Uses here-string (<<<) instead of a grep|while pipeline to avoid
+    # pipefail complications when grep matches nothing.
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
+            [[ ${BASH_REMATCH[1]} -le 255 && ${BASH_REMATCH[2]} -le 255 && \
+               ${BASH_REMATCH[3]} -le 255 && ${BASH_REMATCH[4]} -le 255 ]] && echo "$line"
         fi
-    done || return 0
+    done <<< "${output}"
 }
 
 # Function to resolve IPv6 addresses for a domain
 # Filters output to only include valid IPv6 addresses (rejects NXDOMAIN, SERVFAIL, hostnames, etc.)
+# Tries each upstream DNS server until one succeeds. If no upstream servers are configured,
+# uses the system resolver (appropriate for first run before localdns starts).
 resolve_ipv6() {
     local domain="$1"
-    # dig +short returns one IP per line, no parsing needed
-    local output
-    output=$(timeout 3 dig +short -t AAAA "${domain}" 2>/dev/null) || return 0
-    # Three-stage filter rejects malformed dig output:
+    local output=""
+    if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
+        for server in ${UPSTREAM_DNS_SERVERS}; do
+            output=$(timeout 3 dig +short -t AAAA "${domain}" @"${server}" 2>/dev/null) && break
+        done
+    else
+        output=$(timeout 3 dig +short -t AAAA "${domain}" 2>/dev/null) || return 0
+    fi
+    # Validate IPv6 format using here-string to avoid pipefail complications.
+    # Three-stage check rejects malformed dig output:
     #   1. Only hex digits and colons, minimum 3 chars (rejects hostnames, error strings)
     #   2. At least two colons (rejects "1:2", ":ff" — too short to be valid IPv6)
     #   3. At least one hex digit (rejects all-colon strings like ":::::::")
-    echo "${output}" | grep -E '^[0-9a-fA-F:]{3,}$' | grep ':.*:' | grep '[0-9a-fA-F]' || return 0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[0-9a-fA-F:]{3,}$ ]] && \
+           [[ "$line" == *:*:* ]] && \
+           [[ "$line" =~ [0-9a-fA-F] ]]; then
+            echo "$line"
+        fi
+    done <<< "${output}"
 }
 
 echo "Starting AKS critical FQDN hosts resolution at $(date)"
