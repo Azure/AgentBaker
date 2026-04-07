@@ -8,9 +8,6 @@ CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
 CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-TRIVY_VERSION="0.69.2"
-TRIVY_ARCH=""
-
 MODULE_NAME="vuln-to-kusto-vhd"
 
 OS_SKU=${1}
@@ -131,14 +128,34 @@ login_with_umsi_resource_id() {
 
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
+install_trivy() {
+    local os_sku=$1
+    local os_version=$2
+    if [ "$os_sku" = "Ubuntu" ]; then
+        # trivy debs are published to the Microsoft prod PMC repo, not default Ubuntu repos
+        local arch
+        arch="$(dpkg --print-architecture)"
+        curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        echo "deb [arch=${arch}] https://packages.microsoft.com/ubuntu/${os_version}/prod $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+        apt_get_update
+        apt_get_install 5 1 60 trivy
+    elif [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; then
+        sudo dnf install -y trivy
+    else
+        echo "Unsupported OS SKU for trivy package install: $os_sku"
+        exit 1
+    fi
+}
+
+install_trivy $OS_SKU $OS_VERSION
+
 login_with_umsi_object_id ${UMSI_PRINCIPAL_ID}
 
 arch="$(uname -m)"
 if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
-    TRIVY_ARCH="Linux-ARM64"
     GO_ARCH="arm64"
 elif [ "${arch,,}" = "x86_64" ]; then
-    TRIVY_ARCH="Linux-64bit"
     GO_ARCH="amd64"
 else
     echo "invalid architecture ${arch,,}"
@@ -148,11 +165,6 @@ fi
 systemctlEnableAndStart containerd 30 || exit 4
 
 mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
-
-curl -fL -o "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" --no-same-owner
-rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-chmod a+x trivy
 
 # pull vuln-to-kusto binary
 az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
@@ -164,7 +176,7 @@ chmod a+x ${MODULE_NAME}
 export PATH="$(pwd):$PATH"
 
 # we do a delayed retry here since it's possible we'll get rate-limited by ghcr.io, which hosts the vulnerability DB
-retrycmd_if_failure 10 30 600 ./trivy --scanners vuln rootfs -f json --db-repository ${TRIVY_DB_REPOSITORIES} --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
+retrycmd_if_failure 10 30 600 trivy --scanners vuln rootfs -f json --db-repository ${TRIVY_DB_REPOSITORIES} --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
 
 if [ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]; then
     ./vuln-to-kusto-vhd scan-report \
@@ -187,12 +199,12 @@ Note: images without CVEs are also listed" >> "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 
 for CONTAINER_IMAGE in $IMAGE_LIST; do
     # append to table
-    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
+    trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
 
     # export to Kusto, one by one
     BASE_CONTAINER_IMAGE=$(basename ${CONTAINER_IMAGE})
     TRIVY_REPORT_IMAGE_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-image-${BASE_CONTAINER_IMAGE}.json
-    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
+    trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
 
     if [ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]; then
         ./vuln-to-kusto-vhd scan-report \
@@ -231,7 +243,6 @@ done
     --kusto-table=${KUSTO_TABLE} \
     --kusto-managed-identity-client-id=${UMSI_CLIENT_ID} >> ${CVE_LIST_QUERY_OUTPUT_PATH}
 
-rm ./trivy
 
 chmod a+r "${CVE_DIFF_QUERY_OUTPUT_PATH}"
 chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
