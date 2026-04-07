@@ -285,6 +285,18 @@ replace_azurednsip_in_corefile() {
         echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
     fi
 
+    # Persist the upstream DNS server(s) so aks-hosts-setup.sh can resolve against them
+    # directly, bypassing localdns. Without this, the timer's dig queries would go through
+    # localdns (169.254.10.10) → hosts plugin → stale answers from /etc/localdns/hosts,
+    # creating a self-referential loop where IPs can never refresh.
+    local upstream_dns_file="/etc/localdns/upstream-dns"
+    echo "${UPSTREAM_VNET_DNS_SERVERS}" > "${upstream_dns_file}" || {
+        echo "WARNING: Failed to write upstream DNS to ${upstream_dns_file}"
+        # Non-fatal: aks-hosts-setup.sh will fall back to 168.63.129.16
+    }
+    chmod 0644 "${upstream_dns_file}" 2>/dev/null || true
+    echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
+
     return 0
 }
 
@@ -930,6 +942,14 @@ select_localdns_corefile() {
     if [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
         echo "Using LOCALDNS_COREFILE_BASE (no dynamic selection)" >&2
         echo "${LOCALDNS_COREFILE_BASE}"
+        return 0
+    fi
+
+    # Case 2.5: Legacy fallback — support older CSE versions that only set
+    # LOCALDNS_BASE64_ENCODED_COREFILE (new VHD + old CSE compatibility).
+    if [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
+        echo "Using legacy LOCALDNS_BASE64_ENCODED_COREFILE" >&2
+        echo "${LOCALDNS_BASE64_ENCODED_COREFILE}"
         return 0
     fi
 

@@ -1543,24 +1543,28 @@ testdomain456.com:53 {
 
 func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	type args struct {
-		aksnodeconfig *aksnodeconfigv1.Configuration
+		aksnodeconfig      *aksnodeconfigv1.Configuration
+		includeHostsPlugin bool
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantContains string
+		name            string
+		args            args
+		wantContains    string
+		wantNotContains string
 	}{
 		{
 			name: "aksnodeconfig is nil, should return empty string",
 			args: args{
-				aksnodeconfig: nil,
+				aksnodeconfig:      nil,
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
 		{
 			name: "LocalDNSProfile is nil, should return empty string",
 			args: args{
-				aksnodeconfig: &aksnodeconfigv1.Configuration{},
+				aksnodeconfig:      &aksnodeconfigv1.Configuration{},
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
@@ -1572,11 +1576,12 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 						EnableLocalDns: false,
 					},
 				},
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
 		{
-			name: "LocalDNSProfile enabled returns base64 string",
+			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
@@ -1629,15 +1634,54 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 						},
 					},
 				},
+				includeHostsPlugin: true,
 			},
 			wantContains: expectedlocalDNSCorefile,
+		},
+		{
+			name: "LocalDNSProfile enabled returns base64 string without hosts plugin",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:       true,
+						CpuLimitInMilliCores: to.Ptr(int32(2008)),
+						MemoryLimitInMb:      to.Ptr(int32(512)),
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "VnetDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Immediate",
+							},
+						},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Error",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(2000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								ServeStale:                  "Verify",
+							},
+						},
+					},
+				},
+				includeHostsPlugin: false,
+			},
+			wantNotContains: "hosts /etc/localdns/hosts",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, true)
+			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
 
-			if tt.wantContains == "" && got != "" {
+			if tt.wantContains == "" && tt.wantNotContains == "" && got != "" {
 				t.Errorf("expected empty string, got %q", got)
 				return
 			}
@@ -1668,6 +1712,17 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 
 				if !strings.Contains(decodedNorm, wantNorm) {
 					t.Errorf("expected decoded corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+				}
+			}
+
+			if tt.wantNotContains != "" {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatalf("failed to decode base64: %v", err)
+				}
+
+				if strings.Contains(string(decoded), tt.wantNotContains) {
+					t.Errorf("expected decoded corefile NOT to contain %q, got:\n%s", tt.wantNotContains, string(decoded))
 				}
 			}
 		})
