@@ -1691,6 +1691,18 @@ if ! echo "$flags_line" | grep -qw "aa"; then
     exit 1
 fi
 echo "✓ AA flag present — response served authoritatively by hosts plugin"
+
+# Check that RA (Recursion Available) flag is absent.
+# Hosts plugin responses have "flags: qr aa rd" (no ra), while forwarded responses
+# have "flags: qr rd ra" or "flags: qr aa rd ra". If ra is present, the response
+# was forwarded upstream rather than served from the local hosts file.
+if echo "$flags_line" | grep -qw "ra"; then
+    echo "ERROR: RA (Recursion Available) flag present in dig response"
+    echo "This indicates the response was forwarded upstream, not served by the hosts plugin"
+    echo "Hosts plugin responses should have 'flags: qr aa rd' without 'ra'"
+    exit 1
+fi
+echo "✓ RA flag absent — confirms response was not forwarded upstream"
 echo ""
 
 # Step 4: Extract resolved IPs from dig ANSWER section and compare with hosts file
@@ -1720,7 +1732,8 @@ echo ""
 echo "=== SUCCESS ==="
 echo "The localdns hosts plugin is working correctly:"
 echo "  1. dig response contains AA flag (served authoritatively by hosts plugin)"
-echo "  2. Resolved IPs match /etc/localdns/hosts entries"
+echo "  2. dig response does NOT contain RA flag (not forwarded upstream)"
+echo "  3. Resolved IPs match /etc/localdns/hosts entries"
 `, testFQDN)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
