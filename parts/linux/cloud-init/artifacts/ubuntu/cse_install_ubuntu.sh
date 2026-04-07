@@ -192,7 +192,7 @@ cleanUpGPUDrivers() {
 }
 
 updateAptWithMellanoxPkg() {
-    local mellanox_gpg_keyring_path="/etc/apt/keyrings/GPG-KEY-Mellanox.gpg"
+    local mellanox_gpg_keyring_path="/usr/share/keyrings/mellanox-doca.pub"
     mkdir -p "$(dirname "${mellanox_gpg_keyring_path}")"
 
     local mellanox_sources_list_path="/etc/apt/sources.list.d/doca.list"
@@ -219,7 +219,7 @@ updateAptWithMellanoxPkg() {
         return
     fi
 
-    # Download GPG key from the repo-specific path
+    # Download GPG key
     retrycmd_curl_file 120 5 25 "${mellanox_gpg_keyring_path}" \
         "https://linux.mellanox.com/public/repo/doca/latest/${mellanox_ubuntu_version}/${repo_arch}/GPG-KEY-Mellanox.pub" \
         || exit $ERR_APT_UPDATE_TIMEOUT
@@ -236,8 +236,8 @@ removeMellanoxRepos() {
         rm -f /etc/apt/sources.list.d/doca.list
         echo "Removed Mellanox DOCA apt repository"
     fi
-    if [ -f /etc/apt/keyrings/GPG-KEY-Mellanox.gpg ]; then
-        rm -f /etc/apt/keyrings/GPG-KEY-Mellanox.gpg
+    if [ -f /usr/share/keyrings/mellanox-doca.pub ]; then
+        rm -f /usr/share/keyrings/mellanox-doca.pub
         echo "Removed Mellanox GPG key"
     fi
 }
@@ -265,12 +265,26 @@ downloadDocaOfedPackages() {
         --no-conflicts --no-breaks --no-replaces --no-enhances \
         ${dkms_build_deps} 2>/dev/null | grep "^\w" | sort -u)
 
-    # Merge both lists, deduplicate, and download
+    # Merge both lists, deduplicate, and download only packages that are not
+    # already installed at the exact same version. This avoids caching ~150
+    # system packages (libc6, gcc, perl, udev, etc.) that are already on the
+    # VHD, while still caching packages that need upgrading (e.g., libibverbs1
+    # from Ubuntu's 39.0 to Mellanox's 2601.0).
     local all_pkgs
     all_pkgs=$(echo -e "${pkg_list}\n${extra_pkg_list}" | sort -u)
 
+    # Build a lookup of installed package=version pairs
+    local installed_versions
+    installed_versions=$(dpkg-query -W -f '${Package}=${Version}\n' 2>/dev/null | sort -u)
+
     pushd "${downloadDir}" >/dev/null || exit
     for pkg in ${all_pkgs}; do
+        # Get the candidate version apt would download
+        local candidate
+        candidate=$(apt-cache policy "${pkg}" 2>/dev/null | grep "Candidate:" | awk '{print $2}')
+        if [ -n "${candidate}" ] && echo "${installed_versions}" | grep -q "^${pkg}=${candidate}$"; then
+            continue
+        fi
         apt-get download "${pkg}" 2>/dev/null || true
     done
     # Also download doca-basic meta-package itself
@@ -290,27 +304,47 @@ installDocaOfedFromCache() {
 
     echo "Installing DOCA OFED packages from cache..."
 
+    # Create a local apt repo from cached .deb files so that apt-get can
+    # handle dependency resolution, upgrade ordering, and Breaks: constraints.
+    # Raw dpkg -i fails when cached packages upgrade system packages (e.g.,
+    # libibverbs1 39.0 -> 2601.0) without their co-dependencies present.
+    pushd "${downloadDir}" >/dev/null || exit
+    dpkg-scanpackages . /dev/null 2>/dev/null | gzip -9c > Packages.gz
+    popd >/dev/null || exit
+
+    echo "deb [trusted=yes] file://${downloadDir} ./" > /etc/apt/sources.list.d/doca-local.list
+
+    # Update and install using ONLY the local repo so nothing is fetched
+    # from the network. The -o flags restrict apt to doca-local.list only.
+    local apt_local_opts=(-o Dir::Etc::sourcelist="/etc/apt/sources.list.d/doca-local.list"
+        -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0")
+    apt-get update "${apt_local_opts[@]}" 2>&1
+
     # Unset ARCH to prevent DKMS postinstall scripts from failing
     # during kernel module compilation
     local original_arch="${ARCH:-}"
     unset ARCH
-    DEBIAN_FRONTEND=noninteractive dpkg -i "${downloadDir}"/*.deb 2>&1 || {
-        # Fix any broken dependencies using only local packages
-        apt-get install -f -y --no-install-recommends 2>&1 || {
-            echo "Failed to install DOCA OFED packages"
-            if [ -n "${original_arch}" ]; then
-                export ARCH="${original_arch}"
-            fi
-            return 1
-        }
+
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        "${apt_local_opts[@]}" \
+        doca-basic 2>&1 || {
+        echo "Failed to install DOCA OFED packages"
+        if [ -n "${original_arch}" ]; then
+            export ARCH="${original_arch}"
+        fi
+        return 1
     }
+
     if [ -n "${original_arch}" ]; then
         export ARCH="${original_arch}"
     fi
 
     echo "DOCA OFED packages installed successfully"
 
-    # Clean up cached packages
+    # Clean up local repo and cached packages
+    rm -f /etc/apt/sources.list.d/doca-local.list
     rm -rf "${downloadDir}"
 }
 
