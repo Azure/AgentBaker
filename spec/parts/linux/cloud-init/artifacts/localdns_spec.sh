@@ -1283,6 +1283,7 @@ EOF
             WATCHDOG_USEC=""
             COREDNS_PID="12345"
             wait() { return 0; }
+            export_resource_metrics() { return 0; }
             When call start_localdns_watchdog
             The status should be success
         End
