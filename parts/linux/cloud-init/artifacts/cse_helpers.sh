@@ -218,7 +218,7 @@ check_cse_timeout() {
     maxDurationSeconds=780 # 780 seconds = 13 minutes
     if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
         if [ "$shouldLog" = "true" ]; then
-            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set." >&2
         fi
         # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
         return 0

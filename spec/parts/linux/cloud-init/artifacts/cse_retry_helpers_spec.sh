@@ -392,11 +392,11 @@ Describe 'long running cse helper functions'
 
     Describe 'check_cse_timeout'
         Describe 'when CSE_STARTTIME_SECONDS is incorrect'
-            It 'returns 0 and prints error to stderr when CSE_STARTTIME_SECONDS is not set'
+            It 'returns 0 and prints warning to stderr when CSE_STARTTIME_SECONDS is not set'
                 When call check_cse_timeout
                 The status should eq 0
-                The stdout should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
-                The stderr should eq ""
+                The stdout should eq ""
+                The stderr should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
             End
         End
         Describe 'when CSE_STARTTIME_SECONDS is set'
