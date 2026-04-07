@@ -149,17 +149,9 @@ function Update-DefenderPreferences {
     Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateDefenderPreferences" -TaskMessage "Start to update defender preferences"
 
     Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
-    Add-MpPreference -ExclusionPath "C:\k\kubelet.err.log"
-    Add-MpPreference -ExclusionPath "C:\k\kubelet.log"
+    Add-MpPreference -ExclusionPath "C:\k"
 
     Add-MpPreference -ExclusionProcess "c:\k\kube-proxy.exe"
-    Add-MpPreference -ExclusionPath "C:\k\kubeproxy.err.log"
-    Add-MpPreference -ExclusionPath "C:\k\kubeproxy.log"
-
-    Add-MpPreference -ExclusionPath "C:\k\azure-vnet.log"
-    Add-MpPreference -ExclusionPath "C:\k\containerd.err.log"
-    Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.err.log"
-    Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.log"
 
     # Azure CNI
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-cns.exe"
@@ -167,23 +159,11 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-ipamv6.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-telemetry.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet.exe"
-    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\AzureNetworkContainer.exe"
-    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\CnsWrapperService.exe"
-    Add-MpPreference -ExclusionPath "C:\k\azurecni\netconf\10-azure.conflist"
-    Add-MpPreference -ExclusionPath "C:\k\azure-vnet.log"
-    Add-MpPreference -ExclusionPath "C:\k\azure-vnet-telemetry.log"
     Add-MpPreference -ExclusionProcess "C:\k\cni\win-bridge.exe"
 
     if ($global:EnableCsiProxy) {
         Add-MpPreference -ExclusionProcess "c:\k\csi-proxy.exe"
-        Add-MpPreference -ExclusionPath "C:\k\csi-proxy.err.log"
-        Add-MpPreference -ExclusionPath "C:\k\csi-proxy.log"
    }
-
-     # Azure CNS
-    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-endpoints.json"
-    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-cns.json"
-    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-cns.log"
 
     # Containerd
     Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
