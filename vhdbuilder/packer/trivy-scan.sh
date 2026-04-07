@@ -128,27 +128,53 @@ login_with_umsi_resource_id() {
 
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
+install_trivy_from_github() {
+    local trivy_version="0.69.2"
+    local arch trivy_arch
+    arch="$(uname -m)"
+    if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
+        trivy_arch="Linux-ARM64"
+    elif [ "${arch,,}" = "x86_64" ]; then
+        trivy_arch="Linux-64bit"
+    else
+        echo "unsupported architecture for trivy download: ${arch}"
+        exit 1
+    fi
+    curl -fL -o "trivy_${trivy_version}_${trivy_arch}.tar.gz" \
+        "https://github.com/aquasecurity/trivy/releases/download/v${trivy_version}/trivy_${trivy_version}_${trivy_arch}.tar.gz"
+    tar -xzf "trivy_${trivy_version}_${trivy_arch}.tar.gz" --no-same-owner trivy
+    rm "trivy_${trivy_version}_${trivy_arch}.tar.gz"
+    chmod a+x trivy
+}
+
 install_trivy() {
     local os_sku=$1
     local os_version=$2
-    if [ "$os_sku" = "Ubuntu" ]; then
-        # trivy debs are published to the Microsoft prod PMC repo, not default Ubuntu repos
-        local arch
-        arch="$(dpkg --print-architecture)"
-        curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-        echo "deb [arch=${arch}] https://packages.microsoft.com/ubuntu/${os_version}/prod $(lsb_release -cs) main" \
-            | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
-        apt_get_update
-        apt_get_install 5 1 60 trivy
-    elif [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; then
-        sudo dnf install -y trivy
-    else
-        echo "Unsupported OS SKU for trivy package install: $os_sku"
-        exit 1
-    fi
+    case "$os_sku" in
+        Ubuntu)
+            # trivy debs are published to the Microsoft PMC prod repo
+            local arch
+            arch="$(dpkg --print-architecture)"
+            curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+            echo "deb [arch=${arch}] https://packages.microsoft.com/ubuntu/${os_version}/prod $(lsb_release -cs) main" \
+                | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+            apt_get_update
+            apt_get_install 5 1 60 trivy
+            ;;
+        AzureLinux)
+            # trivy RPMs are available in the AzureLinux 3 PMC repo
+            sudo dnf install -y trivy
+            ;;
+        *)
+            # CBLMariner, Flatcar, AzureContainerLinux, AzureLinuxOSGuard, etc.
+            # do not have trivy packages in PMC, fall back to GitHub release
+            echo "No PMC trivy package for $os_sku, downloading from GitHub"
+            install_trivy_from_github
+            ;;
+    esac
 }
 
-install_trivy $OS_SKU $OS_VERSION
+install_trivy "$OS_SKU" "$OS_VERSION"
 
 login_with_umsi_object_id ${UMSI_PRINCIPAL_ID}
 
@@ -243,6 +269,7 @@ done
     --kusto-table=${KUSTO_TABLE} \
     --kusto-managed-identity-client-id=${UMSI_CLIENT_ID} >> ${CVE_LIST_QUERY_OUTPUT_PATH}
 
+rm -f ./trivy
 
 chmod a+r "${CVE_DIFF_QUERY_OUTPUT_PATH}"
 chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
