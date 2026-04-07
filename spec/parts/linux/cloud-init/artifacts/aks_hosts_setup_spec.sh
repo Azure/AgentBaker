@@ -19,9 +19,10 @@ Describe 'aks-hosts-setup.sh'
 #!/usr/bin/env bash
 set -uo pipefail
 HOSTS_FILE="${hosts_file}"
+UPSTREAM_DNS_FILE="${test_dir}/upstream-dns"
 export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
 EOF
-        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
         echo "${test_script}"
     }
@@ -41,9 +42,10 @@ EOF
 set -uo pipefail
 export PATH="${mock_bin_dir}:\$PATH"
 HOSTS_FILE="${hosts_file}"
+UPSTREAM_DNS_FILE="${test_dir}/upstream-dns"
 export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
 EOF
-        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
         echo "${test_script}"
     }
@@ -182,9 +184,10 @@ MOCK_EOF
 #!/usr/bin/env bash
 set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
+UPSTREAM_DNS_FILE="${TEST_DIR}/upstream-dns"
 unset LOCALDNS_CRITICAL_FQDNS
 EOF
-            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
@@ -199,9 +202,10 @@ EOF
 #!/usr/bin/env bash
 set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
+UPSTREAM_DNS_FILE="${TEST_DIR}/upstream-dns"
 export LOCALDNS_CRITICAL_FQDNS=""
 EOF
-            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
@@ -445,6 +449,94 @@ MOCK_EOF
             The contents of file "$HOSTS_FILE" should not include "999.999.999.999"
             The contents of file "$HOSTS_FILE" should not include "256.1.1.1"
             The contents of file "$HOSTS_FILE" should not include "1.2.3.400"
+        End
+    End
+
+    Describe 'Upstream DNS server selection (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'uses system resolver when upstream-dns file does not exist'
+            # Mock dig that returns a valid IP
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No upstream DNS file found, using system resolver"
+        End
+
+        It 'uses upstream DNS server from file when available'
+            # Mock dig that checks for @server and logs it to stdout
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == @10.0.0.4 ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+# If no @server matched, return nothing (simulates not being called correctly)
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with a single server
+            echo "10.0.0.4" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'tries multiple upstream DNS servers and uses first that succeeds'
+            # Mock dig that fails for first server, succeeds for second
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+server=""
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        server="${arg}"
+    fi
+done
+echo "USED_SERVER=${server}" >&2
+if [[ "$server" == "@10.0.0.4" ]]; then
+    # First server fails (timeout simulation)
+    exit 1
+elif [[ "$server" == "@10.0.0.5" ]]; then
+    # Second server succeeds
+    echo "5.6.7.8"
+    exit 0
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with two servers
+            echo "10.0.0.4 10.0.0.5" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4 10.0.0.5"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "5.6.7.8"
         End
     End
 End
