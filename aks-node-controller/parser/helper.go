@@ -719,17 +719,17 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 	}
 }
 
-// getLocalDnsCorefileBase64WithHostsPlugin generates and returns the base64-encoded LocalDns corefile
-// with or without the hosts plugin, depending on the includeHostsPlugin parameter.
+// getLocalDnsCorefileBase64WithHostsPlugin generates a LocalDns corefile from the AKS node config
+// and returns it as a base64-encoded string. The includeHostsPlugin parameter controls whether
+// the hosts plugin block (hosts /etc/localdns/hosts { fallthrough }) is included in root-domain
+// server blocks.
 //
-// The generated content is returned as a base64-encoded string and stored in environment variables:
-//   - LOCALDNS_GENERATED_COREFILE (kept for backward compat with old VHDs)
-//   - LOCALDNS_COREFILE_BASE (standard, without experimental plugins)
-//   - LOCALDNS_COREFILE_EXPERIMENTAL (with experimental plugins e.g. hosts plugin)
+// The caller (parser.go) assigns the result to the appropriate environment variable:
+//   - LOCALDNS_COREFILE_BASE (includeHostsPlugin=false)
+//   - LOCALDNS_COREFILE_EXPERIMENTAL (includeHostsPlugin=true)
+//   - LOCALDNS_GENERATED_COREFILE (kept for backward compat with old VHDs, same as BASE)
 //
-// The actual file writing happens in shell scripts (cse_config.sh), which decode and write
-// a selected variant to /opt/azure/containers/localdns/localdns.corefile after populating the env file.
-// Runtime selection between LOCALDNS_COREFILE_BASE and LOCALDNS_COREFILE_EXPERIMENTAL happens in localdns.sh
+// Runtime selection between BASE and EXPERIMENTAL happens in localdns.sh
 // (via select_localdns_corefile(), invoked on localdns service start/restart) based on the availability of /etc/localdns/hosts.
 func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {
 	if aksnodeconfig == nil {
