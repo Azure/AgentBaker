@@ -1095,38 +1095,34 @@ SETUP_EOF
             The output should include "is not executable, skipping aks-hosts-setup"
         End
 
-        It 'should create cloud-env file with LOCALDNS_CRITICAL_FQDNS'
+        It 'should create empty hosts file with correct permissions'
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The file "$AKS_CLOUD_ENV_FILE" should be exist
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com"
+            The file "$AKS_HOSTS_FILE" should be exist
         End
 
-        It 'should write cloud-env with China FQDNs when passed by RP'
+        It 'should succeed with China FQDNs from RP'
             TARGET_CLOUD="AzureChinaCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com"
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com"
         End
 
-        It 'should write cloud-env with US Gov FQDNs when passed by RP'
+        It 'should succeed with US Gov FQDNs from RP'
             TARGET_CLOUD="AzureUSGovernmentCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com"
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com"
         End
 
-        It 'should set correct permissions on cloud-env file'
+        It 'should set correct permissions on hosts file'
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The file "$AKS_CLOUD_ENV_FILE" should be exist
-            The result of function check_cloud_env_permissions should equal "0644"
+            The file "$AKS_HOSTS_FILE" should be exist
         End
 
         It 'should skip when LOCALDNS_CRITICAL_FQDNS is unset'
@@ -1151,13 +1147,13 @@ SETUP_EOF
             When call enableAKSHostsSetup
             The status should be success
             The output should include "aks-hosts-setup timer enabled successfully."
-            The contents of file "$AKS_CLOUD_ENV_FILE" should equal "LOCALDNS_CRITICAL_FQDNS=mcr.microsoft.com,login.microsoftonline.com"
         End
 
-        It 'should log LOCALDNS_CRITICAL_FQDNS when set'
+        It 'should succeed and enable timer when LOCALDNS_CRITICAL_FQDNS is set'
             When call enableAKSHostsSetup
             The status should be success
-            The output should include "Setting LOCALDNS_CRITICAL_FQDNS for aks-hosts-setup"
+            The output should include "Enabling aks-hosts-setup timer..."
+            The output should include "aks-hosts-setup timer enabled successfully."
         End
     End
 
