@@ -162,11 +162,14 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-endpoints.json"
     Add-MpPreference -ExclusionPath "C:\k\azure-vnet.log"
 
+
     if ($global:EnableCsiProxy) {
         Add-MpPreference -ExclusionProcess "c:\k\csi-proxy.exe"
     }
 
     Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
+    Add-MpPreference -ExclusionPath "C:\ProgramData\containerd"
+    Add-MpPreference -ExclusionPath "C:\ProgramData\containerd\rootfs"
 }
 
 function Check-APIServerConnectivity {
