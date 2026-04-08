@@ -404,7 +404,7 @@ func (s *Scenario) GetDefaultFQDNsForValidation() []string {
 	return []string{
 		"mcr.microsoft.com",
 		"login.microsoftonline.com",
-		"acs-mirror.azureedge.net",
+		"packages.aks.azure.com",
 	}
 }
 

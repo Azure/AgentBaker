@@ -977,26 +977,26 @@ providers:
         End
     End
 
-    Describe 'enableAKSHostsSetup'
+    Describe 'enableAKSLocalDNSHostsSetup'
         setup() {
             # Create temporary test directories and files
             TEST_TEMP_DIR=$(mktemp -d)
-            AKS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
-            AKS_HOSTS_SETUP_SCRIPT="${TEST_TEMP_DIR}/aks-hosts-setup.sh"
-            AKS_HOSTS_SETUP_SERVICE="${TEST_TEMP_DIR}/aks-hosts-setup.service"
-            AKS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-hosts-setup.timer"
+            AKS_LOCALDNS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
+            AKS_LOCALDNS_HOSTS_SETUP_SCRIPT="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.sh"
+            AKS_LOCALDNS_HOSTS_SETUP_SERVICE="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.service"
+            AKS_LOCALDNS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.timer"
             AKS_CLOUD_ENV_FILE="${TEST_TEMP_DIR}/cloud-env"
 
             # Create fake script that simulates successful hosts file creation
-            cat > "$AKS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
+            cat > "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
 #!/bin/bash
-echo "# test hosts file" > "${AKS_HOSTS_FILE}"
+echo "# test hosts file" > "${AKS_LOCALDNS_HOSTS_FILE}"
 SETUP_EOF
-            chmod +x "$AKS_HOSTS_SETUP_SCRIPT"
+            chmod +x "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT"
 
             # Create dummy service and timer files
-            touch "$AKS_HOSTS_SETUP_SERVICE"
-            touch "$AKS_HOSTS_SETUP_TIMER"
+            touch "$AKS_LOCALDNS_HOSTS_SETUP_SERVICE"
+            touch "$AKS_LOCALDNS_HOSTS_SETUP_TIMER"
 
             # Set up test environment
             TARGET_CLOUD="AzurePublicCloud"
@@ -1009,45 +1009,45 @@ SETUP_EOF
             }
 
             # Export variables so the real function can use them
-            export AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
-            export AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+            export AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
+            export AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
         }
 
         cleanup() {
             rm -rf "$TEST_TEMP_DIR"
-            unset AKS_HOSTS_FILE AKS_HOSTS_SETUP_SCRIPT AKS_HOSTS_SETUP_SERVICE
-            unset AKS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+            unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
+            unset AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
         }
 
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        It 'should enable aks-hosts-setup timer successfully'
-            When call enableAKSHostsSetup
+        It 'should enable aks-localdns-hosts-setup timer successfully'
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "Enabling aks-hosts-setup timer..."
-            The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
-            The output should include "aks-hosts-setup timer enabled successfully."
+            The output should include "Enabling aks-localdns-hosts-setup timer..."
+            The output should include "systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30"
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
 
         It 'should call systemctlEnableAndStartNoBlock with correct parameters'
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30"
+            The output should include "systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30"
         End
 
         It 'should skip when setup script is missing'
-            rm -f "$AKS_HOSTS_SETUP_SCRIPT"
-            When call enableAKSHostsSetup
+            rm -f "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "not found on this VHD, skipping aks-hosts-setup"
+            The output should include "not found on this VHD, skipping aks-localdns-hosts-setup"
         End
 
         It 'should skip when timer unit is missing'
-            rm -f "$AKS_HOSTS_SETUP_TIMER"
-            When call enableAKSHostsSetup
+            rm -f "$AKS_LOCALDNS_HOSTS_SETUP_TIMER"
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "not found on this VHD, skipping aks-hosts-setup"
+            The output should include "not found on this VHD, skipping aks-localdns-hosts-setup"
         End
 
         It 'should print warning when systemctlEnableAndStartNoBlock fails'
@@ -1055,86 +1055,87 @@ SETUP_EOF
                 echo "systemctlEnableAndStartNoBlock $@"
                 return 1
             }
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "Enabling aks-hosts-setup timer..."
-            The output should include "Warning: Failed to enable aks-hosts-setup timer"
-            The output should not include "aks-hosts-setup timer enabled successfully."
+            The output should include "Enabling aks-localdns-hosts-setup timer..."
+            The output should include "Warning: Failed to enable aks-localdns-hosts-setup timer"
+            The output should not include "aks-localdns-hosts-setup timer enabled successfully."
         End
 
         It 'should skip when service unit is missing'
-            rm -f "$AKS_HOSTS_SETUP_SERVICE"
-            When call enableAKSHostsSetup
+            rm -f "$AKS_LOCALDNS_HOSTS_SETUP_SERVICE"
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "not found on this VHD, skipping aks-hosts-setup"
+            The output should include "not found on this VHD, skipping aks-localdns-hosts-setup"
         End
 
         It 'should skip when setup script is not executable'
-            chmod -x "$AKS_HOSTS_SETUP_SCRIPT"
-            When call enableAKSHostsSetup
+            chmod -x "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "is not executable, skipping aks-hosts-setup"
+            The output should include "is not executable, skipping aks-localdns-hosts-setup"
         End
 
         It 'should create empty hosts file with correct permissions'
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "aks-hosts-setup timer enabled successfully."
-            The file "$AKS_HOSTS_FILE" should be exist
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+            The file "$AKS_LOCALDNS_HOSTS_FILE" should be exist
         End
 
         It 'should succeed with China FQDNs from RP'
             TARGET_CLOUD="AzureChinaCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com"
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "aks-hosts-setup timer enabled successfully."
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
 
         It 'should succeed with US Gov FQDNs from RP'
             TARGET_CLOUD="AzureUSGovernmentCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com"
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "aks-hosts-setup timer enabled successfully."
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
 
-        It 'should set correct permissions on hosts file'
-            When call enableAKSHostsSetup
+        It 'should create hosts file with correct permissions'
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "aks-hosts-setup timer enabled successfully."
-            The file "$AKS_HOSTS_FILE" should be exist
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+            The file "$AKS_LOCALDNS_HOSTS_FILE" should be exist
+            The result of "stat -c '%a' $AKS_LOCALDNS_HOSTS_FILE" should equal "644"
         End
 
         It 'should skip when LOCALDNS_CRITICAL_FQDNS is unset'
             unset LOCALDNS_CRITICAL_FQDNS
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
             The output should include "WARNING: LOCALDNS_CRITICAL_FQDNS is not set"
-            The output should include "Skipping aks-hosts-setup"
+            The output should include "Skipping aks-localdns-hosts-setup"
         End
 
         It 'should skip when LOCALDNS_CRITICAL_FQDNS is empty string'
             LOCALDNS_CRITICAL_FQDNS=""
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
             The output should include "WARNING: LOCALDNS_CRITICAL_FQDNS is not set"
-            The output should include "Skipping aks-hosts-setup"
+            The output should include "Skipping aks-localdns-hosts-setup"
         End
 
         It 'should work with any cloud as long as FQDNs are provided'
             TARGET_CLOUD="USNatCloud"
             LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.com"
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "aks-hosts-setup timer enabled successfully."
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
 
         It 'should succeed and enable timer when LOCALDNS_CRITICAL_FQDNS is set'
-            When call enableAKSHostsSetup
+            When call enableAKSLocalDNSHostsSetup
             The status should be success
-            The output should include "Enabling aks-hosts-setup timer..."
-            The output should include "aks-hosts-setup timer enabled successfully."
+            The output should include "Enabling aks-localdns-hosts-setup timer..."
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
     End
 

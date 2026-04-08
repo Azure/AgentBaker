@@ -72,8 +72,9 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on FIPS VHDs, older VHDs (privatekube, airgapped, scriptless), network isolated VHDs, and AzureLinux OSGuard.
-	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
+	// localdns validation is skipped for VHDs with UnsupportedLocalDns=true:
+	// FIPS VHDs, older pinned VHDs (privatekube, network-isolated-k8s-not-cached), and AzureLinux OSGuard.
+	// See e2e/config/vhd.go for the full list.
 	if !s.VHD.UnsupportedLocalDns {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
@@ -81,13 +82,13 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
 		if s.IsHostsPluginEnabled() {
 			// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
-			// This validator triggers aks-hosts-setup.service to run, so it must come before
-			// ValidateAKSHostsSetupService which checks the service result.
+			// This validator triggers aks-localdns-hosts-setup.service to run, so it must come before
+			// ValidateAKSLocalDNSHostsSetupService which checks the service result.
 			ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
-			// Validate aks-hosts-setup service ran successfully and timer is active
-			ValidateAKSHostsSetupService(ctx, s)
+			// Validate aks-localdns-hosts-setup service ran successfully and timer is active
+			ValidateAKSLocalDNSHostsSetupService(ctx, s)
 			// Restart localdns so it regenerates its corefile with the hosts plugin variant.
-			// On first boot, localdns and aks-hosts-setup start concurrently — localdns often
+			// On first boot, localdns and aks-localdns-hosts-setup start concurrently — localdns often
 			// starts before the hosts file is populated, so it uses the base corefile (no hosts plugin).
 			// Restarting after the hosts file is confirmed populated lets localdns pick the right corefile.
 			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo systemctl restart localdns", 0, "failed to restart localdns")

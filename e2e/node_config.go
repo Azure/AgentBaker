@@ -295,7 +295,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			CriticalFqdns: []string{
 				"mcr.microsoft.com",
 				"login.microsoftonline.com",
-				"acs-mirror.azureedge.net",
+				"packages.aks.azure.com",
 			},
 		},
 		NeedsCgroupv2: to.Ptr(true),
@@ -535,7 +535,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 							CriticalFQDNs: []string{
 								"mcr.microsoft.com",
 								"login.microsoftonline.com",
-								"acs-mirror.azureedge.net",
+								"packages.aks.azure.com",
 							},
 						},
 					},
@@ -689,7 +689,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				CriticalFQDNs: []string{
 					"mcr.microsoft.com",
 					"login.microsoftonline.com",
-					"acs-mirror.azureedge.net",
+					"packages.aks.azure.com",
 				},
 			},
 		},
