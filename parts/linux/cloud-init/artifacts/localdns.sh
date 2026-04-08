@@ -285,14 +285,15 @@ replace_azurednsip_in_corefile() {
         echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
     fi
 
-    # Persist the upstream DNS server(s) so aks-hosts-setup.sh can resolve against them
+    # Persist the upstream DNS server(s) so aks-localdns-hosts-setup.sh can resolve against them
     # directly, bypassing localdns. Without this, the timer's dig queries would go through
     # localdns (169.254.10.10) → hosts plugin → stale answers from /etc/localdns/hosts,
     # creating a self-referential loop where IPs can never refresh.
     local upstream_dns_file="/etc/localdns/upstream-dns"
+    mkdir -p "$(dirname "${upstream_dns_file}")" 2>/dev/null || true
     echo "${UPSTREAM_VNET_DNS_SERVERS}" > "${upstream_dns_file}" || {
         echo "WARNING: Failed to write upstream DNS to ${upstream_dns_file}"
-        # Non-fatal: aks-hosts-setup.sh will fall back to 168.63.129.16
+        # Non-fatal: aks-localdns-hosts-setup.sh will fall back to 168.63.129.16
     }
     chmod 0644 "${upstream_dns_file}" 2>/dev/null || true
     echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
@@ -905,7 +906,7 @@ start_localdns_watchdog() {
 #
 # Selection logic:
 #   1. If both BASE and EXPERIMENTAL are available, dynamically choose based on
-#      whether the hosts file has been populated by aks-hosts-setup.
+#      whether the hosts file has been populated by aks-localdns-hosts-setup.
 #   2. If only BASE is available, use it (no dynamic selection).
 #   3. If nothing is available, return failure (caller handles error).
 #
@@ -965,11 +966,11 @@ ${__SOURCED__:+return}
 # Regenerate corefile on every startup to enable dynamic variant selection.
 # ---------------------------------------------------------------------------------------------------------------------
 # This allows switching between EXPERIMENTAL and BASE corefile variants based on current state.
-# On restarts, if /etc/localdns/hosts has been populated by aks-hosts-setup timer,
+# On restarts, if /etc/localdns/hosts has been populated by aks-localdns-hosts-setup timer,
 # localdns will automatically switch to the hosts-plugin variant.
 # select_localdns_corefile checks the hosts file once and falls back to the
 # no-hosts variant immediately if missing/empty. This is intentional — we don't
-# block localdns startup waiting for DNS resolution. The aks-hosts-setup timer
+# block localdns startup waiting for DNS resolution. The aks-localdns-hosts-setup timer
 # will populate the hosts file, and the next restart will pick it up.
 regenerate_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 

@@ -1491,8 +1491,8 @@ func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string)
 	// the 15-minute timer gap can cause flaky mismatches due to DNS load-balancing
 	// or record rotation.
 	execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo systemctl start aks-hosts-setup.service",
-		0, "failed to refresh hosts file via aks-hosts-setup.service")
+		"sudo systemctl start aks-localdns-hosts-setup.service",
+		0, "failed to refresh hosts file via aks-localdns-hosts-setup.service")
 
 	// Build script that resolves each FQDN and checks it exists in hosts file
 	script := fmt.Sprintf(`set -euo pipefail
@@ -1543,16 +1543,16 @@ func quoteFQDNsForBash(fqdns []string) string {
 	}), " ")
 }
 
-// ValidateAKSHostsSetupService checks that aks-hosts-setup.service ran successfully
-// and the aks-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
-func ValidateAKSHostsSetupService(ctx context.Context, s *Scenario) {
+// ValidateAKSLocalDNSHostsSetupService checks that aks-localdns-hosts-setup.service ran successfully
+// and the aks-localdns-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
+func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Check that aks-hosts-setup.service (oneshot) completed without failure
-	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-hosts-setup.service")
+	// Check that aks-localdns-hosts-setup.service (oneshot) completed without failure
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-localdns-hosts-setup.service")
 
-	// Check that aks-hosts-setup.timer is active for periodic refresh
-	ValidateSystemdUnitIsRunning(ctx, s, "aks-hosts-setup.timer")
+	// Check that aks-localdns-hosts-setup.timer is active for periodic refresh
+	ValidateSystemdUnitIsRunning(ctx, s, "aks-localdns-hosts-setup.timer")
 }
 
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
@@ -1650,8 +1650,8 @@ echo "=== Corefile validation successful ==="
 	// 2. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN.
 	//
 	// We use the first FQDN from GetDefaultFQDNsForValidation() (e.g. mcr.microsoft.com) because
-	// it's a real FQDN that aks-hosts-setup.service populates from the NBC's CriticalFQDNs list.
-	// This avoids race conditions with the aks-hosts-setup.timer overwriting fake test entries.
+	// it's a real FQDN that aks-localdns-hosts-setup.service populates from the NBC's CriticalFQDNs list.
+	// This avoids race conditions with the aks-localdns-hosts-setup.timer overwriting fake test entries.
 	testFQDN := s.GetDefaultFQDNsForValidation()[0]
 	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with AA flag", testFQDN)
 

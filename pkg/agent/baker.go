@@ -1933,6 +1933,10 @@ func GenerateLocalDNSCoreFile(
 }
 
 // Template to create corefile that will be used by localdns service.
+// When IncludeHostsPlugin is true, the hosts plugin blocks for caching critical AKS FQDNs
+// (mcr.microsoft.com, packages.aks.azure.com, etc.) are included in root domain server blocks.
+// When false, hosts blocks are omitted — used as a fallback when enableAKSLocalDNSHostsSetup fails at
+// provisioning time, following the same dual-config pattern used for containerd GPU/no-GPU configs.
 const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
