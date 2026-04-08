@@ -733,7 +733,7 @@ testdomain567.com:53 {
 			})
 
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
-			// This is the fallback corefile used when enableAKSHostsSetup fails at provisioning time.
+			// This is the fallback corefile used when enableAKSLocalDNSHostsSetup fails at provisioning time.
 			It("generates a valid localdnsCorefile without hosts plugin when includeHostsPlugin is false", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					EnableLocalDNS:       true,
