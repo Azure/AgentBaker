@@ -147,19 +147,6 @@ install_trivy_from_github() {
     chmod a+x trivy
 }
 
-dnf_install() {
-    local retries=$1; local wait_sleep=$2; local timeout=$3; shift 3
-    for i in $(seq 1 "$retries"); do
-        timeout "$timeout" sudo dnf install -y "$@" && break || \
-        if [ "$i" -eq "$retries" ]; then
-            echo "dnf install $* failed after $i attempts"
-            return 1
-        else
-            sleep "$wait_sleep"
-        fi
-    done
-}
-
 install_trivy() {
     local os_sku=$1
     local os_version=$2
@@ -174,8 +161,9 @@ install_trivy() {
             apt_get_install 5 1 60 ca-certificates curl gnupg
 
             sudo install -d -m 0755 /etc/apt/keyrings
-            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-                | sudo gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+            retrycmd_if_failure 5 10 60 curl -fsSL -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc
+            cat /tmp/microsoft.asc | sudo gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+            rm -f /tmp/microsoft.asc
             echo "deb [arch=${arch} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/${os_version}/prod ${repo_codename} main" \
                 | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
             apt_get_update
@@ -183,6 +171,7 @@ install_trivy() {
             ;;
         AzureLinux)
             # trivy RPMs are available in the AzureLinux 3 PMC repo
+            # dnf_install is sourced from provision_source_distro.sh (includes dnf_makecache on retry)
             dnf_install 5 1 60 trivy
             ;;
         *)
