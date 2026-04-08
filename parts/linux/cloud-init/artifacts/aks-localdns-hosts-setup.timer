@@ -1,5 +1,5 @@
 [Unit]
-Description=Run AKS hosts setup periodically
+Description=Run AKS LocalDNS hosts setup periodically
 
 [Timer]
 # Run immediately on boot

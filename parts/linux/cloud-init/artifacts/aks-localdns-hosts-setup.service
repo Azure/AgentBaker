@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-TimeoutStartSec=60
+TimeoutStartSec=180
 EnvironmentFile=-/etc/localdns/environment
-ExecStart=/opt/azure/containers/aks-hosts-setup.sh
+ExecStart=/opt/azure/containers/aks-localdns-hosts-setup.sh
 
 [Install]
 WantedBy=multi-user.target
