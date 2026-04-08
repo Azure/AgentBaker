@@ -140,11 +140,24 @@ install_trivy_from_github() {
         echo "unsupported architecture for trivy download: ${arch}"
         exit 1
     fi
-    curl -fL -o "trivy_${trivy_version}_${trivy_arch}.tar.gz" \
+    retrycmd_if_failure 5 10 60 curl -fL -o "trivy_${trivy_version}_${trivy_arch}.tar.gz" \
         "https://github.com/aquasecurity/trivy/releases/download/v${trivy_version}/trivy_${trivy_version}_${trivy_arch}.tar.gz"
     tar -xzf "trivy_${trivy_version}_${trivy_arch}.tar.gz" --no-same-owner trivy
     rm "trivy_${trivy_version}_${trivy_arch}.tar.gz"
     chmod a+x trivy
+}
+
+dnf_install() {
+    local retries=$1; local wait_sleep=$2; local timeout=$3; shift 3
+    for i in $(seq 1 "$retries"); do
+        timeout "$timeout" sudo dnf install -y "$@" && break || \
+        if [ "$i" -eq "$retries" ]; then
+            echo "dnf install $* failed after $i attempts"
+            return 1
+        else
+            sleep "$wait_sleep"
+        fi
+    done
 }
 
 install_trivy() {
@@ -163,7 +176,7 @@ install_trivy() {
             ;;
         AzureLinux)
             # trivy RPMs are available in the AzureLinux 3 PMC repo
-            sudo dnf install -y trivy
+            dnf_install 5 1 60 trivy
             ;;
         *)
             # CBLMariner, Flatcar, AzureContainerLinux, AzureLinuxOSGuard, etc.
