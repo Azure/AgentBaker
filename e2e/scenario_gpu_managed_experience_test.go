@@ -701,7 +701,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 				ValidateMIGModeEnabled(ctx, s)
 
 				// Validate that MIG instances are created
-				ValidateMIGInstancesCreated(ctx, s, "MIG 1g")
+				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb")
 
 				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
 				migResourceName := "nvidia.com/mig-1g.10gb"
