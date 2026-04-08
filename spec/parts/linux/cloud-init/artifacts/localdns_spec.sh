@@ -1447,11 +1447,11 @@ EOF
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
 
-            # Mock systemctl to return controllable values
-            systemctl() {
-                echo "CPUUsageNSec=1500000000"
-                echo "MemoryCurrent=8388608"
-            }
+            # Create fake cgroup v2 directory with controllable values
+            LOCALDNS_CGROUP_DIR="${TEST_DIR}/sys/fs/cgroup/localdns.slice/localdns.service"
+            mkdir -p "$LOCALDNS_CGROUP_DIR"
+            printf "usage_usec 1500000\nuser_usec 1000000\nsystem_usec 500000\n" > "$LOCALDNS_CGROUP_DIR/cpu.stat"
+            printf "8388608" > "$LOCALDNS_CGROUP_DIR/memory.current"
         }
         cleanup() {
             rm -rf "/tmp/localdnstest"
@@ -1477,11 +1477,8 @@ EOF
             The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="inactive"} 0'
         End
 
-        It 'should default to zero when systemctl returns not set'
-            systemctl() {
-                echo "CPUUsageNSec=[not set]"
-                echo "MemoryCurrent=[not set]"
-            }
+        It 'should default to zero when cgroup files are missing'
+            rm -rf "$LOCALDNS_CGROUP_DIR"
             COREDNS_PID=$$
             When run export_resource_metrics
             The status should be success
