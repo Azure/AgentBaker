@@ -67,60 +67,23 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	defer cancel()
 
 	clusterModel.Name = to.Ptr(fmt.Sprintf("%s-%s", *clusterModel.Name, hash(clusterModel)))
-	needACR := isNetworkIsolated || attachPrivateAcr
 
-	rg := config.ResourceGroupName(*clusterModel.Location)
 	g := dag.NewGroup(ctx)
 
-	cluster := dag.Go(g, func(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
-		return getOrCreateCluster(ctx, clusterModel)
-	})
-
+	cluster := dag.Go(g, newClusterTask(clusterModel))
 	bastion := dag.Go1(g, cluster, getOrCreateBastion)
-	dag.Run1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
-		_, err := getOrCreateMaintenanceConfiguration(ctx, c)
-		return err
-	})
-	subnet := dag.Go1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) (string, error) {
-		return getClusterSubnetID(ctx, *c.Properties.NodeResourceGroup)
-	})
-	kube := dag.Go1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
-		return getClusterKubeClient(ctx, rg, *c.Name)
-	})
+	dag.Run1(g, cluster, ensureMaintenanceConfiguration)
+	subnet := dag.Go1(g, cluster, getClusterSubnetID)
+	kube := dag.Go1(g, cluster, getClusterKubeClient)
 	identity := dag.Go1(g, cluster, getClusterKubeletIdentity)
 	dag.Run1(g, cluster, collectGarbageVMSS)
-	dag.Run1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
-		if isNetworkIsolated {
-			return nil
-		}
-		return addFirewallRules(ctx, c, *c.Location)
-	})
-	dag.Run1(g, cluster, func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
-		if !isNetworkIsolated {
-			return nil
-		}
-		return addNetworkIsolatedSettings(ctx, c, *c.Location)
-	})
-	acrNonAnon := dag.Run3(g, cluster, kube, identity,
-		func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
-			if !needACR {
-				return nil
-			}
-			return addPrivateAzureContainerRegistry(ctx, c, k, rg, id, true)
-		})
-	acrAnon := dag.Run3(g, cluster, kube, identity,
-		func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
-			if !needACR {
-				return nil
-			}
-			return addPrivateAzureContainerRegistry(ctx, c, k, rg, id, false)
-		})
-	dag.Run(g, func(ctx context.Context) error {
-		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.MustGet().Location))
-	}, kube, acrNonAnon, acrAnon)
-	extract := dag.Go2(g, cluster, kube, func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient) (*ClusterParams, error) {
-		return extractClusterParameters(ctx, k, c)
-	})
+	dag.Run1(g, cluster, configureFirewall(isNetworkIsolated))
+	dag.Run1(g, cluster, configureNetworkIsolation(isNetworkIsolated))
+	needACR := isNetworkIsolated || attachPrivateAcr
+	acrNonAnon := dag.Run3(g, cluster, kube, identity, setupACR(needACR, true))
+	acrAnon := dag.Run3(g, cluster, kube, identity, setupACR(needACR, false))
+	dag.Run(g, ensureDebugDaemonsets(isNetworkIsolated, cluster, kube), kube, acrNonAnon, acrAnon)
+	extract := dag.Go2(g, cluster, kube, extractClusterParameters)
 
 	if err := g.Wait(); err != nil {
 		return nil, err
@@ -135,6 +98,50 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	}, nil
 }
 
+func newClusterTask(model *armcontainerservice.ManagedCluster) func(context.Context) (*armcontainerservice.ManagedCluster, error) {
+	return func(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+		return getOrCreateCluster(ctx, model)
+	}
+}
+
+func configureFirewall(isNetworkIsolated bool) func(context.Context, *armcontainerservice.ManagedCluster) error {
+	return func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
+		if isNetworkIsolated {
+			return nil
+		}
+		return addFirewallRules(ctx, c, *c.Location)
+	}
+}
+
+func configureNetworkIsolation(isNetworkIsolated bool) func(context.Context, *armcontainerservice.ManagedCluster) error {
+	return func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
+		if !isNetworkIsolated {
+			return nil
+		}
+		return addNetworkIsolatedSettings(ctx, c, *c.Location)
+	}
+}
+
+func setupACR(needACR, isNonAnonymousPull bool) func(context.Context, *armcontainerservice.ManagedCluster, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
+	return func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+		if !needACR {
+			return nil
+		}
+		return addPrivateAzureContainerRegistry(ctx, c, k, config.ResourceGroupName(*c.Location), id, isNonAnonymousPull)
+	}
+}
+
+func ensureDebugDaemonsets(isNetworkIsolated bool, cluster *dag.Result[*armcontainerservice.ManagedCluster], kube *dag.Result[*Kubeclient]) func(context.Context) error {
+	return func(ctx context.Context) error {
+		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.MustGet().Location))
+	}
+}
+
+func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	_, err := getOrCreateMaintenanceConfiguration(ctx, cluster)
+	return err
+}
+
 func getClusterKubeletIdentity(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
 	if cluster == nil || cluster.Properties == nil || cluster.Properties.IdentityProfile == nil {
 		return nil, fmt.Errorf("cannot dereference cluster identity profile to extract kubelet identity ID")
@@ -146,7 +153,7 @@ func getClusterKubeletIdentity(ctx context.Context, cluster *armcontainerservice
 	return kubeletIdentity, nil
 }
 
-func extractClusterParameters(ctx context.Context, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
+func extractClusterParameters(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) (*ClusterParams, error) {
 	kubeconfig, err := clientcmd.Load(kube.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("loading cluster kubeconfig: %w", err)
