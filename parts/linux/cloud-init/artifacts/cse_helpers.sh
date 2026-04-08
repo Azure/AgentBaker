@@ -255,7 +255,21 @@ _retrycmd_internal() {
             return 2
         fi
 
-        timeout "$timeoutVal" "${@}"
+        # Cap per-attempt timeout to remaining CSE budget so a single attempt cannot overrun
+        # the global provisioning window even when per-attempt timeouts are large.
+        local effectiveTimeout="$timeoutVal"
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            local remainingCseTime=$(( 780 - ( $(date +%s) - CSE_STARTTIME_SECONDS ) ))
+            if [ "$remainingCseTime" -lt 1 ]; then
+                echo "No CSE time remaining, exiting early." >&2
+                return 2
+            fi
+            if [ "$effectiveTimeout" -gt "$remainingCseTime" ]; then
+                effectiveTimeout="$remainingCseTime"
+            fi
+        fi
+
+        timeout "$effectiveTimeout" "${@}"
         exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
@@ -323,10 +337,6 @@ _retry_file_curl_internal() {
     opStartTime=$(date +%s)
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do
-        # Use eval to execute the checksToRun string as a command
-        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
-            return 1
-        fi
         # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window
         if [ "${maxBudget}" -gt 0 ]; then
             local opElapsed
@@ -340,14 +350,22 @@ _retry_file_curl_internal() {
         if ! check_cse_timeout; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
-        else
-            if [ "$i" -gt 1 ]; then
-                sleep $waitSleep
-            fi
-            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $CURL_OUTPUT
-            fi
+        fi
+
+        if [ "$i" -gt 1 ]; then
+            sleep $waitSleep
+        fi
+        timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+        if [ "$?" -ne 0 ]; then
+            cat $CURL_OUTPUT
+        fi
+
+        # Check if the download produced a valid result
+        if ( eval "$checksToRun" ); then
+            break
+        fi
+        if [ "$i" -eq "$retries" ]; then
+            return 1
         fi
     done
 }
