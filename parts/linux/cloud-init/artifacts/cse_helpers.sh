@@ -247,12 +247,17 @@ _retrycmd_internal() {
     local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
-        # Check CSE timeout BEFORE starting each attempt. This prevents launching a new long-running
-        # operation (e.g. a 300-600s GPU install) when we are already near the global provisioning
-        # timeout, which would push total CSE execution past the 16-minute client window.
-        if ! check_cse_timeout "$shouldLog"; then
-            echo "CSE timeout approaching, exiting early." >&2
-            return 2
+        # Only apply CSE timeout guards when CSE_STARTTIME_SECONDS is set (i.e. in a real CSE run).
+        # Skipping the guard during VHD build or other non-CSE callers avoids noisy
+        # "CSE_STARTTIME_SECONDS is not set" warnings in those contexts.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            # Check CSE timeout BEFORE starting each attempt. This prevents launching a new long-running
+            # operation (e.g. a 300-600s GPU install) when we are already near the global provisioning
+            # timeout, which would push total CSE execution past the 16-minute client window.
+            if ! check_cse_timeout "$shouldLog"; then
+                echo "CSE timeout approaching, exiting early." >&2
+                return 2
+            fi
         fi
 
         # Cap per-attempt timeout to remaining CSE budget so a single attempt cannot overrun
@@ -277,7 +282,7 @@ _retrycmd_internal() {
         fi
 
         # Check again after failure, before sleeping, to exit as early as possible.
-        if ! check_cse_timeout "$shouldLog"; then
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
