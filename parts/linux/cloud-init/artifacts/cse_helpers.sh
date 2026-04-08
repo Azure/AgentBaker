@@ -339,13 +339,19 @@ _retry_file_curl_internal() {
     for i in $(seq 1 $retries); do
         # Check if the result is already valid (from a previous attempt or pre-existing file)
         ( eval "$checksToRun" ) && break
-        # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window
+        # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window.
+        # Also cap the per-attempt timeout to the remaining budget so a single curl can't overrun it.
+        local effectiveTimeout=$timeout
         if [ "${maxBudget}" -gt 0 ]; then
             local opElapsed
             opElapsed=$(( $(date +%s) - opStartTime ))
             if [ "$opElapsed" -ge "$maxBudget" ]; then
                 echo "Operation budget of ${maxBudget}s exceeded after ${opElapsed}s, exiting early." >&2
                 return 2
+            fi
+            local remainingBudget=$(( maxBudget - opElapsed ))
+            if [ "$effectiveTimeout" -gt "$remainingBudget" ]; then
+                effectiveTimeout=$remainingBudget
             fi
         fi
         # check if global cse timeout is approaching
@@ -357,7 +363,7 @@ _retry_file_curl_internal() {
         if [ "$i" -gt 1 ]; then
             sleep $waitSleep
         fi
-        timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+        timeout $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
         if [ "$?" -ne 0 ]; then
             cat $CURL_OUTPUT
         fi
