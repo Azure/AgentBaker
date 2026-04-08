@@ -77,12 +77,16 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	kube := dag.Go1(g, cluster, getClusterKubeClient)
 	identity := dag.Go1(g, cluster, getClusterKubeletIdentity)
 	dag.Run1(g, cluster, collectGarbageVMSS)
-	dag.Run1(g, cluster, configureFirewall(isNetworkIsolated))
-	dag.Run1(g, cluster, configureNetworkIsolation(isNetworkIsolated))
+	if !isNetworkIsolated {
+		dag.Run1(g, cluster, addFirewallRules)
+	}
+	if isNetworkIsolated {
+		dag.Run1(g, cluster, addNetworkIsolatedSettings)
+	}
 	needACR := isNetworkIsolated || attachPrivateAcr
-	acrNonAnon := dag.Run3(g, cluster, kube, identity, setupACR(needACR, true))
-	acrAnon := dag.Run3(g, cluster, kube, identity, setupACR(needACR, false))
-	dag.Run(g, ensureDebugDaemonsets(isNetworkIsolated, cluster, kube), kube, acrNonAnon, acrAnon)
+	acrNonAnon := dag.Run3(g, cluster, kube, identity, addACRTask(needACR, true))
+	acrAnon := dag.Run3(g, cluster, kube, identity, addACRTask(needACR, false))
+	dag.Run2(g, cluster, kube, addDebugDaemonsets(isNetworkIsolated), kube, acrNonAnon, acrAnon)
 	extract := dag.Go2(g, cluster, kube, extractClusterParameters)
 
 	if err := g.Wait(); err != nil {
@@ -104,42 +108,19 @@ func newClusterTask(model *armcontainerservice.ManagedCluster) func(context.Cont
 	}
 }
 
-func configureFirewall(isNetworkIsolated bool) func(context.Context, *armcontainerservice.ManagedCluster) error {
-	return func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
-		if isNetworkIsolated {
-			return nil
-		}
-		return addFirewallRules(ctx, c, *c.Location)
-	}
-}
-
-func configureNetworkIsolation(isNetworkIsolated bool) func(context.Context, *armcontainerservice.ManagedCluster) error {
-	return func(ctx context.Context, c *armcontainerservice.ManagedCluster) error {
-		if !isNetworkIsolated {
-			return nil
-		}
-		return addNetworkIsolatedSettings(ctx, c, *c.Location)
-	}
-}
-
-func setupACR(needACR, isNonAnonymousPull bool) func(context.Context, *armcontainerservice.ManagedCluster, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
+func addACRTask(needACR, isNonAnonymousPull bool) func(context.Context, *armcontainerservice.ManagedCluster, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
 	return func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
 		if !needACR {
 			return nil
 		}
-		return addPrivateAzureContainerRegistry(ctx, c, k, config.ResourceGroupName(*c.Location), id, isNonAnonymousPull)
+		return addPrivateAzureContainerRegistry(ctx, c, k, id, isNonAnonymousPull)
 	}
 }
 
-func ensureDebugDaemonsets(isNetworkIsolated bool, cluster *dag.Result[*armcontainerservice.ManagedCluster], kube *dag.Result[*Kubeclient]) func(context.Context) error {
-	return func(ctx context.Context) error {
-		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.MustGet().Location))
+func addDebugDaemonsets(isNetworkIsolated bool) func(context.Context, *armcontainerservice.ManagedCluster, *Kubeclient) error {
+	return func(ctx context.Context, c *armcontainerservice.ManagedCluster, k *Kubeclient) error {
+		return k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *c.Location))
 	}
-}
-
-func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
-	_, err := getOrCreateMaintenanceConfiguration(ctx, cluster)
-	return err
 }
 
 func getClusterKubeletIdentity(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.UserAssignedIdentity, error) {
@@ -424,16 +405,18 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
 }
 
-func getOrCreateMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
+func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
 	existingMaintenance, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		return createNewMaintenanceConfiguration(ctx, cluster)
+		_, err = createNewMaintenanceConfiguration(ctx, cluster)
+		return err
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
+		return fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
 	}
-	return &existingMaintenance.MaintenanceConfiguration, nil
+	_ = existingMaintenance
+	return nil
 }
 
 func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {

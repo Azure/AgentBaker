@@ -234,9 +234,10 @@ func Go[T any](g *Group, fn func(ctx context.Context) (T, error), deps ...Dep) *
 }
 
 // Go1 launches fn after dep completes, passing its value.
-func Go1[T, D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1) (T, error)) *Result[T] {
+// Extra deps are waited on but their values are not passed to fn.
+func Go1[T, D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1) (T, error), extra ...Dep) *Result[T] {
 	r := newResult[T]()
-	g.launch([]Dep{dep}, func() {
+	g.launch(append([]Dep{dep}, extra...), func() {
 		val, err := fn(g.ctx, dep.val)
 		if err != nil {
 			g.recordError(err)
@@ -250,9 +251,10 @@ func Go1[T, D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D
 }
 
 // Go2 launches fn after dep1 and dep2 complete, passing both values.
-func Go2[T, D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx context.Context, d1 D1, d2 D2) (T, error)) *Result[T] {
+// Extra deps are waited on but their values are not passed to fn.
+func Go2[T, D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx context.Context, d1 D1, d2 D2) (T, error), extra ...Dep) *Result[T] {
 	r := newResult[T]()
-	g.launch([]Dep{dep1, dep2}, func() {
+	g.launch(append([]Dep{dep1, dep2}, extra...), func() {
 		val, err := fn(g.ctx, dep1.val, dep2.val)
 		if err != nil {
 			g.recordError(err)
@@ -266,9 +268,10 @@ func Go2[T, D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ct
 }
 
 // Go3 launches fn after dep1, dep2, and dep3 complete, passing all values.
-func Go3[T, D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Result[D3], fn func(ctx context.Context, d1 D1, d2 D2, d3 D3) (T, error)) *Result[T] {
+// Extra deps are waited on but their values are not passed to fn.
+func Go3[T, D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Result[D3], fn func(ctx context.Context, d1 D1, d2 D2, d3 D3) (T, error), extra ...Dep) *Result[T] {
 	r := newResult[T]()
-	g.launch([]Dep{dep1, dep2, dep3}, func() {
+	g.launch(append([]Dep{dep1, dep2, dep3}, extra...), func() {
 		val, err := fn(g.ctx, dep1.val, dep2.val, dep3.val)
 		if err != nil {
 			g.recordError(err)
@@ -304,9 +307,10 @@ func Run(g *Group, fn func(ctx context.Context) error, deps ...Dep) *Effect {
 }
 
 // Run1 launches fn after dep completes, passing its value.
-func Run1[D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1) error) *Effect {
+// Extra deps are waited on but their values are not passed to fn.
+func Run1[D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1) error, extra ...Dep) *Effect {
 	e := newEffect()
-	g.launch([]Dep{dep}, func() {
+	g.launch(append([]Dep{dep}, extra...), func() {
 		err := fn(g.ctx, dep.val)
 		if err != nil {
 			g.recordError(err)
@@ -319,9 +323,10 @@ func Run1[D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1)
 }
 
 // Run2 launches fn after dep1 and dep2 complete, passing both values.
-func Run2[D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx context.Context, d1 D1, d2 D2) error) *Effect {
+// Extra deps are waited on but their values are not passed to fn.
+func Run2[D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx context.Context, d1 D1, d2 D2) error, extra ...Dep) *Effect {
 	e := newEffect()
-	g.launch([]Dep{dep1, dep2}, func() {
+	g.launch(append([]Dep{dep1, dep2}, extra...), func() {
 		err := fn(g.ctx, dep1.val, dep2.val)
 		if err != nil {
 			g.recordError(err)
@@ -334,9 +339,10 @@ func Run2[D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx 
 }
 
 // Run3 launches fn after dep1, dep2, and dep3 complete, passing all values.
-func Run3[D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Result[D3], fn func(ctx context.Context, d1 D1, d2 D2, d3 D3) error) *Effect {
+// Extra deps are waited on but their values are not passed to fn.
+func Run3[D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Result[D3], fn func(ctx context.Context, d1 D1, d2 D2, d3 D3) error, extra ...Dep) *Effect {
 	e := newEffect()
-	g.launch([]Dep{dep1, dep2, dep3}, func() {
+	g.launch(append([]Dep{dep1, dep2, dep3}, extra...), func() {
 		err := fn(g.ctx, dep1.val, dep2.val, dep3.val)
 		if err != nil {
 			g.recordError(err)
