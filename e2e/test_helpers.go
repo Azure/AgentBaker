@@ -239,6 +239,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if config.Config.EnableScriptlessPhase2 {
 		nbc.EnableScriptlessPhase2 = true
+		nbc.EnableKubeletConfigFile = true
+		s.Runtime.NBC = nbc
 	}
 
 	if s.IsWindows() {

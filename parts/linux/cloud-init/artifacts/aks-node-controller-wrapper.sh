@@ -16,8 +16,14 @@ log() {
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
 
+command="$BIN_PATH provision"
 log "Launching aks-node-controller with config ${CONFIG_PATH}"
-"$BIN_PATH" provision --provision-config="$CONFIG_PATH" --nbc-cmd="$NBC_CMD_PATH" &
+if [ -f "$CONFIG_PATH" ]; then
+    command="$command --provision-config=$CONFIG_PATH"
+elif [ -f "$NBC_CMD_PATH" ]; then
+    command="$command --nbc-cmd=$NBC_CMD_PATH"
+fi
+"$command" &
 child_pid=$!
 log "Spawned aks-node-controller (pid ${child_pid})"
 

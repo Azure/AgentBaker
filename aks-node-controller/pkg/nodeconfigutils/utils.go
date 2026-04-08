@@ -14,6 +14,10 @@ import (
 const (
 	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
 
+	AKSNodeConfigFilepath = "/opt/azure/containers/aks-node-controller-config.json"
+
+	NBCCMDFilepath = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
@@ -22,15 +26,10 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers
 
-cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-config.json
-%s
+cat <<'EOF' | base64 -d >%[1]s
+%[2]s
 EOF
-chmod 0644 /opt/azure/containers/aks-node-controller-config.json
-
-cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-nbc-cmd.sh
-%s
-EOF
-chmod 0755 /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+chmod 0755 %[1]s
 
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
@@ -57,14 +56,42 @@ runcmd:
 // It encodes the node configuration as JSON, embeds it in a cloud-boothook script that writes the config
 // to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
 // processes each MIME part according to its Content-Type during the VM's first boot.
-func CustomData(cfg *aksnodeconfigv1.Configuration, nbcCMD string) (string, error) {
+func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, encodedAksNodeConfigJSON, nbcCMD)
+	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilepath, encodedAksNodeConfigJSON)
+
+	var customData bytes.Buffer
+	writer := multipart.NewWriter(&customData)
+
+	fmt.Fprintf(&customData, "MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&customData, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", writer.Boundary())
+
+	if err := writeMIMEPart(writer, "text/cloud-boothook", boothook); err != nil {
+		return "", fmt.Errorf("failed to write boothook part: %w", err)
+	}
+	if err := writeMIMEPart(writer, "text/cloud-config", cloudConfigTemplate); err != nil {
+		return "", fmt.Errorf("failed to write cloud-config part: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize multipart custom data: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
+}
+
+// CustomDataPhase2 builds a base64-encoded MIME multipart document to be used as VM custom data for cloud-init.
+// It encodes the NBC command, embeds it in a cloud-boothook script that writes the command
+// to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
+// processes each MIME part according to its Content-Type during the VM's first boot.
+func CustomDataPhase2(nbcCMD string) (string, error) {
+
+	encodedNBCCMD := base64.StdEncoding.EncodeToString([]byte(nbcCMD))
+	boothook := fmt.Sprintf(boothookTemplate, NBCCMDFilepath, encodedNBCCMD)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
