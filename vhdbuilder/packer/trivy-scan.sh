@@ -129,7 +129,7 @@ login_with_umsi_resource_id() {
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
 install_trivy_from_github() {
-    local trivy_version="0.69.2"
+    local trivy_version="${TRIVY_VERSION:-0.69.2}"
     local arch trivy_arch
     arch="$(uname -m)"
     if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
@@ -166,10 +166,17 @@ install_trivy() {
     case "$os_sku" in
         Ubuntu)
             # trivy debs are published to the Microsoft PMC prod repo
-            local arch
+            local arch repo_codename
             arch="$(dpkg --print-architecture)"
-            curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-            echo "deb [arch=${arch}] https://packages.microsoft.com/ubuntu/${os_version}/prod $(lsb_release -cs) main" \
+            repo_codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
+
+            apt_get_update
+            apt_get_install 5 1 60 ca-certificates curl gnupg
+
+            sudo install -d -m 0755 /etc/apt/keyrings
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+                | sudo gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+            echo "deb [arch=${arch} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/${os_version}/prod ${repo_codename} main" \
                 | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
             apt_get_update
             apt_get_install 5 1 60 trivy
