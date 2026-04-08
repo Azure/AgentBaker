@@ -299,7 +299,7 @@ EOF
 
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
     # Startup ordering: localdns starts immediately with the base (no-hosts) corefile.
-    # If aks-hosts-setup timer is also enabled, it runs async and populates /etc/localdns/hosts.
+    # If aks-localdns-hosts-setup timer is also enabled, it runs async and populates /etc/localdns/hosts.
     # On the next localdns restart, select_localdns_corefile() upgrades to the hosts-plugin
     # corefile variant if the hosts file has valid IP mappings.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
