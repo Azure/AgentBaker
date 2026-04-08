@@ -61,6 +61,9 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 }
 
 // prepareCluster runs all cluster preparation steps as a concurrent DAG.
+// This function contains complex concurrent orchestration — keep it as
+// minimal as possible and push all non-trivial logic into the individual
+// task functions it calls.
 func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
