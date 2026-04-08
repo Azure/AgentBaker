@@ -657,9 +657,10 @@ export_resource_metrics() {
         service_status="inactive"
     fi
 
-    # Read raw cgroup resource values in a single systemctl call to reduce overhead
+    # Read raw cgroup resource values in a single systemctl call to reduce overhead.
+    # Use timeout to prevent blocking if systemd's D-Bus socket is temporarily unresponsive.
     local show_output
-    show_output=$(systemctl show "$unit" --property=CPUUsageNSec,MemoryCurrent 2>/dev/null || echo "")
+    show_output=$(timeout 3 systemctl show "$unit" --property=CPUUsageNSec,MemoryCurrent 2>/dev/null || echo "")
     raw_cpu=$(echo "$show_output" | awk -F= '/^CPUUsageNSec=/{print $2}')
     raw_mem=$(echo "$show_output" | awk -F= '/^MemoryCurrent=/{print $2}')
 
