@@ -337,6 +337,8 @@ _retry_file_curl_internal() {
     opStartTime=$(date +%s)
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do
+        # Check if the result is already valid (from a previous attempt or pre-existing file)
+        ( eval "$checksToRun" ) && break
         # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window
         if [ "${maxBudget}" -gt 0 ]; then
             local opElapsed
@@ -360,12 +362,11 @@ _retry_file_curl_internal() {
             cat $CURL_OUTPUT
         fi
 
-        # Check if the download produced a valid result
-        if ( eval "$checksToRun" ); then
-            break
-        fi
+        # On the last attempt, do a final check so every retry gets a curl attempt
         if [ "$i" -eq "$retries" ]; then
-            return 1
+            if ! ( eval "$checksToRun" ); then
+                return 1
+            fi
         fi
     done
 }
@@ -376,11 +377,16 @@ _retry_file_curl_internal() {
 # max_budget_s: optional per-operation budget in seconds (0 = no cap)
 retrycmd_get_tarball() {
     local tar_retries=$1; local wait_sleep=$2
-    if [[ "$3" =~ ^[0-9]+$ ]]; then
-        local timeout=$3; local tarball=$4; local url=$5; local max_budget=${6:-0}
-    else
-        local timeout=60; local tarball=$3; local url=$4; local max_budget=0
-    fi
+    case "$3" in
+        ''|*[!0-9]*)
+            # Non-numeric 3rd arg: old 4-arg signature <retries> <wait_sleep> <tarball> <url>
+            local timeout=60; local tarball=$3; local url=$4; local max_budget=0
+            ;;
+        *)
+            # Numeric 3rd arg: new 5-arg signature <retries> <wait_sleep> <timeout> <tarball> <url> [max_budget]
+            local timeout=$3; local tarball=$4; local url=$5; local max_budget=${6:-0}
+            ;;
+    esac
     local check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
     _retry_file_curl_internal "$tar_retries" "$wait_sleep" "$timeout" "$max_budget" "$tarball" "$url" "$check_tarball_valid"
 }
