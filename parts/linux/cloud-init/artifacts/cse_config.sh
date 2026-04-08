@@ -1272,7 +1272,7 @@ generateLocalDNSFiles() {
 
     # Start with the base corefile as the initial active corefile.
     # The experimental variant will be selected dynamically by localdns.sh
-    # once /etc/localdns/hosts has been populated by aks-hosts-setup.
+    # once /etc/localdns/hosts has been populated by aks-localdns-hosts-setup.
     base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the generated corefile includes hosts plugin
@@ -1285,6 +1285,10 @@ generateLocalDNSFiles() {
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
     # Save BOTH corefile variants so localdns can dynamically choose on each restart.
+    # All corefile values are base64-encoded; localdns.sh decodes them at runtime.
+    # LOCALDNS_BASE64_ENCODED_COREFILE is the legacy key for old VHDs.
+    # LOCALDNS_COREFILE_BASE is the new name ("BASE" = base variant without hosts plugin, not base64).
+    # LOCALDNS_COREFILE_EXPERIMENTAL is the variant WITH hosts plugin.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
@@ -1337,9 +1341,9 @@ enableLocalDNS() {
     # This follows the configureManagedGPUExperience() pattern — the setting is mutable,
     # so on CSE re-run we must handle both enable and disable (cleanup) paths.
     if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS.enableAKSHostsSetup" enableAKSHostsSetup
+        logs_to_events "AKS.CSE.enableLocalDNS.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
     else
-        logs_to_events "AKS.CSE.enableLocalDNS.disableAKSHostsSetup" disableAKSHostsSetup
+        logs_to_events "AKS.CSE.enableLocalDNS.disableAKSLocalDNSHostsSetup" disableAKSLocalDNSHostsSetup
     fi
 
     echo "localdns should be enabled."
@@ -1347,34 +1351,34 @@ enableLocalDNS() {
     echo "Enable localdns succeeded."
 }
 
-# This function enables and starts the aks-hosts-setup timer.
+# This function enables and starts the aks-localdns-hosts-setup timer.
 # The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
 # Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is true.
-enableAKSHostsSetup() {
+enableAKSLocalDNSHostsSetup() {
     # Best-effort setup: log errors but never fail.
     # The corefile will fall back to the no-hosts variant if hosts file is empty.
     # Allow overriding paths for testing (via environment variables)
-    local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
-    local hosts_setup_script="${AKS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-hosts-setup.sh}"
-    local hosts_setup_service="${AKS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-hosts-setup.service}"
-    local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
+    local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_script="${AKS_LOCALDNS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-localdns-hosts-setup.sh}"
+    local hosts_setup_service="${AKS_LOCALDNS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-localdns-hosts-setup.service}"
+    local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
 
     # Guard: verify required artifacts exist on this VHD.
     # Older VHDs (or certain build modes) may not include them.
     if [ ! -f "${hosts_setup_script}" ]; then
-        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-hosts-setup"
+        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-localdns-hosts-setup"
         return
     fi
     if [ ! -x "${hosts_setup_script}" ]; then
-        echo "Warning: ${hosts_setup_script} is not executable, skipping aks-hosts-setup"
+        echo "Warning: ${hosts_setup_script} is not executable, skipping aks-localdns-hosts-setup"
         return
     fi
     if [ ! -f "${hosts_setup_service}" ]; then
-        echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-hosts-setup"
+        echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-localdns-hosts-setup"
         return
     fi
     if [ ! -f "${hosts_setup_timer}" ]; then
-        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-hosts-setup"
+        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-localdns-hosts-setup"
         return
     fi
 
@@ -1382,44 +1386,44 @@ enableAKSHostsSetup() {
     # Verify it is set before proceeding; if not, skip hosts setup.
     if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
         echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
-        echo "Skipping aks-hosts-setup. Corefile will fall back to version without hosts plugin."
+        echo "Skipping aks-localdns-hosts-setup. Corefile will fall back to version without hosts plugin."
         return
     fi
 
     # Create an empty hosts file so the localdns hosts plugin can start watching it
-    # immediately. The file will be populated by aks-hosts-setup timer asynchronously.
+    # immediately. The file will be populated by aks-localdns-hosts-setup timer asynchronously.
     mkdir -p "$(dirname "${hosts_file}")"
     touch "${hosts_file}"
     chmod 0644 "${hosts_file}"
 
     # Enable the timer for periodic refresh (every 15 minutes)
     # This will update the hosts file with fresh IPs from live DNS
-    echo "Enabling aks-hosts-setup timer..."
-    if systemctlEnableAndStartNoBlock aks-hosts-setup.timer 30; then
-        echo "aks-hosts-setup timer enabled successfully."
+    echo "Enabling aks-localdns-hosts-setup timer..."
+    if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
+        echo "aks-localdns-hosts-setup timer enabled successfully."
     else
-        echo "Warning: Failed to enable aks-hosts-setup timer"
+        echo "Warning: Failed to enable aks-localdns-hosts-setup timer"
     fi
 }
 
-# disableAKSHostsSetup disables the hosts plugin on a node where it was previously enabled.
+# disableAKSLocalDNSHostsSetup disables the hosts plugin on a node where it was previously enabled.
 # Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is false.
 # This handles the production rollback case where a customer disables the hosts plugin
 # on an existing agentpool and AKS-RP re-runs CSE with SHOULD_ENABLE_HOSTS_PLUGIN=false.
 # All operations are idempotent — safe to call when hosts plugin was never enabled.
-disableAKSHostsSetup() {
-    local hosts_file="${AKS_HOSTS_FILE:-/etc/localdns/hosts}"
-    local hosts_setup_timer="${AKS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-hosts-setup.timer}"
+disableAKSLocalDNSHostsSetup() {
+    local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
 
-    echo "disableAKSHostsSetup called, cleaning up hosts plugin state..."
+    echo "disableAKSLocalDNSHostsSetup called, cleaning up hosts plugin state..."
 
     # Stop and disable the hosts-setup timer if it exists and is active.
     # This prevents further updates to the hosts file.
     if [ -f "${hosts_setup_timer}" ]; then
-        systemctl disable --now aks-hosts-setup.timer 2>/dev/null || true
-        echo "Disabled and stopped aks-hosts-setup.timer"
+        systemctl disable --now aks-localdns-hosts-setup.timer 2>/dev/null || true
+        echo "Disabled and stopped aks-localdns-hosts-setup.timer"
     else
-        echo "aks-hosts-setup.timer not found on this VHD, skipping"
+        echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
     fi
 
     # Remove the hosts file. Without it, select_localdns_corefile() in localdns.sh
@@ -1431,7 +1435,7 @@ disableAKSHostsSetup() {
         echo "${hosts_file} does not exist, skipping"
     fi
 
-    echo "disableAKSHostsSetup complete"
+    echo "disableAKSLocalDNSHostsSetup complete"
 }
 
 configureManagedGPUExperience() {
