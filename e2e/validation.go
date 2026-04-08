@@ -92,7 +92,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			// starts before the hosts file is populated, so it uses the base corefile (no hosts plugin).
 			// Restarting after the hosts file is confirmed populated lets localdns pick the right corefile.
 			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo systemctl restart localdns", 0, "failed to restart localdns")
-			// Validate hosts plugin serves responses authoritatively (AA flag + IP match)
+			// Validate hosts plugin serves responses with IPs matching /etc/localdns/hosts
 			ValidateLocalDNSHostsPluginBypass(ctx, s)
 		}
 	}
