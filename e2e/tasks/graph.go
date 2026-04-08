@@ -13,7 +13,10 @@ type graph struct {
 	deps map[Task][]Task
 	// dependents maps each task to the tasks that depend on it.
 	dependents map[Task][]Task
-	// order is the topological sort order, populated by validateNoCycles.
+	// order is a valid topological sort, populated by validateNoCycles.
+	// The scheduler does not use it — execution order is driven by the
+	// dep-counting algorithm in runGraph. This field exists for test
+	// introspection (asserting correct ordering).
 	order []Task
 }
 

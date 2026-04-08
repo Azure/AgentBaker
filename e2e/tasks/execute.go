@@ -84,9 +84,9 @@ func runGraph(ctx context.Context, cfg Config, g *graph) error {
 	return nil
 }
 
-// abort records a non-success result for a task and notifies dependents.
-// Must be called with s.mu held; unlocks s.mu before returning.
-func (s *runState) abort(task Task, status TaskStatus, err error) {
+// skipTask records a non-success result for a task, releases the lock, and
+// notifies dependents. Caller must hold s.mu on entry; it is released before return.
+func (s *runState) skipTask(task Task, status TaskStatus, err error) {
 	s.results[task] = TaskResult{Status: status, Err: err}
 	s.mu.Unlock()
 	s.notifyDependents(task)
@@ -106,7 +106,7 @@ func (s *runState) launch(task Task) {
 				defer func() { <-s.sem }()
 			case <-s.ctx.Done():
 				s.mu.Lock()
-				s.abort(task, Canceled, s.ctx.Err())
+				s.skipTask(task, Canceled, s.ctx.Err())
 				return
 			}
 		}
@@ -115,17 +115,19 @@ func (s *runState) launch(task Task) {
 		s.mu.Lock()
 		for _, dep := range s.g.deps[task] {
 			if s.results[dep].Status != Succeeded {
+				// Use Canceled when we're in CancelAll mode and the dep actually
+				// failed (not just skipped). Otherwise use Skipped.
 				status := Skipped
-				if s.cfg.OnError == CancelAll && s.ctx.Err() != nil {
+				if s.cfg.OnError == CancelAll && s.results[dep].Status == Failed {
 					status = Canceled
 				}
-				s.abort(task, status, nil)
+				s.skipTask(task, status, nil)
 				return
 			}
 		}
 
 		if s.ctx.Err() != nil {
-			s.abort(task, Canceled, s.ctx.Err())
+			s.skipTask(task, Canceled, s.ctx.Err())
 			return
 		}
 		s.mu.Unlock()

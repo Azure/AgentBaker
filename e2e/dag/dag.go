@@ -154,7 +154,7 @@ func newResult[T any]() *Result[T] {
 	return &Result[T]{done: make(chan struct{})}
 }
 
-func (r *Result[T]) wait()       { <-r.done }
+func (r *Result[T]) wait()        { <-r.done }
 func (r *Result[T]) failed() bool { r.wait(); return r.err != nil }
 
 // Get returns the value and true if the task succeeded, or the zero value
@@ -201,7 +201,7 @@ func newEffect() *Effect {
 	return &Effect{done: make(chan struct{})}
 }
 
-func (e *Effect) wait()       { <-e.done }
+func (e *Effect) wait()        { <-e.done }
 func (e *Effect) failed() bool { e.wait(); return e.err != nil }
 
 func (e *Effect) finish(err error) {
