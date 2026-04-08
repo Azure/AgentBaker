@@ -103,16 +103,26 @@ func (t *teardown) Do(ctx context.Context) error {
 
 // --- Integration tests ---
 
-func TestIntegration_SpecExample(t *testing.T) {
-	// Wire up the full DAG from the spec:
-	//
-	//   CreateRG ──┬── CreateVNet ── CreateSubnet ──┐
-	//              │                                 │
-	//              ├──────────────── CreateCluster ──┘
-	//              │                       │
-	//              │                   RunTests
-	//              │                       │
-	//              └──────────────── Teardown
+// specDAG holds all wired nodes from the spec example for reuse across tests.
+type specDAG struct {
+	RG      *createRG
+	VNet    *createVNet
+	Subnet  *createSubnet
+	Cluster *createCluster
+	Tests   *runTests
+	TD      *teardown
+}
+
+// buildSpecDAG wires the full spec example DAG:
+//
+//	CreateRG ──┬── CreateVNet ── CreateSubnet ──┐
+//	           │                                 │
+//	           ├──────────────── CreateCluster ──┘
+//	           │                       │
+//	           │                   RunTests
+//	           │                       │
+//	           └──────────────── Teardown
+func buildSpecDAG() specDAG {
 	rg := &createRG{}
 	vnet := &createVNet{}
 	vnet.Deps.RG = rg
@@ -126,58 +136,44 @@ func TestIntegration_SpecExample(t *testing.T) {
 	td := &teardown{}
 	td.Deps.RG = rg
 	td.Deps.Tests = tests
+	return specDAG{RG: rg, VNet: vnet, Subnet: subnet, Cluster: cluster, Tests: tests, TD: td}
+}
 
-	err := Execute(context.Background(), Config{}, td)
+func TestIntegration_SpecExample(t *testing.T) {
+	d := buildSpecDAG()
+
+	err := Execute(context.Background(), Config{}, d.TD)
 	require.NoError(t, err)
 
 	// Verify all outputs propagated correctly
-	assert.Equal(t, "my-rg", rg.Output.RGName)
-	assert.Equal(t, "my-rg-vnet", vnet.Output.VNetID)
-	assert.Equal(t, "my-rg-vnet-subnet", subnet.Output.SubnetID)
-	assert.Equal(t, "cluster-in-my-rg-my-rg-vnet-subnet", cluster.Output.ClusterID)
-	assert.True(t, tests.Output.Passed)
-	assert.True(t, td.Output.TornDown)
+	assert.Equal(t, "my-rg", d.RG.Output.RGName)
+	assert.Equal(t, "my-rg-vnet", d.VNet.Output.VNetID)
+	assert.Equal(t, "my-rg-vnet-subnet", d.Subnet.Output.SubnetID)
+	assert.Equal(t, "cluster-in-my-rg-my-rg-vnet-subnet", d.Cluster.Output.ClusterID)
+	assert.True(t, d.Tests.Output.Passed)
+	assert.True(t, d.TD.Output.TornDown)
 }
 
 func TestIntegration_SpecExample_WithMaxConcurrency(t *testing.T) {
-	rg := &createRG{}
-	vnet := &createVNet{}
-	vnet.Deps.RG = rg
-	subnet := &createSubnet{}
-	subnet.Deps.VNet = vnet
-	cluster := &createCluster{}
-	cluster.Deps.RG = rg
-	cluster.Deps.Subnet = subnet
-	tests := &runTests{}
-	tests.Deps.Cluster = cluster
-	td := &teardown{}
-	td.Deps.RG = rg
-	td.Deps.Tests = tests
+	d := buildSpecDAG()
 
-	err := Execute(context.Background(), Config{MaxConcurrency: 1}, td)
+	err := Execute(context.Background(), Config{MaxConcurrency: 1}, d.TD)
 	require.NoError(t, err)
 
-	assert.Equal(t, "cluster-in-my-rg-my-rg-vnet-subnet", cluster.Output.ClusterID)
-	assert.True(t, td.Output.TornDown)
+	assert.Equal(t, "cluster-in-my-rg-my-rg-vnet-subnet", d.Cluster.Output.ClusterID)
+	assert.True(t, d.TD.Output.TornDown)
 }
 
 func TestIntegration_TransitiveDependencyAccess(t *testing.T) {
 	// Verify that a task can read transitive dependencies through Deps chains
 	// as described in the spec's "Accessing Transitive Dependencies" section.
-	rg := &createRG{}
-	vnet := &createVNet{}
-	vnet.Deps.RG = rg
-	subnet := &createSubnet{}
-	subnet.Deps.VNet = vnet
-	cluster := &createCluster{}
-	cluster.Deps.RG = rg
-	cluster.Deps.Subnet = subnet
+	d := buildSpecDAG()
 
-	err := Execute(context.Background(), Config{}, cluster)
+	err := Execute(context.Background(), Config{}, d.Cluster)
 	require.NoError(t, err)
 
 	// Access transitive dep: cluster -> subnet -> vnet -> rg
-	rgName := cluster.Deps.Subnet.Deps.VNet.Deps.RG.Output.RGName
+	rgName := d.Cluster.Deps.Subnet.Deps.VNet.Deps.RG.Output.RGName
 	assert.Equal(t, "my-rg", rgName)
 }
 
@@ -206,19 +202,12 @@ func (t *teardownAfterFail) Do(ctx context.Context) error {
 }
 
 func TestIntegration_MidPipelineFailure_CancelDependents(t *testing.T) {
-	rg := &createRG{}
-	vnet := &createVNet{}
-	vnet.Deps.RG = rg
-	subnet := &createSubnet{}
-	subnet.Deps.VNet = vnet
-	cluster := &createCluster{}
-	cluster.Deps.RG = rg
-	cluster.Deps.Subnet = subnet
+	d := buildSpecDAG()
 	failTests := &failingRunTests{}
-	failTests.Deps.Cluster = cluster
+	failTests.Deps.Cluster = d.Cluster
 
 	td := &teardownAfterFail{}
-	td.Deps.RG = rg
+	td.Deps.RG = d.RG
 	td.Deps.Tests = failTests
 
 	err := Execute(context.Background(), Config{OnError: CancelDependents}, td)
@@ -228,10 +217,10 @@ func TestIntegration_MidPipelineFailure_CancelDependents(t *testing.T) {
 	require.True(t, errors.As(err, &dagErr))
 
 	// Upstream tasks should have succeeded
-	assert.Equal(t, Succeeded, dagErr.Results[rg].Status)
-	assert.Equal(t, Succeeded, dagErr.Results[vnet].Status)
-	assert.Equal(t, Succeeded, dagErr.Results[subnet].Status)
-	assert.Equal(t, Succeeded, dagErr.Results[cluster].Status)
+	assert.Equal(t, Succeeded, dagErr.Results[d.RG].Status)
+	assert.Equal(t, Succeeded, dagErr.Results[d.VNet].Status)
+	assert.Equal(t, Succeeded, dagErr.Results[d.Subnet].Status)
+	assert.Equal(t, Succeeded, dagErr.Results[d.Cluster].Status)
 
 	// failTests should have failed
 	assert.Equal(t, Failed, dagErr.Results[failTests].Status)
@@ -241,8 +230,8 @@ func TestIntegration_MidPipelineFailure_CancelDependents(t *testing.T) {
 	assert.Equal(t, Skipped, dagErr.Results[td].Status)
 
 	// Outputs of successful tasks should still be populated
-	assert.Equal(t, "my-rg", rg.Output.RGName)
-	assert.Equal(t, "cluster-in-my-rg-my-rg-vnet-subnet", cluster.Output.ClusterID)
+	assert.Equal(t, "my-rg", d.RG.Output.RGName)
+	assert.Equal(t, "cluster-in-my-rg-my-rg-vnet-subnet", d.Cluster.Output.ClusterID)
 }
 
 func TestIntegration_TwoIndependentSubgraphs_SharedTask(t *testing.T) {
