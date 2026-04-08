@@ -74,9 +74,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return nil, err
 	}
 
+	rg := config.ResourceGroupName(*cluster.Location)
 	g := dag.NewGroup(ctx)
 
-	// Fan-out: all of these run concurrently.
 	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
 		return getOrCreateBastion(ctx, cluster)
 	})
@@ -88,7 +88,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
 	})
 	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) {
-		return getClusterKubeClient(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name)
+		return getClusterKubeClient(ctx, rg, *cluster.Name)
 	})
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(cluster)
@@ -96,24 +96,6 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	dag.Run(g, func(ctx context.Context) error {
 		return collectGarbageVMSS(ctx, cluster)
 	})
-
-	// ACR tasks: depend on kube + identity.
-	acrNonAnon := dag.Run2(g, kube, identity,
-		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
-			if !needACR {
-				return nil
-			}
-			return addPrivateAzureContainerRegistry(ctx, cluster, k, config.ResourceGroupName(*cluster.Location), id, true)
-		})
-	acrAnon := dag.Run2(g, kube, identity,
-		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
-			if !needACR {
-				return nil
-			}
-			return addPrivateAzureContainerRegistry(ctx, cluster, k, config.ResourceGroupName(*cluster.Location), id, false)
-		})
-
-	// Firewall / network isolation: no deps within the DAG.
 	dag.Run(g, func(ctx context.Context) error {
 		if isNetworkIsolated {
 			return nil
@@ -126,13 +108,23 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		}
 		return addNetworkIsolatedSettings(ctx, cluster, *cluster.Location)
 	})
-
-	// Debug daemonsets: depend on kube + both ACR tasks.
+	acrNonAnon := dag.Run2(g, kube, identity,
+		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+			if !needACR {
+				return nil
+			}
+			return addPrivateAzureContainerRegistry(ctx, cluster, k, rg, id, true)
+		})
+	acrAnon := dag.Run2(g, kube, identity,
+		func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
+			if !needACR {
+				return nil
+			}
+			return addPrivateAzureContainerRegistry(ctx, cluster, k, rg, id, false)
+		})
 	dag.Run(g, func(ctx context.Context) error {
 		return kube.MustGet().EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
 	}, kube, acrNonAnon, acrAnon)
-
-	// Extract cluster params: depend on kube.
 	extract := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (*ClusterParams, error) {
 		return extractClusterParameters(ctx, k, cluster)
 	})
