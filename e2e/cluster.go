@@ -88,16 +88,17 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
 	dag.Run(g, func(ctx context.Context) error { return collectGarbageVMSS(ctx, cluster) })
+	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
-		dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) })
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }))
 	}
 	if isNetworkIsolated {
-		dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) })
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }))
 	}
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
-	dag.Run1(g, kube, ensureDebugDaemonsets(cluster, isNetworkIsolated), acrNonAnon, acrAnon)
+	dag.Run1(g, kube, ensureDebugDaemonsets(cluster, isNetworkIsolated), append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)...)
 	extract := dag.Go1(g, kube, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
@@ -421,7 +422,10 @@ func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerse
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
 		_, err = createNewMaintenanceConfiguration(ctx, cluster)
-		return err
+		if err != nil {
+			return fmt.Errorf("creating maintenance configuration for cluster %q: %w", *cluster.Name, err)
+		}
+		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)

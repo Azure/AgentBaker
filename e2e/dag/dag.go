@@ -8,18 +8,19 @@
 // There are two kinds of tasks:
 //
 //   - Value-producing tasks return (T, error) and are represented by [Result][T].
-//     Register with [Spawn] (no typed deps) or [Then] / [Then2] / [Then3] (typed deps).
+//     Register with [Go] (no typed deps) or [Go1] / [Go2] / [Go3] (typed deps).
 //
 //   - Side-effect tasks return only error and are represented by [Effect].
-//     Register with [Do] (no typed deps) or [ThenDo] / [ThenDo2] / [ThenDo3] (typed deps).
+//     Register with [Run] (no typed deps) or [Run1] / [Run2] / [Run3] (typed deps).
 //
 // Both [Result] and [Effect] implement [Dep], so they can be listed as
 // dependencies of downstream tasks.
 //
-// When a typed dependency is used (Then/ThenDo variants), the dependency's
-// value is passed as a function parameter — the compiler enforces correct
-// wiring. When untyped dependencies are used (Spawn/Do with variadic deps),
-// values are accessed via [Result.MustGet] inside the closure.
+// When a typed dependency is used (Go1–Go3 / Run1–Run3 variants), the
+// dependency's value is passed as a function parameter — the compiler
+// enforces correct wiring. When untyped dependencies are used (Go/Run
+// with variadic deps), values are accessed via [Result.MustGet] inside
+// the closure.
 //
 // On the first task error, the Group cancels its context, causing all pending
 // and in-flight tasks to observe cancellation and exit. [Group.Wait] blocks
@@ -87,16 +88,20 @@ func NewGroup(ctx context.Context) *Group {
 }
 
 // Wait blocks until every task in the group has finished.
-// It returns a *[DAGError] if any task failed, or nil on success.
+// It returns a *[DAGError] if any task failed, the parent context's error
+// if it was cancelled before tasks could run, or nil on success.
 func (g *Group) Wait() error {
 	g.wg.Wait()
+	// Capture ctx error before cancel() — after cancel(), ctx.Err() is
+	// always non-nil regardless of whether the parent was cancelled.
+	ctxErr := g.ctx.Err()
 	g.cancel()
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if len(g.errs) > 0 {
 		return &DAGError{Errors: g.errs}
 	}
-	return nil
+	return ctxErr
 }
 
 func (g *Group) recordError(err error) {
