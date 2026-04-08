@@ -213,11 +213,12 @@ const (
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
-	AKSWindows2019PIR         Distro = "aks-windows-2019-pir"
-	CustomizedImage           Distro = "CustomizedImage"
-	CustomizedImageKata       Distro = "CustomizedImageKata"
-	CustomizedImageLinuxGuard Distro = "CustomizedImageLinuxGuard"
-	CustomizedWindowsOSImage  Distro = "CustomizedWindowsOSImage"
+	AKSWindows2019PIR            Distro = "aks-windows-2019-pir"
+	CustomizedImage              Distro = "CustomizedImage"
+	CustomizedImageKata          Distro = "CustomizedImageKata"
+	CustomizedImageLinuxGuard    Distro = "CustomizedImageLinuxGuard"
+	CustomizedImageTrustedLaunch Distro = "CustomizedImageTrustedLaunch"
+	CustomizedWindowsOSImage     Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
 	USNatCloud = "USNatCloud"
@@ -1796,6 +1797,10 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
 	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
 	EnableScriptlessCSECmd bool
+}
+
+func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
+	return config.OSSKU == OSSKUAzureLinux || config.AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro()
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
