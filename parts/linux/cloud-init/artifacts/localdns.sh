@@ -16,6 +16,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # -------------------------------------------------------------------------------------------------
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+# Cgroup v2 directory for the localdns service (matches Slice=localdns.slice in localdns.service).
+LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
 
 # Localdns corefile is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -636,17 +638,16 @@ cleanup_localdns_configs() {
     return 0
 }
 
-# Export systemd resource metrics (CPU, memory, status) to a .prom file for the metrics exporter.
-# The exporter runs as DynamicUser=yes and cannot query systemd over D-Bus ("Transport endpoint
-# is not connected"). Writing a world-readable .prom file from the root-privileged localdns.sh
-# avoids this limitation — the same pattern used for forward_ips.prom.
+# Export resource metrics (CPU, memory, status) to a .prom file for the metrics exporter.
+# Reads CPU and memory directly from the cgroup v2 filesystem to avoid the
+# systemctl → D-Bus → systemd overhead. The exporter (DynamicUser=yes) cannot
+# query systemd over D-Bus, so we write a world-readable .prom file from the
+# root-privileged localdns.sh — the same pattern used for forward_ips.prom.
 # This function is called once at startup and periodically from the watchdog loop.
 # Failures are non-fatal to avoid affecting DNS service availability.
 export_resource_metrics() {
     local resources_prom_file="${LOCALDNS_SCRIPT_PATH}/resources.prom"
     local raw_cpu raw_mem cpu_sec mem_bytes service_status tmp
-
-    local unit="localdns.service"
 
     # Determine service status by checking if the CoreDNS child process is alive.
     # Note: systemctl is-active would always return "active" here because this function
@@ -657,24 +658,16 @@ export_resource_metrics() {
         service_status="inactive"
     fi
 
-    # Read raw cgroup resource values in a single systemctl call to reduce overhead.
-    # Use timeout to prevent blocking if systemd's D-Bus socket is temporarily unresponsive.
-    local show_output
-    show_output=$(timeout 3 systemctl show "$unit" --property=CPUUsageNSec,MemoryCurrent 2>/dev/null || echo "")
-    raw_cpu=$(echo "$show_output" | awk -F= '/^CPUUsageNSec=/{print $2}')
-    raw_mem=$(echo "$show_output" | awk -F= '/^MemoryCurrent=/{print $2}')
+    # Read resource values directly from cgroup v2 filesystem (all supported distros use cgroupv2).
+    # This avoids the systemctl → D-Bus → systemd → cgroup round-trip.
+    # localdns.service runs in localdns.slice (see localdns.service Slice= directive).
+    local cgroup_dir="${LOCALDNS_CGROUP_DIR}"
+    raw_cpu=$(awk '/^usage_usec/ {print $2}' "$cgroup_dir/cpu.stat" 2>/dev/null || echo "0")
+    raw_mem=$(cat "$cgroup_dir/memory.current" 2>/dev/null || echo "0")
 
-    # Handle empty or [not set] values
-    if [ -z "$raw_cpu" ] || [ "$raw_cpu" = "[not set]" ]; then
-        raw_cpu=0
-    fi
-    if [ -z "$raw_mem" ] || [ "$raw_mem" = "[not set]" ]; then
-        raw_mem=0
-    fi
-
-    # Convert CPU nanoseconds → seconds (%.9f preserves nanosecond precision for rate() calculations)
-    # Memory is already in bytes from systemd — expose as-is per Prometheus base-unit convention
-    cpu_sec=$(awk -v val="$raw_cpu" 'BEGIN {printf "%.9f", val / 1000000000}')
+    # Convert CPU microseconds → seconds (%.9f preserves sub-microsecond precision for rate() calculations)
+    # Memory is already in bytes from cgroup — expose as-is per Prometheus base-unit convention
+    cpu_sec=$(awk -v val="$raw_cpu" 'BEGIN {printf "%.9f", val / 1000000}')
     mem_bytes="$raw_mem"
 
     # Write Prometheus metrics to temp file, then atomically rename
