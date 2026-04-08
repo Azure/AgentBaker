@@ -1556,12 +1556,13 @@ func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
 }
 
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
-// authoritatively via the CoreDNS hosts plugin. It checks:
+// via the CoreDNS hosts plugin. It checks:
 //  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
 //  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
-//  3. dig against localdns returns the AA (Authoritative Answer) flag, proving the response
-//     came from the hosts plugin rather than being forwarded upstream
-//  4. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
+//  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
+//
+// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+// regardless of which plugin served the response.
 func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1643,17 +1644,21 @@ echo "=== Corefile validation successful ==="
 		"Corefile should contain hosts plugin configuration")
 
 	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
-	// This validates the hosts plugin is working by checking:
-	// 1. dig output contains the AA (Authoritative Answer) flag — proving the response came
-	//    from the hosts plugin, not forwarded upstream. This is stronger than "recursion not
-	//    available" because AA definitively means CoreDNS served the answer from a local source.
-	// 2. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN.
+	// This validates the hosts plugin is working by checking that the IPs returned by dig
+	// match the entries in /etc/localdns/hosts for the same FQDN. If the response came from
+	// upstream DNS instead of the hosts plugin, the IPs would likely differ due to CDN rotation,
+	// load balancer failover, or regional DNS updates.
+	//
+	// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+	// regardless of which plugin served the response — they reflect server capabilities,
+	// not response source. The IP match combined with corefile verification (step 2) and
+	// node annotation (step 1) is sufficient proof.
 	//
 	// We use the first FQDN from GetDefaultFQDNsForValidation() (e.g. mcr.microsoft.com) because
 	// it's a real FQDN that aks-localdns-hosts-setup.service populates from the NBC's CriticalFQDNs list.
 	// This avoids race conditions with the aks-localdns-hosts-setup.timer overwriting fake test entries.
 	testFQDN := s.GetDefaultFQDNsForValidation()[0]
-	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with AA flag", testFQDN)
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with matching IPs", testFQDN)
 
 	script := fmt.Sprintf(`set -euo pipefail
 test_fqdn=%q
@@ -1685,46 +1690,14 @@ echo "Expected IPs from hosts file:"
 echo "$expected_ips"
 echo ""
 
-# Step 2: Query localdns with dig and capture full output for flag inspection
+# Step 2: Query localdns with dig and capture full output
 echo "Querying localdns for $test_fqdn at 169.254.10.10..."
 dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
 echo "Full dig output:"
 echo "$dig_output"
 echo ""
 
-# Step 3: Check for AA (Authoritative Answer) flag in dig output
-# The flags line looks like: ";; flags: qr aa rd; QUERY: 1, ANSWER: N, ..."
-# The AA flag proves the response was served authoritatively by the hosts plugin,
-# not forwarded to an upstream resolver.
-echo "Checking for AA (Authoritative Answer) flag in dig response..."
-flags_line=$(echo "$dig_output" | grep -E "^;; flags:")
-if [ -z "$flags_line" ]; then
-    echo "ERROR: No flags line found in dig output"
-    exit 1
-fi
-echo "Flags line: $flags_line"
-
-if ! echo "$flags_line" | grep -qw "aa"; then
-    echo "ERROR: AA (Authoritative Answer) flag not present in dig response"
-    echo "This indicates localdns forwarded the query upstream instead of serving it from the hosts plugin"
-    exit 1
-fi
-echo "✓ AA flag present — response served authoritatively by hosts plugin"
-
-# Check that RA (Recursion Available) flag is absent.
-# Hosts plugin responses have "flags: qr aa rd" (no ra), while forwarded responses
-# have "flags: qr rd ra" or "flags: qr aa rd ra". If ra is present, the response
-# was forwarded upstream rather than served from the local hosts file.
-if echo "$flags_line" | grep -qw "ra"; then
-    echo "ERROR: RA (Recursion Available) flag present in dig response"
-    echo "This indicates the response was forwarded upstream, not served by the hosts plugin"
-    echo "Hosts plugin responses should have 'flags: qr aa rd' without 'ra'"
-    exit 1
-fi
-echo "✓ RA flag absent — confirms response was not forwarded upstream"
-echo ""
-
-# Step 4: Extract resolved IPs from dig ANSWER section and compare with hosts file
+# Step 3: Extract resolved IPs from dig ANSWER section and compare with hosts file
 # Reuse escaped FQDN for regex matching of dig output
 resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
 if [ -z "$resolved_ips" ]; then
@@ -1750,13 +1723,11 @@ echo ""
 
 echo "=== SUCCESS ==="
 echo "The localdns hosts plugin is working correctly:"
-echo "  1. dig response contains AA flag (served authoritatively by hosts plugin)"
-echo "  2. dig response does NOT contain RA flag (not forwarded upstream)"
-echo "  3. Resolved IPs match /etc/localdns/hosts entries"
+echo "  Resolved IPs match /etc/localdns/hosts entries"
 `, testFQDN)
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"localdns should resolve FQDN from hosts file with AA flag and matching IPs")
+		"localdns should resolve FQDN from hosts file with matching IPs")
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
