@@ -214,7 +214,7 @@ collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-de
 
 # Collect logs of LocalDNS and hosts-setup services if present
 collectToZip collect/journalctl_localdns.txt journalctl -u localdns --no-pager
-collectToZip collect/journalctl_aks-hosts-setup.txt journalctl -u aks-hosts-setup --no-pager
+collectToZip collect/journalctl_aks-localdns-hosts-setup.txt journalctl -u aks-localdns-hosts-setup --no-pager
 
 # Collect container runtime information
 collectToZip collect/crictl_version.txt crictl version
