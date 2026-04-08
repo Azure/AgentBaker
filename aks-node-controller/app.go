@@ -111,9 +111,21 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return errors.New("missing command argument")
 	}
 
+	if command == "--version" || command == "version" {
+		//nolint:forbidigo // stdout is part of the interface
+		fmt.Println(Version)
+		return nil
+	}
+
 	cmd, ok := getCommandRegistry()[command]
 	if !ok {
 		return fmt.Errorf("unknown command: %s", command)
+	}
+
+	// Self-update before provisioning: check for hotfix version and install if needed.
+	// On success, syscall.Exec replaces this process and never returns.
+	if err := a.selfUpdate(ctx); err != nil {
+		return fmt.Errorf("self-update failed: %w", err)
 	}
 
 	startTime := time.Now()
