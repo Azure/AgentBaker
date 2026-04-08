@@ -44,9 +44,9 @@ type diamondBottom struct {
 }
 
 func (t *diamondTop) Do(ctx context.Context) error    { return nil }
-func (t *diamondLeft) Do(ctx context.Context) error    { return nil }
-func (t *diamondRight) Do(ctx context.Context) error   { return nil }
-func (t *diamondBottom) Do(ctx context.Context) error  { return nil }
+func (t *diamondLeft) Do(ctx context.Context) error   { return nil }
+func (t *diamondRight) Do(ctx context.Context) error  { return nil }
+func (t *diamondBottom) Do(ctx context.Context) error { return nil }
 
 type badDepsNotStruct struct {
 	Deps int
