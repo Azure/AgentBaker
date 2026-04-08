@@ -3,10 +3,11 @@
 # this spec is meant to ensure that the behavior of helper functions that are used in long running operations keeps returning the expected exit codes
 
 Describe 'long running cse helper functions'
-    # unsetting this to test the behavior of check_cse_timeout
+    # Set CSE_STARTTIME_SECONDS to current time so check_cse_timeout doesn't warn about it being
+    # unset. Tests that need a specific start time (e.g. timeout tests) override this explicitly.
     cse_retry_helpers_precheck() {
         unset CSE_STARTTIME_FORMATTED
-        unset CSE_STARTTIME_SECONDS
+        CSE_STARTTIME_SECONDS=$(date +%s)
     }
     BeforeEach cse_retry_helpers_precheck
 
@@ -251,23 +252,17 @@ Describe 'long running cse helper functions'
                     The stdout should include "curl mock timeout"
                 End
                 It "returns 2 and logs message when per-operation budget is exceeded"
-                    # Mock date so the first call (opStartTime) returns 0 and all subsequent
-                    # calls return a value far in the future, simulating elapsed > budget.
-                    _spec_date_first_call=true
-                    date() {
-                        if [ "$_spec_date_first_call" = "true" ]; then
-                            _spec_date_first_call=false
-                            echo "0"
-                        else
-                            echo "9999"
-                        fi
+                    CSE_STARTTIME_SECONDS=$(date +%s)
+                    # Mock timeout to sleep 2s (simulates slow curl); after the first attempt
+                    # the real elapsed wall-clock time (≈2s) will exceed the 1s budget.
+                    timeout() {
+                        sleep 2
+                        return 124
                     }
-                    export -f date
-                    # budget=10s; mocked elapsed will be 9999-0=9999 >= 10 after first fail
-                    When call _retry_file_curl_internal 5 0 1 10 "/tmp/nonexistent" "https://dummy.url/file" "return 1"
+                    When call _retry_file_curl_internal 5 0 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 1"
                     The status should eq 2
                     The stdout should include "5 file curl retries"
-                    The stderr should include "Operation budget of 10s exceeded"
+                    The stderr should include "Operation budget of 1s exceeded"
                 End
             End
         End
@@ -393,6 +388,7 @@ Describe 'long running cse helper functions'
     Describe 'check_cse_timeout'
         Describe 'when CSE_STARTTIME_SECONDS is incorrect'
             It 'returns 0 and prints warning to stderr when CSE_STARTTIME_SECONDS is not set'
+                unset CSE_STARTTIME_SECONDS
                 When call check_cse_timeout
                 The status should eq 0
                 The stdout should eq ""
