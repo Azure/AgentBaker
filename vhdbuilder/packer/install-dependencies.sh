@@ -138,7 +138,7 @@ if isACL "$OS" "$OS_VARIANT"; then
   disableSystemdResolvedCache
   # Move unit files out of systemd's path to prevent first-boot preset-all
   # from auto-enabling them when /etc/machine-id is absent.
-  deferFirstBootPresetServices || exit 1
+  configureFirstBootPresets || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
