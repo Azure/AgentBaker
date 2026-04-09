@@ -12,11 +12,10 @@ allowed-tools: create, python3, shell
 
 ## Problem
 
-Writing markdown to files using bash HEREDOC (`cat << 'EOF'`) breaks when content contains:
-- Backticks (`` ` ``) — interpreted as command substitution even in some HEREDOC forms
-- `$variable` — interpreted as shell expansion in unquoted HEREDOCs
-- The HEREDOC delimiter appearing in the content itself
-- Nested quotes and backslashes causing silent corruption
+Writing markdown to files via shell can break depending on how the HEREDOC is written:
+- In unquoted HEREDOCs, backticks (`` ` ``) and `$variable` can be interpreted by the shell
+- The HEREDOC delimiter can appear in the content itself and terminate the document early
+- Nested quotes, backslashes, or tool-specific filtering can still cause silent corruption
 
 This is the #1 cause of garbled reports when agents write files via shell.
 
