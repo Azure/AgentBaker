@@ -224,6 +224,7 @@ steps:
   # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
   # we always generate these artifacts - sometimes they are used by downstream pipelines even when
   # we are not publishing the image to production.
+  - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
       scriptType: bash
@@ -260,7 +261,6 @@ steps:
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-
 
   # SA_NAME:             Temporary storage account name
   # IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
