@@ -24,10 +24,19 @@ const (
 // On failure, it logs a warning and returns nil so the VHD-baked binary proceeds.
 func (a *App) selfUpdate(ctx context.Context) error {
 	hotfixVersion, err := readHotfixVersion(hotfixVersionPath)
-	if err != nil || hotfixVersion == "" {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		slog.Warn("failed to read hotfix version, proceeding with VHD-baked version",
+			"path", hotfixVersionPath, "error", err)
 		return nil
 	}
 
+	if hotfixVersion == "" {
+		return nil
+	}
 	if Version == hotfixVersion {
 		slog.Info("ANC already at hotfix version, skipping self-update", "version", Version)
 		return nil
