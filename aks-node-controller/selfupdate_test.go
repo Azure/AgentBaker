@@ -86,8 +86,7 @@ func TestSelfUpdate_NoHotfixFile(t *testing.T) {
 	// When no hotfix-version file exists, selfUpdate should be a no-op.
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "nonexistent")
-	err := tt.App.selfUpdate(context.Background())
-	assert.NoError(t, err)
+	tt.App.selfUpdate(context.Background()) // should not panic
 }
 
 func TestSelfUpdate_VersionMatch(t *testing.T) {
@@ -102,8 +101,7 @@ func TestSelfUpdate_VersionMatch(t *testing.T) {
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
-	err := tt.App.selfUpdate(context.Background())
-	assert.NoError(t, err)
+	tt.App.selfUpdate(context.Background()) // should not panic
 }
 
 func TestSelfUpdate_UnreadableFile(t *testing.T) {
@@ -112,12 +110,11 @@ func TestSelfUpdate_UnreadableFile(t *testing.T) {
 	path := filepath.Join(dir, "hotfix-version")
 	require.NoError(t, os.WriteFile(path, []byte("1.0.0\n"), 0644))
 	require.NoError(t, os.Chmod(path, 0000))
-	t.Cleanup(func() { os.Chmod(path, 0644) })
+	t.Cleanup(func() { _ = os.Chmod(path, 0644) })
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
-	err := tt.App.selfUpdate(context.Background())
-	assert.NoError(t, err) // best-effort: returns nil on error
+	tt.App.selfUpdate(context.Background()) // should not panic, logs warning
 }
 
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {

@@ -22,8 +22,8 @@ const (
 // selfUpdate checks for a hotfix version and installs it from PMC if needed.
 // It is called before command dispatch for provision and provision-wait commands.
 // On successful install, it re-execs the process with the new binary and never returns.
-// On any failure, it logs a warning and returns nil so the VHD-baked binary proceeds.
-func (a *App) selfUpdate(ctx context.Context) error {
+// On any failure, it logs a warning so the VHD-baked binary proceeds.
+func (a *App) selfUpdate(ctx context.Context) {
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
@@ -31,20 +31,20 @@ func (a *App) selfUpdate(ctx context.Context) error {
 	hotfixVersion, err := readHotfixVersion(hotfixPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return
 		}
 
 		slog.Warn("failed to read hotfix version, proceeding with VHD-baked version",
 			"path", hotfixPath, "error", err)
-		return nil
+		return
 	}
 
 	if hotfixVersion == "" {
-		return nil
+		return
 	}
 	if Version == hotfixVersion {
 		slog.Info("ANC already at hotfix version, skipping self-update", "version", Version)
-		return nil
+		return
 	}
 
 	slog.Info("ANC self-update triggered", "current", Version, "target", hotfixVersion)
@@ -53,14 +53,13 @@ func (a *App) selfUpdate(ctx context.Context) error {
 	if installErr != nil {
 		slog.Warn("failed to install hotfix, proceeding with VHD-baked version",
 			"target", hotfixVersion, "error", installErr)
-		return nil
+		return
 	}
 
 	if err := a.reExec(); err != nil {
 		slog.Warn("failed to re-exec after hotfix install, proceeding with current binary",
 			"error", err)
 	}
-	return nil
 }
 
 // readHotfixVersion reads and trims the hotfix version from the given path.
