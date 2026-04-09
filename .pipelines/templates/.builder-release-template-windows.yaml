@@ -236,8 +236,9 @@ steps:
           export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
           [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
         else
-          export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
-          export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
+          export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+          [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
+          export STORAGE_ACCT_BLOB_URL="$(echo $OS_DISK_SAS | cut -d "/" -f 1-7)";
         fi
         export SKU_NAME="windows-$WINDOWS_SKU";
 
