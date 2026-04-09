@@ -1531,15 +1531,14 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	// so we validate by making a plain HTTP request to the metrics endpoint.
 	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
 	// are visible in test logs rather than silently swallowed.
-	// We intentionally do not rewrite wildcard ('*' or '0.0.0.0') listen addresses — node-exporter
-	// should always bind to the node IP; if it doesn't, the test should fail.
+	// We curl the node's private IP directly rather than discovering the listen address from ss,
+	// so we validate that the metrics endpoint is reachable on the actual node IP used by monitoring infrastructure.
 	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
 	command := []string{
 		"set -ex",
-		"LISTEN_ADDR=$(ss -tlnp | grep ':19100' | awk '{print $4}' | head -1)",
-		"echo \"node-exporter listen address: ${LISTEN_ADDR}\"",
-		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | head -20",
-		"curl -s --max-time 10 http://${LISTEN_ADDR}/metrics 2>&1 | grep -q 'node_'",
+		fmt.Sprintf("echo \"node IP: %s\"", s.Runtime.VM.PrivateIP),
+		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | head -20", s.Runtime.VM.PrivateIP),
+		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", s.Runtime.VM.PrivateIP),
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
 
@@ -1623,12 +1622,12 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
 	// Wait for resources to be available and add delay for device health
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	waitUntilResourceAvailable(ctx, s, resourceName)
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
@@ -1647,7 +1646,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							"nvidia.com/gpu": resource.MustParse(fmt.Sprintf("%d", gpuCount)),
+							corev1.ResourceName(resourceName): resource.MustParse(fmt.Sprintf("%d", gpuCount)),
 						},
 					},
 				},
