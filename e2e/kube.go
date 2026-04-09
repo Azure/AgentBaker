@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +41,9 @@ const (
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
 )
 
-func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
+func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+	clusterName := *cluster.Name
 	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
@@ -448,7 +451,8 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
+func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+	mcResourceGroupName := *cluster.Properties.NodeResourceGroup
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
