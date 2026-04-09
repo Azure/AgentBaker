@@ -252,7 +252,7 @@ replace_azurednsip_in_corefile() {
         echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
         echo "# TYPE localdns_vnetdns_forward_info gauge"
         while IFS='|' read -r bind_ip block fwd_ip; do
-            [ "$bind_ip" = "169.254.10.10" ] || continue
+            [ "$bind_ip" = "${LOCALDNS_NODE_LISTENER_IP}" ] || continue
             echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
             vnetdns_found=true
         done <<< "$forward_entries"
@@ -262,7 +262,7 @@ replace_azurednsip_in_corefile() {
         echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
         echo "# TYPE localdns_kubedns_forward_info gauge"
         while IFS='|' read -r bind_ip block fwd_ip; do
-            [ "$bind_ip" = "169.254.10.11" ] || continue
+            [ "$bind_ip" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ] || continue
             echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
             kubedns_found=true
         done <<< "$forward_entries"
