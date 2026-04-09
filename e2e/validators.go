@@ -1599,14 +1599,6 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	verifyResult := execScriptOnVMForScenario(ctx, s, strings.Join(verifyCmd, "\n"))
 	s.T.Logf("Simulation verification:\nstdout:\n%s\nstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
 
-	// Restore the original script after verification so the node is left clean.
-	// NPD will already have picked up the simulated failure before the restore.
-	restoreCmd := []string{
-		"set -ex",
-		`sudo cp /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(restoreCmd, "\n"), 0, "Failed to restore original check_fs_corruption.sh")
-
 	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
 	// every 5 minutes. With continuous simulation, the first check cycle after
 	// our start should detect it. Use 8 minutes as a safety margin.

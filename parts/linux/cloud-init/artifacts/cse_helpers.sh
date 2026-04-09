@@ -215,7 +215,7 @@ AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 # Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context.
 check_cse_timeout() {
     shouldLog="${1:-true}"
-    maxDurationSeconds=780 # 780 seconds = 13 minutes
+    maxDurationSeconds=${CSE_MAX_DURATION_SECONDS:-780}
     if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
         if [ "$shouldLog" = "true" ]; then
             echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set." >&2
@@ -264,7 +264,7 @@ _retrycmd_internal() {
         # the global provisioning window even when per-attempt timeouts are large.
         local effectiveTimeout="$timeoutVal"
         if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
-            local remainingCseTime=$(( 780 - ( $(date +%s) - CSE_STARTTIME_SECONDS ) ))
+            local remainingCseTime=$(( ${CSE_MAX_DURATION_SECONDS:-780} - ( $(date +%s) - CSE_STARTTIME_SECONDS ) ))
             if [ "$remainingCseTime" -lt 1 ]; then
                 echo "No CSE time remaining, exiting early." >&2
                 return 2
@@ -337,8 +337,9 @@ _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
     # maxBudget (4th arg): if > 0, the total wall-clock seconds this operation is allowed to spend across all retries.
     # A value of 0 disables the per-operation budget (falls back to the global CSE timeout guard only).
-    retries=$1; waitSleep=$2; timeout=$3; maxBudget=$4; filePath=$5; url=$6; checksToRun=( "${@:7}" )
-    local opStartTime
+    local retries=$1 waitSleep=$2 timeout=$3 maxBudget=${4:-0} filePath=$5 url=$6
+    local checksToRun=( "${@:7}" )
+    local opStartTime i
     opStartTime=$(date +%s)
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do
@@ -366,8 +367,36 @@ _retry_file_curl_internal() {
         fi
 
         if [ "$i" -gt 1 ]; then
-            sleep $waitSleep
+            local sleepDuration=$waitSleep
+            if [ "${maxBudget}" -gt 0 ]; then
+                local preSleepElapsed
+                preSleepElapsed=$(( $(date +%s) - opStartTime ))
+                local preSleepRemaining=$(( maxBudget - preSleepElapsed ))
+                if [ "$preSleepRemaining" -le 0 ]; then
+                    echo "Operation budget of ${maxBudget}s exceeded after ${preSleepElapsed}s, exiting early." >&2
+                    return 2
+                fi
+                if [ "$sleepDuration" -gt "$preSleepRemaining" ]; then
+                    sleepDuration=$preSleepRemaining
+                fi
+            fi
+            sleep $sleepDuration
         fi
+
+        # Re-check budget after sleep and cap timeout accordingly
+        if [ "${maxBudget}" -gt 0 ]; then
+            local postSleepElapsed
+            postSleepElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$postSleepElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${postSleepElapsed}s, exiting early." >&2
+                return 2
+            fi
+            local postSleepRemaining=$(( maxBudget - postSleepElapsed ))
+            if [ "$effectiveTimeout" -gt "$postSleepRemaining" ]; then
+                effectiveTimeout=$postSleepRemaining
+            fi
+        fi
+
         timeout $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
         if [ "$?" -ne 0 ]; then
             cat $CURL_OUTPUT
@@ -382,9 +411,10 @@ _retry_file_curl_internal() {
     done
 }
 
-# Usage: retrycmd_get_tarball <retries> <wait_sleep> <timeout> <tarball> <url> [max_budget_s=0]
+# Usage: retrycmd_get_tarball <retries> <wait_sleep> <timeout_seconds> <tarball> <url> [max_budget_s=0]
 # Backward-compatible with old 4-arg callers: <retries> <wait_sleep> <tarball> <url>
 # When the 3rd arg is non-numeric (i.e. a file path), the old signature is assumed and timeout defaults to 60s.
+# timeout_seconds: integer seconds only (do not use duration suffixes like 60s or 5m)
 # max_budget_s: optional per-operation budget in seconds (0 = no cap)
 retrycmd_get_tarball() {
     local tar_retries=$1; local wait_sleep=$2
@@ -405,8 +435,8 @@ retrycmd_get_tarball() {
 # Usage: retrycmd_curl_file <retries> <wait_sleep> <timeout> <filepath> <url> [max_budget_s=0]
 # max_budget_s: optional per-operation budget in seconds (0 = no cap)
 retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5; max_budget=${6:-0}
-    check_file_exists="[ -f \"$filepath\" ]"
+    local curl_retries=$1 wait_sleep=$2 timeout=$3 filepath=$4 url=$5 max_budget=${6:-0}
+    local check_file_exists="[ -f \"$filepath\" ]"
     _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$max_budget" "$filepath" "$url" "$check_file_exists"
 }
 
