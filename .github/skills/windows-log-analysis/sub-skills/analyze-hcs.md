@@ -41,6 +41,8 @@ Perform deep analysis of HCS (Host Compute Service) operational health by examin
 - 🟡 WARNING: Handle count > 5000 — possible handle leak
 - Compare across snapshots: steadily increasing memory/handles = confirmed leak
 
+**Note on HCS operation timeouts**: The default HCS operation timeout is 4 minutes. This is configurable via `HCSSHIM_TIMEOUT_*` environment variables (values in seconds, e.g., `HCSSHIM_TIMEOUT_TERMINATE=240`). If an operator has customized these variables, the thresholds above may need adjustment. Check node configuration for non-default timeout settings before asserting that a timeout value is abnormal.
+
 ### 2. Full HCS Event Classification (`*_hyper-v-compute-operational.csv`)
 
 Parse all events using proper CSV parsing (handle embedded newlines). Skip `#TYPE` header lines.
@@ -84,7 +86,7 @@ For every Error/Critical event, extract the error code from the `Message` field 
 | `0x80370110` / `0xC0370110` | `HCS_E_SYSTEM_ALREADY_STOPPED` | Stopping already-stopped container | 🔵 usually benign |
 | `0x80370118` / `0xC0370118` | `HCS_E_OPERATION_TIMEOUT` | Operation exceeded internal timeout | 🔴 — HCS performance issue |
 | `0x8037011E` / `0xC037011E` | `HCS_E_SERVICE_DISCONNECT` | vmcompute crashed/restarted | 🔴 — all containers affected |
-| `0x8037011F` / `0xC037011F` / `0xC0370103` | `HCS_E_PROCESS_ALREADY_STOPPED` | Process already exited | (defer to analyze-termination) |
+| `0x8037011F` / `0xC037011F` / `0x80370103` / `0xC0370103` | `HCS_E_PROCESS_ALREADY_STOPPED` | Process already exited | (defer to analyze-termination) |
 | `0x800705AA` | Insufficient system resources | Resource exhaustion creating compartments | 🔴 — node resource issue |
 
 **Note**: Error codes appear in both HRESULT (`0x8037xxxx`) and NTSTATUS (`0xC037xxxx`) forms in logs. Match both patterns.
@@ -140,6 +142,8 @@ Calculate the rate of HCS operations over time:
 - 🟡 WARNING: 20–50 creates per 5 minutes — high container churn
 - 🔴 CRITICAL: > 50 creates per 5 minutes — storm of container creation (likely cascading failures)
 
+**Note**: The >50 CRITICAL threshold applies to steady-state operation. During a planned deployment rollout, burst creation is expected. Check whether a deployment or rolling restart was underway before classifying as a storm.
+
 **Detect retry storms**: If Create events for the SAME container ID appear multiple times, containerd is retrying sandbox creation. Count containers with >1 Create event.
 - 🟡 WARNING: Any container with >1 Create attempt
 - 🔴 CRITICAL: Containers with >3 Create attempts — persistent creation failure
@@ -178,6 +182,7 @@ Parse `*-containerd-toml.txt` for configuration relevant to HCS:
 
 Beyond the numbered patterns above, also check for:
 - **vmcompute RPC failures**: Messages containing "The RPC server is unavailable" indicate vmcompute has become unresponsive (memory leak). Cross-reference with vmcompute memory in processes.txt.
+- **wcifs.sys kernel file handle leak**: Look for consistently increasing handle counts in `processes.txt` that are NOT correlated with vmcompute specifically. `wcifs.sys` (Windows Container Isolation FS Filter Driver) has a confirmed kernel-mode file handle leak on container hosts that is separate from the vmcompute memory leak. This manifests as a gradual increase in system-wide handles across snapshots with no single process accounting for the growth. Flag if total system handle count (sum of all process handles) grows across snapshots without a proportional increase in container count.
 - **Burst of errors after a specific timestamp**: May indicate a Windows Update, service restart, or external event that disrupted HCS.
 - **Errors concentrated on specific container IDs**: Same container failing repeatedly = workload-specific issue. Extract pod name from crictl correlation.
 - **Mixed error types on same container**: e.g., Create succeeds → Start fails → Create retried — indicates transient vs persistent failure.
@@ -230,6 +235,7 @@ Beyond the numbered patterns above, also check for:
 |---------|-----------|----------|------------|
 | vmcompute memory leak | Working set increasing across snapshots, >500 MB, RPC failures | 🔴 CRITICAL | Failed exec probes leak memory in vmcompute (hcsshim#1680). Common with ama-logs-windows daemonset. |
 | vmcompute crash | `HCS_E_SERVICE_DISCONNECT` errors, vmcompute terminated in services.csv | 🔴 CRITICAL | Memory exhaustion or bug in vmcompute. All in-flight operations lost. |
+| wcifs.sys handle leak | System-wide handle count increasing across snapshots, not correlated with vmcompute | 🟡 WARNING | Kernel-mode file handle leak in Windows Container Isolation FS Filter Driver. Monitor; reboot node if handle count is very high (>100k system-wide). |
 | Container creation storm | >50 creates/5min, same IDs retried >3×, cascading errors | 🔴 CRITICAL | High pod churn overwhelms HCS. Containers fail to start, containerd retries, amplifying the problem. |
 | OS version mismatch | `HCS_E_IMAGE_MISMATCH` (0x80370101) on Create | 🔴 CRITICAL | Container image built for different Windows version than host. Check node OS version vs image tag. |
 | Stale HCS state after containerd restart | `HCS_E_SYSTEM_ALREADY_EXISTS` (0x8037010F) on Create | 🟡 WARNING | Previous containerd instance left HCS containers. New containerd tries to create same IDs. |

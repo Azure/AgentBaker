@@ -69,6 +69,8 @@ From Event ID 2 messages, classify the error reason:
 
 ### 3. Credential Spec Validation (`kubelet.log`)
 
+**⚠️ Important**: Kubelet logs will NOT contain gMSA credential fetch errors or Kerberos authentication failures — those appear exclusively in CCG event logs (`.evtx` files, step 1 above). Kubelet logs only contain errors at the Kubernetes layer: credential spec resource not found, invalid spec format, or pod admission failures. If CCG logs are unavailable, the absence of gMSA errors in kubelet logs cannot be taken as evidence that gMSA is working correctly.
+
 Search kubelet logs for credential spec errors:
 
 | Error Pattern | Meaning | Severity |

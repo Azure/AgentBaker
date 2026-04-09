@@ -60,12 +60,14 @@ In kubelet logs, search for:
 
 ### 4. Eviction Signals (kubelet logs, describe node)
 
+**⚠️ Windows-specific**: Kubelet eviction is **NOT implemented on Windows**. `evictionHard` thresholds exist in the kubelet configuration but kubelet will **NOT** actually evict pods on Windows — no OOM eviction, no PIDPressure eviction. DiskPressure and MemoryPressure conditions may be reported as `True`, but no pods will be removed automatically. This means disk and memory exhaustion go unchecked until the node becomes unresponsive. **A DiskPressure or MemoryPressure condition on Windows is therefore MORE critical than on Linux**, because the automatic remediation (eviction) does not exist.
+
 Search for:
 - `"eviction"` or `"Evicted"` in describe node events
 - `"eviction manager"` in kubelet logs
 - `"threshold"` + `"met"` — eviction threshold reached
 
-- 🔴 CRITICAL: Active evictions occurring (pods being killed)
+- 🔴 CRITICAL: `DiskPressure=True` or `MemoryPressure=True` — threshold breached, node will NOT auto-remediate
 - 🟡 WARNING: Eviction thresholds approaching
 
 ### 5. Kubelet Crash-Restart Cycles (`*_services.csv`)
@@ -76,6 +78,8 @@ Search services.csv for kubelet service events:
 
 - 🔴 CRITICAL: Kubelet restarting repeatedly (>3 restarts in 30 minutes)
 - 🟡 WARNING: Kubelet restarted once or twice
+
+**⚠️ Windows-specific**: On Linux, systemd automatically restarts kubelet. On Windows, **there is no confirmed auto-restart watchdog for kubelet**. If kubelet crashes and nothing restarts it, the node silently becomes unresponsive without generating clear error signals. The absence of kubelet restart events in services.csv combined with a NotReady node does NOT mean kubelet is healthy — it may mean kubelet crashed once and was never restarted.
 
 ### 6. Pod Scheduling Cross-Reference (`*-cri-containerd-pods.txt`)
 
@@ -150,8 +154,8 @@ If clock skew >5 minutes is detected (step 7), flag as likely Kerberos failure:
 | Pattern | Severity | Confidence | Meaning |
 |---------|----------|------------|---------|
 | Ready=False or Ready=Unknown | 🔴 CRITICAL | HIGH | Node is NotReady, workloads impacted |
-| DiskPressure=True | 🔴 CRITICAL | HIGH | Disk eviction threshold breached |
-| MemoryPressure=True | 🔴 CRITICAL | HIGH | Memory eviction threshold breached |
+| DiskPressure=True | 🔴 CRITICAL | HIGH | Disk eviction threshold breached — **no auto-eviction on Windows**; manual intervention required |
+| MemoryPressure=True | 🔴 CRITICAL | HIGH | Memory eviction threshold breached — **no auto-eviction on Windows**; pods will NOT be removed |
 | Repeated lease renewal failures | 🔴 CRITICAL | MEDIUM | apiserver connectivity issues causing false NotReady |
 | Volume mount timeouts | 🔴 CRITICAL | HIGH | Pods cannot start due to volume issues |
 | Kubelet restarting >3 times in 30min | 🔴 CRITICAL | HIGH | Kubelet crash loop |
@@ -165,6 +169,8 @@ If clock skew >5 minutes is detected (step 7), flag as likely Kerberos failure:
 | TLS handshake errors (intermittent) | 🟡 WARNING | MEDIUM | May resolve on cert rotation |
 | Clock skew >30 seconds | 🟡 WARNING | MEDIUM | Log correlation degraded |
 | W32Time service errors | 🔵 INFO | MEDIUM | Time sync issues — check for downstream impact |
+| `containerfs.inodesFree` eviction warnings in kubelet log | 🔵 INFO | HIGH | Known noise (k8s#130142) — kubelet incorrectly warns about inode availability on NTFS, which has no inode limit. Ignore these entries; do not flag as disk pressure. |
+| No kubelet restart events + NotReady node | 🟡 WARNING | MEDIUM | Kubelet may have crashed once without recovery (no confirmed watchdog on Windows) — check for single stop event with no subsequent start |
 
 ## Cross-References
 
@@ -174,3 +180,4 @@ If clock skew >5 minutes is detected (step 7), flag as likely Kerberos failure:
 - **analyze-termination.md**: Kubelet restart can cause orphaned HCS containers
 - **analyze-services.md**: Kubelet service events in services.csv provide crash timestamps
 - **analyze-services.md**: W32Time service state in scqueryex.txt — if STOPPED, clock skew is likely; kubelet/containerd service states validate crash-loop detection
+- **Note on CRI connectivity**: The Windows kubelet connects to containerd via named pipe `npipe://./pipe/containerd-containerd` (not a Unix socket as on Linux). Connectivity issues between kubelet and containerd manifest as pipe errors rather than socket errors — look for `npipe` or `named pipe` in kubelet logs when diagnosing CRI failures.

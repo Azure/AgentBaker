@@ -56,6 +56,7 @@ See common-reference.md for severity thresholds.
 | C: free < 30 GB | 🟡 WARNING | HIGH | Disk pressure building | Monitor trend; check image accumulation |
 | C: free ≥ 30 GB | 🔵 INFO | HIGH | Healthy disk state | No action needed |
 | Rapid disk growth between snapshots | 🔴 CRITICAL | MEDIUM | Large delta in used space over short time | Active disk leak; identify source (logs, images, temp files) |
+| Container log files >100 MB | 🟡 WARNING | MEDIUM | Container log rotation broken on Windows (containerd#7075) — log rotation stops after first snapshot; individual container logs grow to 500MB+ | Manually truncate or delete large log files; upgrade containerd if a fix is available |
 
 ## Cross-References
 

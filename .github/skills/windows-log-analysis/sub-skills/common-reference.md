@@ -22,6 +22,8 @@ process all snapshots to detect trends (disk growth, stable PIDs, escalating res
 
 Discover timestamps by scanning filenames with pattern: `^(\d{8}-\d{6})`
 
+**Single vs. multiple snapshots**: Single-snapshot analysis is fully valid and can detect most issues (service states, error counts, orphaned containers, disk usage at a point in time). Trend detection — growing resource leaks, degrading HCS operation durations, escalating restart counts — requires ≥2 snapshots. When only one snapshot is present, note the limitation in your findings and avoid making trend-based claims.
+
 ## CSV Files (Event Logs)
 
 Windows event log CSVs (`*_services.csv`, `*_hyper-v-compute-operational.csv`) have quirks:
@@ -222,7 +224,8 @@ If logs are missing, truncated, or ambiguous, say so explicitly:
 |------|------|---------|
 | `0x80370100` / `0xC0370100` | `HCS_E_TERMINATED_DURING_START` | Container crashed during startup |
 | `0x80370101` / `0xC0370101` | `HCS_E_IMAGE_MISMATCH` | OS version mismatch between container image and host |
-| `0xC0370103` / `0x8037011F` | `HCS_E_PROCESS_ALREADY_STOPPED` | Container process already exited but HCS didn't clean up — zombie state |
+| `0x80370103` / `0xC0370103` | `HCS_E_PROCESS_ALREADY_STOPPED` | Container process already exited but HCS didn't clean up — zombie state |
+| `0x8037011F` / `0xC037011F` | `HCS_E_PROCESS_ALREADY_STOPPED` | Similar zombie state — distinct error code; both present identically in practice. (`0x80370103` is the expected HRESULT pair for `0xC0370103`; the relationship between `0x8037011F` and `0xC0370103` is unconfirmed — treat them separately.) |
 | `0x80370106` / `0xC0370106` | `HCS_E_UNEXPECTED_EXIT` | Container exited unexpectedly |
 | `0x80370109` / `0xC0370109` | `HCS_E_CONNECTION_TIMEOUT` | HCS operation timed out — vmcompute overloaded |
 | `0x8037010E` / `0xC037010E` | `HCS_E_SYSTEM_NOT_FOUND` | Containerd referencing unknown container — race condition |
@@ -233,6 +236,19 @@ If logs are missing, truncated, or ambiguous, say so explicitly:
 | `0x800705AA` | Insufficient system resources | Resource exhaustion creating network compartments |
 
 **Note**: Error codes appear in both HRESULT (`0x8037xxxx`) and NTSTATUS (`0xC037xxxx`) forms in logs. Match both patterns.
+
+## HNS Error Codes
+
+**⚠️ There is no official HNS error code reference.** The codes below are assembled from community knowledge, AKS field experience, and CNI log patterns. Treat them as best-effort rather than authoritative.
+
+HNS surfaces Win32 error codes in CNI log messages of the form `hnsCall failed in Win32: <message>`:
+
+| Win32 Code | Message | Meaning |
+|------------|---------|---------|
+| `0x1392` (5010) | `The object already exists` | Stale endpoint blocking new creation — cleanup incomplete after previous deletion |
+| `0x490` (1168) | `Element not found` | HNS endpoint/network was deleted or state was reset — reference to non-existent object |
+| `0x57` (87) | `The parameter is incorrect` | Malformed HNS request — misconfigured CNI or credential spec |
+| `0x5` (5) | `Access is denied` | Permission error during HNS operation |
 
 ## Windows Event IDs
 

@@ -89,6 +89,7 @@ Parse `*-cri-containerd-pods.txt` (crictl pods output).
 
 - **analyze-termination.md**: Pods stuck in non-Ready state may be related to HCS zombie issues or stuck termination
 - **analyze-disk.md**: Disk pressure causes pod evictions and restart loops
+- **analyze-disk.md**: Container log rotation is broken on Windows (containerd#7075) — logs grow to 500MB+ per container and are a significant disk pressure contributor; cross-reference with analyze-disk findings
 - **analyze-images.md**: If the failing container uses a mutable tag, the image may have changed
 - **analyze-hcs.md**: Container names and pod names help correlate with shimdiag/hcsdiag findings
 - **analyze-memory.md**: Check system events for OOM (Event ID 2004) if containers are crash-looping

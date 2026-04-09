@@ -42,6 +42,8 @@ Read `common-reference.md` first — it contains shared encoding/format knowledg
 | `analyze-containers.md` | Container restarts, crash-loops, pod readiness |
 | `analyze-services.md` | Windows service health, node versions, OS info |
 
+**Quick health check (3-skill triage)**: For a fast "is this node healthy?" check, run `analyze-services` → `analyze-containers` → `analyze-kubelet`. If all three are clean (services Running, no crash-looping containers, kubelet conditions normal), the node is likely healthy and deeper analysis can be skipped. If any of the three has findings, proceed to symptom-based dispatch below.
+
 **Dispatch by symptom** (see common-reference.md § Dispatch Guidance for full table):
 
 | Sub-Skill | When to Run |
@@ -90,6 +92,12 @@ End the report with an explicit confidence assessment:
 **What would change my mind**: [what evidence, if found, would invalidate this diagnosis]
 **What I couldn't verify**: [list any claims that lack full evidence]
 ```
+
+---
+
+## Saving the Analysis Report
+
+When writing the final diagnosis report to disk, use the **`save-markdown-to-disk`** skill (`.github/skills/save-markdown-to-disk/SKILL.md`). Writing markdown via bash HEREDOC causes silent corruption of backticks, dollar signs, and embedded code blocks — use that skill instead.
 
 ---
 

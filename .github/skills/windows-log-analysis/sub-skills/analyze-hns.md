@@ -20,6 +20,8 @@ Deep inspection of HNS (Host Network Service) operational health: endpoint lifec
 | `kubeproxy.log` or `*kube-proxy*.log` | UTF-8 | kube-proxy logs — HNS load balancer operations |
 | `<ts>-hcsdiag-list.txt` | UTF-16-LE with BOM | HCS compute systems — for container-to-endpoint correlation |
 
+**⚠️ CNI log location quirk (containerd#4928)**: Due to a missing working directory in the containerd service registration, CNI plugin logs may be written to `C:\Windows\System32\` instead of the expected CNI log directory (`c:\k\debug\`). If CNI logs are absent from the expected location, also check the bundle for files from `C:\Windows\System32\*azure-vnet*.log` or equivalent. An agent looking only in the standard location may miss critical CNI error data.
+
 **Process ALL snapshots** — cross-snapshot comparison is critical for detecting endpoint leaks, LB count drops, and HNS service restarts.
 
 ## Analysis Steps
@@ -110,6 +112,8 @@ Search for events where `Message` contains `hns` or `Host Network Service` (case
 - 🔵 INFO: HNS service running normally (no stop/start events)
 
 ### 6. Azure CNI / HNS Error Analysis (`*azure-vnet*.log`)
+
+**⚠️ No official HNS error code reference exists.** The Win32 error codes and text patterns below are assembled from community knowledge and AKS field experience. See common-reference.md § HNS Error Codes for the code table.
 
 Search CNI log files for HNS-specific errors:
 
