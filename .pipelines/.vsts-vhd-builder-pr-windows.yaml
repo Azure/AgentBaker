@@ -34,13 +34,14 @@ pr:
       - parts/windows
       - go.mod
       - go.sum
-      - e2e/scenario_win_test.go
+      - e2e/
       - staging/cse/windows/
 
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
       - .github/**
+      - e2e/scenario_test.go
       - .pipelines/scripts/verify_shell.sh
 
 pool:
