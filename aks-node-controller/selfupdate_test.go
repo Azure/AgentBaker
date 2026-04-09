@@ -53,6 +53,35 @@ func TestDetectPackageManager(t *testing.T) {
 	assert.Contains(t, []string{"apt-get", "dnf"}, pkgMgr)
 }
 
+func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
+	t.Run("prefers legacy .list when both exist", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "microsoft-prod.list"), []byte("deb ..."), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "microsoft-prod.sources"), []byte("Types: deb"), 0644))
+
+		path, err := resolveMicrosoftProdSourceListPath(dir)
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join(dir, "microsoft-prod.list"), path)
+	})
+
+	t.Run("falls back to deb822 .sources when .list is absent", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "microsoft-prod.sources"), []byte("Types: deb"), 0644))
+
+		path, err := resolveMicrosoftProdSourceListPath(dir)
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join(dir, "microsoft-prod.sources"), path)
+	})
+
+	t.Run("returns error when neither file exists", func(t *testing.T) {
+		dir := t.TempDir()
+
+		_, err := resolveMicrosoftProdSourceListPath(dir)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "neither")
+	})
+}
+
 func TestSelfUpdate_NoHotfixFile(t *testing.T) {
 	// When no hotfix-version file exists, selfUpdate should be a no-op.
 	tt := NewTestApp(t, TestAppConfig{})

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -16,6 +17,7 @@ const (
 	hotfixVersionPath = "/etc/aks-node-controller/hotfix-version"
 	maxInstallRetries = 5
 	retryBackoff      = 3 * time.Second
+	aptSourcesDir     = "/etc/apt/sources.list.d"
 )
 
 // selfUpdate checks for a hotfix version and installs it from PMC if needed.
@@ -112,6 +114,11 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
+	microsoftProdSourceListPath, err := resolveMicrosoftProdSourceListPath(aptSourcesDir)
+	if err != nil {
+		return err
+	}
+
 	// Ensure any interrupted dpkg state is reconciled before running apt operations.
 	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"dpkg", "--configure", "-a", "--force-confdef", "--force-confold"); err != nil {
@@ -122,7 +129,7 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"apt-get", "update",
 		"-o", "Dpkg::Options::=--force-confold",
-		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list",
+		"-o", fmt.Sprintf("Dir::Etc::sourcelist=%s", microsoftProdSourceListPath),
 		"-o", "Dir::Etc::sourceparts=-"); err != nil {
 		return fmt.Errorf("apt-get update failed: %w", err)
 	}
@@ -131,6 +138,24 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 		"apt-get", "install", "-y", "--allow-downgrades",
 		"-o", "Dpkg::Options::=--force-confold",
 		fmt.Sprintf("aks-node-controller=%s*", version))
+}
+
+func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
+	legacyListPath := filepath.Join(sourcesDir, "microsoft-prod.list")
+	if _, err := os.Stat(legacyListPath); err == nil {
+		return legacyListPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("checking %s: %w", legacyListPath, err)
+	}
+
+	deb822SourcesPath := filepath.Join(sourcesDir, "microsoft-prod.sources")
+	if _, err := os.Stat(deb822SourcesPath); err == nil {
+		return deb822SourcesPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("checking %s: %w", deb822SourcesPath, err)
+	}
+
+	return "", fmt.Errorf("neither %s nor %s exists", legacyListPath, deb822SourcesPath)
 }
 
 // installWithDnf installs the package via dnf (repo index refreshed automatically).
