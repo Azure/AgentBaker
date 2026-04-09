@@ -27,6 +27,11 @@ type App struct {
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRun      func(cmd *exec.Cmd) error
 	eventLogger *helpers.EventLogger
+
+	// hotfixVersionPath overrides the default hotfix version file location for testing.
+	hotfixVersionPath string
+	// aptSourcesDir overrides the default APT sources directory for testing.
+	aptSourcesDir string
 }
 
 // commandMetadata holds all metadata for a command in one place.
@@ -124,9 +129,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 
 	// Self-update before provisioning: check for hotfix version and install if needed.
 	// On success, syscall.Exec replaces this process and never returns.
-	if err := a.selfUpdate(ctx); err != nil {
-		return fmt.Errorf("self-update failed: %w", err)
-	}
+	// On any failure, selfUpdate logs a warning and returns nil (best-effort).
+	a.selfUpdate(ctx)
 
 	startTime := time.Now()
 	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)

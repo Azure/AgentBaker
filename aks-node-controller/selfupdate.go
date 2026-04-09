@@ -13,26 +13,29 @@ import (
 )
 
 const (
-	// hotfixVersionPath is written by cloud-init during node bootstrap. The control plane sets the target version in the node's CustomData when a hotfix is active
-	hotfixVersionPath = "/etc/aks-node-controller/hotfix-version"
-	maxInstallRetries = 5
-	retryBackoff      = 3 * time.Second
-	aptSourcesDir     = "/etc/apt/sources.list.d"
+	defaultHotfixVersionPath = "/etc/aks-node-controller/hotfix-version"
+	maxInstallRetries        = 5
+	retryBackoff             = 3 * time.Second
+	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
 )
 
 // selfUpdate checks for a hotfix version and installs it from PMC if needed.
 // It is called before command dispatch for provision and provision-wait commands.
 // On successful install, it re-execs the process with the new binary and never returns.
-// On failure, it logs a warning and returns nil so the VHD-baked binary proceeds.
+// On any failure, it logs a warning and returns nil so the VHD-baked binary proceeds.
 func (a *App) selfUpdate(ctx context.Context) error {
-	hotfixVersion, err := readHotfixVersion(hotfixVersionPath)
+	hotfixPath := a.hotfixVersionPath
+	if hotfixPath == "" {
+		hotfixPath = defaultHotfixVersionPath
+	}
+	hotfixVersion, err := readHotfixVersion(hotfixPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 
 		slog.Warn("failed to read hotfix version, proceeding with VHD-baked version",
-			"path", hotfixVersionPath, "error", err)
+			"path", hotfixPath, "error", err)
 		return nil
 	}
 
@@ -53,7 +56,11 @@ func (a *App) selfUpdate(ctx context.Context) error {
 		return nil
 	}
 
-	return a.reExec()
+	if err := a.reExec(); err != nil {
+		slog.Warn("failed to re-exec after hotfix install, proceeding with current binary",
+			"error", err)
+	}
+	return nil
 }
 
 // readHotfixVersion reads and trims the hotfix version from the given path.
@@ -70,7 +77,7 @@ func readHotfixVersion(path string) (string, error) {
 }
 
 // detectPackageManager returns the package manager command for the current OS.
-// It reads /etc/os-release to determine whether to use apt-get (Ubuntu) or dnf (AzureLinux/Mariner).
+// It reads /etc/os-release to determine whether to use apt-get (Ubuntu) or tdnf/dnf (AzureLinux/Mariner).
 func detectPackageManager() (string, error) {
 	data, err := os.ReadFile("/etc/os-release")
 	if err != nil {
@@ -85,14 +92,22 @@ func detectPackageManager() (string, error) {
 			switch id {
 			case "ubuntu":
 				return "apt-get", nil
-			case "azurelinux":
-				return "dnf", nil
+			case "azurelinux", "mariner":
+				return preferredRpmManager(), nil
 			default:
 				return "", fmt.Errorf("unsupported OS: %s", id)
 			}
 		}
 	}
 	return "", fmt.Errorf("ID not found in /etc/os-release")
+}
+
+// preferredRpmManager returns dnf if available, falling back to tdnf (used by OS Guard).
+func preferredRpmManager() string {
+	if _, err := exec.LookPath("dnf"); err == nil {
+		return "dnf"
+	}
+	return "tdnf"
 }
 
 // installFromPMC installs the hotfix package from PMC using the system package manager.
@@ -105,8 +120,8 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 	switch pkgMgr {
 	case "apt-get":
 		return a.installWithApt(ctx, version)
-	case "dnf":
-		return a.installWithDnf(ctx, version)
+	case "dnf", "tdnf":
+		return a.installWithRpm(ctx, pkgMgr, version)
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pkgMgr)
 	}
@@ -114,7 +129,11 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
-	microsoftProdSourceListPath, err := resolveMicrosoftProdSourceListPath(aptSourcesDir)
+	sourcesDir := a.aptSourcesDir
+	if sourcesDir == "" {
+		sourcesDir = defaultAptSourcesDir
+	}
+	microsoftProdSourceListPath, err := resolveMicrosoftProdSourceListPath(sourcesDir)
 	if err != nil {
 		return err
 	}
@@ -158,9 +177,9 @@ func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
 	return "", fmt.Errorf("neither %s nor %s exists", legacyListPath, deb822SourcesPath)
 }
 
-// installWithDnf installs the package via dnf (repo index refreshed automatically).
-func (a *App) installWithDnf(ctx context.Context, version string) error {
-	return a.retryCommand(ctx, "dnf", "install", "-y", "--allowerasing",
+// installWithRpm installs the package via dnf or tdnf (repo index refreshed automatically).
+func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string) error {
+	return a.retryCommand(ctx, pkgMgr, "install", "-y", "--allowerasing",
 		fmt.Sprintf("aks-node-controller-%s", version))
 }
 

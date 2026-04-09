@@ -50,7 +50,7 @@ func TestDetectPackageManager(t *testing.T) {
 	if err != nil {
 		t.Skipf("skipping on unsupported OS: %v", err)
 	}
-	assert.Contains(t, []string{"apt-get", "dnf"}, pkgMgr)
+	assert.Contains(t, []string{"apt-get", "dnf", "tdnf"}, pkgMgr)
 }
 
 func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
@@ -85,6 +85,7 @@ func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
 func TestSelfUpdate_NoHotfixFile(t *testing.T) {
 	// When no hotfix-version file exists, selfUpdate should be a no-op.
 	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "nonexistent")
 	err := tt.App.selfUpdate(context.Background())
 	assert.NoError(t, err)
 }
@@ -95,15 +96,28 @@ func TestSelfUpdate_VersionMatch(t *testing.T) {
 	Version = "202603.30.0-hotfix1"
 	defer func() { Version = origVersion }()
 
-	// Write a hotfix-version file that matches
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-version")
 	require.NoError(t, os.WriteFile(path, []byte("202603.30.0-hotfix1\n"), 0644))
 
-	// We can't override hotfixVersionPath (const), so test the core logic directly:
-	version, err := readHotfixVersion(path)
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = path
+	err := tt.App.selfUpdate(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, Version, version) // should match → skip
+}
+
+func TestSelfUpdate_UnreadableFile(t *testing.T) {
+	// When the hotfix file exists but is unreadable, selfUpdate should log warning and continue.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-version")
+	require.NoError(t, os.WriteFile(path, []byte("1.0.0\n"), 0644))
+	require.NoError(t, os.Chmod(path, 0000))
+	t.Cleanup(func() { os.Chmod(path, 0644) })
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = path
+	err := tt.App.selfUpdate(context.Background())
+	assert.NoError(t, err) // best-effort: returns nil on error
 }
 
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {
