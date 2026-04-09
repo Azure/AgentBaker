@@ -1842,11 +1842,6 @@ type CustomCATrustConfig struct {
 type SecureTLSBootstrappingConfig struct {
 	// Enabled indicates whether secure TLS bootstrapping is enabled.
 	Enabled bool `json:"secureTLSBootstrappingEnabled"`
-	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
-	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
-	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
-	// A default value is specified directly within the bootstrapping scripts.
-	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
 	// AADResource is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This determines the resource used to request access tokens from Entra ID.
 	// Defaults to the AKS AAD server APP ID within bootstrapping scripts.
@@ -1860,6 +1855,30 @@ type SecureTLSBootstrappingConfig struct {
 	// overwrite the existing secure TLS bootstrap client installation on the node image using
 	// the version specified by the URL before bootstrapping.
 	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL"`
+	// ValidateKubeconfigTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to perform kubeconfig validation against the cluster's API server.
+	ValidateKubeconfigTimeout string `json:"secureTLSBootstrappingValidateKubeconfigTimeout"`
+	// GetAccessTokenTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve an access token from IMDS/Entra ID.
+	GetAccessTokenTimeout string `json:"secureTLSBootstrappingGetAccessTokenTimeout"`
+	// GetInstanceDataTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve VM instance data from IMDS.
+	GetInstanceDataTimeout string `json:"secureTLSBootstrappingGetInstanceDataTimeout"`
+	// GetNonceTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve a unique nonce from the bootstrap server.
+	GetNonceTimeout string `json:"secureTLSBootstrappingGetNonceTimeout"`
+	// GetAttestedDataTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve VM attested data from IMDS.
+	GetAttestedDataTimeout string `json:"secureTLSBootstrappingGetAttestedDataTimeout"`
+	// GetCredentialTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
+	GetCredentialTimeout string `json:"secureTLSBootstrappingGetCredentialTimeout"`
+	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
+	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
+	// A default value is specified directly within the bootstrapping scripts.
+	// Deprecated: Use individual RPC timeouts intead.
+	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
@@ -1867,13 +1886,6 @@ func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
 		return false
 	}
 	return c.Enabled
-}
-
-func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
-	if c == nil {
-		return ""
-	}
-	return c.Deadline
 }
 
 func (c *SecureTLSBootstrappingConfig) GetAADResource() string {
@@ -1895,6 +1907,55 @@ func (c *SecureTLSBootstrappingConfig) GetCustomClientDownloadURL() string {
 		return ""
 	}
 	return c.CustomClientDownloadURL
+}
+
+func (c *SecureTLSBootstrappingConfig) GetValidateKubeconfigTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.ValidateKubeconfigTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetAccessTokenTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetAccessTokenTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetInstanceDataTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetInstanceDataTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetNonceTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetNonceTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetAttestedDataTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetAttestedDataTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetCredentialTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetCredentialTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
+	if c == nil {
+		return ""
+	}
+	return c.Deadline
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.
