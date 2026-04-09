@@ -30,10 +30,6 @@ func (a *App) selfUpdate(ctx context.Context) {
 	}
 	hotfixVersion, err := readHotfixVersion(hotfixPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return
-		}
-
 		slog.Warn("failed to read hotfix version, proceeding with VHD-baked version",
 			"path", hotfixPath, "error", err)
 		return
