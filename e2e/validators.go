@@ -1560,9 +1560,11 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
 
-	// Wait for NPD to detect the problem using Kubernetes native waiting
+	// Wait for NPD to detect the problem using Kubernetes native waiting.
+	// Use a generous timeout (10m) because NPD journal scanning and API server rate limiting
+	// can cause detection to take longer than expected under load.
 	var filesystemCorruptionProblem *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
