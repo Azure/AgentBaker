@@ -1565,10 +1565,14 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 
 	command = []string{
 		"set -ex",
-		// Simulate filesystem corruption by writing to the Docker journal continuously.
-		// NPD's custom plugin monitor runs check_fs_corruption.sh every 5 minutes.
-		// A continuous stream ensures fresh entries exist within any lookback window.
-		`sudo systemd-run --unit=docker --property=SyslogIdentifier=dockerd --no-block bash -c 'while true; do echo "structure needs cleaning"; sleep 30; done'`,
+		// Simulate filesystem corruption by injecting messages into containerd's journal.
+		// The check_fs_corruption.sh plugin checks 'journalctl -u containerd --since "5 min ago"'
+		// for "structure needs cleaning". We move the injector process into containerd's cgroup
+		// so the journal daemon attributes entries to _SYSTEMD_UNIT=containerd.service.
+		// Continuous injection (every 30s) ensures entries stay within the 5-minute lookback window.
+		`CONTAINERD_PID=$(pgrep -x containerd | head -1)`,
+		`CGROUP_PATH="/sys/fs/cgroup$(cat /proc/${CONTAINERD_PID}/cgroup | cut -d: -f3)"`,
+		`sudo bash -c "echo \$\$ > ${CGROUP_PATH}/cgroup.procs && nohup bash -c 'while true; do echo structure needs cleaning | systemd-cat -p err; sleep 30; done' </dev/null >/dev/null 2>&1 &"`,
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
 
@@ -1576,10 +1580,8 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	verifyCmd := []string{
 		"set -x",
 		"sleep 3",
-		"echo '--- journalctl -u docker ---'",
-		"journalctl -u docker --no-pager -n 5",
-		"echo '--- journalctl -t dockerd ---'",
-		"journalctl -t dockerd --no-pager -n 5 || true",
+		"echo '--- journalctl -u containerd (last 5) ---'",
+		"journalctl -u containerd --no-pager -n 5",
 		"echo '--- manual check script run ---'",
 		"sudo /etc/node-problem-detector.d/plugin/check_fs_corruption.sh; echo \"exit_code=$?\"",
 	}
@@ -1609,7 +1611,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 
 	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
 	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
-	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in Docker journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in Docker journal.")
+	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal.")
 }
 
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
