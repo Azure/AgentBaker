@@ -1577,6 +1577,17 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		`sudo chmod +x /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to replace check_fs_corruption.sh to simulate corruption")
+	defer func() {
+		restoreCmd := []string{
+			"set -ex",
+			`if [ -f /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak ]; then`,
+			`  sudo mv /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
+			`  sudo chmod +x /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
+			`fi`,
+		}
+		restoreResult := execScriptOnVMForScenario(ctx, s, strings.Join(restoreCmd, "\n"))
+		s.T.Logf("Restored original check_fs_corruption.sh:\nstdout:\n%s\nstderr:\n%s", restoreResult.stdout, restoreResult.stderr)
+	}()
 
 	// Verify the replacement script works correctly
 	verifyCmd := []string{
@@ -1586,7 +1597,15 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		"sudo /etc/node-problem-detector.d/plugin/check_fs_corruption.sh; echo \"exit_code=$?\"",
 	}
 	verifyResult := execScriptOnVMForScenario(ctx, s, strings.Join(verifyCmd, "\n"))
-	s.T.Logf("Simulation verification:\n%sstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
+	s.T.Logf("Simulation verification:\nstdout:\n%s\nstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
+
+	// Restore the original script after verification so the node is left clean.
+	// NPD will already have picked up the simulated failure before the restore.
+	restoreCmd := []string{
+		"set -ex",
+		`sudo cp /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(restoreCmd, "\n"), 0, "Failed to restore original check_fs_corruption.sh")
 
 	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
 	// every 5 minutes. With continuous simulation, the first check cycle after
