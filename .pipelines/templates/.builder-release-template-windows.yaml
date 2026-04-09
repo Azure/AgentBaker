@@ -220,6 +220,48 @@ steps:
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
 
+  # Set VHD_NAME and SKU_NAME which will be published.
+  # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
+  # we always generate these artifacts - sometimes they are used by downstream pipelines even when
+  # we are not publishing the image to production.
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -e
+
+        if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
+          export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+          [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
+        else
+          export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
+          export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
+        fi
+        export SKU_NAME="windows-$WINDOWS_SKU";
+
+        make -f packer.mk generate-publishing-info
+    displayName: Getting Shared Access Signature URI
+    env:
+      SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+      STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
+      VHD_NAME: $(VHD_NAME)
+      OS_NAME: "Windows"
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      SKU_NAME: $(SKU_NAME)
+      OFFER_NAME: "Windows"
+      MODE: $(MODE)
+      IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
+      OS_TYPE: "Windows"
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      artifactName: 'publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'vhd-publishing-info.json'
+
+
   # SA_NAME:             Temporary storage account name
   # IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
   #                      VHD blob directly. Will use this as an intermediate sig to import from raw VHD url.
@@ -257,47 +299,3 @@ steps:
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
       OS_TYPE: "Windows"
-
-  # Set VHD_NAME and SKU_NAME which will be published.
-  # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
-  # Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        set -e
-
-        if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
-          export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-          [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd";
-        else
-          export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
-          export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
-        fi
-        export SKU_NAME="windows-$WINDOWS_SKU";
-
-        make -f packer.mk generate-publishing-info
-    displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
-    env:
-      SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
-      STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
-      VHD_NAME: $(VHD_NAME)
-      OS_NAME: "Windows"
-      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
-      SKU_NAME: $(SKU_NAME)
-      OFFER_NAME: "Windows"
-      MODE: $(MODE)
-      IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
-      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
-      OS_TYPE: "Windows"
-      WINDOWS_SKU: ${{ parameters.windowsSku }}
-
-  # Will be stepped in if the sig is for production
-  - task: PublishPipelineArtifact@1
-    inputs:
-      artifactName: 'publishing-info-${{ parameters.artifactName }}'
-      targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
