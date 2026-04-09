@@ -1553,19 +1553,39 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found")
 
+	// Log the NPD plugin config for diagnostics (helps debug detection failures)
+	diagCmd := []string{
+		"set -x",
+		"cat /etc/node-problem-detector.d/custom-plugin-monitor/custom-fs-corruption-monitor.json",
+	}
+	diagResult := execScriptOnVMForScenario(ctx, s, strings.Join(diagCmd, "\n"))
+	s.T.Logf("NPD filesystem corruption plugin config:\n%s", diagResult.stdout)
+
 	command = []string{
 		"set -ex",
-		// Simulate a filesystem corruption problem
-		"sudo systemd-run --unit=docker --no-block bash -c 'echo \"structure needs cleaning\"'",
+		// Simulate filesystem corruption by writing to the Docker journal continuously.
+		// NPD's custom plugin monitor uses a time-windowed lookback when scanning the
+		// journal. A single one-shot entry can age out of the window between check cycles,
+		// causing detection to fail. A continuous stream (every 30s) ensures that every
+		// check cycle finds fresh entries within its lookback window.
+		`sudo systemd-run --unit=docker --no-block bash -c 'while true; do echo "structure needs cleaning"; sleep 30; done'`,
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
 
-	// Wait for NPD to detect the problem using Kubernetes native waiting.
-	// NPD's custom plugin monitor polls every 5 minutes, so worst case is
-	// ~10 minutes (2 full cycles). Use 12 minutes to provide margin for
-	// API server latency and scheduling delays under load.
+	// Verify the simulation is producing journal entries
+	verifyCmd := []string{
+		"set -ex",
+		"sleep 3",
+		"journalctl -u docker --no-pager -n 5",
+	}
+	verifyResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(verifyCmd, "\n"), 0, "Failed to verify docker journal entries after simulation")
+	s.T.Logf("Docker journal entries after simulation:\n%s", verifyResult.stdout)
+
+	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
+	// every 5 minutes. With continuous simulation, the first check cycle after
+	// our start should detect it. Use 8 minutes as a safety margin.
 	var filesystemCorruptionProblem *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 12*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
