@@ -57,7 +57,7 @@ func (a *App) selfUpdate(ctx context.Context) {
 		return
 	}
 
-	// Replace the VHD-baked binary so the wrapper script picks up the hotfix.
+	// Overwrite the VHD-baked binary so the hotfix persists across service restarts and reboots.
 	if err := replaceBinary(pkgBinaryPath, vhdBinaryPath); err != nil {
 		slog.Warn("failed to replace VHD binary with hotfix, proceeding with current binary",
 			"error", err)
@@ -218,7 +218,7 @@ func (a *App) retryCommand(ctx context.Context, name string, args ...string) err
 }
 
 // replaceBinary copies src over dst, preserving the destination's original permissions.
-// This ensures the wrapper script at /opt/azure/containers/ invokes the hotfix binary.
+// This ensures the hotfix binary persists at the canonical VHD path across reboots.
 func replaceBinary(src, dst string) error {
 	srcData, err := os.ReadFile(src)
 	if err != nil {
