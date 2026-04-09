@@ -539,7 +539,7 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 
 func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 	err := RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Description: "Tests that a new Ubuntu 2204 node using the self-contained installer fails bootstrap for invalid config and still writes provision status files",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
