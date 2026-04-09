@@ -11,9 +11,9 @@ Detect failures in Azure VM extension execution logs that may indicate provision
 | `Extension-Logs*.zip` | Binary (zip archive) | Zipped extension logs (as produced by the collector) |
 | `Extension-Logs-*/` | Directory | Extracted extension log directories (if zip was manually extracted) |
 
-**Zip structure**: `Extension-Logs-<ts>/<plugin-name>/<version>/CommandExecution*.log`
+**Zip structure**: The collector zips the copied `C:\WindowsAzure\Logs\Plugins\*` tree, so paths typically look like `Extension-Logs-<ts>/Plugins/<publisher>.<extension-type>/<version>/CommandExecution*.log` (or the equivalent extracted directory layout).
 
-Both zips and extracted directories should be scanned. Track seen `(plugin_name, filename)` pairs to avoid duplicate findings.
+Both zips and extracted directories should be scanned recursively for `CommandExecution*.log` files under the `Plugins/` tree. Do not assume a fixed `<plugin-name>/<version>` depth; derive the plugin name from the extension directory path and track seen `(plugin_name, filename)` pairs to avoid duplicate findings.
 
 Extension logs are NOT timestamped per snapshot — the collector produces a single archive. Snapshot filters don't apply.
 
