@@ -237,7 +237,8 @@ func replaceBinary(src, dst string) error {
 
 // reExec replaces the current process with the updated binary at the VHD path.
 func (a *App) reExec() error {
-	binary := vhdBinaryPath
-	slog.Info("re-executing with updated binary", "path", binary, "args", os.Args)
-	return syscall.Exec(binary, os.Args, os.Environ())
+	args := append([]string{vhdBinaryPath}, os.Args[1:]...)
+	slog.Info("re-executing with updated binary", "path", vhdBinaryPath, "args", args)
+	//nolint:gosec // Intentional re-exec of trusted on-disk binary while preserving original CLI arguments.
+	return syscall.Exec(vhdBinaryPath, args, os.Environ())
 }
