@@ -277,7 +277,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			It("returns empty string when LocalDNSProfile is nil", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
 				funcMap := getContainerServiceFuncMap(config)
-				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
 				Expect(fn()).To(Equal(""))
 			})
 			It("returns empty string when CriticalFQDNs is nil", func() {
@@ -286,7 +287,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					CriticalFQDNs:  nil,
 				}
 				funcMap := getContainerServiceFuncMap(config)
-				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
 				Expect(fn()).To(Equal(""))
 			})
 			It("returns comma-separated FQDNs", func() {
@@ -299,7 +301,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					},
 				}
 				funcMap := getContainerServiceFuncMap(config)
-				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
 				Expect(fn()).To(Equal("mcr.microsoft.com,packages.microsoft.com,login.microsoftonline.com"))
 			})
 			It("returns single FQDN without trailing comma", func() {
@@ -308,7 +311,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					CriticalFQDNs:  []string{"mcr.microsoft.com"},
 				}
 				funcMap := getContainerServiceFuncMap(config)
-				fn := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
 				Expect(fn()).To(Equal("mcr.microsoft.com"))
 			})
 		})
