@@ -103,14 +103,24 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 
 // installWithApt refreshes the PMC repo index and installs the package via apt-get.
 func (a *App) installWithApt(ctx context.Context, version string) error {
-	// Refresh only the microsoft-prod repo to minimize time
-	if err := a.retryCommand(ctx, "apt-get", "update",
+	// Ensure any interrupted dpkg state is reconciled before running apt operations.
+	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+		"dpkg", "--configure", "-a", "--force-confdef", "--force-confold"); err != nil {
+		return fmt.Errorf("dpkg --configure -a failed: %w", err)
+	}
+
+	// Refresh only the microsoft-prod repo to minimize time.
+	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+		"apt-get", "update",
+		"-o", "Dpkg::Options::=--force-confold",
 		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list",
 		"-o", "Dir::Etc::sourceparts=-"); err != nil {
 		return fmt.Errorf("apt-get update failed: %w", err)
 	}
-	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version
-	return a.retryCommand(ctx, "apt-get", "install", "-y", "--allow-downgrades",
+	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version.
+	return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+		"apt-get", "install", "-y", "--allow-downgrades",
+		"-o", "Dpkg::Options::=--force-confold",
 		fmt.Sprintf("aks-node-controller=%s*", version))
 }
 
