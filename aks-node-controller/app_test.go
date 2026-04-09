@@ -66,13 +66,13 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	})
 
-	t.Run("--version flag", func(t *testing.T) {
+	t.Run("--version flag returns success exit code", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "--version"})
 		assert.Equal(t, 0, exitCode)
 	})
 
-	t.Run("version command", func(t *testing.T) {
+	t.Run("version command returns success exit code", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "version"})
 		assert.Equal(t, 0, exitCode)
