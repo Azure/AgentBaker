@@ -187,7 +187,7 @@ func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
 
 // installWithRpm installs the package via dnf or tdnf (repo index refreshed automatically).
 func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string) error {
-	return a.retryCommand(ctx, pkgMgr, "install", "-y", "--allowerasing",
+	return a.retryCommand(ctx, pkgMgr, "install", "-y", "--refresh", "--allowerasing",
 		fmt.Sprintf("aks-node-controller-%s", version))
 }
 
