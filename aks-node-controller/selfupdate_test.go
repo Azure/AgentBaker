@@ -174,3 +174,45 @@ func TestRetryCommand_ContextCancelled(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, 1, callCount)
 }
+
+func TestReplaceBinary(t *testing.T) {
+	t.Run("copies content and preserves permissions", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "new-binary")
+		dst := filepath.Join(dir, "old-binary")
+
+		require.NoError(t, os.WriteFile(dst, []byte("old"), 0755))
+		require.NoError(t, os.WriteFile(src, []byte("new-hotfix"), 0644))
+
+		err := replaceBinary(src, dst)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(dst)
+		require.NoError(t, err)
+		assert.Equal(t, "new-hotfix", string(data))
+
+		info, err := os.Stat(dst)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+	})
+
+	t.Run("returns error when src missing", func(t *testing.T) {
+		dir := t.TempDir()
+		dst := filepath.Join(dir, "old-binary")
+		require.NoError(t, os.WriteFile(dst, []byte("old"), 0755))
+
+		err := replaceBinary(filepath.Join(dir, "nonexistent"), dst)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "reading")
+	})
+
+	t.Run("returns error when dst missing", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "new-binary")
+		require.NoError(t, os.WriteFile(src, []byte("new"), 0644))
+
+		err := replaceBinary(src, filepath.Join(dir, "nonexistent"))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "stat")
+	})
+}

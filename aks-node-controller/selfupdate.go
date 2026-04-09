@@ -17,6 +17,11 @@ const (
 	maxInstallRetries        = 5
 	retryBackoff             = 3 * time.Second
 	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
+	// vhdBinaryPath is where packer installs the VHD-baked binary and where
+	// the wrapper script (aks-node-controller-wrapper.sh) expects to find it.
+	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
+	// pkgBinaryPath is where apt/dnf package installs the binary.
+	pkgBinaryPath = "/usr/bin/aks-node-controller"
 )
 
 // selfUpdate checks for a hotfix version and installs it from PMC if needed.
@@ -49,6 +54,13 @@ func (a *App) selfUpdate(ctx context.Context) {
 	if installErr != nil {
 		slog.Warn("failed to install hotfix, proceeding with VHD-baked version",
 			"target", hotfixVersion, "error", installErr)
+		return
+	}
+
+	// Replace the VHD-baked binary so the wrapper script picks up the hotfix.
+	if err := replaceBinary(pkgBinaryPath, vhdBinaryPath); err != nil {
+		slog.Warn("failed to replace VHD binary with hotfix, proceeding with current binary",
+			"error", err)
 		return
 	}
 
@@ -205,14 +217,27 @@ func (a *App) retryCommand(ctx context.Context, name string, args ...string) err
 	return fmt.Errorf("command %s failed after %d attempts: %w", name, maxInstallRetries, lastErr)
 }
 
-// reExec replaces the current process with the newly installed binary.
-// After package install, the new binary is at /usr/bin/aks-node-controller which
-// takes precedence in PATH over the VHD-baked /opt/azure/containers/ location.
-func (a *App) reExec() error {
-	binary, err := exec.LookPath("aks-node-controller")
+// replaceBinary copies src over dst, preserving the destination's original permissions.
+// This ensures the wrapper script at /opt/azure/containers/ invokes the hotfix binary.
+func replaceBinary(src, dst string) error {
+	srcData, err := os.ReadFile(src)
 	if err != nil {
-		return fmt.Errorf("finding aks-node-controller in PATH after install: %w", err)
+		return fmt.Errorf("reading %s: %w", src, err)
 	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", dst, err)
+	}
+	if err := os.WriteFile(dst, srcData, info.Mode()); err != nil {
+		return fmt.Errorf("writing %s: %w", dst, err)
+	}
+	slog.Info("replaced VHD binary with hotfix", "src", src, "dst", dst)
+	return nil
+}
+
+// reExec replaces the current process with the updated binary at the VHD path.
+func (a *App) reExec() error {
+	binary := vhdBinaryPath
 	slog.Info("re-executing with updated binary", "path", binary, "args", os.Args)
 	return syscall.Exec(binary, os.Args, os.Environ())
 }
