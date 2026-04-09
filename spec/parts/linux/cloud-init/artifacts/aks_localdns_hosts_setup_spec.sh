@@ -538,5 +538,158 @@ MOCK_EOF
             The file "$HOSTS_FILE" should be exist
             The contents of file "$HOSTS_FILE" should include "5.6.7.8"
         End
+
+        It 'falls back to system resolver when upstream-dns file is empty'
+            # Mock dig that returns a valid IP without requiring @server
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Reject if @server is passed — empty file should NOT produce @server args
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument: ${arg}" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file but leave it empty
+            : > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No upstream DNS file found, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'resolves no IPs when upstream-dns file contains only whitespace'
+            # Whitespace-only file: cat|tr produces "   ", [ -n "   " ] is true,
+            # but `for server in ${UPSTREAM_DNS_SERVERS}` word-splits to zero iterations.
+            # No dig calls are made, so no IPs resolve — script exits gracefully.
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+echo "ERROR: dig should not be called with whitespace-only upstream" >&2
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with only whitespace
+            printf '   \n  \n' > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # Script sees non-empty string so takes the "Using upstream DNS servers" branch
+            The output should include "Using upstream DNS servers:"
+            # But word splitting yields zero servers, so no dig calls, no IPs resolved
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'handles newline-separated DNS servers in upstream-dns file'
+            # Mock dig that checks for correct @server arguments
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    elif [[ "$arg" == "@10.0.0.5" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with newline-separated servers (tr '\n' ' ' should normalise)
+            printf '10.0.0.4\n10.0.0.5\n' > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers:"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'resolves no IPs when all upstream DNS servers fail'
+            # Mock dig that always fails regardless of @server
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with two servers, both will fail
+            echo "10.0.0.4 10.0.0.5" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4 10.0.0.5"
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'passes @server to AAAA queries when upstream-dns file exists'
+            # Mock dig that returns IPv6 only when @10.0.0.4 is used, validates both A and AAAA paths
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+server=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    elif [[ "$arg" == @* ]]; then
+        server="${arg}"
+    fi
+done
+# Only respond when @10.0.0.4 is specified — verifies @server is passed for both A and AAAA
+if [[ "$server" != "@10.0.0.4" ]]; then
+    exit 1
+fi
+if [[ "$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+elif [[ "$record_type" == "AAAA" ]]; then
+    echo "2001:db8::1"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            echo "10.0.0.4" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1"
+        End
+
+        It 'does not pass @server when upstream-dns file does not exist'
+            # Mock dig that fails if any @server argument is present
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument when no upstream file: ${arg}" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No upstream DNS file found, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
     End
 End
