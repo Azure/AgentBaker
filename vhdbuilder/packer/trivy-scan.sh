@@ -126,6 +126,22 @@ login_with_umsi_resource_id() {
     login_with_user_assigned_managed_identity "--resource-id" "$1"
 }
 
+# For Ubuntu, refresh the Microsoft GPG signing key before any apt operations.
+# The VHD base image may ship with a stale key after PMC key rotations,
+# causing apt-get update to fail with NO_PUBKEY errors.
+if [ "$OS_SKU" = "Ubuntu" ]; then
+    echo "Refreshing Microsoft GPG signing keys"
+    retrycmd_if_failure 5 10 60 curl -fsSL -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc
+    # trusted.gpg.d covers repos configured without a signed-by directive
+    cat /tmp/microsoft.asc | sudo gpg --yes --dearmor -o /etc/apt/trusted.gpg.d/microsoft.gpg
+    sudo chmod 644 /etc/apt/trusted.gpg.d/microsoft.gpg
+    # keyrings covers repos configured with signed-by=/etc/apt/keyrings/microsoft.gpg
+    sudo install -d -m 0755 /etc/apt/keyrings
+    cat /tmp/microsoft.asc | sudo gpg --yes --dearmor -o /etc/apt/keyrings/microsoft.gpg
+    sudo chmod 644 /etc/apt/keyrings/microsoft.gpg
+    rm -f /tmp/microsoft.asc
+fi
+
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
 install_trivy_from_github() {
@@ -153,19 +169,16 @@ install_trivy() {
     case "$os_sku" in
         Ubuntu)
             # trivy debs are published to the Microsoft PMC prod repo
+            # GPG keys are already refreshed at script start
             local arch repo_codename
             arch="$(dpkg --print-architecture)"
             repo_codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
 
-            apt_get_update
-            apt_get_install 5 1 60 ca-certificates curl gnupg
-
-            sudo install -d -m 0755 /etc/apt/keyrings
-            retrycmd_if_failure 5 10 60 curl -fsSL -o /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc
-            cat /tmp/microsoft.asc | sudo gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
-            rm -f /tmp/microsoft.asc
-            echo "deb [arch=${arch} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/${os_version}/prod ${repo_codename} main" \
-                | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+            # Ensure the PMC prod repo is configured (may already exist from the base image)
+            if ! grep -qr "packages.microsoft.com/ubuntu/${os_version}/prod" /etc/apt/sources.list.d/ 2>/dev/null; then
+                echo "deb [arch=${arch} signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/${os_version}/prod ${repo_codename} main" \
+                    | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+            fi
             apt_get_update
             apt_get_install 5 1 60 trivy
             ;;
