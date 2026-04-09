@@ -16,18 +16,12 @@ installDeps() {
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    BLOBFUSE_VERSION="1.4.5"
-    # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.2"  # TODO (djsly) this should be centralized and moved to components.json!
-
-    # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
-    # for 22.04, fuse3 is installed. for all others, fuse is installed
-    # for all others except 22.04, installed blobfuse1.4.5
-    pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
+    # blobfuse and blobfuse2 are installed via the packages loop in install-dependencies.sh during VHD build
+    # for 22.04 and 24.04, fuse3 is installed. for 20.04, fuse is installed
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(fuse3)
     else
-        pkg_list+=("blobfuse=${BLOBFUSE_VERSION}" fuse)
+        pkg_list+=(fuse)
     fi
 
     if [ "${OSVERSION}" = "24.04" ]; then

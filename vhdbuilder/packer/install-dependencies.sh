@@ -78,9 +78,8 @@ if [[ "$IMG_SKU" != *"minimal"* ]]; then
 else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.2" # TODO (djsly) this should be centralized and moved to components.json!
-  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
+  # blobfuse2 is installed via the packages loop below; fuse3 is needed as a dependency
+  required_pkg_list=(fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
@@ -520,6 +519,28 @@ while IFS= read -r p; do
       ;;
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+      ;;
+    "blobfuse")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if isUbuntu "$OS"; then
+          if ! apt_get_install 30 1 600 "blobfuse=${version}"; then
+            journalctl --no-pager -u blobfuse
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+        fi
+        echo "  - blobfuse version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "blobfuse2")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if isUbuntu "$OS"; then
+          if ! apt_get_install 30 1 600 "blobfuse2=${version}"; then
+            journalctl --no-pager -u blobfuse2
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+        fi
+        echo "  - blobfuse2 version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
