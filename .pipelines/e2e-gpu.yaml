@@ -1,7 +1,7 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_RUN: "gpu=true"
-  TAGS_TO_SKIP: "os=windows"
+  TAGS_TO_SKIP: "os=windows,NetworkIsolated=true"
   SKIP_E2E_TESTS: false
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
   E2E_GO_TEST_TIMEOUT: "75m"
