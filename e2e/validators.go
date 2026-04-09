@@ -1561,7 +1561,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 		"cat /etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
 	}
 	diagResult := execScriptOnVMForScenario(ctx, s, strings.Join(diagCmd, "\n"))
-	s.T.Logf("NPD filesystem corruption plugin config and script:\n%s", diagResult.stdout)
+	s.T.Logf("NPD filesystem corruption plugin config and script:\nstdout:\n%s\nstderr:\n%s", diagResult.stdout, diagResult.stderr)
 
 	// Simulate filesystem corruption by replacing the check script with one that
 	// always reports corruption. This is the most reliable approach because:

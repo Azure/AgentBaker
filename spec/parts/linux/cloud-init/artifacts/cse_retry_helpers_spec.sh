@@ -117,18 +117,16 @@ Describe 'long running cse helper functions'
             It "returns 2 before running the command when CSE timeout is already exceeded"
                 # Simulate CSE started 800 seconds ago (past the 780s limit)
                 CSE_STARTTIME_SECONDS=$(( $(date +%s) - 800 ))
-                # Track whether the actual command ran
-                command_ran=false
-                run_sentinel() {
-                    command_ran=true
-                }
-                export -f run_sentinel
+                # Track whether the actual command ran using an external sentinel file.
+                sentinel_file="$(mktemp)"
+                rm -f "$sentinel_file"
                 # shouldLog=true so the CSE timeout message is emitted
-                When call _retrycmd_internal 3 1 5 "true" run_sentinel
+                When call _retrycmd_internal 3 1 5 "true" touch "$sentinel_file"
                 The status should eq 2
                 The stderr should include "CSE timeout approaching, exiting early"
                 # The command must not have been invoked at all
-                Assert test "$command_ran" = "false"
+                Assert not test -e "$sentinel_file"
+                rm -f "$sentinel_file"
             End
         End
 

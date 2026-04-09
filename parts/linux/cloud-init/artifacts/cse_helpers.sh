@@ -359,15 +359,43 @@ _retry_file_curl_internal() {
                 effectiveTimeout=$remainingBudget
             fi
         fi
-        # check if global cse timeout is approaching
-        if ! check_cse_timeout; then
+        # check if global cse timeout is approaching (only in real CSE runs)
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
 
         if [ "$i" -gt 1 ]; then
-            sleep $waitSleep
+            local sleepDuration=$waitSleep
+            if [ "${maxBudget}" -gt 0 ]; then
+                local preSleepElapsed
+                preSleepElapsed=$(( $(date +%s) - opStartTime ))
+                local preSleepRemaining=$(( maxBudget - preSleepElapsed ))
+                if [ "$preSleepRemaining" -le 0 ]; then
+                    echo "Operation budget of ${maxBudget}s exceeded after ${preSleepElapsed}s, exiting early." >&2
+                    return 2
+                fi
+                if [ "$sleepDuration" -gt "$preSleepRemaining" ]; then
+                    sleepDuration=$preSleepRemaining
+                fi
+            fi
+            sleep $sleepDuration
         fi
+
+        # Re-check budget after sleep and cap timeout accordingly
+        if [ "${maxBudget}" -gt 0 ]; then
+            local postSleepElapsed
+            postSleepElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$postSleepElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${postSleepElapsed}s, exiting early." >&2
+                return 2
+            fi
+            local postSleepRemaining=$(( maxBudget - postSleepElapsed ))
+            if [ "$effectiveTimeout" -gt "$postSleepRemaining" ]; then
+                effectiveTimeout=$postSleepRemaining
+            fi
+        fi
+
         timeout $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
         if [ "$?" -ne 0 ]; then
             cat $CURL_OUTPUT
