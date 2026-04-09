@@ -356,6 +356,21 @@ function prepare_windows_vhd() {
 		copy_windows_base_image_to_storage_account
 
 		create_new_base_image
+
+		# re-apply publisher/offer overrides from windows_settings.json since
+		# create_new_base_image blanks them out for the packer image_url path
+		local sku_publisher_override
+		if sku_publisher_override=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json); then
+			if [ -n "${sku_publisher_override}" ] && [ "${sku_publisher_override}" != "null" ]; then
+				WINDOWS_IMAGE_PUBLISHER="${sku_publisher_override}"
+			fi
+		fi
+		local sku_offer_override
+		if sku_offer_override=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json); then
+			if [ -n "${sku_offer_override}" ] && [ "${sku_offer_override}" != "null" ]; then
+				WINDOWS_IMAGE_OFFER="${sku_offer_override}"
+			fi
+		fi
 	fi
 
 	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
