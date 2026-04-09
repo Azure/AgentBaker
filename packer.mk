@@ -136,11 +136,9 @@ build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
 	@bash -c "pushd aks-node-controller && \
 	go test ./... && \
-	ANC_LDFLAGS=\"\"; \
-	if [ -n \"$${IMAGE_VERSION}\" ]; then \
-		ANC_LDFLAGS=\"-X main.Version=$${IMAGE_VERSION}\"; \
-		echo \"Stamping ANC version: $${IMAGE_VERSION}\"; \
-	fi; \
+	ANC_VERSION=\"$${IMAGE_VERSION:-$$(date +%Y%m%d).0.0}\"; \
+	ANC_LDFLAGS=\"-X main.Version=$${ANC_VERSION}\"; \
+	echo \"Stamping ANC version: $${ANC_VERSION}\"; \
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \"$${ANC_LDFLAGS}\" -o bin/aks-node-controller-linux-amd64 && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags \"$${ANC_LDFLAGS}\" -o bin/aks-node-controller-linux-arm64 && \
 	popd"
