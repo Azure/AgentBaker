@@ -125,7 +125,7 @@ Describe 'long running cse helper functions'
                 The status should eq 2
                 The stderr should include "CSE timeout approaching, exiting early"
                 # The command must not have been invoked at all
-                Assert not test -e "$sentinel_file"
+                Assert [ ! -e "$sentinel_file" ]
                 rm -f "$sentinel_file"
             End
         End
