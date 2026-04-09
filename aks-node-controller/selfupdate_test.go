@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -176,7 +177,7 @@ func TestRetryCommand_ContextCancelled(t *testing.T) {
 }
 
 func TestReplaceBinary(t *testing.T) {
-	t.Run("copies content and preserves permissions", func(t *testing.T) {
+	t.Run("atomically replaces content and preserves permissions", func(t *testing.T) {
 		dir := t.TempDir()
 		src := filepath.Join(dir, "new-binary")
 		dst := filepath.Join(dir, "old-binary")
@@ -194,6 +195,14 @@ func TestReplaceBinary(t *testing.T) {
 		info, err := os.Stat(dst)
 		require.NoError(t, err)
 		assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+
+		// Verify no temp files left behind.
+		entries, err := os.ReadDir(dir)
+		require.NoError(t, err)
+		for _, e := range entries {
+			assert.False(t, strings.HasPrefix(e.Name(), ".aks-node-controller-update-"),
+				"temp file should be cleaned up: %s", e.Name())
+		}
 	})
 
 	t.Run("returns error when src missing", func(t *testing.T) {
@@ -206,7 +215,7 @@ func TestReplaceBinary(t *testing.T) {
 		assert.Contains(t, err.Error(), "reading")
 	})
 
-	t.Run("returns error when dst missing", func(t *testing.T) {
+	t.Run("returns error when dst missing and cleans up temp", func(t *testing.T) {
 		dir := t.TempDir()
 		src := filepath.Join(dir, "new-binary")
 		require.NoError(t, os.WriteFile(src, []byte("new"), 0644))
@@ -214,5 +223,13 @@ func TestReplaceBinary(t *testing.T) {
 		err := replaceBinary(src, filepath.Join(dir, "nonexistent"))
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "stat")
+
+		// No temp files should remain.
+		entries, err := os.ReadDir(dir)
+		require.NoError(t, err)
+		for _, e := range entries {
+			assert.False(t, strings.HasPrefix(e.Name(), ".aks-node-controller-update-"),
+				"temp file should be cleaned up: %s", e.Name())
+		}
 	})
 }

@@ -16,6 +16,7 @@ const (
 	defaultHotfixVersionPath = "/etc/aks-node-controller/hotfix-version"
 	maxInstallRetries        = 5
 	retryBackoff             = 3 * time.Second
+	commandTimeout           = 60 * time.Second
 	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
 	// vhdBinaryPath is where packer installs the VHD-baked binary and where
 	// the wrapper script (aks-node-controller-wrapper.sh) expects to find it.
@@ -190,15 +191,18 @@ func (a *App) installWithRpm(ctx context.Context, pkgMgr string, version string)
 		fmt.Sprintf("aks-node-controller-%s", version))
 }
 
-// retryCommand runs a command with retries and backoff.
-// This handles transient failures like dpkg lock contention from concurrent cloud-init apt operations.
+// retryCommand runs a command with retries, per-attempt timeout, and backoff.
+// Each attempt is capped at commandTimeout to prevent hung package managers from
+// blocking provisioning indefinitely (the parent ctx from main.go is context.Background).
 func (a *App) retryCommand(ctx context.Context, name string, args ...string) error {
 	var lastErr error
 	for attempt := 1; attempt <= maxInstallRetries; attempt++ {
-		cmd := exec.CommandContext(ctx, name, args...)
+		attemptCtx, cancel := context.WithTimeout(ctx, commandTimeout)
+		cmd := exec.CommandContext(attemptCtx, name, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		lastErr = a.cmdRun(cmd)
+		cancel()
 		if lastErr == nil {
 			return nil
 		}
@@ -217,8 +221,9 @@ func (a *App) retryCommand(ctx context.Context, name string, args ...string) err
 	return fmt.Errorf("command %s failed after %d attempts: %w", name, maxInstallRetries, lastErr)
 }
 
-// replaceBinary copies src over dst, preserving the destination's original permissions.
-// This ensures the hotfix binary persists at the canonical VHD path across reboots.
+// replaceBinary atomically replaces dst with the contents of src, preserving dst's permissions.
+// It writes to a temp file in the same directory, then renames — ensuring readers never see a
+// truncated or partially-written binary even if another process is running concurrently.
 func replaceBinary(src, dst string) error {
 	srcData, err := os.ReadFile(src)
 	if err != nil {
@@ -228,8 +233,32 @@ func replaceBinary(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", dst, err)
 	}
-	if err := os.WriteFile(dst, srcData, info.Mode()); err != nil {
-		return fmt.Errorf("writing %s: %w", dst, err)
+
+	dir := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(dir, ".aks-node-controller-update-*")
+	if err != nil {
+		return fmt.Errorf("creating temp file in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+
+	if _, err := tmp.Write(srcData); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("writing temp file %s: %w", tmpPath, err)
+	}
+	if err := tmp.Chmod(info.Mode()); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("chmod temp file %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("closing temp file %s: %w", tmpPath, err)
+	}
+
+	if err := os.Rename(tmpPath, dst); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("renaming %s to %s: %w", tmpPath, dst, err)
 	}
 	slog.Info("replaced VHD binary with hotfix", "src", src, "dst", dst)
 	return nil
@@ -239,6 +268,5 @@ func replaceBinary(src, dst string) error {
 func (a *App) reExec() error {
 	args := append([]string{vhdBinaryPath}, os.Args[1:]...)
 	slog.Info("re-executing with updated binary", "path", vhdBinaryPath, "args", args)
-	//nolint:gosec // Intentional re-exec of trusted on-disk binary while preserving original CLI arguments.
 	return syscall.Exec(vhdBinaryPath, args, os.Environ())
 }
