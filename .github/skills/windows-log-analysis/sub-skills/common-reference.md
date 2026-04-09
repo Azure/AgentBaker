@@ -258,11 +258,10 @@ HNS surfaces Win32 error codes in CNI log messages of the form `hnsCall failed i
 | 2001 | Hyper-V Compute | Start compute system |
 | 2002 | Hyper-V Compute | Shut down compute system |
 | 2003 | Hyper-V Compute | Terminate compute system |
-| 2003 | Resource Exhaustion Detector | Resource exhaustion detected |
-| 2004 | System | Low memory condition |
+| 2004 | Microsoft-Windows-Resource-Exhaustion-Detector | Resource exhaustion detected / low memory condition |
 | 6008 | System | Unexpected shutdown (preceding crash/BSOD) |
 
-**Note:** Windows Event IDs are **not globally unique** — the same numeric ID (e.g., `2003`) can appear under different providers with different meanings. When writing analysis logic, always key on **Event ID + Source** together.
+**Note:** Windows Event IDs are **not globally unique** — the same numeric ID can appear under different providers with different meanings. When writing analysis logic, always key on **Event ID + Source** together.
 **CCG (Container Credential Guard) Events** — used by gMSA:
 
 | Event ID | Source | Meaning |
