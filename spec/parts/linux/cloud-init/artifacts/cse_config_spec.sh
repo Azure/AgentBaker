@@ -883,7 +883,8 @@ providers:
     End
 
     Describe 'configureAndStartSecureTLSBootstrapping'
-        SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR="secure-tls-bootstrap.service.d"
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
         API_SERVER_NAME="fqdn"
         AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 
@@ -892,7 +893,7 @@ providers:
         }
 
         cleanup() {
-            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN"
+            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
         }
 
         AfterEach 'cleanup'
