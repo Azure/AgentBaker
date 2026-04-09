@@ -203,13 +203,7 @@ downloadCredentialProvider() {
 
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
-    # Only apply per-operation budget during real CSE runs (CSE_STARTTIME_SECONDS set).
-    # During VHD build, use 0 (unlimited) to avoid flakiness from transient network issues.
-    local cred_budget=0
-    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
-        cred_budget=300
-    fi
-    retrycmd_get_tarball 120 5 60 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL $cred_budget || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 5 60 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL 300 || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     echo "Credential Provider downloaded successfully"
 }
 
