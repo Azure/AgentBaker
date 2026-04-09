@@ -1842,40 +1842,51 @@ type CustomCATrustConfig struct {
 type SecureTLSBootstrappingConfig struct {
 	// Enabled indicates whether secure TLS bootstrapping is enabled.
 	Enabled bool `json:"secureTLSBootstrappingEnabled"`
+
 	// AADResource is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This determines the resource used to request access tokens from Entra ID.
 	// Defaults to the AKS AAD server APP ID within bootstrapping scripts.
 	AADResource string `json:"secureTLSBootstrappingAADResource,omitempty"`
+
 	// UserAssignedIdentityID is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This determines the client ID of the user assigned identity attached to the node which will be
 	// used to fetch access tokens from Entra ID via IMDS if the node has one or more user-assigned managed identities.
 	// Defaults to the kubelet identity within bootstrapping scripts.
 	UserAssignedIdentityID string `json:"secureTLSBootstrappingUserAssignedIdentityID,omitempty"`
+
 	// CustomClientDownloadURL is an optional override which will have the bootstrap scripts
 	// overwrite the existing secure TLS bootstrap client installation on the node image using
 	// the version specified by the URL before bootstrapping.
 	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL,omitempty"`
+
 	// ValidateKubeconfigTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to perform kubeconfig validation against the cluster's API server.
 	ValidateKubeconfigTimeout string `json:"secureTLSBootstrappingValidateKubeconfigTimeout,omitempty"`
+
 	// GetAccessTokenTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve an access token from IMDS/Entra ID.
 	GetAccessTokenTimeout string `json:"secureTLSBootstrappingGetAccessTokenTimeout,omitempty"`
+
 	// GetInstanceDataTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve VM instance data from IMDS.
 	GetInstanceDataTimeout string `json:"secureTLSBootstrappingGetInstanceDataTimeout,omitempty"`
+
 	// GetNonceTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve a unique nonce from the bootstrap server.
 	GetNonceTimeout string `json:"secureTLSBootstrappingGetNonceTimeout,omitempty"`
+
 	// GetAttestedDataTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve VM attested data from IMDS.
 	GetAttestedDataTimeout string `json:"secureTLSBootstrappingGetAttestedDataTimeout,omitempty"`
+
 	// GetCredentialTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
 	GetCredentialTimeout string `json:"secureTLSBootstrappingGetCredentialTimeout,omitempty"`
+
 	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
 	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
+	//
 	// Deprecated: Use individual RPC timeouts instead.
 	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
 }
