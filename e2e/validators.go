@@ -1553,33 +1553,38 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found")
 
-	// Log the NPD plugin config for diagnostics (helps debug detection failures)
+	// Log the NPD plugin config and check script for diagnostics
 	diagCmd := []string{
 		"set -x",
 		"cat /etc/node-problem-detector.d/custom-plugin-monitor/custom-fs-corruption-monitor.json",
+		"echo '--- check_fs_corruption.sh ---'",
+		"cat /etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
 	}
 	diagResult := execScriptOnVMForScenario(ctx, s, strings.Join(diagCmd, "\n"))
-	s.T.Logf("NPD filesystem corruption plugin config:\n%s", diagResult.stdout)
+	s.T.Logf("NPD filesystem corruption plugin config and script:\n%s", diagResult.stdout)
 
 	command = []string{
 		"set -ex",
 		// Simulate filesystem corruption by writing to the Docker journal continuously.
-		// NPD's custom plugin monitor uses a time-windowed lookback when scanning the
-		// journal. A single one-shot entry can age out of the window between check cycles,
-		// causing detection to fail. A continuous stream (every 30s) ensures that every
-		// check cycle finds fresh entries within its lookback window.
-		`sudo systemd-run --unit=docker --no-block bash -c 'while true; do echo "structure needs cleaning"; sleep 30; done'`,
+		// NPD's custom plugin monitor runs check_fs_corruption.sh every 5 minutes.
+		// A continuous stream ensures fresh entries exist within any lookback window.
+		`sudo systemd-run --unit=docker --property=SyslogIdentifier=dockerd --no-block bash -c 'while true; do echo "structure needs cleaning"; sleep 30; done'`,
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
 
-	// Verify the simulation is producing journal entries
+	// Verify the simulation is producing journal entries and manually run the check script
 	verifyCmd := []string{
-		"set -ex",
+		"set -x",
 		"sleep 3",
+		"echo '--- journalctl -u docker ---'",
 		"journalctl -u docker --no-pager -n 5",
+		"echo '--- journalctl -t dockerd ---'",
+		"journalctl -t dockerd --no-pager -n 5 || true",
+		"echo '--- manual check script run ---'",
+		"sudo /etc/node-problem-detector.d/plugin/check_fs_corruption.sh; echo \"exit_code=$?\"",
 	}
-	verifyResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(verifyCmd, "\n"), 0, "Failed to verify docker journal entries after simulation")
-	s.T.Logf("Docker journal entries after simulation:\n%s", verifyResult.stdout)
+	verifyResult := execScriptOnVMForScenario(ctx, s, strings.Join(verifyCmd, "\n"))
+	s.T.Logf("Simulation verification:\n%sstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
 
 	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
 	// every 5 minutes. With continuous simulation, the first check cycle after
