@@ -30,41 +30,56 @@ disableNtpAndTimesyncdInstallChrony() {
 }
 
 # Removing /etc/machine-id triggers systemd first-boot detection which runs
-# preset-all on every unit with [Install]. ACL's 'disable *' catch-all lives
-# in the oem-azure sysext, invisible at early boot before systemd-sysext merges.
-# Write it to /etc/ instead — visible at earliest boot, persists in the VHD,
-# and takes priority over /usr/lib/ per systemd lookup order.
+# preset-all on every unit with [Install]. ACL builds systemd with
+# -Dfirst-boot-full-preset=true, so both enable and disable rules apply.
+# The 'disable *' catch-all will actively disable every unit not explicitly
+# listed with 'enable'.
 #
-# Services explicitly enabled during VHD build (pre-install-dependencies.sh)
-# must be listed here with 'enable' BEFORE the 'disable *' catch-all,
-# otherwise preset-all will disable them on first boot.
+# This preset must live in /etc/systemd/system-preset/ because:
+# 1. It is visible at earliest boot, before systemd-sysext merges /usr/lib/.
+# 2. /etc/ takes priority over /usr/lib/ per systemd lookup order.
+# 3. It persists in the VHD across reboots.
 #
-# containerd.service and kubelet.service are enabled later by CSE, but their
-# unit files (with [Install] WantedBy=multi-user.target) are present on the
-# VHD at first-boot time. Without explicit enable directives here, preset-all
-# would disable them before CSE runs, causing kubelet to remain stuck in
-# "activating" state (waiting for the containerd socket that never appears).
+# The allowlist below covers two categories:
+# - AKS services enabled during VHD build or CSE whose unit files exist on the
+#   VHD at first-boot time and are NOT already covered by a higher-priority
+#   OS preset (90-default.preset, 90-systemd.preset).
+# - OS services not in any preset but required for boot (systemd-sysext,
+#   ensure-sysext).
+#
+# Services already covered by 90-default.preset (e.g. chronyd, waagent,
+# logrotate.timer) do NOT need to be listed here — they match at higher
+# priority before our file is consulted.
+#
+# systemd-sysext.service and ensure-sysext.service are critical: without them
+# the sysext overlay that provides kubelet/kubectl binaries never merges,
+# and kubelet stays stuck in "activating" state.
 configureFirstBootPresets() {
     systemctl stop docker.socket || true
     systemctl mask docker.socket || true
 
     mkdir -p /etc/systemd/system-preset
     cat > /etc/systemd/system-preset/99-default-disable.preset <<'EOF'
+# AKS services (not covered by OS presets)
 enable aks-node-controller.service
 enable containerd.service
 enable kubelet.service
 enable disk_queue.service
-enable systemd-journald.service
-enable update_certs.path
 enable ci-syslog-watcher.path
 enable ci-syslog-watcher.service
+enable update_certs.path
 enable aks-log-collector.timer
-enable logrotate.timer
 enable sync-container-logs.service
-enable chronyd.service
 enable cgroup-memory-telemetry.timer
 enable cgroup-pressure-telemetry.timer
 enable resolv-uplink-override.service
+enable snapshot-update.timer
+enable measure-tls-bootstrapping-latency.service
+
+# OS services not in any preset but required for sysext overlay
+enable systemd-sysext.service
+enable ensure-sysext.service
+
 disable *
 EOF
 }
