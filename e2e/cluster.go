@@ -96,6 +96,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	// VNet) and before collectGarbageVMSS (which needs network setup done).
 	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
 	// objects whose backing VMSS no longer exist.
+	dag.Run(g, func(ctx context.Context) error { return collectGarbagePrivateDNSZones(ctx, cluster) })
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
