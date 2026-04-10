@@ -239,9 +239,15 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 // validateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
 // The iptables FORWARD DROP rules blocking pod→WireServer traffic can be transiently
 // absent when kube-proxy or CNI flush/recreate iptables chains during node setup.
-// We retry several times before failing to avoid flaky test results.
+// We resolve the debug pod once up front (outside the retry budget) so that pod
+// scheduling latency doesn't eat into the iptables-check timeout.
 func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
+
+	// Resolve the unprivileged debug pod once — this can take 25-30s on cold nodes.
+	// Using the parent context so it has the full scenario timeout, not the short poll timeout.
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	require.NoError(s.T, err, "failed to get non host debug pod for wireserver validation")
 
 	type wireServerCheck struct {
 		cmd  string
@@ -262,7 +268,12 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	for _, check := range checks {
 		var lastResult *podExecResult
 		err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
-			lastResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, check.cmd)
+			execResult, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+			if execErr != nil {
+				s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				return false, nil
+			}
+			lastResult = execResult
 			if lastResult.exitCode == "28" {
 				return true, nil
 			}
