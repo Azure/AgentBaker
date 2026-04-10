@@ -415,7 +415,7 @@ _retry_file_curl_internal() {
 # Backward-compatible with old 4-arg callers: <retries> <wait_sleep> <tarball> <url>
 # When the 3rd arg is non-numeric (i.e. a file path), the old signature is assumed and timeout defaults to 60s.
 # timeout_seconds: integer seconds only (do not use duration suffixes like 60s or 5m)
-# max_budget_s: optional per-operation budget in seconds (0 = no cap)
+# max_budget_s: optional per-operation budget in seconds (0 = no cap). Ignored when CSE_STARTTIME_SECONDS is unset.
 retrycmd_get_tarball() {
     local tar_retries=$1; local wait_sleep=$2
     case "$3" in
@@ -428,14 +428,22 @@ retrycmd_get_tarball() {
             local timeout=$3; local tarball=$4; local url=$5; local max_budget=${6:-0}
             ;;
     esac
+    # Only apply a per-operation budget during real CSE runs; during VHD build (CSE_STARTTIME_SECONDS unset) use no cap.
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        max_budget=0
+    fi
     local check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
     _retry_file_curl_internal "$tar_retries" "$wait_sleep" "$timeout" "$max_budget" "$tarball" "$url" "$check_tarball_valid"
 }
 
 # Usage: retrycmd_curl_file <retries> <wait_sleep> <timeout> <filepath> <url> [max_budget_s=0]
-# max_budget_s: optional per-operation budget in seconds (0 = no cap)
+# max_budget_s: optional per-operation budget in seconds (0 = no cap). Ignored when CSE_STARTTIME_SECONDS is unset.
 retrycmd_curl_file() {
     local curl_retries=$1 wait_sleep=$2 timeout=$3 filepath=$4 url=$5 max_budget=${6:-0}
+    # Only apply a per-operation budget during real CSE runs; during VHD build (CSE_STARTTIME_SECONDS unset) use no cap.
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        max_budget=0
+    fi
     local check_file_exists="[ -f \"$filepath\" ]"
     _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$max_budget" "$filepath" "$url" "$check_file_exists"
 }
