@@ -211,6 +211,9 @@ function copy_windows_base_image_to_storage_account() {
 function create_new_base_image() {
 	# https://www.packer.io/plugins/builders/azure/arm#image_url
 	# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
+	# Preserve publisher/offer from windows_settings.json for SIG image definition metadata
+	local sig_def_publisher="${WINDOWS_IMAGE_PUBLISHER:-microsoft-aks}"
+	local sig_def_offer="${WINDOWS_IMAGE_OFFER:-$IMPORTED_IMAGE_NAME}"
 	WINDOWS_IMAGE_PUBLISHER=""
 	WINDOWS_IMAGE_OFFER=""
 	WINDOWS_IMAGE_SKU=""
@@ -237,9 +240,9 @@ function create_new_base_image() {
 		--location $AZURE_LOCATION \
 		--hyper-v-generation $HYPERV_GENERATION \
 		--os-type ${OS_TYPE} \
-		--publisher microsoft-aks \
+		--publisher "${sig_def_publisher}" \
 		--sku ${WINDOWS_SKU} \
-		--offer $IMPORTED_IMAGE_NAME \
+		--offer "${sig_def_offer}" \
 		--os-state generalized \
 		--description "Imported image for AKS Packer build"
 
@@ -356,21 +359,6 @@ function prepare_windows_vhd() {
 		copy_windows_base_image_to_storage_account
 
 		create_new_base_image
-
-		# re-apply publisher/offer overrides from windows_settings.json since
-		# create_new_base_image blanks them out for the packer image_url path
-		local sku_publisher_override
-		if sku_publisher_override=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json); then
-			if [ -n "${sku_publisher_override}" ] && [ "${sku_publisher_override}" != "null" ]; then
-				WINDOWS_IMAGE_PUBLISHER="${sku_publisher_override}"
-			fi
-		fi
-		local sku_offer_override
-		if sku_offer_override=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json); then
-			if [ -n "${sku_offer_override}" ] && [ "${sku_offer_override}" != "null" ]; then
-				WINDOWS_IMAGE_OFFER="${sku_offer_override}"
-			fi
-		fi
 	fi
 
 	# Set nanoserver image url if the pipeline variable is set and the parameter is not already set
