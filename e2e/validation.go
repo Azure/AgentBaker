@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
@@ -84,19 +85,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
-	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
-	if !assert.Equal(s.T, "28", execResult.exitCode, "curl to wireserver expected to fail, but it didn't") {
-		// Log debug information. This validator seems to be flaky, hard to catch
-		s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
-		s.T.FailNow()
-	}
-
-	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
-	if !assert.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 expected to fail, but it didn't") {
-		// Log debug information. This validator seems to be flaky, hard to catch
-		s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
-		s.T.FailNow()
-	}
+	validateWireServerBlocked(ctx, s)
 
 	// base NBC templates define a mock service principal profile that we can still use to test
 	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
@@ -246,4 +235,48 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 	}
 
 	return tablePatterns, globalPatterns
+}
+
+// validateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
+// The iptables FORWARD DROP rules blocking pod→WireServer traffic can be transiently
+// absent when kube-proxy or CNI flush/recreate iptables chains during node setup.
+// We retry several times before failing to avoid flaky test results.
+func validateWireServerBlocked(ctx context.Context, s *Scenario) {
+	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
+
+	type wireServerCheck struct {
+		cmd  string
+		desc string
+	}
+
+	checks := []wireServerCheck{
+		{
+			cmd:  "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			desc: "wireserver port 443 goalstate",
+		},
+		{
+			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			desc: "wireserver port 32526 vmSettings",
+		},
+	}
+
+	for _, check := range checks {
+		var lastResult *podExecResult
+		err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+			lastResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, check.cmd)
+			if lastResult.exitCode == "28" {
+				return true, nil
+			}
+			s.T.Logf("wireserver check %q: expected exit code 28, got %s (retrying)", check.desc, lastResult.exitCode)
+			return false, nil
+		})
+		if err != nil {
+			s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
+			if lastResult != nil {
+				s.T.Logf("last curl result for %s: %s", check.desc, lastResult.String())
+			}
+			assert.Equal(s.T, "28", lastResult.exitCode, "curl to %s expected to fail with timeout, but it didn't after retries", check.desc)
+			s.T.FailNow()
+		}
+	}
 }
