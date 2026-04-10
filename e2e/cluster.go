@@ -95,6 +95,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	// VNet) and before collectGarbageVMSS (VMSS deletion triggers AKS
 	// cloud-controller route reconciliation that can race with the subnet
 	// association and leave the AKS pod route table detached).
+	dag.Run(g, func(ctx context.Context) error { return collectGarbagePrivateDNSZones(ctx, cluster) })
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
