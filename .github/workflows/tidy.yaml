@@ -28,7 +28,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
 
-      - uses: azure/cli@v2
+      - uses: azure/cli@v3
         id: app-private-key
         with:
           azcliversion: latest
