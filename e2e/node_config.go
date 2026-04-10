@@ -21,9 +21,8 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{
 		EnableKubeletConfigFile: true,
 		KubeletFlags: map[string]string{
-			"--cloud-provider":            "external",
-			"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-			"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
+			"--cloud-provider": "external",
+			"--kubeconfig":     "/var/lib/kubelet/kubeconfig",
 		},
 		KubeletNodeLabels: map[string]string{
 			"agentpool":                               "nodepool2",
@@ -716,7 +715,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--max-pods":                          "110",
 			"--network-plugin":                    "kubenet",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",
@@ -934,7 +932,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kube-reserved":                   "cpu=100m,memory=3891Mi",
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
-			"--pod-infra-container-image":       "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 			"--resolv-conf":                     "\"\"\"\"",
 			"--cluster-dns":                     "10.0.0.10",
 			"--cluster-domain":                  "cluster.local",
