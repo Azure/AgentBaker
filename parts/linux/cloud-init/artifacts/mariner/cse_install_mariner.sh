@@ -266,24 +266,13 @@ installAznfsPkgFromPMC() {
     echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
   fi
 
-  # Restart aznfs services to pick up the config change
-  if systemctl list-unit-files | grep -q aznfswatchdogv4; then
-    systemctl restart aznfswatchdogv4
-  fi
-
   # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
   # services at the same time while we only need aznfswatchdogv4
-  # Best-effort disable/stop to avoid failing VHD build under set -e
-  if systemctl is-enabled aznfswatchdog >/dev/null 2>&1; then
-    if ! systemctl disable aznfswatchdog; then
-      echo "Warning: failed to disable aznfswatchdog service; continuing"
-    fi
-  fi
-  if systemctl is-active aznfswatchdog >/dev/null 2>&1; then
-    if ! systemctl stop aznfswatchdog; then
-      echo "Warning: failed to stop aznfswatchdog service; continuing"
-    fi
-  fi
+  systemctl disable aznfswatchdog
+  systemctl stop aznfswatchdog
+
+  echo "Importing Microsoft RPM GPG key into RPM database"
+  gpg --import /etc/pki/rpm-gpg/RPM-GPG-KEY-Microsoft || echo "Warning: failed to import Microsoft RPM GPG key"
 }
 
 installToolFromLocalRepo() {
