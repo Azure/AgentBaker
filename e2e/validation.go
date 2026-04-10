@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -113,14 +112,14 @@ func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error
 	start := time.Now()
 
 	s.T.Logf("creating pod %q", pod.Name)
-	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
@@ -251,8 +250,8 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 
 	checks := []wireServerCheck{
 		{
-			cmd:  "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
-			desc: "wireserver port 443 goalstate",
+			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			desc: "wireserver port 80 goalstate",
 		},
 		{
 			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
@@ -272,9 +271,10 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 		})
 		if err != nil {
 			s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
-			if lastResult != nil {
-				s.T.Logf("last curl result for %s: %s", check.desc, lastResult.String())
+			if lastResult == nil {
+				require.NoErrorf(s.T, err, "curl to %s did not complete before polling stopped", check.desc)
 			}
+			s.T.Logf("last curl result for %s: %s", check.desc, lastResult.String())
 			assert.Equal(s.T, "28", lastResult.exitCode, "curl to %s expected to fail with timeout, but it didn't after retries", check.desc)
 			s.T.FailNow()
 		}
