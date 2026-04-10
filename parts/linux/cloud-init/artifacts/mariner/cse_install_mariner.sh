@@ -248,7 +248,7 @@ installAznfsPkgFromPMC() {
   # RPM DB, which could cause versioning conflicts with AzureLinux packages.
   local aznfs_download_dir="/opt/aznfs/downloads"
   local aznfs_rpm_file
-  aznfs_rpm_file=$(find "${aznfs_download_dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | head -1)
+  aznfs_rpm_file=$(find "${aznfs_download_dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | sort -V | tail -1)
   if [ -z "${aznfs_rpm_file}" ]; then
     echo "Error: aznfs RPM not found in ${aznfs_download_dir}"
     exit $ERR_APT_INSTALL_TIMEOUT
