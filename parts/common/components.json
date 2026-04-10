@@ -2243,7 +2243,7 @@
                 "latestVersion": "3.0.15-1"
               }
             ],
-            "downloadURL": "https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${version}.x86_64.rpm"
+            "downloadURL": "https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${version}.$(uname -m).rpm"
           },
           "OSGUARD/v3.0": {
             "versionsV2": [

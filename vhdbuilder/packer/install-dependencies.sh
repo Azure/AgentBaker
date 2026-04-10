@@ -244,7 +244,6 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
-    installAznfsPkgFromPMC
 elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
   updateAptWithNvidiaPkg
@@ -540,6 +539,11 @@ while IFS= read -r p; do
   esac
   capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
+
+# Install aznfs after download loop so the pre-downloaded RPM is available
+if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    installAznfsPkgFromPMC
+fi
 
 installAndConfigureArtifactStreaming() {
   local downloadURL="$1"
