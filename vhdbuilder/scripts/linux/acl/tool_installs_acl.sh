@@ -62,8 +62,6 @@ configureFirstBootPresets() {
     cat > /etc/systemd/system-preset/99-default-disable.preset <<'EOF'
 # AKS services (not covered by OS presets)
 enable aks-node-controller.service
-enable containerd.service
-enable kubelet.service
 enable disk_queue.service
 enable ci-syslog-watcher.path
 enable ci-syslog-watcher.service
