@@ -740,7 +740,9 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 		}
 	}
 
-	collectGarbageNodes(ctx, kube, existingVMSS)
+	if err := collectGarbageNodes(ctx, kube, existingVMSS); err != nil {
+		return fmt.Errorf("failed to collect garbage K8s nodes: %w", err)
+	}
 	return nil
 }
 
@@ -748,15 +750,15 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 // longer exists. This prevents stale nodes from accumulating in the cluster
 // and overwhelming the cloud-provider-azure route controller with perpetual
 // "instance not found" failures.
-func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map[string]struct{}) {
+func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map[string]struct{}) error {
 	defer toolkit.LogStepCtx(ctx, "collecting garbage K8s nodes")()
 
 	nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		toolkit.Logf(ctx, "failed to list K8s nodes for garbage collection: %s", err)
-		return
+		return fmt.Errorf("listing K8s nodes for garbage collection: %w", err)
 	}
 
+	var deleteErrors []error
 	for _, node := range nodes.Items {
 		// skip managed pool nodes (system nodepool)
 		if strings.HasPrefix(node.Name, "aks-") {
@@ -774,11 +776,16 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 		}
 
 		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
-			toolkit.Logf(ctx, "failed to delete stale node %q: %s", node.Name, err)
+			deleteErrors = append(deleteErrors, fmt.Errorf("deleting stale node %q: %w", node.Name, err))
 			continue
 		}
 		toolkit.Logf(ctx, "deleted stale K8s node %q (VMSS %q not found)", node.Name, vmssName)
 	}
+
+	if len(deleteErrors) > 0 {
+		return fmt.Errorf("failed to delete %d stale nodes, first error: %w", len(deleteErrors), deleteErrors[0])
+	}
+	return nil
 }
 
 func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {

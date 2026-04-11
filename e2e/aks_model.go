@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
@@ -323,22 +324,13 @@ func addFirewallRules(
 	}
 
 	aksRTID := *aksSubnetResp.Properties.RouteTable.ID
-	idParts := strings.Split(aksRTID, "/")
-	aksRTName := idParts[len(idParts)-1]
-
-	// Check if firewall routes already exist in the AKS route table
-	aksRT, err := config.Azure.RouteTables.Get(ctx, rg, aksRTName, nil)
+	parsedRT, err := arm.ParseResourceID(aksRTID)
 	if err != nil {
-		return fmt.Errorf("failed to get AKS route table %q: %w", aksRTName, err)
+		return fmt.Errorf("failed to parse AKS route table resource ID %q: %w", aksRTID, err)
 	}
-
-	if aksRT.Properties != nil {
-		for _, route := range aksRT.Properties.Routes {
-			if route.Name != nil && *route.Name == "default-route-to-firewall" {
-				toolkit.Logf(ctx, "firewall routes already present in AKS route table %q", aksRTName)
-				return nil
-			}
-		}
+	aksRTName := parsedRT.Name
+	if aksRTName == "" {
+		return fmt.Errorf("parsed empty route table name from resource ID %q", aksRTID)
 	}
 
 	// Create AzureFirewallSubnet - this subnet name is required by Azure Firewall
