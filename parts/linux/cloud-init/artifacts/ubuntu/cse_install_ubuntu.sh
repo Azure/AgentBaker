@@ -217,14 +217,14 @@ installCredentialProviderFromPkg() {
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
-    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || exit "$ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 }
 
 installKubeletKubectlFromPkg() {
-    k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
-    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
+    local k8sVersion="${1}"
+
+    installPkgWithAptGet "kubelet" "${k8sVersion}" "/opt/bin/kubelet" || exit "$ERR_KUBELET_INSTALL_FAIL"
+    installPkgWithAptGet "kubectl" "${k8sVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
 }
 
 installToolFromLocalRepo() {
@@ -289,23 +289,55 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     fi
 }
 
+extractDebBinaryFromFile() {
+    local debFile="${1}"
+    local packageName="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local extractDir
+
+    extractDir=$(mktemp -d) || return 1
+    if ! dpkg-deb -x "${debFile}" "${extractDir}"; then
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    local sourceBinary="${extractDir}/usr/bin/${packageName}"
+    if [ ! -f "${sourceBinary}" ]; then
+        echo "Failed to locate usr/bin/${packageName} in ${debFile}"
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    mkdir -p "$(dirname "${targetPath}")"
+
+    mv "${sourceBinary}" "${targetPath}"
+    chown root:root "${targetPath}"
+    chmod 0755 "${targetPath}"
+
+    rm -rf "${extractDir}"
+}
+
 installPkgWithAptGet() {
-    packageName="${1:-}"
-    packageVersion="${2}"
-    downloadDir="/opt/${packageName}/downloads"
+    local packageName="${1:-}"
+    local packageVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local debFile=""
+    local fullPackageVersion=""
+
+    if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
 
     debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
-        if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
-            echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
-            rm -rf ${downloadDir}
-            return 0
-        fi
 
         # update pmc repo to get latest versions
-        updatePMCRepository ${packageVersion}
+        updatePMCRepository "${packageVersion}"
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion} | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -321,11 +353,9 @@ installPkgWithAptGet() {
     fi
 
     debFile="${downloadDir}/${debFile}"
-    logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
 
-    mkdir -p /opt/bin
-    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
-    rm -rf ${downloadDir}
+    rm -rf "${downloadDir}"
 }
 
 downloadPkgFromVersion() {

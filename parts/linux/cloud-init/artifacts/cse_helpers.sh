@@ -1074,14 +1074,16 @@ getLatestPkgVersionFromK8sVersion() {
 fallbackToKubeBinaryInstall() {
     packageName="${1:-}"
     packageVersion="${2:-}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
     if [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; then
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
             echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
             return 1
         elif [ -f "/opt/bin/${packageName}-${packageVersion}" ]; then
-            mv "/opt/bin/${packageName}-${packageVersion}" "/opt/bin/${packageName}"
-            chmod a+x /opt/bin/${packageName}
-            rm -rf /opt/bin/${packageName}-* &
+            mv "/opt/bin/${packageName}-${packageVersion}" "${targetPath}"
+            chown root:root "${targetPath}"
+            chmod 0755 "${targetPath}"
+            rm -rf "/opt/bin/${packageName}-*" &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
