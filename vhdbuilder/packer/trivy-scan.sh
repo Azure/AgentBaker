@@ -20,6 +20,11 @@ TRIVY_DEB_2404_VERSION="0.68.2-ubuntu24.04u7"
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
 TRIVY_RPM_VERSION="0.68.2-7.azl3"
 
+# renovate: datasource=github-releases depName=aquasecurity/trivy
+# Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
+# This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
+TRIVY_GITHUB_VERSION="0.69.2"
+
 MODULE_NAME="vuln-to-kusto-vhd"
 
 OS_SKU=${1}
@@ -141,8 +146,9 @@ login_with_umsi_resource_id() {
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
 install_trivy_from_github() {
-    # extract the upstream version (e.g., "0.68.2") from one of the tracked versions
-    local trivy_version="${TRIVY_DEB_2404_VERSION%%-*}"
+    # Use the dedicated GitHub fallback version — PMC versions (e.g., 0.68.2) don't have
+    # matching GitHub releases, so we pin to an actual upstream release separately.
+    local trivy_version="${TRIVY_GITHUB_VERSION}"
     local arch trivy_arch
     arch="$(uname -m)"
     if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
