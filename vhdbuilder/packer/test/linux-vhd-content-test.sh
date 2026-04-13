@@ -1770,10 +1770,14 @@ testBlobfuse() {
     return 1
   fi
   echo "$test: checking if blobfuse version $installed_version matches expected $expectedVersion"
-  if [[ "$installed_version" != "$expectedVersion"* ]]; then
-    err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
-    return 1
-  fi
+  case "$installed_version" in
+    "$expectedVersion"*)
+      ;;
+    *)
+      err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
+      return 1
+      ;;
+  esac
   echo "$test: Test finished successfully."
   return 0
 }
@@ -1797,10 +1801,14 @@ testBlobfuse2() {
     return 1
   fi
   echo "$test: checking if blobfuse2 version $installed_version matches expected $expectedVersion"
-  if [[ "$installed_version" != "$expectedVersion"* ]]; then
-    err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
-    return 1
-  fi
+  case "$installed_version" in
+    "$expectedVersion"*)
+      ;;
+    *)
+      err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
+      return 1
+      ;;
+  esac
   echo "$test: Test finished successfully."
   return 0
 }
