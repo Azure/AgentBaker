@@ -14,29 +14,39 @@ import (
 // CSE performance thresholds for the golden image (cached) path.
 // These represent the expected normal performance when all binaries are pre-cached on the VHD.
 // If any of these are exceeded, it indicates a regression in CSE task ordering or apt lock contention.
-// Thresholds are set at ~2-3x observed healthy values to allow for infrastructure variance
-// while still catching real regressions (e.g., apt lock contention adds 30-50s).
+//
+// Thresholds are derived from production telemetry (Ubuntu 22.04, GuestAgentGenericLogs table,
+// FA database on azcore cluster, ~35K samples per task over 30 minutes):
+//   - Cached tasks: set at ~p95 to catch regressions while tolerating normal infra variance
+//   - aptmarkWALinuxAgent: bimodal distribution (p50=0.49s, p99=58s) due to apt lock contention,
+//     threshold at p90 since cached path should avoid lock contention
 var cachedCSEThresholds = CSETimingThresholds{
-	TotalCSEThreshold: 35 * time.Second,
+	TotalCSEThreshold: 60 * time.Second,
 	TaskThresholds: map[string]time.Duration{
-		"installDebPackageFromFile":  10 * time.Second, // healthy: ~2-4s with dpkg -i
-		"aptmarkWALinuxAgent":         5 * time.Second, // healthy: ~0.5s with dpkg --set-selections
-		"configureKubeletAndKubectl": 15 * time.Second, // healthy: ~5-8s
-		"ensureContainerd":            8 * time.Second, // healthy: ~2-3s on cached path
+		"installDebPackageFromFile":  22 * time.Second, // prod p50=3.88s p95=21.55s p99=42.88s
+		"aptmarkWALinuxAgent":        24 * time.Second, // prod p50=0.49s p90=23.32s p95=37.47s (bimodal: apt lock)
+		"configureKubeletAndKubectl": 27 * time.Second, // prod p50=6.56s p95=26.06s p99=44.39s
+		"ensureContainerd":            3 * time.Second, // prod p50=0.94s p95=1.99s  p99=2.80s
+		"ensureKubelet":              10 * time.Second, // prod p50=3.27s p95=6.20s  p99=10.01s
 	},
 }
 
 // CSE performance thresholds for the full install path.
 // These are more generous since the full path includes downloading and installing packages.
+//
+// Thresholds are derived from production telemetry (Ubuntu 22.04, same source as cached).
+// Full install thresholds are set at ~p99 since the full install path is rarer and more variable.
 var fullInstallCSEThresholds = CSETimingThresholds{
-	TotalCSEThreshold: 90 * time.Second,
+	TotalCSEThreshold: 120 * time.Second,
 	TaskThresholds: map[string]time.Duration{
-		"installDeps":                60 * time.Second, // healthy: ~20-30s
-		"installContainerRuntime":    45 * time.Second, // healthy: ~15-25s
-		"installDebPackageFromFile":  15 * time.Second, // healthy: ~5-8s
-		"aptmarkWALinuxAgent":         8 * time.Second, // healthy: ~1-3s
-		"configureKubeletAndKubectl": 25 * time.Second, // healthy: ~8-12s
-		"ensureContainerd":           15 * time.Second, // healthy: ~5-8s
+		"installDeps":                90 * time.Second, // no direct prod data; generous for full install
+		"installContainerRuntime":    60 * time.Second, // prod p50=0.26s p99=0.78s (cached); much higher on full
+		"installDebPackageFromFile":  45 * time.Second, // prod p99=42.88s
+		"aptmarkWALinuxAgent":        60 * time.Second, // prod p99=58.07s (bimodal: apt lock contention)
+		"configureKubeletAndKubectl": 45 * time.Second, // prod p99=44.39s
+		"ensureContainerd":            5 * time.Second, // prod p99=2.80s; slightly higher for full install
+		"ensureKubelet":              15 * time.Second, // prod p99=10.01s; slightly higher for full install
+		"extractKubeBinaries":        16 * time.Second, // prod p50=5.97s p95=9.72s p99=15.21s
 	},
 }
 
