@@ -207,6 +207,13 @@ type CSETimingThresholds struct {
 
 	// TotalCSEThreshold is the maximum acceptable total CSE duration.
 	TotalCSEThreshold time.Duration
+
+	// DefaultTaskThreshold is the threshold applied to any task that exceeds it
+	// but has no specific entry in TaskThresholds. This ensures that ALL slow tasks
+	// appear as sub-tests in ADO Pipeline Analytics, even newly added ones.
+	// Tasks below this threshold are silently skipped.
+	// Set to 0 to disable dynamic tracking.
+	DefaultTaskThreshold time.Duration
 }
 
 // ValidateCSETimings extracts CSE task timings from the VM, logs them, and validates
@@ -257,9 +264,11 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 
 	// Validate individual task thresholds — each as a sub-test for ADO tracking.
 	// ADO Test Analytics will show per-task pass/fail trends and flag regressions.
+	matchedTasks := make(map[string]bool)
 	for _, task := range report.Tasks {
 		for suffix, maxDuration := range thresholds.TaskThresholds {
 			if strings.HasSuffix(task.TaskName, suffix) {
+				matchedTasks[task.TaskName] = true
 				task := task
 				suffix := suffix
 				maxDuration := maxDuration
@@ -273,6 +282,35 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 				})
 				break
 			}
+		}
+	}
+
+	// Dynamic tracking: create sub-tests for any task that exceeds DefaultTaskThreshold
+	// but wasn't matched by a specific threshold above. This ensures newly added CSE tasks
+	// automatically appear in ADO Pipeline Analytics without code changes.
+	if thresholds.DefaultTaskThreshold > 0 {
+		for _, task := range report.Tasks {
+			if matchedTasks[task.TaskName] {
+				continue
+			}
+			if task.Duration < thresholds.DefaultTaskThreshold {
+				continue
+			}
+			task := task
+			// Extract short name: "AKS.CSE.foo.bar" → "bar", or use full name if no dots
+			shortName := task.TaskName
+			if idx := strings.LastIndex(shortName, "."); idx >= 0 {
+				shortName = shortName[idx+1:]
+			}
+			defaultThreshold := thresholds.DefaultTaskThreshold
+			tRunner.Run(fmt.Sprintf("Task_%s", shortName), func(t *testing.T) {
+				t.Logf("task %s duration: %s (default threshold: %s — no specific threshold configured)",
+					task.TaskName, task.Duration, defaultThreshold)
+				if task.Duration > defaultThreshold {
+					t.Errorf("CSE task %s took %s, exceeds default threshold %s (consider adding a specific threshold)",
+						task.TaskName, task.Duration, defaultThreshold)
+				}
+			})
 		}
 	}
 
