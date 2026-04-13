@@ -530,6 +530,7 @@ Describe "DownloadFileWithOras" {
     }
     finally {
       Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+      $global:CacheDir = "c:\akse-cache"
     }
   }
 
