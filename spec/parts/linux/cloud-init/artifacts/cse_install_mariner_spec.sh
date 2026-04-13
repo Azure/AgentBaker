@@ -62,7 +62,7 @@ Describe 'cse_install_mariner.sh'
             touch "$dependencyRpm"
             touch "$conflictRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
+            The stderr should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
             The output should include "Installing kubelet with cached dependency RPMs"
             The output should include "$dependencyRpm"
             The output should include "$kubeletRpm"
@@ -91,7 +91,7 @@ Describe 'cse_install_mariner.sh'
             # sort -V | tail -n 1 should pick the latest release as the primary RPM
             The output should include "dnf install 30 1 600 $release2"
             # the older release should be skipped, not added as a dependency
-            The output should include "Skipping cached kubelet rpm"
+            The stderr should include "Skipping cached kubelet rpm"
             The output should not include "$release1"
         End
 
