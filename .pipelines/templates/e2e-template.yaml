@@ -38,6 +38,7 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+          RCV1P_SUBSCRIPTION_ID: $(RCV1P_SUBSCRIPTION_ID)
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
