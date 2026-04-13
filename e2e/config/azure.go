@@ -117,6 +117,10 @@ func NewHttpClient() *http.Client {
 }
 
 func NewAzureClient() (*AzureClient, error) {
+	return NewAzureClientForSubscription(Config.SubscriptionID)
+}
+
+func NewAzureClientForSubscription(subscriptionID string) (*AzureClient, error) {
 	httpClient := NewHttpClient()
 	logger := runtime.NewLogPolicy(&policy.LogOptions{
 		IncludeBody: true,
@@ -155,149 +159,139 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create core client: %w", err)
 	}
 
-	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
+	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create public ip addresses client: %w", err)
 	}
 
-	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
+	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create bastion hosts client: %w", err)
 	}
 
-	cloud.BastionHosts, err = armnetwork.NewBastionHostsClient(Config.SubscriptionID, credential, opts)
-	if err != nil {
-		return nil, fmt.Errorf("create bastion hosts client: %w", err)
-	}
-
-	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(Config.SubscriptionID, credential, opts)
+	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registry client: %w", err)
 	}
 
-	cloud.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient(Config.SubscriptionID, credential, opts)
+	cloud.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cache rules client: %w", err)
 	}
 
-	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(Config.SubscriptionID, credential, opts)
+	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private endpoint client: %w", err)
 	}
 
-	cloud.PrivateZonesClient, err = armprivatedns.NewPrivateZonesClient(Config.SubscriptionID, credential, opts)
+	cloud.PrivateZonesClient, err = armprivatedns.NewPrivateZonesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private dns zones client: %w", err)
 	}
 
-	cloud.VirutalNetworkLinksClient, err = armprivatedns.NewVirtualNetworkLinksClient(Config.SubscriptionID, credential, opts)
+	cloud.VirutalNetworkLinksClient, err = armprivatedns.NewVirtualNetworkLinksClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create virtual network links client: %w", err)
 	}
 
-	cloud.RecordSetClient, err = armprivatedns.NewRecordSetsClient(Config.SubscriptionID, credential, opts)
+	cloud.RecordSetClient, err = armprivatedns.NewRecordSetsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create record set client: %w", err)
 	}
 
-	cloud.PrivateDNSZoneGroup, err = armnetwork.NewPrivateDNSZoneGroupsClient(Config.SubscriptionID, credential, opts)
+	cloud.PrivateDNSZoneGroup, err = armnetwork.NewPrivateDNSZoneGroupsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private dns zone group client: %w", err)
 	}
 
-	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(Config.SubscriptionID, credential, opts)
+	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create security group client: %w", err)
 	}
 
-	cloud.Subnet, err = armnetwork.NewSubnetsClient(Config.SubscriptionID, credential, opts)
+	cloud.Subnet, err = armnetwork.NewSubnetsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create subnet client: %w", err)
 	}
 
-	cloud.RouteTables, err = armnetwork.NewRouteTablesClient(Config.SubscriptionID, credential, opts)
+	cloud.RouteTables, err = armnetwork.NewRouteTablesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create route tables client: %w", err)
 	}
 
-	cloud.Routes, err = armnetwork.NewRoutesClient(Config.SubscriptionID, credential, opts)
+	cloud.Routes, err = armnetwork.NewRoutesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create routes client: %w", err)
 	}
 
-	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(Config.SubscriptionID, credential, opts)
+	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create aks client: %w", err)
 	}
 
-	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(Config.SubscriptionID, credential, opts)
+	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance client: %w", err)
 	}
 
-	cloud.NetworkInterfaces, err = armnetwork.NewInterfacesClient(Config.SubscriptionID, credential, opts)
+	cloud.NetworkInterfaces, err = armnetwork.NewInterfacesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create network interfaces client: %w", err)
 	}
 
-	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(Config.SubscriptionID, credential, opts)
+	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss client: %w", err)
 	}
 
-	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(Config.SubscriptionID, credential, opts)
+	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss vm client: %w", err)
 	}
 
-	cloud.VMs, err = armcompute.NewVirtualMachinesClient(Config.SubscriptionID, credential, opts)
+	cloud.VMs, err = armcompute.NewVirtualMachinesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vms client: %w", err)
 	}
 
-	cloud.Images, err = armcompute.NewImagesClient(Config.SubscriptionID, credential, opts)
+	cloud.Images, err = armcompute.NewImagesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create images client: %w", err)
 	}
 
-	cloud.Snapshots, err = armcompute.NewSnapshotsClient(Config.SubscriptionID, credential, opts)
+	cloud.Snapshots, err = armcompute.NewSnapshotsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create snapshots client: %w", err)
 	}
 
-	cloud.GalleryImages, err = armcompute.NewGalleryImagesClient(Config.SubscriptionID, credential, opts)
+	cloud.GalleryImages, err = armcompute.NewGalleryImagesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create gallery images client: %w", err)
 	}
 
-	cloud.GalleryImageVersions, err = armcompute.NewGalleryImageVersionsClient(Config.SubscriptionID, credential, opts)
+	cloud.GalleryImageVersions, err = armcompute.NewGalleryImageVersionsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create gallery image versions client: %w", err)
 	}
 
-	cloud.Resource, err = armresources.NewClient(Config.SubscriptionID, credential, opts)
+	cloud.Resource, err = armresources.NewClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource client: %w", err)
 	}
 
-	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(Config.SubscriptionID, credential, opts)
+	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource group client: %w", err)
 	}
 
-	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(Config.SubscriptionID, credential, opts)
+	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.AzureFirewall, err = armnetwork.NewAzureFirewallsClient(Config.SubscriptionID, credential, opts)
+	cloud.AzureFirewall, err = armnetwork.NewAzureFirewallsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create firewall client: %w", err)
-	}
-
-	cloud.PublicIPAddresses, err = armnetwork.NewPublicIPAddressesClient(Config.SubscriptionID, credential, opts)
-	if err != nil {
-		return nil, fmt.Errorf("create public ip addresses client: %w", err)
 	}
 
 	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)
@@ -305,43 +299,43 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create blob container client: %w", err)
 	}
 
-	cloud.StorageContainers, err = armstorage.NewBlobContainersClient(Config.SubscriptionID, credential, opts)
+	cloud.StorageContainers, err = armstorage.NewBlobContainersClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create blob container client: %w", err)
 	}
 
-	cloud.RoleAssignments, err = armauthorization.NewRoleAssignmentsClient(Config.SubscriptionID, credential, opts)
+	cloud.RoleAssignments, err = armauthorization.NewRoleAssignmentsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create role assignment client: %w", err)
 	}
 
-	cloud.UserAssignedIdentities, err = armmsi.NewUserAssignedIdentitiesClient(Config.SubscriptionID, credential, nil)
+	cloud.UserAssignedIdentities, err = armmsi.NewUserAssignedIdentitiesClient(subscriptionID, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create user assigned identities client: %w", err)
 	}
 
-	cloud.StorageAccounts, err = armstorage.NewAccountsClient(Config.SubscriptionID, credential, nil)
+	cloud.StorageAccounts, err = armstorage.NewAccountsClient(subscriptionID, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create storage accounts client: %w", err)
 	}
 
-	cloud.VMSSVMRunCommands, err = armcompute.NewVirtualMachineScaleSetVMRunCommandsClient(Config.SubscriptionID, credential, opts)
+	cloud.VMSSVMRunCommands, err = armcompute.NewVirtualMachineScaleSetVMRunCommandsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss vm run command client: %w", err)
 	}
 
-	cloud.VMExtensionImages, err = armcompute.NewVirtualMachineExtensionImagesClient(Config.SubscriptionID, credential, opts)
+	cloud.VMExtensionImages, err = armcompute.NewVirtualMachineExtensionImagesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vm extension images client: %w", err)
 	}
 
-	cloud.ResourceSKUs, err = armcompute.NewResourceSKUsClient(Config.SubscriptionID, credential, opts)
+	cloud.ResourceSKUs, err = armcompute.NewResourceSKUsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource skus client: %w", err)
 	}
 
 	// Ensure the gallery exists
-	cloud.Galleries, err = armcompute.NewGalleriesClient(Config.SubscriptionID, credential, opts)
+	cloud.Galleries, err = armcompute.NewGalleriesClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create galleries client: %w", err)
 	}
@@ -415,6 +409,18 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocat
 
 	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
 		return "", err
+	}
+	return *identity.Properties.ClientID, nil
+}
+
+// CreateVMManagedIdentityInRG creates a VM managed identity in the specified resource group
+// without creating blob storage infrastructure (which belongs to the default subscription).
+func (a *AzureClient) CreateVMManagedIdentityInRG(ctx context.Context, resourceGroupName, location string) (string, error) {
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, resourceGroupName, VMIdentityName, armmsi.Identity{
+		Location: to.Ptr(location),
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("create managed identity in RG %s: %w", resourceGroupName, err)
 	}
 	return *identity.Properties.ClientID, nil
 }

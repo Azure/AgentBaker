@@ -21,6 +21,33 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// ClusterInfra captures the Azure infrastructure scope for cluster operations.
+// It allows cluster creation and management to target different subscriptions.
+type ClusterInfra struct {
+	Azure             *config.AzureClient
+	SubscriptionID    string
+	ResourceGroupName func(location string) string
+}
+
+// DefaultClusterInfra uses the default subscription and resource group naming.
+var DefaultClusterInfra = &ClusterInfra{
+	Azure:             config.Azure,
+	SubscriptionID:    config.Config.SubscriptionID,
+	ResourceGroupName: config.ResourceGroupName,
+}
+
+// RCV1PClusterInfra returns the ClusterInfra for the RCV1P subscription, or nil if not configured.
+func RCV1PClusterInfra() *ClusterInfra {
+	if config.RCV1PAzure == nil {
+		return nil
+	}
+	return &ClusterInfra{
+		Azure:             config.RCV1PAzure,
+		SubscriptionID:    config.Config.RCV1PSubscriptionID,
+		ResourceGroupName: config.RCV1PResourceGroupName,
+	}
+}
+
 type Tags struct {
 	Name                   string
 	ImageName              string
@@ -35,6 +62,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
 }
 
@@ -127,6 +155,14 @@ type Scenario struct {
 	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
 	// a default size will be used.
 	K8sSystemPoolSKU string
+
+	// AzureClient overrides the default config.Azure client for this scenario.
+	// When nil, config.Azure is used.
+	AzureClient *config.AzureClient
+
+	// SubscriptionID overrides the default config.Config.SubscriptionID for this scenario.
+	// When empty, config.Config.SubscriptionID is used.
+	SubscriptionID string
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
@@ -395,4 +431,36 @@ func (s *Scenario) IsWindows() bool {
 
 func (s *Scenario) IsLinux() bool {
 	return !s.IsWindows()
+}
+
+// GetAzure returns the AzureClient for this scenario, falling back to the default config.Azure.
+func (s *Scenario) GetAzure() *config.AzureClient {
+	if s.AzureClient != nil {
+		return s.AzureClient
+	}
+	return config.Azure
+}
+
+// GetSubscriptionID returns the subscription ID for this scenario, falling back to config.Config.SubscriptionID.
+func (s *Scenario) GetSubscriptionID() string {
+	if s.SubscriptionID != "" {
+		return s.SubscriptionID
+	}
+	return config.Config.SubscriptionID
+}
+
+// GetResourceGroupName returns the resource group name for this scenario's location.
+func (s *Scenario) GetResourceGroupName() string {
+	if s.SubscriptionID != "" && s.SubscriptionID != config.Config.SubscriptionID {
+		return config.RCV1PResourceGroupName(s.Location)
+	}
+	return config.ResourceGroupName(s.Location)
+}
+
+// GetVMIdentityResourceID returns the VM identity resource ID for this scenario.
+func (s *Scenario) GetVMIdentityResourceID() string {
+	if s.SubscriptionID != "" && s.SubscriptionID != config.Config.SubscriptionID {
+		return config.Config.RCV1PVMIdentityResourceID(s.Location)
+	}
+	return config.Config.VMIdentityResourceID(s.Location)
 }

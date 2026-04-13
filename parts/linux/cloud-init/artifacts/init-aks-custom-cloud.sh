@@ -43,7 +43,7 @@ function make_request_with_retry {
 
     local response
     while [ $attempt -le $max_retries ]; do
-        response=$(curl -f --no-progress-meter "$url")
+        response=$(curl -f --no-progress-meter --connect-timeout 10 --max-time 30 "$url")
         local request_status=$?
 
         if echo "$response" | grep -q "RequestRateLimitExceeded"; then
@@ -213,6 +213,7 @@ esac
 
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
 install_ca_refresh_schedule=0
+mkdir -p /root/AzureCACertificates
 rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1

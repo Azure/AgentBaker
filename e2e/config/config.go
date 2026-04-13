@@ -29,6 +29,10 @@ var (
 	Azure          = mustNewAzureClient()
 	VMIdentityName = "abe2e-vm-identity"
 
+	// RCV1PAzure is lazily initialized when RCV1PSubscriptionID is set.
+	// It provides Azure clients bound to the PlatformSettingsOverride-registered subscription.
+	RCV1PAzure *AzureClient
+
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}
@@ -38,6 +42,14 @@ var (
 
 func ResourceGroupName(location string) string {
 	return "abe2e-" + location
+}
+
+func RCV1PResourceGroupName(location string) string {
+	return "abe2e-rcv1p-" + location
+}
+
+func (c *Configuration) RCV1PVMIdentityResourceID(location string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.RCV1PSubscriptionID, RCV1PResourceGroupName(location), VMIdentityName)
 }
 
 func PrivateACRNameNotAnon(location string) string {
@@ -90,6 +102,7 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	RCV1PSubscriptionID                    string        `env:"RCV1P_SUBSCRIPTION_ID"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -169,6 +182,16 @@ func mustLoadConfig() *Configuration {
 	}
 
 	return cfg
+}
+
+func init() {
+	if Config.RCV1PSubscriptionID != "" && !strings.HasPrefix(Config.RCV1PSubscriptionID, "$(") {
+		client, err := NewAzureClientForSubscription(Config.RCV1PSubscriptionID)
+		if err != nil {
+			panic(fmt.Sprintf("failed to create RCV1P Azure client: %v", err))
+		}
+		RCV1PAzure = client
+	}
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
