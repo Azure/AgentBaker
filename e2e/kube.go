@@ -39,10 +39,10 @@ const (
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
 )
 
-func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
-	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+func getClusterKubeClient(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
+	resourceGroupName := infra.ResourceGroupName(*cluster.Location)
 	clusterName := *cluster.Name
-	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
+	data, err := getClusterKubeconfigBytes(ctx, infra, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
 	}
@@ -276,8 +276,8 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 	toolkit.Log(ctx, string(info))
 }
 
-func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
-	credentialList, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
+func getClusterKubeconfigBytes(ctx context.Context, infra *ClusterInfra, resourceGroupName, clusterName string) ([]byte, error) {
+	credentialList, err := infra.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("list cluster admin credentials: %w", err)
 	}
@@ -445,9 +445,9 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+func getClusterSubnetID(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (string, error) {
 	mcResourceGroupName := *cluster.Properties.NodeResourceGroup
-	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
+	pager := infra.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {
