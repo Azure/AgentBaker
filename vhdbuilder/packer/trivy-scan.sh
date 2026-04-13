@@ -159,10 +159,13 @@ install_trivy_from_github() {
         echo "unsupported architecture for trivy download: ${arch}"
         exit 1
     fi
-    retrycmd_if_failure 5 10 60 curl -fL -o "trivy_${trivy_version}_${trivy_arch}.tar.gz" \
-        "https://github.com/aquasecurity/trivy/releases/download/v${trivy_version}/trivy_${trivy_version}_${trivy_arch}.tar.gz"
-    tar -xzf "trivy_${trivy_version}_${trivy_arch}.tar.gz" --no-same-owner trivy
-    rm "trivy_${trivy_version}_${trivy_arch}.tar.gz"
+    local tarball="trivy_${trivy_version}_${trivy_arch}.tar.gz"
+    local base_url="https://github.com/aquasecurity/trivy/releases/download/v${trivy_version}"
+    retrycmd_if_failure 5 10 60 curl -fL -o "${tarball}" "${base_url}/${tarball}"
+    retrycmd_if_failure 5 10 60 curl -fL -o "trivy_checksums.txt" "${base_url}/trivy_${trivy_version}_checksums.txt"
+    grep "${tarball}" trivy_checksums.txt | sha256sum -c -
+    tar -xzf "${tarball}" --no-same-owner trivy
+    rm "${tarball}" trivy_checksums.txt
     chmod a+x trivy
 }
 
@@ -175,9 +178,9 @@ install_trivy() {
             # which is already configured on the VHD via packages-microsoft-prod.deb.
             local deb_version
             case "$os_version" in
-                20.04) deb_version="${TRIVY_DEB_2004_VERSION%%-*}" ;;
-                22.04) deb_version="${TRIVY_DEB_2204_VERSION%%-*}" ;;
-                24.04) deb_version="${TRIVY_DEB_2404_VERSION%%-*}" ;;
+                20.04) deb_version="${TRIVY_DEB_2004_VERSION}" ;;
+                22.04) deb_version="${TRIVY_DEB_2204_VERSION}" ;;
+                24.04) deb_version="${TRIVY_DEB_2404_VERSION}" ;;
                 *)
                     echo "No tracked trivy deb version for Ubuntu $os_version, downloading from GitHub"
                     install_trivy_from_github
@@ -185,7 +188,7 @@ install_trivy() {
                     ;;
             esac
             apt_get_update
-            apt_get_install 5 1 60 trivy="${deb_version}*"
+            apt_get_install 5 1 60 trivy="${deb_version}"
             ;;
         AzureLinux)
             # trivy RPMs are published in the AzureLinux 3.0 cloud-native PMC repo
