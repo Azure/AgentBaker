@@ -396,20 +396,21 @@ func Test_ACL_DisableSSH(t *testing.T) {
 }
 
 func Test_ACL_GPUNC_Scriptless(t *testing.T) {
-	runScenarioACLGPUScriptless(t, "Standard_NC6s_v3")
+	runScenarioACLGPUScriptless(t, "Standard_NC6s_v3", config.Config.DefaultLocation)
 }
 
 func Test_ACL_GPUA100_Scriptless(t *testing.T) {
-	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4")
+	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4", "westus2")
 }
 
 func Test_ACL_GPUA10_Scriptless(t *testing.T) {
 	runScenarioACLGRIDScriptless(t, "Standard_NV6ads_A10_v5")
 }
 
-func runScenarioACLGPUScriptless(t *testing.T, vmSize string) {
+func runScenarioACLGPUScriptless(t *testing.T, vmSize string, location string) {
 	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped", vmSize),
+		Location:    location,
 		Tags: Tags{
 			GPU: true,
 		},
@@ -1460,11 +1461,11 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
+	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3", config.Config.DefaultLocation)
 }
 
 func Test_Ubuntu2204_GPUA100(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4")
+	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4", "westus2")
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
@@ -1472,9 +1473,10 @@ func Test_Ubuntu2204_GPUA10(t *testing.T) {
 }
 
 // Returns config for the 'gpu' E2E scenario
-func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
+func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
 	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
+		Location:    location,
 		Tags: Tags{
 			GPU: true,
 		},

@@ -78,6 +78,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 
 	g := dag.NewGroup(ctx)
 
+	// bastion creates AzureBastionSubnet — a VNet-level mutation that must
+	// finish before other subnet writes (firewall / network-isolated setup)
+	// to avoid Azure VNet serialisation races.
 	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
 		return getOrCreateBastion(ctx, cluster)
 	})
@@ -87,14 +90,19 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	dag.Run(g, func(ctx context.Context) error { return collectGarbageVMSS(ctx, cluster) })
+	// networkSetup associates a route table with aks-subnet (firewall or
+	// network-isolated NSG).  It must run after bastion (both mutate the
+	// VNet) and before collectGarbageVMSS (VMSS deletion triggers AKS
+	// cloud-controller route reconciliation that can race with the subnet
+	// association and leave the AKS pod route table detached).
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }))
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
 	}
 	if isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }))
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
+	dag.Run(g, func(ctx context.Context) error { return collectGarbageVMSS(ctx, cluster) }, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
