@@ -1,0 +1,19 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_RUN: "rcv1pcertmode=true"
+  SKIP_E2E_TESTS: false
+  E2E_GO_TEST_TIMEOUT: "75m"
+schedules:
+  - cron: "0 11 * * *"
+    displayName: Daily 3am PST
+    branches:
+      include:
+        - main
+    always: true
+trigger: none
+pr: none
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: RCV1P Cert Mode Tests
+      IgnoreScenariosWithMissingVhd: false
