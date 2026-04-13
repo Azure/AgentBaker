@@ -83,6 +83,9 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
 				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
