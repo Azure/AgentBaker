@@ -383,6 +383,32 @@ Describe "Get-BootstrapRegistryDomainName" {
   }
 }
 
+Describe "Get-FileNameFromUrl" {
+  It "should return file name for url without query string" {
+    $url = "https://contoso.blob.core.windows.net/packages/windowszip.zip"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "windowszip.zip"
+  }
+
+  It "should strip query string before extracting file name" {
+    $url = "https://contoso.blob.core.windows.net/packages/windowszip.zip?sv=2025-01-01&sig=token"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "windowszip.zip"
+  }
+
+  It "should return the last segment for nested paths" {
+    $url = "https://contoso.blob.core.windows.net/packages/release/v1.30.0/kubernetes-node-image.tar.gz"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "kubernetes-node-image.tar.gz"
+  }
+
+  It "should return empty when url ends with slash" {
+    $url = "https://contoso.blob.core.windows.net/packages/release/v1.30.0/"
+
+    Get-FileNameFromUrl -Url $url | Should -Be ""
+  }
+}
+
 Describe "DownloadFileWithOras" {
   BeforeEach {
     $global:OrasPath = "Mock-OrasCli"

@@ -321,8 +321,9 @@ function Install-Containerd {
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadContainerdWithOras" -TaskMessage "Start to download containerd with oras. ContainerdVersionTag: $containerdVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
     $orasReference = "$sanitizedRegistry/aks/packages/containerd/containerd:$containerdVersionTag"
+    $cachedFileName = Get-FileNameFromUrl -Url $ContainerdUrl
     try {
-        Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$tarfile} -Retries 5 -RetryDelaySeconds 10
+        Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$tarfile; CachedFile=$cachedFileName} -Retries 5 -RetryDelaySeconds 10
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
     }

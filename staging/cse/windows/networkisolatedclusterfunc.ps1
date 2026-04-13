@@ -366,6 +366,14 @@ function Get-BootstrapRegistryDomainName {
     return $registryDomainName
 }
 
+function Get-FileNameFromUrl {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url
+    )
+    $cleanUrl = $Url.Split('?')[0]
+    return [IO.Path]::GetFileName($cleanUrl)
+}
+
 function DownloadFileWithOras {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -373,8 +381,27 @@ function DownloadFileWithOras {
         [Parameter(Mandatory = $true)][string]
         $DestinationPath,
         [Parameter(Mandatory = $false)][string]
-        $Platform = "windows/amd64"
+        $Platform = "windows/amd64",
+        [Parameter(Mandatory = $false)][string]
+        $CachedFile = ""
     )
+    $cleanUrl = $Url.Split('?')[0]
+    $fileName = [IO.Path]::GetFileName($cleanUrl)
+    # If CachedFile is provided and exists, copy it to the destination path instead of downloading
+    if (-not [string]::IsNullOrWhiteSpace($CachedFile)) {
+        $fileName = [IO.Path]::GetFileName($CachedFile)
+
+        $search = @()
+        if ($global:CacheDir -and (Test-Path $global:CacheDir)) {
+            $search = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+        }
+
+        if ($search.Count -ne 0) {
+            Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"
+            Copy-Item -Path $search[0] -Destination $DestinationPath -Force
+        }
+        return
+    }
 
     Write-Log "Downloading $Reference to $DestinationPath via oras pull (platform=$Platform)"
 
