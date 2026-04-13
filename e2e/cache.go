@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 )
 
 // cachedFunc creates a thread-safe memoized version of a function.
@@ -150,56 +151,67 @@ func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
-	return prepareCluster(ctx, model, false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, model, false, false)
 }
 
 var ClusterKubenet = cachedFunc(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking
 func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v4", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getKubenetClusterModel("abe2e-kubenet-v4", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
 
 // clusterAzureNetwork creates a cluster with Azure CNI networking
 func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getAzureNetworkClusterModel("abe2e-azure-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterAzureBootstrapProfileCache = cachedFunc(clusterAzureBootstrapProfileCache)
 
 // clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
 func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU), false, true)
+	return prepareCluster(ctx, DefaultClusterInfra, getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU), false, true)
 }
 
 var ClusterAzureNetworkIsolated = cachedFunc(clusterAzureNetworkIsolated)
 
 // clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
 func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-networkisolated-v1", request.Location, request.K8sSystemPoolSKU), true, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getAzureNetworkClusterModel("abe2e-azure-networkisolated-v1", request.Location, request.K8sSystemPoolSKU), true, false)
 }
 
 var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
 
 // clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
 func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
 
 // clusterAzureOverlayNetworkDualStack creates a dual-stack (IPv4+IPv6) Azure CNI Overlay cluster
 func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v3", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
 
 // clusterCiliumNetwork creates a cluster with Cilium CNI networking
 func clusterCiliumNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getCiliumNetworkClusterModel("abe2e-cilium-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+}
+
+var ClusterRCV1PKubenet = cachedFunc(clusterRCV1PKubenet)
+
+// clusterRCV1PKubenet creates a kubenet cluster in the RCV1P subscription for cert mode testing.
+func clusterRCV1PKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	infra := RCV1PClusterInfra()
+	if infra == nil {
+		return nil, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set, cannot create RCV1P cluster")
+	}
+	return prepareCluster(ctx, infra, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
@@ -227,6 +239,25 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
 var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
+
+// CachedRCV1PEnsureResourceGroup creates the resource group in the RCV1P subscription.
+var CachedRCV1PEnsureResourceGroup = cachedFunc(ensureRCV1PResourceGroup)
+
+// CachedRCV1PCreateVMManagedIdentity creates a VM managed identity in the RCV1P subscription.
+var CachedRCV1PCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
+	if config.RCV1PAzure == nil {
+		return "", fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set")
+	}
+	return config.RCV1PAzure.CreateVMManagedIdentityInRG(ctx, config.RCV1PResourceGroupName(location), location)
+})
+
+func ensureRCV1PResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+	infra := RCV1PClusterInfra()
+	if infra == nil {
+		return armresources.ResourceGroup{}, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set")
+	}
+	return ensureResourceGroupWithInfra(ctx, infra, location)
+}
 
 // VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
 type VMSizeSKURequest struct {
