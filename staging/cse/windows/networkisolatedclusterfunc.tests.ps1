@@ -532,4 +532,32 @@ Describe "DownloadFileWithOras" {
       Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
   }
+
+  It "should invoke oras pull and skip cache copy when CachedFile is provided but missing from cache" {
+    $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    $cachedFileName = "windowszip.zip"
+    $destPath = "c:\k.zip"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+
+    New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+
+    $global:CacheDir = $cacheRoot
+    $script:orasInvoked = $false
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:orasInvoked = $true
+      $global:LASTEXITCODE = 0
+    }
+
+    Mock Copy-Item -MockWith {}
+
+    try {
+      { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
+      Assert-MockCalled -CommandName 'Copy-Item' -Times 0
+      $script:orasInvoked | Should -Be $true
+    }
+    finally {
+      Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
 }
