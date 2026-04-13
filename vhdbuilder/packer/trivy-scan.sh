@@ -161,10 +161,10 @@ install_trivy_from_github() {
     fi
     local tarball="trivy_${trivy_version}_${trivy_arch}.tar.gz"
     local base_url="https://github.com/aquasecurity/trivy/releases/download/v${trivy_version}"
-    retrycmd_if_failure 5 10 60 curl -fL -o "${tarball}" "${base_url}/${tarball}"
-    retrycmd_if_failure 5 10 60 curl -fL -o "trivy_checksums.txt" "${base_url}/trivy_${trivy_version}_checksums.txt"
-    grep "${tarball}" trivy_checksums.txt | sha256sum -c -
-    tar -xzf "${tarball}" --no-same-owner trivy
+    retrycmd_if_failure 5 10 60 curl -fL -o "${tarball}" "${base_url}/${tarball}" || exit 1
+    retrycmd_if_failure 5 10 60 curl -fL -o "trivy_checksums.txt" "${base_url}/trivy_${trivy_version}_checksums.txt" || exit 1
+    grep "${tarball}" trivy_checksums.txt | sha256sum -c - || { echo "SHA256 checksum verification failed for ${tarball}"; exit 1; }
+    tar -xzf "${tarball}" --no-same-owner trivy || exit 1
     rm "${tarball}" trivy_checksums.txt
     chmod a+x trivy
 }
