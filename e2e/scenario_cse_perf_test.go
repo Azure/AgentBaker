@@ -91,6 +91,121 @@ var fullInstallCSEThresholds = CSETimingThresholds{
 	},
 }
 
+// CSE performance thresholds for Ubuntu 24.04 (cached path).
+// Derived from production telemetry (GuestAgentGenericLogs, FA/azcore, ~500 samples per task over 10 minutes).
+// Ubuntu 24.04 has similar CSE tasks to 22.04 but with slightly different latency profiles.
+var cachedCSEThresholdsUbuntu2404 = CSETimingThresholds{
+	TotalCSEThreshold:    60 * time.Second,
+	DefaultTaskThreshold: 45 * time.Second,
+	TaskThresholds: map[string]time.Duration{
+		// Core kubelet/containerd install
+		"installDebPackageFromFile":  24 * time.Second, // prod p50=4.92s p95=23.74s p99=33.47s
+		"aptmarkWALinuxAgent":        11 * time.Second, // prod p50=4.45s p95=10.97s p99=15.09s (less bimodal than 22.04)
+		"configureKubeletAndKubectl": 38 * time.Second, // prod p50=21.65s p95=37.28s p99=45.94s
+		"ensureContainerd":            2 * time.Second, // prod p50=0.76s p95=1.34s  p99=1.84s
+		"ensureKubelet":               8 * time.Second, // prod p50=4.32s p95=7.47s  p99=10.50s
+		"installContainerRuntime":     2 * time.Second, // same as 22.04
+		"installStandaloneContainerd": 2 * time.Second, // same as 22.04
+
+		// Kubelet install variants
+		"installKubeletKubectlFromPkg": 37 * time.Second, // prod p50=21.39s p95=36.16s p99=44.51s
+		"installKubeletKubectlFromURL":  7 * time.Second, // prod p50=1.16s  p95=6.42s  (small sample)
+		"extractKubeBinaries":           7 * time.Second, // prod p50=6.28s  (small sample)
+
+		// Credential provider
+		"installCredentialProviderFromUrl": 2 * time.Second, // prod p50=0.74s p95=1.49s
+		"installCredentialProviderFromPkg": 7 * time.Second, // prod p50=3.01s p95=6.21s p99=8.57s
+		"downloadCredentialProvider":       2 * time.Second, // prod p50=0.41s p95=1.22s
+
+		// Networking and node configuration
+		"configureNodeExporter": 44 * time.Second, // prod p50=1.37s p95=11.48s p99=60.68s
+		"ensureSnapshotUpdate":   2 * time.Second, // same as 22.04
+	},
+}
+
+// CSE performance thresholds for Ubuntu 24.04 (full install path).
+var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
+	TotalCSEThreshold:    120 * time.Second,
+	DefaultTaskThreshold: 60 * time.Second,
+	TaskThresholds: map[string]time.Duration{
+		"installDeps":                90 * time.Second,
+		"installContainerRuntime":    60 * time.Second,
+		"installDebPackageFromFile":  34 * time.Second, // prod p99=33.47s
+		"aptmarkWALinuxAgent":        16 * time.Second, // prod p99=15.09s (better than 22.04)
+		"configureKubeletAndKubectl": 46 * time.Second, // prod p99=45.94s
+		"ensureContainerd":            3 * time.Second, // prod p99=1.84s
+		"ensureKubelet":              11 * time.Second, // prod p99=10.50s
+		"installStandaloneContainerd": 2 * time.Second,
+
+		"installKubeletKubectlFromPkg": 45 * time.Second, // prod p99=44.51s
+		"installKubeletKubectlFromURL": 16 * time.Second,
+		"extractKubeBinaries":          16 * time.Second,
+
+		"installCredentialProviderFromUrl": 3 * time.Second,
+		"installCredentialProviderFromPkg": 9 * time.Second,  // prod p99=8.57s
+		"installCredentialProviderFromPMC": 19 * time.Second, // prod p50=3.01s p95=9.39s p99=18.09s
+		"downloadCredentialProvider":       3 * time.Second,
+
+		"configureNodeExporter": 61 * time.Second, // prod p99=60.68s
+		"ensureSnapshotUpdate":   2 * time.Second,
+	},
+}
+
+// CSE performance thresholds for Azure Linux V3 (cached path).
+// Derived from production telemetry (GuestAgentGenericLogs, FA/azcore, ~1K samples per task over 10 minutes).
+// AzureLinux uses RPM packages, not apt/deb — no aptmarkWALinuxAgent or installDebPackageFromFile tasks.
+var cachedCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
+	TotalCSEThreshold:    60 * time.Second,
+	DefaultTaskThreshold: 45 * time.Second,
+	TaskThresholds: map[string]time.Duration{
+		// Core kubelet/containerd install (RPM-based, no apt lock contention)
+		"configureKubeletAndKubectl": 34 * time.Second, // prod p50=4.56s  p95=33.57s p99=47.93s
+		"ensureContainerd":            2 * time.Second, // prod p50=0.81s  p95=1.22s  p99=1.59s
+		"ensureKubelet":               5 * time.Second, // prod p50=2.47s  p95=4.85s  p99=9.31s
+
+		// Kubelet install variants
+		"installKubeletKubectlFromPkg": 52 * time.Second, // prod p50=29.03s p95=51.86s p99=65.20s
+		"installKubeletKubectlFromURL":  7 * time.Second, // prod p50=4.36s  p95=6.80s  p99=10.68s
+		"extractKubeBinaries":           7 * time.Second, // prod p50=4.59s  p95=6.87s  p99=11.46s
+
+		// Credential provider
+		"installCredentialProviderFromUrl": 2 * time.Second, // prod p50=0.79s p95=1.43s p99=1.77s
+		"installCredentialProviderFromPkg": 4 * time.Second, // prod p50=1.71s p95=3.73s p99=10.61s
+
+		// Networking and node configuration
+		"configureNodeExporter":    10 * time.Second, // prod p50=1.60s p95=9.84s  p99=42.35s
+		"ensureSnapshotUpdate":      2 * time.Second, // prod p50=0.64s p95=1.05s  p99=1.44s
+		"ensureNoDupOnPromiscuBridge": 8 * time.Second, // prod p50=0.70s p95=7.59s  p99=13.30s
+		"retrycmd_nslookup":         2 * time.Second, // prod p50=0.33s p95=1.36s  p99=3.42s
+	},
+}
+
+// CSE performance thresholds for Azure Linux V3 (full install path).
+var fullInstallCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
+	TotalCSEThreshold:    120 * time.Second,
+	DefaultTaskThreshold: 60 * time.Second,
+	TaskThresholds: map[string]time.Duration{
+		"installDeps":                90 * time.Second,
+		"installContainerRuntime":    60 * time.Second,
+		"configureKubeletAndKubectl": 48 * time.Second, // prod p99=47.93s
+		"ensureContainerd":            3 * time.Second, // prod p99=1.59s
+		"ensureKubelet":              10 * time.Second, // prod p99=9.31s
+
+		"installKubeletKubectlFromPkg": 66 * time.Second, // prod p99=65.20s
+		"installKubeletKubectlFromURL": 11 * time.Second, // prod p99=10.68s
+		"extractKubeBinaries":          12 * time.Second, // prod p99=11.46s
+
+		"installCredentialProviderFromUrl": 2 * time.Second,  // prod p99=1.77s
+		"installCredentialProviderFromPkg": 11 * time.Second, // prod p99=10.61s
+
+		"configureNodeExporter":       43 * time.Second, // prod p99=42.35s
+		"ensureSnapshotUpdate":         2 * time.Second, // prod p99=1.44s
+		"ensureNoDupOnPromiscuBridge": 14 * time.Second, // prod p99=13.30s
+		"retrycmd_nslookup":            4 * time.Second, // prod p99=3.42s
+		"enableLocalDNS":              24 * time.Second, // prod p50=0s p95=12.85s p99=23.16s
+	},
+}
+
 func Test_Ubuntu2204_CSE_CachedPerformance(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Validates CSE timing on the golden image (cached) path where binaries are pre-installed on VHD. " +
@@ -143,6 +258,100 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
+			},
+		},
+	})
+}
+
+// --- Ubuntu 24.04 CSE Performance Tests ---
+
+func Test_Ubuntu2404_CSE_CachedPerformance(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 24.04. " +
+			"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.4"
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.34.4"
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, cachedCSEThresholdsUbuntu2404)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates CSE timing on the full install path for Ubuntu 24.04. " +
+			"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsUbuntu2404)
+			},
+		},
+	})
+}
+
+// --- Azure Linux V3 CSE Performance Tests ---
+
+func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates CSE timing on the golden image (cached) path for Azure Linux V3. " +
+			"Azure Linux uses RPM packages — no apt lock contention, but different install paths.",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates CSE timing on the full install path for Azure Linux V3. " +
+			"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
 			},
 		},
 	})
