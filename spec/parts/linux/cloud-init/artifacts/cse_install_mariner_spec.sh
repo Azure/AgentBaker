@@ -105,6 +105,86 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
+    Describe 'installPackageFromCache'
+        rpm_cache_root="$PWD/spec/tmp/rpm-cache-cacheonly"
+        DNF_PLAN_MODE="success"
+
+        setup_rpm_cache_cacheonly() {
+            RPM_PACKAGE_CACHE_BASE_DIR="$rpm_cache_root"
+            mkdir -p "$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+        }
+
+        cleanup_rpm_cache_cacheonly() {
+            rm -rf "$rpm_cache_root"
+        }
+
+        dnf() {
+            local args="$*"
+
+            if echo "$args" | grep -q -- "--assumeno"; then
+                if [ "$DNF_PLAN_MODE" = "needs-deps" ]; then
+                    cat <<EOF
+Dependencies resolved.
+Installing dependencies:
+ container-selinux noarch 2.200.0-1.azl3 @baseos
+EOF
+                    return 1
+                fi
+
+                if [ "$DNF_PLAN_MODE" = "resolution-fail" ]; then
+                    echo "Problem: package kubelet requires container-selinux, but none of the providers can be installed"
+                    return 1
+                fi
+
+                cat <<EOF
+Dependencies resolved.
+Installing:
+ kubelet x86_64 1.34.0-5.azl3 @commandline
+EOF
+                return 1
+            fi
+
+            echo "dnf $args"
+            return 0
+        }
+
+        BeforeEach 'setup_rpm_cache_cacheonly'
+        AfterEach 'cleanup_rpm_cache_cacheonly'
+
+        It 'installs successfully from cache when no additional dependencies are required'
+            DNF_PLAN_MODE="success"
+            desiredVersion="1.34.0-5.azl3"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
+            touch "$kubeletRpm"
+
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The status should equal 0
+            The output should include "dnf install -y --disablerepo=* $kubeletRpm"
+        End
+
+        It 'returns failure when precheck detects additional dependencies'
+            DNF_PLAN_MODE="needs-deps"
+            desiredVersion="1.34.0-5.azl3"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
+            touch "$kubeletRpm"
+
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The status should equal 1
+            The output should include "Additional dependencies are required for kubelet; cache-only install is not allowed"
+        End
+
+        It 'returns failure when cached rpm is not found'
+            DNF_PLAN_MODE="success"
+            desiredVersion="1.34.0-5.azl3"
+
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The status should equal 1
+            The output should include "Failed to locate cached kubelet rpm for version $desiredVersion"
+        End
+    End
+
     Describe 'should_use_nvidia_open_drivers'
         # Tests for the GPU driver selection logic
         # Returns 0 (true) for open driver (A100+, H100, H200, etc.)
