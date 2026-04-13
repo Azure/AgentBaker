@@ -264,12 +264,6 @@ testPackagesInstalled() {
           "containerd")
             testContainerd "$version"
             ;;
-          "blobfuse")
-            testBlobfuse "$version"
-            ;;
-          "blobfuse2")
-            testBlobfuse2 "$version"
-            ;;
         esac
         break
 
@@ -2185,6 +2179,13 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
+# blobfuse/blobfuse2 are not yet in components.json, test with hardcoded versions
+if [ "$OS_SKU" = "Ubuntu" ]; then
+  testBlobfuse2 "2.5.2"
+  if [ "$OS_VERSION" = "20.04" ]; then
+    testBlobfuse "1.4.5"
+  fi
+fi
 # WALinuxAgent is installed post-deprovision (not via components.json),
 # so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
 if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
