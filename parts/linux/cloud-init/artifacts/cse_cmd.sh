@@ -178,6 +178,7 @@ SYSCTL_CONTENT="{{GetSysctlContent}}"
 PRIVATE_EGRESS_PROXY_ADDRESS="{{GetPrivateEgressProxyAddress}}"
 BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{GetBootstrapProfileContainerRegistryServer}}"
 MCR_REPOSITORY_BASE="{{GetMCRRepositoryBase}}"
+NETWORK_ISOLATED_CLUSTER_TEST_MODE="{{GetNetworkIsolatedClusterTestMode}}" # for ab e2e only for local ab test to download from acr regardless of cached
 ENABLE_IMDS_RESTRICTION="{{EnableIMDSRestriction}}"
 INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="{{InsertIMDSRestrictionRuleToMangleTable}}"
 SHOULD_ENABLE_LOCALDNS="{{ShouldEnableLocalDNS}}"
