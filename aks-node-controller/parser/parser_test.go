@@ -540,6 +540,6 @@ func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
 }
 
 func assertHasKeyWithValue[K comparable, V any](t *testing.T, m map[K]V, key K, value V) {
-	assert.Contains(t, m, key, "expected map to contain key: %s", key)
+	assert.Contains(t, m, key, "expected map to contain key: %v", key)
 	assert.Equal(t, value, m[key], "expected map to have key-value pair %s=%v", key, value)
 }
