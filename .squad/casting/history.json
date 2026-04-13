@@ -1,0 +1,46 @@
+{
+  "assignments": [
+    {
+      "assignment_id": "agentbaker-2026-04-12",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-12T00:00:00Z",
+      "agents": ["Kobayashi"]
+    },
+    {
+      "assignment_id": "agentbaker-2026-04-13-hockney",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:28:00Z",
+      "agents": ["Kobayashi", "Hockney"]
+    },
+    {
+      "assignment_id": "agentbaker-2026-04-13-fenster",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:31:00Z",
+      "agents": ["Kobayashi", "Hockney", "Fenster"]
+    },
+    {
+      "assignment_id": "agentbaker-2026-04-13-kujan",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:45:00Z",
+      "agents": ["Kobayashi", "Hockney", "Fenster", "Kujan"]
+    },
+    {
+      "assignment_id": "agentbaker-2026-04-13-keaton",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T05:00:00Z",
+      "agents": ["Kobayashi", "Hockney", "Fenster", "Kujan", "Keaton"]
+    },
+    {
+      "assignment_id": "agentbaker-2026-04-13-mcmanus",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:38:00Z",
+      "agents": ["Kobayashi", "Hockney", "Fenster", "Kujan", "Keaton", "McManus"]
+    },
+    {
+      "assignment_id": "agentbaker-2026-04-13-verbal",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T05:30:00Z",
+      "agents": ["Kobayashi", "Hockney", "Fenster", "Kujan", "Keaton", "McManus", "Verbal"]
+    }
+  ]
+}

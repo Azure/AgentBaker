@@ -1,0 +1,12 @@
+{
+  "universes": {
+    "active": "the-usual-suspects",
+    "capacity": 10
+  },
+  "rules": {
+    "scribe_exempt": true,
+    "ralph_exempt": true,
+    "copilot_exempt": true,
+    "no_rename_on_overflow": true
+  }
+}

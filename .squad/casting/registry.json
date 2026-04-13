@@ -1,0 +1,53 @@
+{
+  "agents": [
+    {
+      "persistent_name": "Kobayashi",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-12T00:00:00Z",
+      "legacy_named": true,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Hockney",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:28:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Fenster",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:31:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Kujan",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:45:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Keaton",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T05:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "McManus",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T04:38:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    {
+      "persistent_name": "Verbal",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-13T05:30:00Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  ]
+}
