@@ -403,6 +403,49 @@ installNvidiaManagedExpPkgFromCache() {
   done
 }
 
+
+findCachedRpmFileName() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local downloadDir="${3}"
+
+    local rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    echo "${rpmFile}"
+}
+
+buildRpmInstallArgsFromCache() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local rpmFile="${3}"
+    local downloadDir="${4}"
+
+    local -a rpmArgs=("${rpmFile}")
+    local -a cachedRpmFiles=()
+    mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
+
+    # selecting the correct version of dependency rpms from the cache
+    for cachedRpm in "${cachedRpmFiles[@]}"; do
+      if [ "${cachedRpm}" = "${rpmFile}" ]; then
+        continue
+      fi
+
+      local cachedBaseName
+      cachedBaseName=$(basename "${cachedRpm}")
+
+      case "${cachedBaseName}" in
+        *${packageName}*)
+          echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}" >&2
+          continue
+          ;;
+      esac
+
+      rpmArgs+=("${cachedRpm}")
+    done
+
+    printf '%s\n' "${rpmArgs[@]}"
+}
+
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
