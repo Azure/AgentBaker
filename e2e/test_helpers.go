@@ -211,10 +211,24 @@ func runScenario(t testing.TB, s *Scenario) error {
 	ctx := newTestCtx(t)
 	maybeSkipScenario(ctx, t, s)
 
-	_, err := CachedEnsureResourceGroup(ctx, s.Location)
-	require.NoError(t, err)
-	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
-	require.NoError(t, err)
+	if s.AzureClient != nil {
+		// RCV1P scenario: ensure RG and identity in the RCV1P subscription
+		_, err := CachedRCV1PEnsureResourceGroup(ctx, s.Location)
+		require.NoError(t, err)
+		_, err = CachedRCV1PCreateVMManagedIdentity(ctx, s.Location)
+		require.NoError(t, err)
+		// Also ensure default subscription infra (RG + identity + blob storage) is provisioned,
+		// since Windows log extraction on failure uploads to the default subscription's blob storage.
+		_, err = CachedEnsureResourceGroup(ctx, s.Location)
+		require.NoError(t, err)
+		_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
+		require.NoError(t, err)
+	} else {
+		_, err := CachedEnsureResourceGroup(ctx, s.Location)
+		require.NoError(t, err)
+		_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
+		require.NoError(t, err)
+	}
 	s.T = t
 	ctrruntimelog.SetLogger(zap.New())
 
@@ -260,6 +274,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	var err error
 	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
+
+	// Override subscription ID for RCV1P scenarios
+	if s.SubscriptionID != "" {
+		nbc.SubscriptionID = s.SubscriptionID
+	}
 
 	nbc.EnableScriptlessCSECmd = true
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
@@ -595,7 +614,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Ru
 		toolkit.Logf(ctx, "Command %q took %s", command, elapsed)
 	}()
 
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
+	runPoller, err := s.GetAzure().VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
 		CommandID: func() *string {
 			if s.IsWindows() {
 				return to.Ptr("RunPowerShellScript")
@@ -624,11 +643,11 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
-	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	vm, err := s.GetAzure().VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
 	s.T.Log("Deallocating VMSS VM...")
-	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
+	poll, err := s.GetAzure().VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
 	require.NoError(s.T, err, "Failed to begin deallocate")
 	_, err = poll.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to deallocate")
@@ -675,7 +694,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 
 	// Create the image version directly from the disk
 	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
-	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
+	createVersionOp, err := s.GetAzure().GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
 		Location: to.Ptr(s.Location),
 		Properties: &armcompute.GalleryImageVersionProperties{
 			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
@@ -711,7 +730,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
-		SubscriptionID:    config.Config.SubscriptionID,
+		SubscriptionID:    s.GetSubscriptionID(),
 		ResourceGroupName: rg,
 		Name:              *gallery.Name,
 	}

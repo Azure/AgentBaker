@@ -20,7 +20,7 @@ Describe 'init-aks-custom-cloud.sh refresh mode wiring'
     End
 
     It 'maps ussec/usnat locations to legacy cert endpoint mode'
-        When run grep -Eq 'ussec\*|usnat\*\) cert_endpoint_mode="legacy"' "$script_path"
+        When run grep -Eq 'ussec\*\|usnat\*\) cert_endpoint_mode="legacy"' "$script_path"
         The status should eq 0
     End
 
