@@ -398,8 +398,10 @@ function DownloadFileWithOras {
         if ($search.Count -ne 0) {
             Write-Log "Using cached version of $fileName - Copying file from $($search[0]) to $DestinationPath"
             Copy-Item -Path $search[0] -Destination $DestinationPath -Force
+            return
         }
-        return
+
+        Write-Log "Cached file $fileName was not found in cache directory '$($global:CacheDir)'. Falling back to oras pull."
     }
 
     Write-Log "Downloading $Reference to $DestinationPath via oras pull (platform=$Platform)"
