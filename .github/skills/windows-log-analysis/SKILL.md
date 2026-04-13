@@ -5,6 +5,11 @@ description: >
   Use this skill when asked to diagnose a Windows AKS node issue, investigate
   disk pressure, container failures, image accumulation, service crashes,
   network problems, or extension errors on a Windows node.
+  Also triggers for: "analyze these logs", "what's wrong with this node",
+  "look at this log bundle", "diagnose this Windows node", "why is this node unhealthy",
+  "check this Windows node", "investigate node issue".
+  DO NOT USE FOR: Linux node issues, AKS control plane issues,
+  Azure portal or ARM API errors, or logs not from collect-windows-logs.ps1.
 allowed-tools: shell
 ---
 
@@ -32,13 +37,15 @@ List the extracted log directory to identify:
 
 ### Step 2: Dispatch Sub-Skills
 
-Read `common-reference.md` first — it contains shared encoding/format knowledge and **dispatch guidance** for choosing the right sub-skills based on symptoms.
+Read `common-reference.md` first — it contains shared encoding/format knowledge, verification protocols, and **dispatch guidance** for choosing the right sub-skills based on symptoms.
+
+Sub-skills should also reference `thresholds.md` and `error-codes.md` as needed for their specific domain.
 
 **Always run** (triage):
 
 | Sub-Skill | What It Covers |
 |-----------|---------------|
-| `common-reference.md` | Encoding, formats, thresholds, error codes, dispatch guidance |
+| `common-reference.md` | Encoding, formats, verification protocols, dispatch guidance |
 | `analyze-containers.md` | Container restarts, crash-loops, pod readiness |
 | `analyze-services.md` | Windows service health, node versions, OS info |
 
@@ -64,6 +71,8 @@ Read `common-reference.md` first — it contains shared encoding/format knowledg
 | `analyze-extensions.md` | Azure VM extension execution errors |
 
 For unknown issues or comprehensive health checks, run all sub-skills in parallel.
+
+> **💡 Token budget:** For comprehensive health checks, dispatch sub-skills as parallel sub-agents rather than loading all sub-skills into a single context. Each sub-skill + common-reference is ~250 lines — manageable individually but loading all 16 sub-skills at once (~2,400 lines) will crowd the context window.
 
 ### Step 3: Verify and Challenge Findings
 

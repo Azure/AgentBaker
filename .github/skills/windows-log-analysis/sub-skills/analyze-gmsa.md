@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze gMSA — Container Credential Guard (CCG) & gMSA Authentication
 
 ## Purpose

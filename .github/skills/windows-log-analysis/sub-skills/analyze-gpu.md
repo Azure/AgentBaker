@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze GPU — GPU / DirectX Device Health Sub-Skill
 
 ## Purpose

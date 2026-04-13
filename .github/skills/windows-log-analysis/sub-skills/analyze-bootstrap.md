@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze Bootstrap — Node Provisioning & Bootstrap Health
 
 ## Purpose

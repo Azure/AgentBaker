@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze Memory — Physical Memory, Pagefile & OOM Sub-Skill
 
 ## Purpose

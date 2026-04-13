@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze HCS — Host Compute Service Operational Health
 
 ## Purpose

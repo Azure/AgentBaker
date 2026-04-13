@@ -140,135 +140,6 @@ If logs are missing, truncated, or ambiguous, say so explicitly:
 | Service in "demand start" mode | May be intentional for optional services | Check if it's a critical AKS service (see table below) |
 | Dangling images present | Small numbers are normal GC lag | Only flag if >20 dangling or growing across snapshots |
 
-## Standard Thresholds
-
-### Disk
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| C: drive free space | ≥30 GB | <30 GB | <15 GB |
-
-### Container Images & Snapshots
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| Dangling images | <5 | ≥5 | ≥20 |
-| containerd snapshots | <500 | ≥500 | ≥1000 |
-
-### Container Health
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| Container restart attempts | 1–9 | — | ≥10 (crash-looping) |
-
-### HCS & Termination
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| HCS terminate failures (unmatched) | 1–5 | 6–50 | >50 |
-| Orphaned shims | — | any | stable PID across ≥2 snapshots |
-| HCS Create-to-Start duration | <30s | 30–120s | >120s |
-| HCS Shutdown-to-Terminate duration | — | <30s (graceful failed fast) | >60s (HCS struggled) |
-| HCS error rate per operation type | <5% | 5–20% | >20% |
-| HCS creates per 5-minute window | <20 | 20–50 | >50 (creation storm) |
-| vmcompute working set (memory) | <150 MB | >500 MB | >1 GB |
-| vmcompute handle count | — | >5000 | — |
-
-### Memory
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| Available physical RAM | ≥2 GB | <2 GB | <500 MB |
-| Pagefile (manual) size | ≥1024 MB | <1024 MB | — |
-| Pagefile current usage | — | peak >80% of allocated | >90% of allocated |
-| Commit charge vs limit | — | within 25% of limit | within 10% of limit |
-| Single process working set | — | containerd/kubelet >1 GB | any process >4 GB |
-
-### kube-proxy & Port Exhaustion
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| kube-proxy sync delay after restart | <5 min | 5–30 min | >30 min |
-| Excluded port ranges count | — | >20 | overlaps NodePort 30000–32767 |
-| Available ephemeral ports | >5000 | <5000 | <1000 or "Couldn't reserve" |
-| Stale LB deletions per sync cycle | — | ongoing beyond startup | >50 per cycle |
-
-### GPU
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| GPU temperature | <80°C | 80–90°C | >90°C |
-| GPU memory usage | — | >95% | — |
-| Power usage | — | at/exceeding cap | — |
-| Uncorrectable ECC errors | 0 | — | >0 |
-| Single-bit ECC errors (aggregate) | — | >100 | — |
-| Retired GPU memory pages | 0 | >0 but below limit | approaching limit (~48) |
-
-### CSI Proxy
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| CSI proxy working set | <50 MB | >200 MB | — |
-| CSI proxy service state | RUNNING | — | STOPPED |
-
-### Bootstrap (CSE)
-
-| Metric | 🔵 INFO | 🟡 WARNING | 🔴 CRITICAL |
-|--------|---------|------------|-------------|
-| CSE exit code | 0 | — | any non-zero (see analyze-bootstrap.md for full code table) |
-| Download step duration | <2 min | >5 min | — |
-
-## HCS Error Codes
-
-| Code | Name | Meaning |
-|------|------|---------|
-| `0x80370100` / `0xC0370100` | `HCS_E_TERMINATED_DURING_START` | Container crashed during startup |
-| `0x80370101` / `0xC0370101` | `HCS_E_IMAGE_MISMATCH` | OS version mismatch between container image and host |
-| `0x80370103` / `0xC0370103` | `HCS_E_PROCESS_ALREADY_STOPPED` | Container process already exited but HCS didn't clean up — zombie state |
-| `0x8037011F` / `0xC037011F` | `HCS_E_PROCESS_ALREADY_STOPPED` | Similar zombie state — distinct error code; both present identically in practice. (`0x80370103` is the expected HRESULT pair for `0xC0370103`; the relationship between `0x8037011F` and `0xC0370103` is unconfirmed — treat them separately.) |
-| `0x80370106` / `0xC0370106` | `HCS_E_UNEXPECTED_EXIT` | Container exited unexpectedly |
-| `0x80370109` / `0xC0370109` | `HCS_E_CONNECTION_TIMEOUT` | HCS operation timed out — vmcompute overloaded |
-| `0x8037010E` / `0xC037010E` | `HCS_E_SYSTEM_NOT_FOUND` | Containerd referencing unknown container — race condition |
-| `0x8037010F` | `HCS_E_SYSTEM_ALREADY_EXISTS` | Stale HCS state from previous containerd instance |
-| `0x80370110` / `0xC0370110` | `HCS_E_SYSTEM_ALREADY_STOPPED` | Stopping already-stopped container — usually benign |
-| `0x80370118` / `0xC0370118` | `HCS_E_OPERATION_TIMEOUT` | Operation exceeded internal timeout — HCS performance issue |
-| `0x8037011E` / `0xC037011E` | `HCS_E_SERVICE_DISCONNECT` | vmcompute crashed/restarted — all containers affected |
-| `0x800705AA` | Insufficient system resources | Resource exhaustion creating network compartments |
-
-**Note**: Error codes appear in both HRESULT (`0x8037xxxx`) and NTSTATUS (`0xC037xxxx`) forms in logs. Match both patterns.
-
-## HNS Error Codes
-
-**⚠️ There is no official HNS error code reference.** The codes below are assembled from community knowledge, AKS field experience, and CNI log patterns. Treat them as best-effort rather than authoritative.
-
-HNS surfaces Win32 error codes in CNI log messages of the form `hnsCall failed in Win32: <message>`:
-
-| Win32 Code | Message | Meaning |
-|------------|---------|---------|
-| `0x1392` (5010) | `The object already exists` | Stale endpoint blocking new creation — cleanup incomplete after previous deletion |
-| `0x490` (1168) | `Element not found` | HNS endpoint/network was deleted or state was reset — reference to non-existent object |
-| `0x57` (87) | `The parameter is incorrect` | Malformed HNS request — misconfigured CNI or credential spec |
-| `0x5` (5) | `Access is denied` | Permission error during HNS operation |
-
-## Windows Event IDs
-
-| Event ID | Source | Meaning |
-|----------|--------|---------|
-| 2000 | Hyper-V Compute | Create compute system |
-| 2001 | Hyper-V Compute | Start compute system |
-| 2002 | Hyper-V Compute | Shut down compute system |
-| 2003 | Hyper-V Compute | Terminate compute system |
-| 2004 | Microsoft-Windows-Resource-Exhaustion-Detector | Resource exhaustion detected / low memory condition |
-| 6008 | System | Unexpected shutdown (preceding crash/BSOD) |
-
-**Note:** Windows Event IDs are **not globally unique** — the same numeric ID can appear under different providers with different meanings. When writing analysis logic, always key on **Event ID + Source** together.
-**CCG (Container Credential Guard) Events** — used by gMSA:
-
-| Event ID | Source | Meaning |
-|----------|--------|---------|
-| 1 | CCG | Credential retrieval success |
-| 2 | CCG | Credential retrieval failure |
-
 ## Critical Windows Services
 
 These services are expected to be **Running** on a healthy AKS Windows node:
@@ -388,3 +259,8 @@ When analyzing a log bundle, don't run all sub-skills. Use these patterns:
 ### Full Analysis
 
 For unknown issues or comprehensive health checks, run all sub-skills in parallel.
+
+## See Also
+
+- [thresholds.md](thresholds.md) — Standard thresholds for all metrics
+- [error-codes.md](error-codes.md) — HCS, HNS, and Windows Event ID reference

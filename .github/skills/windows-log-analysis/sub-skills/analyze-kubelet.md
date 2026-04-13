@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze Kubelet — Kubelet Health & Node Conditions Sub-Skill
 
 ## Purpose

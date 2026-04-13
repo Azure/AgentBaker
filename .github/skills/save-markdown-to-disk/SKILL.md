@@ -5,6 +5,8 @@ description: >
   Use this skill whenever you need to write markdown, code, or any multi-line
   text containing backticks, dollar signs, single quotes, or other shell
   metacharacters to a file.
+  DO NOT USE FOR: writing simple single-line text files, binary files,
+  or appending to existing files (this skill overwrites).
 allowed-tools: create, python3, shell
 ---
 

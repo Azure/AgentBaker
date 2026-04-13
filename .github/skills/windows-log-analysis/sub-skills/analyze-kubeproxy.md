@@ -1,3 +1,5 @@
+> **Prerequisite:** Read `common-reference.md` before using this sub-skill.
+
 # Analyze kube-proxy — Windows kube-proxy & Service Routing Sub-Skill
 
 ## Purpose
