@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -208,10 +209,20 @@ type CSETimingThresholds struct {
 	TotalCSEThreshold time.Duration
 }
 
-// ValidateCSETimings extracts CSE task timings from the VM, logs them, and validates against thresholds.
+// ValidateCSETimings extracts CSE task timings from the VM, logs them, and validates
+// against thresholds. Each threshold check runs as a t.Run() sub-test so that ADO
+// Pipeline Analytics (via gotestsum → JUnit XML → PublishTestResults) can track
+// individual CSE task pass/fail and duration trends over time.
 func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingThresholds) *CSETimingReport {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating CSE task timings")()
+
+	// Type-assert to *testing.T so we can use t.Run() for sub-tests.
+	// This is safe: E2E scenarios always run under *testing.T.
+	tRunner, ok := s.T.(*testing.T)
+	if !ok {
+		s.T.Fatalf("ValidateCSETimings requires *testing.T for sub-test support, got %T", s.T)
+	}
 
 	report, err := ExtractCSETimings(ctx, s)
 	if err != nil {
@@ -231,25 +242,35 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		s.T.Errorf("expected AKS.CSE.cse_start task not found in timing report")
 	}
 
-	// Validate total CSE duration
+	// Validate total CSE duration as a sub-test for ADO tracking
 	if thresholds.TotalCSEThreshold > 0 {
-		totalDuration := report.TotalCSEDuration()
-		if totalDuration > thresholds.TotalCSEThreshold {
-			toolkit.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
-				fmt.Sprintf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
-			s.T.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold)
-		}
+		tRunner.Run("TotalCSEDuration", func(t *testing.T) {
+			totalDuration := report.TotalCSEDuration()
+			t.Logf("total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
+			if totalDuration > thresholds.TotalCSEThreshold {
+				toolkit.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
+					fmt.Sprintf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
+				t.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold)
+			}
+		})
 	}
 
-	// Validate individual task thresholds
+	// Validate individual task thresholds — each as a sub-test for ADO tracking.
+	// ADO Test Analytics will show per-task pass/fail trends and flag regressions.
 	for _, task := range report.Tasks {
 		for suffix, maxDuration := range thresholds.TaskThresholds {
 			if strings.HasSuffix(task.TaskName, suffix) {
-				if task.Duration > maxDuration {
-					toolkit.LogDuration(ctx, task.Duration, maxDuration,
-						fmt.Sprintf("CSE task %s took %s (threshold: %s)", task.TaskName, task.Duration, maxDuration))
-					s.T.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration)
-				}
+				task := task
+				suffix := suffix
+				maxDuration := maxDuration
+				tRunner.Run(fmt.Sprintf("Task_%s", suffix), func(t *testing.T) {
+					t.Logf("task %s duration: %s (threshold: %s)", task.TaskName, task.Duration, maxDuration)
+					if task.Duration > maxDuration {
+						toolkit.LogDuration(ctx, task.Duration, maxDuration,
+							fmt.Sprintf("CSE task %s took %s (threshold: %s)", task.TaskName, task.Duration, maxDuration))
+						t.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration)
+					}
+				})
 				break
 			}
 		}

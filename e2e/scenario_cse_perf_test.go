@@ -14,27 +14,29 @@ import (
 // CSE performance thresholds for the golden image (cached) path.
 // These represent the expected normal performance when all binaries are pre-cached on the VHD.
 // If any of these are exceeded, it indicates a regression in CSE task ordering or apt lock contention.
+// Thresholds are set at ~2-3x observed healthy values to allow for infrastructure variance
+// while still catching real regressions (e.g., apt lock contention adds 30-50s).
 var cachedCSEThresholds = CSETimingThresholds{
-	TotalCSEThreshold: 60 * time.Second,
+	TotalCSEThreshold: 35 * time.Second,
 	TaskThresholds: map[string]time.Duration{
-		"installDebPackageFromFile":   25 * time.Second,
-		"aptmarkWALinuxAgent":         10 * time.Second,
-		"configureKubeletAndKubectl":  30 * time.Second,
-		"ensureContainerd":            15 * time.Second,
+		"installDebPackageFromFile":  10 * time.Second, // healthy: ~2-4s with dpkg -i
+		"aptmarkWALinuxAgent":         5 * time.Second, // healthy: ~0.5s with dpkg --set-selections
+		"configureKubeletAndKubectl": 15 * time.Second, // healthy: ~5-8s
+		"ensureContainerd":            8 * time.Second, // healthy: ~2-3s on cached path
 	},
 }
 
 // CSE performance thresholds for the full install path.
 // These are more generous since the full path includes downloading and installing packages.
 var fullInstallCSEThresholds = CSETimingThresholds{
-	TotalCSEThreshold: 120 * time.Second,
+	TotalCSEThreshold: 90 * time.Second,
 	TaskThresholds: map[string]time.Duration{
-		"installDeps":                90 * time.Second,
-		"installContainerRuntime":    60 * time.Second,
-		"installDebPackageFromFile":  30 * time.Second,
-		"aptmarkWALinuxAgent":        15 * time.Second,
-		"configureKubeletAndKubectl": 45 * time.Second,
-		"ensureContainerd":           30 * time.Second,
+		"installDeps":                60 * time.Second, // healthy: ~20-30s
+		"installContainerRuntime":    45 * time.Second, // healthy: ~15-25s
+		"installDebPackageFromFile":  15 * time.Second, // healthy: ~5-8s
+		"aptmarkWALinuxAgent":         8 * time.Second, // healthy: ~1-3s
+		"configureKubeletAndKubectl": 25 * time.Second, // healthy: ~8-12s
+		"ensureContainerd":           15 * time.Second, // healthy: ~5-8s
 	},
 }
 
