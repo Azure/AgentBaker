@@ -111,6 +111,8 @@ func (r *CSETimingReport) LogReport(ctx context.Context, t interface{ Logf(strin
 }
 
 // ExtractCSETimings SSHes into the scenario VM and extracts all CSE task timings.
+// Returns an error if no tasks could be parsed, since an empty report would make
+// regression detection ineffective.
 func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, error) {
 	report := &CSETimingReport{}
 
@@ -123,6 +125,7 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 
 	// Each line is a separate JSON object (one per event file)
 	lines := strings.Split(strings.TrimSpace(result.stdout), "\n")
+	var parseErrors int
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -131,6 +134,8 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 
 		var event cseEventJSON
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			parseErrors++
+			s.T.Logf("WARNING: failed to unmarshal CSE event JSON: %v (line: %.100s)", err, line)
 			continue
 		}
 		if event.TaskName == "" || event.Timestamp == "" || event.OperationId == "" {
@@ -139,10 +144,14 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 
 		startTime, err := parseCSETimestamp(event.Timestamp)
 		if err != nil {
+			parseErrors++
+			s.T.Logf("WARNING: failed to parse CSE start timestamp for task %s: %v", event.TaskName, err)
 			continue
 		}
 		endTime, err := parseCSETimestamp(event.OperationId)
 		if err != nil {
+			parseErrors++
+			s.T.Logf("WARNING: failed to parse CSE end timestamp for task %s: %v", event.TaskName, err)
 			continue
 		}
 
@@ -153,6 +162,13 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 			Duration:  endTime.Sub(startTime),
 			Message:   event.Message,
 		})
+	}
+
+	if parseErrors > 0 {
+		s.T.Logf("WARNING: %d CSE event parse errors encountered", parseErrors)
+	}
+	if len(report.Tasks) == 0 {
+		return report, fmt.Errorf("no CSE task timings were parsed from %d event lines (%d parse errors)", len(lines), parseErrors)
 	}
 
 	// Read provision.json for overall boot timing
@@ -204,6 +220,16 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 
 	// Always log the full timing report
 	report.LogReport(ctx, s.T)
+
+	// Fail if no tasks were parsed — an empty report makes regression detection ineffective
+	if len(report.Tasks) == 0 {
+		s.T.Fatalf("no CSE task timings were parsed; cannot validate performance thresholds")
+	}
+
+	// Fail if the critical cse_start task is missing
+	if report.GetTask("AKS.CSE.cse_start") == nil {
+		s.T.Errorf("expected AKS.CSE.cse_start task not found in timing report")
+	}
 
 	// Validate total CSE duration
 	if thresholds.TotalCSEThreshold > 0 {
