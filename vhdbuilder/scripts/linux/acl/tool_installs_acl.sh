@@ -58,6 +58,17 @@ configureFirstBootPresets() {
     systemctl stop docker.socket || true
     systemctl mask docker.socket || true
 
+    # Mask ignition-file-extract and ignition-bootcmds so that first-boot
+    # preset-all cannot re-enable them. Ignition recreates 20-ignition.preset
+    # at every boot (in initramfs), so deleting the preset file is not enough.
+    # Masking (symlink to /dev/null) prevents systemctl enable from working
+    # regardless of preset rules.
+    # Without this, the tar extraction overwrites VHD scripts with
+    # baker-rendered versions that may use wrong install methods (e.g.
+    # rpm2cpio instead of mergeSysexts for ACL BYOI).
+    systemctl mask ignition-file-extract.service || true
+    systemctl mask ignition-bootcmds.service || true
+
     mkdir -p /etc/systemd/system-preset
     cat > /etc/systemd/system-preset/99-default-disable.preset <<'EOF'
 # AKS services (not covered by OS presets)

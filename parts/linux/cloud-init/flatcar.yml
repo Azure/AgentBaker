@@ -3,7 +3,7 @@ version: 1.1.0
 systemd:
   units:
     - name: ignition-bootcmds.service
-      enabled: true
+      enabled: false
       contents: |
         [Unit]
         Description=Ignition Early Boot Commands
@@ -20,7 +20,7 @@ systemd:
         WantedBy=sysinit.target
 
     - name: ignition-file-extract.service
-      enabled: true
+      enabled: false
       contents: |
         [Unit]
         Description=Extract Ignition file payload
