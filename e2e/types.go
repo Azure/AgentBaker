@@ -414,8 +414,11 @@ func (s *Scenario) IsHostsPluginEnabled() bool {
 // AgentBaker e2e only runs in public cloud, so sovereign cloud branches are unnecessary.
 func (s *Scenario) GetDefaultFQDNsForValidation() []string {
 	return []string{
+		"acs-mirror.azureedge.net",
 		"mcr.microsoft.com",
 		"login.microsoftonline.com",
+		"management.azure.com",
+		"packages.microsoft.com",
 		"packages.aks.azure.com",
 	}
 }

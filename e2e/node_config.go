@@ -226,6 +226,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		},
 		LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 			EnableLocalDns:       true,
+			EnableHostsPlugin:    true,
 			CpuLimitInMilliCores: to.Ptr(int32(2008)),
 			MemoryLimitInMb:      to.Ptr(int32(256)),
 			VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
@@ -293,8 +294,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 				},
 			},
 			CriticalFqdns: []string{
+				"acs-mirror.azureedge.net",
 				"mcr.microsoft.com",
 				"login.microsoftonline.com",
+				"management.azure.com",
+				"packages.microsoft.com",
 				"packages.aks.azure.com",
 			},
 		},
@@ -466,6 +470,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						AgentPoolWindowsProfile: nil,
 						LocalDNSProfile: &datamodel.LocalDNSProfile{
 							EnableLocalDNS:       true,
+							EnableHostsPlugin:    true,
 							CPULimitInMilliCores: to.Ptr(int32(2008)),
 							MemoryLimitInMB:      to.Ptr(int32(128)),
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
@@ -533,8 +538,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 								},
 							},
 							CriticalFQDNs: []string{
+								"acs-mirror.azureedge.net",
 								"mcr.microsoft.com",
 								"login.microsoftonline.com",
+								"management.azure.com",
+								"packages.microsoft.com",
 								"packages.aks.azure.com",
 							},
 						},
@@ -620,6 +628,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			},
 			LocalDNSProfile: &datamodel.LocalDNSProfile{
 				EnableLocalDNS:       true,
+				EnableHostsPlugin:    true,
 				CPULimitInMilliCores: to.Ptr(int32(2008)),
 				MemoryLimitInMB:      to.Ptr(int32(128)),
 				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
@@ -687,8 +696,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 					},
 				},
 				CriticalFQDNs: []string{
+					"acs-mirror.azureedge.net",
 					"mcr.microsoft.com",
 					"login.microsoftonline.com",
+					"management.azure.com",
+					"packages.microsoft.com",
 					"packages.aks.azure.com",
 				},
 			},
