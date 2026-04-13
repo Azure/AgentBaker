@@ -137,7 +137,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT":   config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetAttestedDataTimeout(),
 		"SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT":      config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetCredentialTimeout(),
 		"SECURE_TLS_BOOTSTRAPPING_DEADLINE":                    config.GetBootstrappingConfig().GetSecureTlsBootstrappingDeadline(),
-		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_URL":           config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
+		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL":  config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
 		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":          fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
 		"DHCPV6_SERVICE_FILEPATH":                              getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                               getDHCPV6ConfigFilepath(),
