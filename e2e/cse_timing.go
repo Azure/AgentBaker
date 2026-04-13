@@ -225,10 +225,10 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating CSE task timings")()
 
-	// Type-assert to *testing.T so we can use t.Run() for sub-tests.
-	// This is safe: E2E scenarios always run under *testing.T.
-	tRunner, ok := s.T.(*testing.T)
-	if !ok {
+	// Unwrap the underlying *testing.T from the toolkit logger wrapper
+	// so we can use t.Run() for sub-tests (ADO Pipeline Analytics tracking).
+	tRunner := toolkit.UnwrapTestingT(s.T)
+	if tRunner == nil {
 		s.T.Fatalf("ValidateCSETimings requires *testing.T for sub-test support, got %T", s.T)
 	}
 
