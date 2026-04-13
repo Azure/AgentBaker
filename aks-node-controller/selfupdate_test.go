@@ -67,7 +67,7 @@ func TestDetectPackageManager(t *testing.T) {
 	if err != nil {
 		t.Skipf("skipping on unsupported OS: %v", err)
 	}
-	assert.Contains(t, []string{"apt-get", "dnf", "tdnf"}, pkgMgr)
+	assert.Contains(t, []packageManager{pkgMgrApt, pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
 }
 
 func TestResolveMicrosoftProdSourceListPath(t *testing.T) {

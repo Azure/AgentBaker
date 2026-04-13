@@ -103,9 +103,18 @@ func readHotfixVersion(path string) (string, error) {
 	return strings.TrimSpace(cfg.Version), nil
 }
 
-// detectPackageManager returns the package manager command for the current OS.
-// It reads /etc/os-release to determine whether to use apt-get (Ubuntu) or tdnf/dnf (AzureLinux/Mariner).
-func detectPackageManager() (string, error) {
+// packageManager represents a supported system package manager.
+type packageManager string
+
+const (
+	pkgMgrApt  packageManager = "apt-get"
+	pkgMgrDnf  packageManager = "dnf"
+	pkgMgrTdnf packageManager = "tdnf"
+)
+
+// detectPackageManager returns the package manager for the current OS.
+// It reads /etc/os-release to determine whether to use apt-get (Ubuntu) or dnf/tdnf (AzureLinux/Mariner).
+func detectPackageManager() (packageManager, error) {
 	data, err := os.ReadFile("/etc/os-release")
 	if err != nil {
 		return "", fmt.Errorf("reading /etc/os-release: %w", err)
@@ -118,7 +127,7 @@ func detectPackageManager() (string, error) {
 			id = strings.ToLower(id)
 			switch id {
 			case "ubuntu":
-				return "apt-get", nil
+				return pkgMgrApt, nil
 			case "azurelinux", "mariner":
 				return preferredRpmManager(), nil
 			default:
@@ -130,11 +139,11 @@ func detectPackageManager() (string, error) {
 }
 
 // preferredRpmManager returns dnf if available, falling back to tdnf (used by OS Guard).
-func preferredRpmManager() string {
+func preferredRpmManager() packageManager {
 	if _, err := exec.LookPath("dnf"); err == nil {
-		return "dnf"
+		return pkgMgrDnf
 	}
-	return "tdnf"
+	return pkgMgrTdnf
 }
 
 // installFromPMC installs the hotfix package from PMC using the system package manager.
@@ -145,10 +154,10 @@ func (a *App) installFromPMC(ctx context.Context, version string) error {
 	}
 
 	switch pkgMgr {
-	case "apt-get":
+	case pkgMgrApt:
 		return a.installWithApt(ctx, version)
-	case "dnf", "tdnf":
-		return a.installWithRpm(ctx, pkgMgr, version)
+	case pkgMgrDnf, pkgMgrTdnf:
+		return a.installWithRpm(ctx, string(pkgMgr), version)
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pkgMgr)
 	}
