@@ -413,6 +413,13 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
 }
 
+func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+	s.T.Helper()
+	command := fmt.Sprintf("[ -d %s ] && [ -z \"$(ls -A %s)\" ]", dirName, dirName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+		fmt.Sprintf("expected directory %s to be empty or not exist", dirName))
+}
+
 func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -2246,4 +2253,104 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
+}
+
+// ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during
+// Linux node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
+func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows rcv1p mode was selected
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Using custom cloud certificate endpoint mode: rcv1p")
+
+	// Validate the subscription is opted in for root certs
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"IsOptedInForRootCerts=true")
+
+	// Validate certificates were downloaded
+	ValidateNonEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+
+	// Validate trust store was updated (distro-specific path)
+	trustStoreDir := rcv1pTrustStoreDir(s)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		fmt.Sprintf("sudo ls -1 %s/*.crt 2>/dev/null || sudo ls -1 %s/*.pem 2>/dev/null", trustStoreDir, trustStoreDir),
+		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir))
+
+	// Validate refresh schedule was created (cron or systemd timer depending on distro)
+	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
+		// Flatcar and ACL use systemd timer
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl is-enabled azure-ca-refresh.timer",
+			0, "expected azure-ca-refresh.timer to be enabled")
+	} else {
+		// Ubuntu, Mariner, AzureLinux use cron
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+			0, "expected ca-refresh cron entry")
+	}
+}
+
+// rcv1pTrustStoreDir returns the OS trust store directory for the given scenario's distro.
+func rcv1pTrustStoreDir(s *Scenario) string {
+	switch s.VHD.OS {
+	case config.OSMariner, config.OSAzureLinux, config.OSACL:
+		return "/etc/pki/ca-trust/source/anchors"
+	case config.OSFlatcar:
+		return "/etc/ssl/certs"
+	default:
+		// Ubuntu and anything else
+		return "/usr/local/share/ca-certificates"
+	}
+}
+
+// ValidateRCV1PCertModeWindows validates that the rcv1p certificate endpoint mode was used during
+// Windows node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
+func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate CA certificates were installed to the Windows certificate store
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if (-not (Test-Path $caFolder)) { throw 'CA certificates folder C:\\ca does not exist' }",
+		"$certs = Get-ChildItem -Path $caFolder -File",
+		"if ($certs.Count -eq 0) { throw 'No certificates found in C:\\ca folder' }",
+		"Write-Host \"Found $($certs.Count) certificate(s) in $caFolder\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected certificates in C:\\ca")
+
+	// Validate the refresh scheduled task exists
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if (-not $task) { throw 'aks-ca-certs-refresh-task scheduled task not found' }",
+		"Write-Host \"Scheduled task found: $($task.TaskName) (State: $($task.State))\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected aks-ca-certs-refresh-task scheduled task")
+}
+
+// ValidateRCV1PNotOptedIn validates that when the VM does NOT have the opt-in tag,
+// wireserver returns IsOptedInForRootCerts=false and no certificates are installed,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate the provisioning log shows rcv1p mode was selected
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Using custom cloud certificate endpoint mode: rcv1p")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+
+	// Validate no certificates were downloaded
+	ValidateEmptyDirectory(ctx, s, "/root/AzureCACertificates")
+
+	// Validate no refresh schedule was created
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+		1, "expected no ca-refresh cron entry when not opted in")
 }

@@ -299,13 +299,13 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 }
 
 func addFirewallRules(
-	ctx context.Context, clusterModel *armcontainerservice.ManagedCluster,
+	ctx context.Context, infra *ClusterInfra, clusterModel *armcontainerservice.ManagedCluster,
 ) error {
 	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, "adding firewall rules")()
 
 	rg := *clusterModel.Properties.NodeResourceGroup
-	vnet, err := getClusterVNet(ctx, rg)
+	vnet, err := getClusterVNet(ctx, infra, rg)
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func addFirewallRules(
 	// (managed by cloud-provider-azure) and firewall routes coexist. Creating
 	// a separate route table and swapping the subnet association disconnects
 	// the pod routes and breaks kubenet networking.
-	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, rg, vnet.name, "aks-subnet", nil)
+	aksSubnetResp, err := infra.Azure.Subnet.Get(ctx, rg, vnet.name, "aks-subnet", nil)
 	if err != nil {
 		return fmt.Errorf("failed to get AKS subnet: %w", err)
 	}
@@ -342,7 +342,7 @@ func addFirewallRules(
 	}
 
 	toolkit.Logf(ctx, "Creating subnet %s in VNet %s", firewallSubnetName, vnet.name)
-	subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(
+	subnetPoller, err := infra.Azure.Subnet.BeginCreateOrUpdate(
 		ctx,
 		rg,
 		vnet.name,
@@ -375,7 +375,7 @@ func addFirewallRules(
 	}
 
 	toolkit.Logf(ctx, "Creating public IP %s", publicIPName)
-	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(
+	pipPoller, err := infra.Azure.PublicIPAddresses.BeginCreateOrUpdate(
 		ctx,
 		rg,
 		publicIPName,
@@ -396,7 +396,7 @@ func addFirewallRules(
 
 	firewallName := "abe2e-fw"
 	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
-	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, firewallName, *firewall, nil)
+	fwPoller, err := infra.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, firewallName, *firewall, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start Firewall creation: %w", err)
 	}
@@ -442,7 +442,7 @@ func addFirewallRules(
 
 	for _, route := range firewallRoutes {
 		toolkit.Logf(ctx, "Adding route %q to AKS route table %q", *route.Name, aksRTName)
-		poller, err := config.Azure.Routes.BeginCreateOrUpdate(ctx, rg, aksRTName, *route.Name, route, nil)
+		poller, err := infra.Azure.Routes.BeginCreateOrUpdate(ctx, rg, aksRTName, *route.Name, route, nil)
 		if err != nil {
 			return fmt.Errorf("failed to start adding route %q: %w", *route.Name, err)
 		}
@@ -468,7 +468,7 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 	if err := createPrivateAzureContainerRegistryPullSecret(ctx, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
 		return fmt.Errorf("create private acr pull secret: %w", err)
 	}
-	vnet, err := getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, DefaultClusterInfra, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}
@@ -489,7 +489,7 @@ func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainers
 	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
 
-	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, DefaultClusterInfra, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}
@@ -636,7 +636,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontai
 		}
 		// if ACR gets recreated so should the cluster
 		toolkit.Logf(ctx, "Private ACR deleted, deleting cluster %s", *cluster.Name)
-		if err := deleteCluster(ctx, *cluster.Name, resourceGroup); err != nil {
+		if err := deleteCluster(ctx, DefaultClusterInfra, *cluster.Name, resourceGroup); err != nil {
 			return fmt.Errorf("failed to delete cluster: %w", err)
 		}
 	} else {

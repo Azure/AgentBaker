@@ -64,14 +64,14 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // This function contains complex concurrent orchestration — keep it as
 // minimal as possible and push all non-trivial logic into the individual
 // task functions it calls.
-func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, infra *ClusterInfra, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 
 	clusterModel.Name = to.Ptr(fmt.Sprintf("%s-%s", *clusterModel.Name, hash(clusterModel)))
 
-	cluster, err := getOrCreateCluster(ctx, clusterModel)
+	cluster, err := getOrCreateCluster(ctx, infra, clusterModel)
 	if err != nil {
 		return nil, fmt.Errorf("get or create cluster: %w", err)
 	}
@@ -82,11 +82,11 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	// finish before other subnet writes (firewall / network-isolated setup)
 	// to avoid Azure VNet serialisation races.
 	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
-		return getOrCreateBastion(ctx, cluster)
+		return getOrCreateBastion(ctx, infra, cluster)
 	})
 	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
-	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
-	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
+	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, infra, cluster) })
+	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, infra, cluster) })
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
@@ -97,12 +97,12 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	// objects whose backing VMSS no longer exist.
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, infra, cluster) }, bastion))
 	}
 	if isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
-	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
+	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, infra, cluster, k) }, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
@@ -112,6 +112,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	if err := g.Wait(); err != nil {
 		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
 	}
+
 	return &Cluster{
 		Model:           cluster,
 		Kube:            kube.MustGet(),
@@ -234,9 +235,10 @@ func hash(cluster *armcontainerservice.ManagedCluster) string {
 	return hexHash[:5]
 }
 
-func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func getOrCreateCluster(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	defer toolkit.LogStepCtxf(ctx, "get or create cluster %s", *cluster.Name)()
-	existingCluster, err := getExistingCluster(ctx, *cluster.Location, *cluster.Name)
+	rgName := infra.ResourceGroupName(*cluster.Location)
+	existingCluster, err := getExistingCluster(ctx, infra, rgName, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing cluster %q: %w, and wont retry", *cluster.Name, err)
 	}
@@ -246,13 +248,12 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 		return existingCluster, nil
 	}
 
-	return createNewAKSClusterWithRetry(ctx, cluster)
+	return createNewAKSClusterWithRetry(ctx, infra, rgName, cluster)
 }
 
 // isExistingCluster checks if an AKS cluster exists. return the cluster only if its provisioning state is Succeeded and can be used. non-nil error if not retriable
-func getExistingCluster(ctx context.Context, location, clusterName string) (*armcontainerservice.ManagedCluster, error) {
-	resourceGroupName := config.ResourceGroupName(location)
-	existingCluster, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
+func getExistingCluster(ctx context.Context, infra *ClusterInfra, resourceGroupName, clusterName string) (*armcontainerservice.ManagedCluster, error) {
+	existingCluster, err := infra.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) {
 		if azErr.StatusCode == 404 {
@@ -265,7 +266,7 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
-		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
+		nodeRGExists, err := isExistingResourceGroup(ctx, infra, *existingCluster.Properties.NodeResourceGroup)
 
 		if err != nil {
 			return nil, err
@@ -277,28 +278,28 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		fallthrough
 	case "Failed":
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
-		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
+		if err := deleteCluster(ctx, infra, clusterName, resourceGroupName); err != nil {
 			return nil, err
 		}
 		// Wait for Azure to confirm cluster is fully deleted before allowing recreation.
 		// This prevents "Reconcile managed identity credential failed" errors where Azure's
 		// backend still has stale references to the old cluster during the new cluster's
 		// identity reconciliation process.
-		if err := waitForClusterDeletion(ctx, clusterName, resourceGroupName); err != nil {
+		if err := waitForClusterDeletion(ctx, infra, clusterName, resourceGroupName); err != nil {
 			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
 	default:
 		// other provisioning state,  deleting, , stopping,,cancaled,cancelling,"Creating", "Updating", "Scaling", "Migrating", "Upgrading", "Starting", "Restoring": .. plus many others.
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Unexpected cluster provisioning state %s: %s", clusterName, *existingCluster.Properties.ProvisioningState)
-		return waitUntilClusterReady(ctx, clusterName, location)
+		return waitUntilClusterReady(ctx, infra, clusterName, resourceGroupName)
 	}
 }
 
-func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) error {
+func deleteCluster(ctx context.Context, infra *ClusterInfra, clusterName, resourceGroupName string) error {
 	defer toolkit.LogStepCtxf(ctx, "deleting cluster %s", clusterName)()
 	// beileih: why do we do this?
-	_, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
+	_, err := infra.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		var azErr *azcore.ResponseError
 		if errors.As(err, &azErr) && azErr.StatusCode == 404 {
@@ -308,7 +309,7 @@ func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) e
 		return fmt.Errorf("failed to retrieve cluster while trying to delete it %q: %w", clusterName, err)
 	}
 
-	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, resourceGroupName, clusterName, nil)
+	pollerResp, err := infra.Azure.AKS.BeginDelete(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster %q: %w", clusterName, err)
 	}
@@ -319,9 +320,9 @@ func deleteCluster(ctx context.Context, clusterName, resourceGroupName string) e
 	return nil
 }
 
-func waitForClusterDeletion(ctx context.Context, clusterName, resourceGroupName string) error {
+func waitForClusterDeletion(ctx context.Context, infra *ClusterInfra, clusterName, resourceGroupName string) error {
 	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		_, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
+		_, err := infra.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 		if err != nil {
 			var azErr *azcore.ResponseError
 			if errors.As(err, &azErr) && azErr.StatusCode == 404 {
@@ -333,11 +334,11 @@ func waitForClusterDeletion(ctx context.Context, clusterName, resourceGroupName 
 	})
 }
 
-func waitUntilClusterReady(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
+func waitUntilClusterReady(ctx context.Context, infra *ClusterInfra, name, resourceGroupName string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
-		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName(location), name, nil)
+		cluster, err = infra.Azure.AKS.Get(ctx, resourceGroupName, name, nil)
 		if err != nil {
 			return false, err
 		}
@@ -356,8 +357,8 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 	return &cluster.ManagedCluster, nil
 }
 
-func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
-	rgExistence, err := config.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
+func isExistingResourceGroup(ctx context.Context, infra *ClusterInfra, resourceGroupName string) (bool, error) {
+	rgExistence, err := infra.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
 	}
@@ -365,11 +366,11 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 	return rgExistence.Success, nil
 }
 
-func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func createNewAKSCluster(ctx context.Context, infra *ClusterInfra, rgName string, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	// Note, it seems like the operation still can start a trigger a new operation even if nothing has changes
-	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
+	pollerResp, err := infra.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
-		config.ResourceGroupName(*cluster.Location),
+		rgName,
 		*cluster.Name,
 		*cluster,
 		nil,
@@ -390,16 +391,16 @@ func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.Manag
 // that retries creating a cluster if it fails with a 409 Conflict error
 // clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
 // simple retry should be sufficient to avoid such conflicts
-func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func createNewAKSClusterWithRetry(ctx context.Context, infra *ClusterInfra, rgName string, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	maxRetries := 10
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
-			toolkit.Logf(ctx, "Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName(*cluster.Location))
+			toolkit.Logf(ctx, "Attempt %d: creating or updating cluster %s in region %s and rg %s", attempt+1, *cluster.Name, *cluster.Location, rgName)
 		}
 
-		createdCluster, err := createNewAKSCluster(ctx, cluster)
+		createdCluster, err := createNewAKSCluster(ctx, infra, rgName, cluster)
 		if err == nil {
 			return createdCluster, nil
 		}
@@ -442,7 +443,8 @@ func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerse
 }
 
 func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
-	toolkit.Logf(ctx, "creating maintenance configuration for cluster %s in rg %s", *cluster.Name, config.ResourceGroupName(*cluster.Location))
+	rgName := config.ResourceGroupName(*cluster.Location)
+	toolkit.Logf(ctx, "creating maintenance configuration for cluster %s in rg %s", *cluster.Name, rgName)
 	maintenance := armcontainerservice.MaintenanceConfiguration{
 		Properties: &armcontainerservice.MaintenanceConfigurationProperties{
 			MaintenanceWindow: &armcontainerservice.MaintenanceWindow{
@@ -464,7 +466,7 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 		},
 	}
 
-	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", maintenance, nil)
+	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, rgName, *cluster.Name, "default", maintenance, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance configuration: %w", err)
 	}
@@ -472,23 +474,23 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 	return &maintenance, nil
 }
 
-func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
+func getOrCreateBastion(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
 
-	existing, err := config.Azure.BastionHosts.Get(ctx, nodeRG, bastionName, nil)
+	existing, err := infra.Azure.BastionHosts.Get(ctx, nodeRG, bastionName, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == http.StatusNotFound {
-		return createNewBastion(ctx, cluster)
+		return createNewBastion(ctx, infra, cluster)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bastion %q in rg %q: %w", bastionName, nodeRG, err)
 	}
 
-	return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, nodeRG, *existing.BastionHost.Properties.DNSName), nil
+	return NewBastion(infra.Azure.Credential, infra.SubscriptionID, nodeRG, *existing.BastionHost.Properties.DNSName), nil
 }
 
-func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
+func createNewBastion(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	location := *cluster.Location
 	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
@@ -496,7 +498,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	publicIPName := fmt.Sprintf("%s-bastion-pip", *cluster.Name)
 	publicIPName = sanitizeAzureResourceName(publicIPName)
 
-	vnet, err := getClusterVNet(ctx, nodeRG)
+	vnet, err := getClusterVNet(ctx, infra, nodeRG)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster vnet in rg %q: %w", nodeRG, err)
 	}
@@ -510,7 +512,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	var bastionSubnetID string
-	bastionSubnet, subnetGetErr := config.Azure.Subnet.Get(ctx, nodeRG, vnet.name, bastionSubnetName, nil)
+	bastionSubnet, subnetGetErr := infra.Azure.Subnet.Get(ctx, nodeRG, vnet.name, bastionSubnetName, nil)
 	if subnetGetErr != nil {
 		var subnetAzErr *azcore.ResponseError
 		if !errors.As(subnetGetErr, &subnetAzErr) || subnetAzErr.StatusCode != http.StatusNotFound {
@@ -523,7 +525,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 				AddressPrefix: to.Ptr(bastionSubnetPrefix),
 			},
 		}
-		subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, nodeRG, vnet.name, bastionSubnetName, subnetParams, nil)
+		subnetPoller, err := infra.Azure.Subnet.BeginCreateOrUpdate(ctx, nodeRG, vnet.name, bastionSubnetName, subnetParams, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start creating bastion subnet: %w", err)
 		}
@@ -548,7 +550,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	toolkit.Logf(ctx, "creating bastion public IP %s (rg %s)", publicIPName, nodeRG)
-	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, nodeRG, publicIPName, pipParams, nil)
+	pipPoller, err := infra.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, nodeRG, publicIPName, pipParams, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start creating bastion public IP: %w", err)
 	}
@@ -585,7 +587,7 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	toolkit.Logf(ctx, "creating bastion %s (native client/tunneling enabled) in rg %s", bastionName, nodeRG)
-	bastionPoller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, nodeRG, bastionName, bastionHost, nil)
+	bastionPoller, err := infra.Azure.BastionHosts.BeginCreateOrUpdate(ctx, nodeRG, bastionName, bastionHost, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start creating bastion: %w", err)
 	}
@@ -594,23 +596,23 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 		return nil, fmt.Errorf("failed to create bastion: %w", err)
 	}
 
-	bastion := NewBastion(config.Azure.Credential, config.Config.SubscriptionID, nodeRG, *resp.BastionHost.Properties.DNSName)
+	bastion := NewBastion(infra.Azure.Credential, infra.SubscriptionID, nodeRG, *resp.BastionHost.Properties.DNSName)
 
-	if err := verifyBastion(ctx, cluster, bastion); err != nil {
+	if err := verifyBastion(ctx, infra, cluster, bastion); err != nil {
 		return nil, fmt.Errorf("failed to verify bastion: %w", err)
 	}
 	return bastion, nil
 }
 
-func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster, bastion *Bastion) error {
+func verifyBastion(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster, bastion *Bastion) error {
 	nodeRG := *cluster.Properties.NodeResourceGroup
-	vmssName, err := getSystemPoolVMSSName(ctx, cluster)
+	vmssName, err := getSystemPoolVMSSName(ctx, infra, cluster)
 	if err != nil {
 		return err
 	}
 
 	var vmssVM *armcompute.VirtualMachineScaleSetVM
-	pager := config.Azure.VMSSVM.NewListPager(nodeRG, vmssName, nil)
+	pager := infra.Azure.VMSSVM.NewListPager(nodeRG, vmssName, nil)
 	if pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -621,7 +623,7 @@ func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedClus
 		}
 	}
 
-	vmPrivateIP, err := getPrivateIPFromVMSSVM(ctx, nodeRG, vmssName, *vmssVM.InstanceID)
+	vmPrivateIP, err := getPrivateIPFromVMSSVMWithClient(ctx, infra.Azure, nodeRG, vmssName, *vmssVM.InstanceID)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -643,7 +645,7 @@ func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedClus
 	return fmt.Errorf("Executed ssh on wrong VM, Expected %s: %s", vmssName, result.stdout)
 }
 
-func getSystemPoolVMSSName(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+func getSystemPoolVMSSName(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (string, error) {
 	nodeRG := *cluster.Properties.NodeResourceGroup
 	var systemPoolName string
 	for _, pool := range cluster.Properties.AgentPoolProfiles {
@@ -651,7 +653,7 @@ func getSystemPoolVMSSName(ctx context.Context, cluster *armcontainerservice.Man
 			systemPoolName = *pool.Name
 		}
 	}
-	pager := config.Azure.VMSS.NewListPager(nodeRG, nil)
+	pager := infra.Azure.VMSS.NewListPager(nodeRG, nil)
 	if pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -683,8 +685,8 @@ type VNet struct {
 	subnetId string
 }
 
-func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, error) {
-	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
+func getClusterVNet(ctx context.Context, infra *ClusterInfra, mcResourceGroupName string) (VNet, error) {
+	pager := infra.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {
@@ -700,13 +702,13 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
 }
 
-func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) error {
+func collectGarbageVMSS(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) error {
 	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
 
 	// Build a set of all existing VMSS names while deleting old ones.
 	existingVMSS := map[string]struct{}{}
-	pager := config.Azure.VMSS.NewListPager(rg, nil)
+	pager := infra.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -729,7 +731,7 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 				continue
 			}
 
-			_, err := config.Azure.VMSS.BeginDelete(ctx, rg, *vmss.Name, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+			_, err := infra.Azure.VMSS.BeginDelete(ctx, rg, *vmss.Name, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 				ForceDeletion: to.Ptr(true),
 			})
 			if err != nil {
@@ -789,8 +791,12 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 }
 
 func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-	resourceGroupName := config.ResourceGroupName(location)
-	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
+	return ensureResourceGroupWithInfra(ctx, DefaultClusterInfra, location)
+}
+
+func ensureResourceGroupWithInfra(ctx context.Context, infra *ClusterInfra, location string) (armresources.ResourceGroup, error) {
+	resourceGroupName := infra.ResourceGroupName(location)
+	rg, err := infra.Azure.ResourceGroup.CreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		armresources.ResourceGroup{
