@@ -10,6 +10,10 @@ check_cloud_env_permissions() {
     printf "0%s" "$(stat -c "%a" "$AKS_CLOUD_ENV_FILE")"
 }
 
+check_hosts_file_permissions() {
+    stat -c '%a' "$AKS_LOCALDNS_HOSTS_FILE"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
@@ -1123,7 +1127,7 @@ SETUP_EOF
             The status should be success
             The output should include "aks-localdns-hosts-setup timer enabled successfully."
             The file "$AKS_LOCALDNS_HOSTS_FILE" should be exist
-            The result of "stat -c '%a' $AKS_LOCALDNS_HOSTS_FILE" should equal "644"
+            The result of function check_hosts_file_permissions should equal "644"
         End
 
         It 'should skip when LOCALDNS_CRITICAL_FQDNS is unset'
