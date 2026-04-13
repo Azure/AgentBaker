@@ -426,6 +426,13 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
 }
 
+func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+	s.T.Helper()
+	command := fmt.Sprintf("[ -d %s ] && [ -z \"$(ls -A %s)\" ]", dirName, dirName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+		fmt.Sprintf("expected directory %s to be empty or not exist", dirName))
+}
+
 func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 

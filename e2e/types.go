@@ -21,6 +21,33 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// ClusterInfra captures the Azure infrastructure scope for cluster operations.
+// It allows cluster creation and management to target different subscriptions.
+type ClusterInfra struct {
+	Azure             *config.AzureClient
+	SubscriptionID    string
+	ResourceGroupName func(location string) string
+}
+
+// DefaultClusterInfra uses the default subscription and resource group naming.
+var DefaultClusterInfra = &ClusterInfra{
+	Azure:             config.Azure,
+	SubscriptionID:    config.Config.SubscriptionID,
+	ResourceGroupName: config.ResourceGroupName,
+}
+
+// RCV1PClusterInfra returns the ClusterInfra for the RCV1P subscription, or nil if not configured.
+func RCV1PClusterInfra() *ClusterInfra {
+	if config.RCV1PAzure == nil {
+		return nil
+	}
+	return &ClusterInfra{
+		Azure:             config.RCV1PAzure,
+		SubscriptionID:    config.Config.RCV1PSubscriptionID,
+		ResourceGroupName: config.RCV1PResourceGroupName,
+	}
+}
+
 type Tags struct {
 	Name                   string
 	ImageName              string
@@ -35,6 +62,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
 }
 
@@ -146,6 +174,14 @@ type Scenario struct {
 	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
 	// a default size will be used.
 	K8sSystemPoolSKU string
+
+	// AzureClient overrides the default config.Azure client for this scenario.
+	// When nil, config.Azure is used.
+	AzureClient *config.AzureClient
+
+	// SubscriptionID overrides the default config.Config.SubscriptionID for this scenario.
+	// When empty, config.Config.SubscriptionID is used.
+	SubscriptionID string
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime

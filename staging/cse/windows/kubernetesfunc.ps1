@@ -89,7 +89,8 @@ function Register-CACertificatesRefreshTask {
     if ([string]::IsNullOrEmpty($Location)) {
         $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates | Out-Null }"
     } else {
-        $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$Location' | Out-Null }"
+        $escapedLocation = $Location -replace "'", "''"
+        $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$escapedLocation' | Out-Null }"
     }
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"$refreshCommand`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
