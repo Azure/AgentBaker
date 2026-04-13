@@ -18,12 +18,12 @@ import (
 // Thresholds are derived from production telemetry (Ubuntu 22.04, GuestAgentGenericLogs table,
 // FA database on azcore cluster, ~35K samples per task over 30 minutes):
 //   - Specific thresholds: set at ~p95 to catch regressions while tolerating normal infra variance
-//   - DefaultTaskThreshold: catches any task >1s not covered by specific thresholds
+//   - DefaultTaskThreshold: 45s catch-all for untracked tasks not covered by specific thresholds
 //   - aptmarkWALinuxAgent: bimodal distribution (p50=0.49s, p99=58s) due to apt lock contention,
 //     threshold at p90 since cached path should avoid lock contention
 var cachedCSEThresholds = CSETimingThresholds{
 	TotalCSEThreshold:    60 * time.Second,
-	DefaultTaskThreshold: 45 * time.Second, // generous catch-all for untracked tasks >1s
+	DefaultTaskThreshold: 45 * time.Second, // generous 45s catch-all for untracked tasks
 	TaskThresholds: map[string]time.Duration{
 		// Core kubelet/containerd install
 		"installDebPackageFromFile":  22 * time.Second, // prod p50=3.88s p95=21.55s p99=42.88s

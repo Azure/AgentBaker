@@ -78,7 +78,7 @@ func (r *CSETimingReport) TotalCSEDuration() time.Duration {
 }
 
 // LogReport logs all task timings to the test logger.
-func (r *CSETimingReport) LogReport(ctx context.Context, t interface{ Logf(string, ...any) }) {
+func (r *CSETimingReport) LogReport(_ context.Context, t interface{ Logf(string, ...any) }) {
 	t.Logf("=== CSE Task Timing Report ===")
 	t.Logf("%-60s %12s %12s", "Task", "Duration", "Start→End")
 	t.Logf("%s", strings.Repeat("-", 90))
@@ -117,8 +117,9 @@ func (r *CSETimingReport) LogReport(ctx context.Context, t interface{ Logf(strin
 func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, error) {
 	report := &CSETimingReport{}
 
-	// Read all event JSON files from the CSE events directory
-	listCmd := fmt.Sprintf("sudo find %s -name '*.json' -exec cat {} \\;", cseEventsDir)
+	// Read all event JSON files from the CSE events directory, explicitly
+	// appending a newline after each file so each JSON document is separated.
+	listCmd := fmt.Sprintf("sudo find %s -name '*.json' -exec sh -c 'cat \"$1\"; echo' _ {} \\;", cseEventsDir)
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, listCmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSE events: %w", err)
@@ -244,9 +245,10 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		s.T.Fatalf("no CSE task timings were parsed; cannot validate performance thresholds")
 	}
 
-	// Fail if the critical cse_start task is missing
+	// Fail hard if the critical cse_start task is missing — without it TotalCSEDuration()
+	// returns 0 and the total duration threshold check would silently pass.
 	if report.GetTask("AKS.CSE.cse_start") == nil {
-		s.T.Errorf("expected AKS.CSE.cse_start task not found in timing report")
+		s.T.Fatalf("expected AKS.CSE.cse_start task not found in timing report; cannot validate total CSE duration")
 	}
 
 	// Validate total CSE duration as a sub-test for ADO tracking
@@ -265,14 +267,25 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 	// Validate individual task thresholds — each as a sub-test for ADO tracking.
 	// ADO Test Analytics will show per-task pass/fail trends and flag regressions.
 	matchedTasks := make(map[string]bool)
+	matchedSuffixes := make(map[string]bool)
 	for _, task := range report.Tasks {
 		for suffix, maxDuration := range thresholds.TaskThresholds {
 			if strings.HasSuffix(task.TaskName, suffix) {
 				matchedTasks[task.TaskName] = true
+				matchedSuffixes[suffix] = true
 				task := task
 				suffix := suffix
 				maxDuration := maxDuration
-				tRunner.Run(fmt.Sprintf("Task_%s", suffix), func(t *testing.T) {
+				// Include sanitized task name to avoid collisions when multiple tasks match different suffixes
+				shortTask := task.TaskName
+				if idx := strings.LastIndex(shortTask, "."); idx >= 0 {
+					shortTask = shortTask[idx+1:]
+				}
+				testName := suffix
+				if shortTask != suffix {
+					testName = fmt.Sprintf("%s/%s", shortTask, suffix)
+				}
+				tRunner.Run(fmt.Sprintf("Task_%s", testName), func(t *testing.T) {
 					t.Logf("task %s duration: %s (threshold: %s)", task.TaskName, task.Duration, maxDuration)
 					if task.Duration > maxDuration {
 						toolkit.LogDuration(ctx, task.Duration, maxDuration,
@@ -282,6 +295,14 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 				})
 				break
 			}
+		}
+	}
+
+	// Verify all configured threshold suffixes matched at least one task.
+	// This catches task renames or removals that would silently disable regression checks.
+	for suffix := range thresholds.TaskThresholds {
+		if !matchedSuffixes[suffix] {
+			s.T.Logf("WARNING: threshold suffix %q did not match any CSE task — task may have been renamed or removed", suffix)
 		}
 	}
 
