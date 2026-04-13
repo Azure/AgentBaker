@@ -952,7 +952,7 @@ configGPUDrivers() {
     fi
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 30 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
@@ -981,9 +981,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then
