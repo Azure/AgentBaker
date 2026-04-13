@@ -683,13 +683,13 @@
     },
     {
       "customType": "regex",
-      "description": "auto update Nvidia DCGM packages for OS AzureLinux 3.0 in components.json",
+      "description": "auto update Nvidia packages for OS AzureLinux 3.0 in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), repository=nvidia, os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.nvidia-rpm-azl3",
       "versioningTemplate": "deb",
