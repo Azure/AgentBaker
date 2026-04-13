@@ -498,4 +498,38 @@ Describe "DownloadFileWithOras" {
 
     { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -Platform "linux/amd64" } | Should -Not -Throw
   }
+
+  It "should copy from cache and skip oras pull when CachedFile is provided" {
+    $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    $cacheSubDir = Join-Path $cacheRoot "nested"
+    $cachedFileName = "windowszip.zip"
+    $cachedFilePath = Join-Path $cacheSubDir $cachedFileName
+    $destPath = "c:\k.zip"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+
+    New-Item -ItemType Directory -Path $cacheSubDir -Force | Out-Null
+    Set-Content -Path $cachedFilePath -Value "cached-content" -NoNewline
+
+    $global:CacheDir = $cacheRoot
+    $script:orasInvoked = $false
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:orasInvoked = $true
+      $global:LASTEXITCODE = 0
+    }
+
+    Mock Copy-Item -MockWith {}
+
+    try {
+      { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
+      Assert-MockCalled -CommandName 'Copy-Item' -Exactly -Times 1 -ParameterFilter {
+        $Path -eq $cachedFilePath -and $Destination -eq $destPath -and $Force
+      }
+      Assert-MockCalled -CommandName 'Move-Item' -Times 0
+      $script:orasInvoked | Should -Be $false
+    }
+    finally {
+      Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
 }

@@ -385,8 +385,6 @@ function DownloadFileWithOras {
         [Parameter(Mandatory = $false)][string]
         $CachedFile = ""
     )
-    $cleanUrl = $Url.Split('?')[0]
-    $fileName = [IO.Path]::GetFileName($cleanUrl)
     # If CachedFile is provided and exists, copy it to the destination path instead of downloading
     if (-not [string]::IsNullOrWhiteSpace($CachedFile)) {
         $fileName = [IO.Path]::GetFileName($CachedFile)
