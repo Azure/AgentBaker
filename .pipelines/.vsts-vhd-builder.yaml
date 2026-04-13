@@ -267,3 +267,15 @@ stages:
       - template: ./templates/e2e-template.yaml
         parameters:
           IgnoreScenariosWithMissingVhd: true
+
+  - stage: scriptless_phase_2_e2e
+    dependsOn: build
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      ENABLE_SCRIPTLESS_PHASE_2: true
+      TAGS_TO_SKIP: gpu=true,os=windows,scriptless=true
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          IgnoreScenariosWithMissingVhd: true
