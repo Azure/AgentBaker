@@ -2,6 +2,7 @@
 set -uo pipefail
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+HOTFIX_BIN="${BIN_PATH}-hotfix"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
@@ -11,6 +12,13 @@ log() {
     logger -t "$LOGGER_TAG" "$message"
     echo "$message"
 }
+
+if [ -x "$HOTFIX_BIN" ]; then
+    BIN_PATH="$HOTFIX_BIN"
+    log "Using hotfix binary: $HOTFIX_BIN"
+else
+    log "Using VHD-baked binary: $BIN_PATH"
+fi
 
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}

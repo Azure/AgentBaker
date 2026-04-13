@@ -20,27 +20,43 @@ func TestReadHotfixVersion(t *testing.T) {
 	})
 
 	t.Run("file is empty", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-version")
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
 		require.NoError(t, os.WriteFile(path, []byte(""), 0644))
 		version, err := readHotfixVersion(path)
 		assert.NoError(t, err)
 		assert.Equal(t, "", version)
 	})
 
-	t.Run("file has version with newline", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-version")
-		require.NoError(t, os.WriteFile(path, []byte("202603.30.0-hotfix1\n"), 0644))
+	t.Run("file has version", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0644))
 		version, err := readHotfixVersion(path)
 		assert.NoError(t, err)
 		assert.Equal(t, "202603.30.0-hotfix1", version)
 	})
 
-	t.Run("file has version with whitespace", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-version")
-		require.NoError(t, os.WriteFile(path, []byte("  202603.30.0-hotfix1  \n"), 0644))
+	t.Run("file has empty version field", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": ""}`), 0644))
 		version, err := readHotfixVersion(path)
 		assert.NoError(t, err)
-		assert.Equal(t, "202603.30.0-hotfix1", version)
+		assert.Equal(t, "", version)
+	})
+
+	t.Run("file has invalid JSON", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte("not json"), 0644))
+		_, err := readHotfixVersion(path)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "parsing hotfix config")
+	})
+
+	t.Run("file has extra fields (forward compat)", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "sha256": "abc123"}`), 0644))
+		version, err := readHotfixVersion(path)
+		assert.NoError(t, err)
+		assert.Equal(t, "1.0.0", version)
 	})
 }
 
@@ -97,8 +113,8 @@ func TestSelfUpdate_VersionMatch(t *testing.T) {
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "hotfix-version")
-	require.NoError(t, os.WriteFile(path, []byte("202603.30.0-hotfix1\n"), 0644))
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0644))
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
@@ -108,8 +124,8 @@ func TestSelfUpdate_VersionMatch(t *testing.T) {
 func TestSelfUpdate_UnreadableFile(t *testing.T) {
 	// When the hotfix file exists but is unreadable, selfUpdate should log warning and continue.
 	dir := t.TempDir()
-	path := filepath.Join(dir, "hotfix-version")
-	require.NoError(t, os.WriteFile(path, []byte("1.0.0\n"), 0644))
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0"}`), 0644))
 	require.NoError(t, os.Chmod(path, 0000))
 	t.Cleanup(func() { _ = os.Chmod(path, 0644) })
 
@@ -176,25 +192,33 @@ func TestRetryCommand_ContextCancelled(t *testing.T) {
 	assert.Equal(t, 1, callCount)
 }
 
-func TestReplaceBinary(t *testing.T) {
-	t.Run("atomically replaces content and preserves permissions", func(t *testing.T) {
+func TestCopyBinaryAlongside(t *testing.T) {
+	t.Run("copies hotfix alongside and preserves VHD binary permissions", func(t *testing.T) {
 		dir := t.TempDir()
-		src := filepath.Join(dir, "new-binary")
-		dst := filepath.Join(dir, "old-binary")
+		src := filepath.Join(dir, "pkg-binary")
+		vhd := filepath.Join(dir, "aks-node-controller")
+		hotfix := filepath.Join(dir, "aks-node-controller-hotfix")
 
-		require.NoError(t, os.WriteFile(dst, []byte("old"), 0755))
+		require.NoError(t, os.WriteFile(vhd, []byte("original"), 0755))
 		require.NoError(t, os.WriteFile(src, []byte("new-hotfix"), 0644))
 
-		err := replaceBinary(src, dst)
+		err := copyBinaryAlongside(src, hotfix, vhd)
 		require.NoError(t, err)
 
-		data, err := os.ReadFile(dst)
+		// Hotfix binary has the new content.
+		data, err := os.ReadFile(hotfix)
 		require.NoError(t, err)
 		assert.Equal(t, "new-hotfix", string(data))
 
-		info, err := os.Stat(dst)
+		// Hotfix binary has VHD binary's permissions.
+		info, err := os.Stat(hotfix)
 		require.NoError(t, err)
 		assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+
+		// Original VHD binary is untouched.
+		origData, err := os.ReadFile(vhd)
+		require.NoError(t, err)
+		assert.Equal(t, "original", string(origData))
 
 		// Verify no temp files left behind.
 		entries, err := os.ReadDir(dir)
@@ -207,20 +231,20 @@ func TestReplaceBinary(t *testing.T) {
 
 	t.Run("returns error when src missing", func(t *testing.T) {
 		dir := t.TempDir()
-		dst := filepath.Join(dir, "old-binary")
-		require.NoError(t, os.WriteFile(dst, []byte("old"), 0755))
+		vhd := filepath.Join(dir, "aks-node-controller")
+		require.NoError(t, os.WriteFile(vhd, []byte("original"), 0755))
 
-		err := replaceBinary(filepath.Join(dir, "nonexistent"), dst)
+		err := copyBinaryAlongside(filepath.Join(dir, "nonexistent"), filepath.Join(dir, "hotfix"), vhd)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "reading")
 	})
 
-	t.Run("returns error when dst missing and cleans up temp", func(t *testing.T) {
+	t.Run("returns error when refPath missing and cleans up temp", func(t *testing.T) {
 		dir := t.TempDir()
-		src := filepath.Join(dir, "new-binary")
+		src := filepath.Join(dir, "pkg-binary")
 		require.NoError(t, os.WriteFile(src, []byte("new"), 0644))
 
-		err := replaceBinary(src, filepath.Join(dir, "nonexistent"))
+		err := copyBinaryAlongside(src, filepath.Join(dir, "hotfix"), filepath.Join(dir, "nonexistent"))
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "stat")
 

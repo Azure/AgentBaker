@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,14 +14,17 @@ import (
 )
 
 const (
-	defaultHotfixVersionPath = "/etc/aks-node-controller/hotfix-version"
+	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
 	maxInstallRetries        = 5
 	retryBackoff             = 3 * time.Second
 	commandTimeout           = 60 * time.Second
 	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
-	// vhdBinaryPath is where packer installs the VHD-baked binary and where
-	// the wrapper script (aks-node-controller-wrapper.sh) expects to find it.
+	// vhdBinaryPath is where packer installs the VHD-baked binary.
 	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
+	// hotfixBinaryPath is where the hotfix binary is placed alongside the VHD-baked binary.
+	// The wrapper script checks for this path and prefers it over the VHD-baked binary.
+	// This avoids overwriting a running binary, which is not possible on Windows.
+	hotfixBinaryPath = "/opt/azure/containers/aks-node-controller-hotfix"
 	// pkgBinaryPath is where apt/dnf package installs the binary.
 	pkgBinaryPath = "/usr/bin/aks-node-controller"
 )
@@ -36,7 +40,7 @@ func (a *App) selfUpdate(ctx context.Context) {
 	}
 	hotfixVersion, err := readHotfixVersion(hotfixPath)
 	if err != nil {
-		slog.Warn("failed to read hotfix version, proceeding with VHD-baked version",
+		slog.Error("failed to read hotfix version, proceeding with VHD-baked version",
 			"path", hotfixPath, "error", err)
 		return
 	}
@@ -53,26 +57,34 @@ func (a *App) selfUpdate(ctx context.Context) {
 
 	installErr := a.installFromPMC(ctx, hotfixVersion)
 	if installErr != nil {
-		slog.Warn("failed to install hotfix, proceeding with VHD-baked version",
+		slog.Error("failed to install hotfix, proceeding with VHD-baked version",
 			"target", hotfixVersion, "error", installErr)
 		return
 	}
 
-	// Overwrite the VHD-baked binary so the hotfix persists across service restarts and reboots.
-	if err := replaceBinary(pkgBinaryPath, vhdBinaryPath); err != nil {
-		slog.Warn("failed to replace VHD binary with hotfix, proceeding with current binary",
+	// Copy the hotfix binary alongside the VHD-baked binary rather than overwriting it.
+	// This avoids replacing a running binary (which is not possible on Windows) and lets
+	// the wrapper script choose the hotfix on subsequent restarts.
+	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
+		slog.Error("failed to copy hotfix binary alongside VHD binary, proceeding with current binary",
 			"error", err)
 		return
 	}
 
 	if err := a.reExec(); err != nil {
-		slog.Warn("failed to re-exec after hotfix install, proceeding with current binary",
+		slog.Error("failed to re-exec after hotfix install, proceeding with current binary",
 			"error", err)
 	}
 }
 
-// readHotfixVersion reads and trims the hotfix version from the given path.
-// Returns empty string if the file doesn't exist or is empty.
+// hotfixConfig is the JSON structure of the hotfix configuration file.
+// Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
+type hotfixConfig struct {
+	Version string `json:"version"`
+}
+
+// readHotfixVersion reads and parses the JSON hotfix config from the given path.
+// Returns empty string if the file doesn't exist or contains an empty version.
 func readHotfixVersion(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -81,7 +93,14 @@ func readHotfixVersion(path string) (string, error) {
 		}
 		return "", err
 	}
-	return strings.TrimSpace(string(data)), nil
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return "", nil
+	}
+	var cfg hotfixConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return "", fmt.Errorf("parsing hotfix config %s: %w", path, err)
+	}
+	return strings.TrimSpace(cfg.Version), nil
 }
 
 // detectPackageManager returns the package manager command for the current OS.
@@ -221,17 +240,18 @@ func (a *App) retryCommand(ctx context.Context, name string, args ...string) err
 	return fmt.Errorf("command %s failed after %d attempts: %w", name, maxInstallRetries, lastErr)
 }
 
-// replaceBinary atomically replaces dst with the contents of src, preserving dst's permissions.
-// It writes to a temp file in the same directory, then renames — ensuring readers never see a
-// truncated or partially-written binary even if another process is running concurrently.
-func replaceBinary(src, dst string) error {
+// copyBinaryAlongside atomically copies src to dst (the hotfix path) without touching the
+// original VHD-baked binary. It derives permissions from refPath (the VHD binary) so the
+// hotfix is executable with the same mode. Writing to a temp file first then renaming ensures
+// concurrent readers (e.g., provision-wait) never see a partial binary.
+func copyBinaryAlongside(src, dst, refPath string) error {
 	srcData, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", src, err)
 	}
-	info, err := os.Stat(dst)
+	info, err := os.Stat(refPath)
 	if err != nil {
-		return fmt.Errorf("stat %s: %w", dst, err)
+		return fmt.Errorf("stat %s: %w", refPath, err)
 	}
 
 	dir := filepath.Dir(dst)
@@ -260,13 +280,17 @@ func replaceBinary(src, dst string) error {
 		os.Remove(tmpPath)
 		return fmt.Errorf("renaming %s to %s: %w", tmpPath, dst, err)
 	}
-	slog.Info("replaced VHD binary with hotfix", "src", src, "dst", dst)
+	slog.Info("installed hotfix binary alongside VHD binary", "src", src, "hotfixPath", dst)
 	return nil
 }
 
-// reExec replaces the current process with the updated binary at the VHD path.
+// reExec replaces the current process with the updated hotfix binary.
+// On Linux this uses syscall.Exec which atomically replaces the process in-place.
+// TODO(windows): syscall.Exec is not available on Windows. When Windows hotfix support
+// is added, this will need a platform-specific implementation (e.g., spawn the hotfix
+// binary as a child process and exit, or defer to the wrapper script for restart).
 func (a *App) reExec() error {
-	args := append([]string{vhdBinaryPath}, os.Args[1:]...)
-	slog.Info("re-executing with updated binary", "path", vhdBinaryPath, "args", args)
-	return syscall.Exec(vhdBinaryPath, args, os.Environ())
+	args := append([]string{hotfixBinaryPath}, os.Args[1:]...)
+	slog.Info("re-executing with hotfix binary", "path", hotfixBinaryPath, "args", args)
+	return syscall.Exec(hotfixBinaryPath, args, os.Environ())
 }
