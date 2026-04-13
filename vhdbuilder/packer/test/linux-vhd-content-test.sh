@@ -1755,6 +1755,10 @@ testBlobfuse() {
   local expectedVersion="${1}"
   local test="testBlobfuse"
   echo "$test: Start"
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    echo "$test: Skipping, only applicable to Ubuntu (dpkg-based)"
+    return 0
+  fi
   if [ "$expectedVersion" = "<SKIP>" ]; then
     echo "$test: Skipping test for blobfuse version, as expected version is <SKIP>"
     return 0
@@ -1778,6 +1782,10 @@ testBlobfuse2() {
   local expectedVersion="${1}"
   local test="testBlobfuse2"
   echo "$test: Start"
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    echo "$test: Skipping, only applicable to Ubuntu (dpkg-based)"
+    return 0
+  fi
   if [ "$expectedVersion" = "<SKIP>" ]; then
     echo "$test: Skipping test for blobfuse2 version, as expected version is <SKIP>"
     return 0
