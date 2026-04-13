@@ -58,9 +58,7 @@ message BootstrappingConfig {
   // Only used when secure TLS bootstrapping is enabled. This is the bootstrapping deadline used to perform secure TLS bootstrapping.
   // If the deadline is hit, the TLS bootstrap token will be used as a fall-back.
   // This field will be deprecated once TLS bootstrap tokens are no longer used.
-  //
-  // Deprecated: Use individual RPC timeouts instead.
-  optional string secure_tls_bootstrapping_deadline = 9;
+  optional string secure_tls_bootstrapping_deadline = 9 [deprecated = true];
 
   // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
   // This is the amount of time given to the bootstrap client to perform kubeconfig validation against the cluster's API server.
