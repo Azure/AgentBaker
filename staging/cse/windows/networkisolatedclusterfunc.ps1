@@ -386,7 +386,8 @@ function DownloadFileWithOras {
         $CachedFile = ""
     )
     # If CachedFile is provided and exists, copy it to the destination path instead of downloading
-    if (-not [string]::IsNullOrWhiteSpace($CachedFile)) {
+    # If NetworkIsolatedClusterTestMode is enabled (only in e2e test), skip using cached file to ensure we cover the download logic
+    if (-not [string]::IsNullOrWhiteSpace($CachedFile) -and (-not $global:NetworkIsolatedClusterTestMode)) {
         $fileName = [IO.Path]::GetFileName($CachedFile)
 
         $search = @()
