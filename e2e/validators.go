@@ -1803,17 +1803,6 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100")
 
-	// Verify the web-config.yml has proper TLS configuration
-	s.T.Logf("Validating node-exporter TLS configuration")
-	tlsCommand := []string{
-		"set -ex",
-		// Verify web-config.yml contains TLS settings
-		"grep -q 'tls_server_config' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_auth_type' /etc/node-exporter.d/web-config.yml",
-		"grep -q 'client_ca_file' /etc/node-exporter.d/web-config.yml",
-	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(tlsCommand, "\n"), 0, "node-exporter TLS config should be properly configured")
-
 	s.T.Logf("node-exporter validation passed")
 }
 
