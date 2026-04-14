@@ -78,7 +78,6 @@ type AzureClient struct {
 	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
 	VMExtensionImages         *armcompute.VirtualMachineExtensionImagesClient
 	ResourceSKUs              *armcompute.ResourceSKUsClient
-	VMSSExtensions            *armcompute.VirtualMachineScaleSetExtensionsClient
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -345,11 +344,6 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.Galleries, err = armcompute.NewGalleriesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create galleries client: %w", err)
-	}
-
-	cloud.VMSSExtensions, err = armcompute.NewVirtualMachineScaleSetExtensionsClient(Config.SubscriptionID, credential, opts)
-	if err != nil {
-		return nil, fmt.Errorf("create vmss extensions client: %w", err)
 	}
 
 	cloud.Credential = credential
