@@ -1486,14 +1486,6 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
 	s.T.Helper()
 
-	// Force a fresh refresh of the hosts file before validating so the snapshot
-	// is consistent with the DNS answers we are about to resolve. Without this,
-	// the 15-minute timer gap can cause flaky mismatches due to DNS load-balancing
-	// or record rotation.
-	execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo systemctl start aks-localdns-hosts-setup.service",
-		0, "failed to refresh hosts file via aks-localdns-hosts-setup.service")
-
 	// Build script that resolves each FQDN and checks it exists in hosts file
 	script := fmt.Sprintf(`set -euo pipefail
 hosts_file="/etc/localdns/hosts"

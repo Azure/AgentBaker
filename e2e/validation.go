@@ -88,11 +88,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 			ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
 			// Validate aks-localdns-hosts-setup service ran successfully and timer is active
 			ValidateAKSLocalDNSHostsSetupService(ctx, s)
-			// Restart localdns so it regenerates its corefile with the hosts plugin variant.
-			// On first boot, localdns and aks-localdns-hosts-setup start concurrently — localdns often
-			// starts before the hosts file is populated, so it uses the base corefile (no hosts plugin).
-			// Restarting after the hosts file is confirmed populated lets localdns pick the right corefile.
-			execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo systemctl restart localdns", 0, "failed to restart localdns")
+			// No restart needed: select_localdns_corefile() now polls for up to 5s on first boot,
+			// waiting for aks-hosts-setup.sh to populate the hosts file before selecting the corefile.
 			// Validate hosts plugin serves responses with IPs matching /etc/localdns/hosts
 			ValidateLocalDNSHostsPluginBypass(ctx, s)
 		}

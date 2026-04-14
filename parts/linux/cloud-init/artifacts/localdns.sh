@@ -923,13 +923,23 @@ select_localdns_corefile() {
 
         if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-}" = "true" ]; then
             echo "Hosts plugin is enabled, checking ${hosts_file_path} for content..." >&2
-            if [ -f "${hosts_file_path}" ] && \
-               grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
-                echo "Hosts file has IP mappings, using corefile with hosts plugin" >&2
-                echo "${LOCALDNS_COREFILE_EXPERIMENTAL}"
-                return 0
-            fi
-            echo "Info: ${hosts_file_path} not ready yet, falling back to corefile without hosts plugin" >&2
+            # Poll for up to 5s waiting for aks-hosts-setup.sh to populate the hosts file.
+            # On first boot, the hosts-setup timer fires concurrently with localdns startup,
+            # so the hosts file may not be ready yet. This avoids falling back to BASE and
+            # ensures the hosts plugin is active from first boot.
+            local wait_count=0
+            local max_wait=${LOCALDNS_HOSTS_FILE_WAIT_ATTEMPTS:-10}  # 10 × 0.5s = 5s default
+            while [ $wait_count -lt $max_wait ]; do
+                if [ -f "${hosts_file_path}" ] && \
+                   grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file_path}"; then
+                    echo "Hosts file has IP mappings (after ${wait_count} poll(s)), using corefile with hosts plugin" >&2
+                    echo "${LOCALDNS_COREFILE_EXPERIMENTAL}"
+                    return 0
+                fi
+                sleep 0.5
+                wait_count=$((wait_count + 1))
+            done
+            echo "Info: ${hosts_file_path} not ready after $((max_wait / 2))s, falling back to corefile without hosts plugin" >&2
             echo "${LOCALDNS_COREFILE_BASE}"
             return 0
         else
