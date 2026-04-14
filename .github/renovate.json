@@ -7,7 +7,7 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 0,
+  "prHourlyLimit": 10,
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 5,
   "separateMinorPatch": true,
