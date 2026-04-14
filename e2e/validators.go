@@ -856,7 +856,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 			return false
 		}
 		for _, prefix := range unitFailureAllowPrefixes {
-			if strings.HasPrefix(unit.Name, prefix) {
+			if strings.HasPrefix(unit.Name, prefix) && strings.HasSuffix(unit.Name, ".mount") {
 				return false
 			}
 		}
