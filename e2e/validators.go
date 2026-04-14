@@ -415,7 +415,7 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 
 func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	s.T.Helper()
-	command := fmt.Sprintf("[ -d %s ] && [ -z \"$(ls -A %s)\" ]", dirName, dirName)
+	command := fmt.Sprintf("! [ -d '%s' ] || [ -z \"$(ls -A '%s')\" ]", dirName, dirName)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
 		fmt.Sprintf("expected directory %s to be empty or not exist", dirName))
 }
