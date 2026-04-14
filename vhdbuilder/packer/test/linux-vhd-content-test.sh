@@ -1754,7 +1754,7 @@ testContainerd() {
 testBlobfuse() {
   local expectedVersion="${1}"
   local test="testBlobfuse"
-  echo "$test: Start"
+  echo "$test:Start"
   if [ "$OS_SKU" != "Ubuntu" ]; then
     echo "$test: Skipping, only applicable to Ubuntu (dpkg-based)"
     return 0
@@ -1778,14 +1778,14 @@ testBlobfuse() {
       return 1
       ;;
   esac
-  echo "$test: Test finished successfully."
+  echo "$test:Finish"
   return 0
 }
 
 testBlobfuse2() {
   local expectedVersion="${1}"
   local test="testBlobfuse2"
-  echo "$test: Start"
+  echo "$test:Start"
   if [ "$OS_SKU" != "Ubuntu" ]; then
     echo "$test: Skipping, only applicable to Ubuntu (dpkg-based)"
     return 0
@@ -1809,13 +1809,13 @@ testBlobfuse2() {
       return 1
       ;;
   esac
-  echo "$test: Test finished successfully."
+  echo "$test:Finish"
   return 0
 }
 
 testFuseInstalled() {
   local test="testFuseInstalled"
-  echo "$test: Start"
+  echo "$test:Start"
   if [ "$OS_SKU" != "Ubuntu" ]; then
     echo "$test: Skipping, only applicable to Ubuntu"
     return 0
@@ -1832,7 +1832,7 @@ testFuseInstalled() {
     err "$test" "$expected_pkg is not installed on Ubuntu $OS_VERSION"
     return 1
   fi
-  echo "$test: Test finished successfully."
+  echo "$test:Finish"
   return 0
 }
 
