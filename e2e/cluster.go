@@ -84,7 +84,7 @@ func prepareCluster(ctx context.Context, infra *ClusterInfra, clusterModel *armc
 	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
 		return getOrCreateBastion(ctx, infra, cluster)
 	})
-	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
+	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, infra, cluster) })
 	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, infra, cluster) })
 	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, infra, cluster) })
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
@@ -426,11 +426,12 @@ func createNewAKSClusterWithRetry(ctx context.Context, infra *ClusterInfra, rgNa
 	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
 }
 
-func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
-	_, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName(*cluster.Location), *cluster.Name, "default", nil)
+func ensureMaintenanceConfiguration(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) error {
+	rgName := infra.ResourceGroupName(*cluster.Location)
+	_, err := infra.Azure.Maintenance.Get(ctx, rgName, *cluster.Name, "default", nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		_, err = createNewMaintenanceConfiguration(ctx, cluster)
+		_, err = createNewMaintenanceConfiguration(ctx, infra, cluster)
 		if err != nil {
 			return fmt.Errorf("creating maintenance configuration for cluster %q: %w", *cluster.Name, err)
 		}
@@ -442,8 +443,8 @@ func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerse
 	return nil
 }
 
-func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
-	rgName := config.ResourceGroupName(*cluster.Location)
+func createNewMaintenanceConfiguration(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
+	rgName := infra.ResourceGroupName(*cluster.Location)
 	toolkit.Logf(ctx, "creating maintenance configuration for cluster %s in rg %s", *cluster.Name, rgName)
 	maintenance := armcontainerservice.MaintenanceConfiguration{
 		Properties: &armcontainerservice.MaintenanceConfigurationProperties{
@@ -466,7 +467,7 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 		},
 	}
 
-	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, rgName, *cluster.Name, "default", maintenance, nil)
+	_, err := infra.Azure.Maintenance.CreateOrUpdate(ctx, rgName, *cluster.Name, "default", maintenance, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance configuration: %w", err)
 	}

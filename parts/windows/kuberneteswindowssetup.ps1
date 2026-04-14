@@ -433,7 +433,7 @@ function BasePrep {
 
     {{end}}
 
-    Get-CACertificates -Location $Location
+    Get-CACertificates -Location $Location -FailOnError
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
