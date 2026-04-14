@@ -3118,3 +3118,30 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 	require.Contains(s.T, result.stdout, "scope global",
 		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
 }
+
+// ValidateRCV1PNotOptedInWindows validates that when the Windows VM does NOT have the opt-in tag,
+// no certificates are installed to C:\ca and no refresh scheduled task is registered,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate C:\ca is empty or does not exist
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if ((Test-Path $caFolder) -and @(Get-ChildItem -Path $caFolder -File).Count -gt 0) { throw 'Expected C:\\ca to be empty or not exist, but found certificates' }",
+		"Write-Host 'C:\\ca is empty or does not exist as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected C:\\ca to be empty or not exist when not opted in")
+
+	// Validate no refresh scheduled task was registered
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if ($task) { throw 'Expected no aks-ca-certs-refresh-task but found one' }",
+		"Write-Host 'No aks-ca-certs-refresh-task found as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
+}
