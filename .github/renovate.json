@@ -6,15 +6,16 @@
   "enabledManagers": [
     "custom.regex"
   ],
-  "prConcurrentLimit": 50,
-  "prHourlyLimit": 50,
-  "branchConcurrentLimit": 50,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "branchConcurrentLimit": 0,
+  "commitHourlyLimit": 5,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "automerging",
+  "rebaseWhen": "conflicted",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
