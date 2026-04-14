@@ -97,6 +97,10 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
+	if handled, exitCode := handleInfoCommand(args); handled {
+		return exitCode
+	}
+
 	slog.Info("aks-node-controller started", "args", args)
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
@@ -108,6 +112,32 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	return exitCode
 }
 
+// handleInfoCommand handles --version, version, --help, and help commands
+// without logging noise. Returns (true, exitCode) if handled.
+func handleInfoCommand(args []string) (bool, int) {
+	if len(args) < 2 {
+		return false, 0
+	}
+	switch args[1] {
+	case "--version", "version":
+		//nolint:forbidigo // stdout is part of the interface
+		fmt.Println(Version)
+		return true, 0
+	case "--help", "help":
+		//nolint:forbidigo // stdout is part of the interface
+		fmt.Println("Usage: aks-node-controller <command> [options]")
+		fmt.Println()
+		fmt.Println("Commands:")
+		fmt.Println("  provision       Run node provisioning")
+		fmt.Println("  provision-wait  Wait for provisioning to complete")
+		fmt.Println("  version         Print the version")
+		fmt.Println("  help            Print this help message")
+		return true, 0
+	default:
+		return false, 0
+	}
+}
+
 func (a *App) run(ctx context.Context, args []string) error {
 	command := ""
 	if len(args) >= 2 {
@@ -115,12 +145,6 @@ func (a *App) run(ctx context.Context, args []string) error {
 	}
 	if command == "" {
 		return errors.New("missing command argument")
-	}
-
-	if command == "--version" || command == "version" {
-		//nolint:forbidigo // stdout is part of the interface
-		fmt.Println(Version)
-		return nil
 	}
 
 	cmd, ok := getCommandRegistry()[command]
