@@ -89,3 +89,28 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 		},
 	})
 }
+
+// Test_RCV1P_Windows_NotOptedIn is a negative test that validates the VM opt-in tag is required
+// for cert installation on Windows. The VM is created in the RCV1P subscription (which has
+// PlatformSettingsOverride registered) but WITHOUT the opt-in tag on the VMSS.
+// This verifies that wireserver returns IsOptedInForRootCerts=false and the provisioning
+// script correctly skips certificate download and refresh task registration.
+func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
+	skipIfRCV1PNotConfigured(t)
+	RunScenario(t, &Scenario{
+		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
+		AzureClient:    config.RCV1PAzure,
+		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Tags: Tags{
+			RCV1PCertMode: true,
+		},
+		Config: Config{
+			Cluster:                ClusterRCV1PKubenet,
+			VHD:                    config.VHDWindows2022Containerd,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRCV1PNotOptedInWindows(ctx, s)
+			},
+		},
+	})
+}
