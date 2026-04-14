@@ -54,10 +54,24 @@ assignFilePermissions() {
     # The rule requires: file perms at most 0640, dir perms at most 0750, and group ownership
     # must be root, adm, or syslog. Upstream package updates (via apt dist-upgrade --force-confnew)
     # can create log files with wrong permissions or ownership, so we fix comprehensively here.
-    find /var/log -type f -perm /0137 -exec chmod 'g-wx,o-rwx' {} \;
-    find /var/log -type d -perm /0027 -exec chmod 'g-w,o-rwx' {} \;
-    find /var/log -type f ! -group root ! -group adm ! -group syslog -exec chgrp syslog {} \;
-    find /var/log -type d ! -group root ! -group adm ! -group syslog -exec chgrp syslog {} \;
+    find /var/log -type f -perm /0137 -exec chmod 'u-x,g-wx,o-rwx,a-s,-t' {} +
+    find /var/log -type d -perm /0027 -exec chmod 'g-w,o-rwx,a-s,-t' {} +
+
+    local allowed_log_groups=""
+    local target_log_group="root"
+    if getent group adm >/dev/null 2>&1; then
+        allowed_log_groups="${allowed_log_groups} ! -group adm"
+        target_log_group="adm"
+    fi
+    if getent group syslog >/dev/null 2>&1; then
+        allowed_log_groups="${allowed_log_groups} ! -group syslog"
+        target_log_group="syslog"
+    fi
+
+    # shellcheck disable=SC2086
+    find /var/log -type f ! -group root ${allowed_log_groups} -exec chgrp "${target_log_group}" {} +
+    # shellcheck disable=SC2086
+    find /var/log -type d ! -group root ${allowed_log_groups} -exec chgrp "${target_log_group}" {} +
     chmod 600 /etc/passwd- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 600 /etc/shadow- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 600 /etc/group- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
