@@ -274,6 +274,7 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       ENABLE_SCRIPTLESS_NBC_CSE_CMD: true
+      DISABLE_SCRIPTLESS_COMPILATION: true
       TAGS_TO_SKIP: gpu=true,os=windows,scriptless=true
     jobs:
       - template: ./templates/e2e-template.yaml
