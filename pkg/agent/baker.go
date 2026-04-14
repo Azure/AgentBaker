@@ -43,6 +43,35 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	return t.getLinuxNodeBootstrappingPayload(config)
 }
 
+const (
+	boothookTemplate = `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+logger -t aks-boothook "boothook start $(date -Ins)"
+
+mkdir -p /opt/azure/containers
+
+cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-nbc-cmd.sh
+%s
+EOF
+chmod 0600 /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+
+logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
+systemctl start --no-block aks-node-controller.service
+`
+	flatcarTemplate = `{
+     "ignition": { "version": "3.4.0" },
+     "storage": {
+       "files": [{
+         "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
+         "mode": 384,
+         "contents": { "source": "data:;base64,%s" }
+       }]
+     }
+    }`
+)
+
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
@@ -51,6 +80,19 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.EnableScriptlessNBCCSECmd {
+		config.DisableCustomData = true
+		nbcCMD := t.getLinuxNodeCSECommand(config)
+		encodedNBCCMD := base64.StdEncoding.EncodeToString([]byte(nbcCMD))
+		var customData string
+		if config.IsFlatcar() || config.IsACL() {
+			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD)
+		} else {
+			customData = fmt.Sprintf(boothookTemplate, encodedNBCCMD)
+		}
+
+		return base64.StdEncoding.EncodeToString([]byte(customData))
+	}
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
@@ -288,6 +330,9 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
+	}
+	if config.EnableScriptlessNBCCSECmd {
+		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
 }

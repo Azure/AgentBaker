@@ -2004,6 +2004,19 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	}
 }
 
+// ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
+func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && !s.VHD.Flatcar {
+		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+		}
+		ValidateFileExists(ctx, s, fileNameToCheck)
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+	}
+}
+
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()

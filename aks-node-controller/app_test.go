@@ -95,6 +95,18 @@ func TestApp_Run(t *testing.T) {
 		assert.Contains(t, events[1].Message, "Completed")
 	})
 
+	t.Run("provision command with provision-config and nbc-cmd flag", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		params := []string{"aks-node-controller", "provision", "--nbc-cmd=parser/testdata/test_nbccmd.sh"}
+		exitCode := tt.App.Run(context.Background(), params)
+		assert.Equal(t, 0, exitCode)
+
+		events := tt.eventLogger.Events()
+		assert.Len(t, events, 2)
+		assert.Contains(t, events[0].Message, "Starting")
+		assert.Contains(t, events[1].Message, "Completed")
+	})
+
 	t.Run("provision command with command runner error", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{
 			RunFunc: func(*exec.Cmd) error { return &testExitError{Code: 666} },

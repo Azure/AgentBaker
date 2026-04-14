@@ -504,30 +504,33 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.30.15-1"
+          "latestVersion": "v1.30.15-2",
+          "previousLatestVersion": "v1.30.15-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.12-1"
+          "latestVersion": "v1.31.12-2",
+          "previousLatestVersion": "v1.31.12-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.32.14-1",
-          "previousLatestVersion": "v1.32.11-3"
+          "latestVersion": "v1.32.16-2",
+          "previousLatestVersion": "v1.32.14-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.9-1",
-          "previousLatestVersion": "v1.33.6-3"
+          "latestVersion": "v1.33.11-2",
+          "previousLatestVersion": "v1.33.9-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.6-1",
-          "previousLatestVersion": "v1.34.3-3"
+          "latestVersion": "v1.34.8-2",
+          "previousLatestVersion": "v1.34.6-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.1-1"
+          "latestVersion": "v1.35.3-2",
+          "previousLatestVersion": "v1.35.1-1"
         }
       ],
       "windowsVersions": [
@@ -541,19 +544,23 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.32.11-windows-hpc-1"
+          "latestVersion": "v1.32.16-windows-hpc-1",
+          "previousLatestVersion": "v1.32.11-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.6-windows-hpc-1"
+          "latestVersion": "v1.33.11-windows-hpc-1",
+          "previousLatestVersion": "v1.33.6-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.3-windows-hpc-1"
+          "latestVersion": "v1.34.8-windows-hpc-1",
+          "previousLatestVersion": "v1.34.3-windows-hpc-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.1-windows-hpc-1"
+          "latestVersion": "v1.35.3-windows-hpc-1",
+          "previousLatestVersion": "v1.35.1-windows-hpc-1"
         }
       ]
     },
@@ -821,19 +828,19 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.31.100-4"
+          "latestVersion": "v1.31.100-6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.32.11-2"
+          "latestVersion": "v1.32.11-3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.8-1"
+          "latestVersion": "v1.33.8-2"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-proxy",
-          "latestVersion": "v1.34.4-1"
+          "latestVersion": "v1.34.4-2"
         }
       ],
       "windowsVersions": []
@@ -1114,7 +1121,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=test, os=ubuntu, release=24.04",
-                "latestVersion": "2.1.6-ubuntu24.04u1"
+                "latestVersion": "2.1.6-ubuntu24.04u2"
               }
             ]
           },
@@ -1122,7 +1129,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.30-ubuntu22.04u2"
+                "latestVersion": "1.7.30-ubuntu22.04u3"
               }
             ]
           },
@@ -1130,7 +1137,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.30-ubuntu20.04u2"
+                "latestVersion": "1.7.30-ubuntu20.04u3"
               }
             ]
           }

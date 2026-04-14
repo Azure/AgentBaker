@@ -75,6 +75,9 @@ func Test_Flatcar_CustomCATrust(t *testing.T) {
 func Test_Flatcar_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2,
@@ -248,6 +251,9 @@ func Test_ACL_ARM64(t *testing.T) {
 func Test_ACL_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using ACL and the self-contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
@@ -412,7 +418,8 @@ func runScenarioACLGPUScriptless(t *testing.T, vmSize string, location string) {
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped", vmSize),
 		Location:    location,
 		Tags: Tags{
-			GPU: true,
+			GPU:        true,
+			Scriptless: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -526,6 +533,9 @@ func Test_AzureLinuxV3_ChronyRestarts(t *testing.T) {
 func Test_Ubuntu2204_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -540,7 +550,10 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 
 func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 	err := RunScenario(t, &Scenario{
-		Description: "Tests that a new Ubuntu 2204 node using the self-contained installer fails bootstrap for invalid config and still writes provision status files",
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -565,6 +578,9 @@ func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 	err := RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -587,6 +603,9 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -604,6 +623,9 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 // It injects a unique marker into cloud-init write_files via BootstrapConfigMutator,
 // then verifies that marker landed on disk — proving cloud-init write_files delivery works.
 func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
+	if config.Config.EnableScriptlessNBCCSECmd {
+		t.Skip("skipping test because its unsupported in nbc CSE cmd path")
+	}
 	const hotfixMarkerPath = "/opt/azure/containers/e2e-hotfix-marker.txt"
 	hotfixMarkerContent := fmt.Sprintf("HOTFIX_E2E_MARKER_%d", time.Now().UnixNano())
 
@@ -765,6 +787,9 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 func Test_Ubuntu2204_EntraIDSSH_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using Ubuntu 2204 VHD with Entra ID SSH can be properly bootstrapped and SSH private key authentication is disabled",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1044,6 +1069,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NoneCached(t *testing
 					config.PrivateACRName(config.Config.DefaultLocation),
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.EnableScriptlessCSECmd = false
+				nbc.EnableScriptlessNBCCSECmd = false
 			},
 		},
 	})
@@ -1082,6 +1108,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCache
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				nbc.EnableScriptlessCSECmd = false
+				nbc.EnableScriptlessNBCCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
@@ -1123,6 +1150,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCache
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				nbc.EnableScriptlessCSECmd = false
+				nbc.EnableScriptlessNBCCSECmd = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -1202,6 +1230,9 @@ func Test_Ubuntu2204_ArtifactStreaming_ARM64(t *testing.T) {
 func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1265,6 +1296,9 @@ func Test_AzureLinuxV3_ArtifactStreaming_Scriptless(t *testing.T) {
 func Test_Ubuntu2204_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
@@ -1308,6 +1342,9 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1367,6 +1404,9 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1434,6 +1474,9 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	}
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1536,7 +1579,8 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
-			GPU: true,
+			GPU:        true,
+			Scriptless: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1620,7 +1664,8 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
-			GPU: true,
+			GPU:        true,
+			Scriptless: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1657,6 +1702,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 				nbc.EnableScriptlessCSECmd = false
+				nbc.EnableScriptlessNBCCSECmd = false
 			},
 		},
 	})
@@ -1691,6 +1737,9 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 	RunScenario(t, &Scenario{
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1787,6 +1836,9 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1887,6 +1939,9 @@ func Test_AzureLinuxV3_MessageOfTheDay(t *testing.T) {
 func Test_AzureLinuxV3_MessageOfTheDay_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped and message of the day is added to the node",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1964,6 +2019,9 @@ func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
 func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 can be bootstrapped with localdns disabled",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV3Gen2,
@@ -2080,6 +2138,7 @@ func Test_AzureLinuxV3_KubeletCustomConfig_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
+			Scriptless:          true,
 		},
 		Description: "tests that a node on azure linux v3 bootstrapped with kubelet custom config for seccomp set to non default values",
 		Config: Config{
@@ -2181,7 +2240,8 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			GPU: true,
+			GPU:        true,
+			Scriptless: true,
 		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
@@ -2765,6 +2825,9 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config includes identity binding when ServiceAccountImagePullProfile is enabled in scriptless mode",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -2810,6 +2873,9 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.
 func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that credential provider config excludes identity binding when ServiceAccountImagePullProfile is disabled in scriptless mode",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,

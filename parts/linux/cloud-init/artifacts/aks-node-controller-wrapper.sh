@@ -4,6 +4,7 @@ set -uo pipefail
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
+NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
 log() {
@@ -23,8 +24,18 @@ fi
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
 
-log "Launching aks-node-controller with config ${CONFIG_PATH}"
-"$BIN_PATH" provision --provision-config="$CONFIG_PATH" &
+command=("$BIN_PATH" provision)
+if [ -f "$CONFIG_PATH" ]; then
+    log "Launching aks-node-controller with config ${CONFIG_PATH}"
+    command+=("--provision-config=$CONFIG_PATH")
+elif [ -f "$NBC_CMD_PATH" ]; then
+    log "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
+    command+=("--nbc-cmd=$NBC_CMD_PATH")
+else
+    log "Gracefully exit aks-node-controller without provision config or nbc cmd"
+    exit 0
+fi
+"${command[@]}" &
 child_pid=$!
 log "Spawned aks-node-controller (pid ${child_pid})"
 
