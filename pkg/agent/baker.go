@@ -593,9 +593,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"EnableSecureTLSBootstrapping": func() bool {
 			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
-		},
 		"GetSecureTLSBootstrappingAADResource": func() string {
 			return config.SecureTLSBootstrappingConfig.GetAADResource()
 		},
@@ -604,6 +601,27 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
 			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
+		},
+		"GetSecureTLSBootstrappingValidateKubeconfigTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetValidateKubeconfigTimeout()
+		},
+		"GetSecureTLSBootstrappingGetAccessTokenTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetAccessTokenTimeout()
+		},
+		"GetSecureTLSBootstrappingGetInstanceDataTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetInstanceDataTimeout()
+		},
+		"GetSecureTLSBootstrappingGetNonceTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetNonceTimeout()
+		},
+		"GetSecureTLSBootstrappingGetAttestedDataTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetAttestedDataTimeout()
+		},
+		"GetSecureTLSBootstrappingGetCredentialTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
+		},
+		"GetSecureTLSBootstrappingDeadline": func() string {
+			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)

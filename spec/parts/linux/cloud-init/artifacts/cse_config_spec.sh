@@ -883,7 +883,8 @@ providers:
     End
 
     Describe 'configureAndStartSecureTLSBootstrapping'
-        SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR="secure-tls-bootstrap.service.d"
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
         API_SERVER_NAME="fqdn"
         AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 
@@ -892,7 +893,7 @@ providers:
         }
 
         cleanup() {
-            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN"
+            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
         }
 
         AfterEach 'cleanup'
@@ -907,7 +908,7 @@ providers:
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=2m0s --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The status should be success
@@ -917,6 +918,12 @@ providers:
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
             }
+            SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT="custom-validate-kubeconfig-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT="custom-get-access-token-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT="custom-get-instance-data-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT="custom-get-nonce-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT="custom-get-attested-data-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT="custom-get-credential-timeout"
             SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
@@ -926,7 +933,7 @@ providers:
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=custom-deadline --aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline"'
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The status should be success
