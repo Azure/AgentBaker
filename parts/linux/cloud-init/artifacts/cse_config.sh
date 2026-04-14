@@ -1365,12 +1365,11 @@ enableLocalDNS() {
     # Log corefile variant after it's been successfully written
     echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
 
-    # Enable or disable the hosts plugin based on SHOULD_ENABLE_HOSTS_PLUGIN.
-    # This follows the configureManagedGPUExperience() pattern — the setting is mutable,
-    # so on CSE re-run we must handle both enable and disable (cleanup) paths.
-    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNS.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
-    else
+    # Disable hosts plugin cleanup path: if the hosts plugin was previously enabled but is now
+    # disabled (e.g. rollback), clean up the timer and hosts file. The enable path is handled
+    # separately — enableAKSLocalDNSHostsSetup() is called earlier in basePrep() to give the
+    # timer a head start on DNS resolution before enableLocalDNS() starts CoreDNS.
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" != "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS.disableAKSLocalDNSHostsSetup" disableAKSLocalDNSHostsSetup
     fi
 
@@ -1381,7 +1380,11 @@ enableLocalDNS() {
 
 # This function enables and starts the aks-localdns-hosts-setup timer.
 # The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
-# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is true.
+# Called from basePrep() early in the boot sequence, before enableLocalDNS().
+# This allows DNS resolution to begin while the rest of basePrep installs packages and configures the node.
+# The timer's systemd service reads LOCALDNS_CRITICAL_FQDNS from /etc/localdns/environment,
+# so this function writes a minimal environment file before starting the timer.
+# generateLocalDNSFiles() (called later by enableLocalDNS) overwrites it with the full content.
 enableAKSLocalDNSHostsSetup() {
     # Best-effort setup: log errors but never fail.
     # The corefile will fall back to the no-hosts variant if hosts file is empty.
@@ -1410,13 +1413,22 @@ enableAKSLocalDNSHostsSetup() {
         return
     fi
 
-    # LOCALDNS_CRITICAL_FQDNS is written to /etc/localdns/environment by generateLocalDNSFiles().
-    # Verify it is set before proceeding; if not, skip hosts setup.
+    # Verify LOCALDNS_CRITICAL_FQDNS is set before proceeding; if not, skip hosts setup.
     if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
         echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
         echo "Skipping aks-localdns-hosts-setup. Corefile will fall back to version without hosts plugin."
         return
     fi
+
+    # Write a minimal environment file so the systemd service (which reads from
+    # /etc/localdns/environment via EnvironmentFile=) has LOCALDNS_CRITICAL_FQDNS available.
+    # generateLocalDNSFiles() overwrites this later with the full content including corefiles.
+    local env_file="/etc/localdns/environment"
+    mkdir -p "$(dirname "${env_file}")"
+    cat > "${env_file}" <<EOF
+LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS}
+EOF
+    chmod 0644 "${env_file}"
 
     # Create an empty hosts file so the localdns hosts plugin can start watching it
     # immediately. The file will be populated by aks-localdns-hosts-setup timer asynchronously.
@@ -1435,7 +1447,7 @@ enableAKSLocalDNSHostsSetup() {
 }
 
 # disableAKSLocalDNSHostsSetup disables the hosts plugin on a node where it was previously enabled.
-# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is false.
+# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is not true.
 # This handles the production rollback case where a customer disables the hosts plugin
 # on an existing agentpool and AKS-RP re-runs CSE with SHOULD_ENABLE_HOSTS_PLUGIN=false.
 # All operations are idempotent — safe to call when hosts plugin was never enabled.
