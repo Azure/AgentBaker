@@ -53,7 +53,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if distro == datamodel.CustomizedWindowsOSImage ||
 		distro == datamodel.CustomizedImage ||
 		distro == datamodel.CustomizedImageKata ||
-		distro == datamodel.CustomizedImageLinuxGuard {
+		distro == datamodel.CustomizedImageLinuxGuard ||
+		distro == datamodel.CustomizedImageTrustedLaunch {
 		return nodeBootstrapping, nil
 	}
 

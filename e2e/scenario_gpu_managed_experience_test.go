@@ -282,7 +282,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -360,7 +360,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -437,7 +437,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -470,6 +470,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -516,7 +517,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3)
+				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -587,7 +588,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -656,4 +657,61 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 	// Cache consistency: both calls should return the same version
 	require.Equal(t, *ext.Properties.TypeHandlerVersion, *ext2.Properties.TypeHandlerVersion,
 		"both calls should return the same extension version")
+}
+
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG1g"
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Mixed"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2404"
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
+
+				// Validate that the NVIDIA device plugin systemd service is running
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+
+				// Validate that MIG mode is enabled via nvidia-smi
+				ValidateMIGModeEnabled(ctx, s)
+
+				// Validate that MIG instances are created
+				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb")
+
+				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
+				migResourceName := "nvidia.com/mig-1g.10gb"
+				ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName)
+
+				// Validate that MIG workloads can be scheduled
+				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
+			},
+		},
+	})
 }

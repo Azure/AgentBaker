@@ -593,9 +593,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"EnableSecureTLSBootstrapping": func() bool {
 			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
-		},
 		"GetSecureTLSBootstrappingAADResource": func() string {
 			return config.SecureTLSBootstrappingConfig.GetAADResource()
 		},
@@ -604,6 +601,27 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
 			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
+		},
+		"GetSecureTLSBootstrappingValidateKubeconfigTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetValidateKubeconfigTimeout()
+		},
+		"GetSecureTLSBootstrappingGetAccessTokenTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetAccessTokenTimeout()
+		},
+		"GetSecureTLSBootstrappingGetInstanceDataTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetInstanceDataTimeout()
+		},
+		"GetSecureTLSBootstrappingGetNonceTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetNonceTimeout()
+		},
+		"GetSecureTLSBootstrappingGetAttestedDataTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetAttestedDataTimeout()
+		},
+		"GetSecureTLSBootstrappingGetCredentialTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
+		},
+		"GetSecureTLSBootstrappingDeadline": func() string {
+			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -621,7 +639,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar() || profile.IsACL()
+			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() ||
+				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -717,7 +736,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
 				profile.Distro == datamodel.CustomizedImageKata ||
-				profile.Distro == datamodel.CustomizedImageLinuxGuard
+				profile.Distro == datamodel.CustomizedImageLinuxGuard ||
+				profile.Distro == datamodel.CustomizedImageTrustedLaunch
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
