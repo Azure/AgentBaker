@@ -23,6 +23,8 @@ Describe 'select_localdns_corefile()'
         # Create temp directory for test hosts file — avoids writing to /etc
         TEST_DIR=$(mktemp -d)
         LOCALDNS_HOSTS_FILE="${TEST_DIR}/hosts"
+        # Minimize poll wait in tests (1 × 0.5s = 0.5s instead of default 5s)
+        LOCALDNS_HOSTS_FILE_WAIT_ATTEMPTS=1
     }
 
     cleanup() {
@@ -31,6 +33,7 @@ Describe 'select_localdns_corefile()'
         unset LOCALDNS_COREFILE_EXPERIMENTAL
         unset SHOULD_ENABLE_HOSTS_PLUGIN
         unset LOCALDNS_HOSTS_FILE
+        unset LOCALDNS_HOSTS_FILE_WAIT_ATTEMPTS
     }
 
     BeforeEach 'setup'
@@ -59,7 +62,8 @@ Describe 'select_localdns_corefile()'
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
             The status should be success
-            The stderr should include "not ready yet, falling back to corefile without hosts plugin"
+            The stderr should include "not ready after"
+            The stderr should include "falling back to corefile without hosts plugin"
         End
 
         It 'returns BASE when hosts file does not exist'
@@ -71,7 +75,8 @@ Describe 'select_localdns_corefile()'
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
             The status should be success
-            The stderr should include "not ready yet, falling back to corefile without hosts plugin"
+            The stderr should include "not ready after"
+            The stderr should include "falling back to corefile without hosts plugin"
         End
 
         It 'handles IPv6 addresses in hosts file'
