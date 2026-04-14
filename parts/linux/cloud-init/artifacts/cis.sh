@@ -50,7 +50,14 @@ assignFilePermissions() {
         touch ${FILEPATH} || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
         chmod 640 ${FILEPATH} || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     done
-    find /var/log -type f -perm '/o+r' -exec chmod 'g-wx,o-rwx' {} \;
+    # CIS 6.1.3.1 (22.04) / 6.1.4.1 (24.04): Ensure access to all logfiles has been configured.
+    # The rule requires: file perms at most 0640, dir perms at most 0750, and group ownership
+    # must be root, adm, or syslog. Upstream package updates (via apt dist-upgrade --force-confnew)
+    # can create log files with wrong permissions or ownership, so we fix comprehensively here.
+    find /var/log -type f -perm /0137 -exec chmod 'g-wx,o-rwx' {} \;
+    find /var/log -type d -perm /0027 -exec chmod 'g-w,o-rwx' {} \;
+    find /var/log -type f ! -group root ! -group adm ! -group syslog -exec chgrp syslog {} \;
+    find /var/log -type d ! -group root ! -group adm ! -group syslog -exec chgrp syslog {} \;
     chmod 600 /etc/passwd- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 600 /etc/shadow- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 600 /etc/group- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION

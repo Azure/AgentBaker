@@ -56,8 +56,11 @@ pushd "$(dirname "$CISASSESSOR_TARBALL_PATH")" || exit 1
 
 # Disable GuestConfig agent to avoid interference with CIS checks
 systemctl disable --now gcd.service || true
-# Fix permissions of log files
+# Fix permissions and ownership of log files for CIS 6.1.3.1/6.1.4.1 assessment
 find /var/log -type f -exec chmod 640 {} \;
+find /var/log -type d -exec chmod 750 {} \;
+find /var/log -type f ! -group root ! -group adm ! -group syslog -exec chgrp syslog {} \;
+find /var/log -type d ! -group root ! -group adm ! -group syslog -exec chgrp syslog {} \;
 
 tar xzf "$CISASSESSOR_TARBALL_PATH"
 
