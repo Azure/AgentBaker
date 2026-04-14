@@ -819,6 +819,15 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		// Ubuntu - do we even need it? it seems that it's coming from the base image
 		"fwupd-refresh.service": true,
 	}
+	// cloud-init creates temporary directories under /run/cloud-init/tmp/ during provisioning.
+	// systemd auto-generates transient .mount units for these (e.g., run-cloud\x2dinit-tmp-tmpXXXXX.mount).
+	// When cloud-init cleans up the temp directory, the mount unit may enter a "failed" state due to
+	// a race in timing between cleanup and systemd state tracking. For this validator, that failure is
+	// treated as benign, and the unit name contains a random suffix, so we use prefix matching instead
+	// of exact string matching.
+	mountFailureAllowPrefixes := []string{
+		`run-cloud\x2dinit-tmp-`,
+	}
 	if s.Tags.BootstrapTokenFallback {
 		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
 		unitFailureAllowList["secure-tls-bootstrap.service"] = true
@@ -842,7 +851,17 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
 	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
-		return !unitFailureAllowList[unit.Name]
+		if unitFailureAllowList[unit.Name] {
+			return false
+		}
+		if strings.HasSuffix(unit.Name, ".mount") {
+			for _, prefix := range mountFailureAllowPrefixes {
+				if strings.HasPrefix(unit.Name, prefix) {
+					return false
+				}
+			}
+		}
+		return true
 	})
 
 	if len(failedUnits) < 1 {
@@ -2001,6 +2020,19 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
 	if nbc != nil && nbc.EnableScriptlessCSECmd && !s.VHD.Flatcar {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
+	}
+}
+
+// ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
+func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && !s.VHD.Flatcar {
+		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+		}
+		ValidateFileExists(ctx, s, fileNameToCheck)
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
 	}
 }
 
