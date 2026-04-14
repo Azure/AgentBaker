@@ -188,6 +188,24 @@ Describe 'Get-CACertificates' {
         $result | Should -Be $false
     }
 
+    It 'throws when certificate retrieval fails with -FailOnError' {
+        Mock Retry-Command -MockWith {
+            throw 'simulated retrieval failure'
+        }
+
+        { Get-CACertificates -Location 'southcentralus' -FailOnError } | Should -Throw '*Failed to retrieve CA certificates*'
+    }
+
+    It 'throws when legacy endpoint returns empty data with -FailOnError' {
+        Mock Retry-Command -MockWith {
+            return [PSCustomObject]@{
+                Content = '{"Certificates":[]}'
+            }
+        }
+
+        { Get-CACertificates -Location 'ussecwest' -FailOnError } | Should -Throw '*CA certificates rawdata is empty*'
+    }
+
     It 'falls back to legacy endpoint when called without -Location (backward compat)' {
         $script:retryUris = @()
         Mock Retry-Command -MockWith {
