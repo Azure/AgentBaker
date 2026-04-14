@@ -2354,3 +2354,30 @@ func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
 		"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
 		1, "expected no ca-refresh cron entry when not opted in")
 }
+
+// ValidateRCV1PNotOptedInWindows validates that when the Windows VM does NOT have the opt-in tag,
+// no certificates are installed to C:\ca and no refresh scheduled task is registered,
+// even in the RCV1P subscription with PlatformSettingsOverride registered.
+func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Validate C:\ca is empty or does not exist
+	command := []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$caFolder = 'C:\\ca'",
+		"if ((Test-Path $caFolder) -and @(Get-ChildItem -Path $caFolder -File).Count -gt 0) { throw 'Expected C:\\ca to be empty or not exist, but found certificates' }",
+		"Write-Host 'C:\\ca is empty or does not exist as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected C:\\ca to be empty or not exist when not opted in")
+
+	// Validate no refresh scheduled task was registered
+	command = []string{
+		"$ErrorActionPreference = 'Stop'",
+		"$task = Get-ScheduledTask -TaskName 'aks-ca-certs-refresh-task' -ErrorAction SilentlyContinue",
+		"if ($task) { throw 'Expected no aks-ca-certs-refresh-task but found one' }",
+		"Write-Host 'No aks-ca-certs-refresh-task found as expected'",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"expected no aks-ca-certs-refresh-task scheduled task when not opted in")
+}
