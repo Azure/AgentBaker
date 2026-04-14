@@ -819,6 +819,14 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		// Ubuntu - do we even need it? it seems that it's coming from the base image
 		"fwupd-refresh.service": true,
 	}
+	// cloud-init creates temporary directories under /run/cloud-init/tmp/ during provisioning.
+	// systemd auto-generates transient .mount units for these (e.g., run-cloud\x2dinit-tmp-tmpXXXXX.mount).
+	// When cloud-init cleans up the temp directory, the mount unit enters a "failed" state.
+	// This is normal systemd behavior and the unit name contains a random suffix,
+	// so we use prefix matching instead of exact string matching.
+	unitFailureAllowPrefixes := []string{
+		"run-cloud\\x2dinit-tmp-",
+	}
 	if s.Tags.BootstrapTokenFallback {
 		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
 		unitFailureAllowList["secure-tls-bootstrap.service"] = true
@@ -842,7 +850,15 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
 	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
-		return !unitFailureAllowList[unit.Name]
+		if unitFailureAllowList[unit.Name] {
+			return false
+		}
+		for _, prefix := range unitFailureAllowPrefixes {
+			if strings.HasPrefix(unit.Name, prefix) {
+				return false
+			}
+		}
+		return true
 	})
 
 	if len(failedUnits) < 1 {
