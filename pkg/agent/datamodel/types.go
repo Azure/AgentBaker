@@ -1797,6 +1797,10 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
 	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
 	EnableScriptlessCSECmd bool
+
+	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
+	// AKS Node Controller and uses the NBC cmd to start provisioning.
+	EnableScriptlessNBCCSECmd bool
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
