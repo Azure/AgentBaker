@@ -820,10 +820,12 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		"fwupd-refresh.service": true,
 	}
 	// cloud-init creates temporary directories under /run/cloud-init/tmp/ during provisioning.
-	// systemd auto-generates transient .mount units for these (e.g., run-cloud\x2dinit-tmp-tmpXXXXX.mount).
-	// When cloud-init cleans up the temp directory, the mount unit enters a "failed" state.
-	// This is normal systemd behavior and the unit name contains a random suffix,
-	// so we use prefix matching instead of exact string matching.
+	// systemd may auto-generate transient .mount units for these (for example,
+	// run-cloud\x2dinit-tmp-tmpXXXXX.mount). When cloud-init cleans up the temp
+	// directory, these ephemeral mount units may occasionally appear in a "failed"
+	// state due to transient/racy cleanup timing. This prefix-based allow rule is
+	// intentionally scoped to those cloud-init temp mounts, whose unit names contain
+	// random suffixes, so we use prefix matching instead of exact string matching.
 	unitFailureAllowPrefixes := []string{
 		"run-cloud\\x2dinit-tmp-",
 	}
