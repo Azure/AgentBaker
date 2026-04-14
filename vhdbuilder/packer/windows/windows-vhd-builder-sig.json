@@ -53,7 +53,7 @@
                     "{{user `location`}}"
                 ]
             },
-            "use_azure_cli_auth": "true",
+            "use_azure_cli_auth": true,
             "polling_duration_timeout": "1h",
             "communicator": "winrm",
             "winrm_use_ssl": true,
