@@ -27,6 +27,11 @@ type App struct {
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRun      func(cmd *exec.Cmd) error
 	eventLogger *helpers.EventLogger
+
+	// hotfixVersionPath overrides the default hotfix version file location for testing.
+	hotfixVersionPath string
+	// aptSourcesDir overrides the default APT sources directory for testing.
+	aptSourcesDir string
 }
 
 // commandMetadata holds all metadata for a command in one place.
@@ -112,10 +117,21 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return errors.New("missing command argument")
 	}
 
+	if command == "--version" || command == "version" {
+		//nolint:forbidigo // stdout is part of the interface
+		fmt.Println(Version)
+		return nil
+	}
+
 	cmd, ok := getCommandRegistry()[command]
 	if !ok {
 		return fmt.Errorf("unknown command: %s", command)
 	}
+
+	// Self-update before provisioning: check for hotfix version and install if needed.
+	// On success, syscall.Exec replaces this process and never returns.
+	// On any failure, selfUpdate logs a warning and returns nil (best-effort).
+	a.selfUpdate(ctx)
 
 	startTime := time.Now()
 	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
