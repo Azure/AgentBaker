@@ -826,7 +826,7 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	// treated as benign, and the unit name contains a random suffix, so we use prefix matching instead
 	// of exact string matching.
 	mountFailureAllowPrefixes := []string{
-		"run-cloud\\x2dinit-tmp-",
+		`run-cloud\x2dinit-tmp-`,
 	}
 	if s.Tags.BootstrapTokenFallback {
 		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
