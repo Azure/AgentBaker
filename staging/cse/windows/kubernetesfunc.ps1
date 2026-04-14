@@ -320,7 +320,9 @@ function Should-InstallCACertificatesRefreshTask {
 function Get-CACertificates {
     Param(
         [Parameter(Mandatory = $false)][string]
-        $Location = ""
+        $Location = "",
+        [Parameter(Mandatory = $false)][switch]
+        $FailOnError
     )
 
     $caFolder = "C:\ca"
@@ -342,6 +344,9 @@ function Get-CACertificates {
             $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
             $caCerts = ($rawData.Content) | ConvertFrom-Json
             if ($null -eq $caCerts -or $null -eq $caCerts.Certificates -or $caCerts.Certificates.Length -eq 0) {
+                if ($FailOnError) {
+                    throw "CA certificates rawdata is empty for legacy endpoint"
+                }
                 Write-Log "Warning: CA certificates rawdata is empty for legacy endpoint"
                 return $false
             }
@@ -406,6 +411,9 @@ function Get-CACertificates {
         return $downloadedAny
     }
     catch {
+        if ($FailOnError) {
+            throw "Failed to retrieve CA certificates. Error: $_"
+        }
         Write-Log "Warning: failed to retrieve CA certificates. Error: $_"
         return $false
     }
