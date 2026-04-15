@@ -1962,6 +1962,12 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.NodeListenerIP}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    {{- end}}
     {{- if $isRootDomain}}
     forward . {{$.AzureDNSIP}} {
     {{- else}}
@@ -2023,6 +2029,12 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.ClusterListenerIP}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    {{- end}}
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
