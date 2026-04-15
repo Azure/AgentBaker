@@ -102,6 +102,7 @@ jobs:
                 az aks create \
                 --resource-group $(setvar.CLUSTER_RG) \
                 --name testcluster \
+                --node-vm-size standard_d4s_v3 \
                 --enable-addons monitoring \
                 --network-plugin azure \
                 --network-policy ${NETWORK_POLICY} \
@@ -117,6 +118,7 @@ jobs:
                 az aks create \
                 --resource-group $(setvar.CLUSTER_RG) \
                 --name testcluster \
+                --node-vm-size standard_d4s_v3 \
                 --enable-addons monitoring \
                 --network-plugin azure \
                 --vm-set-type VirtualMachineScaleSets \
