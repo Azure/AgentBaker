@@ -403,6 +403,49 @@ installNvidiaManagedExpPkgFromCache() {
   done
 }
 
+
+findCachedRpmFileName() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local downloadDir="${3}"
+
+    local rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    echo "${rpmFile}"
+}
+
+buildRpmInstallArgsFromCache() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local rpmFile="${3}"
+    local downloadDir="${4}"
+
+    local -a rpmArgs=("${rpmFile}")
+    local -a cachedRpmFiles=()
+    mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
+
+    # selecting the correct version of dependency rpms from the cache
+    for cachedRpm in "${cachedRpmFiles[@]}"; do
+      if [ "${cachedRpm}" = "${rpmFile}" ]; then
+        continue
+      fi
+
+      local cachedBaseName
+      cachedBaseName=$(basename "${cachedRpm}")
+
+      case "${cachedBaseName}" in
+        *${packageName}*)
+          echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}" >&2
+          continue
+          ;;
+      esac
+
+      rpmArgs+=("${cachedRpm}")
+    done
+
+    printf '%s\n' "${rpmArgs[@]}"
+}
+
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
@@ -411,7 +454,9 @@ installRPMPackageFromFile() {
     downloadDir="$(getPackageDownloadDir "${packageName}")"
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    local rpmFile
+    local -a rpmArgs=()
+    rpmFile="$(findCachedRpmFileName "${packageName}" "${desiredVersion}" "${downloadDir}")"
     if [ -z "${rpmFile}" ]; then
         if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
             echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
@@ -428,7 +473,7 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+        rpmFile="$(findCachedRpmFileName "${packageName}" "${desiredVersion}" "${downloadDir}")"
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
@@ -436,28 +481,7 @@ installRPMPackageFromFile() {
     fi
 
     rpmFile="${downloadDir}/${rpmFile}"
-    local rpmArgs=("${rpmFile}")
-    local -a cachedRpmFiles=()
-    mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
-
-    # selecting the correct version of dependency rpms from the cache
-    for cachedRpm in "${cachedRpmFiles[@]}"; do
-      if [ "${cachedRpm}" = "${rpmFile}" ]; then
-        continue
-      fi
-
-      local cachedBaseName
-      cachedBaseName=$(basename "${cachedRpm}")
-
-      case "${cachedBaseName}" in
-        *${packageName}*)
-          echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
-          continue
-          ;;
-      esac
-
-      rpmArgs+=("${cachedRpm}")
-    done
+    mapfile -t rpmArgs < <(buildRpmInstallArgsFromCache "${packageName}" "${desiredVersion}" "${rpmFile}" "${downloadDir}")
 
     if [ ${#rpmArgs[@]} -gt 1 ]; then
         echo "Installing ${packageName} with cached dependency RPMs: ${rpmArgs[*]}"
@@ -472,6 +496,56 @@ installRPMPackageFromFile() {
     mkdir -p /opt/bin
     ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
     rm -rf "${downloadDir}"
+}
+
+installPackageFromCache() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    echo "installing ${packageName} version ${desiredVersion} (cache only)"
+    local downloadDir
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
+
+    # check cached rpms for matching filename
+    local rpmFile=""
+    local -a rpmArgs=()
+    rpmFile="$(findCachedRpmFileName "${packageName}" "${desiredVersion}" "${downloadDir}")"
+    if [ -z "${rpmFile}" ]; then
+        echo "Failed to locate cached ${packageName} rpm for version ${desiredVersion}"
+        return 1
+    fi
+
+    rpmFile="${downloadDir}/${rpmFile}"
+    mapfile -t rpmArgs < <(buildRpmInstallArgsFromCache "${packageName}" "${desiredVersion}" "${rpmFile}" "${downloadDir}")
+
+    if [ ${#rpmArgs[@]} -gt 1 ]; then
+        echo "Installing ${packageName} with cached dependency RPMs: ${rpmArgs[*]}"
+    fi
+
+    # check if additional dependencies are required
+    local dnfPlanOutput=""
+    # Use --assumeno to inspect transaction plan without installing.
+    # dnf can still return non-zero on --assumeno, so rely on output parsing.
+    dnfPlanOutput=$(dnf install -y --assumeno --disablerepo='*' "${rpmArgs[@]}" 2>&1 || true)
+    if echo "${dnfPlanOutput}" | grep -q "Installing dependencies"; then
+      echo "Additional dependencies are required for ${packageName}; cache-only install is not allowed"
+      return 1
+    fi
+    if echo "${dnfPlanOutput}" | grep -Eq "nothing provides|requires .* but none of the providers can be installed|Problem:"; then
+      echo "Dependency resolution failed during precheck for ${packageName}"
+      return 1
+    fi
+
+    # Cache-only install: if required dependencies are not available in cache/repo, return 1.
+    # Cannot implement dnf_install because it will attempt to run makecache
+    if ! dnf install -y --disablerepo='*' "${rpmArgs[@]}"; then
+        echo "Failed to install ${packageName} from cache-only RPMs"
+        return 1
+    fi
+
+    mkdir -p /opt/bin
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
+    rm -rf "${downloadDir}"
+    return 0
 }
 
 downloadPkgFromVersion() {

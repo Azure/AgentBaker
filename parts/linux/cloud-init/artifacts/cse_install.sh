@@ -524,6 +524,18 @@ installToolFromBootstrapProfileRegistry() {
     # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
     local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
 
+    if [ "${NETWORK_ISOLATED_CLUSTER_TEST_MODE}" = "true" ]; then
+        echo "NETWORK_ISOLATED_CLUSTER_TEST_MODE=true, skipping installPackageFromCache for ${tool_name}"
+    else
+        if installPackageFromCache "$tool_name" "$version"; then
+            if [ -n "$install_path" ]; then
+                mv "$(which "$tool_name")" "$install_path"
+            fi
+            return 0
+        fi
+    fi
+    echo "install from cache failed for ${tool_name}, start to pull from registry"
+
     version_tag="${version}"
     if [ "${version}" != "v*" ]; then
         version_tag="v${version_tag}"

@@ -328,6 +328,55 @@ installPkgWithAptGet() {
     rm -rf ${downloadDir}
 }
 
+installPackageFromCache() {
+    local packageName="${1:-}"
+    local packageVersion="${2}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local debFile=""
+    local aptPlanOutput=""
+    local plannedPkg=""
+    local hasAdditionalDependencies="false"
+
+    echo "installing ${packageName} version ${packageVersion} (cache only)"
+
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    if [ -z "${debFile}" ]; then
+        echo "Failed to locate cached ${packageName} deb for version ${packageVersion}"
+        return 1
+    fi
+
+    debFile="${downloadDir}/${debFile}"
+
+    # Simulate install first to detect whether apt would pull additional dependencies.
+    aptPlanOutput=$(apt-get -s install "${debFile}" 2>&1 || true)
+    if echo "${aptPlanOutput}" | grep -Eqi "unmet dependencies|depends:|unable to correct problems|but it is not installable"; then
+        echo "Dependency resolution failed during precheck for ${packageName}"
+        return 1
+    fi
+
+    while read -r plannedPkg; do
+        if [ -n "${plannedPkg}" ] && [ "${plannedPkg}" != "${packageName}" ]; then
+            hasAdditionalDependencies="true"
+            break
+        fi
+    done < <(echo "${aptPlanOutput}" | awk '/^Inst / {print $2}')
+
+    if [ "${hasAdditionalDependencies}" = "true" ]; then
+        echo "Additional dependencies are required for ${packageName}; cache-only install is not allowed"
+        return 1
+    fi
+
+    if ! logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}"; then
+        echo "Failed to install ${packageName} from cache-only deb ${debFile}"
+        return 1
+    fi
+
+    mkdir -p /opt/bin
+    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
+    rm -rf "${downloadDir}"
+    return 0
+}
+
 downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
