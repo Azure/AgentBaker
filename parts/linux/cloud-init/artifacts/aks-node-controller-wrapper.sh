@@ -1,6 +1,10 @@
 #!/bin/bash
 set -uo pipefail
 
+until [ "$(hostname)" = "$(cat /etc/hostname)" ]; do
+   sleep 1
+done
+
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
