@@ -7,9 +7,9 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 3,
+  "prHourlyLimit": 1,
   "branchConcurrentLimit": 0,
-  "commitHourlyLimit": 5,
+  "commitHourlyLimit": 1,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
@@ -304,7 +304,7 @@
     {
       "matchPackageNames": [
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "azure-acr-credential-provider"
+        "azure-acr-credential-provider*"
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
