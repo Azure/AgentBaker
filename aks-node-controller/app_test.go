@@ -78,6 +78,18 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 	})
 
+	t.Run("--help flag returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "--help"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("help command returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "help"})
+		assert.Equal(t, 0, exitCode)
+	})
+
 	t.Run("provision command with missing flag", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision"})
