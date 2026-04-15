@@ -266,10 +266,21 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 
 	// Validate individual task thresholds — each as a sub-test for ADO tracking.
 	// ADO Test Analytics will show per-task pass/fail trends and flag regressions.
+	// Sort suffixes by length descending so longer (more specific) suffixes match first,
+	// making matching deterministic when multiple suffixes could match the same task.
+	sortedSuffixes := make([]string, 0, len(thresholds.TaskThresholds))
+	for suffix := range thresholds.TaskThresholds {
+		sortedSuffixes = append(sortedSuffixes, suffix)
+	}
+	sort.Slice(sortedSuffixes, func(i, j int) bool {
+		return len(sortedSuffixes[i]) > len(sortedSuffixes[j])
+	})
+
 	matchedTasks := make(map[string]bool)
 	matchedSuffixes := make(map[string]bool)
 	for _, task := range report.Tasks {
-		for suffix, maxDuration := range thresholds.TaskThresholds {
+		for _, suffix := range sortedSuffixes {
+			maxDuration := thresholds.TaskThresholds[suffix]
 			if strings.HasSuffix(task.TaskName, suffix) {
 				matchedTasks[task.TaskName] = true
 				matchedSuffixes[suffix] = true
@@ -300,9 +311,9 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 
 	// Verify all configured threshold suffixes matched at least one task.
 	// This catches task renames or removals that would silently disable regression checks.
-	for suffix := range thresholds.TaskThresholds {
+	for _, suffix := range sortedSuffixes {
 		if !matchedSuffixes[suffix] {
-			s.T.Logf("WARNING: threshold suffix %q did not match any CSE task — task may have been renamed or removed", suffix)
+			s.T.Errorf("threshold suffix %q did not match any CSE task — task may have been renamed or removed", suffix)
 		}
 	}
 
