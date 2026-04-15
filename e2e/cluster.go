@@ -78,6 +78,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 
 	g := dag.NewGroup(ctx)
 
+	// bastion creates AzureBastionSubnet — a VNet-level mutation that must
+	// finish before other subnet writes (firewall / network-isolated setup)
+	// to avoid Azure VNet serialisation races.
 	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
 		return getOrCreateBastion(ctx, cluster)
 	})
@@ -87,14 +90,19 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	dag.Run(g, func(ctx context.Context) error { return collectGarbageVMSS(ctx, cluster) })
+	// networkSetup adds firewall routes to the AKS route table or applies
+	// network-isolated NSG.  It must run after bastion (both mutate the
+	// VNet) and before collectGarbageVMSS (which needs network setup done).
+	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
+	// objects whose backing VMSS no longer exist.
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }))
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
 	}
 	if isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }))
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
+	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
@@ -692,9 +700,12 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
 }
 
-func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) error {
 	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
+
+	// Build a set of all existing VMSS names while deleting old ones.
+	existingVMSS := map[string]struct{}{}
 	pager := config.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -702,6 +713,8 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 			return fmt.Errorf("failed to get next page of VMSS: %w", err)
 		}
 		for _, vmss := range page.Value {
+			existingVMSS[*vmss.Name] = struct{}{}
+
 			if _, ok := vmss.Tags["KEEP_VMSS"]; ok {
 				continue
 			}
@@ -727,6 +740,51 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 		}
 	}
 
+	if err := collectGarbageNodes(ctx, kube, existingVMSS); err != nil {
+		return fmt.Errorf("failed to collect garbage K8s nodes: %w", err)
+	}
+	return nil
+}
+
+// collectGarbageNodes deletes Kubernetes Node objects whose backing VMSS no
+// longer exists. This prevents stale nodes from accumulating in the cluster
+// and overwhelming the cloud-provider-azure route controller with perpetual
+// "instance not found" failures.
+func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map[string]struct{}) error {
+	defer toolkit.LogStepCtx(ctx, "collecting garbage K8s nodes")()
+
+	nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("listing K8s nodes for garbage collection: %w", err)
+	}
+
+	var deleteErrors []error
+	for _, node := range nodes.Items {
+		// skip managed pool nodes (system nodepool)
+		if strings.HasPrefix(node.Name, "aks-") {
+			continue
+		}
+
+		// VMSS instance names are the VMSS name + 6-digit instance ID suffix
+		if len(node.Name) < 7 {
+			continue
+		}
+		vmssName := node.Name[:len(node.Name)-6]
+
+		if _, exists := existingVMSS[vmssName]; exists {
+			continue
+		}
+
+		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("deleting stale node %q: %w", node.Name, err))
+			continue
+		}
+		toolkit.Logf(ctx, "deleted stale K8s node %q (VMSS %q not found)", node.Name, vmssName)
+	}
+
+	if len(deleteErrors) > 0 {
+		return fmt.Errorf("failed to delete %d stale nodes, first error: %w", len(deleteErrors), deleteErrors[0])
+	}
 	return nil
 }
 

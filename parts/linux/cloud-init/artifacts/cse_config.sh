@@ -516,9 +516,30 @@ ensureKubeCACert() {
 # drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
-    BOOTSTRAP_CLIENT_FLAGS="--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-"2m0s"} --aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+    BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --validate-kubeconfig-timeout=${SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-access-token-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-instance-data-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-nonce-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-attested-data-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-credential-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_DEADLINE}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
     fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
@@ -952,7 +973,7 @@ configGPUDrivers() {
     fi
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 30 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
@@ -981,9 +1002,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then

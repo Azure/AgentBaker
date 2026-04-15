@@ -67,6 +67,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller.service
       destination: /etc/systemd/system/aks-node-controller.service
       permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh
+      destination: /opt/azure/containers/aks-node-controller-wrapper.sh
+      permissions: 755
     # Fix systemd resolved caching
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/resolv-uplink-override.service
       destination: /etc/systemd/system/resolv-uplink-override.service

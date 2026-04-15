@@ -66,6 +66,30 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	})
 
+	t.Run("--version flag returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "--version"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("version command returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "version"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("--help flag returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "--help"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("help command returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "help"})
+		assert.Equal(t, 0, exitCode)
+	})
+
 	t.Run("provision command with missing flag", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision"})
@@ -75,6 +99,18 @@ func TestApp_Run(t *testing.T) {
 	t.Run("provision command with valid flag", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 0, exitCode)
+
+		events := tt.eventLogger.Events()
+		assert.Len(t, events, 2)
+		assert.Contains(t, events[0].Message, "Starting")
+		assert.Contains(t, events[1].Message, "Completed")
+	})
+
+	t.Run("provision command with provision-config and nbc-cmd flag", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		params := []string{"aks-node-controller", "provision", "--nbc-cmd=parser/testdata/test_nbccmd.sh"}
+		exitCode := tt.App.Run(context.Background(), params)
 		assert.Equal(t, 0, exitCode)
 
 		events := tt.eventLogger.Events()
@@ -115,6 +151,60 @@ func TestApp_Provision(t *testing.T) {
 		})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})
 		assert.Error(t, err)
+	})
+
+	t.Run("nbc cmd is executed by passing the script path to bash", func(t *testing.T) {
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho success running nbc_cmd.sh\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, "/bin/bash", gotCmd.Path)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "success running nbc_cmd.sh")
+	})
+
+	t.Run("nbc cmd is always passed as a script path, even when it starts with a dash", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Chdir(tempDir)
+		scriptPath := "-test_nbccmd.sh"
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho success running dashed nbc_cmd.sh\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "success running dashed nbc_cmd.sh")
+	})
+
+	t.Run("nbc cmd file read errors are wrapped", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		scriptPath := filepath.Join(t.TempDir(), "missing.sh")
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		assert.Equal(t, "240", result.ExitCode)
+		assert.Contains(t, result.Error, "read NBC command file "+scriptPath)
 	})
 }
 
