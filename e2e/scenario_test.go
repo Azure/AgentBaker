@@ -549,7 +549,7 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 }
 
 func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
-	err := RunScenario(t, &Scenario{
+	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
 			Scriptless: true,
@@ -567,16 +567,13 @@ func Test_Ubuntu2204_Failure_Scriptless(t *testing.T) {
 				config.BootstrappingConfig = nil
 				config.KubernetesCaCert = ""
 			},
-			ReturnErrorOnVMSSCreation: true,
+			ExpectedError: "API server connection check code: 51",
 		},
 	})
-
-	// Expect the error to contain API server connection failure since we provided invalid config
-	require.ErrorContains(t, err, "API server connection check code: 51")
 }
 
 func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
-	err := RunScenario(t, &Scenario{
+	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
 			Scriptless: true,
@@ -592,12 +589,9 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 				// Intentionally causing a failure here
 				config.Version = "VeryBadVersion"
 			},
-			ReturnErrorOnVMSSCreation: true,
+			ExpectedError: "unsupported version: VeryBadVersion",
 		},
 	})
-
-	// Expect the error to contain unsupported version
-	require.ErrorContains(t, err, "unsupported version: VeryBadVersion")
 }
 
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
@@ -623,9 +617,6 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 // It injects a unique marker into cloud-init write_files via BootstrapConfigMutator,
 // then verifies that marker landed on disk — proving cloud-init write_files delivery works.
 func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
-	if config.Config.EnableScriptlessNBCCSECmd {
-		t.Skip("skipping test because its unsupported in nbc CSE cmd path")
-	}
 	const hotfixMarkerPath = "/opt/azure/containers/e2e-hotfix-marker.txt"
 	hotfixMarkerContent := fmt.Sprintf("HOTFIX_E2E_MARKER_%d", time.Now().UnixNano())
 
