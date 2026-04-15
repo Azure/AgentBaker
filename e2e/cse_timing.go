@@ -14,6 +14,9 @@ import (
 
 const (
 	// cseEventsDir is the directory where CSE task timing events are stored on the VM.
+	// This matches EVENTS_LOGGING_DIR defined in both cse_helpers.sh and cse_start.sh.
+	// Events are written directly here (not in per-handler subdirectories) — each file
+	// is a single-line JSON object named <epoch-ms>.json.
 	cseEventsDir = "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 	// provisionJSONPath is the path to the provision.json file with overall boot timing.
 	provisionJSONPath = "/var/log/azure/aks/provision.json"
@@ -49,10 +52,16 @@ type CSETimingReport struct {
 	taskIndex  map[string]*CSETaskTiming
 }
 
-// cseEventJSON matches the JSON structure written by logs_to_events.
+// cseEventJSON matches the JSON structure written by logs_to_events() in cse_helpers.sh.
+// Despite its name, OperationId stores the task *end* timestamp (not a GUID).
+// This is by design: GA (Guest Agent) requires specific field names, and OperationId
+// was repurposed to carry the end time. See cse_helpers.sh logs_to_events():
+//
+//	--arg Timestamp   "${startTime}"
+//	--arg OperationId "${endTime}"
 type cseEventJSON struct {
 	Timestamp   string `json:"Timestamp"`
-	OperationId string `json:"OperationId"`
+	OperationId string `json:"OperationId"` // end timestamp, not a GUID — see logs_to_events() in cse_helpers.sh
 	TaskName    string `json:"TaskName"`
 	EventLevel  string `json:"EventLevel"`
 	Message     string `json:"Message"`
@@ -125,19 +134,15 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 		return nil, fmt.Errorf("failed to read CSE events: %w", err)
 	}
 
-	// Each line is a separate JSON object (one per event file)
-	lines := strings.Split(strings.TrimSpace(result.stdout), "\n")
+	// Parse event JSON objects using json.Decoder for robustness — handles both
+	// single-line and multi-line JSON, and doesn't break on embedded newlines.
+	decoder := json.NewDecoder(strings.NewReader(strings.TrimSpace(result.stdout)))
 	var parseErrors int
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
+	for decoder.More() {
 		var event cseEventJSON
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
+		if err := decoder.Decode(&event); err != nil {
 			parseErrors++
-			s.T.Logf("WARNING: failed to unmarshal CSE event JSON: %v (line: %.100s)", err, line)
+			s.T.Logf("WARNING: failed to decode CSE event JSON: %v", err)
 			continue
 		}
 		if event.TaskName == "" || event.Timestamp == "" || event.OperationId == "" {
@@ -170,7 +175,7 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 		s.T.Logf("WARNING: %d CSE event parse errors encountered", parseErrors)
 	}
 	if len(report.Tasks) == 0 {
-		return report, fmt.Errorf("no CSE task timings were parsed from %d event lines (%d parse errors)", len(lines), parseErrors)
+		return report, fmt.Errorf("no CSE task timings were parsed (%d parse errors)", parseErrors)
 	}
 
 	// Read provision.json for overall boot timing
