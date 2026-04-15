@@ -73,6 +73,16 @@
         "rpm"
       ],
       "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchUpdateTypes": [
         "patch"
       ],
       "automerge": false,
