@@ -180,6 +180,24 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, e
 	return parser.BuildCSECmd(ctx, config)
 }
 
+func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("read NBC command file %s: %w", path, err)
+	}
+	if !fileInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("NBC command file %s must be a regular file", path)
+	}
+
+	scriptPath := filepath.Clean(path)
+	slog.Info("Using NBC command for scriptless phase 2", "NBCCmdFile", scriptPath)
+
+	// #nosec G204 -- scriptPath is validated as a file path and passed after "--" so bash treats it as a script, not an option or shell input.
+	cmd := exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)
+	cmd.Env = os.Environ()
+	return cmd, nil
+}
+
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
 
@@ -195,17 +213,13 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	}
 
 	if flags.NBCCmd != "" {
-		nbcCmdContent, err := os.ReadFile(flags.NBCCmd)
+		var err error
+		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
 		if err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = fmt.Sprintf("read NBC command file %s: %v", flags.NBCCmd, err)
-			return provisionResult, errors.New(provisionResult.Error)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
 		}
-		nbcScript := strings.TrimSpace(string(nbcCmdContent))
-		slog.Info("Using NBC command for scriptless phase 2", "NBCCmdFile", flags.NBCCmd)
-		nbcCMD := exec.CommandContext(ctx, "/bin/bash", "-c", nbcScript)
-		nbcCMD.Env = os.Environ()
-		cmd = nbcCMD
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
