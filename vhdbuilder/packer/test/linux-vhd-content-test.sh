@@ -221,7 +221,7 @@ testPackagesInstalled() {
     case "${name}" in
       "kubernetes-binaries")
         # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-        # Intentionally remove leading 'v' from each element in the array
+        # Intentionally remove leading 'v' from each element in the array.
         testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
         continue
         ;;
@@ -231,13 +231,21 @@ testPackagesInstalled() {
         continue
         ;;
       "azure-acr-credential-provider-pmc"|\
-      "kubelet"|\
-      "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "kubelet"|\
+      "kubectl")
+        testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || [ "$OS" = "$MARINER_OS_NAME" ]; then
+          testVersionedKubernetesPackageBinariesPresent "${name}" "${PACKAGE_VERSIONS[@]}"
+        else
+          echo "Skipping testVersionedKubernetesPackageBinariesPresent for ${OS}${OS_VARIANT:+ ${OS_VARIANT}}"
+        fi
         continue
         ;;
       "cni-plugins")
@@ -934,6 +942,40 @@ testKubeBinariesPresent() {
     # shellcheck disable=SC3010
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
+    fi
+  done
+  echo "$test:Finish"
+}
+
+testVersionedKubernetesPackageBinariesPresent() {
+  local packageName=$1
+  shift
+  local test="testVersioned${packageName}PackageBinaries"
+  local packageVersions=("$@")
+  local binaryDir=/opt/bin
+  local packageVersion k8sVersion binaryPath versionOutput
+
+  echo "$test:Start"
+  for packageVersion in "${packageVersions[@]}"; do
+    packageVersion="${packageVersion#*:}"
+    k8sVersion="${packageVersion%%-*}"
+    binaryPath="${binaryDir}/${packageName}-${k8sVersion}"
+
+    if [ ! -s "${binaryPath}" ]; then
+      err "$test" "Binary ${binaryPath} does not exist"
+      continue
+    fi
+
+    chmod a+x "${binaryPath}"
+    if [ "${packageName}" = "kubectl" ]; then
+      versionOutput=$("${binaryPath}" version 2>/dev/null)
+    else
+      versionOutput=$("${binaryPath}" --version 2>/dev/null)
+    fi
+
+    # shellcheck disable=SC3010
+    if [[ ! ${versionOutput} =~ ${k8sVersion} ]]; then
+      err "$test" "The ${packageName} version is not correct: expected ${k8sVersion}, existing: ${versionOutput}"
     fi
   done
   echo "$test:Finish"
