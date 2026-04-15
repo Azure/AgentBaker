@@ -124,6 +124,9 @@ type Scenario struct {
 	// used to override the default location.
 	Location string
 
+	// EnableScriptlessNBCCSECmd indicates whether to enable scriptless NBCCSECmd in the scenario.
+	EnableScriptlessNBCCSECmd bool
+
 	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
 	// a default size will be used.
 	K8sSystemPoolSKU string
@@ -198,8 +201,9 @@ type Config struct {
 	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
 	VHDCaching bool
 
-	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
-	ReturnErrorOnVMSSCreation bool
+	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
+	// The assertion is performed inside the scenario's subtest.
+	ExpectedError string
 
 	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
 	UseNVMe bool
