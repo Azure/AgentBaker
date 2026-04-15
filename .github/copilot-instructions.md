@@ -145,6 +145,16 @@ Analyze PRs for these compatibility scenarios:
 **5. Package/Dependency Update PRs (Renovate)**
 - **Context**: Renovate bot automatically creates PRs to update component versions in `parts/common/components.json`. These components are cached on VHDs during build and directly affect node stability, GPU workloads, networking, and security. Updated packages are downloaded from `packages.aks.azure.com` or upstream registries during VHD build.
 - **What to check**: Every version bump—even patch versions—can introduce regressions that affect production nodes.
+- **`renovate.json` syntax guardrails**:
+  1. Keep the file valid JSON (double quotes only, no comments, no trailing commas).
+  2. When editing arrays like `assignees`, `reviewers`, `matchPackageNames`, and `matchUpdateTypes`, preserve comma placement and avoid duplicate entries.
+  3. Keep schema-compatible key casing and value types (for example `enabled` as boolean, `prHourlyLimit` as number, `labels` as string array).
+  4. In `packageRules`, preserve specific-to-generic ordering so narrow matchers are not shadowed by broader rules.
+  5. For regex fields (`versioning`, `extractVersion`, `matchCurrentVersion`, custom manager `matchStrings`), escape backslashes correctly for JSON strings.
+  6. For custom manager templates, keep Renovate template tokens intact (`{{{newValue}}}`, `{{#if ...}}`, `{{/if}}`) and avoid converting them to normal JSON interpolation.
+  7. If modifying identity lists in `assignees` or `reviewers`, update all related grouped rules consistently to avoid ownership drift.
+  8. On GitHub, both `assignees` and `reviewers` may include team handles using the `team:<slug>` format; if used, ensure the team exists in the AKS org and has at least read permission to the AgentBaker repo.
+  9. Keep `minor` updates disabled by default; only allow minor updates through explicit, narrow `packageRules` (avoid broad datasource/wildcard exceptions). Example context: https://github.com/Azure/AgentBaker/pull/7898 (broad matching led to unintended cross-stream minor jumps).
 - **Analysis steps for every package update PR**:
   1. **Identify the component and version change**: Parse the diff in `parts/common/components.json` to extract exact old → new versions for each OS/release entry.
   2. **Determine the update type**: Classify as major, minor, or patch using semver. Major and minor updates carry higher risk than patch updates.

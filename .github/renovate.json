@@ -7,7 +7,7 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 10,
+  "prHourlyLimit": 3,
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 5,
   "separateMinorPatch": true,
@@ -103,24 +103,10 @@
       "enabled": true,
       "groupName": "runc-containerd-ca_watcher",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -137,30 +123,18 @@
       "enabled": true,
       "groupName": "runc-containerd-minor",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ]
     },
     {
       "matchPackageNames": [
         "kubelet",
-        "kubectl"
+        "kubectl",
+        "kubelet-sysext",
+        "kubectl-sysext"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -169,22 +143,10 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -358,22 +320,10 @@
       ],
       "groupName": "kubernetes-cri-tools",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ]
     },
     {
