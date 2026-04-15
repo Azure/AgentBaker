@@ -82,7 +82,9 @@ else
   required_pkg_list=(fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
+        journalctl --no-pager -u $apt_package || true
+        tail -n 200 /var/log/apt/term.log || true
+        tail -n 200 /var/log/dpkg.log || true
           exit $ERR_APT_INSTALL_TIMEOUT
       fi
   done
@@ -592,7 +594,9 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isUbuntu "$OS"; then
           if ! apt_get_install 30 1 600 "blobfuse=${version}"; then
-            journalctl --no-pager -u blobfuse
+            journalctl --no-pager -u blobfuse || true
+            tail -n 200 /var/log/apt/term.log || true
+            tail -n 200 /var/log/dpkg.log || true
             exit $ERR_APT_INSTALL_TIMEOUT
           fi
         fi
@@ -603,7 +607,9 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isUbuntu "$OS"; then
           if ! apt_get_install 30 1 600 "blobfuse2=${version}"; then
-            journalctl --no-pager -u blobfuse2
+            journalctl --no-pager -u blobfuse2 || true
+            tail -n 200 /var/log/apt/term.log || true
+            tail -n 200 /var/log/dpkg.log || true
             exit $ERR_APT_INSTALL_TIMEOUT
           fi
         fi

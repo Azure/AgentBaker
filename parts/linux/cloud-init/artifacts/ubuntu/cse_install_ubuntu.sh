@@ -15,12 +15,22 @@ installDeps() {
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     local OSVERSION
+    local BLOBFUSE_VERSION="1.4.5"
+    local BLOBFUSE2_VERSION="2.5.3"
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    # blobfuse and blobfuse2 are installed via the packages loop in install-dependencies.sh during VHD build
+    # blobfuse/blobfuse2 are usually installed during VHD build.
+    # Keep fallback installation here so newer CSE can still provision older VHDs.
+    if ! dpkg -s blobfuse2 >/dev/null 2>&1; then
+        pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
+    fi
+
     # for 22.04 and 24.04, fuse3 is installed. for 20.04, fuse is installed
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(fuse3)
     else
+        if ! dpkg -s blobfuse >/dev/null 2>&1; then
+            pkg_list+=("blobfuse=${BLOBFUSE_VERSION}")
+        fi
         pkg_list+=(fuse)
     fi
 
