@@ -97,8 +97,8 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	if handled, exitCode := handleInfoCommand(args); handled {
-		return exitCode
+	if handled := handleInfoCommand(args); handled {
+		return 0
 	}
 
 	slog.Info("aks-node-controller started", "args", args)
@@ -113,28 +113,26 @@ func (a *App) Run(ctx context.Context, args []string) int {
 }
 
 // handleInfoCommand handles --version, version, --help, and help commands
-// without logging noise. Returns (true, exitCode) if handled.
-func handleInfoCommand(args []string) (bool, int) {
+// without logging noise. Returns true if handled.
+func handleInfoCommand(args []string) bool {
 	if len(args) < 2 {
-		return false, 0
+		return false
 	}
 	switch args[1] {
 	case "--version", "version":
-		//nolint:forbidigo // stdout is part of the interface
-		fmt.Println(Version)
-		return true, 0
+		_, _ = fmt.Fprintln(os.Stdout, Version)
+		return true
 	case "--help", "help":
-		//nolint:forbidigo // stdout is part of the interface
-		fmt.Println("Usage: aks-node-controller <command> [options]")
-		fmt.Println()
-		fmt.Println("Commands:")
-		fmt.Println("  provision       Run node provisioning")
-		fmt.Println("  provision-wait  Wait for provisioning to complete")
-		fmt.Println("  version         Print the version")
-		fmt.Println("  help            Print this help message")
-		return true, 0
+		_, _ = fmt.Fprintln(os.Stdout, "Usage: aks-node-controller <command> [options]")
+		_, _ = fmt.Fprintln(os.Stdout)
+		_, _ = fmt.Fprintln(os.Stdout, "Commands:")
+		_, _ = fmt.Fprintln(os.Stdout, "  provision       Run node provisioning")
+		_, _ = fmt.Fprintln(os.Stdout, "  provision-wait  Wait for provisioning to complete")
+		_, _ = fmt.Fprintln(os.Stdout, "  version         Print the version")
+		_, _ = fmt.Fprintln(os.Stdout, "  help            Print this help message")
+		return true
 	default:
-		return false, 0
+		return false
 	}
 }
 
