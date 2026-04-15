@@ -95,3 +95,8 @@ if [ "${DRY_RUN}" = "true" ]; then
 else
     echo "Done. ${updated} version(s) updated, ${errors} error(s)."
 fi
+
+if [ "${errors}" -gt 0 ]; then
+    exit 1
+fi
+
