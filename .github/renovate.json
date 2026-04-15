@@ -64,13 +64,29 @@
       "matchDatasources": [
         "rpm"
       ],
+      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
-      "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
       "automerge": false,
-      "enabled": true,
-      "ignoreUnstable": false
+      "enabled": true
     },
     {
       "matchPackageNames": [
