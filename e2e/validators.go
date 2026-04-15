@@ -2018,7 +2018,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessCSECmd && !s.VHD.Flatcar {
+	if nbc != nil && nbc.EnableScriptlessCSECmd && !s.VHD.Flatcar && !s.VHD.Distro.IsWindowsDistro() {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
