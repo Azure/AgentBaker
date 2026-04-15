@@ -73,7 +73,7 @@ func newTestCtx(t testing.TB) context.Context {
 	return ctx
 }
 
-func RunScenario(t *testing.T, s *Scenario) error {
+func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
@@ -81,7 +81,7 @@ func RunScenario(t *testing.T, s *Scenario) error {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
-		return nil
+		return
 	}
 	t.Run("default", func(t *testing.T) {
 		t.Parallel()
@@ -93,12 +93,14 @@ func RunScenario(t *testing.T, s *Scenario) error {
 		t.Run("scriptless_nbc", func(t *testing.T) {
 			t.Parallel()
 			sCopy := copyScenario(s)
-			sCopy.EnableScriptlessNBCCSECmd = true
+			if sCopy.Runtime == nil {
+				sCopy.Runtime = &ScenarioRuntime{}
+			}
+			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
 			err := runScenario(t, sCopy)
 			require.NoError(t, err)
 		})
 	}
-	return nil
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
@@ -228,10 +230,11 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
-	s.Runtime = &ScenarioRuntime{
-		Cluster:  cluster,
-		VMSSName: generateVMSSName(s),
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
 	}
+	s.Runtime.Cluster = cluster
+	s.Runtime.VMSSName = generateVMSSName(s)
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
@@ -259,7 +262,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	require.NoError(s.T, err)
 
 	nbc.EnableScriptlessCSECmd = true
-	if s.EnableScriptlessNBCCSECmd {
+	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
 		nbc.EnableScriptlessCSECmd = false
 	}
