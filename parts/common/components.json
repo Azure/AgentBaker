@@ -711,18 +711,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.20.1-6",
-          "previousLatestVersion": "v3.20.1-4"
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
@@ -732,30 +720,6 @@
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
-      "windowsVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.15.5",
-          "previousLatestVersion": "1.15.4"
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.15.5",
-          "previousLatestVersion": "1.15.4"
-        }
-      ],
       "windowsVersions": []
     },
     {
