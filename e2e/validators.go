@@ -2018,7 +2018,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessCSECmd && !s.VHD.Flatcar && !s.VHD.Distro.IsWindowsDistro() {
+	if nbc != nil && nbc.EnableScriptlessCSECmd && s.VHD.SupportsScriptless() {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
@@ -2026,7 +2026,7 @@ func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 // ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
 func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && !s.VHD.Flatcar {
+	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
 			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"

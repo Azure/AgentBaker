@@ -257,6 +257,10 @@ coverage:
 unit-tests:
 	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
 
+.PHONY: update-windows-base-versions
+update-windows-base-versions:
+	./vhdbuilder/packer/windows/update_windows_base_versions.sh
+
 .PHONY: validate-components
 validate-components:
 	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/common/components.json
