@@ -124,9 +124,6 @@ type Scenario struct {
 	// used to override the default location.
 	Location string
 
-	// EnableScriptlessNBCCSECmd indicates whether to enable scriptless NBCCSECmd in the scenario.
-	EnableScriptlessNBCCSECmd bool
-
 	// K8sSystemPoolSKU is the VM size to use for the system nodepool. If empty,
 	// a default size will be used.
 	K8sSystemPoolSKU string
@@ -137,11 +134,12 @@ type Scenario struct {
 }
 
 type ScenarioRuntime struct {
-	NBC           *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig *aksnodeconfigv1.Configuration
-	Cluster       *Cluster
-	VM            *ScenarioVM
-	VMSSName      string
+	NBC                       *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig             *aksnodeconfigv1.Configuration
+	Cluster                   *Cluster
+	VM                        *ScenarioVM
+	VMSSName                  string
+	EnableScriptlessNBCCSECmd bool
 }
 
 type ScenarioVM struct {
