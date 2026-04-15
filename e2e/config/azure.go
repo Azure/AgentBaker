@@ -690,16 +690,24 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 
 func DefaultRetryOpts() policy.RetryOptions {
 	return policy.RetryOptions{
-		MaxRetries: 3,
-		RetryDelay: time.Second * 5,
+		// Use generous retry settings to survive Azure Compute Gallery throttling.
+		// Gallery APIs return HTTP 429 (ResourceCollectionRequestsThrottled) with
+		// "try after 120 seconds" when rate-limited. With 3 parallel E2E jobs hitting
+		// the same gallery, this is common. The Azure SDK uses exponential backoff
+		// (RetryDelay * 2^attempt) so with a 10s base and 6 retries we get:
+		// 10 + 20 + 40 + 80 + 160(→180) + 180 = ~510s total retry window, well past
+		// the 120s cooldown period.
+		MaxRetries:    6,
+		RetryDelay:    10 * time.Second,
+		MaxRetryDelay: 3 * time.Minute,
 		StatusCodes: []int{
 			http.StatusRequestTimeout,      // 408
-			http.StatusTooManyRequests,     // 429
-			http.StatusInternalServerError, // 500
-			http.StatusBadGateway,          // 502
-			http.StatusServiceUnavailable,  // 503
-			http.StatusGatewayTimeout,      // 504
-			http.StatusNotFound,            // 404
+			http.StatusTooManyRequests,      // 429
+			http.StatusInternalServerError,  // 500
+			http.StatusBadGateway,           // 502
+			http.StatusServiceUnavailable,   // 503
+			http.StatusGatewayTimeout,       // 504
+			http.StatusNotFound,             // 404
 		},
 	}
 }
