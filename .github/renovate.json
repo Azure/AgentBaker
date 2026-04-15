@@ -7,7 +7,7 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 10,
+  "prHourlyLimit": 3,
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 5,
   "separateMinorPatch": true,
@@ -24,15 +24,6 @@
   ],
   "packageRules": [
     {
-      "matchUpdateTypes": [
-        "minor"
-      ],
-      "enabled": false
-    },
-    {
-      "matchPackageNames": [
-        "oss/v2/kubernetes/*-sysext"
-      ],
       "matchUpdateTypes": [
         "minor"
       ],
