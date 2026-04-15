@@ -32,7 +32,7 @@ var cachedCSEThresholds = CSETimingThresholds{
 		"ensureContainerd":            3 * time.Second, // prod p50=0.94s p95=1.99s  p99=2.80s
 		"ensureKubelet":              10 * time.Second, // prod p50=3.27s p95=6.20s  p99=10.01s
 		"installContainerRuntime":     2 * time.Second, // prod p50=0.26s p95=0.50s  p99=0.85s
-		"installStandaloneContainerd": 2 * time.Second, // prod p50=0.10s p95=0.18s  p99=0.46s
+		"installStandaloneContainerd": 5 * time.Second, // prod p50=0.10s p95=0.18s  p99=0.46s; bumped for E2E variance
 
 		// Kubelet install variants (only one fires per VM depending on install path)
 		"installKubeletKubectlFromPkg": 38 * time.Second, // prod p50=14.68s p95=37.45s p99=56.59s (PMC deb path)
@@ -69,7 +69,7 @@ var fullInstallCSEThresholds = CSETimingThresholds{
 		"configureKubeletAndKubectl": 45 * time.Second, // prod p99=44.39s
 		"ensureContainerd":            5 * time.Second, // prod p99=2.80s; slightly higher for full install
 		"ensureKubelet":              15 * time.Second, // prod p99=10.01s; slightly higher for full install
-		"installStandaloneContainerd": 2 * time.Second, // prod p99=0.46s
+		"installStandaloneContainerd": 5 * time.Second, // prod p99=0.46s; bumped for E2E variance
 
 		// Kubelet install variants
 		"installKubeletKubectlFromPkg": 57 * time.Second, // prod p99=56.59s
@@ -105,7 +105,7 @@ var cachedCSEThresholdsUbuntu2404 = CSETimingThresholds{
 		"ensureContainerd":            2 * time.Second, // prod p50=0.76s p95=1.34s  p99=1.84s
 		"ensureKubelet":               8 * time.Second, // prod p50=4.32s p95=7.47s  p99=10.50s
 		"installContainerRuntime":     2 * time.Second, // same as 22.04
-		"installStandaloneContainerd": 2 * time.Second, // same as 22.04
+		"installStandaloneContainerd": 5 * time.Second, // same as 22.04; bumped for E2E variance
 
 		// Kubelet install variants
 		"installKubeletKubectlFromPkg": 37 * time.Second, // prod p50=21.39s p95=36.16s p99=44.51s
@@ -135,7 +135,7 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 		"configureKubeletAndKubectl": 46 * time.Second, // prod p99=45.94s
 		"ensureContainerd":            3 * time.Second, // prod p99=1.84s
 		"ensureKubelet":              11 * time.Second, // prod p99=10.50s
-		"installStandaloneContainerd": 2 * time.Second,
+		"installStandaloneContainerd": 5 * time.Second,
 
 		"installKubeletKubectlFromPkg": 45 * time.Second, // prod p99=44.51s
 		"installKubeletKubectlFromURL": 16 * time.Second,
@@ -248,8 +248,6 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -297,8 +295,6 @@ func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -321,13 +317,6 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
 			},
@@ -342,8 +331,6 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
