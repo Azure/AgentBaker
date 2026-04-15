@@ -17,13 +17,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTINGS_FILE="${SCRIPT_DIR}/windows_settings.json"
 DEFAULT_PUBLISHER="MicrosoftWindowsServer"
+DEFAULT_OFFER="MicrosoftWindowsServer"
 DRY_RUN=false
 
-if [[ "${1:-}" == "--dry-run" ]]; then
+if [ "${1:-}" = "--dry-run" ]; then
     DRY_RUN=true
 fi
 
-if [[ ! -f "${SETTINGS_FILE}" ]]; then
+if [ ! -f "${SETTINGS_FILE}" ]; then
     echo "ERROR: ${SETTINGS_FILE} not found"
     exit 1
 fi
@@ -46,14 +47,16 @@ errors=0
 
 for key in "${sku_keys[@]}"; do
     sku=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_sku" "${SETTINGS_FILE}")
+    offer=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_offer // \"${DEFAULT_OFFER}\"" "${SETTINGS_FILE}")
     publisher=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_publisher // \"${DEFAULT_PUBLISHER}\"" "${SETTINGS_FILE}")
     current_version=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_version" "${SETTINGS_FILE}")
 
-    echo "Querying latest version for ${key} (publisher=${publisher}, sku=${sku})..."
+    echo "Querying latest version for ${key} (publisher=${publisher}, offer=${offer}, sku=${sku})..."
 
     latest_version=$(
         az vm image list \
             -p "${publisher}" \
+            -f "${offer}" \
             -s "${sku}" \
             --all \
             --query "[].version" \
@@ -62,20 +65,20 @@ for key in "${sku_keys[@]}"; do
             tail -n 1
     ) || true
 
-    if [[ -z "${latest_version}" ]]; then
+    if [ -z "${latest_version}" ]; then
         echo "  WARNING: no versions found for sku=${sku}, skipping"
         errors=$((errors + 1))
         continue
     fi
 
-    if [[ "${current_version}" == "${latest_version}" ]]; then
+    if [ "${current_version}" = "${latest_version}" ]; then
         echo "  ${key}: already up to date (${current_version})"
         continue
     fi
 
     echo "  ${key}: ${current_version} -> ${latest_version}"
 
-    if [[ "${DRY_RUN}" == false ]]; then
+    if [ "${DRY_RUN}" = "false" ]; then
         tmp=$(mktemp)
         jq ".WindowsBaseVersions.\"${key}\".base_image_version = \"${latest_version}\"" \
             "${SETTINGS_FILE}" >"${tmp}" &&
@@ -87,7 +90,7 @@ for key in "${sku_keys[@]}"; do
 done
 
 echo ""
-if [[ "${DRY_RUN}" == true ]]; then
+if [ "${DRY_RUN}" = "true" ]; then
     echo "Dry run complete. ${updated} version(s) would be updated, ${errors} error(s)."
 else
     echo "Done. ${updated} version(s) updated, ${errors} error(s)."
