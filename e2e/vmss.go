@@ -24,8 +24,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	azruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
@@ -454,11 +452,25 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
 
+	model := createVMSSModel(ctx, s)
+
+	// For scenarios that need VM instance tags (e.g., RCV1P), we must apply tags
+	// before CSE runs because wireserver checks per-VM-instance tags. The only
+	// working method for Uniform VMSS is BeginUpdate (full PUT), which takes ~108s.
+	// To avoid the race, we strip the CSE extension before creation, apply tags
+	// via BeginUpdate, then re-add the extension in a second update.
+	var deferredExtensionProfile *armcompute.VirtualMachineScaleSetExtensionProfile
+	if len(s.Config.VMInstanceTags) > 0 && model.Properties.VirtualMachineProfile.ExtensionProfile != nil {
+		deferredExtensionProfile = model.Properties.VirtualMachineProfile.ExtensionProfile
+		model.Properties.VirtualMachineProfile.ExtensionProfile = nil
+		toolkit.Logf(ctx, "deferring CSE extension until VM instance tags are applied")
+	}
+
 	operation, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
-		createVMSSModel(ctx, s),
+		model,
 		nil,
 	)
 	if err != nil {
@@ -472,18 +484,45 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}
 
 	// Register cleanup early so the VMSS is always deleted even if subsequent steps
-	// (tag patching, IP lookup, etc.) fail — preventing orphaned VMSS resources.
+	// (tag update, IP lookup, etc.) fail — preventing orphaned VMSS resources.
 	s.T.Cleanup(func() {
 		defer cleanupBastionTunnel(vm.SSHClient)
 		cleanupVMSS(ctx, s, vm)
 	})
 
-	// Apply VM instance tags via the Microsoft.Resources/tags API before CSE queries
-	// wireserver. This is needed for features like RCV1P where wireserver checks tags
-	// on the individual VM instance, not the VMSS resource-level tags.
+	// Wait for initial VMSS creation to fully complete before applying tags.
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return vm, fmt.Errorf("failed to create VMSS: %w", err)
+	}
+
+	// Apply VM instance tags via BeginUpdate (full PUT) and then re-add CSE.
+	// This is needed for features like RCV1P where wireserver checks tags on
+	// the individual VM instance, not the VMSS resource-level tags.
 	if len(s.Config.VMInstanceTags) > 0 {
-		if err := patchVMInstanceTags(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID, s.Config.VMInstanceTags); err != nil {
-			return vm, fmt.Errorf("failed to patch VM instance tags: %w", err)
+		if err := updateVMInstanceTags(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID, s.Config.VMInstanceTags); err != nil {
+			return vm, fmt.Errorf("failed to update VM instance tags: %w", err)
+		}
+
+		// Re-add CSE extension now that tags are in place.
+		if deferredExtensionProfile != nil {
+			toolkit.Logf(ctx, "re-adding CSE extension after tags are applied")
+			vmssResp.VirtualMachineScaleSet.Properties.VirtualMachineProfile.ExtensionProfile = deferredExtensionProfile
+			cseOp, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
+				ctx,
+				resourceGroupName,
+				s.Runtime.VMSSName,
+				vmssResp.VirtualMachineScaleSet,
+				nil,
+			)
+			if err != nil {
+				return vm, fmt.Errorf("failed to begin adding CSE extension: %w", err)
+			}
+			vmssResp2, err := cseOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+			if err != nil {
+				return vm, fmt.Errorf("failed to add CSE extension: %w", err)
+			}
+			vmssResp = vmssResp2
 		}
 	}
 
@@ -502,16 +541,12 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s-bastion" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, *s.Runtime.Cluster.Model.Name, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, config.VMSSHPrivateKeyFileName) + "\n"
 	s.T.Log(result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
 			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
 		}
-	}
-	if err != nil {
-		return vm, err
 	}
 
 	// Wait for VM to be in "Running" power state before proceeding
@@ -528,56 +563,35 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}, nil
 }
 
-// patchVMInstanceTags uses the Microsoft.Resources/tags API to merge tags onto a VMSS VM
-// instance. This is a lightweight PATCH that only modifies tags without triggering a full
-// VM model update, completing in seconds rather than the ~108s that BeginUpdate takes.
-func patchVMInstanceTags(ctx context.Context, s *Scenario, resourceGroupName, vmssName, instanceID string, tags map[string]*string) error {
-	defer toolkit.LogStepCtxf(ctx, "patching VM instance %s/%s tags via Resources API", vmssName, instanceID)()
+// updateVMInstanceTags uses BeginUpdate (full PUT) to set tags on a VMSS VM instance.
+// This is the only method that works for Uniform mode VMSS — PATCH and Microsoft.Resources/tags
+// API both return 405 at this scope. The operation takes ~108s as it triggers full VM model
+// reconciliation. This is acceptable for E2E tests where we defer CSE until tags are in place.
+func updateVMInstanceTags(ctx context.Context, s *Scenario, resourceGroupName, vmssName, instanceID string, tags map[string]*string) error {
+	defer toolkit.LogStepCtxf(ctx, "updating VM instance %s/%s/%s tags via BeginUpdate", resourceGroupName, vmssName, instanceID)()
 
-	subscriptionID := s.SubscriptionID
-	if subscriptionID == "" {
-		subscriptionID = config.Config.SubscriptionID
-	}
-
-	// The Microsoft.Resources/tags API allows lightweight tag updates on any Azure resource.
-	// Using "Merge" operation to add/update tags without replacing existing ones.
-	resourceURL := fmt.Sprintf(
-		"https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%s/providers/Microsoft.Resources/tags/default?api-version=2021-04-01",
-		subscriptionID, resourceGroupName, vmssName, instanceID,
-	)
-
-	body := struct {
-		Operation  string `json:"operation"`
-		Properties struct {
-			Tags map[string]*string `json:"tags"`
-		} `json:"properties"`
-	}{
-		Operation: "Merge",
-	}
-	body.Properties.Tags = tags
-
-	bodyJSON, err := json.Marshal(body)
+	// Get current VM instance to preserve existing state
+	currentVM, err := s.GetAzure().VMSSVM.Get(ctx, resourceGroupName, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to marshal tag patch body: %w", err)
+		return fmt.Errorf("failed to get current VM instance: %w", err)
 	}
 
-	req, err := azruntime.NewRequest(ctx, "PATCH", resourceURL)
+	// Merge new tags with any existing tags
+	if currentVM.Tags == nil {
+		currentVM.Tags = make(map[string]*string)
+	}
+	for k, v := range tags {
+		currentVM.Tags[k] = v
+	}
+
+	poller, err := s.GetAzure().VMSSVM.BeginUpdate(ctx, resourceGroupName, vmssName, instanceID, currentVM.VirtualMachineScaleSetVM, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create PATCH request: %w", err)
-	}
-	if err := req.SetBody(streaming.NopCloser(bytes.NewReader(bodyJSON)), "application/json"); err != nil {
-		return fmt.Errorf("failed to set request body: %w", err)
+		return fmt.Errorf("failed to begin VM instance tag update: %w", err)
 	}
 
-	resp, err := s.GetAzure().Core.Pipeline().Do(req)
+	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
-		return fmt.Errorf("failed to send tag PATCH request: %w", err)
-	}
-
-	if resp.StatusCode != 200 {
-		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		return fmt.Errorf("tag PATCH failed with status %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("failed to complete VM instance tag update: %w", err)
 	}
 
 	return nil
