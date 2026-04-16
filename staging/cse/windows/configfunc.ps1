@@ -1,17 +1,5 @@
 
-# Invokes nssm.exe with the given arguments and throws if the exit code is non-zero.
-function Invoke-Nssm
-{
-    param(
-        [Parameter(Mandatory = $true)][string]$KubeDir,
-        [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$NssmArguments
-    )
-    & "$KubeDir\nssm.exe" @NssmArguments | RemoveNulls
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "nssm.exe $( $NssmArguments -join ' ' ) failed (exit code $LASTEXITCODE)"
-    }
-}
+. c:\AzureData\windows\helpers.ps1
 
 # Set the service telemetry GUID. This is used with Windows Analytics https://docs.microsoft.com/en-us/sccm/core/clients/manage/monitor-windows-analytics
 function Set-TelemetrySetting
@@ -279,7 +267,7 @@ function Install-GmsaPlugin {
         Write-Log "Setting the appropriate GMSA plugin registry values"
         reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
         if ($LASTEXITCODE -ne 0) {
-            throw "reg.exe import failed with exit code $LASTEXITCODE"
+            throw "reg.exe import '$tempInstallPackageFoler\registerplugin.reg' failed with exit code $LASTEXITCODE"
         }
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"

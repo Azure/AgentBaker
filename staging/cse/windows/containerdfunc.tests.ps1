@@ -79,7 +79,7 @@ Describe "ProcessAndWriteContainerdConfig" {
       $configPath = Join-Path $global:ContainerdInstallLocation "config.toml"
       Create-Directory -FullPath $registryPath -DirectoryUsage "storing cert registry config for tests"
 
-      Mock Get-Root-RegistryPath -MockWith {
+      Mock Get-RootRegistryPath -MockWith {
         return $registryPath
       }
     }
@@ -189,7 +189,7 @@ BeforeEach {
     $script:capturedFilePath = $null
     $script:capturedContent = $null
 
-    Mock Out-File-Ascii -MockWith {
+    Mock Out-FileAscii -MockWith {
       param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
       $script:capturedContent = $Content
@@ -215,7 +215,7 @@ BeforeEach {
     }
 
     # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+    Assert-MockCalled -CommandName 'Out-FileAscii' -Exactly -Times 1 -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml"
     }
   }
@@ -232,8 +232,8 @@ BeforeEach {
       $DirectoryUsage -eq "storing containerd registry hosts config"
     }
 
-    # Verify Out-File-Ascii was called with correct path
-    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+    # Verify Out-FileAscii was called with correct path
+    Assert-MockCalled -CommandName 'Out-FileAscii' -Exactly -Times 1 -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml"
     }
   }
@@ -245,7 +245,7 @@ BeforeEach {
     Set-ContainerdRegistryConfig -Registry $registry -RegistryHost $registryHost
 
     # Verify Out-File was called with correct path
-    Assert-MockCalled -CommandName 'Out-File-Ascii' -Exactly -Times 1 -ParameterFilter {
+    Assert-MockCalled -CommandName 'Out-FileAscii' -Exactly -Times 1 -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\docker.io\hosts.toml"
     }
 
@@ -269,8 +269,8 @@ BeforeEach {
       $FullPath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com"
     }
 
-    # Verify Out-File-Ascii was called with correct path
-    Assert-MockCalled -CommandName 'Out-File-Ascii' -ParameterFilter {
+    # Verify Out-FileAscii was called with correct path
+    Assert-MockCalled -CommandName 'Out-FileAscii' -ParameterFilter {
       $FilePath -eq "C:\ProgramData\containerd\certs.d\myregistry.example.com\hosts.toml"
     }
   }
@@ -293,7 +293,7 @@ Describe "Set-BootstrapProfileRegistryContainerdHost" {
 
     $script:capturedFilePath = $null
     $script:capturedContent = $null
-    Mock Out-File-Ascii -MockWith {
+    Mock Out-FileAscii -MockWith {
       param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
       $script:capturedContent = $Content
@@ -519,7 +519,7 @@ Describe 'RegisterContainerDService' {
 
     $script:capturedFilePath = $null
     $script:capturedContent = $null
-    Mock Out-File-Ascii -MockWith {
+    Mock Out-FileAscii -MockWith {
       param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
       $script:capturedContent = $Content
@@ -594,7 +594,7 @@ Describe 'RegisterContainerDService' {
 
     $script:capturedFilePath = $null
     $script:capturedContent = $null
-    Mock Out-File-Ascii -MockWith {
+    Mock Out-FileAscii -MockWith {
       param($Content,$FilePath)
       $script:capturedFilePath = $FilePath
       $script:capturedContent = $Content

@@ -1,16 +1,4 @@
-# Invokes nssm.exe with the given arguments and throws if the exit code is non-zero.
-function Invoke-Nssm
-{
-    param(
-        [Parameter(Mandatory = $true)][string]$KubeDir,
-        [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$NssmArguments
-    )
-    & "$KubeDir\nssm.exe" @NssmArguments | RemoveNulls
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "nssm.exe $( $NssmArguments -join ' ' ) failed (exit code $LASTEXITCODE)"
-    }
-}
+. c:\AzureData\windows\helpers.ps1
 
 function Write-AzureConfig {
     Param(
@@ -398,7 +386,7 @@ function New-NSSMService {
     # is parsed as a single string instead of two separate strings
     $LASTEXITCODE = 0
     Invoke-Expression "$KubeDir\nssm.exe set Kubelet DependOnService $kubeletDependOnServices | RemoveNulls"
-    if (-not $?) { throw "Invoke-Expression failed to invoke before calling nssm.exe (PowerShell invocation failed - exit code $?)" }
+    if (-not $?) { throw "Invoke-Expression failed to invoke before calling nssm.exe (PowerShell invocation failed - exit code $LASTEXITCODE)" }
     if ($LASTEXITCODE -ne 0) { throw "nssm.exe failed to set Kubelet DependOnService (exit code $LASTEXITCODE)" }
 
     # setup kubeproxy

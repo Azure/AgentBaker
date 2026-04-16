@@ -1,3 +1,5 @@
+. c:\AzureData\windows\helpers.ps1
+
 # this is $global to persist across all functions since this is dot-sourced
 $global:ContainerdInstallLocation = "$Env:ProgramFiles\containerd"
 $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containerd.exe)
@@ -6,12 +8,12 @@ $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 $global:WindowsDataDir = "C:\AzureData\windows"
 
 # Function so it can be overriden in tests.
-function Get-Root-RegistryPath {
+function Get-RootRegistryPath {
   return "C:\ProgramData\containerd\certs.d"
 }
 
 # Function so it can be mocked in tests.
-function Out-File-Ascii {
+function Out-FileAscii {
  [CmdletBinding()]
  param(
     [Parameter(ValueFromPipeline = $true)]$Content,
@@ -23,20 +25,6 @@ function Out-File-Ascii {
   $Content | Out-File -FilePath $FilePath -Encoding "ascii"
 }
 
-
-# Invokes nssm.exe with the given arguments and throws if the exit code is non-zero.
-function Invoke-Nssm
-{
-    param(
-        [Parameter(Mandatory = $true)][string]$KubeDir,
-        [Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$NssmArguments
-    )
-    & "$KubeDir\nssm.exe" @NssmArguments | RemoveNulls
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "nssm.exe $( $NssmArguments -join ' ' ) failed (exit code $LASTEXITCODE)"
-    }
-}
 
 function RegisterContainerDService {
   Param(
@@ -227,7 +215,7 @@ function ProcessAndWriteContainerdConfig {
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
-  $processedTemplate | Out-File-Ascii -FilePath $configFile
+  $processedTemplate | Out-FileAscii -FilePath $configFile
 }
 
 function Enable-Logging {
@@ -250,7 +238,7 @@ function Set-ContainerdRegistryConfig {
     [Parameter(Mandatory = $true)][string] $RegistryHost
   )
 
-  $certRootRegistryPath = Get-Root-RegistryPath
+  $certRootRegistryPath = Get-RootRegistryPath
 
   $registryPath = Join-Path $certRootRegistryPath $Registry
   $hostsTomlPath = Join-Path $registryPath "hosts.toml"
@@ -266,7 +254,7 @@ server = "https://$Registry"
     X-Forwarded-For = ["$Registry"]
 "@
 
-  $content | Out-File-Ascii -FilePath $hostsTomlPath
+  $content | Out-FileAscii -FilePath $hostsTomlPath
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
@@ -278,7 +266,7 @@ function Set-BootstrapProfileRegistryContainerdHost {
   else {
     "mcr.microsoft.com"
   }
-  $certRootRegistryPath = Get-Root-RegistryPath
+  $certRootRegistryPath = Get-RootRegistryPath
   $mcrRegistryPath = Join-Path $certRootRegistryPath $mcrRegistry
   $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
 
@@ -306,7 +294,7 @@ server = "https://$mcrRegistry"
   override_path = true
 "@
 
-  $content | Out-File-Ascii -FilePath $hostsTomlPath
+  $content | Out-FileAscii -FilePath $hostsTomlPath
   Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 
