@@ -79,7 +79,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.2" # TODO (djsly) this should be centralized and moved to components.json!
+  BLOBFUSE2_VERSION="2.5.3" # TODO (djsly) this should be centralized and moved to components.json!
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -260,6 +260,62 @@ unpackTgzToCNIDownloadsDIR() {
   extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
   rm -rf "${download_dir:?}/${cni_tgz_tmp}"
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
+
+cacheVersionedKubernetesPackageBinary() {
+  local package_name=${1}
+  local package_version=${2}
+  local download_dir=${3}
+  local version_no_epoch
+  local k8s_version
+  local binary_path="/opt/bin/${package_name}"
+
+  version_no_epoch="${package_version#*:}"
+  k8s_version="${version_no_epoch%%-*}"
+  binary_path="${binary_path}-${k8s_version}"
+
+  mkdir -p /opt/bin
+
+  if isUbuntu "$OS"; then
+    local deb_file
+    local tmp_dir
+
+    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_${version_no_epoch}*" -print -quit 2>/dev/null) || deb_file=""
+    if [ -z "${deb_file}" ]; then
+      echo "Failed to locate cached ${package_name} deb for ${package_version}"
+      return 1
+    fi
+
+    tmp_dir=$(mktemp -d)
+    if ! dpkg-deb -x "${deb_file}" "${tmp_dir}"; then
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    if [ ! -f "${tmp_dir}/usr/bin/${package_name}" ]; then
+      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    install -m0755 "${tmp_dir}/usr/bin/${package_name}" "${binary_path}"
+    rm -rf "${tmp_dir}"
+  elif isMarinerOrAzureLinux "$OS"; then
+    local rpm_file
+
+    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-${version_no_epoch}*" -print -quit 2>/dev/null) || rpm_file=""
+    if [ -z "${rpm_file}" ]; then
+      echo "Failed to locate cached ${package_name} rpm for ${package_version}"
+      return 1
+    fi
+
+    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${package_name}" "./usr/local/bin/${package_name}" | install -m0755 /dev/stdin "${binary_path}"
+  else
+    echo "Skipping versioned binary extraction for unsupported OS ${OS}"
+    return 0
+  fi
+
+  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
 }
 
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
@@ -469,11 +525,23 @@ while IFS= read -r p; do
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    azure-acr-credential-provider-pmc|kubelet|kubectl)
+    azure-acr-credential-provider-pmc)
       name=${name%-pmc}
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+        fi
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    kubelet|kubectl)
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if isMarinerOrAzureLinux || isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_K8S_INSTALL_ERR
         elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?

@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -21,9 +22,8 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{
 		EnableKubeletConfigFile: true,
 		KubeletFlags: map[string]string{
-			"--cloud-provider":            "external",
-			"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-			"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
+			"--cloud-provider": "external",
+			"--kubeconfig":     "/var/lib/kubelet/kubeconfig",
 		},
 		KubeletNodeLabels: map[string]string{
 			"agentpool":                               "nodepool2",
@@ -307,6 +307,14 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
 func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+	customKubeProxyImage := fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion)
+	customKubeBinaryURL := fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch)
+	is134OrAbove, pErr := toolkit.CheckK8sConstraint(k8sVersion, ">=1.34.0")
+	require.NoError(t, pErr, "failed to parse Kubernetes version")
+	if is134OrAbove {
+		customKubeProxyImage = ""
+		customKubeBinaryURL = ""
+	}
 	config := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -337,8 +345,8 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						UserAssignedID:                    "",
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
-						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
-						CustomKubeBinaryURL:               fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
+						CustomKubeProxyImage:              customKubeProxyImage,
+						CustomKubeBinaryURL:               customKubeBinaryURL,
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -716,7 +724,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--max-pods":                          "110",
 			"--network-plugin":                    "kubenet",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",
@@ -934,7 +941,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kube-reserved":                   "cpu=100m,memory=3891Mi",
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
-			"--pod-infra-container-image":       "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 			"--resolv-conf":                     "\"\"\"\"",
 			"--cluster-dns":                     "10.0.0.10",
 			"--cluster-domain":                  "cluster.local",

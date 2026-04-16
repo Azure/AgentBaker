@@ -14,6 +14,8 @@ import (
 const (
 	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
 
+	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
@@ -22,10 +24,10 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers
 
-cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-config.json
-%s
+cat <<'EOF' | base64 -d >%[1]s
+%[2]s
 EOF
-chmod 0644 /opt/azure/containers/aks-node-controller-config.json
+chmod 0600 %[1]s
 
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
@@ -41,7 +43,7 @@ runcmd:
      "storage": {
        "files": [{
          "path": "/opt/azure/containers/aks-node-controller-config.json",
-         "mode": 420,
+         "mode": 384,
          "contents": { "source": "data:;base64,%s" }
        }]
      }
@@ -59,7 +61,7 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, encodedAksNodeConfigJSON)
+	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)

@@ -470,6 +470,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -661,6 +662,7 @@ func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},

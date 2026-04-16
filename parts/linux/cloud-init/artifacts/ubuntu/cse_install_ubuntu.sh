@@ -18,7 +18,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.2"  # TODO (djsly) this should be centralized and moved to components.json!
+    BLOBFUSE2_VERSION="2.5.3"  # TODO (djsly) this should be centralized and moved to components.json!
 
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
@@ -125,7 +125,7 @@ updateAptWithNvidiaPkg() {
     local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
 
     # Download and add the GPG key for the NVIDIA repository
-    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -217,14 +217,14 @@ installCredentialProviderFromPkg() {
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
-    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || exit "$ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 }
 
 installKubeletKubectlFromPkg() {
-    k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
-    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
+    local k8sVersion="${1}"
+
+    installPkgWithAptGet "kubelet" "${k8sVersion}" "/opt/bin/kubelet" || exit "$ERR_KUBELET_INSTALL_FAIL"
+    installPkgWithAptGet "kubectl" "${k8sVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
 }
 
 installToolFromLocalRepo() {
@@ -289,23 +289,55 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     fi
 }
 
+extractDebBinaryFromFile() {
+    local debFile="${1}"
+    local packageName="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local extractDir
+
+    extractDir=$(mktemp -d) || return 1
+    if ! dpkg-deb -x "${debFile}" "${extractDir}"; then
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    local sourceBinary="${extractDir}/usr/bin/${packageName}"
+    if [ ! -f "${sourceBinary}" ]; then
+        echo "Failed to locate usr/bin/${packageName} in ${debFile}"
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    mkdir -p "$(dirname "${targetPath}")"
+
+    mv "${sourceBinary}" "${targetPath}"
+    chown root:root "${targetPath}"
+    chmod 0755 "${targetPath}"
+
+    rm -rf "${extractDir}"
+}
+
 installPkgWithAptGet() {
-    packageName="${1:-}"
-    packageVersion="${2}"
-    downloadDir="/opt/${packageName}/downloads"
+    local packageName="${1:-}"
+    local packageVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local debFile=""
+    local fullPackageVersion=""
+
+    if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
 
     debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
-        if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
-            echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
-            rm -rf ${downloadDir}
-            return 0
-        fi
 
         # update pmc repo to get latest versions
-        updatePMCRepository ${packageVersion}
+        updatePMCRepository "${packageVersion}"
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion} | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -321,11 +353,9 @@ installPkgWithAptGet() {
     fi
 
     debFile="${downloadDir}/${debFile}"
-    logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
 
-    mkdir -p /opt/bin
-    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
-    rm -rf ${downloadDir}
+    rm -rf "${downloadDir}"
 }
 
 downloadPkgFromVersion() {
@@ -449,7 +479,7 @@ downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$(update_base_url $CONTAINERD_DOWNLOAD_URL)
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} 300 || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
@@ -462,7 +492,7 @@ ensureRunc() {
         mkdir -p $RUNC_DOWNLOADS_DIR
         RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
         RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
-        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} 300 || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
         installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT

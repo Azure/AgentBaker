@@ -221,7 +221,7 @@ testPackagesInstalled() {
     case "${name}" in
       "kubernetes-binaries")
         # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-        # Intentionally remove leading 'v' from each element in the array
+        # Intentionally remove leading 'v' from each element in the array.
         testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
         continue
         ;;
@@ -231,13 +231,21 @@ testPackagesInstalled() {
         continue
         ;;
       "azure-acr-credential-provider-pmc"|\
-      "kubelet"|\
-      "kubectl"|\
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "kubelet"|\
+      "kubectl")
+        testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || [ "$OS" = "$MARINER_OS_NAME" ]; then
+          testVersionedKubernetesPackageBinariesPresent "${name}" "${PACKAGE_VERSIONS[@]}"
+        else
+          echo "Skipping testVersionedKubernetesPackageBinariesPresent for ${OS}${OS_VARIANT:+ ${OS_VARIANT}}"
+        fi
         continue
         ;;
       "cni-plugins")
@@ -934,6 +942,40 @@ testKubeBinariesPresent() {
     # shellcheck disable=SC3010
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
+    fi
+  done
+  echo "$test:Finish"
+}
+
+testVersionedKubernetesPackageBinariesPresent() {
+  local packageName=$1
+  shift
+  local test="testVersioned${packageName}PackageBinaries"
+  local packageVersions=("$@")
+  local binaryDir=/opt/bin
+  local packageVersion k8sVersion binaryPath versionOutput
+
+  echo "$test:Start"
+  for packageVersion in "${packageVersions[@]}"; do
+    packageVersion="${packageVersion#*:}"
+    k8sVersion="${packageVersion%%-*}"
+    binaryPath="${binaryDir}/${packageName}-${k8sVersion}"
+
+    if [ ! -s "${binaryPath}" ]; then
+      err "$test" "Binary ${binaryPath} does not exist"
+      continue
+    fi
+
+    chmod a+x "${binaryPath}"
+    if [ "${packageName}" = "kubectl" ]; then
+      versionOutput=$("${binaryPath}" version 2>/dev/null)
+    else
+      versionOutput=$("${binaryPath}" --version 2>/dev/null)
+    fi
+
+    # shellcheck disable=SC3010
+    if [[ ! ${versionOutput} =~ ${k8sVersion} ]]; then
+      err "$test" "The ${packageName} version is not correct: expected ${k8sVersion}, existing: ${versionOutput}"
     fi
   done
   echo "$test:Finish"
@@ -1751,6 +1793,91 @@ testContainerd() {
   return 0
 }
 
+testBlobfuse() {
+  local expectedVersion="${1}"
+  local test="testBlobfuse"
+  echo "$test:Start"
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    echo "$test: Skipping, only applicable to Ubuntu (dpkg-based)"
+    return 0
+  fi
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for blobfuse version, as expected version is <SKIP>"
+    return 0
+  fi
+  local installed_version
+  installed_version=$(dpkg-query -W -f='${Version}' blobfuse 2>/dev/null) || true
+  if [ -z "$installed_version" ]; then
+    err "$test" "blobfuse is not installed"
+    return 1
+  fi
+  echo "$test: checking if blobfuse version $installed_version matches expected $expectedVersion"
+  case "$installed_version" in
+    "$expectedVersion"*)
+      ;;
+    *)
+      err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
+      return 1
+      ;;
+  esac
+  echo "$test:Finish"
+  return 0
+}
+
+testBlobfuse2() {
+  local expectedVersion="${1}"
+  local test="testBlobfuse2"
+  echo "$test:Start"
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    echo "$test: Skipping, only applicable to Ubuntu (dpkg-based)"
+    return 0
+  fi
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for blobfuse2 version, as expected version is <SKIP>"
+    return 0
+  fi
+  local installed_version
+  installed_version=$(dpkg-query -W -f='${Version}' blobfuse2 2>/dev/null) || true
+  if [ -z "$installed_version" ]; then
+    err "$test" "blobfuse2 is not installed"
+    return 1
+  fi
+  echo "$test: checking if blobfuse2 version $installed_version matches expected $expectedVersion"
+  case "$installed_version" in
+    "$expectedVersion"*)
+      ;;
+    *)
+      err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
+      return 1
+      ;;
+  esac
+  echo "$test:Finish"
+  return 0
+}
+
+testFuseInstalled() {
+  local test="testFuseInstalled"
+  echo "$test:Start"
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    echo "$test: Skipping, only applicable to Ubuntu"
+    return 0
+  fi
+  local expected_pkg
+  if [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; then
+    expected_pkg="fuse3"
+  else
+    expected_pkg="fuse"
+  fi
+  if dpkg-query -W -f='${Status}' "$expected_pkg" 2>/dev/null | grep -q "install ok installed"; then
+    echo "$test: $expected_pkg is installed on Ubuntu $OS_VERSION"
+  else
+    err "$test" "$expected_pkg is not installed on Ubuntu $OS_VERSION"
+    return 1
+  fi
+  echo "$test:Finish"
+  return 0
+}
+
 checkPerformanceData() {
   local test="checkPerformanceData"
   local performanceDataPath="/opt/azure/vhd-build-performance-data.json"
@@ -2109,6 +2236,14 @@ testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
+testFuseInstalled
+# blobfuse/blobfuse2 are not yet in components.json, test with hardcoded versions
+if [ "$OS_SKU" = "Ubuntu" ]; then
+  testBlobfuse2 "2.5.3"
+  if [ "$OS_VERSION" = "20.04" ]; then
+    testBlobfuse "1.4.5"
+  fi
+fi
 # WALinuxAgent is installed post-deprovision (not via components.json),
 # so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
 if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
