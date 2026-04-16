@@ -58,7 +58,7 @@ installDeps() {
         echo "Skipping AppArmor installation on CVM build (FEATURE_FLAGS: $FEATURE_FLAGS)"
       else
         echo "Installing AppArmor packages for Azure Linux 3.0"
-        for dnf_package in apparmor-parser libapparmor; do
+        for dnf_package in apparmor-parser libapparmor apparmor-abstractions; do
           if ! dnf_install 30 1 600 $dnf_package; then
             exit $ERR_APT_INSTALL_TIMEOUT
           fi
