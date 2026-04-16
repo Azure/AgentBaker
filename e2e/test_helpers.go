@@ -548,6 +548,42 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
+func addConfidentialVMToVMSS(properties *armcompute.VirtualMachineScaleSetProperties) *armcompute.VirtualMachineScaleSetProperties {
+	if properties == nil {
+		properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if properties.VirtualMachineProfile == nil {
+		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+
+	if properties.VirtualMachineProfile.SecurityProfile == nil {
+		properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{}
+	}
+
+	properties.VirtualMachineProfile.SecurityProfile.SecurityType = to.Ptr(armcompute.SecurityTypesConfidentialVM)
+	if properties.VirtualMachineProfile.SecurityProfile.UefiSettings == nil {
+		properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
+	}
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(true)
+	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
+
+	if properties.VirtualMachineProfile.StorageProfile == nil {
+		properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
+	}
+	if properties.VirtualMachineProfile.StorageProfile.OSDisk == nil {
+		properties.VirtualMachineProfile.StorageProfile.OSDisk = &armcompute.VirtualMachineScaleSetOSDisk{}
+	}
+	if properties.VirtualMachineProfile.StorageProfile.OSDisk.ManagedDisk == nil {
+		properties.VirtualMachineProfile.StorageProfile.OSDisk.ManagedDisk = &armcompute.VirtualMachineScaleSetManagedDiskParameters{}
+	}
+	properties.VirtualMachineProfile.StorageProfile.OSDisk.ManagedDisk.SecurityProfile = &armcompute.VMDiskSecurityProfile{
+		SecurityEncryptionType: to.Ptr(armcompute.SecurityEncryptionTypesVMGuestStateOnly),
+	}
+
+	return properties
+}
+
 func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
