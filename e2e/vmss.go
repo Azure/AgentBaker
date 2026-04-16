@@ -468,6 +468,12 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
+	if len(s.Config.VMInstanceTags) > 0 {
+		if err := updateVMInstanceTags(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID, s.Config.VMInstanceTags); err != nil {
+			return vm, fmt.Errorf("failed to update VM instance tags: %w", err)
+		}
+	}
+
 	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
@@ -512,6 +518,29 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+// updateVMInstanceTags updates tags on an individual VMSS VM instance. This is used for features
+// like RCV1P where wireserver checks tags on the VM instance level, not the VMSS resource level.
+// The update is done after the VM appears in the API but before CSE completes, ensuring the tags
+// are visible to wireserver before provisioning scripts query it.
+func updateVMInstanceTags(ctx context.Context, s *Scenario, resourceGroupName, vmssName, instanceID string, tags map[string]*string) error {
+	defer toolkit.LogStepCtxf(ctx, "updating VM instance %s/%s tags", vmssName, instanceID)()
+
+	poller, err := s.GetAzure().VMSSVM.BeginUpdate(ctx, resourceGroupName, vmssName, instanceID,
+		armcompute.VirtualMachineScaleSetVM{
+			Tags: tags,
+		}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin VM instance tag update: %w", err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete VM instance tag update: %w", err)
+	}
+
+	return nil
 }
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
