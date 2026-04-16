@@ -1862,17 +1862,22 @@ testFuseInstalled() {
     echo "$test: Skipping, only applicable to Ubuntu"
     return 0
   fi
-  local expected_pkg
-  if [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; then
-    expected_pkg="fuse3"
+  # Ubuntu 20.04 may have either fuse or fuse3 depending on blobfuse/blobfuse2 package deps.
+  if [ "$OS_VERSION" = "20.04" ]; then
+    if dpkg-query -W -f='${Status}' "fuse" 2>/dev/null | grep -q "install ok installed" || \
+       dpkg-query -W -f='${Status}' "fuse3" 2>/dev/null | grep -q "install ok installed"; then
+      echo "$test: fuse or fuse3 is installed on Ubuntu $OS_VERSION"
+    else
+      err "$test" "neither fuse nor fuse3 is installed on Ubuntu $OS_VERSION"
+      return 1
+    fi
   else
-    expected_pkg="fuse"
-  fi
-  if dpkg-query -W -f='${Status}' "$expected_pkg" 2>/dev/null | grep -q "install ok installed"; then
-    echo "$test: $expected_pkg is installed on Ubuntu $OS_VERSION"
-  else
-    err "$test" "$expected_pkg is not installed on Ubuntu $OS_VERSION"
-    return 1
+    if dpkg-query -W -f='${Status}' "fuse3" 2>/dev/null | grep -q "install ok installed"; then
+      echo "$test: fuse3 is installed on Ubuntu $OS_VERSION"
+    else
+      err "$test" "fuse3 is not installed on Ubuntu $OS_VERSION"
+      return 1
+    fi
   fi
   echo "$test:Finish"
   return 0
