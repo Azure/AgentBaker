@@ -454,20 +454,11 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
 
-	vmssModel := createVMSSModel(ctx, s)
-
-	// When VMInstanceTags are configured, we need to inject tags into
-	// virtualMachineProfile which the Go SDK doesn't expose for Uniform mode VMSS.
-	// We marshal the model to JSON, inject the tags, and send a raw ARM PUT request.
-	if len(s.Config.VMInstanceTags) > 0 {
-		return createVMSSWithProfileTags(ctx, s, resourceGroupName, vmssModel, vm)
-	}
-
 	operation, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
-		vmssModel,
+		createVMSSModel(ctx, s),
 		nil,
 	)
 	if err != nil {
@@ -480,15 +471,26 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
-	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
-	if err != nil {
-		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
-	}
-
+	// Register cleanup early so the VMSS is always deleted even if subsequent steps
+	// (tag patching, IP lookup, etc.) fail — preventing orphaned VMSS resources.
 	s.T.Cleanup(func() {
 		defer cleanupBastionTunnel(vm.SSHClient)
 		cleanupVMSS(ctx, s, vm)
 	})
+
+	// Apply VM instance tags via the Microsoft.Resources/tags API before CSE queries
+	// wireserver. This is needed for features like RCV1P where wireserver checks tags
+	// on the individual VM instance, not the VMSS resource-level tags.
+	if len(s.Config.VMInstanceTags) > 0 {
+		if err := patchVMInstanceTags(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID, s.Config.VMInstanceTags); err != nil {
+			return vm, fmt.Errorf("failed to patch VM instance tags: %w", err)
+		}
+	}
+
+	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
+	if err != nil {
+		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
@@ -526,125 +528,61 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	}, nil
 }
 
-// createVMSSWithProfileTags creates a VMSS using a raw ARM PUT request, injecting tags into
-// virtualMachineProfile that the Go SDK doesn't expose for Uniform mode VMSS. This is needed
-// for features like RCV1P where wireserver checks VM instance-level tags: the tags must be
-// present at VMSS creation time so they propagate to VM instances before CSE runs.
-func createVMSSWithProfileTags(ctx context.Context, s *Scenario, resourceGroupName string, vmssModel armcompute.VirtualMachineScaleSet, vm *ScenarioVM) (*ScenarioVM, error) {
-	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s with VM profile tags", s.Runtime.VMSSName)()
+// patchVMInstanceTags uses the Microsoft.Resources/tags API to merge tags onto a VMSS VM
+// instance. This is a lightweight PATCH that only modifies tags without triggering a full
+// VM model update, completing in seconds rather than the ~108s that BeginUpdate takes.
+func patchVMInstanceTags(ctx context.Context, s *Scenario, resourceGroupName, vmssName, instanceID string, tags map[string]*string) error {
+	defer toolkit.LogStepCtxf(ctx, "patching VM instance %s/%s tags via Resources API", vmssName, instanceID)()
 
-	// Marshal the typed model to a generic map so we can inject virtualMachineProfile.tags
-	vmssJSON, err := json.Marshal(vmssModel)
-	if err != nil {
-		return vm, fmt.Errorf("failed to marshal VMSS model: %w", err)
-	}
-
-	var vmssMap map[string]interface{}
-	if err := json.Unmarshal(vmssJSON, &vmssMap); err != nil {
-		return vm, fmt.Errorf("failed to unmarshal VMSS model to map: %w", err)
-	}
-
-	// Inject tags into properties.virtualMachineProfile
-	props, ok := vmssMap["properties"].(map[string]interface{})
-	if !ok {
-		return vm, fmt.Errorf("VMSS model missing 'properties' field")
-	}
-	vmProfile, ok := props["virtualMachineProfile"].(map[string]interface{})
-	if !ok {
-		return vm, fmt.Errorf("VMSS model missing 'properties.virtualMachineProfile' field")
-	}
-	vmProfile["tags"] = s.Config.VMInstanceTags
-	s.T.Logf("injected VM profile tags: %v", s.Config.VMInstanceTags)
-
-	// Re-marshal the modified model
-	modifiedBody, err := json.Marshal(vmssMap)
-	if err != nil {
-		return vm, fmt.Errorf("failed to marshal modified VMSS model: %w", err)
-	}
-
-	// Build the ARM resource URL
 	subscriptionID := s.SubscriptionID
 	if subscriptionID == "" {
 		subscriptionID = config.Config.SubscriptionID
 	}
-	resourceURL := fmt.Sprintf("https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s?api-version=2025-04-01",
-		subscriptionID, resourceGroupName, s.Runtime.VMSSName)
 
-	// Send raw PUT request via the SDK pipeline (includes auth, retry, logging)
-	req, err := azruntime.NewRequest(ctx, "PUT", resourceURL)
-	if err != nil {
-		return vm, fmt.Errorf("failed to create ARM request: %w", err)
+	// The Microsoft.Resources/tags API allows lightweight tag updates on any Azure resource.
+	// Using "Merge" operation to add/update tags without replacing existing ones.
+	resourceURL := fmt.Sprintf(
+		"https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%s/providers/Microsoft.Resources/tags/default?api-version=2021-04-01",
+		subscriptionID, resourceGroupName, vmssName, instanceID,
+	)
+
+	body := struct {
+		Operation  string `json:"operation"`
+		Properties struct {
+			Tags map[string]*string `json:"tags"`
+		} `json:"properties"`
+	}{
+		Operation: "Merge",
 	}
-	req.Raw().Header.Set("Content-Type", "application/json")
-	if err := req.SetBody(streaming.NopCloser(bytes.NewReader(modifiedBody)), "application/json"); err != nil {
-		return vm, fmt.Errorf("failed to set request body: %w", err)
+	body.Properties.Tags = tags
+
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tag patch body: %w", err)
+	}
+
+	req, err := azruntime.NewRequest(ctx, "PATCH", resourceURL)
+	if err != nil {
+		return fmt.Errorf("failed to create PATCH request: %w", err)
+	}
+	if err := req.SetBody(streaming.NopCloser(bytes.NewReader(bodyJSON)), "application/json"); err != nil {
+		return fmt.Errorf("failed to set request body: %w", err)
 	}
 
 	resp, err := s.GetAzure().Core.Pipeline().Do(req)
 	if err != nil {
-		return vm, fmt.Errorf("failed to send VMSS creation request: %w", err)
+		return fmt.Errorf("failed to send tag PATCH request: %w", err)
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return vm, fmt.Errorf("VMSS creation failed with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("tag PATCH failed with status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	// Create a poller for the async operation
-	poller, err := azruntime.NewPoller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse](resp, s.GetAzure().Core.Pipeline(), nil)
-	if err != nil {
-		return vm, fmt.Errorf("failed to create VMSS creation poller: %w", err)
-	}
-
-	// Wait for VMSS VM to appear before extracting the private IP
-	vm.VM, err = waitForVMSSVM(ctx, s)
-	if err != nil {
-		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
-	}
-
-	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
-	if err != nil {
-		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
-	}
-
-	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.SSHClient)
-		cleanupVMSS(ctx, s, vm)
-	})
-
-	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
-	if config.Config.KeepVMSS {
-		s.T.Logf("VM will be preserved after the test finishes, PLEASE MANUALLY DELETE THE VMSS. Set KEEP_VMSS=false to delete it automatically after the test finishes\n")
-	} else {
-		s.T.Logf("VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed\n")
-	}
-	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s-bastion" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, *s.Runtime.Cluster.Model.Name, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, config.VMSSHPrivateKeyFileName) + "\n"
-	s.T.Log(result)
-
-	vmssResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if !s.Config.SkipSSHConnectivityValidation {
-		var bastErr error
-		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
-		if bastErr != nil {
-			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
-		}
-	}
-	if err != nil {
-		return vm, err
-	}
-
-	err = waitForVMRunningState(ctx, s, vm.VM)
-	if err != nil {
-		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
-	}
-
-	return &ScenarioVM{
-		VMSS:      &vmssResp.VirtualMachineScaleSet,
-		PrivateIP: vm.PrivateIP,
-		VM:        vm.VM,
-		SSHClient: vm.SSHClient,
-	}, nil
+	return nil
 }
+
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
 func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
