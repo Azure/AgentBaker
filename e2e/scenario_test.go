@@ -1262,6 +1262,58 @@ func Test_Ubuntu2204_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2404 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2404 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+				config.VmSize = "Standard_D2pds_V5"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
