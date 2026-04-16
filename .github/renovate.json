@@ -131,6 +131,35 @@
     },
     {
       "matchPackageNames": [
+        "trivy"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "assignees": [
+        "devinwong",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok",
+        "mxj220",
+        "pdamianov-dev",
+        "SriHarsha001"
+      ],
+      "reviewers": [
+        "devinwong",
+        "cameronmeissner",
+        "lilypan26",
+        "djsly",
+        "zachary-bailey",
+        "ganeshkumarashok",
+        "mxj220",
+        "pdamianov-dev",
+        "SriHarsha001"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "kubelet",
         "kubectl",
         "kubelet-sysext",
@@ -675,6 +704,17 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "managerFilePatterns": [
+        "/trivy-scan\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
       ]
     }
   ],
