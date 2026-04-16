@@ -177,8 +177,12 @@ activateNfConntrack() {
 # lockdown when secure boot is detected.
 disableKernelLockdownCmdline() {
     echo "Removing lockdown=integrity from kernel cmdline..."
-    dnf_install 120 5 25 grubby || exit $ERR_APT_INSTALL_TIMEOUT
-    grubby --update-kernel=ALL --remove-args="lockdown"
+    if [ -f /etc/default/grub ]; then
+        sed -i 's/lockdown=integrity//g' /etc/default/grub
+        grub2-mkconfig -o /boot/grub2/grub.cfg || exit 1
+    else
+        echo "Warning: /etc/default/grub not found, skipping lockdown removal"
+    fi
 }
 
 installFIPS() {
