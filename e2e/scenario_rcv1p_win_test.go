@@ -32,6 +32,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 			Cluster:                ClusterRCV1PKubenet,
 			VHD:                    config.VHDWindows2022Containerd,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
+			VMInstanceTags:         rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
@@ -54,6 +55,7 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 			Cluster:                ClusterRCV1PKubenet,
 			VHD:                    config.VHDWindows23H2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
+			VMInstanceTags:         rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
@@ -80,6 +82,7 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				rcv1pOptInVMConfigMutator(vmss)
 			},
+			VMInstanceTags: rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},

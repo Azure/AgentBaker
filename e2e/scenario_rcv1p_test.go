@@ -44,13 +44,22 @@ func skipIfRCV1PNotConfigured(t *testing.T) {
 	}
 }
 
-// rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS so that wireserver
-// will serve root certificates to this VM during provisioning.
+// rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
+// Note: For wireserver to recognize the tag, it must also be set on the individual VM instance.
+// Use VMInstanceTags in the Config to set instance-level tags (applied after VM creation).
 func rcv1pOptInVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {
 	if vmss.Tags == nil {
 		vmss.Tags = map[string]*string{}
 	}
 	vmss.Tags[rcv1pOptInTag] = to.Ptr("true")
+}
+
+// rcv1pVMInstanceTags returns the tags that must be set on individual VM instances
+// for wireserver to serve root certificates.
+func rcv1pVMInstanceTags() map[string]*string {
+	return map[string]*string{
+		rcv1pOptInTag: to.Ptr("true"),
+	}
 }
 
 // Test_RCV1P_Ubuntu2204 validates RCV1P cert download and trust store installation on Ubuntu 22.04.
@@ -66,9 +75,10 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:         ClusterRCV1PKubenet,
+			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
+			VMInstanceTags:  rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -91,9 +101,10 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:         ClusterRCV1PKubenet,
+			VHD:             config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
+			VMInstanceTags:  rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -116,9 +127,10 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:         ClusterRCV1PKubenet,
+			VHD:             config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
+			VMInstanceTags:  rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -144,6 +156,7 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 			Cluster: ClusterRCV1PKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
+			VMInstanceTags:  rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -172,6 +185,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				rcv1pOptInVMConfigMutator(vmss)
 			},
+			VMInstanceTags: rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
