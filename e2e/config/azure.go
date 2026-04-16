@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -8,7 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -60,6 +61,7 @@ type AzureClient struct {
 	StorageAccounts           *armstorage.AccountsClient
 	Subnet                    *armnetwork.SubnetsClient
 	PublicIPAddresses         *armnetwork.PublicIPAddressesClient
+	Routes                    *armnetwork.RoutesClient
 	RouteTables               *armnetwork.RouteTablesClient
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
@@ -216,6 +218,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.RouteTables, err = armnetwork.NewRouteTablesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create route tables client: %w", err)
+	}
+
+	cloud.Routes, err = armnetwork.NewRoutesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create routes client: %w", err)
 	}
 
 	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(Config.SubscriptionID, credential, opts)
@@ -422,6 +429,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 		Properties: &armstorage.AccountPropertiesCreateParameters{
 			AllowBlobPublicAccess: to.Ptr(false),
 			AllowSharedKeyAccess:  to.Ptr(false),
+			MinimumTLSVersion:     to.Ptr(armstorage.MinimumTLSVersionTLS12),
 		},
 	}, nil)
 	if err != nil {
@@ -452,6 +460,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 			// built-in "Storage Blob Data Contributor" role
 			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
 			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
+			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
 		},
 	}, nil)
 	var respError *azcore.ResponseError
@@ -681,16 +690,24 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 
 func DefaultRetryOpts() policy.RetryOptions {
 	return policy.RetryOptions{
-		MaxRetries: 3,
-		RetryDelay: time.Second * 5,
+		// Use generous retry settings to survive Azure Compute Gallery throttling.
+		// Gallery APIs return HTTP 429 (ResourceCollectionRequestsThrottled) with
+		// "try after 120 seconds" when rate-limited. With 3 parallel E2E jobs hitting
+		// the same gallery, this is common. The Azure SDK uses exponential backoff
+		// (RetryDelay * 2^attempt) so with a 10s base and 6 retries we get:
+		// 10 + 20 + 40 + 80 + 160(→180) + 180 = ~510s total retry window, well past
+		// the 120s cooldown period.
+		MaxRetries:    6,
+		RetryDelay:    10 * time.Second,
+		MaxRetryDelay: 3 * time.Minute,
 		StatusCodes: []int{
 			http.StatusRequestTimeout,      // 408
-			http.StatusTooManyRequests,     // 429
-			http.StatusInternalServerError, // 500
-			http.StatusBadGateway,          // 502
-			http.StatusServiceUnavailable,  // 503
-			http.StatusGatewayTimeout,      // 504
-			http.StatusNotFound,            // 404
+			http.StatusTooManyRequests,      // 429
+			http.StatusInternalServerError,  // 500
+			http.StatusBadGateway,           // 502
+			http.StatusServiceUnavailable,   // 503
+			http.StatusGatewayTimeout,       // 504
+			http.StatusNotFound,             // 404
 		},
 	}
 }
@@ -745,75 +762,99 @@ func (a *AzureClient) DeleteSnapshot(ctx context.Context, resourceGroupName, sna
 	return nil
 }
 
+// vmExtensionImageVersionLister abstracts the ListVersions method of the VM extension images client for testability.
+type vmExtensionImageVersionLister interface {
+	ListVersions(ctx context.Context, location string, publisherName string, typeParam string,
+		options *armcompute.VirtualMachineExtensionImagesClientListVersionsOptions,
+	) (armcompute.VirtualMachineExtensionImagesClientListVersionsResponse, error)
+}
+
 // GetLatestVMExtensionImageVersion lists VM extension images for a given extension name and returns the latest version.
 // This is equivalent to: az vm extension image list -n Compute.AKS.Linux.AKSNode --latest
 func (a *AzureClient) GetLatestVMExtensionImageVersion(ctx context.Context, location, extType, extPublisher string) (string, error) {
+	return getLatestVMExtensionImageVersion(ctx, a.VMExtensionImages, location, extType, extPublisher)
+}
+
+// getLatestVMExtensionImageVersion lists VM extension images using the provided lister and returns the latest version.
+func getLatestVMExtensionImageVersion(ctx context.Context, lister vmExtensionImageVersionLister, location, extType, extPublisher string) (string, error) {
 	// List extension versions
-	resp, err := a.VMExtensionImages.ListVersions(ctx, location, extPublisher, extType, &armcompute.VirtualMachineExtensionImagesClientListVersionsOptions{})
+	resp, err := lister.ListVersions(ctx, location, extPublisher, extType, &armcompute.VirtualMachineExtensionImagesClientListVersionsOptions{})
 	if err != nil {
 		return "", fmt.Errorf("listing extension versions: %w", err)
 	}
-
 	if len(resp.VirtualMachineExtensionImageArray) == 0 {
 		return "", fmt.Errorf("no extension versions found")
 	}
 
-	version := make([]VMExtenstionVersion, len(resp.VirtualMachineExtensionImageArray))
+	versions := make([]vmExtensionVersion, len(resp.VirtualMachineExtensionImageArray))
 	for i, ext := range resp.VirtualMachineExtensionImageArray {
-		version[i] = parseVersion(ext)
+		versions[i] = parseVersion(ctx, ext)
 	}
 
-	sort.Slice(version, func(i, j int) bool {
-		return version[i].Less(version[j])
+	latest := slices.MaxFunc(versions, func(a, b vmExtensionVersion) int {
+		return a.cmp(b)
 	})
-
-	return *version[len(version)-1].Original.Name, nil
+	if latest.original.Name == nil {
+		return "", fmt.Errorf("latest extension version has nil name")
+	}
+	return *latest.original.Name, nil
 }
 
-// VMExtenstionVersion represents a parsed version of a VM extension image.
-type VMExtenstionVersion struct {
-	Original *armcompute.VirtualMachineExtensionImage
-	Major    int
-	Minor    int
-	Patch    int
+// vmExtensionVersion represents a parsed version of a VM extension image.
+type vmExtensionVersion struct {
+	original *armcompute.VirtualMachineExtensionImage
+	major    int
+	minor    int
+	patch    int
 }
 
 // parseVersion parses the version from a VM extension image name, which can be in the format 1.151, 1.0.1, etc.
 // You can find all the versions of a specific VM extension by running:
 // az vm extension image list -n Compute.AKS.Linux.AKSNode
-func parseVersion(v *armcompute.VirtualMachineExtensionImage) VMExtenstionVersion {
+func parseVersion(ctx context.Context, v *armcompute.VirtualMachineExtensionImage) vmExtensionVersion {
+	version := vmExtensionVersion{original: v}
+	if v.Name == nil {
+		toolkit.Logf(ctx, "warning: VM extension image has nil name, skipping version parse")
+		return version
+	}
+
 	// Split by dots
 	parts := strings.Split(*v.Name, ".")
 
-	version := VMExtenstionVersion{Original: v}
-
 	if len(parts) >= 1 {
 		if major, err := strconv.Atoi(parts[0]); err == nil {
-			version.Major = major
+			version.major = major
+		} else {
+			toolkit.Logf(ctx, "warning: failed to parse major version from %q: %v", *v.Name, err)
 		}
 	}
 	if len(parts) >= 2 {
 		if minor, err := strconv.Atoi(parts[1]); err == nil {
-			version.Minor = minor
+			version.minor = minor
+		} else {
+			toolkit.Logf(ctx, "warning: failed to parse minor version from %q: %v", *v.Name, err)
 		}
 	}
 	if len(parts) >= 3 {
 		if patch, err := strconv.Atoi(parts[2]); err == nil {
-			version.Patch = patch
+			version.patch = patch
+		} else {
+			toolkit.Logf(ctx, "warning: failed to parse patch version from %q: %v", *v.Name, err)
 		}
 	}
 
 	return version
 }
 
-func (v VMExtenstionVersion) Less(other VMExtenstionVersion) bool {
-	if v.Major != other.Major {
-		return v.Major < other.Major
+// cmp compares two versions, returning -1, 0, or 1.
+func (v vmExtensionVersion) cmp(other vmExtensionVersion) int {
+	if c := cmp.Compare(v.major, other.major); c != 0 {
+		return c
 	}
-	if v.Minor != other.Minor {
-		return v.Minor < other.Minor
+	if c := cmp.Compare(v.minor, other.minor); c != 0 {
+		return c
 	}
-	return v.Patch < other.Patch
+	return cmp.Compare(v.patch, other.patch)
 }
 
 // getResourceSKU queries the Azure Resource SKUs API to find the SKU for the given VM size and location.

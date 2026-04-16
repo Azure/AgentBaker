@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -72,7 +73,7 @@ func newTestCtx(t testing.TB) context.Context {
 	return ctx
 }
 
-func RunScenario(t *testing.T, s *Scenario) error {
+func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
@@ -80,10 +81,30 @@ func RunScenario(t *testing.T, s *Scenario) error {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
-		return nil
+		return
 	}
-	// Default path
-	return runScenario(t, s)
+	t.Run("default", func(t *testing.T) {
+		t.Parallel()
+		err := runScenario(t, copyScenario(s))
+		require.NoError(t, err)
+	})
+
+	if supportsScriptlessNBCCSECmd(s) {
+		t.Run("scriptless_nbc", func(t *testing.T) {
+			t.Parallel()
+			sCopy := copyScenario(s)
+			if sCopy.Runtime == nil {
+				sCopy.Runtime = &ScenarioRuntime{}
+			}
+			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
+			err := runScenario(t, sCopy)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func supportsScriptlessNBCCSECmd(s *Scenario) bool {
+	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -129,6 +150,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			original.BootstrapConfigMutator(nbc)
 			nbc.PreProvisionOnly = true
+			nbc.EnableScriptlessNBCCSECmd = false
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
@@ -208,15 +230,20 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
-	s.Runtime = &ScenarioRuntime{
-		Cluster:  cluster,
-		VMSSName: generateVMSSName(s),
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
 	}
+	s.Runtime.Cluster = cluster
+	s.Runtime.VMSSName = generateVMSSName(s)
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
+	if s.ExpectedError != "" {
+		require.ErrorContains(t, err, s.ExpectedError)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -229,16 +256,15 @@ func runScenario(t testing.TB, s *Scenario) error {
 
 func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
-	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
-	}
 
 	var err error
 	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
-	if config.Config.EnableScriptlessCSECmd {
-		nbc.EnableScriptlessCSECmd = true
+	nbc.EnableScriptlessCSECmd = true
+	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
+		nbc.EnableScriptlessNBCCSECmd = true
+		nbc.EnableScriptlessCSECmd = false
 	}
 
 	if s.IsWindows() {
@@ -295,7 +321,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// fail test, but continue to extract debug information
-	if s.ReturnErrorOnVMSSCreation {
+	if s.ExpectedError != "" {
 		return scenarioVM, err
 	} else {
 		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
@@ -522,21 +548,31 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
-func createVMExtensionLinuxAKSNode(_ *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
-	// Default to "westus" if location is nil.
-	// region := "westus"
-	// if location != nil {
-	// 	region = *location
-	// }
+func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	region := config.Config.DefaultLocation
+	if location != nil {
+		region = *location
+	}
 
+	// If you update the version here, also update
+	// Test_CreateVMExtensionLinuxAKSNode_Timing in
+	// e2e/scenario_gpu_managed_experience_test.go
+	const fallbackExtensionVersion = "1.413"
 	extensionName := "Compute.AKS.Linux.AKSNode"
 	publisher := "Microsoft.AKS"
-	extensionVersion := "1.406"
-	// NOTE (@surajssd): If this is gonna be called multiple times, then find a way to cache the latest version.
-	// extensionVersion, err := config.Azure.GetLatestVMExtensionImageVersion(context.TODO(), region, extensionName, publisher)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("getting latest VM extension image version: %v", err)
-	// }
+	extensionVersion, err := CachedGetLatestVMExtensionImageVersion(ctx, GetLatestExtensionVersionRequest{
+		Location:  region,
+		ExtType:   extensionName,
+		Publisher: publisher,
+	})
+	if err != nil {
+		log.Printf("warning: failed to get latest VM extension version, falling back to %s: %v", fallbackExtensionVersion, err)
+		extensionVersion = fallbackExtensionVersion
+	}
+
+	log.Printf("Using VM extension version %s for extension type %s in region %s", extensionVersion, extensionName, region)
 
 	return &armcompute.VirtualMachineScaleSetExtension{
 		Name: to.Ptr(extensionName),
@@ -795,7 +831,7 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)

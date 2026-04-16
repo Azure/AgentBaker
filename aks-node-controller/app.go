@@ -27,6 +27,11 @@ type App struct {
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRun      func(cmd *exec.Cmd) error
 	eventLogger *helpers.EventLogger
+
+	// hotfixVersionPath overrides the default hotfix version file location for testing.
+	hotfixVersionPath string
+	// aptSourcesDir overrides the default APT sources directory for testing.
+	aptSourcesDir string
 }
 
 // commandMetadata holds all metadata for a command in one place.
@@ -83,6 +88,7 @@ func cmdRunnerDryRun(cmd *exec.Cmd) error {
 
 type ProvisionFlags struct {
 	ProvisionConfig string
+	NBCCmd          string
 }
 
 type ProvisionStatusFiles struct {
@@ -91,6 +97,10 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
+	if handled := handleInfoCommand(args); handled {
+		return 0
+	}
+
 	slog.Info("aks-node-controller started", "args", args)
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
@@ -100,6 +110,30 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		slog.Error("aks-node-controller failed", "error", err)
 	}
 	return exitCode
+}
+
+// handleInfoCommand handles --version, version, --help, and help commands
+// without logging noise. Returns true if handled.
+func handleInfoCommand(args []string) bool {
+	if len(args) < 2 {
+		return false
+	}
+	switch args[1] {
+	case "--version", "version":
+		_, _ = fmt.Fprintln(os.Stdout, Version)
+		return true
+	case "--help", "help":
+		_, _ = fmt.Fprintln(os.Stdout, "Usage: aks-node-controller <command> [options]")
+		_, _ = fmt.Fprintln(os.Stdout)
+		_, _ = fmt.Fprintln(os.Stdout, "Commands:")
+		_, _ = fmt.Fprintln(os.Stdout, "  provision       Run node provisioning")
+		_, _ = fmt.Fprintln(os.Stdout, "  provision-wait  Wait for provisioning to complete")
+		_, _ = fmt.Fprintln(os.Stdout, "  version         Print the version")
+		_, _ = fmt.Fprintln(os.Stdout, "  help            Print this help message")
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *App) run(ctx context.Context, args []string) error {
@@ -116,6 +150,11 @@ func (a *App) run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unknown command: %s", command)
 	}
 
+	// Self-update before provisioning: check for hotfix version and install if needed.
+	// On success, syscall.Exec replaces this process and never returns.
+	// On any failure, selfUpdate logs a warning and returns nil (best-effort).
+	a.selfUpdate(ctx)
+
 	startTime := time.Now()
 	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
 
@@ -130,13 +169,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 	return err
 }
 
-func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
-	provisionResult := &ProvisionResult{}
-	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
+func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
+	inputJSON, err := os.ReadFile(path)
 	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
-		return provisionResult, errors.New(provisionResult.Error)
+		return nil, fmt.Errorf("open provision file %s: %w", path, err)
 	}
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
@@ -156,25 +192,62 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
 	if config.Version != "v0" && config.Version != "v1" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
-		return provisionResult, errors.New(provisionResult.Error)
+		return nil, fmt.Errorf("unsupported version: %s", config.Version)
 	}
 
 	if config.Version == "v0" {
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
-	cmd, err := parser.BuildCSECmd(ctx, config)
+	return parser.BuildCSECmd(ctx, config)
+}
+
+func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
+	fileInfo, err := os.Stat(path)
 	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
-		return provisionResult, errors.New(provisionResult.Error)
+		return nil, fmt.Errorf("read NBC command file %s: %w", path, err)
 	}
+	if !fileInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("NBC command file %s must be a regular file", path)
+	}
+
+	scriptPath := filepath.Clean(path)
+	slog.Info("Using NBC command for scriptless phase 2", "NBCCmdFile", scriptPath)
+
+	// #nosec G204 -- scriptPath is validated as a file path and passed after "--" so bash treats it as a script, not an option or shell input.
+	cmd := exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)
+	cmd.Env = os.Environ()
+	return cmd, nil
+}
+
+func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
+	provisionResult := &ProvisionResult{}
+
+	var cmd *exec.Cmd
+	if flags.ProvisionConfig != "" {
+		var err error
+		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+	}
+
+	if flags.NBCCmd != "" {
+		var err error
+		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+	}
+
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err = a.cmdRun(cmd)
+	err := a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -207,21 +280,23 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	nbcCMD := fs.String("nbc-cmd", "", "path to the NBC command file")
 	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
 	if parseErr := fs.Parse(args); parseErr != nil {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
 		return provisionResult, errors.New(provisionResult.Error)
 	}
-	if *provisionConfig == "" {
+
+	if *provisionConfig == "" && *nbcCMD == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = "--provision-config is required"
+		provisionResult.Error = "--provision-config or --nbc-cmd is required"
 		return provisionResult, errors.New(provisionResult.Error)
 	}
 	if *dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	}
-	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig, NBCCmd: *nbcCMD})
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,

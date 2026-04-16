@@ -262,7 +262,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -282,7 +282,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -299,6 +299,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -337,7 +340,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -357,7 +360,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -373,6 +376,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -411,7 +417,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -431,7 +437,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -447,6 +453,9 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -461,6 +470,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -481,7 +491,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -507,7 +517,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 3)
+				ValidateGPUWorkloadSchedulable(ctx, s, 3, "nvidia.com/gpu")
 
 				// Validate that the NVIDIA DCGM packages were installed correctly
 				for _, packageName := range getDCGMPackageNames(os) {
@@ -558,7 +568,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// to test that NBC EnableManagedGPU field works independently
 
 				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(vmss.Location)
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
@@ -578,7 +588,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				for _, packageName := range getDCGMPackageNames(os) {
 					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
@@ -594,6 +604,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// Let's run the NPD validation tests to verify that the nvidia
 				// device plugin & DCGM services are reporting status correctly
 				ValidateNodeProblemDetector(ctx, s)
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				RestartNodeProblemDetector(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
 				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
@@ -603,6 +616,101 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 				// verify nvidia grid license status checks are reporting status correctly
 				ValidateNPDHealthyNvidiaGridLicenseStatus(ctx, s)
 				ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_CreateVMExtensionLinuxAKSNode_Timing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	// First call — may hit the Azure API or cache
+	start := time.Now()
+	ext, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
+	firstDuration := time.Since(start)
+	require.NoError(t, err, "first call to createVMExtensionLinuxAKSNode failed")
+	require.NotNil(t, ext, "first call returned nil extension")
+	t.Logf("First call duration: %s", firstDuration)
+
+	// Second call — should be served from cache
+	start = time.Now()
+	ext2, err := createVMExtensionLinuxAKSNode(t.Context(), nil)
+	secondDuration := time.Since(start)
+	require.NoError(t, err, "second call to createVMExtensionLinuxAKSNode failed")
+	require.NotNil(t, ext2, "second call returned nil extension")
+	t.Logf("Second call duration: %s", secondDuration)
+
+	// Both calls should return a valid, consistent TypeHandlerVersion
+	require.NotNil(t, ext.Properties, "first extension has nil Properties")
+	require.NotNil(t, ext2.Properties, "second extension has nil Properties")
+	require.NotNil(t, ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is nil")
+	require.NotNil(t, ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is nil")
+	require.NotEmpty(t, *ext.Properties.TypeHandlerVersion, "first TypeHandlerVersion is empty")
+	require.NotEmpty(t, *ext2.Properties.TypeHandlerVersion, "second TypeHandlerVersion is empty")
+
+	// Ensure we actually hit Azure and didn't just get the fallback version
+	require.NotEqual(t, "1.413", *ext.Properties.TypeHandlerVersion,
+		"extension version is the hardcoded fallback — Azure API may not have been reached")
+
+	// Cache consistency: both calls should return the same version
+	require.Equal(t, *ext.Properties.TypeHandlerVersion, *ext2.Properties.TypeHandlerVersion,
+		"both calls should return the same extension version")
+}
+
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+		Location:    "westus2",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG1g"
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Mixed"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2404"
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
+
+				// Validate that the NVIDIA device plugin systemd service is running
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+
+				// Validate that MIG mode is enabled via nvidia-smi
+				ValidateMIGModeEnabled(ctx, s)
+
+				// Validate that MIG instances are created
+				ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb")
+
+				// Validate that MIG profile-specific GPU resources are advertised by the device plugin
+				migResourceName := "nvidia.com/mig-1g.10gb"
+				ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName)
+
+				// Validate that MIG workloads can be scheduled
+				ValidateGPUWorkloadSchedulable(ctx, s, 2, migResourceName)
 			},
 		},
 	})

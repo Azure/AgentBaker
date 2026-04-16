@@ -68,6 +68,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -90,6 +91,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -113,6 +115,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -136,6 +139,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -157,6 +161,7 @@ func Test_Windows23H2AzureNetwork(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -179,6 +184,7 @@ func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -201,6 +207,7 @@ func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -224,6 +231,7 @@ func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -286,6 +294,7 @@ func Test_Windows2025(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -310,6 +319,36 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
+	t.Skip("Awaiting the network team’s release of the new WCN package to be included in the VHD before re-enabling this test.")
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 Gen2 with Windows Cilium Networking (WCN) enabled",
+		Config: Config{
+			Cluster:               ClusterAzureNetwork,
+			VHD:                   config.VHDWindows2025Gen2,
+			VMConfigMutator:       EmptyVMConfigMutator,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
+					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+				}
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateWindowsCiliumIsRunning(ctx, s)
 			},
 		},
 	})
@@ -340,6 +379,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -365,6 +405,7 @@ func Test_Windows2022_DisableKubeletServingCertificateRotationWithTags(t *testin
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -394,6 +435,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -419,6 +461,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -441,6 +484,7 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -463,6 +507,7 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -490,6 +535,7 @@ func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 					`https://mcr.azk8s.cn`)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
 	})
@@ -576,9 +622,9 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 	})
 }
 
-func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
+func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that Windows nodes in network isolated clusters download kubelet binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
+		Description: "Tests that Windows nodes in network isolated clusters download kubelet/containerd binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
 		Tags: Tags{
 			NetworkIsolated: true,
 			NonAnonymousACR: false,
@@ -593,6 +639,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+						TestMode:                true,
 					},
 				}
 			},
@@ -600,6 +647,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				// Verify kubelet binaries were downloaded via ORAS instead of HTTP
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download containerd with oras")
 			},
 		},
 	})

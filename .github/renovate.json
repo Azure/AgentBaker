@@ -6,15 +6,16 @@
   "enabledManagers": [
     "custom.regex"
   ],
-  "prConcurrentLimit": 50,
-  "prHourlyLimit": 50,
-  "branchConcurrentLimit": 50,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 3,
+  "branchConcurrentLimit": 0,
+  "commitHourlyLimit": 5,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "automerging",
+  "rebaseWhen": "conflicted",
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -23,43 +24,6 @@
   ],
   "packageRules": [
     {
-      "matchPackageNames": [
-        "*/kubernetes/autoscaler/addon-resizer",
-        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
-        "*/kubernetes/coredns",
-        "oss/v2/kubernetes/pause",
-        "containernetworking/azure-cni",
-        "containernetworking/azure-cns",
-        "containernetworking/azure-ipam",
-        "containernetworking/cilium/cilium",
-        "containernetworking/cilium/cilium-distroless-init",
-        "containernetworking/cilium/cilium-distroless",
-        "oss/kubernetes/apiserver-network-proxy/agent",
-        "oss/kubernetes-csi/secrets-store/driver",
-        "oss/azure/secrets-store/provider-azure",
-        "azuremonitor/containerinsights/ciprod",
-        "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-        "oss/kubernetes/azure-cloud-node-manager",
-        "oss/v2/kubernetes/azure-cloud-node-manager",
-        "aks/ip-masq-agent-v2",
-        "oss/v2/azure/ip-masq-agent-v2",
-        "oss/kubernetes-csi/azuredisk-csi",
-        "oss/v2/kubernetes-csi/azuredisk-csi",
-        "oss/kubernetes-csi/azurefile-csi",
-        "oss/v2/kubernetes-csi/azurefile-csi",
-        "oss/kubernetes-csi/blob-csi",
-        "oss/kubernetes-csi/livenessprobe",
-        "oss/kubernetes-csi/csi-node-driver-registrar",
-        "oss/v2/open-policy-agent/gatekeeper",
-        "azure-policy/policy-kubernetes-addon-prod",
-        "azure-policy/policy-kubernetes-webhook",
-        "oss/kubernetes/kube-proxy",
-        "oss/v2/kubernetes/kube-proxy",
-        "oss/binaries/kubernetes/kubernetes-node",
-        "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "containernetworking/azure-npm",
-        "azure-acr-credential-provider"
-      ],
       "matchUpdateTypes": [
         "minor"
       ],
@@ -101,9 +65,28 @@
         "rpm"
       ],
       "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "automerge": false,
-      "enabled": true,
-      "ignoreUnstable": false
+      "enabled": true
     },
     {
       "matchPackageNames": [
@@ -120,24 +103,10 @@
       "enabled": true,
       "groupName": "runc-containerd-ca_watcher",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -154,30 +123,47 @@
       "enabled": true,
       "groupName": "runc-containerd-minor",
       "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "trivy"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "assignees": [
         "devinwong",
-        "anujmaheshwari1",
         "cameronmeissner",
         "lilypan26",
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok",
-        "mxj220"
+        "mxj220",
+        "pdamianov-dev",
+        "SriHarsha001"
       ],
       "reviewers": [
         "devinwong",
-        "anujmaheshwari1",
         "cameronmeissner",
         "lilypan26",
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok",
-        "mxj220"
+        "mxj220",
+        "pdamianov-dev",
+        "SriHarsha001"
       ]
     },
     {
       "matchPackageNames": [
         "kubelet",
-        "kubectl"
+        "kubectl",
+        "kubelet-sysext",
+        "kubectl-sysext"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -186,22 +172,10 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -375,22 +349,10 @@
       ],
       "groupName": "kubernetes-cri-tools",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -742,6 +704,17 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "managerFilePatterns": [
+        "/trivy-scan\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
       ]
     }
   ],

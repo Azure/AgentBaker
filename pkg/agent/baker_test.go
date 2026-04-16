@@ -985,6 +985,40 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", "07401b.f395accd246ae52d"))
 	})
 
+	It("should handle secure TLS bootstrapping configuration", func() {
+		baseConfig.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+			Enabled:                   true,
+			AADResource:               "custom-resource",
+			UserAssignedIdentityID:    "user-assigned-identity-id",
+			CustomClientDownloadURL:   "custom-client-download-url",
+			ValidateKubeconfigTimeout: "custom-validate-kubeconfig-timeout",
+			GetAccessTokenTimeout:     "custom-get-access-token-timeout",
+			GetInstanceDataTimeout:    "custom-get-instance-data-timeout",
+			GetNonceTimeout:           "custom-get-nonce-timeout",
+			GetAttestedDataTimeout:    "custom-get-attested-data-timeout",
+			GetCredentialTimeout:      "custom-get-credential-timeout",
+			Deadline:                  "custom-deadline",
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_SECURE_TLS_BOOTSTRAPPING", "true"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "custom-resource"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID", "user-assigned-identity-id"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT", "custom-validate-kubeconfig-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT", "custom-get-access-token-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT", "custom-get-instance-data-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT", "custom-get-nonce-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "custom-get-attested-data-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "custom-get-credential-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_DEADLINE", "custom-deadline"))
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL", "custom-client-download-url"))
+	})
+
 	It("should handle kubelet serving certificate rotation", func() {
 		baseConfig.KubeletConfig["--rotate-server-certificates"] = "true"
 
@@ -1112,6 +1146,57 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		baseConfig.FIPSEnabled = true
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
+	It("should set NEEDS_CGROUPV2 for CustomizedImage with AzureLinux OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImage
+		typedConfig.OSSKU = datamodel.OSSKUAzureLinux
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
+	It("should set NEEDS_CGROUPV2 for CustomizedImage with Flatcar OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImage
+		typedConfig.OSSKU = datamodel.OSSKUFlatcar
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
+	It("should set NEEDS_CGROUPV2 for CustomizedImageTrustedLaunch with AzureContainerLinux OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImageTrustedLaunch
+		typedConfig.OSSKU = datamodel.OSSKUAzureContainerLinux
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
 
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
