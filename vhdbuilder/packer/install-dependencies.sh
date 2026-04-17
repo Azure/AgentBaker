@@ -80,9 +80,8 @@ else
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 is installed via the packages loop below; fuse3 is needed as a dependency
   required_pkg_list=(fuse3)
-  for apt_package in ${required_pkg_list[*]}; do
-      if ! apt_get_install 30 1 600 $apt_package; then
-        journalctl --no-pager -u $apt_package || true
+  for apt_package in "${required_pkg_list[@]}"; do
+      if ! apt_get_install 30 1 600 "$apt_package"; then
         tail -n 200 /var/log/apt/term.log || true
         tail -n 200 /var/log/dpkg.log || true
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -590,30 +589,19 @@ while IFS= read -r p; do
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
       ;;
-    "blobfuse")
-      for version in ${PACKAGE_VERSIONS[@]}; do
+    "blobfuse"|"blobfuse2")
+      for version in "${PACKAGE_VERSIONS[@]}"; do
         if isUbuntu "$OS"; then
-          if ! apt_get_install 30 1 600 "blobfuse=${version}"; then
-            journalctl --no-pager -u blobfuse || true
+          if ! apt_get_install 30 1 600 "${name}=${version}"; then
+            journalctl --no-pager -u "${name}" || true
             tail -n 200 /var/log/apt/term.log || true
             tail -n 200 /var/log/dpkg.log || true
             exit $ERR_APT_INSTALL_TIMEOUT
           fi
+          echo "  - ${name} version ${version}" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "  - ${name} installation skipped for ${OS}" >> "${VHD_LOGS_FILEPATH}"
         fi
-        echo "  - blobfuse version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "blobfuse2")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if isUbuntu "$OS"; then
-          if ! apt_get_install 30 1 600 "blobfuse2=${version}"; then
-            journalctl --no-pager -u blobfuse2 || true
-            tail -n 200 /var/log/apt/term.log || true
-            tail -n 200 /var/log/dpkg.log || true
-            exit $ERR_APT_INSTALL_TIMEOUT
-          fi
-        fi
-        echo "  - blobfuse2 version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
