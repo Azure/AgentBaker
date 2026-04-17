@@ -178,8 +178,8 @@
     },
     {
       "matchPackageNames": [
-        "*kubelet-sysext",
-        "*kubectl-sysext"
+        "oss/v2/kubernetes/kubelet-sysext",
+        "oss/v2/kubernetes/kubectl-sysext"
       ],
       "matchUpdateTypes": [
         "patch"
