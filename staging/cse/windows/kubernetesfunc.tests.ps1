@@ -132,7 +132,7 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
         Mock Retry-Command -MockWith {
             param($Command, $Args, $Retries, $RetryDelaySeconds)
             $script:lastRetryUri = $PSBoundParameters['Args'].Uri
-            return [PSCustomObject]@{ Content = 'IsOptedInForRootCerts=true' }
+            return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":true}' }
         }
 
         $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
@@ -144,7 +144,7 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
 
     It 'returns false for rcv1p regions when opt-in is disabled' {
         Mock Retry-Command -MockWith {
-            return [PSCustomObject]@{ Content = 'IsOptedInForRootCerts=false' }
+            return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":false}' }
         }
 
         $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus'
