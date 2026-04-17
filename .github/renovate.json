@@ -373,8 +373,7 @@
     },
     {
       "matchPackageNames": [
-        "ig",
-        "ig-gadgets"
+        "ig"
       ],
       "matchUpdateTypes": [
         "patch"
