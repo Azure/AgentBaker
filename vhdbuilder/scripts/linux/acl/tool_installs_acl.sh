@@ -74,6 +74,17 @@ enable resolv-uplink-override.service
 enable snapshot-update.timer
 enable measure-tls-bootstrapping-latency.service
 
+# Cloud-init / Azure boot infrastructure
+enable oem-cloudinit.service
+enable enable-oem-cloudinit.service
+enable azure-ephemeral-disk-setup.service
+
+# SSH key generation (needed before CSE can reach the node)
+enable sshd-keygen.service
+enable sshkeys.service
+enable ssh-key-proc-cmdline.service
+enable update-ssh-keys-after-ignition.service
+
 # OS services not in any preset but required for sysext overlay
 enable systemd-sysext.service
 enable ensure-sysext.service
