@@ -787,10 +787,23 @@ providers:
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            KUBELET_NODE_LABELS=""
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 0
+            }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+            addKubeletNodeLabel() {
+                echo "addKubeletNodeLabel $1"
+                if [[ -z "$KUBELET_NODE_LABELS" ]]; then
+                    KUBELET_NODE_LABELS="$1"
+                else
+                    KUBELET_NODE_LABELS="$KUBELET_NODE_LABELS,$1"
+                fi
             }
         }
         cleanup() {
@@ -805,6 +818,8 @@ providers:
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+            # Note: exporter socket setup is now in configureLocalDNSExporterSocket (called separately in cse_main.sh)
+            The output should not include "localdns-exporter"
         End
 
         It 'should return error when systemctl fails to start localdns'
@@ -830,6 +845,10 @@ providers:
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
+                return 0
+            }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
                 return 0
             }
         }

@@ -16,6 +16,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # -------------------------------------------------------------------------------------------------
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+# Cgroup v2 directory for the localdns service (matches Slice=localdns.slice in localdns.service).
+LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
 
 # Localdns corefile is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -204,6 +206,81 @@ replace_azurednsip_in_corefile() {
         echo "Failed to set permissions on ${UPDATED_LOCALDNS_CORE_FILE}"
         return 1
     }
+
+    # Export forward IPs to .prom file for metrics exporter (best-effort)
+    # This avoids parsing the corefile on every metrics scrape
+    # Metrics export is non-fatal - if it fails, log warning and continue so DNS service isn't affected
+    local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+
+    # Parse forward IPs from ALL server blocks in the corefile.
+    # Each metric line includes a "block" label identifying which zone the forward came from
+    # (e.g., block=".:53", block="cluster.local:53").
+    #
+    # Single-pass awk outputs "bind_ip|zone|forward_ip" triples:
+    #   - Tracks current zone from block headers like ".:53 {" or "cluster.local:53 {"
+    #   - Tracks bind IP from "bind 169.254.10.10" or "bind 169.254.10.11"
+    #   - Extracts forward IPs from "forward . <ip> ..." lines
+    #   - Resets state on block close "}"
+    local forward_entries bind_ip block fwd_ip
+    local vnetdns_found=false kubedns_found=false
+    forward_entries=$(awk '
+        /^[^ #].*:53 / {
+            block = $1
+            bind_ip = ""
+        }
+        /bind / {
+            for (i=2; i<=NF; i++) {
+                if ($i ~ /^169\.254\.10\.(10|11)$/) bind_ip = $i
+            }
+        }
+        /forward \. / && bind_ip != "" {
+            for (i=3; i<=NF; i++) {
+                if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)
+                    print bind_ip "|" block "|" $i
+            }
+        }
+        /^}/ { block = ""; bind_ip = "" }
+    ' "${UPDATED_LOCALDNS_CORE_FILE}")
+
+    # Write Prometheus metrics to temp file, then atomically rename
+    # This prevents the exporter from reading a partially-written file during scrapes
+    # Generate one metric line per IP+block combination
+    local tmp
+    if ! tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")"; then
+        echo "WARNING: Failed to create temp file for ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
+    elif ! {
+        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_vnetdns_forward_info gauge"
+        while IFS='|' read -r bind_ip block fwd_ip; do
+            [ "$bind_ip" = "${LOCALDNS_NODE_LISTENER_IP}" ] || continue
+            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
+            vnetdns_found=true
+        done <<< "$forward_entries"
+        if [ "$vnetdns_found" = false ]; then
+            echo 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        fi
+        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_kubedns_forward_info gauge"
+        while IFS='|' read -r bind_ip block fwd_ip; do
+            [ "$bind_ip" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ] || continue
+            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
+            kubedns_found=true
+        done <<< "$forward_entries"
+        if [ "$kubedns_found" = false ]; then
+            echo 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        fi
+    } > "$tmp"; then
+        echo "WARNING: Failed to write metrics to temp file $tmp. Metrics export skipped."
+        rm -f "$tmp"
+    elif ! chmod 0644 "$tmp"; then
+        echo "WARNING: Failed to set permissions on temp file $tmp. Metrics export skipped."
+        rm -f "$tmp"
+    elif ! mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}"; then
+        echo "WARNING: Failed to move temp file to ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
+        rm -f "$tmp"
+    else
+        echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
+    fi
 
     return 0
 }
@@ -561,6 +638,76 @@ cleanup_localdns_configs() {
     return 0
 }
 
+# Export resource metrics (CPU, memory, status) to a .prom file for the metrics exporter.
+# Reads CPU and memory directly from the cgroup v2 filesystem to avoid the
+# systemctl → D-Bus → systemd overhead. The exporter (DynamicUser=yes) cannot
+# query systemd over D-Bus, so we write a world-readable .prom file from the
+# root-privileged localdns.sh — the same pattern used for forward_ips.prom.
+# This function is called once at startup and periodically from the watchdog loop.
+# Failures are non-fatal to avoid affecting DNS service availability.
+export_resource_metrics() {
+    local resources_prom_file="${LOCALDNS_SCRIPT_PATH}/resources.prom"
+    local raw_cpu raw_mem cpu_sec mem_bytes service_status tmp
+
+    # Determine service status by checking if the CoreDNS child process is alive.
+    # Note: systemctl is-active would always return "active" here because this function
+    # runs inside localdns.sh which IS the localdns.service ExecStart process.
+    if [ -n "${COREDNS_PID:-}" ] && kill -0 "$COREDNS_PID" 2>/dev/null; then
+        service_status="active"
+    else
+        service_status="inactive"
+    fi
+
+    # Read resource values directly from cgroup v2 filesystem (all supported distros use cgroupv2).
+    # This avoids the systemctl → D-Bus → systemd → cgroup round-trip.
+    # localdns.service runs in localdns.slice (see localdns.service Slice= directive).
+    local cgroup_dir="${LOCALDNS_CGROUP_DIR}"
+    raw_cpu=$(awk '/^usage_usec/ {print $2}' "$cgroup_dir/cpu.stat" 2>/dev/null || echo "0")
+    raw_mem=$(cat "$cgroup_dir/memory.current" 2>/dev/null || echo "0")
+
+    # Convert CPU microseconds → seconds (%.9f preserves sub-microsecond precision for rate() calculations)
+    # Memory is already in bytes from cgroup — expose as-is per Prometheus base-unit convention
+    cpu_sec=$(awk -v val="$raw_cpu" 'BEGIN {printf "%.9f", val / 1000000}')
+    mem_bytes="$raw_mem"
+
+    # Write Prometheus metrics to temp file, then atomically rename
+    if ! tmp="$(mktemp "${resources_prom_file}.XXXXXX")"; then
+        echo "WARNING: Failed to create temp file for ${resources_prom_file}. Resource metrics export skipped."
+        return 0
+    elif ! {
+        echo "# HELP localdns_service_status CoreDNS process status (1=active, 0=inactive)"
+        echo "# TYPE localdns_service_status gauge"
+        if [ "$service_status" = "active" ]; then
+            echo "localdns_service_status{status=\"active\"} 1"
+        else
+            echo "localdns_service_status{status=\"inactive\"} 0"
+        fi
+        echo "# HELP localdns_memory_usage_bytes Current memory usage in bytes"
+        echo "# TYPE localdns_memory_usage_bytes gauge"
+        echo "localdns_memory_usage_bytes $mem_bytes"
+        echo "# HELP localdns_cpu_usage_seconds_total Total CPU time consumed in Seconds"
+        echo "# TYPE localdns_cpu_usage_seconds_total counter"
+        echo "localdns_cpu_usage_seconds_total $cpu_sec"
+        echo "# HELP localdns_metrics_last_update_timestamp_seconds Unix timestamp of last metrics generation"
+        echo "# TYPE localdns_metrics_last_update_timestamp_seconds gauge"
+        echo "localdns_metrics_last_update_timestamp_seconds $(date +%s)"
+    } > "$tmp"; then
+        echo "WARNING: Failed to write resource metrics to temp file $tmp. Export skipped."
+        rm -f "$tmp"
+        return 0
+    elif ! chmod 0644 "$tmp"; then
+        echo "WARNING: Failed to set permissions on temp file $tmp. Export skipped."
+        rm -f "$tmp"
+        return 0
+    elif ! mv -f "$tmp" "${resources_prom_file}"; then
+        echo "WARNING: Failed to move temp file to ${resources_prom_file}. Export skipped."
+        rm -f "$tmp"
+        return 0
+    fi
+
+    return 0
+}
+
 # Start the localdns watchdog.
 # This function is used to check the health of localdns and restart it if necessary.
 # It uses systemd-notify to send a watchdog ping to the systemd service manager.
@@ -619,9 +766,14 @@ start_localdns_watchdog() {
                     exit $ERR_LOCALDNS_FAIL
                 fi
             fi
+            # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
+            export_resource_metrics
+
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
     else
+        # No watchdog configured — write metrics once then wait for CoreDNS to exit
+        export_resource_metrics
         wait "${COREDNS_PID}"
     fi
 }
@@ -707,6 +859,9 @@ wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
 echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
 disable_dhcp_use_clusterlistener || exit $ERR_LOCALDNS_FAIL
 echo "Startup complete - serving node and pod DNS traffic."
+
+# Export initial resource metrics so the exporter has data before the first watchdog tick.
+export_resource_metrics
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
