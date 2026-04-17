@@ -241,12 +241,6 @@ type Config struct {
 
 	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
 	UseNVMe bool
-
-	// VMInstanceTags are tags applied directly to VMSS VM instances after creation via BeginUpdate.
-	// This is needed for features like RCV1P where wireserver checks tags on the individual VM instance,
-	// not the VMSS resource-level tags. These tags are applied after the VM appears in the API but
-	// before CSE completes, giving wireserver time to see them before the provisioning scripts query it.
-	VMInstanceTags map[string]*string
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
