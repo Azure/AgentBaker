@@ -19,11 +19,15 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	azruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
@@ -36,12 +40,64 @@ const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedi
 // skipIfRCV1PNotConfigured skips the test when the RCV1P subscription is not configured.
 // This happens in regular CI runs where the RCV1P variable group is not linked, causing
 // Azure DevOps to pass the literal unexpanded string "$(RCV1P_SUBSCRIPTION_ID)".
+// It also verifies the Microsoft.Compute/PlatformSettingsOverride feature flag is registered.
 func skipIfRCV1PNotConfigured(t *testing.T) {
 	t.Helper()
 	subID := config.Config.RCV1PSubscriptionID
 	if subID == "" || strings.HasPrefix(subID, "$(") {
 		t.Skip("RCV1P_SUBSCRIPTION_ID not set or not resolved, skipping RCV1P cert mode test")
 	}
+	checkPlatformSettingsOverrideFeatureFlag(t, subID)
+}
+
+var (
+	featureFlagCheckOnce   sync.Once
+	featureFlagCheckResult error
+)
+
+// checkPlatformSettingsOverrideFeatureFlag verifies the Microsoft.Compute/PlatformSettingsOverride
+// feature flag is registered on the given subscription. This is a prerequisite for wireserver to
+// serve root certificates. The check runs only once per test run.
+func checkPlatformSettingsOverrideFeatureFlag(t *testing.T, subscriptionID string) {
+	t.Helper()
+	featureFlagCheckOnce.Do(func() {
+		featureFlagCheckResult = verifyFeatureFlag(t.Context(), subscriptionID)
+	})
+	if featureFlagCheckResult != nil {
+		t.Fatalf("RCV1P feature flag check failed: %v", featureFlagCheckResult)
+	}
+}
+
+func verifyFeatureFlag(ctx context.Context, subscriptionID string) error {
+	url := fmt.Sprintf(
+		"https://management.azure.com/subscriptions/%s/providers/Microsoft.Features/providers/Microsoft.Compute/features/PlatformSettingsOverride?api-version=2021-07-01",
+		subscriptionID,
+	)
+
+	req, err := azruntime.NewRequest(ctx, "GET", url)
+	if err != nil {
+		return fmt.Errorf("failed to create feature flag request: %w", err)
+	}
+
+	resp, err := config.RCV1PAzure.Core.Pipeline().Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to query feature flag: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("feature flag query returned status %d: %s", resp.StatusCode, bodyStr)
+	}
+
+	if !strings.Contains(bodyStr, `"Registered"`) {
+		return fmt.Errorf("Microsoft.Compute/PlatformSettingsOverride is NOT registered on subscription %s (response: %s); "+
+			"wireserver will not serve root certificates without this feature flag", subscriptionID, bodyStr)
+	}
+
+	return nil
 }
 
 // rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
