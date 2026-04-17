@@ -4,6 +4,26 @@ $global:Containerdbinary = (Join-Path $global:ContainerdInstallLocation containe
 # The minimum kubernetes version to use containerd 2.x
 $global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0"
 $global:WindowsDataDir = "C:\AzureData\windows"
+
+# Function so it can be overriden in tests.
+function Get-RootRegistryPath {
+  return "C:\ProgramData\containerd\certs.d"
+}
+
+# Function so it can be mocked in tests.
+function Out-FileAscii {
+ [CmdletBinding()]
+ param(
+    [Parameter(ValueFromPipeline = $true)]$Content,
+    [Parameter(Mandatory = $true)][string]$FilePath
+  )
+
+  # Due to powershell 5.1 being in use sometimes, we can't specify the encoding to be ([System.Text.Encoding]::ASCII) directly in Out-File,
+  # To work around this, we specify the encoding as the string "ascii" which is supported in powershell 5.1 and greater and also results in ascii encoding.
+  $Content | Out-File -FilePath $FilePath -Encoding "ascii"
+}
+
+
 function RegisterContainerDService {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -16,24 +36,25 @@ function RegisterContainerDService {
   $svc = Get-Service -Name "containerd" -ErrorAction SilentlyContinue
   if ($null -ne $svc) {
     sc.exe delete containerd
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to delete existing containerd service (exit code $LASTEXITCODE)" }
   }
 
   Write-Log "Registering containerd as a service"
   # setup containerd
-  & "$KubeDir\nssm.exe" install containerd $global:Containerdbinary | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppDirectory $KubeDir | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd DisplayName containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Description containerd | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Start SERVICE_DEMAND_START | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd ObjectName LocalSystem | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppThrottle 1500 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStdout "$KubeDir\containerd.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppStderr "$KubeDir\containerd.err.log" | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateFiles 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateOnline 1 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateSeconds 86400 | RemoveNulls
-  & "$KubeDir\nssm.exe" set containerd AppRotateBytes 10485760 | RemoveNulls
+  Invoke-Nssm -KubeDir $KubeDir install containerd $global:Containerdbinary
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppDirectory $KubeDir
+  Invoke-Nssm -KubeDir $KubeDir set containerd DisplayName containerd
+  Invoke-Nssm -KubeDir $KubeDir set containerd Description containerd
+  Invoke-Nssm -KubeDir $KubeDir set containerd Start SERVICE_DEMAND_START
+  Invoke-Nssm -KubeDir $KubeDir set containerd ObjectName LocalSystem
+  Invoke-Nssm -KubeDir $KubeDir set containerd Type SERVICE_WIN32_OWN_PROCESS
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppThrottle 1500
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppStdout "$KubeDir\containerd.log"
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppStderr "$KubeDir\containerd.err.log"
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateFiles 1
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateOnline 1
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateSeconds 86400
+  Invoke-Nssm -KubeDir $KubeDir set containerd AppRotateBytes 10485760
 
   $retryCount=0
   $maxRetryCount=6 # 1 minutes
@@ -192,7 +213,7 @@ function ProcessAndWriteContainerdConfig {
   # Write the processed template to the config file
   $configFile = [Io.Path]::Combine($global:ContainerdInstallLocation, "config.toml")
   Write-Log "using template $templatePath to write containerd config to $configFile"
-  $processedTemplate | Out-File -FilePath $configFile -Encoding ascii
+  $processedTemplate | Out-FileAscii -FilePath $configFile
 }
 
 function Enable-Logging {
@@ -215,8 +236,9 @@ function Set-ContainerdRegistryConfig {
     [Parameter(Mandatory = $true)][string] $RegistryHost
   )
 
-  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $registryPath = Join-Path $rootRegistryPath $Registry
+  $certRootRegistryPath = Get-RootRegistryPath
+
+  $registryPath = Join-Path $certRootRegistryPath $Registry
   $hostsTomlPath = Join-Path $registryPath "hosts.toml"
 
   Create-Directory -FullPath $registryPath -DirectoryUsage "storing containerd registry hosts config"
@@ -230,7 +252,7 @@ server = "https://$Registry"
     X-Forwarded-For = ["$Registry"]
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  $content | Out-FileAscii -FilePath $hostsTomlPath
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
@@ -242,8 +264,8 @@ function Set-BootstrapProfileRegistryContainerdHost {
   else {
     "mcr.microsoft.com"
   }
-  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
-  $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $certRootRegistryPath = Get-RootRegistryPath
+  $mcrRegistryPath = Join-Path $certRootRegistryPath $mcrRegistry
   $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
 
   $registryHost = [string]$global:BootstrapProfileContainerRegistryServer
@@ -270,7 +292,7 @@ server = "https://$mcrRegistry"
   override_path = true
 "@
 
-  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  $content | Out-FileAscii -FilePath $hostsTomlPath
   Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 
