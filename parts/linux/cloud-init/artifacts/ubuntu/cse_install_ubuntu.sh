@@ -6,14 +6,14 @@ removeContainerd() {
 
 blobfuseFallbackPackages() {
     local OSVERSION="${1}"
-    # blobfuse/blobfuse2 both started to be centralized in components.json since around April 2026.
-    # this hardcoded versions for fallback scenarios like older VHDs that
-    # - do not have blobfuse/blobfuse2 in the components.json yet.
-    # - and didn't cache the blobfuse/blobfuse2 packages in the VHD yet.
-    # which is very unlikely to happen.
-    # we can safely remove this fallback 6 months after the April 2026 release
-    local BLOBFUSE_VERSION="1.4.5"
-    local BLOBFUSE2_VERSION="2.5.3"
+    # blobfuse/blobfuse2 started to be centralized in components.json around April 2026.
+    # These legacy fallback versions are only for older VHDs that:
+    # - do not have blobfuse/blobfuse2 in components.json yet, and
+    # - did not cache blobfuse/blobfuse2 packages in the VHD.
+    # This combination is unlikely, so this fallback can be removed
+    # 6 months after the April 2026 release.
+    local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
     local HAS_BLOBFUSE_COMPONENT="false"
     local HAS_BLOBFUSE2_COMPONENT="false"
 
@@ -28,7 +28,7 @@ blobfuseFallbackPackages() {
 
     # If blobfuse2 is already centralized via components.json, let the package loop install it.
     if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
-        echo "blobfuse2=${BLOBFUSE2_VERSION}"
+        echo "blobfuse2=${LEGACY_FALLBACK_BLOBFUSE2_VERSION}"
     fi
 
     # for 22.04 and 24.04, fuse3 is installed. for 20.04, fuse is installed
@@ -37,7 +37,7 @@ blobfuseFallbackPackages() {
     else
         # If blobfuse is already centralized via components.json, let the package loop install it.
         if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
-            echo "blobfuse=${BLOBFUSE_VERSION}"
+            echo "blobfuse=${LEGACY_FALLBACK_BLOBFUSE_VERSION}"
         fi
         echo "fuse"
     fi
