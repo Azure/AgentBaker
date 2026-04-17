@@ -237,6 +237,53 @@ installKubeletKubectlFromPkg() {
     installRPMPackageFromFile "kubectl" "${desiredVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
 }
 
+installAznfsPkgFromPMC() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "aznfs package install is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
+  # (via components.json). If not found, download it now as a fallback.
+  local aznfs_download_dir="/opt/aznfs/downloads"
+  local aznfs_rpm_file
+  aznfs_rpm_file=$(find "${aznfs_download_dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | sort -V | tail -1)
+  if [ -z "${aznfs_rpm_file}" ]; then
+    echo "aznfs RPM not found in ${aznfs_download_dir}, downloading from PMC"
+    local download_url
+    download_url=$(getPackageDownloadUrl "aznfs")
+    if [ -z "${download_url}" ]; then
+      echo "Error: could not determine aznfs download URL"
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+    mkdir -p "${aznfs_download_dir}"
+    local aznfs_filename
+    aznfs_filename=$(basename "${download_url}")
+    retrycmd_curl_file 120 5 25 "${aznfs_download_dir}/${aznfs_filename}" "${download_url}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    aznfs_rpm_file="${aznfs_download_dir}/${aznfs_filename}"
+  fi
+
+  echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
+
+  # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
+  local aznfs_config="/opt/microsoft/aznfs/data/config"
+  if [ -f "${aznfs_config}" ]; then
+    sed -i 's/AUTOUPDATE=.*/AUTOUPDATE=false/' "${aznfs_config}"
+    echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
+  fi
+
+  # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
+  # services at the same time while we only need aznfswatchdogv4
+  systemctl disable aznfswatchdog
+  systemctl stop aznfswatchdog
+
+  echo "Importing Microsoft RPM GPG key into RPM database"
+  gpg --import /etc/pki/rpm-gpg/RPM-GPG-KEY-Microsoft || echo "Warning: failed to import Microsoft RPM GPG key"
+}
+
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2
