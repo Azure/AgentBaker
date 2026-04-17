@@ -498,8 +498,9 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 			Scriptless: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:                       ClusterKubenet,
+			VHD:                           config.VHDUbuntu2204Gen2Containerd,
+			UseCustomDataOnlyProvisioning: true,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
