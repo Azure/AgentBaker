@@ -4,6 +4,45 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+blobfuseFallbackPackages() {
+    local OSVERSION="${1}"
+    # blobfuse/blobfuse2 both started to be centralized in components.json since around April 2026.
+    # this hardcoded versions for fallback scenarios like older VHDs that
+    # - do not have blobfuse/blobfuse2 in the components.json yet.
+    # - and didn't cache the blobfuse/blobfuse2 packages in the VHD yet.
+    # which is very unlikely to happen.
+    # we can safely remove this fallback 6 months after the April 2026 release
+    local BLOBFUSE_VERSION="1.4.5"
+    local BLOBFUSE2_VERSION="2.5.3"
+    local HAS_BLOBFUSE_COMPONENT="false"
+    local HAS_BLOBFUSE2_COMPONENT="false"
+
+    if [ -n "${COMPONENTS_FILEPATH:-}" ] && [ -f "${COMPONENTS_FILEPATH}" ]; then
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE_COMPONENT="true"
+        fi
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse2"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE2_COMPONENT="true"
+        fi
+    fi
+
+    # If blobfuse2 is already centralized via components.json, let the package loop install it.
+    if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
+        echo "blobfuse2=${BLOBFUSE2_VERSION}"
+    fi
+
+    # for 22.04 and 24.04, fuse3 is installed. for 20.04, fuse is installed
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+        echo "fuse3"
+    else
+        # If blobfuse is already centralized via components.json, let the package loop install it.
+        if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
+            echo "blobfuse=${BLOBFUSE_VERSION}"
+        fi
+        echo "fuse"
+    fi
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -14,32 +53,10 @@ installDeps() {
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
-    local OSVERSION
-
-    # blobfuse/blobfuse2 both started to be centralized in components.json since around April 2026.
-    # this hardcoded versions for fallback scenarios like older VHDs that
-    # - do not have blobfuse/blobfuse2 in the components.json yet.
-    # - and didn't cache the blobfuse/blobfuse2 packages in the VHD yet.
-    # which is very unlikely to happen.
-    # we can safely remove this fallback 6 months after the April 2026 release
-    local BLOBFUSE_VERSION="1.4.5"
-    local BLOBFUSE2_VERSION="2.5.3"
-    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    # blobfuse/blobfuse2 are usually installed during VHD build.
-    # Keep fallback installation here so newer CSE can still provision older VHDs.
-    if ! dpkg -s blobfuse2 >/dev/null 2>&1; then
-        pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
-    fi
-
-    # for 22.04 and 24.04, fuse3 is installed. for 20.04, fuse is installed
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=(fuse3)
-    else
-        if ! dpkg -s blobfuse >/dev/null 2>&1; then
-            pkg_list+=("blobfuse=${BLOBFUSE_VERSION}")
-        fi
-        pkg_list+=(fuse)
-    fi
+    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    while IFS= read -r fallback_pkg; do
+        [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
+    done < <(blobfuseFallbackPackages "${OSVERSION}")
 
     if [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(irqbalance)
