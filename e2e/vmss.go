@@ -451,26 +451,11 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
-
-	model := createVMSSModel(ctx, s)
-
-	// For scenarios that need VM instance tags (e.g., RCV1P), we must apply tags
-	// before CSE runs because wireserver checks per-VM-instance tags. The only
-	// working method for Uniform VMSS is BeginUpdate (full PUT), which takes ~108s.
-	// To avoid the race, we strip the CSE extension before creation, apply tags
-	// via BeginUpdate, then re-add the extension in a second update.
-	var deferredExtensionProfile *armcompute.VirtualMachineScaleSetExtensionProfile
-	if len(s.Config.VMInstanceTags) > 0 && model.Properties.VirtualMachineProfile.ExtensionProfile != nil {
-		deferredExtensionProfile = model.Properties.VirtualMachineProfile.ExtensionProfile
-		model.Properties.VirtualMachineProfile.ExtensionProfile = nil
-		toolkit.Logf(ctx, "deferring CSE extension until VM instance tags are applied")
-	}
-
 	operation, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
-		model,
+		createVMSSModel(ctx, s),
 		nil,
 	)
 	if err != nil {
@@ -483,53 +468,15 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
-	// Register cleanup early so the VMSS is always deleted even if subsequent steps
-	// (tag update, IP lookup, etc.) fail — preventing orphaned VMSS resources.
-	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.SSHClient)
-		cleanupVMSS(ctx, s, vm)
-	})
-
-	// Wait for initial VMSS creation to fully complete before applying tags.
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return vm, fmt.Errorf("failed to create VMSS: %w", err)
-	}
-
-	// Apply VM instance tags via BeginUpdate (full PUT) and then re-add CSE.
-	// This is needed for features like RCV1P where wireserver checks tags on
-	// the individual VM instance, not the VMSS resource-level tags.
-	if len(s.Config.VMInstanceTags) > 0 {
-		if err := updateVMInstanceTags(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID, s.Config.VMInstanceTags); err != nil {
-			return vm, fmt.Errorf("failed to update VM instance tags: %w", err)
-		}
-
-		// Re-add CSE extension now that tags are in place.
-		if deferredExtensionProfile != nil {
-			toolkit.Logf(ctx, "re-adding CSE extension after tags are applied")
-			vmssResp.VirtualMachineScaleSet.Properties.VirtualMachineProfile.ExtensionProfile = deferredExtensionProfile
-			cseOp, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
-				ctx,
-				resourceGroupName,
-				s.Runtime.VMSSName,
-				vmssResp.VirtualMachineScaleSet,
-				nil,
-			)
-			if err != nil {
-				return vm, fmt.Errorf("failed to begin adding CSE extension: %w", err)
-			}
-			vmssResp2, err := cseOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-			if err != nil {
-				return vm, fmt.Errorf("failed to add CSE extension: %w", err)
-			}
-			vmssResp = vmssResp2
-		}
-	}
-
 	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
+
+	s.T.Cleanup(func() {
+		defer cleanupBastionTunnel(vm.SSHClient)
+		cleanupVMSS(ctx, s, vm)
+	})
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
@@ -541,12 +488,16 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s-bastion" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, *s.Runtime.Cluster.Model.Name, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, config.VMSSHPrivateKeyFileName) + "\n"
 	s.T.Log(result)
 
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
 			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
 		}
+	}
+	if err != nil {
+		return vm, err
 	}
 
 	// Wait for VM to be in "Running" power state before proceeding
@@ -562,41 +513,6 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		SSHClient: vm.SSHClient,
 	}, nil
 }
-
-// updateVMInstanceTags uses BeginUpdate (full PUT) to set tags on a VMSS VM instance.
-// This is the only method that works for Uniform mode VMSS — PATCH and Microsoft.Resources/tags
-// API both return 405 at this scope. The operation takes ~108s as it triggers full VM model
-// reconciliation. This is acceptable for E2E tests where we defer CSE until tags are in place.
-func updateVMInstanceTags(ctx context.Context, s *Scenario, resourceGroupName, vmssName, instanceID string, tags map[string]*string) error {
-	defer toolkit.LogStepCtxf(ctx, "updating VM instance %s/%s/%s tags via BeginUpdate", resourceGroupName, vmssName, instanceID)()
-
-	// Get current VM instance to preserve existing state
-	currentVM, err := s.GetAzure().VMSSVM.Get(ctx, resourceGroupName, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get current VM instance: %w", err)
-	}
-
-	// Merge new tags with any existing tags
-	if currentVM.Tags == nil {
-		currentVM.Tags = make(map[string]*string)
-	}
-	for k, v := range tags {
-		currentVM.Tags[k] = v
-	}
-
-	poller, err := s.GetAzure().VMSSVM.BeginUpdate(ctx, resourceGroupName, vmssName, instanceID, currentVM.VirtualMachineScaleSetVM, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin VM instance tag update: %w", err)
-	}
-
-	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return fmt.Errorf("failed to complete VM instance tag update: %w", err)
-	}
-
-	return nil
-}
-
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
 func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
