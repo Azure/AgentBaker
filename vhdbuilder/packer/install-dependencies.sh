@@ -530,6 +530,7 @@ while IFS= read -r p; do
         retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
         echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      installAznfsPkgFromPMC
       ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."

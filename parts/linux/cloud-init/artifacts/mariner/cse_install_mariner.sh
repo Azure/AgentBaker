@@ -244,14 +244,23 @@ installAznfsPkgFromPMC() {
   fi
 
   # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
-  # (via components.json) to avoid installing the rhel9 PMC repo into the
-  # RPM DB, which could cause versioning conflicts with AzureLinux packages.
+  # (via components.json). If not found, download it now as a fallback.
   local aznfs_download_dir="/opt/aznfs/downloads"
   local aznfs_rpm_file
   aznfs_rpm_file=$(find "${aznfs_download_dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | sort -V | tail -1)
   if [ -z "${aznfs_rpm_file}" ]; then
-    echo "Error: aznfs RPM not found in ${aznfs_download_dir}"
-    exit $ERR_APT_INSTALL_TIMEOUT
+    echo "aznfs RPM not found in ${aznfs_download_dir}, downloading from PMC"
+    local download_url
+    download_url=$(getPackageDownloadUrl "aznfs")
+    if [ -z "${download_url}" ]; then
+      echo "Error: could not determine aznfs download URL"
+      exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+    mkdir -p "${aznfs_download_dir}"
+    local aznfs_filename
+    aznfs_filename=$(basename "${download_url}")
+    retrycmd_curl_file 120 5 25 "${aznfs_download_dir}/${aznfs_filename}" "${download_url}" || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    aznfs_rpm_file="${aznfs_download_dir}/${aznfs_filename}"
   fi
 
   echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
