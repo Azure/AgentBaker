@@ -407,6 +407,24 @@
     },
     {
       "matchPackageNames": [
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter"
+      ],
+      "groupName": "nvidia-dcgm",
+      "assignees": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ],
+      "reviewers": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "oss/kubernetes-csi/**"
       ],
       "groupName": "csi",
@@ -487,7 +505,7 @@
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
-      "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+      "extractVersion": "^(?<version>.*?)-[^-]*-[^-]*$"
     },
     {
       "matchDatasources": [
@@ -497,7 +515,7 @@
         "oss/v2/kubernetes/*-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
-      "extractVersion": "^(?P<version>.+-azlinux3)-"
+      "extractVersion": "^(?<version>.+-azlinux3)-"
     },
     {
       "matchPackageNames": [
@@ -683,6 +701,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia packages for OS AzureLinux 3.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), repository=nvidia, os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-rpm-azl3",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update GitHub release versions in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -752,6 +784,13 @@
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "nvidia-rpm-azl3": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/",
+      "format": "html",
+      "transformTemplates": [
+        "{\"releases\": [releases[$contains(version, \"{{packageName}}-\") and $contains(version, \".x86_64.rpm\") and $not($contains(version, \"debuginfo\")) and $match($substringAfter(version, \"{{packageName}}-\"), /^[0-9]/)].{\"version\": \"1:\" & $substringBefore($substringAfter(version, \"{{packageName}}-\"), \".x86_64.rpm\")}]}"
       ]
     },
     "deb2404-test": {
