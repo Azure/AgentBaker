@@ -494,3 +494,16 @@ cpAndMode() {
   mode=$3
   DIR=$(dirname "$dest") && mkdir -p ${DIR} && cp $src $dest && chmod $mode $dest || exit $ERR_PACKER_COPY_FILE
 }
+
+# Re-apply custom login banners to /etc/issue and /etc/issue.net.
+# apt_get_dist_upgrade uses --force-confnew which overwrites these files
+# with default content from the base-files package whenever it is upgraded.
+# Call this after any apt operations that may trigger conffile replacement.
+reapplyBanners() {
+  local etc_issue_src=/home/packer/etc-issue
+  local etc_issue_dest=/etc/issue
+  local etc_issue_net_src=/home/packer/etc-issue.net
+  local etc_issue_net_dest=/etc/issue.net
+  cpAndMode "$etc_issue_src" "$etc_issue_dest" 644
+  cpAndMode "$etc_issue_net_src" "$etc_issue_net_dest" 644
+}
