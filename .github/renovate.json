@@ -407,6 +407,24 @@
     },
     {
       "matchPackageNames": [
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter"
+      ],
+      "groupName": "nvidia-dcgm",
+      "assignees": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ],
+      "reviewers": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "oss/kubernetes-csi/**"
       ],
       "groupName": "csi",
