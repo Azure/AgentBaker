@@ -65,40 +65,22 @@ function make_request_with_retry {
 
 function is_opted_in_for_root_certs {
     local opt_in_response
-    local request_status
-    local poll_attempt=1
-    local max_poll_attempts=30
-    local poll_interval=10
 
-    # Poll wireserver for up to ~5 minutes to allow platform metadata to sync.
-    # The VM instance tag triggers a Fabric Controller goal state (CCF) update,
-    # which must propagate to the host agent before wireserver can reflect it.
-    # FC goal state propagation can take several minutes in practice.
-    while [ $poll_attempt -le $max_poll_attempts ]; do
-        echo "is_opted_in_for_root_certs: poll attempt ${poll_attempt}/${max_poll_attempts}"
+    opt_in_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts")
+    local request_status=$?
+    echo "is_opted_in_for_root_certs: wireserver response (status=${request_status}): '${opt_in_response}'"
 
-        opt_in_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts")
-        request_status=$?
+    if [ $request_status -ne 0 ] || [ -z "$opt_in_response" ]; then
+        echo "Warning: failed to determine IsOptedInForRootCerts state"
+        return 1
+    fi
 
-        echo "is_opted_in_for_root_certs: wireserver response (status=${request_status}): '${opt_in_response}'"
+    if echo "$opt_in_response" | grep -q "IsOptedInForRootCerts=true"; then
+        echo "IsOptedInForRootCerts=true"
+        return 0
+    fi
 
-        if [ $request_status -ne 0 ] || [ -z "$opt_in_response" ]; then
-            echo "Warning: failed to determine IsOptedInForRootCerts state on attempt ${poll_attempt}"
-        elif echo "$opt_in_response" | grep -q "IsOptedInForRootCerts=true"; then
-            echo "IsOptedInForRootCerts=true (found on attempt ${poll_attempt})"
-            return 0
-        fi
-
-        if [ $poll_attempt -lt $max_poll_attempts ]; then
-            echo "is_opted_in_for_root_certs: not opted in yet, waiting ${poll_interval}s before retry..."
-            sleep $poll_interval
-        fi
-
-        poll_attempt=$((poll_attempt + 1))
-    done
-
-    echo "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true after ${max_poll_attempts} attempts"
-    echo "Last wireserver response: '${opt_in_response}'"
+    echo "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
     return 1
 }
 
