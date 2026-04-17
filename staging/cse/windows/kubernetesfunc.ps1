@@ -304,7 +304,9 @@ function Should-InstallCACertificatesRefreshTask {
     try {
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
         $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
-        return ($optInResponse.Content -match 'IsOptedInForRootCerts=true')
+        Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
+        $optInJson = $optInResponse.Content | ConvertFrom-Json
+        return ($optInJson.IsOptedInForRootCerts -eq $true)
     } catch {
         Write-Log "Skipping CA refresh task registration because IsOptedInForRootCerts could not be determined: $_"
         return $false
@@ -357,7 +359,9 @@ function Get-CACertificates {
 
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
         $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
-        if (($optInResponse.Content -notmatch 'IsOptedInForRootCerts=true')) {
+        Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
+        $optInJson = $optInResponse.Content | ConvertFrom-Json
+        if ($optInJson.IsOptedInForRootCerts -ne $true) {
             Write-Log "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
             return $false
         }
