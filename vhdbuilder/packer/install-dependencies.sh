@@ -52,7 +52,7 @@ echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 if [ "$OS" = "$UBUNTU_OS_NAME" ] && echo "$FEATURE_FLAGS" | grep -q "cvm"; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
-  apt_get_install 30 1 600 grub-efi || exit 1
+  apt_get_install 10 2 120 grub-efi || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
@@ -78,12 +78,12 @@ if [[ "$IMG_SKU" != *"minimal"* ]]; then
 else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.3" # TODO (djsly) this should be centralized and moved to components.json!
-  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
-  for apt_package in ${required_pkg_list[*]}; do
-      if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
+  # blobfuse2 is installed via the packages loop below; fuse3 is needed as a dependency
+  required_pkg_list=(fuse3)
+  for apt_package in "${required_pkg_list[@]}"; do
+      if ! apt_get_install 10 2 120 "$apt_package"; then
+        tail -n 200 /var/log/apt/term.log || true
+        tail -n 200 /var/log/dpkg.log || true
           exit $ERR_APT_INSTALL_TIMEOUT
       fi
   done
@@ -362,7 +362,7 @@ installCNI() {
     elif isMarinerOrAzureLinux "$OS"; then
         packageName="containernetworking-plugins-${version}"
         echo "Installing ${packageName} with dnf"
-        dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        dnf_install 10 2 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
         mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
     else
         echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
@@ -589,6 +589,21 @@ while IFS= read -r p; do
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
       ;;
+    "blobfuse"|"blobfuse2")
+      for version in "${PACKAGE_VERSIONS[@]}"; do
+        if isUbuntu "$OS"; then
+          if ! apt_get_install 10 2 120 "${name}=${version}"; then
+            journalctl --no-pager -u "${name}" || true
+            tail -n 200 /var/log/apt/term.log || true
+            tail -n 200 /var/log/dpkg.log || true
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+          echo "  - ${name} version ${version}" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "  - ${name} installation skipped for ${OS}" >> "${VHD_LOGS_FILEPATH}"
+        fi
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -610,10 +625,10 @@ installAndConfigureArtifactStreaming() {
   retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
   case "$downloadURL" in
     *.deb)
-      apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
       ;;
     *.rpm)
-      dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
       ;;
     *)
       echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2

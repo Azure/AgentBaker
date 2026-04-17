@@ -2237,6 +2237,52 @@
           }
         }
       }
+    },
+    {
+      "name": "blobfuse",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "1.4.5"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "blobfuse2",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=20.04",
+                "latestVersion": "2.5.3"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "2.5.3"
+              }
+            ]
+          },
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=blobfuse2, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "2.5.3"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [

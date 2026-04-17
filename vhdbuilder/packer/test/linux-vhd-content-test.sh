@@ -195,27 +195,10 @@ testPackagesInstalled() {
     if [ "$downloadLocation" = "" ] || [ "$downloadLocation" = "null" ]; then
       continue
     fi
-    if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
-      OS=$MARINER_OS_NAME
-      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
-      # We have similar logic in install-dependencies.sh
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${MARINER_KATA_OS_NAME}
-      fi
-    elif [ "$OS_SKU" = "AzureLinux" ]; then
-      OS=$AZURELINUX_OS_NAME
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${AZURELINUX_KATA_OS_NAME}
-      fi
-    elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
-      OS=$AZURELINUX_OS_NAME
-      OS_VARIANT=OSGUARD
-    elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
-      OS=$AZURELINUX_OS_NAME
-      OS_VARIANT=$ACL_OS_VARIANT
-    else
-      OS=${OS_SKU^^}
-    fi
+    local resolvedOSAndVariant
+    resolvedOSAndVariant=$(getCurrentPackageTestOS)
+    OS="${resolvedOSAndVariant%%|*}"
+    OS_VARIANT="${resolvedOSAndVariant#*|}"
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     case "${name}" in
@@ -1562,12 +1545,16 @@ testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
 
-  # Read the expected version from components.json
+  # Read the expected version from components.json for the current test OS/variant.
   local expectedVersion
-  expectedVersion=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "${COMPONENTS_FILEPATH}")
+  expectedVersion=$(getPackageExpectedVersion "walinuxagent")
   if [ -z "${expectedVersion}" ] || [ "${expectedVersion}" = "null" ]; then
     err "$test" "Could not read walinuxagent version from ${COMPONENTS_FILEPATH}"
     return 1
+  fi
+  if [ "${expectedVersion}" = "<SKIP>" ]; then
+    echo "$test: Skipping because walinuxagent expected version is <SKIP> for this OS/variant"
+    return 0
   fi
   echo "$test: Expected WALinuxAgent version from components.json: ${expectedVersion}"
 
@@ -1793,6 +1780,75 @@ testContainerd() {
   return 0
 }
 
+getCurrentPackageTestOS() {
+  local targetOS
+  local targetOSVariant=""
+
+  if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
+    targetOS="$MARINER_OS_NAME"
+    if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+      targetOS="$MARINER_KATA_OS_NAME"
+    fi
+  elif [ "$OS_SKU" = "AzureLinux" ]; then
+    targetOS="$AZURELINUX_OS_NAME"
+    if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+      targetOS="$AZURELINUX_KATA_OS_NAME"
+    fi
+  elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+    targetOS="$AZURELINUX_OS_NAME"
+    targetOSVariant="OSGUARD"
+  elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
+    targetOS="$AZURELINUX_OS_NAME"
+    targetOSVariant="$ACL_OS_VARIANT"
+  else
+    targetOS="${OS_SKU^^}"
+  fi
+
+  echo "${targetOS}|${targetOSVariant}"
+}
+
+getPackageExpectedVersion() {
+  local packageName="$1"
+  local targetOS="$2"
+  local targetOSVersion="$3"
+  local targetOSVariant="$4"
+
+  if [ -z "$targetOS" ] || [ -z "$targetOSVersion" ]; then
+    local resolvedOSAndVariant
+    resolvedOSAndVariant=$(getCurrentPackageTestOS)
+    if [ -z "$targetOS" ]; then
+      targetOS="${resolvedOSAndVariant%%|*}"
+    fi
+    if [ -z "$targetOSVariant" ]; then
+      targetOSVariant="${resolvedOSAndVariant#*|}"
+    fi
+    if [ -z "$targetOSVersion" ]; then
+      targetOSVersion="$OS_VERSION"
+    fi
+  fi
+
+  local packageJson
+  packageJson=$(jq -c ".Packages[] | select(.name == \"${packageName}\")" "$COMPONENTS_FILEPATH")
+  if [ -z "$packageJson" ]; then
+    echo "<SKIP>"
+    return 0
+  fi
+
+  local previousOS="${OS:-}"
+  local previousOSVariant="${OS_VARIANT:-}"
+  OS="$targetOS"
+  OS_VARIANT="$targetOSVariant"
+  updatePackageVersions "$packageJson" "$OS" "$targetOSVersion" "$OS_VARIANT"
+  OS="$previousOS"
+  OS_VARIANT="$previousOSVariant"
+
+  if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ]; then
+    echo "<SKIP>"
+  else
+    echo "${PACKAGE_VERSIONS[0]}"
+  fi
+}
+
 testBlobfuse() {
   local expectedVersion="${1}"
   local test="testBlobfuse"
@@ -1862,17 +1918,22 @@ testFuseInstalled() {
     echo "$test: Skipping, only applicable to Ubuntu"
     return 0
   fi
-  local expected_pkg
-  if [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; then
-    expected_pkg="fuse3"
+  # Ubuntu 20.04 may have either fuse or fuse3 depending on blobfuse/blobfuse2 package deps.
+  if [ "$OS_VERSION" = "20.04" ]; then
+    if dpkg-query -W -f='${Status}' "fuse" 2>/dev/null | grep -q "install ok installed" || \
+       dpkg-query -W -f='${Status}' "fuse3" 2>/dev/null | grep -q "install ok installed"; then
+      echo "$test: fuse or fuse3 is installed on Ubuntu $OS_VERSION"
+    else
+      err "$test" "neither fuse nor fuse3 is installed on Ubuntu $OS_VERSION"
+      return 1
+    fi
   else
-    expected_pkg="fuse"
-  fi
-  if dpkg-query -W -f='${Status}' "$expected_pkg" 2>/dev/null | grep -q "install ok installed"; then
-    echo "$test: $expected_pkg is installed on Ubuntu $OS_VERSION"
-  else
-    err "$test" "$expected_pkg is not installed on Ubuntu $OS_VERSION"
-    return 1
+    if dpkg-query -W -f='${Status}' "fuse3" 2>/dev/null | grep -q "install ok installed"; then
+      echo "$test: fuse3 is installed on Ubuntu $OS_VERSION"
+    else
+      err "$test" "fuse3 is not installed on Ubuntu $OS_VERSION"
+      return 1
+    fi
   fi
   echo "$test:Finish"
   return 0
@@ -2237,11 +2298,10 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
-# blobfuse/blobfuse2 are not yet in components.json, test with hardcoded versions
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  testBlobfuse2 "2.5.3"
+  testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"
   if [ "$OS_VERSION" = "20.04" ]; then
-    testBlobfuse "1.4.5"
+    testBlobfuse "$(getPackageExpectedVersion "blobfuse")"
   fi
 fi
 # WALinuxAgent is installed post-deprovision (not via components.json),
