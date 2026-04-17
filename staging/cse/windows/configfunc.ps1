@@ -1,6 +1,4 @@
 
-. c:\AzureData\windows\helpers.ps1
-
 # Set the service telemetry GUID. This is used with Windows Analytics https://docs.microsoft.com/en-us/sccm/core/clients/manage/monitor-windows-analytics
 function Set-TelemetrySetting
 {

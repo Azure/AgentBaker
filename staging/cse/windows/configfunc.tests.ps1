@@ -1,7 +1,7 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
-    . $PSCommandPath.Replace('.tests.ps1','.ps1')
+    . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 
     $capturedContent = $null
     Mock Set-Content -MockWith {
@@ -41,20 +41,20 @@ Describe 'Resize-OSDrive' {
         Mock Invoke-Executable
     }
 
-    BeforeAll{
+    BeforeAll {
         Mock Get-Disk -MockWith {
             Write-Host "Get-Disk $ErrorAction"
-                $valueObj = [PSCustomObject]@{
-                    Size = 1024*1024;
-                    AllocatedSize = 1024*1024
-                }
-                return $valueObj
+            $valueObj = [PSCustomObject]@{
+                Size          = 1024 * 1024;
+                AllocatedSize = 1024 * 1024
+            }
+            return $valueObj
         } -Verifiable
 
         Mock Set-ExitCode -MockWith {
             Param(
-              $ExitCode,
-              $ErrorMessage
+                $ExitCode,
+                $ErrorMessage
             )
             Write-Host "Set-ExitCode $ExitCode $ErrorMessage"
         } -Verifiable
@@ -74,7 +74,7 @@ Describe 'Resize-OSDrive' {
             Mock Get-Disk -MockWith {
                 Write-Host "Get-Disk Size: 512GB, AllocatedSize: 30GB $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    Size = 512GB;
+                    Size          = 512GB;
                     AllocatedSize = 30GB
                 }
                 return $valueObj
@@ -88,7 +88,7 @@ Describe 'Resize-OSDrive' {
             Mock Get-Disk -MockWith {
                 Write-Host "Get-Disk Size: 30GB, AllocatedSize: 30GB $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    Size = 30GB;
+                    Size          = 30GB;
                     AllocatedSize = 30GB
                 }
                 return $valueObj
@@ -118,7 +118,7 @@ Describe 'Resize-OSDrive' {
 Describe 'Config-CredentialProvider' {
     BeforeEach {
         $global:credentialProviderConfigDir = "staging\cse\windows\credentialProvider.tests.suites"
-        $CredentialProviderConfPATH=[Io.path]::Combine("$global:credentialProviderConfigDir", "credential-provider-config.yaml")
+        $CredentialProviderConfPATH = [Io.path]::Combine("$global:credentialProviderConfigDir", "credential-provider-config.yaml")
         function Read-Format-Yaml ([string]$YamlFile) {
             # Read the file content directly without conversion
             return Get-Content -Path $YamlFile -Raw
@@ -142,7 +142,7 @@ Describe 'Config-CredentialProvider' {
         }
     }
     Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
-       It "should match the expected config file content" {
+        It "should match the expected config file content" {
             $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "CustomCloudContainerRegistryDNSSuffixNotEmpty.config.yaml"))
             Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
             $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
@@ -151,7 +151,7 @@ Describe 'Config-CredentialProvider' {
             $normalizedExpected = $expectedCredentialProviderConfig.Trim().Replace("`r`n", "`n")
             $normalizedActual = $acutalCredentialProviderConfig.Trim().Replace("`r`n", "`n")
             $normalizedActual | Should -Be $normalizedExpected
-       }
+        }
     }
 }
 
@@ -162,11 +162,11 @@ Describe 'Validate-CredentialProviderConfigFlags' {
         $global:credentialProviderBinDir = ""
     }
 
-    BeforeAll{
+    BeforeAll {
         Mock Set-ExitCode -MockWith {
             Param(
-              $ExitCode,
-              $ErrorMessage
+                $ExitCode,
+                $ErrorMessage
             )
             Write-Host "Set-ExitCode $ExitCode $ErrorMessage"
         } -Verifiable
@@ -174,18 +174,18 @@ Describe 'Validate-CredentialProviderConfigFlags' {
 
     Context 'success' {
         It "Should return expected config path and bin path" {
-            $expectedCredentialProviderConfigPath="c:\k\credential-provider-config.yaml"
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
+            $expectedCredentialProviderConfigPath = "c:\k\credential-provider-config.yaml"
+            $expectedCredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs += "--image-credential-provider-config=" + $expectedCredentialProviderConfigPath
+            $global:KubeletConfigArgs += "--image-credential-provider-bin-dir=" + $expectedCredentialProviderBinDir
             Validate-CredentialProviderConfigFlags
             Compare-Object $global:credentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
             Compare-Object $global:credentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
         }
 
         It "Should return empty config path and bin path" {
-            $expectedCredentialProviderConfigPath=""
-            $expectedCredentialProviderBinDir=""
+            $expectedCredentialProviderConfigPath = ""
+            $expectedCredentialProviderBinDir = ""
             Validate-CredentialProviderConfigFlags
             Compare-Object $global:credentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
             Compare-Object $global:credentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
@@ -194,20 +194,20 @@ Describe 'Validate-CredentialProviderConfigFlags' {
 
     Context 'fail' {
         It "Should call Set-ExitCode when only config path is specified" {
-            $expectedCredentialProviderConfigPath="c:\k\credential-provider_config.yaml"
-            $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
+            $expectedCredentialProviderConfigPath = "c:\k\credential-provider_config.yaml"
+            $global:KubeletConfigArgs += "--image-credential-provider-config=" + $expectedCredentialProviderConfigPath
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }
         It "Should call Set-ExitCode when only bin dir is specified" {
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
+            $expectedCredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs += "--image-credential-provider-bin-dir=" + $expectedCredentialProviderBinDir
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }
         It "Should call Set-ExitCode when flag value is emtpy string" {
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="
+            $expectedCredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs += "--image-credential-provider-bin-dir="
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }

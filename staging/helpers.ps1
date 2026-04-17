@@ -1,4 +1,4 @@
-
+# common helper functions
 
 function Invoke-Nssm
 {
