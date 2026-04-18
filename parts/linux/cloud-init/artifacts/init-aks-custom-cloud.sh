@@ -42,24 +42,35 @@ function make_request_with_retry {
     local attempt=1
 
     local response
+    local http_code
+    local curl_output
     while [ $attempt -le $max_retries ]; do
-        response=$(curl -f --no-progress-meter --connect-timeout 10 --max-time 30 "$url")
-        local request_status=$?
+        # capture response body + HTTP status code; -w appends the code after the body.
+        # curl stderr (connection errors) flows to the script's log naturally.
+        # http_code is 000 when wireserver is unreachable (connection refused/timeout).
+        curl_output=$(curl --no-progress-meter --connect-timeout 10 --max-time 30 -w '\n%{http_code}' "$url") || true
+        http_code=$(echo "$curl_output" | tail -1)
+        response=$(echo "$curl_output" | sed '$d')
 
-        if echo "$response" | grep -q "RequestRateLimitExceeded"; then
+        if echo "$response" | grep -q "RequestRateLimitExceeded" && [ "$http_code" = "403" ]; then
+            echo "wireserver rate limited (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
             sleep $retry_delay
             retry_delay=$((retry_delay * 2))
             attempt=$((attempt + 1))
-        elif [ $request_status -ne 0 ]; then
-            sleep $retry_delay
-            attempt=$((attempt + 1))
-        else
+        elif [ "$http_code" -ge 200 ] 2>/dev/null && [ "$http_code" -lt 300 ] 2>/dev/null; then
             echo "$response"
             return 0
+        else
+            echo "wireserver request failed (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
+            if [ -n "$response" ]; then
+                echo "wireserver error response: ${response}" >&2
+            fi
+            sleep $retry_delay
+            attempt=$((attempt + 1))
         fi
     done
 
-    echo "exhausted all retries, last response: $response"
+    echo "exhausted all retries for ${url} (last HTTP ${http_code}), last response: $response" >&2
     return 1
 }
 
