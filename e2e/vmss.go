@@ -894,10 +894,7 @@ hnsdiag list endpoints >> network_config.txt
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	if !s.T.Failed() {
-		return
-	}
-
+	// Always collect Windows logs for debugging (revert this to restore failure-only collection)
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
 	pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
