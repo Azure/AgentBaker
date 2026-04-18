@@ -359,13 +359,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	if config.Config.IsLocalBuild() {
 		s.T.Logf(
 			"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
-			config.Config.SubscriptionID,
+			s.GetSubscriptionID(),
 			*cluster.Model.Properties.NodeResourceGroup,
 			s.Runtime.VMSSName,
 		)
 		s.T.Logf(
 			"Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
-			config.Config.SubscriptionID,
+			s.GetSubscriptionID(),
 			*cluster.Model.Properties.NodeResourceGroup,
 			*cluster.Model.Name,
 		)
@@ -377,8 +377,8 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 		Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 		UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-			*s.Runtime.Cluster.KubeletIdentity.ResourceID:  {},
-			config.Config.VMIdentityResourceID(s.Location): {},
+			*s.Runtime.Cluster.KubeletIdentity.ResourceID: {},
+			s.GetVMIdentityResourceID():                   {},
 		},
 	}
 
@@ -451,7 +451,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+	operation, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
@@ -468,7 +468,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
-	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
+	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
@@ -489,6 +489,40 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
+	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+	vmssID := "<unknown>"
+	if vmssResp.ID != nil {
+		vmssID = *vmssResp.ID
+	}
+	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+	// Determine if we explicitly set the RCV1P tag (only when RCV1P_SUBSCRIPTION_ID is provided)
+	rcv1pSubID := config.Config.RCV1PSubscriptionID
+	weSetRCV1PTag := s.Tags.RCV1PCertMode && rcv1pSubID != "" && !strings.HasPrefix(rcv1pSubID, "$(")
+	if vmssResp.Tags != nil {
+		s.T.Logf("VMSS %s (id: %s) tags after creation (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
+		for k, v := range vmssResp.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			if k == rcv1pTagKey {
+				if weSetRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — set by us]", k, val)
+				} else {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — platform-injected, NOT set by us]", k, val)
+				}
+			} else {
+				s.T.Logf("  tag: %s = %s", k, val)
+			}
+		}
+		if _, hasTag := vmssResp.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VMSS — this is expected for negative tests]", rcv1pTagKey)
+		}
+	} else {
+		s.T.Logf("VMSS %s (id: %s) has no tags after creation", s.Runtime.VMSSName, vmssID)
+	}
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -504,6 +538,35 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	err = waitForVMRunningState(ctx, s, vm.VM)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
+	}
+
+	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmInstanceID := "<unknown>"
+	if vm.VM.ID != nil {
+		vmInstanceID = *vm.VM.ID
+	}
+	if vm.VM.Tags != nil {
+		s.T.Logf("VM instance %s (id: %s) tags after running (%d):", *vm.VM.InstanceID, vmInstanceID, len(vm.VM.Tags))
+		for k, v := range vm.VM.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			if k == rcv1pTagKey {
+				if weSetRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, set by us]", k, val)
+				} else {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, platform-injected]", k, val)
+				}
+			} else {
+				s.T.Logf("  tag: %s = %s", k, val)
+			}
+		}
+		if _, hasTag := vm.VM.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VM instance — this is expected for negative tests]", rcv1pTagKey)
+		}
+	} else {
+		s.T.Logf("VM instance %s (id: %s) has no tags after running", *vm.VM.InstanceID, vmInstanceID)
 	}
 
 	return &ScenarioVM{
@@ -525,7 +588,7 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 	var lastErr error
 	for {
 		// Get the updated VM with instance view to check power state
-		vm, err := config.Azure.VMSSVM.Get(ctxTimeout, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmssVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+		vm, err := s.GetAzure().VMSSVM.Get(ctxTimeout, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmssVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
 			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
 		})
 
@@ -568,7 +631,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 
 	var lastErr error
 	for {
-		pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
 			Expand: to.Ptr("instanceView"),
 		})
 
@@ -598,9 +661,14 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 }
 
 // getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.
-func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instanceID string) (string, error) {
+func getPrivateIPFromVMSSVM(ctx context.Context, s *Scenario, resourceGroup, vmssName, instanceID string) (string, error) {
+	return getPrivateIPFromVMSSVMWithClient(ctx, s.GetAzure(), resourceGroup, vmssName, instanceID)
+}
+
+// getPrivateIPFromVMSSVMWithClient extracts the private IP using the given Azure client.
+func getPrivateIPFromVMSSVMWithClient(ctx context.Context, azure *config.AzureClient, resourceGroup, vmssName, instanceID string) (string, error) {
 	// Query the network interface to get the IP configuration
-	pager := config.Azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
+	pager := azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
 		resourceGroup,
 		vmssName,
 		instanceID,
@@ -684,7 +752,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
-	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -693,7 +761,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 
 		for _, vmInstance := range page.Value {
 			// Get boot diagnostics data
-			bootDiagResp, err := config.Azure.VMSSVM.RetrieveBootDiagnosticsData(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
+			bootDiagResp, err := s.GetAzure().VMSSVM.RetrieveBootDiagnosticsData(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
 			if err != nil {
 				return fmt.Errorf("failed to get boot diagnostics for VM %s: %v", *vmInstance.InstanceID, err)
 			}
@@ -826,14 +894,10 @@ hnsdiag list endpoints >> network_config.txt
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	if !s.T.Failed() {
-		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
-		return
-	}
-
+	// Always collect Windows logs for debugging (revert this to restore failure-only collection)
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
-	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
 		s.T.Logf("failed to list VMSS instances: %s", err)
@@ -847,7 +911,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
 
-	client := config.Azure.VMSSVMRunCommands
+	client := s.GetAzure().VMSSVMRunCommands
 
 	// Invoke the RunCommand on the VMSS instance
 	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
@@ -894,11 +958,17 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+	if err != nil {
+		require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+		return
+	}
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+	if err != nil {
+		require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+		return
+	}
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
@@ -946,7 +1016,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 		}
 		return
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	_, err := s.GetAzure().VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
@@ -1149,7 +1219,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															config.Config.SubscriptionID,
+															s.GetSubscriptionID(),
 															*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 														),
 													),

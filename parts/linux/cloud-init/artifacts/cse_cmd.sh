@@ -18,8 +18,9 @@ fi;
 {{end}}
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
-{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
+LOCATION={{GetVariable "location"}}
+{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -32,7 +33,6 @@ KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
-LOCATION={{GetVariable "location"}}
 VM_TYPE={{GetVariable "vmType"}}
 SUBNET={{GetVariable "subnetName"}}
 NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
