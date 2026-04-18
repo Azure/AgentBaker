@@ -2309,6 +2309,10 @@ func rcv1pTrustStoreDir(s *Scenario) string {
 func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
+	// Validate the provisioning log shows wireserver was queried and returned opted-in
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"IsOptedInForRootCerts wireserver response:")
+
 	// Validate CA certificates were installed to the Windows certificate store
 	command := []string{
 		"$ErrorActionPreference = 'Stop'",
@@ -2360,6 +2364,14 @@ func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
 // even in the RCV1P subscription with PlatformSettingsOverride registered.
 func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
+
+	// Validate the provisioning log shows wireserver was queried
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"IsOptedInForRootCerts wireserver response:")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
 
 	// Validate C:\ca is empty or does not exist
 	command := []string{
