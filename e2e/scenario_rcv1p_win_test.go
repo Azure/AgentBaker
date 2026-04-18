@@ -4,8 +4,9 @@
 // Import-Certificate. A scheduled task (aks-ca-certs-refresh-task) is registered to
 // periodically refresh the certificates.
 //
-// These tests run against the same RCV1P subscription and require the same VM opt-in tag
-// as the Linux tests (see scenario_rcv1p_test.go for details on the two-layer access control).
+// These tests share the same gating logic as the Linux tests (see scenario_rcv1p_test.go):
+// RCV1P_SUBSCRIPTION_ID is optional. When set, a dedicated subscription controls tagging.
+// When not set, the default E2E subscription is used if it has the feature flag.
 package e2e
 
 import (
@@ -23,15 +24,15 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		AzureClient:    rcv1pAzureClient(),
+		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                rcv1pCluster(),
 			VHD:                    config.VHDWindows2022Containerd,
-			VMConfigMutator:        rcv1pOptInVMConfigMutator,
+			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
@@ -45,15 +46,15 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 23H2 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		AzureClient:    rcv1pAzureClient(),
+		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                rcv1pCluster(),
 			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        rcv1pOptInVMConfigMutator,
+			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
@@ -68,17 +69,19 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		AzureClient:    rcv1pAzureClient(),
+		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
+			Cluster: rcv1pCluster(),
 			VHD:     config.VHDWindows2025,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-				rcv1pOptInVMConfigMutator(vmss)
+				if m := rcv1pVMConfigMutator(); m != nil {
+					m(vmss)
+				}
 			},
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
@@ -95,8 +98,10 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 // PlatformSettingsOverride registered) but WITHOUT the opt-in tag on the VMSS.
 // This verifies that wireserver returns IsOptedInForRootCerts=false and the provisioning
 // script correctly skips certificate download and refresh task registration.
+// This test requires RCV1P_SUBSCRIPTION_ID because the platform may auto-inject the opt-in
+// tag on the default E2E subscription, making the negative test invalid.
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
+	skipIfRCV1PNotExplicit(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
 		AzureClient:    config.RCV1PAzure,
