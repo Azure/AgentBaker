@@ -3125,6 +3125,14 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
+	// Validate the provisioning log shows wireserver was queried
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"IsOptedInForRootCerts wireserver response:")
+
+	// Validate wireserver reported not opted in
+	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
+		"Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true")
+
 	// Validate C:\ca is empty or does not exist
 	command := []string{
 		"$ErrorActionPreference = 'Stop'",
