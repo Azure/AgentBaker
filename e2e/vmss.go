@@ -489,6 +489,24 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
+	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmssID := "<unknown>"
+	if vmssResp.ID != nil {
+		vmssID = *vmssResp.ID
+	}
+	if vmssResp.Tags != nil {
+		s.T.Logf("VMSS %s (id: %s) tags (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
+		for k, v := range vmssResp.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			s.T.Logf("  tag: %s = %s", k, val)
+		}
+	} else {
+		s.T.Logf("VMSS %s (id: %s) has no tags", s.Runtime.VMSSName, vmssID)
+	}
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -504,6 +522,24 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	err = waitForVMRunningState(ctx, s, vm.VM)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
+	}
+
+	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmInstanceID := "<unknown>"
+	if vm.VM.ID != nil {
+		vmInstanceID = *vm.VM.ID
+	}
+	if vm.VM.Tags != nil {
+		s.T.Logf("VM instance %s (id: %s) tags (%d):", *vm.VM.InstanceID, vmInstanceID, len(vm.VM.Tags))
+		for k, v := range vm.VM.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			s.T.Logf("  tag: %s = %s", k, val)
+		}
+	} else {
+		s.T.Logf("VM instance %s (id: %s) has no tags", *vm.VM.InstanceID, vmInstanceID)
 	}
 
 	return &ScenarioVM{
@@ -831,7 +867,6 @@ hnsdiag list endpoints >> network_config.txt
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	if !s.T.Failed() {
-		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
 		return
 	}
 
@@ -898,11 +933,17 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+	if err != nil {
+		require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+		return
+	}
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+	if err != nil {
+		require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+		return
+	}
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
