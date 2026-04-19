@@ -314,7 +314,20 @@ function Should-InstallCACertificatesRefreshTask {
         $optInJson = $optInResponse.Content | ConvertFrom-Json
         return ($optInJson.IsOptedInForRootCerts -eq $true)
     } catch {
-        Write-Log "Skipping CA refresh task registration because IsOptedInForRootCerts could not be determined: $_"
+        $statusCode = "N/A"
+        $responseBody = ""
+        if ($_.Exception -and $_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            try {
+                $stream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $responseBody = $reader.ReadToEnd()
+            } catch { }
+        }
+        Write-Log "Skipping CA refresh task registration because IsOptedInForRootCerts could not be determined (HTTP $statusCode): $_"
+        if ($responseBody) {
+            Write-Log "Wireserver error response body: $responseBody"
+        }
         return $false
     }
 }
@@ -415,10 +428,23 @@ function Get-CACertificates {
         return $downloadedAny
     }
     catch {
-        if ($FailOnError) {
-            throw "Failed to retrieve CA certificates. Error: $_"
+        $statusCode = "N/A"
+        $responseBody = ""
+        if ($_.Exception -and $_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            try {
+                $stream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $responseBody = $reader.ReadToEnd()
+            } catch { }
         }
-        Write-Log "Warning: failed to retrieve CA certificates. Error: $_"
+        if ($responseBody) {
+            Write-Log "Wireserver error response body: $responseBody"
+        }
+        if ($FailOnError) {
+            throw "Failed to retrieve CA certificates (HTTP $statusCode). Error: $_"
+        }
+        Write-Log "Warning: failed to retrieve CA certificates (HTTP $statusCode). Error: $_"
         return $false
     }
 }
