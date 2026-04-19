@@ -398,3 +398,40 @@ func (s *Scenario) IsWindows() bool {
 func (s *Scenario) IsLinux() bool {
 	return !s.IsWindows()
 }
+
+// IsHostsPluginEnabled returns true if the hosts plugin is explicitly enabled
+// via either NBC (traditional) or AKSNodeConfig (scriptless) paths.
+func (s *Scenario) IsHostsPluginEnabled() bool {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		return s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableLocalDns &&
+			s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+	}
+	return false
+}
+
+// GetDefaultFQDNsForValidation returns the public cloud FQDNs to validate in hosts file checks.
+// AgentBaker e2e only runs in public cloud, so sovereign cloud branches are unnecessary.
+func (s *Scenario) GetDefaultFQDNsForValidation() []string {
+	return []string{
+		"mcr.microsoft.com",
+		"login.microsoftonline.com",
+		"packages.aks.azure.com",
+	}
+}
+
+// GetContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the cluster's location. Uses Runtime.Cluster.Model.Location so it works
+// for both legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
+func (s *Scenario) GetContainerRegistryFQDN() string {
+	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
+}

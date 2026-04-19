@@ -1446,6 +1446,10 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
     forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
@@ -1509,6 +1513,10 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
     forward . 10.0.0.10 {
         policy sequential
         max_concurrent 2000
@@ -1533,26 +1541,69 @@ testdomain456.com:53 {
     }
 }`
 
+// normalizeCorefileString normalizes a corefile string for comparison by collapsing
+// blank lines and whitespace runs.
+func normalizeCorefileString(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.TrimSpace(s)
+	s = regexp.MustCompile(`\n\s*\n+`).ReplaceAllString(s, "\n")
+	s = regexp.MustCompile(`[ \t]+`).ReplaceAllString(s, " ")
+	return s
+}
+
+// assertCorefileBase64Contains decodes a base64 corefile and checks it contains (or does not contain) the expected substrings.
+func assertCorefileBase64Contains(t *testing.T, got, wantContains, wantNotContains string) {
+	t.Helper()
+	if wantContains == "" && wantNotContains == "" {
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+		return
+	}
+	if wantContains != "" {
+		decoded, err := base64.StdEncoding.DecodeString(got)
+		if err != nil {
+			t.Fatalf("failed to decode base64: %v", err)
+		}
+		if !strings.Contains(normalizeCorefileString(string(decoded)), normalizeCorefileString(wantContains)) {
+			t.Errorf("expected decoded corefile to contain %q, got:\n%s", wantContains, string(decoded))
+		}
+	}
+	if wantNotContains != "" {
+		decoded, err := base64.StdEncoding.DecodeString(got)
+		if err != nil {
+			t.Fatalf("failed to decode base64: %v", err)
+		}
+		if strings.Contains(string(decoded), wantNotContains) {
+			t.Errorf("expected decoded corefile NOT to contain %q, got:\n%s", wantNotContains, string(decoded))
+		}
+	}
+}
+
 func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	type args struct {
-		aksnodeconfig *aksnodeconfigv1.Configuration
+		aksnodeconfig      *aksnodeconfigv1.Configuration
+		includeHostsPlugin bool
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantContains string
+		name            string
+		args            args
+		wantContains    string
+		wantNotContains string
 	}{
 		{
 			name: "aksnodeconfig is nil, should return empty string",
 			args: args{
-				aksnodeconfig: nil,
+				aksnodeconfig:      nil,
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
 		{
 			name: "LocalDNSProfile is nil, should return empty string",
 			args: args{
-				aksnodeconfig: &aksnodeconfigv1.Configuration{},
+				aksnodeconfig:      &aksnodeconfigv1.Configuration{},
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
@@ -1564,11 +1615,12 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 						EnableLocalDns: false,
 					},
 				},
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
 		{
-			name: "LocalDNSProfile enabled returns base64 string",
+			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
@@ -1621,47 +1673,53 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 						},
 					},
 				},
+				includeHostsPlugin: true,
 			},
 			wantContains: expectedlocalDNSCorefile,
+		},
+		{
+			name: "LocalDNSProfile enabled returns base64 string without hosts plugin",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:       true,
+						CpuLimitInMilliCores: to.Ptr(int32(2008)),
+						MemoryLimitInMb:      to.Ptr(int32(512)),
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "VnetDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Immediate",
+							},
+						},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Error",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(2000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								ServeStale:                  "Verify",
+							},
+						},
+					},
+				},
+				includeHostsPlugin: false,
+			},
+			wantNotContains: "hosts /etc/localdns/hosts",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getLocalDnsCorefileBase64(tt.args.aksnodeconfig)
-
-			if tt.wantContains == "" && got != "" {
-				t.Errorf("expected empty string, got %q", got)
-				return
-			}
-
-			normalize := func(s string) string {
-				s = strings.ReplaceAll(s, "\r\n", "\n")
-				s = strings.TrimSpace(s)
-
-				// Collapse multiple blank lines into one
-				re := regexp.MustCompile(`\n\s*\n+`)
-				s = re.ReplaceAllString(s, "\n")
-
-				// Remove extra indentation
-				re = regexp.MustCompile(`[ \t]+`)
-				s = re.ReplaceAllString(s, " ")
-
-				return s
-			}
-
-			if tt.wantContains != "" {
-				decoded, err := base64.StdEncoding.DecodeString(got)
-				if err != nil {
-					t.Fatalf("failed to decode base64: %v", err)
-				}
-
-				decodedNorm := normalize(string(decoded))
-				wantNorm := normalize(tt.wantContains)
-
-				if !strings.Contains(decodedNorm, wantNorm) {
-					t.Errorf("expected decoded corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
-				}
-			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
+			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
 		})
 	}
 }
@@ -1706,6 +1764,71 @@ func Test_shouldEnableLocalDns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := shouldEnableLocalDns(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("shouldEnableLocalDns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_shouldEnableHostsPlugin(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil config",
+			args: args{aksnodeconfig: nil},
+			want: "false",
+		},
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: "false",
+		},
+		{
+			name: "LocalDns disabled, HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: true},
+			}},
+			want: "false",
+		},
+		{
+			name: "LocalDns enabled, HostsPlugin disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+		{
+			name: "both LocalDns and HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true},
+			}},
+			want: "true",
+		},
+		{
+			name: "both disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnableHostsPlugin(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("shouldEnableHostsPlugin() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1807,6 +1930,78 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getLocalDnsMemoryLimitInMb(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("getLocalDnsMemoryLimitInMb() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsCriticalFqdns(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when CriticalFqdns is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when CriticalFqdns is empty",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns:  []string{},
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns comma-separated FQDNs",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns: []string{
+						"mcr.microsoft.com",
+						"packages.microsoft.com",
+						"login.microsoftonline.com",
+					},
+				},
+			}},
+			want: "mcr.microsoft.com,packages.microsoft.com,login.microsoftonline.com",
+		},
+		{
+			name: "returns single FQDN without trailing comma",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns:  []string{"mcr.microsoft.com"},
+				},
+			}},
+			want: "mcr.microsoft.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsCriticalFqdns(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsCriticalFqdns() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1270,20 +1270,54 @@ LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
-# In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
-# This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
+# Both corefile variants are read from globals set in cse_cmd.sh:
+#   LOCALDNS_COREFILE_BASE         — standard corefile without experimental plugins
+#   LOCALDNS_COREFILE_EXPERIMENTAL — corefile with experimental plugins (e.g. hosts plugin)
+# The base variant is written as the initial active corefile.
+# Both variants are saved to /etc/localdns/environment so localdns.sh
+# can dynamically switch between them on restart.
 generateLocalDNSFiles() {
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     touch "${LOCALDNS_CORE_FILE}"
     chmod 0644 "${LOCALDNS_CORE_FILE}"
-    echo "${LOCALDNS_GENERATED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Determine the base corefile to use as the initial active corefile.
+    # LOCALDNS_COREFILE_BASE is set by new CSE; fall back to LOCALDNS_GENERATED_COREFILE
+    # for backward compatibility when this VHD runs with an older CSE that only sets
+    # LOCALDNS_GENERATED_COREFILE.
+    local corefile_base="${LOCALDNS_COREFILE_BASE:-${LOCALDNS_GENERATED_COREFILE:-}}"
+    if [ -z "${corefile_base}" ]; then
+        echo "Error: neither LOCALDNS_COREFILE_BASE nor LOCALDNS_GENERATED_COREFILE is set"
+        exit $ERR_LOCALDNS_FAIL
+    fi
+
+    # Start with the base corefile as the initial active corefile.
+    # The experimental variant will be selected dynamically by localdns.sh
+    # once /etc/localdns/hosts has been populated by aks-localdns-hosts-setup.
+    base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Log whether the generated corefile includes hosts plugin
+    if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
+        echo "Generated corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
+    else
+        echo "Generated corefile at ${LOCALDNS_CORE_FILE} DOES NOT include hosts plugin"
+    fi
 
     # Create environment file for corefile regeneration.
     # This file will be referenced by localdns.service using EnvironmentFile directive.
+    # Save BOTH corefile variants so localdns can dynamically choose on each restart.
+    # All corefile values are base64-encoded; localdns.sh decodes them at runtime.
+    # LOCALDNS_BASE64_ENCODED_COREFILE is the legacy key for old VHDs.
+    # LOCALDNS_COREFILE_BASE is the new name ("BASE" = base variant without hosts plugin, not base64).
+    # LOCALDNS_COREFILE_EXPERIMENTAL is the variant WITH hosts plugin.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
-LOCALDNS_BASE64_ENCODED_COREFILE=${LOCALDNS_GENERATED_COREFILE}
+LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_base}
+LOCALDNS_COREFILE_BASE=${corefile_base}
+LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL:-}
+SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
+LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -1303,8 +1337,34 @@ CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
 }
 
+# enableLocalDNS creates localdns files and starts the service.
+# Both corefile variants (with/without hosts plugin) are read from globals
+# set in cse_cmd.sh. No parameters needed.
 enableLocalDNS() {
+    # Guard: Check if this VHD has localdns assets installed.
+    # Older VHDs may not have localdns.service or the execution script.
+    # This ensures backward compatibility when new CSE runs on old VHDs.
+    if [ ! -f /etc/systemd/system/localdns.service ]; then
+        echo "Warning: localdns.service not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+    if [ ! -f /opt/azure/containers/localdns/localdns.sh ]; then
+        echo "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+
+    echo "enableLocalDNS called, generating corefile..."
     generateLocalDNSFiles
+    # Log corefile variant after it's been successfully written
+    echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
+
+    # Disable hosts plugin cleanup path: if the hosts plugin was previously enabled but is now
+    # disabled (e.g. rollback), clean up the timer and hosts file. The enable path is handled
+    # separately — enableAKSLocalDNSHostsSetup() is called earlier in basePrep() to give the
+    # timer a head start on DNS resolution before enableLocalDNS() starts CoreDNS.
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" != "true" ]; then
+        logs_to_events "AKS.CSE.enableLocalDNS.disableAKSLocalDNSHostsSetup" disableAKSLocalDNSHostsSetup
+    fi
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
@@ -1352,6 +1412,106 @@ EOF
     else
         echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
     fi
+}
+
+# This function enables and starts the aks-localdns-hosts-setup timer.
+# The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
+# Called from basePrep() early in the boot sequence, before enableLocalDNS().
+# This allows DNS resolution to begin while the rest of basePrep installs packages and configures the node.
+# The timer's systemd service reads LOCALDNS_CRITICAL_FQDNS from /etc/localdns/environment,
+# so this function writes a minimal environment file before starting the timer.
+# generateLocalDNSFiles() (called later by enableLocalDNS) overwrites it with the full content.
+enableAKSLocalDNSHostsSetup() {
+    # Best-effort setup: log errors but never fail.
+    # The corefile will fall back to the no-hosts variant if hosts file is empty.
+    # Allow overriding paths for testing (via environment variables)
+    local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_script="${AKS_LOCALDNS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-localdns-hosts-setup.sh}"
+    local hosts_setup_service="${AKS_LOCALDNS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-localdns-hosts-setup.service}"
+    local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
+
+    # Guard: verify required artifacts exist on this VHD.
+    # Older VHDs (or certain build modes) may not include them.
+    if [ ! -f "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-localdns-hosts-setup"
+        return
+    fi
+    if [ ! -x "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} is not executable, skipping aks-localdns-hosts-setup"
+        return
+    fi
+    if [ ! -f "${hosts_setup_service}" ]; then
+        echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-localdns-hosts-setup"
+        return
+    fi
+    if [ ! -f "${hosts_setup_timer}" ]; then
+        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-localdns-hosts-setup"
+        return
+    fi
+
+    # Verify LOCALDNS_CRITICAL_FQDNS is set before proceeding; if not, skip hosts setup.
+    if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
+        echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
+        echo "Skipping aks-localdns-hosts-setup. Corefile will fall back to version without hosts plugin."
+        return
+    fi
+
+    # Write a minimal environment file so the systemd service (which reads from
+    # /etc/localdns/environment via EnvironmentFile=) has LOCALDNS_CRITICAL_FQDNS available.
+    # generateLocalDNSFiles() overwrites this later with the full content including corefiles.
+    local env_file="/etc/localdns/environment"
+    mkdir -p "$(dirname "${env_file}")"
+    cat > "${env_file}" <<EOF
+LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS}
+EOF
+    chmod 0644 "${env_file}"
+
+    # Create an empty hosts file so the localdns hosts plugin can start watching it
+    # immediately. The file will be populated by aks-localdns-hosts-setup timer asynchronously.
+    mkdir -p "$(dirname "${hosts_file}")"
+    touch "${hosts_file}"
+    chmod 0644 "${hosts_file}"
+
+    # Enable the timer for periodic refresh (every 15 minutes)
+    # This will update the hosts file with fresh IPs from live DNS
+    echo "Enabling aks-localdns-hosts-setup timer..."
+    if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
+        echo "aks-localdns-hosts-setup timer enabled successfully."
+    else
+        echo "Warning: Failed to enable aks-localdns-hosts-setup timer"
+    fi
+}
+
+# disableAKSLocalDNSHostsSetup disables the hosts plugin on a node where it was previously enabled.
+# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is not true.
+# This handles the production rollback case where a customer disables the hosts plugin
+# on an existing agentpool and AKS-RP re-runs CSE with SHOULD_ENABLE_HOSTS_PLUGIN=false.
+# All operations are idempotent — safe to call when hosts plugin was never enabled.
+disableAKSLocalDNSHostsSetup() {
+    local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
+
+    echo "disableAKSLocalDNSHostsSetup called, cleaning up hosts plugin state..."
+
+    # Stop and disable the hosts-setup timer if it exists and is active.
+    # This prevents further updates to the hosts file.
+    if [ -f "${hosts_setup_timer}" ]; then
+        systemctl disable --now aks-localdns-hosts-setup.timer 2>/dev/null || true
+        echo "Disabled and stopped aks-localdns-hosts-setup.timer"
+    else
+        echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
+    fi
+
+    # Remove the hosts file. Without it, select_localdns_corefile() in localdns.sh
+    # will fall back to the base corefile even if SHOULD_ENABLE_HOSTS_PLUGIN were somehow still true.
+    if [ -f "${hosts_file}" ]; then
+        rm -f "${hosts_file}"
+        echo "Removed ${hosts_file}"
+    else
+        echo "${hosts_file} does not exist, skipping"
+    fi
+
+    echo "disableAKSLocalDNSHostsSetup complete"
 }
 
 configureManagedGPUExperience() {

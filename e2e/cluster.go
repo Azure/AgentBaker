@@ -90,11 +90,12 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	// networkSetup adds firewall routes to the AKS route table or applies
-	// network-isolated NSG.  It must run after bastion (both mutate the
-	// VNet) and before collectGarbageVMSS (which needs network setup done).
-	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
-	// objects whose backing VMSS no longer exist.
+	// networkSetup associates a route table with aks-subnet (firewall or
+	// network-isolated NSG).  It must run after bastion (both mutate the
+	// VNet) and before collectGarbageVMSS (VMSS deletion triggers AKS
+	// cloud-controller route reconciliation that can race with the subnet
+	// association and leave the AKS pod route table detached).
+	dag.Run(g, func(ctx context.Context) error { return collectGarbagePrivateDNSZones(ctx, cluster) })
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
@@ -785,6 +786,106 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 	if len(deleteErrors) > 0 {
 		return fmt.Errorf("failed to delete %d stale nodes, first error: %w", len(deleteErrors), deleteErrors[0])
 	}
+	return nil
+}
+
+func collectGarbagePrivateDNSZones(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	defer toolkit.LogStepCtx(ctx, "collecting garbage Private DNS zones")()
+	rg := *cluster.Properties.NodeResourceGroup
+
+	// Clean up Private DNS zones created by e2e tests (identified by tags).
+	// Only delete zones that:
+	// 1. Have the "e2e-test=true" tag (created by LocalDNS hosts plugin tests)
+	// 2. Are in zones commonly used by e2e tests (additional safety check)
+	testManagedZonePatterns := []string{
+		"mcr.microsoft.com",
+		"mcr.azure.cn",
+	}
+
+	// List all Private DNS zones in the node resource group
+	pager := config.Azure.PrivateZonesClient.NewListByResourceGroupPager(rg, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get next page of Private DNS zones: %w", err)
+		}
+
+		for _, zone := range page.Value {
+			if zone == nil || zone.Name == nil {
+				continue
+			}
+
+			zoneName := *zone.Name
+
+			// Safety check 1: Only process zones that match our test patterns
+			isTestZone := false
+			for _, pattern := range testManagedZonePatterns {
+				if zoneName == pattern {
+					isTestZone = true
+					break
+				}
+			}
+
+			if !isTestZone {
+				continue
+			}
+
+			// Safety check 2: Only delete zones with e2e-test tag
+			if zone.Tags == nil || zone.Tags["e2e-test"] == nil || *zone.Tags["e2e-test"] != "true" {
+				toolkit.Logf(ctx, "skipping Private DNS zone %q (not tagged as e2e test)", zoneName)
+				continue
+			}
+
+			toolkit.Logf(ctx, "found e2e test Private DNS zone %q (tagged), cleaning up...", zoneName)
+
+			// Delete all VNET links first (required before zone deletion)
+			linkPager := config.Azure.VirutalNetworkLinksClient.NewListPager(rg, zoneName, nil)
+			for linkPager.More() {
+				linkPage, err := linkPager.NextPage(ctx)
+				if err != nil {
+					toolkit.Logf(ctx, "failed to list VNET links for zone %q: %s", zoneName, err)
+					break
+				}
+
+				for _, link := range linkPage.Value {
+					if link == nil || link.Name == nil {
+						continue
+					}
+
+					linkName := *link.Name
+					toolkit.Logf(ctx, "deleting VNET link %q from e2e test zone %q...", linkName, zoneName)
+					poller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(ctx, rg, zoneName, linkName, nil)
+					if err != nil {
+						toolkit.Logf(ctx, "failed to start deletion of VNET link %q: %s", linkName, err)
+						continue
+					}
+
+					_, err = poller.PollUntilDone(ctx, nil)
+					if err != nil {
+						toolkit.Logf(ctx, "failed to delete VNET link %q: %s", linkName, err)
+						continue
+					}
+					toolkit.Logf(ctx, "deleted VNET link %q", linkName)
+				}
+			}
+
+			// Now delete the e2e test Private DNS zone itself
+			toolkit.Logf(ctx, "deleting e2e test Private DNS zone %q...", zoneName)
+			poller, err := config.Azure.PrivateZonesClient.BeginDelete(ctx, rg, zoneName, nil)
+			if err != nil {
+				toolkit.Logf(ctx, "failed to start deletion of Private DNS zone %q: %s", zoneName, err)
+				continue
+			}
+
+			_, err = poller.PollUntilDone(ctx, nil)
+			if err != nil {
+				toolkit.Logf(ctx, "failed to delete Private DNS zone %q: %s", zoneName, err)
+				continue
+			}
+			toolkit.Logf(ctx, "deleted e2e test Private DNS zone %q", zoneName)
+		}
+	}
+
 	return nil
 }
 

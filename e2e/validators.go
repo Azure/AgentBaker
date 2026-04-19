@@ -1480,6 +1480,248 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
+// This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
+// can rotate between queries. We verify presence, not exact IP matching.
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
+	s.T.Helper()
+
+	// Build script that resolves each FQDN and checks it exists in hosts file
+	script := fmt.Sprintf(`set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+fqdns=(%s)
+
+echo "=== Validating /etc/localdns/hosts contains resolved IPs for critical FQDNs ==="
+echo ""
+echo "Current hosts file contents:"
+cat "$hosts_file"
+echo ""
+
+errors=0
+for fqdn in "${fqdns[@]}"; do
+    echo "Checking FQDN: $fqdn"
+    # Escape dots in FQDN for use in regex (. is a regex wildcard)
+    fqdn_escaped=$(echo "$fqdn" | sed 's/\./\\./g')
+
+    # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+    # rather than requiring every currently resolved IP to be present. This avoids
+    # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn_escaped"'([[:space:]]|$)' "$hosts_file"; then
+        echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+    else
+        echo "  ERROR: No IPv4 entry found for $fqdn in hosts file"
+        errors=$((errors + 1))
+    fi
+done
+
+echo ""
+if [ $errors -gt 0 ]; then
+    echo "FAILED: $errors FQDNs missing from hosts file"
+    exit 1
+else
+    echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
+    exit 0
+fi
+`, quoteFQDNsForBash(fqdns))
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts file should contain resolved IPs for critical FQDNs")
+}
+
+// quoteFQDNsForBash converts a slice of FQDNs to a bash array string
+func quoteFQDNsForBash(fqdns []string) string {
+	return strings.Join(lo.Map(fqdns, func(fqdn string, _ int) string {
+		return fmt.Sprintf("%q", fqdn)
+	}), " ")
+}
+
+// ValidateAKSLocalDNSHostsSetupService checks that aks-localdns-hosts-setup.service ran successfully
+// and the aks-localdns-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
+func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check that aks-localdns-hosts-setup.service (oneshot) completed without failure
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-localdns-hosts-setup.service")
+
+	// Check that aks-localdns-hosts-setup.timer is active for periodic refresh
+	ValidateSystemdUnitIsRunning(ctx, s, "aks-localdns-hosts-setup.timer")
+}
+
+// ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
+// via the CoreDNS hosts plugin. It checks:
+//  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
+//
+// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+// regardless of which plugin served the response.
+func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Verify the node has the hosts plugin annotation
+	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
+	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
+	s.T.Log("Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
+	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
+
+	var node *corev1.Node
+	var err error
+	var annotationValue string
+	var exists bool
+	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+		annotationValue, exists = node.Annotations[annotationKey]
+		if exists && annotationValue == "enabled" {
+			s.T.Logf("✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
+			break
+		}
+
+		if attempt == maxAttempts {
+			s.T.Fatalf("Timeout: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q",
+				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+		}
+
+		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+		sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+		if sleepDuration > 10*time.Second {
+			sleepDuration = 10 * time.Second
+		}
+		s.T.Logf("Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
+		time.Sleep(sleepDuration)
+	}
+
+	// Step 2: Verify the Corefile has the hosts plugin configured
+	s.T.Log("Verifying Corefile contains hosts plugin configuration...")
+	corefileCheckScript := `set -euo pipefail
+corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
+
+echo "=== Verifying Corefile configuration ==="
+echo "Checking if $corefile exists..."
+if [ ! -f "$corefile" ]; then
+    echo "ERROR: Corefile $corefile does not exist"
+    exit 1
+fi
+echo "✓ Corefile exists"
+echo ""
+
+echo "Checking if Corefile contains hosts plugin directive..."
+if ! grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+    echo "ERROR: Corefile does not contain 'hosts /etc/localdns/hosts' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
+echo ""
+
+echo "Checking hosts plugin has fallthrough directive..."
+if ! grep -A1 "hosts /etc/localdns/hosts" "$corefile" | grep -q "fallthrough"; then
+    echo "WARNING: hosts plugin may be missing 'fallthrough' directive"
+fi
+echo "✓ hosts plugin configuration looks correct"
+echo ""
+
+echo "Corefile contents:"
+cat "$corefile"
+echo ""
+echo "=== Corefile validation successful ==="
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
+		"Corefile should contain hosts plugin configuration")
+
+	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
+	// This validates the hosts plugin is working by checking that the IPs returned by dig
+	// match the entries in /etc/localdns/hosts for the same FQDN. If the response came from
+	// upstream DNS instead of the hosts plugin, the IPs would likely differ due to CDN rotation,
+	// load balancer failover, or regional DNS updates.
+	//
+	// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+	// regardless of which plugin served the response — they reflect server capabilities,
+	// not response source. The IP match combined with corefile verification (step 2) and
+	// node annotation (step 1) is sufficient proof.
+	//
+	// We use the first FQDN from GetDefaultFQDNsForValidation() (e.g. mcr.microsoft.com) because
+	// it's a real FQDN that aks-localdns-hosts-setup.service populates from the NBC's CriticalFQDNs list.
+	// This avoids race conditions with the aks-localdns-hosts-setup.timer overwriting fake test entries.
+	testFQDN := s.GetDefaultFQDNsForValidation()[0]
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with matching IPs", testFQDN)
+
+	script := fmt.Sprintf(`set -euo pipefail
+test_fqdn=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing localdns hosts plugin functionality ==="
+echo "Testing FQDN: $test_fqdn"
+echo ""
+
+# Step 1: Get the expected IPs from /etc/localdns/hosts
+echo "Reading expected IPs from $hosts_file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Extract IPv4 addresses for the test FQDN from hosts file
+# Escape dots in FQDN for regex (. matches any char in ERE)
+test_fqdn_escaped=$(echo "$test_fqdn" | sed 's/\./\\./g')
+expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_escaped}([[:space:]]|$)" "$hosts_file" | awk '{print $1}' | sort)
+if [ -z "$expected_ips" ]; then
+    echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
+    echo "Hosts file contents:"
+    sudo cat "$hosts_file"
+    exit 1
+fi
+
+echo "Expected IPs from hosts file:"
+echo "$expected_ips"
+echo ""
+
+# Step 2: Query localdns with dig and capture full output
+echo "Querying localdns for $test_fqdn at 169.254.10.10..."
+dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
+echo "Full dig output:"
+echo "$dig_output"
+echo ""
+
+# Step 3: Extract resolved IPs from dig ANSWER section and compare with hosts file
+# Reuse escaped FQDN for regex matching of dig output
+resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
+if [ -z "$resolved_ips" ]; then
+    echo "ERROR: No A records returned from dig query"
+    exit 1
+fi
+
+echo "Resolved IPs from dig:"
+echo "$resolved_ips"
+echo ""
+
+echo "Comparing resolved IPs with hosts file entries..."
+if [ "$expected_ips" != "$resolved_ips" ]; then
+    echo "ERROR: Resolved IPs do not match hosts file entries"
+    echo "Expected (from hosts file):"
+    echo "$expected_ips"
+    echo "Got (from dig):"
+    echo "$resolved_ips"
+    exit 1
+fi
+echo "✓ Resolved IPs match hosts file entries"
+echo ""
+
+echo "=== SUCCESS ==="
+echo "The localdns hosts plugin is working correctly:"
+echo "  Resolved IPs match /etc/localdns/hosts entries"
+`, testFQDN)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should resolve FQDN from hosts file with matching IPs")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()

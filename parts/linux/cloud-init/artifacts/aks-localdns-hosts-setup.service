@@ -1,0 +1,13 @@
+[Unit]
+Description=Populate /etc/localdns/hosts with critical AKS FQDN addresses
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=180
+EnvironmentFile=-/etc/localdns/environment
+ExecStart=/opt/azure/containers/aks-localdns-hosts-setup.sh
+
+[Install]
+WantedBy=multi-user.target
