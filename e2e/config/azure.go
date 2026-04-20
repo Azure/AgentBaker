@@ -642,10 +642,23 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("create a new images client: %v", err)
 	}
+
+	// Copy encryption settings from an existing target region if present.
+	// This is required for CVM images where Azure mandates the regional
+	// encryption.osDiskImage.securityProfile.type on every target region.
+	var encryption *armcompute.EncryptionImages
+	for _, existing := range version.Properties.PublishingProfile.TargetRegions {
+		if existing.Encryption != nil {
+			encryption = existing.Encryption
+			break
+		}
+	}
+
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
 		Name:                 &location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+		Encryption:           encryption,
 	})
 
 	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)

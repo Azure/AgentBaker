@@ -1483,10 +1483,10 @@ func Test_AzureLinuxV3_ArtifactStreaming_PodSandboxing(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV3KataGen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
-				nbc.AgentPoolProfile.VMSize = "Standard_D4s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_D4ds_v5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_D4ds_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -1514,10 +1514,10 @@ func Test_AzureLinuxV3_ArtifactStreaming_PodSandboxing_Scriptless(t *testing.T) 
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 				config.IsKata = true
-				config.VmSize = "Standard_D4s_v3"
+				config.VmSize = "Standard_D4ds_v5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_D4ds_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
