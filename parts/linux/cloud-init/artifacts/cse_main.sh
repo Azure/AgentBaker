@@ -71,6 +71,11 @@ function basePrep {
         systemctl restart systemd-timesyncd
     fi
 
+    # pre-warm coredns by checking its version.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        nohup /bin/sh -c '/opt/azure/containers/localdns/binary/coredns --version >/dev/null 2>&1' >/dev/null 2>&1 &
+    fi
+
     # Eval proxy vars to ensure curl commands use proxy if configured.
     # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
     # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
@@ -501,7 +506,22 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
+    # Add localdns-exporter kubelet node label before ensureKubelet so it's
+    # included in --node-labels at kubelet startup (~0ms, just a variable append).
+    # Only add the label if the exporter socket unit exists on this VHD — otherwise
+    # the node would advertise exporter=enabled but have no exporter to scrape.
+    # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Configure localdns metrics exporter socket after ensureKubelet.
+    # This is optional observability — don't block provisioning if it fails.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket || true
+    fi
 
     if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge

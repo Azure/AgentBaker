@@ -73,7 +73,7 @@ func newTestCtx(t testing.TB) context.Context {
 	return ctx
 }
 
-func RunScenario(t *testing.T, s *Scenario) error {
+func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
@@ -81,10 +81,30 @@ func RunScenario(t *testing.T, s *Scenario) error {
 			t.Parallel()
 			runScenarioWithPreProvision(t, s)
 		})
-		return nil
+		return
 	}
-	// Default path
-	return runScenario(t, s)
+	t.Run("default", func(t *testing.T) {
+		t.Parallel()
+		err := runScenario(t, copyScenario(s))
+		require.NoError(t, err)
+	})
+
+	if supportsScriptlessNBCCSECmd(s) {
+		t.Run("scriptless_nbc", func(t *testing.T) {
+			t.Parallel()
+			sCopy := copyScenario(s)
+			if sCopy.Runtime == nil {
+				sCopy.Runtime = &ScenarioRuntime{}
+			}
+			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
+			err := runScenario(t, sCopy)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func supportsScriptlessNBCCSECmd(s *Scenario) bool {
+	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -130,6 +150,7 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			original.BootstrapConfigMutator(nbc)
 			nbc.PreProvisionOnly = true
+			nbc.EnableScriptlessNBCCSECmd = false
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
@@ -209,15 +230,20 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
-	s.Runtime = &ScenarioRuntime{
-		Cluster:  cluster,
-		VMSSName: generateVMSSName(s),
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
 	}
+	s.Runtime.Cluster = cluster
+	s.Runtime.VMSSName = generateVMSSName(s)
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	s.Runtime.VM, err = prepareAKSNode(vmssCtx, s)
+	if s.ExpectedError != "" {
+		require.ErrorContains(t, err, s.ExpectedError)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -230,16 +256,15 @@ func runScenario(t testing.TB, s *Scenario) error {
 
 func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
-	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
-	}
 
 	var err error
 	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
-	if config.Config.EnableScriptlessCSECmd {
-		nbc.EnableScriptlessCSECmd = true
+	nbc.EnableScriptlessCSECmd = true
+	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
+		nbc.EnableScriptlessNBCCSECmd = true
+		nbc.EnableScriptlessCSECmd = false
 	}
 
 	if s.IsWindows() {
@@ -296,7 +321,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// fail test, but continue to extract debug information
-	if s.ReturnErrorOnVMSSCreation {
+	if s.ExpectedError != "" {
 		return scenarioVM, err
 	} else {
 		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))

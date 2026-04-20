@@ -67,7 +67,7 @@ func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that GPU workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 1)
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				s.T.Logf("NVIDIA device plugin DaemonSet is functioning correctly")
 			},

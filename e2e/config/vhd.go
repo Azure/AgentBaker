@@ -302,6 +302,10 @@ func (i *Image) String() string {
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
+func (i *Image) SupportsScriptless() bool {
+	return !i.Flatcar && !i.Distro.IsWindowsDistro()
+}
+
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
 	switch {
 	case i.Version != "":

@@ -118,9 +118,12 @@ apt_get_dist_upgrade() {
   wait_for_apt_locks
 }
 installDebPackageFromFile() {
-    DEB_FILE=$1
+    export DEBIAN_FRONTEND=noninteractive
+    local DEB_FILE=$1
     wait_for_apt_locks
-    retrycmd_if_failure 10 5 600 apt-get -y -f install ${DEB_FILE} --allow-downgrades
+    retrycmd_if_failure 3 5 120 dpkg --force-confdef --force-confold -i "${DEB_FILE}" || {
+        retrycmd_if_failure 10 5 600 apt-get -y -f install "${DEB_FILE}" --allow-downgrades
+    }
     if [ "$?" -ne 0 ]; then
         return 1
     fi

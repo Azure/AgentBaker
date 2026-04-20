@@ -16,6 +16,13 @@ Describe 'cse_install_mariner.sh'
         function systemctl() {
             return 0
         }
+        function logs_to_events() {
+            echo "$2"
+            return 0
+        }
+        function fallbackToKubeBinaryInstall() {
+            return 1
+        }
     }
     BeforeAll 'setup'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
@@ -45,14 +52,10 @@ Describe 'cse_install_mariner.sh'
             rm -rf "$rpm_cache_root"
         }
 
-        ln() {
-            echo "ln $@"
-        }
-
         BeforeEach 'setup_rpm_cache'
         AfterEach 'cleanup_rpm_cache'
 
-        It 'installs cached dependency RPMs when they are present'
+        It 'extracts the requested RPM when cached dependency RPMs are present'
             desiredVersion="1.34.0-5.azl3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
@@ -62,25 +65,19 @@ Describe 'cse_install_mariner.sh'
             touch "$dependencyRpm"
             touch "$conflictRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
-            The output should include "Installing kubelet with cached dependency RPMs"
-            The output should include "$dependencyRpm"
-            The output should include "$kubeletRpm"
-            The output should include "dnf install 30 1 600"
-            The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
         End
 
-        It 'installs only the requested RPM when no cached dependencies exist'
+        It 'extracts only the requested RPM when no cached dependencies exist'
             desiredVersion="1.34.0-5.azl3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
             touch "$kubeletRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "dnf install 30 1 600 $kubeletRpm"
-            The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
         End
 
-        It 'does not pass duplicate release versions to dnf causing conflicts'
+        It 'selects the latest matching release when multiple cached RPMs exist'
             desiredVersion="1.34.3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             release1="$rpmDir/kubelet-1.34.3-1.azl3.x86_64.rpm"
@@ -88,10 +85,7 @@ Describe 'cse_install_mariner.sh'
             touch "$release1"
             touch "$release2"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            # sort -V | tail -n 1 should pick the latest release as the primary RPM
-            The output should include "dnf install 30 1 600 $release2"
-            # the older release should be skipped, not added as a dependency
-            The output should include "Skipping cached kubelet rpm"
+            The output should include "extractBinaryFromRPM $release2 kubelet /opt/bin/kubelet"
             The output should not include "$release1"
         End
 

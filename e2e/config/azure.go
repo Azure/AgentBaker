@@ -61,6 +61,7 @@ type AzureClient struct {
 	StorageAccounts           *armstorage.AccountsClient
 	Subnet                    *armnetwork.SubnetsClient
 	PublicIPAddresses         *armnetwork.PublicIPAddressesClient
+	Routes                    *armnetwork.RoutesClient
 	RouteTables               *armnetwork.RouteTablesClient
 	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
@@ -217,6 +218,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.RouteTables, err = armnetwork.NewRouteTablesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create route tables client: %w", err)
+	}
+
+	cloud.Routes, err = armnetwork.NewRoutesClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create routes client: %w", err)
 	}
 
 	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(Config.SubscriptionID, credential, opts)
@@ -454,6 +460,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 			// built-in "Storage Blob Data Contributor" role
 			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
 			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
+			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
 		},
 	}, nil)
 	var respError *azcore.ResponseError
@@ -683,8 +690,16 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 
 func DefaultRetryOpts() policy.RetryOptions {
 	return policy.RetryOptions{
-		MaxRetries: 3,
-		RetryDelay: time.Second * 5,
+		// Use generous retry settings to survive Azure Compute Gallery throttling.
+		// Gallery APIs return HTTP 429 (ResourceCollectionRequestsThrottled) with
+		// "try after 120 seconds" when rate-limited. With 3 parallel E2E jobs hitting
+		// the same gallery, this is common. The Azure SDK uses exponential backoff
+		// (RetryDelay * 2^attempt) so with a 10s base and 6 retries we get:
+		// 10 + 20 + 40 + 80 + 160(→180) + 180 = ~510s total retry window, well past
+		// the 120s cooldown period.
+		MaxRetries:    6,
+		RetryDelay:    10 * time.Second,
+		MaxRetryDelay: 3 * time.Minute,
 		StatusCodes: []int{
 			http.StatusRequestTimeout,      // 408
 			http.StatusTooManyRequests,     // 429
@@ -692,7 +707,6 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusBadGateway,          // 502
 			http.StatusServiceUnavailable,  // 503
 			http.StatusGatewayTimeout,      // 504
-			http.StatusNotFound,            // 404
 		},
 	}
 }

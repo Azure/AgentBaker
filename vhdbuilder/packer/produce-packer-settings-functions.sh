@@ -450,28 +450,59 @@ function ensure_sig_vhd_exists() {
 		# The following conditionals do not require NVMe tagging on disk controller type
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
-			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
 				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
-					TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
 				else
-					TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe"
 				fi
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
-				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--os-state Specialized \
+					--features "SecurityType=ConfidentialVM"
+			else
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION}
 			fi
-
-			az sig image-definition create \
-				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-				--gallery-name ${SIG_GALLERY_NAME} \
-				--gallery-image-definition ${SIG_IMAGE_NAME} \
-				--publisher microsoft-aks \
-				--offer ${SIG_GALLERY_NAME} \
-				--sku ${SIG_IMAGE_NAME} \
-				--os-type ${OS_TYPE} \
-				--hyper-v-generation ${HYPERV_GENERATION} \
-				--location ${AZURE_LOCATION} \
-				${TARGET_COMMAND_STRING}
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
 			if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then

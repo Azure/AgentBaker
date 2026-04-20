@@ -12,7 +12,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -40,7 +39,9 @@ const (
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
 )
 
-func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
+func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+	clusterName := *cluster.Name
 	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
@@ -147,53 +148,49 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
 	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
-	var node *corev1.Node = nil
-	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "failed to start watching nodes")
-	defer watcher.Stop()
+	var lastNode *corev1.Node
 
-	for event := range watcher.ResultChan() {
-		if event.Type != watch.Added && event.Type != watch.Modified {
-			continue
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error listing nodes: %v", err)
+			return false, nil
 		}
 
-		var nodeFromEvent *corev1.Node
-		switch v := event.Object.(type) {
-		case *corev1.Node:
-			nodeFromEvent = v
-
-		default:
-			t.Logf("skipping object type %T", event.Object)
-			continue
-		}
-
-		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
-			continue
-		}
-
-		// found the right node. Use it!
-		node = nodeFromEvent
-		nodeTaints, _ := json.Marshal(node.Spec.Taints)
-		nodeConditions, _ := json.Marshal(node.Status.Conditions)
-
-		for _, cond := range node.Status.Conditions {
-			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-				return node.Name
+		for i := range nodes.Items {
+			node := &nodes.Items[i]
+			if !strings.HasPrefix(node.Name, vmssName) {
+				continue
 			}
+
+			lastNode = node
+			nodeTaints, _ := json.Marshal(node.Spec.Taints)
+			nodeConditions, _ := json.Marshal(node.Status.Conditions)
+
+			for _, cond := range node.Status.Conditions {
+				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+					t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+					return true, nil
+				}
+			}
+
+			t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 		}
 
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-	}
+		return false, nil
+	})
 
-	if node == nil {
-		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
+	if err != nil {
+		if lastNode == nil {
+			t.Fatalf("%q haven't appeared in k8s API server: %v", vmssName, err)
+			return ""
+		}
+		nodeString, _ := json.Marshal(lastNode)
+		t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, lastNode.Name, lastNode.Status, string(nodeString))
 		return ""
 	}
 
-	nodeString, _ := json.Marshal(node)
-	t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, node.Name, node.Status, string(nodeString))
-	return node.Name
+	return lastNode.Name
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
@@ -448,7 +445,8 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
+func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+	mcResourceGroupName := *cluster.Properties.NodeResourceGroup
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
