@@ -24,6 +24,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
@@ -776,6 +777,11 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 		}
 
 		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				// the in-cluster cloud-provider-azure node controller may have
+				// already removed this node between our List and Delete calls
+				continue
+			}
 			deleteErrors = append(deleteErrors, fmt.Errorf("deleting stale node %q: %w", node.Name, err))
 			continue
 		}
