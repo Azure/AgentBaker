@@ -17,10 +17,11 @@ log() {
 ${__SOURCED__:+return}
 
 command="$BIN_PATH provision"
-log "Launching aks-node-controller with config ${CONFIG_PATH}"
 if [ -f "$CONFIG_PATH" ]; then
+    log "Launching aks-node-controller with config ${CONFIG_PATH}"
     command="$command --provision-config=$CONFIG_PATH"
 elif [ -f "$NBC_CMD_PATH" ]; then
+    log "Launching aks-node-controller with NBC command ${NBC_CMD_PATH}"
     command="$command --nbc-cmd=$NBC_CMD_PATH"
 fi
 "$command" &

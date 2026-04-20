@@ -186,9 +186,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		}
 		nbcScript := strings.TrimSpace(string(nbcCMDContent))
 		slog.Info("Using NBC command for scriptless phase 2", "nbcCmdFile", flags.NBCCMD)
-		nbcCMD := exec.CommandContext(ctx, "/bin/bash", "-c", nbcScript)
-		nbcCMD.Env = cmd.Env
-		cmd = nbcCMD
+		cmd = exec.CommandContext(ctx, "/bin/bash", "-c", nbcScript)
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer

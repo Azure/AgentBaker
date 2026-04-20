@@ -110,13 +110,13 @@ curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controll
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
 command="/opt/azure/bin/aks-node-controller-hack provision"
-log "Launching aks-node-controller with config ${CONFIG_PATH}"
-if [ -f "$CONFIG_PATH" ]; then
-    command="$command --provision-config=$CONFIG_PATH"
-elif [ -f "$NBC_CMD_PATH" ]; then
-    command="$command --nbc-cmd=$NBC_CMD_PATH"
+if [[ "%[1]s" == *"aks-node-controller-config"* ]]; then
+	command="$command --provision-config=%[1]s"
 fi
-"$command" &
+if [[ "%[1]s" == *"aks-node-controller-nbc-cmd"* ]]; then
+	command="$command --nbc-cmd=%[1]s"
+fi
+$command
 
 SCRIPT
 chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
@@ -144,11 +144,11 @@ systemctl start --no-block aks-node-controller-hack.service
 		// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 		cloudConfigTemplate = `#cloud-config
 write_files:
-- path: %[1]s
+- path: %[4]s
   permissions: "0755"
   owner: root
   content: !!binary |
-   %[2]s
+   %[1]s
 - path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
   owner: root
@@ -177,19 +177,19 @@ coreos:
 `
 	}
 
-	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-	}
-	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	encodedNBCCMD := base64.StdEncoding.EncodeToString([]byte(nbcCMD))
 	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
 	nbcCMDPath := "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
-
 	var customDataYAML string
+
 	if s.Runtime.NBC.EnableScriptlessPhase2 {
+		encodedNBCCMD := base64.StdEncoding.EncodeToString([]byte(nbcCMD))
 		customDataYAML = fmt.Sprintf(cloudConfigTemplate, nbcCMDPath, encodedNBCCMD, binaryURL)
 	} else {
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+		encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+		}
 		customDataYAML = fmt.Sprintf(cloudConfigTemplate, configPath, encodedAksNodeConfigJSON, binaryURL)
 	}
 
@@ -201,7 +201,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
-	var cse, customData, nbcCMD string
+	var cse, customData string
 	if s.Runtime.NBC != nil {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
@@ -220,13 +220,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 					data, err = nodeconfigutils.CustomDataPhase2(nodeBootstrapping.CSE)
 				} else {
 					data, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+					require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				}
-				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			data, err := CustomDataWithHack(s, binaryURL, nbcCMD)
+			data, err := CustomDataWithHack(s, binaryURL, nodeBootstrapping.CSE)
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
