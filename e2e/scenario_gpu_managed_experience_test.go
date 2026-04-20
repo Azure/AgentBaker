@@ -598,7 +598,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 				ValidateNodeAdvertisesGPUResources(ctx, s, 8, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 8)
+				ValidateGPUWorkloadSchedulable(ctx, s, 8, "nvidia.com/gpu")
 
 				// Validate DCGM packages and exporter
 				for _, packageName := range getDCGMPackageNames(os) {
