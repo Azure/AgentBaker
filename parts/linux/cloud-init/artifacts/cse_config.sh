@@ -1309,6 +1309,49 @@ enableLocalDNS() {
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+    # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
+    # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
+}
+
+# Configures the localdns metrics exporter socket to listen on the node IP.
+# Runs after ensureKubelet (the kubelet node label is added separately before ensureKubelet).
+# The VHD default binds to 0.0.0.0 which already works for vmagent scraping.
+# The drop-in narrows binding to the node IP for tighter scoping when available.
+configureLocalDNSExporterSocket() {
+    # Guard: skip everything if the socket unit doesn't exist (old VHD without exporter files).
+    # This is a backward compatibility check for VHDs built before the exporter was added.
+    # Without this guard, we'd create an orphaned drop-in directory and
+    # systemctlEnableAndStartNoBlock would hit its retry loop (~100 retries × 5s) for a missing unit.
+    if ! systemctl cat localdns-exporter.socket &>/dev/null; then
+        echo "localdns-exporter: socket unit not found on this VHD, skipping"
+        return 0
+    fi
+
+    # Create drop-in to narrow socket binding from 0.0.0.0 to the node IP.
+    local node_ip
+    node_ip=$(get_primary_nic_ip)
+    if [ -n "${node_ip}" ]; then
+        echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353"
+        mkdir -p /etc/systemd/system/localdns-exporter.socket.d
+        tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+[Socket]
+ListenStream=
+ListenStream=${node_ip}:9353
+EOF
+        systemctl daemon-reload
+    else
+        echo "localdns-exporter: get_primary_nic_ip returned empty, using VHD default (0.0.0.0:9353)"
+    fi
+
+    # Enable localdns metrics exporter socket for Prometheus scraping.
+    # This is optional observability — don't block provisioning if it fails.
+    # Note: the kubelet node label is added separately in cse_main.sh before ensureKubelet.
+    echo "Enabling localdns-exporter.socket for metrics collection."
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
+        echo "Enable localdns-exporter.socket succeeded."
+    else
+        echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
+    fi
 }
 
 configureManagedGPUExperience() {

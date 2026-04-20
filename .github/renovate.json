@@ -7,9 +7,9 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 10,
+  "prHourlyLimit": 2,
   "branchConcurrentLimit": 0,
-  "commitHourlyLimit": 5,
+  "commitHourlyLimit": 2,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
@@ -103,24 +103,10 @@
       "enabled": true,
       "groupName": "runc-containerd-ca_watcher",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -137,24 +123,39 @@
       "enabled": true,
       "groupName": "runc-containerd-minor",
       "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "trivy"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "assignees": [
         "devinwong",
-        "anujmaheshwari1",
         "cameronmeissner",
         "lilypan26",
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok",
-        "mxj220"
+        "mxj220",
+        "pdamianov-dev",
+        "SriHarsha001"
       ],
       "reviewers": [
         "devinwong",
-        "anujmaheshwari1",
         "cameronmeissner",
         "lilypan26",
         "djsly",
         "zachary-bailey",
         "ganeshkumarashok",
-        "mxj220"
+        "mxj220",
+        "pdamianov-dev",
+        "SriHarsha001"
       ]
     },
     {
@@ -169,22 +170,28 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/kubernetes/kubelet-sysext",
+        "oss/v2/kubernetes/kubectl-sysext"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "kubelet-kubectl-sysext",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -358,22 +365,10 @@
       ],
       "groupName": "kubernetes-cri-tools",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -415,6 +410,24 @@
         "nvidia-device-plugin"
       ],
       "groupName": "nvidia-device-plugin",
+      "assignees": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ],
+      "reviewers": [
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter"
+      ],
+      "groupName": "nvidia-dcgm",
       "assignees": [
         "djsly",
         "ganeshkumarashok",
@@ -508,7 +521,7 @@
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
-      "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+      "extractVersion": "^(?<version>.*?)-[^-]*-[^-]*$"
     },
     {
       "matchDatasources": [
@@ -518,7 +531,7 @@
         "oss/v2/kubernetes/*-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
-      "extractVersion": "^(?P<version>.+-azlinux3)-"
+      "extractVersion": "^(?<version>.+-azlinux3)-"
     },
     {
       "matchPackageNames": [
@@ -704,6 +717,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia packages for OS AzureLinux 3.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), repository=nvidia, os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-rpm-azl3",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update GitHub release versions in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -725,6 +752,17 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "managerFilePatterns": [
+        "/trivy-scan\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
       ]
     }
   ],
@@ -762,6 +800,13 @@
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "nvidia-rpm-azl3": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/",
+      "format": "html",
+      "transformTemplates": [
+        "{\"releases\": [releases[$contains(version, \"{{packageName}}-\") and $contains(version, \".x86_64.rpm\") and $not($contains(version, \"debuginfo\")) and $match($substringAfter(version, \"{{packageName}}-\"), /^[0-9]/)].{\"version\": \"1:\" & $substringBefore($substringAfter(version, \"{{packageName}}-\"), \".x86_64.rpm\")}]}"
       ]
     },
     "deb2404-test": {

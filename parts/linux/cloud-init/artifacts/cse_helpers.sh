@@ -665,7 +665,7 @@ waitForContainerdReady() {
     local ret=0
 
     echo "Waiting for containerd to become ready..."
-    retrycmd_if_failure 60 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
+    retrycmd_if_failure 120 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
     ret=$?
     if [ "$ret" -ne 0 ]; then
         echo "containerd did not become ready"
