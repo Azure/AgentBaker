@@ -26,7 +26,8 @@ blobfuseFallbackPackages() {
         fi
     fi
 
-    # If blobfuse2 is already centralized via components.json, let the package loop install it.
+    # If blobfuse2 is already centralized via components.json, skip the fallback.
+    # At VHD build time, the package loop in install-dependencies.sh will install it.
     if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
         echo "blobfuse2=${LEGACY_FALLBACK_BLOBFUSE2_VERSION}"
     fi
@@ -35,7 +36,8 @@ blobfuseFallbackPackages() {
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         echo "fuse3"
     else
-        # If blobfuse is already centralized via components.json, let the package loop install it.
+        # If blobfuse is already centralized via components.json, skip the fallback.
+        # At VHD build time, the package loop in install-dependencies.sh will install it.
         if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
             echo "blobfuse=${LEGACY_FALLBACK_BLOBFUSE_VERSION}"
         fi
