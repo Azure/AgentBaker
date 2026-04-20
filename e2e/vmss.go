@@ -213,6 +213,30 @@ func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string
 							source, _ := contents["source"].(string)
 							// source is "data:;base64,<base64data>"
 							nbcCmdContent, _ = strings.CutPrefix(source, "data:;base64,")
+							// As of PR #8357, baker.go's flatcarTemplate marks the file with
+							// `compression: gzip`, so the base64 payload decodes to gzip bytes
+							// rather than plaintext shell. Ignition would normally gunzip it,
+							// but here we re-emit via cloud-config `!!binary`, which only
+							// base64-decodes. We must gunzip ourselves and re-base64 the
+							// plaintext, otherwise the resulting nbc-cmd-hack.sh contains raw
+							// gzip bytes and CSE exec fails with "cannot execute binary file"
+							// (exit 126).
+							if compression, _ := contents["compression"].(string); compression == "gzip" {
+								gzBytes, err := base64.StdEncoding.DecodeString(nbcCmdContent)
+								if err != nil {
+									return "", fmt.Errorf("failed to base64-decode gzipped nbc-cmd source: %w", err)
+								}
+								gzReader, err := gzip.NewReader(bytes.NewReader(gzBytes))
+								if err != nil {
+									return "", fmt.Errorf("failed to create gzip reader for nbc-cmd source: %w", err)
+								}
+								plain, err := io.ReadAll(gzReader)
+								_ = gzReader.Close()
+								if err != nil {
+									return "", fmt.Errorf("failed to gunzip nbc-cmd source: %w", err)
+								}
+								nbcCmdContent = base64.StdEncoding.EncodeToString(plain)
+							}
 						}
 					}
 				}
