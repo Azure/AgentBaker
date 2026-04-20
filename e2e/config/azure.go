@@ -656,23 +656,16 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 
 	// For ConfidentialVM images, Azure only allows cross-region replication when
 	// the encryption type is NonPersistedTPM. Detect CVM images by checking if
-	// any existing target region has a CVM security profile, and override the
-	// encryption for the new region to use NonPersistedTPM.
+	// any existing target region has a CVM security profile, and set NonPersistedTPM
+	// only on the new region (existing regions' encryption cannot be changed).
 	isCVM := encryption != nil && encryption.OSDiskImage != nil && encryption.OSDiskImage.SecurityProfile != nil
 	if isCVM {
-		nonPersistedTPMEncryption := &armcompute.EncryptionImages{
+		encryption = &armcompute.EncryptionImages{
 			OSDiskImage: &armcompute.OSDiskImageEncryption{
 				SecurityProfile: &armcompute.OSDiskImageSecurityProfile{
 					ConfidentialVMEncryptionType: to.Ptr(armcompute.ConfidentialVMEncryptionTypeNonPersistedTPM),
 				},
 			},
-		}
-		encryption = nonPersistedTPMEncryption
-		// Update all existing target regions to use NonPersistedTPM as well,
-		// since the PUT replaces the entire target regions list and Azure
-		// requires consistent CVM encryption for cross-region replication.
-		for _, existing := range version.Properties.PublishingProfile.TargetRegions {
-			existing.Encryption = nonPersistedTPMEncryption
 		}
 	}
 
