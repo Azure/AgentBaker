@@ -483,7 +483,7 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 			if s.IsWindows() {
 				// Save the CSE output for Windows VMs for better troubleshooting
 				if status.Message != nil {
-					logDir := filepath.Join("scenario-logs", s.T.Name())
+					logDir := testDir(s.T)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
 						err = os.WriteFile(logFile, []byte(*status.Message), 0644)
