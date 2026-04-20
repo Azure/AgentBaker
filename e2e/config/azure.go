@@ -644,28 +644,15 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	}
 
 	// Copy encryption settings from an existing target region if present.
-	// This is required for CVM images where Azure mandates the regional
-	// encryption.osDiskImage.securityProfile.type on every target region.
+	// This is required for CVM images where Azure mandates that all target
+	// regions have matching encryption configuration. We copy the existing
+	// encryption verbatim (including DiskEncryptionSetId and SecurityProfile)
+	// to ensure the new region matches exactly.
 	var encryption *armcompute.EncryptionImages
 	for _, existing := range version.Properties.PublishingProfile.TargetRegions {
 		if existing.Encryption != nil {
 			encryption = existing.Encryption
 			break
-		}
-	}
-
-	// For ConfidentialVM images, Azure only allows cross-region replication when
-	// the encryption type is NonPersistedTPM. Detect CVM images by checking if
-	// any existing target region has a CVM security profile, and set NonPersistedTPM
-	// only on the new region (existing regions' encryption cannot be changed).
-	isCVM := encryption != nil && encryption.OSDiskImage != nil && encryption.OSDiskImage.SecurityProfile != nil
-	if isCVM {
-		encryption = &armcompute.EncryptionImages{
-			OSDiskImage: &armcompute.OSDiskImageEncryption{
-				SecurityProfile: &armcompute.OSDiskImageSecurityProfile{
-					ConfidentialVMEncryptionType: to.Ptr(armcompute.ConfidentialVMEncryptionTypeNonPersistedTPM),
-				},
-			},
 		}
 	}
 
