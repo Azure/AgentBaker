@@ -32,6 +32,8 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
+	nodeCustomDataPath string
 }
 
 // commandMetadata holds all metadata for a command in one place.
@@ -220,6 +222,13 @@ func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
+func (a *App) getNodeCustomDataPath() string {
+	if a.nodeCustomDataPath != "" {
+		return a.nodeCustomDataPath
+	}
+	return defaultNodeCustomDataPath
+}
+
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
 
@@ -235,6 +244,12 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	}
 
 	if flags.NBCCmd != "" {
+		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+
 		var err error
 		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
 		if err != nil {
