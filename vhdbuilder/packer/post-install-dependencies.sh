@@ -5,6 +5,7 @@ UBUNTU_OS_NAME="UBUNTU"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
 
+source /home/packer/packer_source.sh
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -47,6 +48,11 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
+
+  # Re-apply custom login banners after all apt operations.
+  # apt_get_dist_upgrade uses --force-confnew which overwrites /etc/issue and /etc/issue.net
+  # with the default content from the base-files package whenever it is upgraded.
+  reapplyBanners
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
   # Final step, FIPS, log ua status, detach UA and clean up

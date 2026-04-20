@@ -1989,12 +1989,20 @@ testPackageDownloadURLFallbackLogic() {
 
 checkLocaldnsScriptsAndConfigs() {
   local test="checkLocaldnsScriptsAndConfigs"
+  local os_sku="${1}"
 
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
   )
+
+  # Flatcar is EOL (June 2026) — exporter files are not installed on Flatcar VHDs
+  if [ "$os_sku" != "Flatcar" ]; then
+    localdnsfiles["/opt/azure/containers/localdns/localdns_exporter.sh"]=755
+    localdnsfiles["/etc/systemd/system/localdns-exporter.socket"]=644
+    localdnsfiles["/etc/systemd/system/localdns-exporter@.service"]=644
+  fi
 
   for file in "${!localdnsfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
@@ -2282,7 +2290,7 @@ testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
-checkLocaldnsScriptsAndConfigs
+checkLocaldnsScriptsAndConfigs $OS_SKU
 testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU

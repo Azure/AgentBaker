@@ -7,9 +7,9 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 3,
+  "prHourlyLimit": 2,
   "branchConcurrentLimit": 0,
-  "commitHourlyLimit": 5,
+  "commitHourlyLimit": 2,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
@@ -161,9 +161,7 @@
     {
       "matchPackageNames": [
         "kubelet",
-        "kubectl",
-        "kubelet-sysext",
-        "kubectl-sysext"
+        "kubectl"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -171,6 +169,24 @@
       "automerge": false,
       "enabled": true,
       "groupName": "kubelet-kubectl",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/kubernetes/kubelet-sysext",
+        "oss/v2/kubernetes/kubectl-sysext"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "kubelet-kubectl-sysext",
       "assignees": [
         "team:aks-node-lifecycle"
       ],
