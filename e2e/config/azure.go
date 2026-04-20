@@ -643,25 +643,28 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 		return fmt.Errorf("create a new images client: %v", err)
 	}
 
-	// Copy encryption settings from an existing target region if present.
-	// This is required for CVM images where Azure mandates that all target
-	// regions have matching encryption configuration. We copy the existing
-	// encryption verbatim (including DiskEncryptionSetId and SecurityProfile)
-	// to ensure the new region matches exactly.
-	var encryption *armcompute.EncryptionImages
-	for _, existing := range version.Properties.PublishingProfile.TargetRegions {
-		if existing.Encryption != nil {
-			encryption = existing.Encryption
-			break
-		}
-	}
-
-	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+	newRegion := &armcompute.TargetRegion{
 		Name:                 &location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-		Encryption:           encryption,
-	})
+	}
+
+	if image.ConfidentialVM {
+		// For CVM images, Azure requires NonPersistedTPM encryption on all non-home
+		// target regions. Existing regions may lack this (legacy replication), and their
+		// encryption can't be changed (PropertyChangeNotAllowed). To work around this,
+		// replace all target regions with just the region we need, using NonPersistedTPM.
+		newRegion.Encryption = &armcompute.EncryptionImages{
+			OSDiskImage: &armcompute.OSDiskImageEncryption{
+				SecurityProfile: &armcompute.OSDiskImageSecurityProfile{
+					ConfidentialVMEncryptionType: to.Ptr(armcompute.ConfidentialVMEncryptionTypeNonPersistedTPM),
+				},
+			},
+		}
+		version.Properties.PublishingProfile.TargetRegions = []*armcompute.TargetRegion{newRegion}
+	} else {
+		version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, newRegion)
+	}
 
 	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
 	if err != nil {
