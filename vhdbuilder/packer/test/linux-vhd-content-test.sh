@@ -1553,8 +1553,8 @@ testWALinuxAgentInstalled() {
     return 1
   fi
   if [ "${expectedVersion}" = "<SKIP>" ]; then
-    echo "$test: Skipping because walinuxagent expected version is <SKIP> for this OS/variant"
-    return 0
+    err "$test" "Unexpected walinuxagent expected version <SKIP> from ${COMPONENTS_FILEPATH}; this test should already be gated off for OS/variants that do not install WALinuxAgent"
+    return 1
   fi
   echo "$test: Expected WALinuxAgent version from components.json: ${expectedVersion}"
 
@@ -1830,8 +1830,8 @@ getPackageExpectedVersion() {
   local packageJson
   packageJson=$(jq -c ".Packages[] | select(.name == \"${packageName}\")" "$COMPONENTS_FILEPATH")
   if [ -z "$packageJson" ]; then
-    echo "<SKIP>"
-    return 0
+    echo "ERROR: package '${packageName}' not found in ${COMPONENTS_FILEPATH} for OS='${targetOS}' version='${targetOSVersion}' variant='${targetOSVariant}'" >&2
+    return 1
   fi
 
   local previousOS="${OS:-}"
