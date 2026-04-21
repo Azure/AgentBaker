@@ -137,6 +137,13 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 
 	testCases := []testCase{
 		{
+			name:        "Ubuntu2204",
+			os:          "ubuntu",
+			osVersion:   "r2204",
+			downloadURL: "https://packages.microsoft.com/repos/microsoft-ubuntu-jammy-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb",
+			parseDeps:   parseDebDeps,
+		},
+		{
 			name:        "Ubuntu2404",
 			os:          "ubuntu",
 			osVersion:   "r2404",
