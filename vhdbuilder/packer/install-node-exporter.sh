@@ -17,7 +17,7 @@ installNodeExporter() {
     echo "[node-exporter] Installing ${pkg} version ${version}"
 
     if isUbuntu; then
-        apt_get_install 30 1 "${pkg}=${version}" || exit $ERR_APT_INSTALL_TIMEOUT
+        apt_get_install 30 1 600 "${pkg}=${version}" || exit $ERR_APT_INSTALL_TIMEOUT
     elif isAzureLinux; then
         dnf_install 30 1 600 "${pkg}-${version}" || exit $ERR_APT_INSTALL_TIMEOUT
     else

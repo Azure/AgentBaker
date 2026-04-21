@@ -69,7 +69,7 @@ installDeps() {
     fi
 
     for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 $apt_package; then
+        if ! apt_get_install 30 1 600 $apt_package; then
             journalctl --no-pager -u $apt_package
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -229,7 +229,7 @@ installCriCtlPackage() {
         exit 1
     fi
     echo "Installing ${packageName} with apt-get"
-    apt_get_install 20 30 ${packageName} || exit 1
+    apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
 installCredentialProviderFromPkg() {
@@ -573,7 +573,7 @@ ensureRunc() {
         fi
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
-    apt_get_install 20 30 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF

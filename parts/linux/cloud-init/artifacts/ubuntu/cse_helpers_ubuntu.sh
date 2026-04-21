@@ -78,7 +78,7 @@ _apt_get_install() {
     done
 }
 apt_get_install() {
-    retries=$1; wait_sleep=$2; shift && shift
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     _apt_get_install $retries $wait_sleep "-y" "$@"
 }
 apt_get_purge() {

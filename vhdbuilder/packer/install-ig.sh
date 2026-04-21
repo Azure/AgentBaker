@@ -105,7 +105,7 @@ ig_install_deb_stack() {
 
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_deb}" || return 1
 
-    if ! apt_get_install 30 1 "${ig_deb}" "${ig_gadgets_deb}"; then
+    if ! apt_get_install 30 1 600 "${ig_deb}" "${ig_gadgets_deb}"; then
         echo "[ig] Failed to install IG deb packages"
         return 1
     fi

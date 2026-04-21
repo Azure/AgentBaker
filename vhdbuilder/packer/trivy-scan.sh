@@ -85,7 +85,7 @@ install_azure_cli() {
 
     if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "22.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
         apt_get_update
-        apt_get_install 5 1 python3-pip
+        apt_get_install 5 1 60 python3-pip
         pip install azure-cli
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
         CHECKAZ=$(pip freeze | grep "azure-cli==")
@@ -94,17 +94,17 @@ install_azure_cli() {
             exit 1
         fi
     elif [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "24.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
-        apt_get_install 5 1 ca-certificates curl apt-transport-https lsb-release gnupg
+        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
         apt_get_update
-        apt_get_install 5 1 azure-cli
+        apt_get_install 5 1 60 azure-cli
     elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
-        apt_get_install 5 1 ca-certificates curl apt-transport-https lsb-release gnupg
+        apt_get_install 5 1 60 ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
         apt_get_update
-        apt_get_install 5 1 azure-cli
+        apt_get_install 5 1 60 azure-cli
     elif [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
         sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
         sudo sh -c 'echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
@@ -188,7 +188,7 @@ install_trivy() {
                     ;;
             esac
             apt_get_update
-            apt_get_install 5 1 trivy="${deb_version}"
+            apt_get_install 5 1 60 trivy="${deb_version}"
             ;;
         AzureLinux)
             # trivy RPMs are published in the AzureLinux 3.0 cloud-native PMC repo
