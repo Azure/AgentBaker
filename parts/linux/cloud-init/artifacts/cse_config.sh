@@ -1312,13 +1312,23 @@ generateLocalDNSFiles() {
     # LOCALDNS_COREFILE_EXPERIMENTAL is the variant WITH hosts plugin.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
+    # TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): force-enable the
+    # hosts plugin whenever localdns is enabled. Default FQDN list covers core AKS endpoints
+    # if RP didn't pass one. SHOULD_ENABLE_LOCALDNS is still RP-controlled.
+    _test_vhd_hosts_plugin="true"
+    _test_vhd_critical_fqdns="${LOCALDNS_CRITICAL_FQDNS:-mcr.microsoft.com,packages.aks.azure.com,management.azure.com,login.microsoftonline.com}"
+    echo "TEST-VHD: writing env file with SHOULD_ENABLE_HOSTS_PLUGIN=${_test_vhd_hosts_plugin} LOCALDNS_CRITICAL_FQDNS=${_test_vhd_critical_fqdns}" | tee -a /var/log/azure/cluster-provision-cse-output.log
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
 LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_base}
 LOCALDNS_COREFILE_BASE=${corefile_base}
 LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL:-}
-SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
-LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
+SHOULD_ENABLE_HOSTS_PLUGIN=${_test_vhd_hosts_plugin}
+LOCALDNS_CRITICAL_FQDNS=${_test_vhd_critical_fqdns}
 EOF
+    # Also export into the current shell so downstream CSE checks (cse_main.sh) see them.
+    SHOULD_ENABLE_HOSTS_PLUGIN="${_test_vhd_hosts_plugin}"
+    LOCALDNS_CRITICAL_FQDNS="${_test_vhd_critical_fqdns}"
+    export SHOULD_ENABLE_HOSTS_PLUGIN LOCALDNS_CRITICAL_FQDNS
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
 	mkdir -p "$(dirname "${LOCALDNS_SLICE_FILE}")"
@@ -1447,6 +1457,14 @@ enableAKSLocalDNSHostsSetup() {
     if [ ! -f "${hosts_setup_timer}" ]; then
         echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-localdns-hosts-setup"
         return
+    fi
+
+    # TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): if RP didn't pass
+    # FQDNs, use a default list so we can exercise the hosts plugin path end-to-end.
+    if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
+        LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,packages.aks.azure.com,management.azure.com,login.microsoftonline.com"
+        export LOCALDNS_CRITICAL_FQDNS
+        echo "TEST-VHD: LOCALDNS_CRITICAL_FQDNS was empty, defaulting to ${LOCALDNS_CRITICAL_FQDNS}" | tee -a /var/log/azure/cluster-provision-cse-output.log
     fi
 
     # Verify LOCALDNS_CRITICAL_FQDNS is set before proceeding; if not, skip hosts setup.

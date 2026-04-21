@@ -62,7 +62,11 @@ function basePrep {
     # maximizes the time for DNS resolution to complete in the background while the rest
     # of basePrep runs. By the time enableLocalDNS() starts CoreDNS (end of basePrep),
     # the hosts file should already be populated.
-    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+    # TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): hosts plugin gate
+    # removed — always run hosts-setup when localdns is enabled. RP's SHOULD_ENABLE_HOSTS_PLUGIN
+    # is ignored on this VHD so we can perf-test without RP changes.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        echo "TEST-VHD: forcing hosts plugin setup (SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>} ignored)" | tee -a /var/log/azure/cluster-provision-cse-output.log
         logs_to_events "AKS.CSE.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
     fi
 
