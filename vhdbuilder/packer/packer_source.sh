@@ -317,17 +317,20 @@ copyPackerFiles() {
     cpAndMode $LOCALDNS_EXPORTER_SERVICE_SRC $LOCALDNS_EXPORTER_SERVICE_DEST 0644
   fi
 
-  AKS_LOCALDNS_HOSTS_SETUP_SH_SRC=/home/packer/aks-localdns-hosts-setup.sh
-  AKS_LOCALDNS_HOSTS_SETUP_SH_DEST=/opt/azure/containers/aks-localdns-hosts-setup.sh
-  cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_SH_SRC $AKS_LOCALDNS_HOSTS_SETUP_SH_DEST 0755
+  # Skip aks-localdns-hosts-setup for Flatcar (EOL June 2026, no new features)
+  if ! isFlatcar "$OS"; then
+    AKS_LOCALDNS_HOSTS_SETUP_SH_SRC=/home/packer/aks-localdns-hosts-setup.sh
+    AKS_LOCALDNS_HOSTS_SETUP_SH_DEST=/opt/azure/containers/aks-localdns-hosts-setup.sh
+    cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_SH_SRC $AKS_LOCALDNS_HOSTS_SETUP_SH_DEST 0755
 
-  AKS_LOCALDNS_HOSTS_SETUP_SVC_SRC=/home/packer/aks-localdns-hosts-setup.service
-  AKS_LOCALDNS_HOSTS_SETUP_SVC_DEST=/etc/systemd/system/aks-localdns-hosts-setup.service
-  cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_SVC_SRC $AKS_LOCALDNS_HOSTS_SETUP_SVC_DEST 0644
+    AKS_LOCALDNS_HOSTS_SETUP_SVC_SRC=/home/packer/aks-localdns-hosts-setup.service
+    AKS_LOCALDNS_HOSTS_SETUP_SVC_DEST=/etc/systemd/system/aks-localdns-hosts-setup.service
+    cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_SVC_SRC $AKS_LOCALDNS_HOSTS_SETUP_SVC_DEST 0644
 
-  AKS_LOCALDNS_HOSTS_SETUP_TIMER_SRC=/home/packer/aks-localdns-hosts-setup.timer
-  AKS_LOCALDNS_HOSTS_SETUP_TIMER_DEST=/etc/systemd/system/aks-localdns-hosts-setup.timer
-  cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_TIMER_SRC $AKS_LOCALDNS_HOSTS_SETUP_TIMER_DEST 0644
+    AKS_LOCALDNS_HOSTS_SETUP_TIMER_SRC=/home/packer/aks-localdns-hosts-setup.timer
+    AKS_LOCALDNS_HOSTS_SETUP_TIMER_DEST=/etc/systemd/system/aks-localdns-hosts-setup.timer
+    cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_TIMER_SRC $AKS_LOCALDNS_HOSTS_SETUP_TIMER_DEST 0644
+  fi
 # ---------------------------------------------------------------------------------------
 
 # ------------------------- Files related to azure-network ------------------------------
