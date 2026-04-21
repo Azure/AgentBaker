@@ -25,19 +25,19 @@ installBcc() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
-        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_install 120 5 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
-        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_install 120 5 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     # Installing it separately here because python3-distutils is not present in the Ubuntu packages for 24.04
     if [ "${VERSION}" = "22.04" ]; then
-      apt_get_install 120 5 300 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
+      apt_get_install 120 5 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
     if [ "${VERSION}" = "24.04" ]; then
-      apt_get_install 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+      apt_get_install 120 5 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     mkdir -p /tmp/bcc
@@ -85,7 +85,7 @@ installBpftrace() {
         # the binary at "$bpftrace_url/$bpftrace_bin" is not for arm64
         if [ ! -f "/usr/sbin/bpftrace" ]; then
             apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-            apt_get_install 120 5 300 bpftrace || exit $ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT
+            apt_get_install 120 5 bpftrace || exit $ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT
         fi
         return
     fi
@@ -132,7 +132,7 @@ disableNtpAndTimesyncdInstallChrony() {
 
     # Install chrony
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
+    apt_get_install 20 30 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
     cat > /etc/chrony/chrony.conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usuable directives.
