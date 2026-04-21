@@ -305,6 +305,11 @@
       "matchPackageNames": [
         "**/kubernetes/coredns"
       ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
       "groupName": "coredns",
       "assignees": [
         "ashokobulapuram7"
