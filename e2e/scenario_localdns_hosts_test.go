@@ -11,8 +11,9 @@ import (
 
 // Test_LocalDNSHostsPlugin tests the localdns hosts plugin across all supported distros
 // on the legacy (bash CSE) bootstrap path.
-// Hosts plugin validators (AA flag, IP match, Corefile, hosts file) run automatically
-// via ValidateCommonLinux when EnableHostsPlugin is set.
+// Hosts plugin validators (IP match, Corefile, hosts file) run automatically
+// via ValidateCommonLinux when EnableHostsPlugin is set; this test does not assert
+// on DNS flags such as AA/RA.
 //
 // Run a single distro with: go test -run "Test_LocalDNSHostsPlugin/AzureLinuxV3" -v
 func Test_LocalDNSHostsPlugin(t *testing.T) {
