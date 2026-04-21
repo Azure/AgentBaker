@@ -643,27 +643,34 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 		return fmt.Errorf("create a new images client: %v", err)
 	}
 
-	newRegion := &armcompute.TargetRegion{
-		Name:                 &location,
-		RegionalReplicaCount: to.Ptr[int32](1),
-		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
-	}
-
 	if image.ConfidentialVM {
-		// For CVM images, Azure requires NonPersistedTPM encryption on all non-home
-		// target regions. Existing regions may lack this (legacy replication), and their
-		// encryption can't be changed (PropertyChangeNotAllowed). To work around this,
-		// replace all target regions with just the region we need, using NonPersistedTPM.
-		newRegion.Encryption = &armcompute.EncryptionImages{
+		// For CVM images, Azure requires NonPersistedTPM encryption on ALL target
+		// regions for cross-region replication. We must:
+		// 1. Keep all existing regions (can't drop the image version's home region)
+		// 2. Set NonPersistedTPM on every region (all must match)
+		// 3. Add the new region with NonPersistedTPM
+		cvmEncryption := &armcompute.EncryptionImages{
 			OSDiskImage: &armcompute.OSDiskImageEncryption{
 				SecurityProfile: &armcompute.OSDiskImageSecurityProfile{
 					ConfidentialVMEncryptionType: to.Ptr(armcompute.ConfidentialVMEncryptionTypeNonPersistedTPM),
 				},
 			},
 		}
-		version.Properties.PublishingProfile.TargetRegions = []*armcompute.TargetRegion{newRegion}
+		for _, region := range version.Properties.PublishingProfile.TargetRegions {
+			region.Encryption = cvmEncryption
+		}
+		version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+			Name:                 &location,
+			RegionalReplicaCount: to.Ptr[int32](1),
+			StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+			Encryption:           cvmEncryption,
+		})
 	} else {
-		version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, newRegion)
+		version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+			Name:                 &location,
+			RegionalReplicaCount: to.Ptr[int32](1),
+			StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+		})
 	}
 
 	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
