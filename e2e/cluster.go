@@ -90,8 +90,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	// networkSetup adds firewall routes to the AKS route table or applies
-	// network-isolated NSG.  It must run after bastion (both mutate the
+	// networkSetup adds firewall routes to the existing AKS route table or
+	// creates/associates a dedicated one when Azure CNI has none, or applies
+	// the network-isolated NSG. It must run after bastion (both mutate the
 	// VNet) and before collectGarbageVMSS (which needs network setup done).
 	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
 	// objects whose backing VMSS no longer exist.

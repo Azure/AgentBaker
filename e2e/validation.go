@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
@@ -73,7 +74,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	}
 
 	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
-	if !s.VHD.UnsupportedLocalDns {
+	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 		ValidateLocalDNSExporterMetrics(ctx, s)
