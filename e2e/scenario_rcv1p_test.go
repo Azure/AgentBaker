@@ -75,7 +75,7 @@ func skipIfRCV1PNotExplicit(t *testing.T) {
 
 // hasExplicitRCV1PSubscription returns true when RCV1P_SUBSCRIPTION_ID is set to a real value.
 func hasExplicitRCV1PSubscription() bool {
-	subID := config.Config.RCV1PSubscriptionID
+	subID := strings.TrimSpace(config.Config.RCV1PSubscriptionID)
 	return subID != "" && !strings.HasPrefix(subID, "$(")
 }
 
@@ -92,7 +92,7 @@ func rcv1pAzureClient() *config.AzureClient {
 // is set, returns it. Otherwise returns "" (falls back to default via Scenario.GetSubscriptionID).
 func rcv1pSubscriptionID() string {
 	if hasExplicitRCV1PSubscription() {
-		return config.Config.RCV1PSubscriptionID
+		return strings.TrimSpace(config.Config.RCV1PSubscriptionID)
 	}
 	return ""
 }
