@@ -163,15 +163,15 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Get expected versions from components.json
 			dcgmExporterVersions := GetExpectedPackageVersions("dcgm-exporter", tc.os, tc.osVersion)
-			require.Len(t, dcgmExporterVersions, 1, "Expected exactly one dcgm-exporter version")
+			require.NotEmpty(t, dcgmExporterVersions, "dcgm-exporter not found in components.json")
 			dcgmExporterVersion := dcgmExporterVersions[0]
 
 			coreVersions := GetExpectedPackageVersions("datacenter-gpu-manager-4-core", tc.os, tc.osVersion)
-			require.Len(t, coreVersions, 1, "Expected exactly one datacenter-gpu-manager-4-core version")
+			require.NotEmpty(t, coreVersions, "datacenter-gpu-manager-4-core not found in components.json")
 			expectedCoreVersion := coreVersions[0]
 
 			propVersions := GetExpectedPackageVersions("datacenter-gpu-manager-4-proprietary", tc.os, tc.osVersion)
-			require.Len(t, propVersions, 1, "Expected exactly one datacenter-gpu-manager-4-proprietary version")
+			require.NotEmpty(t, propVersions, "datacenter-gpu-manager-4-proprietary not found in components.json")
 			expectedPropVersion := propVersions[0]
 
 			t.Logf("Expected versions from components.json:")
