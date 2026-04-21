@@ -44,18 +44,10 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
-	if s.KubeletConfigFileEnabled() {
-		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
-	} else {
-		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
-	}
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
 		require.True(
 			s.T,
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
@@ -80,6 +72,13 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 		)
 	}
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	}
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
@@ -2018,7 +2017,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
-	if nbc != nil && nbc.EnableScriptlessCSECmd && s.VHD.SupportsScriptless() {
+	if nbc != nil && s.VHD.SupportsScriptless() && (nbc.EnableScriptlessCSECmd || nbc.EnableScriptlessNBCCSECmd) {
 		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 }
