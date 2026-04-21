@@ -1428,6 +1428,53 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 	})
 })
 
+var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
+	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		agentPoolProfile := &datamodel.AgentPoolProfile{
+			Name:   "nodepool1",
+			OSType: datamodel.Linux,
+			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+		}
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
+				},
+			},
+			AgentPoolProfile:          agentPoolProfile,
+			CloudSpecConfig:           datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:             &datamodel.K8sComponents{},
+			KubeletConfig:             map[string]string{},
+			EnableScriptlessNBCCSECmd: true,
+		}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
+		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+	})
+})
+
 var _ = Describe("cloudInitToButane", func() {
 	checkForUnit := func(butane flatcar1_1.Config) {
 		Expect(butane.Systemd.Units).To(HaveLen(2))

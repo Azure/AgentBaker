@@ -219,8 +219,9 @@ function Get-KubePackage {
         }
         Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubeletBinariesWithOras" -TaskMessage "Start to download kubelet binaries with oras. KubeBinariesVersion: $global:KubeBinariesVersion, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
         $orasReference = "$($global:BootstrapProfileContainerRegistryServer)/aks/packages/kubernetes/windowszip:v$($global:KubeBinariesVersion)"
+        $cachedFileName = Get-FileNameFromUrl -Url $KubeBinariesSASURL
         try {
-            Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$zipfile} -Retries 5 -RetryDelaySeconds 10
+            Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$zipfile; CachedFile=$cachedFileName} -Retries 5 -RetryDelaySeconds 10
         } catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_WINDOWSZIP_FAIL -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
         }

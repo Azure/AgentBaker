@@ -90,11 +90,12 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	// networkSetup associates a route table with aks-subnet (firewall or
-	// network-isolated NSG).  It must run after bastion (both mutate the
-	// VNet) and before collectGarbageVMSS (VMSS deletion triggers AKS
-	// cloud-controller route reconciliation that can race with the subnet
-	// association and leave the AKS pod route table detached).
+	// networkSetup adds firewall routes to the existing AKS route table or
+	// creates/associates a dedicated one when Azure CNI has none, or applies
+	// the network-isolated NSG. It must run after bastion (both mutate the
+	// VNet) and before collectGarbageVMSS (which needs network setup done).
+	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
+	// objects whose backing VMSS no longer exist.
 	dag.Run(g, func(ctx context.Context) error { return collectGarbagePrivateDNSZones(ctx, cluster) })
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {

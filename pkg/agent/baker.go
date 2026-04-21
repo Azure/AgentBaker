@@ -52,10 +52,15 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers
 
-cat <<'EOF' | base64 -d >/opt/azure/containers/aks-node-controller-nbc-cmd.sh
-%s
+cat <<'EOF' | base64 -d | gzip -d >%[1]s
+%[2]s
 EOF
-chmod 0600 /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+chmod 0600 %[1]s
+
+cat <<'EOF' | base64 -d | gzip -d >%[3]s
+%[4]s
+EOF
+chmod 0600 %[3]s
 
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
@@ -64,12 +69,19 @@ systemctl start --no-block aks-node-controller.service
      "ignition": { "version": "3.4.0" },
      "storage": {
        "files": [{
-         "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
-         "mode": 384,
-         "contents": { "source": "data:;base64,%s" }
+        "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
+        "mode": 384,
+        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+       },
+	   {
+        "path": "/opt/azure/containers/nodecustomdata.yml",
+        "mode": 384,
+        "contents": { "compression": "gzip","source": "data:;base64,%s" }
        }]
-     }
-    }`
+      }
+     }`
+	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
+	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -82,13 +94,22 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.EnableScriptlessNBCCSECmd {
 		config.DisableCustomData = true
+		config.EnableScriptlessCSECmd = true
 		nbcCMD := t.getLinuxNodeCSECommand(config)
-		encodedNBCCMD := base64.StdEncoding.EncodeToString([]byte(nbcCMD))
+		encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
+		nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 		var customData string
 		if config.IsFlatcar() || config.IsACL() {
-			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD)
+			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData)
 		} else {
-			customData = fmt.Sprintf(boothookTemplate, encodedNBCCMD)
+			customData = fmt.Sprintf(
+				boothookTemplate,
+				nodeCustomDataPath,
+				encodedNodeCustomData,
+				nbcCmdFilePath,
+				encodedNBCCMD,
+			)
 		}
 
 		return base64.StdEncoding.EncodeToString([]byte(customData))

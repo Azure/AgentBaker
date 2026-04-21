@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	// localdns validation is skipped for VHDs with UnsupportedLocalDns=true:
 	// FIPS VHDs, older pinned VHDs (privatekube, network-isolated-k8s-not-cached), and AzureLinux OSGuard.
 	// See e2e/config/vhd.go for the full list.
-	if !s.VHD.UnsupportedLocalDns {
+	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 		ValidateLocalDNSExporterMetrics(ctx, s)
