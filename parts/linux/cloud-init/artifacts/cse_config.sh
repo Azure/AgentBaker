@@ -1318,14 +1318,6 @@ LOCALDNS_COREFILE_BASE=${corefile_base}
 LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL:-}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
 LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
-# TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): force-enable the
-# hosts plugin on this VHD so we can benchmark perf without waiting on RP to ship
-# the feature flag. SHOULD_ENABLE_LOCALDNS is still RP-controlled. If RP doesn't
-# supply LOCALDNS_CRITICAL_FQDNS, fall back to a default list.
-SHOULD_ENABLE_HOSTS_PLUGIN="true"
-if [ -z "${LOCALDNS_CRITICAL_FQDNS}" ]; then
-    LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,packages.aks.azure.com,management.azure.com,login.microsoftonline.com"
-fi
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
