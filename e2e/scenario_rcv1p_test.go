@@ -47,7 +47,7 @@ func skipIfRCV1PNotConfigured(t *testing.T) {
 	// Always log feature flag status on the default E2E subscription for diagnostics
 	logE2ESubscriptionFeatureFlag(t)
 
-	subID := config.Config.RCV1PSubscriptionID
+	subID := strings.TrimSpace(config.Config.RCV1PSubscriptionID)
 	if subID == "" || strings.HasPrefix(subID, "$(") {
 		t.Skip("RCV1P_SUBSCRIPTION_ID not set or not resolved, skipping RCV1P cert mode test")
 	}
