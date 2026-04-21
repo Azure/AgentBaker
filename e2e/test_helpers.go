@@ -486,6 +486,25 @@ func validateVM(ctx context.Context, s *Scenario) {
 }
 
 func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+	// Re-fetch the VM with instance view to ensure we have fresh extension status data.
+	// The VM object passed in may have been fetched before the CSE finished executing,
+	// so the extension status message could be empty or stale.
+	if vmssVM.InstanceID != nil {
+		ctx := context.Background()
+		freshVM, err := s.GetAzure().VMSSVM.Get(ctx,
+			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+			s.Runtime.VMSSName,
+			*vmssVM.InstanceID,
+			&armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+				Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+			})
+		if err == nil && freshVM.Properties != nil && freshVM.Properties.InstanceView != nil {
+			vmssVM.Properties.InstanceView = freshVM.Properties.InstanceView
+		} else if err != nil {
+			s.T.Logf("warning: failed to re-fetch VM instance view for CSE status: %v", err)
+		}
+	}
+
 	for _, extension := range vmssVM.Properties.InstanceView.Extensions {
 		// Only process the CSE extension, skip other extensions (e.g., ManagedIdentity)
 		// whose empty status messages would overwrite the actual CSE output file.
