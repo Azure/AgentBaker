@@ -325,13 +325,13 @@ installPkgWithAptGet() {
     local debFile=""
     local fullPackageVersion=""
 
-    if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
-        echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
-        rm -rf "${downloadDir}"
-        return 0
-    fi
+    # if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
+    #     echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+    #     rm -rf "${downloadDir}"
+    #     return 0
+    # fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    # debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
 
         # update pmc repo to get latest versions
