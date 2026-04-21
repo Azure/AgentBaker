@@ -569,17 +569,7 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	}
 	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		regionInfo := *targetRegion.Name
-		if targetRegion.Encryption != nil && targetRegion.Encryption.OSDiskImage != nil && targetRegion.Encryption.OSDiskImage.SecurityProfile != nil {
-			regionInfo += fmt.Sprintf(" (encryption: %v)", *targetRegion.Encryption.OSDiskImage.SecurityProfile.ConfidentialVMEncryptionType)
-		} else if targetRegion.Encryption != nil && targetRegion.Encryption.OSDiskImage != nil {
-			regionInfo += " (encryption: osDiskImage set, no securityProfile)"
-		} else if targetRegion.Encryption != nil {
-			regionInfo += " (encryption: set, no osDiskImage)"
-		} else {
-			regionInfo += " (encryption: nil)"
-		}
-		regions = append(regions, regionInfo)
+		regions = append(regions, *targetRegion.Name)
 	}
 	toolkit.Logf(ctx, "Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
 	toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s", location)
@@ -662,7 +652,7 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 		newRegion.Encryption = &armcompute.EncryptionImages{
 			OSDiskImage: &armcompute.OSDiskImageEncryption{
 				SecurityProfile: &armcompute.OSDiskImageSecurityProfile{
-					ConfidentialVMEncryptionType: to.Ptr(armcompute.ConfidentialVMEncryptionTypeNonPersistedTPM),
+					ConfidentialVMEncryptionType: to.Ptr(armcompute.ConfidentialVMEncryptionTypeEncryptedVMGuestStateOnlyWithPmk),
 				},
 			},
 		}
@@ -728,6 +718,7 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusBadGateway,          // 502
 			http.StatusServiceUnavailable,  // 503
 			http.StatusGatewayTimeout,      // 504
+			http.StatusNotFound,            // 404
 		},
 	}
 }
