@@ -479,10 +479,26 @@ func validateVM(ctx context.Context, s *Scenario) {
 
 func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
 	for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+		// Only process the CSE extension, skip other extensions (e.g., ManagedIdentity)
+		// whose empty status messages would overwrite the actual CSE output file.
+		// The extension name in InstanceView is typically "vmssCSE" (matching the resource name)
+		// but may also appear as the handler type. Match on known CSE identifiers.
+		if extension.Name == nil {
+			continue
+		}
+		name := strings.ToLower(*extension.Name)
+		isCSE := name == "vmsscse" ||
+			strings.Contains(name, "customscript") ||
+			strings.Contains(name, "aksnode")
+		if !isCSE {
+			continue
+		}
 		for _, status := range extension.Statuses {
 			if s.IsWindows() {
-				// Save the CSE output for Windows VMs for better troubleshooting
-				if status.Message != nil {
+				// Save the CSE output for Windows VMs for better troubleshooting.
+				// Only write when the message has actual content to avoid overwriting
+				// with an empty file from a status entry that has no output.
+				if status.Message != nil && *status.Message != "" {
 					logDir := testDir(s.T)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
@@ -490,7 +506,7 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 						if err != nil {
 							s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
 						} else {
-							s.T.Logf("saved Windows CSE output to %s", logFile)
+							s.T.Logf("saved Windows CSE output to %s (%d bytes)", logFile, len(*status.Message))
 						}
 					}
 				}
