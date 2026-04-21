@@ -569,7 +569,17 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	}
 	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		regions = append(regions, *targetRegion.Name)
+		regionInfo := *targetRegion.Name
+		if targetRegion.Encryption != nil && targetRegion.Encryption.OSDiskImage != nil && targetRegion.Encryption.OSDiskImage.SecurityProfile != nil {
+			regionInfo += fmt.Sprintf(" (encryption: %v)", *targetRegion.Encryption.OSDiskImage.SecurityProfile.ConfidentialVMEncryptionType)
+		} else if targetRegion.Encryption != nil && targetRegion.Encryption.OSDiskImage != nil {
+			regionInfo += " (encryption: osDiskImage set, no securityProfile)"
+		} else if targetRegion.Encryption != nil {
+			regionInfo += " (encryption: set, no osDiskImage)"
+		} else {
+			regionInfo += " (encryption: nil)"
+		}
+		regions = append(regions, regionInfo)
 	}
 	toolkit.Logf(ctx, "Replicating to region %s, available regions: %s, image version %s", location, strings.Join(regions, ", "), *version.ID)
 	toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s", location)
