@@ -421,8 +421,11 @@ ensureNoDupOnPromiscuBridge() {
 }
 
 ensureArtifactStreaming() {
-  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  # Start overlaybd services before waiting for containerd, as containerd
+  # may block on connecting to the overlaybd snapshotter proxy plugin socket
+  # when artifact streaming is configured in the containerd config.
   retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
   /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 

@@ -37,12 +37,6 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
-{{- if .GetEnableArtifactStreaming }}
-[proxy_plugins]
-  [proxy_plugins.overlaybd]
-	type = "snapshot"
-	address = "/run/overlaybd-snapshotter/overlaybd.sock"
-{{- end}}
 {{- if .GetIsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
@@ -58,10 +52,6 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   Root = ""
   CriuPath = ""
   SystemdCgroup = false
-[proxy_plugins]
-  [proxy_plugins.tardev]
-    type = "snapshot"
-    address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
@@ -69,4 +59,17 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
+{{- if or (.GetEnableArtifactStreaming) (.GetIsKata) }}
+[proxy_plugins]
+{{- if .GetEnableArtifactStreaming }}
+  [proxy_plugins.overlaybd]
+	type = "snapshot"
+	address = "/run/overlaybd-snapshotter/overlaybd.sock"
+{{- end}}
+{{- if .GetIsKata }}
+  [proxy_plugins.tardev]
+    type = "snapshot"
+    address = "/run/containerd/tardev-snapshotter.sock"
+{{- end}}
 {{- end}}
