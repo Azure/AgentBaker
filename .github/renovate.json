@@ -161,23 +161,7 @@
     {
       "matchPackageNames": [
         "kubelet",
-        "kubectl"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true,
-      "groupName": "kubelet-kubectl",
-      "assignees": [
-        "team:aks-node-lifecycle"
-      ],
-      "reviewers": [
-        "team:aks-node-lifecycle"
-      ]
-    },
-    {
-      "matchPackageNames": [
+        "kubectl",
         "oss/v2/kubernetes/kubelet-sysext",
         "oss/v2/kubernetes/kubectl-sysext"
       ],
@@ -186,7 +170,7 @@
       ],
       "automerge": false,
       "enabled": true,
-      "groupName": "kubelet-kubectl-sysext",
+      "groupName": "kubelet-kubectl",
       "assignees": [
         "team:aks-node-lifecycle"
       ],
@@ -319,10 +303,22 @@
     },
     {
       "matchPackageNames": [
-        "**/kubernetes/autoscaler/addon-resizer",
-        "**/kubernetes/autoscaler/cluster-proportional-autoscaler",
         "**/kubernetes/coredns"
       ],
+      "groupName": "coredns",
+      "assignees": [
+        "ashokobulapuram7"
+      ],
+      "reviewers": [
+        "ashokobulapuram7"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "**/kubernetes/autoscaler/addon-resizer",
+        "**/kubernetes/autoscaler/cluster-proportional-autoscaler"
+      ],
+      "groupName": "autoscaler",
       "assignees": [
         "ashokobulapuram7"
       ],
