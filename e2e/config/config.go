@@ -183,8 +183,9 @@ func mustLoadConfig() *Configuration {
 }
 
 func init() {
-	if Config.RCV1PSubscriptionID != "" && !strings.HasPrefix(Config.RCV1PSubscriptionID, "$(") {
-		client, err := NewAzureClientForSubscription(Config.RCV1PSubscriptionID)
+	rcv1pSubID := strings.TrimSpace(Config.RCV1PSubscriptionID)
+	if rcv1pSubID != "" && !strings.HasPrefix(rcv1pSubID, "$(") {
+		client, err := NewAzureClientForSubscription(rcv1pSubID)
 		if err != nil {
 			panic(fmt.Sprintf("failed to create RCV1P Azure client: %v", err))
 		}
