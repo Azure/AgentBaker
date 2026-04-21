@@ -1,5 +1,89 @@
 #!/bin/bash
 
+Describe 'localdns-exporter@.service security hardening'
+    UNIT_FILE="./parts/linux/cloud-init/artifacts/localdns-exporter@.service"
+
+    It 'should have DynamicUser=yes'
+        When run grep -q "^DynamicUser=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have PrivateTmp=yes'
+        When run grep -q "^PrivateTmp=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have ProtectSystem=strict'
+        When run grep -q "^ProtectSystem=strict$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have ProtectHome=yes'
+        When run grep -q "^ProtectHome=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have ReadOnlyPaths=/'
+        When run grep -q "^ReadOnlyPaths=/$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have NoNewPrivileges=yes'
+        When run grep -q "^NoNewPrivileges=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have ProtectKernelTunables=yes'
+        When run grep -q "^ProtectKernelTunables=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have ProtectKernelModules=yes'
+        When run grep -q "^ProtectKernelModules=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have ProtectControlGroups=yes'
+        When run grep -q "^ProtectControlGroups=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have RestrictAddressFamilies with AF_UNIX AF_INET AF_INET6'
+        When run grep -q "^RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have RestrictNamespaces=yes'
+        When run grep -q "^RestrictNamespaces=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have LockPersonality=yes'
+        When run grep -q "^LockPersonality=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have RestrictRealtime=yes'
+        When run grep -q "^RestrictRealtime=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have RestrictSUIDSGID=yes'
+        When run grep -q "^RestrictSUIDSGID=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have RemoveIPC=yes'
+        When run grep -q "^RemoveIPC=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+
+    It 'should have PrivateMounts=yes'
+        When run grep -q "^PrivateMounts=yes$" "$UNIT_FILE"
+        The status should be success
+    End
+End
+
 Describe 'localdns_exporter.sh HTTP request routing'
     SCRIPT_PATH="./parts/linux/cloud-init/artifacts/localdns_exporter.sh"
 
