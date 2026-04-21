@@ -1422,12 +1422,12 @@ func Test_Ubuntu2204_ArtifactStreaming_FIPS_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_ArtifactStreaming_CVM(t *testing.T) {
+func Test_Ubuntu2404_ArtifactStreaming_CVM(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a new azure linux v3 CVM node using artifact streaming can be properly bootstrapped",
+		Description: "tests that a new ubuntu 2404 CVM node using artifact streaming can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3CVMGen2,
+			VHD:     config.VHDUbuntu2404CVMGen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 				nbc.AgentPoolProfile.VMSize = "Standard_DC2as_v5"
@@ -1447,15 +1447,15 @@ func Test_AzureLinuxV3_ArtifactStreaming_CVM(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV3_ArtifactStreaming_CVM_Scriptless(t *testing.T) {
+func Test_Ubuntu2404_ArtifactStreaming_CVM_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a new azure linux v3 CVM node using artifact streaming can be properly bootstrapped",
+		Description: "tests that a new ubuntu 2404 CVM node using artifact streaming can be properly bootstrapped",
 		Tags: Tags{
 			Scriptless: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3CVMGen2,
+			VHD:     config.VHDUbuntu2404CVMGen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_DC2as_v5"

@@ -105,14 +105,6 @@ var (
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: imageGalleryLinux,
 	}
-	VHDAzureLinuxV3CVMGen2 = &Image{
-		Name:           "AzureLinuxV3gen2CVM",
-		OS:             OSAzureLinux,
-		Arch:           "amd64",
-		Distro:         datamodel.AKSAzureLinuxV3CVMGen2,
-		Gallery:        imageGalleryLinux,
-		ConfidentialVM: true,
-	}
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
 		OS:                  OSAzureLinux,
@@ -175,6 +167,14 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 		Gallery: imageGalleryLinux,
+	}
+	VHDUbuntu2404CVMGen2Containerd = &Image{
+		Name:           "2404gen2CVMcontainerd",
+		OS:             OSUbuntu,
+		Arch:           "amd64",
+		Distro:         datamodel.AKSUbuntuContainerd2404CVMGen2,
+		Gallery:        imageGalleryLinux,
+		ConfidentialVM: true,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
