@@ -1830,8 +1830,8 @@ getPackageExpectedVersion() {
   local packageJson
   packageJson=$(jq -c ".Packages[] | select(.name == \"${packageName}\")" "$COMPONENTS_FILEPATH")
   if [ -z "$packageJson" ]; then
-    echo "<SKIP>"
-    return 0
+    echo "ERROR: package '${packageName}' not found in ${COMPONENTS_FILEPATH} for OS='${targetOS}' version='${targetOSVersion}' variant='${targetOSVariant}'" >&2
+    return 1
   fi
 
   local previousOS="${OS:-}"
