@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/blakesmith/ar"
@@ -187,8 +188,7 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 			require.NoError(t, err)
 			defer os.Remove(tmpFile.Name())
 
-			resp, err := http.Get(url)
-			require.NoError(t, err)
+			resp := downloadWithRetry(t, url, 3)
 			defer resp.Body.Close()
 			require.Equal(t, http.StatusOK, resp.StatusCode, "Failed to download dcgm-exporter package from %s", url)
 
@@ -216,6 +216,24 @@ func TestDCGMExporterCompatibility(t *testing.T) {
 				dcgmExporterVersion, expectedCoreVersion)
 		})
 	}
+}
+
+// downloadWithRetry downloads a URL with a timeout and retries on transient failures.
+func downloadWithRetry(t *testing.T, url string, maxRetries int) *http.Response {
+	t.Helper()
+	client := &http.Client{Timeout: 60 * time.Second}
+	var lastErr error
+	for attempt := range maxRetries {
+		resp, err := client.Get(url)
+		if err == nil {
+			return resp
+		}
+		lastErr = err
+		t.Logf("Download attempt %d/%d failed: %v", attempt+1, maxRetries, err)
+		time.Sleep(time.Duration(attempt+1) * 2 * time.Second)
+	}
+	require.NoError(t, lastErr, "All %d download attempts failed for %s", maxRetries, url)
+	return nil // unreachable
 }
 
 // parseDebDeps extracts datacenter-gpu-manager-4-core and datacenter-gpu-manager-4-proprietary
@@ -259,27 +277,49 @@ func parseDebDeps(t *testing.T, path string) (string, string) {
 				data, err := io.ReadAll(tarReader)
 				require.NoError(t, err)
 
-				// Parse Depends line
-				scanner := bufio.NewScanner(strings.NewReader(string(data)))
-				for scanner.Scan() {
-					line := scanner.Text()
-					if strings.HasPrefix(line, "Depends:") {
-						coreRegex := regexp.MustCompile(`datacenter-gpu-manager-4-core \(= ([^)]+)\)`)
-						propRegex := regexp.MustCompile(`datacenter-gpu-manager-4-proprietary \(= ([^)]+)\)`)
+				// Parse Depends field, handling RFC822 continuation lines
+				// (subsequent lines starting with space/tab are part of the same field)
+				dependsValue := parseDebControlField(string(data), "Depends")
+				require.NotEmpty(t, dependsValue, "Depends field not found in control file")
 
-						coreMatches := coreRegex.FindStringSubmatch(line)
-						require.Len(t, coreMatches, 2, "Failed to extract datacenter-gpu-manager-4-core version from Depends")
+				coreRegex := regexp.MustCompile(`datacenter-gpu-manager-4-core \(= ([^)]+)\)`)
+				propRegex := regexp.MustCompile(`datacenter-gpu-manager-4-proprietary \(= ([^)]+)\)`)
 
-						propMatches := propRegex.FindStringSubmatch(line)
-						require.Len(t, propMatches, 2, "Failed to extract datacenter-gpu-manager-4-proprietary version from Depends")
+				coreMatches := coreRegex.FindStringSubmatch(dependsValue)
+				require.Len(t, coreMatches, 2, "Failed to extract datacenter-gpu-manager-4-core version from Depends")
 
-						return coreMatches[1], propMatches[1]
-					}
-				}
-				require.Fail(t, "Depends line not found in control file")
+				propMatches := propRegex.FindStringSubmatch(dependsValue)
+				require.Len(t, propMatches, 2, "Failed to extract datacenter-gpu-manager-4-proprietary version from Depends")
+
+				return coreMatches[1], propMatches[1]
 			}
 		}
 	}
+}
+
+// parseDebControlField extracts the value of an RFC822-style field from a Debian control file,
+// handling continuation lines (lines starting with space or tab).
+func parseDebControlField(control, field string) string {
+	prefix := field + ":"
+	var result strings.Builder
+	found := false
+	scanner := bufio.NewScanner(strings.NewReader(control))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if found {
+			if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+				result.WriteString(" ")
+				result.WriteString(strings.TrimSpace(line))
+				continue
+			}
+			break
+		}
+		if strings.HasPrefix(line, prefix) {
+			found = true
+			result.WriteString(strings.TrimSpace(strings.TrimPrefix(line, prefix)))
+		}
+	}
+	return result.String()
 }
 
 // parseRPMDeps extracts datacenter-gpu-manager-4-core and datacenter-gpu-manager-4-proprietary
