@@ -299,9 +299,11 @@ func parseRPMDeps(t *testing.T, path string) (string, string) {
 	for _, req := range pkg.Requires() {
 		name := req.Name()
 		if name == "datacenter-gpu-manager-4-core" {
+			t.Logf("RPM dependency %s: epoch=%d version=%s release=%s", name, req.Epoch(), req.Version(), req.Release())
 			coreVersion = formatRPMVersion(req)
 		}
 		if name == "datacenter-gpu-manager-4-proprietary" {
+			t.Logf("RPM dependency %s: epoch=%d version=%s release=%s", name, req.Epoch(), req.Version(), req.Release())
 			propVersion = formatRPMVersion(req)
 		}
 	}
