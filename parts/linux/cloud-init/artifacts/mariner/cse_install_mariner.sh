@@ -76,6 +76,13 @@ installKataDeps() {
     fi
 }
 
+installRDMAUserspace() {
+    echo "Installing rdma-core for RDMA-capable VM size"
+    if ! dnf_install 30 1 600 rdma-core; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+}
+
 installCriCtlPackage() {
   version="${1:-}"
   packageName="kubernetes-cri-tools-${version}"

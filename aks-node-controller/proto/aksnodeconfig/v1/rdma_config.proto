@@ -1,0 +1,11 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message RdmaConfig {
+  // enable_rdma indicates the VM size is RDMA-capable and the rdma-core
+  // userspace package should be installed during node bootstrap to enable
+  // RDMA kernel module autoloading (rdma_cm, rdma_ucm, ib_umad, ib_ipoib).
+  bool enable_rdma = 1;
+}

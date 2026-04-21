@@ -432,6 +432,13 @@ function nodePrep {
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
+    # Install RDMA userspace package if this is an RDMA-capable node
+    if [ "${RDMA_NODE}" = "true" ]; then
+        if isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.installRDMAUserspace" installRDMAUserspace
+        fi
+    fi
+
     # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
     if isAmdAmaEnabledNode; then
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma

@@ -138,6 +138,7 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"userAssignedIdentityID":                 config.UserAssignedIdentityClientID,
 		"isVHD":                                  isVHD(profile),
 		"gpuNode":                                strconv.FormatBool(config.EnableNvidia),
+		"rdmaNode":                               strconv.FormatBool(config.EnableRdma),
 		"sgxNode":                                strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":                config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":          config.EnableGPUDevicePluginIfNeeded,

@@ -17,6 +17,7 @@ import "aksnodeconfig/v1/kube_binary_config.proto";
 import "aksnodeconfig/v1/kubelet_config.proto";
 import "aksnodeconfig/v1/localdns_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
+import "aksnodeconfig/v1/rdma_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/service_account_image_pull_profile.proto";
 
@@ -169,4 +170,7 @@ message Configuration {
 
   // CSE timeout override in seconds. If not specified, defaults to 15 minutes with a maximum of 360 minutes (6 hours).
   optional int32 cse_timeout = 44;
+
+  // RDMA configuration for RDMA-capable VM sizes (InfiniBand networking)
+  RdmaConfig rdma_config = 45;
 }

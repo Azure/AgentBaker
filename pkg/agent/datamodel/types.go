@@ -1746,6 +1746,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile         bool
 	EnableNvidia                    bool
 	EnableAMDGPU                    bool
+	EnableRdma                      bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
 	MigStrategy                     string
