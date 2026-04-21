@@ -106,11 +106,12 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 	VHDAzureLinuxV3CVMGen2 = &Image{
-		Name:    "AzureLinuxV3gen2CVM",
-		OS:      OSAzureLinux,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSAzureLinuxV3CVMGen2,
-		Gallery: imageGalleryLinux,
+		Name:           "AzureLinuxV3gen2CVM",
+		OS:             OSAzureLinux,
+		Arch:           "amd64",
+		Distro:         datamodel.AKSAzureLinuxV3CVMGen2,
+		Gallery:        imageGalleryLinux,
+		ConfidentialVM: true,
 	}
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
@@ -307,6 +308,7 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
+	ConfidentialVM                      bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }
