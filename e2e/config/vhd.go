@@ -168,15 +168,6 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 		Gallery: imageGalleryLinux,
 	}
-	VHDUbuntu2404CVMGen2Containerd = &Image{
-		Name:           "2404gen2CVMcontainerd",
-		OS:             OSUbuntu,
-		Arch:           "amd64",
-		Distro:         datamodel.AKSUbuntuContainerd2404CVMGen2,
-		Gallery:        imageGalleryLinux,
-		ConfidentialVM: true,
-	}
-
 	VHDUbuntu2404ArmContainerd = &Image{
 		Name:    "2404gen2arm64containerd",
 		OS:      OSUbuntu,
@@ -308,7 +299,6 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
-	ConfidentialVM                      bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }
