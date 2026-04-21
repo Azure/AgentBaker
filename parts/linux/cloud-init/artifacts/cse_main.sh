@@ -330,9 +330,9 @@ EOF
     fi
 
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
-    # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called earlier
-    # in basePrep (right after disableSystemdResolved) to give the timer a head start on
-    # DNS resolution. By now, /etc/localdns/hosts should be populated, so CoreDNS can start
+    # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
+    # very start of basePrep (before disableSystemdResolved) to give the timer a head start
+    # on DNS resolution. By now, /etc/localdns/hosts should be populated, so CoreDNS can start
     # with the hosts-plugin corefile via select_localdns_corefile().
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
