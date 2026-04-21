@@ -293,7 +293,7 @@ replace_azurednsip_in_corefile() {
     mkdir -p "$(dirname "${upstream_dns_file}")" 2>/dev/null || true
     echo "${UPSTREAM_VNET_DNS_SERVERS}" > "${upstream_dns_file}" || {
         echo "WARNING: Failed to write upstream DNS to ${upstream_dns_file}"
-        # Non-fatal: aks-localdns-hosts-setup.sh will fall back to 168.63.129.16
+        # Non-fatal: if this file is missing or empty, aks-localdns-hosts-setup.sh falls back to the system resolver.
     }
     chmod 0644 "${upstream_dns_file}" 2>/dev/null || true
     echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
