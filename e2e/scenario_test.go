@@ -1246,6 +1246,7 @@ func Test_AzureLinuxV3_PodSandboxing(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
@@ -1272,6 +1273,7 @@ func Test_AzureLinuxV3_PodSandboxing_Scriptless(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
