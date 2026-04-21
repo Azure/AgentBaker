@@ -718,7 +718,6 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusBadGateway,          // 502
 			http.StatusServiceUnavailable,  // 503
 			http.StatusGatewayTimeout,      // 504
-			http.StatusNotFound,            // 404
 		},
 	}
 }
