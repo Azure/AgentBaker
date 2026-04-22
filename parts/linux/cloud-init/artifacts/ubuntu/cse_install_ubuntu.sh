@@ -26,22 +26,17 @@ blobfuseFallbackPackages() {
         fi
     fi
 
-    # If blobfuse2 is already centralized via components.json, skip the fallback.
-    # At VHD build time, the package loop in install-dependencies.sh will install it.
+    # blobfuse2 declares Depends: fuse3 (since 2.3.0), so apt pulls it automatically.
+    # blobfuse declares Depends: fuse, so apt pulls it automatically.
+    # No need to explicitly install fuse3 or fuse here.
     if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
         echo "blobfuse2=${LEGACY_FALLBACK_BLOBFUSE2_VERSION}"
     fi
 
-    # for 22.04 and 24.04, fuse3 is installed. for 20.04, fuse is installed
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        echo "fuse3"
-    else
-        # If blobfuse is already centralized via components.json, skip the fallback.
-        # At VHD build time, the package loop in install-dependencies.sh will install it.
+    if [ "${OSVERSION}" = "20.04" ]; then
         if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
             echo "blobfuse=${LEGACY_FALLBACK_BLOBFUSE_VERSION}"
         fi
-        echo "fuse"
     fi
 }
 
