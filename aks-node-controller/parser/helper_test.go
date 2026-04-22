@@ -1798,13 +1798,15 @@ func Test_shouldEnableHostsPlugin(t *testing.T) {
 			want: "false",
 		},
 		{
+			// TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): hosts plugin
+			// is force-enabled whenever localdns is enabled, regardless of EnableHostsPlugin.
 			name: "LocalDns enabled, HostsPlugin disabled",
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:    true,
 					EnableHostsPlugin: false},
 			}},
-			want: "false",
+			want: "true",
 		},
 		{
 			name: "both LocalDns and HostsPlugin enabled",
@@ -1955,23 +1957,25 @@ func Test_getLocalDnsCriticalFqdns(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "returns empty string when CriticalFqdns is nil",
+			// TEST-VHD OVERRIDE: empty FQDN list with localdns enabled falls back to AzurePublicCloud defaults.
+			name: "returns default AzurePublicCloud FQDNs when CriticalFqdns is nil and localdns enabled",
 			args: args{config: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns: true,
 				},
 			}},
-			want: "",
+			want: "packages.microsoft.com,acs-mirror.azureedge.net,mcr.microsoft.com,login.microsoftonline.com,management.azure.com,packages.aks.azure.com",
 		},
 		{
-			name: "returns empty string when CriticalFqdns is empty",
+			// TEST-VHD OVERRIDE: empty FQDN list with localdns enabled falls back to AzurePublicCloud defaults.
+			name: "returns default AzurePublicCloud FQDNs when CriticalFqdns is empty and localdns enabled",
 			args: args{config: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns: true,
 					CriticalFqdns:  []string{},
 				},
 			}},
-			want: "",
+			want: "packages.microsoft.com,acs-mirror.azureedge.net,mcr.microsoft.com,login.microsoftonline.com,management.azure.com,packages.aks.azure.com",
 		},
 		{
 			name: "returns comma-separated FQDNs",

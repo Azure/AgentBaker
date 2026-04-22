@@ -813,6 +813,12 @@ func shouldEnableLocalDns(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 // is explicitly enabled. When true, the localdns Corefile will include a hosts plugin
 // block that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
 func shouldEnableHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	// TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): force-enable the
+	// hosts plugin whenever localdns is enabled, regardless of what the RP sent. Lets
+	// us perf-test the hosts-plugin path without RP feature-flag rollout.
+	if shouldEnableLocalDns(aksnodeconfig) == "true" {
+		return "true"
+	}
 	return fmt.Sprintf("%v", shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetEnableHostsPlugin())
 }
 
@@ -838,7 +844,21 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 // from the LocalDnsProfile. These FQDNs are passed from the RP so the hosts
 // setup script doesn't need cloud-specific logic.
 func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
-	return getStringifiedStringArray(config.GetLocalDnsProfile().GetCriticalFqdns(), ",")
+	// TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): if the RP didn't
+	// supply CriticalFqdns (because the feature flag isn't rolled out), fall back to the
+	// AzurePublicCloud default list so the hosts plugin perf test still has data to serve.
+	fqdns := config.GetLocalDnsProfile().GetCriticalFqdns()
+	if len(fqdns) == 0 && shouldEnableLocalDns(config) == "true" {
+		fqdns = []string{
+			"packages.microsoft.com",
+			"acs-mirror.azureedge.net",
+			"mcr.microsoft.com",
+			"login.microsoftonline.com",
+			"management.azure.com",
+			"packages.aks.azure.com",
+		}
+	}
+	return getStringifiedStringArray(fqdns, ",")
 }
 
 // ---------------------- End of localdns related helper code ----------------------//

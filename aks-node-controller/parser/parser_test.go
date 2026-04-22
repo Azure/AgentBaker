@@ -258,7 +258,9 @@ oom_score = -999
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
-				assert.Equal(t, "false", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+				// TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): hosts plugin
+				// is force-enabled whenever localdns is enabled.
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
 			},
 		},
 	}
