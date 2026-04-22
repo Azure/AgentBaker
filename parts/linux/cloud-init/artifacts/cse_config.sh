@@ -1296,6 +1296,38 @@ generateLocalDNSFiles() {
     # once /etc/localdns/hosts has been populated by aks-localdns-hosts-setup.
     base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
+    # TEST-VHD OVERRIDE (jingwenwu/test-hosts-plugin-default-enabled): the RP has not yet
+    # shipped GetGeneratedLocalDNSCoreFileExperimental, so LOCALDNS_COREFILE_EXPERIMENTAL
+    # is empty on production CSE. Synthesize it here by injecting the `hosts` plugin block
+    # (with fallthrough) after every `bind <ip>` line in the decoded BASE corefile, then
+    # re-encode. This populates the env var so localdns.sh's dynamic selection picks it
+    # up on service start (and on every subsequent restart). `fallthrough` makes this safe:
+    # FQDNs not in /etc/localdns/hosts still hit the forward chain.
+    local _test_corefile_experimental=""
+    if ! grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
+        local _test_tmp="${LOCALDNS_CORE_FILE}.testvhd.tmp"
+        awk '
+            /^\.:53 \{/ { in_root = 1 }
+            /^\}/ { if (in_root) { in_root = 0 } }
+            { print }
+            in_root && /^[[:space:]]+bind / {
+                print "    # TEST-VHD: hosts plugin injected by cse_config.sh"
+                print "    hosts /etc/localdns/hosts {"
+                print "        fallthrough"
+                print "    }"
+            }
+        ' "${LOCALDNS_CORE_FILE}" > "${_test_tmp}"
+        _test_corefile_experimental="$(base64 -w0 < "${_test_tmp}")"
+        rm -f "${_test_tmp}"
+        echo "TEST-VHD: synthesized LOCALDNS_COREFILE_EXPERIMENTAL by injecting hosts plugin into BASE" | tee -a /var/log/azure/cluster-provision-cse-output.log
+    else
+        _test_corefile_experimental="${corefile_base}"
+        echo "TEST-VHD: BASE already contains hosts plugin, using BASE as EXPERIMENTAL" | tee -a /var/log/azure/cluster-provision-cse-output.log
+    fi
+    # Override whatever the RP sent (empty or not) with our synthesized variant.
+    LOCALDNS_COREFILE_EXPERIMENTAL="${_test_corefile_experimental}"
+    export LOCALDNS_COREFILE_EXPERIMENTAL
+
     # Log whether the generated corefile includes hosts plugin
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
         echo "Generated corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
