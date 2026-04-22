@@ -310,27 +310,17 @@ func addFirewallRules(
 		return err
 	}
 
-	// Find the AKS-managed route table currently associated with the subnet.
-	// We add firewall routes directly to this table so that both pod routes
-	// (managed by cloud-provider-azure) and firewall routes coexist. Creating
-	// a separate route table and swapping the subnet association disconnects
-	// the pod routes and breaks kubenet networking.
+	// For kubenet, the AKS-managed route table must stay attached so that pod
+	// routes (managed by cloud-provider-azure) and firewall routes coexist.
+	// For Azure CNI variants, the subnet may not have any route table, so we
+	// create and associate a dedicated one before adding the firewall routes.
 	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, rg, vnet.name, "aks-subnet", nil)
 	if err != nil {
 		return fmt.Errorf("failed to get AKS subnet: %w", err)
 	}
-	if aksSubnetResp.Properties == nil || aksSubnetResp.Properties.RouteTable == nil || aksSubnetResp.Properties.RouteTable.ID == nil {
-		return fmt.Errorf("AKS subnet has no route table associated")
-	}
-
-	aksRTID := *aksSubnetResp.Properties.RouteTable.ID
-	parsedRT, err := arm.ParseResourceID(aksRTID)
+	aksRTName, err := ensureFirewallRouteTable(ctx, clusterModel, vnet.name, aksSubnetResp.Subnet)
 	if err != nil {
-		return fmt.Errorf("failed to parse AKS route table resource ID %q: %w", aksRTID, err)
-	}
-	aksRTName := parsedRT.Name
-	if aksRTName == "" {
-		return fmt.Errorf("parsed empty route table name from resource ID %q", aksRTID)
+		return err
 	}
 
 	// Create AzureFirewallSubnet - this subnet name is required by Azure Firewall
@@ -454,6 +444,58 @@ func addFirewallRules(
 
 	toolkit.Logf(ctx, "Successfully added firewall routes to AKS route table %q", aksRTName)
 	return nil
+}
+
+func ensureFirewallRouteTable(
+	ctx context.Context,
+	clusterModel *armcontainerservice.ManagedCluster,
+	vnetName string,
+	aksSubnet armnetwork.Subnet,
+) (string, error) {
+	if aksSubnet.Properties == nil {
+		return "", fmt.Errorf("AKS subnet has no properties")
+	}
+	if aksSubnet.Properties.RouteTable != nil && aksSubnet.Properties.RouteTable.ID != nil {
+		aksRTID := *aksSubnet.Properties.RouteTable.ID
+		parsedRT, err := arm.ParseResourceID(aksRTID)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse AKS route table resource ID %q: %w", aksRTID, err)
+		}
+		if parsedRT.Name == "" {
+			return "", fmt.Errorf("parsed empty route table name from resource ID %q", aksRTID)
+		}
+		return parsedRT.Name, nil
+	}
+
+	if clusterModel.Properties == nil || clusterModel.Properties.NetworkProfile == nil || clusterModel.Properties.NetworkProfile.NetworkPlugin == nil {
+		return "", fmt.Errorf("AKS subnet has no route table associated and cluster network plugin is unknown")
+	}
+	if *clusterModel.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginKubenet {
+		return "", fmt.Errorf("AKS subnet has no route table associated for kubenet cluster")
+	}
+
+	rg := *clusterModel.Properties.NodeResourceGroup
+	routeTableName := "abe2e-fw-rt"
+	toolkit.Logf(ctx, "AKS subnet has no route table; creating dedicated firewall route table %q", routeTableName)
+	poller, err := config.Azure.RouteTables.BeginCreateOrUpdate(ctx, rg, routeTableName, armnetwork.RouteTable{
+		Location: clusterModel.Location,
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to start creating firewall route table %q: %w", routeTableName, err)
+	}
+	routeTableResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return "", fmt.Errorf("failed to create firewall route table %q: %w", routeTableName, err)
+	}
+
+	aksSubnet.Properties.RouteTable = &armnetwork.RouteTable{
+		ID: routeTableResp.ID,
+	}
+	if err := updateSubnet(ctx, clusterModel, aksSubnet, vnetName); err != nil {
+		return "", fmt.Errorf("failed to associate firewall route table %q with AKS subnet: %w", routeTableName, err)
+	}
+
+	return routeTableName, nil
 }
 
 func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {

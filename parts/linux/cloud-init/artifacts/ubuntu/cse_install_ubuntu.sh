@@ -358,6 +358,35 @@ installPkgWithAptGet() {
     rm -rf "${downloadDir}"
 }
 
+installPackageFromCache() {
+    local packageName="${1:-}"
+    local packageVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local debFile=""
+    local fullPackageVersion=""
+    if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
+
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    if [ -z "${debFile}" ]; then
+        echo "Failed to find cached deb file for ${packageName} version ${packageVersion}"
+        return 1
+    fi
+    if [ -z "${debFile}" ]; then
+        echo "Failed to locate ${packageName} deb"
+        return 1
+    fi
+
+    debFile="${downloadDir}/${debFile}"
+    logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
+
+    rm -rf "${downloadDir}"
+}
+
 downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
