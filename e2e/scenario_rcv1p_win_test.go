@@ -28,7 +28,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                ClusterRCV1POverlay,
 			VHD:                    config.VHDWindows2022Containerd,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
@@ -51,7 +51,7 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                ClusterRCV1POverlay,
 			VHD:                    config.VHDWindows23H2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
@@ -74,7 +74,7 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
+			Cluster: ClusterRCV1POverlay,
 			VHD:     config.VHDWindows2025,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -103,7 +103,7 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                ClusterRCV1POverlay,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
@@ -126,7 +126,7 @@ func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                ClusterRCV1POverlay,
 			VHD:                    config.VHDWindows23H2Gen2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
@@ -149,7 +149,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
+			Cluster: ClusterRCV1POverlay,
 			VHD:     config.VHDWindows2025Gen2,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -181,7 +181,7 @@ func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                ClusterRCV1POverlay,
 			VHD:                    config.VHDWindows2022Containerd,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
