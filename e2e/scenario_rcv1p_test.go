@@ -97,17 +97,13 @@ func rcv1pSubscriptionID() string {
 	return ""
 }
 
-// rcv1pCluster returns the cluster function for RCV1P tests.
-// Uses Azure CNI Overlay networking to avoid subnet IP exhaustion that occurs with kubenet/Azure CNI
-// when many parallel Windows tests share the same subnet (each Windows node reserves multiple subnet IPs
-// for pods via azure-vnet plugin). Overlay uses a separate virtual pod CIDR instead.
-// To revert to kubenet, change ClusterRCV1POverlay -> ClusterRCV1PKubenet and
-// ClusterAzureOverlayNetwork -> ClusterKubenet below.
+// rcv1pCluster returns the cluster function for RCV1P tests. When RCV1P_SUBSCRIPTION_ID is set,
+// uses a dedicated cluster in the RCV1P subscription. Otherwise uses the default kubenet cluster.
 func rcv1pCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	if hasExplicitRCV1PSubscription() {
-		return ClusterRCV1POverlay
+		return ClusterRCV1PKubenet
 	}
-	return ClusterAzureOverlayNetwork
+	return ClusterKubenet
 }
 
 var (
