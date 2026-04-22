@@ -214,18 +214,6 @@ func clusterRCV1PKubenet(ctx context.Context, request ClusterRequest) (*Cluster,
 	return prepareCluster(ctx, infra, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
-var ClusterRCV1POverlay = cachedFunc(clusterRCV1POverlay)
-
-// clusterRCV1POverlay creates an Azure CNI Overlay cluster in the RCV1P subscription.
-// Overlay avoids subnet IP exhaustion for Windows tests by using a virtual pod CIDR.
-func clusterRCV1POverlay(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	infra := RCV1PClusterInfra()
-	if infra == nil {
-		return nil, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set, cannot create RCV1P overlay cluster")
-	}
-	return prepareCluster(ctx, infra, getAzureOverlayNetworkClusterModel("abe2e-rcv1p-overlay-v1", request.Location, request.K8sSystemPoolSKU), false, false)
-}
-
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
 func isNotFoundErr(err error) bool {
 	var respErr *azcore.ResponseError
