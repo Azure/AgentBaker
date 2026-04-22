@@ -161,7 +161,7 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         ClusterRCV1POverlay,
+			Cluster:         ClusterRCV1PKubenet,
 			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
@@ -187,7 +187,7 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         ClusterRCV1POverlay,
+			Cluster:         ClusterRCV1PKubenet,
 			VHD:             config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
@@ -213,7 +213,7 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         ClusterRCV1POverlay,
+			Cluster:         ClusterRCV1PKubenet,
 			VHD:             config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
@@ -239,7 +239,7 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1POverlay,
+			Cluster: ClusterRCV1PKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
@@ -265,7 +265,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1POverlay,
+			Cluster: ClusterRCV1PKubenet,
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -298,7 +298,7 @@ func Test_RCV1P_NotOptedIn(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1POverlay,
+			Cluster: ClusterRCV1PKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
