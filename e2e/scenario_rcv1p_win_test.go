@@ -15,7 +15,6 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
 // Test_RCV1P_Windows2022 validates RCV1P cert download and Windows certificate store
@@ -63,8 +62,7 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 	})
 }
 
-// Test_RCV1P_Windows2025 validates RCV1P on Windows Server 2025. This SKU requires
-// Trusted Launch, so the VMConfigMutator combines both TrustedLaunch and opt-in tag settings.
+// Test_RCV1P_Windows2025 validates RCV1P on Windows Server 2025 (non-gen2).
 func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
@@ -75,14 +73,76 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: rcv1pCluster(),
-			VHD:     config.VHDWindows2025,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-				if m := rcv1pVMConfigMutator(); m != nil {
-					m(vmss)
-				}
+			Cluster:                rcv1pCluster(),
+			VHD:                    config.VHDWindows2025,
+			VMConfigMutator:        rcv1pVMConfigMutator(),
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRCV1PCertModeWindows(ctx, s)
 			},
+		},
+	})
+}
+
+// Test_RCV1P_Windows2022Gen2 validates RCV1P cert download and Windows certificate store
+// installation on Windows Server 2022 Gen2. Covers the gen2 pipeline job.
+func Test_RCV1P_Windows2022Gen2(t *testing.T) {
+	skipIfRCV1PNotConfigured(t)
+	RunScenario(t, &Scenario{
+		Description:    "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
+		AzureClient:    rcv1pAzureClient(),
+		SubscriptionID: rcv1pSubscriptionID(),
+		Tags: Tags{
+			RCV1PCertMode: true,
+		},
+		Config: Config{
+			Cluster:                rcv1pCluster(),
+			VHD:                    config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator:        rcv1pVMConfigMutator(),
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRCV1PCertModeWindows(ctx, s)
+			},
+		},
+	})
+}
+
+// Test_RCV1P_Windows23H2Gen2 validates RCV1P on Windows Server 23H2 Gen2. Covers the gen2 pipeline job.
+func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
+	skipIfRCV1PNotConfigured(t)
+	RunScenario(t, &Scenario{
+		Description:    "Tests RCV1P cert mode on Windows Server 23H2 Gen2 with VM opt-in tag",
+		AzureClient:    rcv1pAzureClient(),
+		SubscriptionID: rcv1pSubscriptionID(),
+		Tags: Tags{
+			RCV1PCertMode: true,
+		},
+		Config: Config{
+			Cluster:                rcv1pCluster(),
+			VHD:                    config.VHDWindows23H2Gen2,
+			VMConfigMutator:        rcv1pVMConfigMutator(),
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateRCV1PCertModeWindows(ctx, s)
+			},
+		},
+	})
+}
+
+// Test_RCV1P_Windows2025Gen2 validates RCV1P on Windows Server 2025 Gen2. Covers the gen2 pipeline job.
+func Test_RCV1P_Windows2025Gen2(t *testing.T) {
+	skipIfRCV1PNotConfigured(t)
+	RunScenario(t, &Scenario{
+		Description:    "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
+		AzureClient:    rcv1pAzureClient(),
+		SubscriptionID: rcv1pSubscriptionID(),
+		Tags: Tags{
+			RCV1PCertMode: true,
+		},
+		Config: Config{
+			Cluster:         rcv1pCluster(),
+			VHD:             config.VHDWindows2025Gen2,
+			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
