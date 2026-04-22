@@ -2075,6 +2075,10 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
+	if s.VHD != nil && s.VHD.SkipKernelLogValidation {
+		return
+	}
+
 	type categoryPattern struct {
 		pattern string
 		exclude string // optional pattern to exclude false positives

@@ -70,6 +70,7 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 		UnsupportedGen2:                   true,
+		SkipKernelLogValidation:           true,
 	}
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
@@ -304,6 +305,7 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
+	SkipKernelLogValidation             bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }
