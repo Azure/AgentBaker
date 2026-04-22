@@ -60,6 +60,17 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
+	VHDUbuntu2004FIPSContainerd = &Image{
+		Name:                "2004fipscontainerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuFipsContainerd2004,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+		UnsupportedGen2:                   true,
+	}
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
 		OS:                  OSUbuntu,
