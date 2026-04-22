@@ -4,6 +4,42 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+blobfuseFallbackPackages() {
+    local OSVERSION="${1}"
+    # blobfuse/blobfuse2 started to be centralized in components.json around April 2026.
+    # These legacy fallback versions are only for older VHDs that:
+    # - do not have blobfuse/blobfuse2 in components.json yet, and
+    # - did not cache blobfuse/blobfuse2 packages in the VHD.
+    # This combination is unlikely, so this fallback can be removed
+    # 6 months after the April 2026 release.
+    local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
+    local HAS_BLOBFUSE_COMPONENT="false"
+    local HAS_BLOBFUSE2_COMPONENT="false"
+
+    if [ -n "${COMPONENTS_FILEPATH:-}" ] && [ -f "${COMPONENTS_FILEPATH}" ]; then
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE_COMPONENT="true"
+        fi
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse2"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE2_COMPONENT="true"
+        fi
+    fi
+
+    # blobfuse2 declares Depends: fuse3 (since 2.3.0), so apt pulls it automatically.
+    # blobfuse declares Depends: fuse, so apt pulls it automatically.
+    # No need to explicitly install fuse3 or fuse here.
+    if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
+        echo "blobfuse2=${LEGACY_FALLBACK_BLOBFUSE2_VERSION}"
+    fi
+
+    if [ "${OSVERSION}" = "20.04" ]; then
+        if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
+            echo "blobfuse=${LEGACY_FALLBACK_BLOBFUSE_VERSION}"
+        fi
+    fi
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -14,21 +50,10 @@ installDeps() {
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
-    local OSVERSION
-    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    BLOBFUSE_VERSION="1.4.5"
-    # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.3"  # TODO (djsly) this should be centralized and moved to components.json!
-
-    # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
-    # for 22.04, fuse3 is installed. for all others, fuse is installed
-    # for all others except 22.04, installed blobfuse1.4.5
-    pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=(fuse3)
-    else
-        pkg_list+=("blobfuse=${BLOBFUSE_VERSION}" fuse)
-    fi
+    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    while IFS= read -r fallback_pkg; do
+        [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
+    done < <(blobfuseFallbackPackages "${OSVERSION}")
 
     if [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(irqbalance)
@@ -40,7 +65,8 @@ installDeps() {
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
-            journalctl --no-pager -u $apt_package
+            tail -n 200 /var/log/apt/term.log || true
+            tail -n 200 /var/log/dpkg.log || true
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
