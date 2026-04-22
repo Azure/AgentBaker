@@ -1599,12 +1599,11 @@ root = "{{GetDataDir}}"{{- end}}
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if IsKata }}
+    {{- if or IsKata IsArtifactStreamingEnabled }}
     disable_snapshot_annotations = false
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
-    disable_snapshot_annotations = false
     {{- end}}
     {{- if IsNSeriesSKU }}
     default_runtime_name = "nvidia-container-runtime"
@@ -1822,12 +1821,11 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if IsKata }}
+    {{- if or IsKata IsArtifactStreamingEnabled }}
     disable_snapshot_annotations = false
     {{- end}}
     {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
-    disable_snapshot_annotations = false
     {{- end}}
     default_runtime_name = "runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]

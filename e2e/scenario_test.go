@@ -1235,6 +1235,66 @@ func Test_AzureLinuxV3_ArtifactStreaming_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3_ArtifactStreaming_PodSandboxing(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new azure linux v3 node with pod sandboxing (Kata) using artifact streaming can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3KataGen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+				nbc.AgentPoolProfile.VMSize = "Standard_D4s_v3"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+				ValidateFileExists(ctx, s, "/usr/bin/kata-runtime")
+				ValidateFileExists(ctx, s, "/usr/bin/containerd-shim-kata-v2")
+				ValidateFileHasContent(ctx, s, "/etc/containerd/config.toml", "containerd.runtimes.kata")
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_ArtifactStreaming_PodSandboxing_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new azure linux v3 node with pod sandboxing (Kata) using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3KataGen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+				config.IsKata = true
+				config.VmSize = "Standard_D4s_v3"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+				ValidateFileExists(ctx, s, "/usr/bin/kata-runtime")
+				ValidateFileExists(ctx, s, "/usr/bin/containerd-shim-kata-v2")
+				ValidateFileHasContent(ctx, s, "/etc/containerd/config.toml", "containerd.runtimes.kata")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming and ARM64 architecture can be properly bootstrapped",

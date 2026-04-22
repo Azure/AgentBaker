@@ -4,12 +4,11 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if .GetIsKata }}
+    {{- if or .GetIsKata .GetEnableArtifactStreaming }}
     disable_snapshot_annotations = false
     {{- end}}
     {{- if .GetEnableArtifactStreaming }}
     snapshotter = "overlaybd"
-    disable_snapshot_annotations = false
     {{- end}}
     default_runtime_name = "runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
