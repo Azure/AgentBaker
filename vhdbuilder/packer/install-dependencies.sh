@@ -77,16 +77,12 @@ if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
   updateAptWithMicrosoftPkg
-  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-  # blobfuse2 is installed via the packages loop below; fuse3 is needed as a dependency
-  required_pkg_list=(fuse3)
-  for apt_package in "${required_pkg_list[@]}"; do
-      if ! apt_get_install 10 2 120 "$apt_package"; then
-        tail -n 200 /var/log/apt/term.log || true
-        tail -n 200 /var/log/dpkg.log || true
-          exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-  done
+  # fuse3 is a dependency of blobfuse2 (installed via the packages loop below)
+  if ! apt_get_install 10 2 120 fuse3; then
+    tail -n 200 /var/log/apt/term.log || true
+    tail -n 200 /var/log/dpkg.log || true
+    exit $ERR_APT_INSTALL_TIMEOUT
+  fi
 fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d

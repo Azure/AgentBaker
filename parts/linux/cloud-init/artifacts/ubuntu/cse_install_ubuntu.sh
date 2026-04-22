@@ -70,7 +70,8 @@ installDeps() {
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
-            journalctl --no-pager -u $apt_package
+            tail -n 200 /var/log/apt/term.log || true
+            tail -n 200 /var/log/dpkg.log || true
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
