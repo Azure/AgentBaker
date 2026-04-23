@@ -134,3 +134,58 @@ func RemoveLeadingV(version string) string {
 	}
 	return version
 }
+
+// GetGPUContainerImage returns the full container image URL for a GPU container image
+// by looking up the downloadURL pattern and gpuVersion.latestVersion from components.json.
+// The downloadURL pattern contains a wildcard (*) that gets replaced with the version.
+func GetGPUContainerImage(downloadURLPattern string) string {
+	// Get the project root dynamically
+	_, filename, _, _ := runtime.Caller(0)
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename))) // Go up 3 levels from e2e/components/
+	componentsPath := filepath.Join(projectRoot, "parts", "common", "components.json")
+
+	jsonBytes, err := os.ReadFile(componentsPath)
+	if err != nil {
+		return ""
+	}
+
+	gpuImages := gjson.GetBytes(jsonBytes, "GPUContainerImages")
+	for _, gpuImage := range gpuImages.Array() {
+		downloadURL := gpuImage.Get("downloadURL").String()
+		if strings.EqualFold(downloadURL, downloadURLPattern) {
+			version := gpuImage.Get("gpuVersion.latestVersion").String()
+			if version != "" {
+				return strings.Replace(downloadURL, "*", version, 1)
+			}
+		}
+	}
+	return ""
+}
+
+// GetE2EContainerImage returns the full container image URL for an e2e test container image
+// by looking up the name and version.latestVersion from components.json E2EContainerImages section.
+// The downloadURL pattern contains a wildcard (*) that gets replaced with the version.
+func GetE2EContainerImage(name string) string {
+	// Get the project root dynamically
+	_, filename, _, _ := runtime.Caller(0)
+	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename))) // Go up 3 levels from e2e/components/
+	componentsPath := filepath.Join(projectRoot, "parts", "common", "components.json")
+
+	jsonBytes, err := os.ReadFile(componentsPath)
+	if err != nil {
+		return ""
+	}
+
+	e2eImages := gjson.GetBytes(jsonBytes, "E2EContainerImages")
+	for _, e2eImage := range e2eImages.Array() {
+		imageName := e2eImage.Get("name").String()
+		if strings.EqualFold(imageName, name) {
+			downloadURL := e2eImage.Get("downloadURL").String()
+			version := e2eImage.Get("version.latestVersion").String()
+			if version != "" {
+				return strings.Replace(downloadURL, "*", version, 1)
+			}
+		}
+	}
+	return ""
+}
