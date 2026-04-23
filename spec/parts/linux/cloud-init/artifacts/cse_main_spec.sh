@@ -5,7 +5,9 @@
 #   LOCALDNS_COREFILE_BASE         — base corefile (no experimental plugins)
 #   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
 #   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
-# It checks LOCALDNS_HOSTS_FILE (default /etc/localdns/hosts) for valid IP mappings to decide which variant to use.
+# Selection is purely based on the SHOULD_ENABLE_HOSTS_PLUGIN feature flag.
+# The EXPERIMENTAL corefile uses `reload 5s` so CoreDNS hot-reloads the hosts file
+# when it gets populated — no polling/waiting is done in this function.
 
 Describe 'select_localdns_corefile()'
     LOCALDNS_PATH="parts/linux/cloud-init/artifacts/localdns.sh"
@@ -19,71 +21,36 @@ Describe 'select_localdns_corefile()'
         # We set __SOURCED__=1 to only source the functions, not run main execution
         # shellcheck disable=SC1090
         __SOURCED__=1 . "${LOCALDNS_PATH}"
-
-        # Create temp directory for test hosts file — avoids writing to /etc
-        TEST_DIR=$(mktemp -d)
-        LOCALDNS_HOSTS_FILE="${TEST_DIR}/hosts"
-        # Minimize poll wait in tests (1 × 0.5s = 0.5s instead of default 5s)
-        LOCALDNS_HOSTS_FILE_WAIT_ATTEMPTS=1
     }
 
     cleanup() {
-        rm -rf "${TEST_DIR}"
         unset LOCALDNS_COREFILE_BASE
         unset LOCALDNS_COREFILE_EXPERIMENTAL
         unset SHOULD_ENABLE_HOSTS_PLUGIN
-        unset LOCALDNS_HOSTS_FILE
-        unset LOCALDNS_HOSTS_FILE_WAIT_ATTEMPTS
     }
 
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
     Context 'when both corefile variants are available and hosts plugin is enabled'
-        It 'returns EXPERIMENTAL when hosts file has valid IP mappings'
+        It 'returns EXPERIMENTAL regardless of hosts file state'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            echo "10.0.0.1 mcr.microsoft.com" > "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_WITH_HOSTS}"
             The status should be success
-            The stderr should include "Hosts file has IP mappings"
             The stderr should include "using corefile with hosts plugin"
+            The stderr should include "reload will pick up hosts file when populated"
         End
 
-        It 'returns BASE when hosts file exists but has no IP mappings'
+        It 'returns EXPERIMENTAL even when hosts file is empty (CoreDNS reload handles it)'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            echo "# comment only" > "${LOCALDNS_HOSTS_FILE}"
-
-            When call select_localdns_corefile
-            The output should equal "${COREFILE_NO_HOSTS}"
-            The status should be success
-            The stderr should include "not ready after"
-            The stderr should include "falling back to corefile without hosts plugin"
-        End
-
-        It 'returns BASE when hosts file does not exist'
-            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
-            SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            rm -f "${LOCALDNS_HOSTS_FILE}"
-
-            When call select_localdns_corefile
-            The output should equal "${COREFILE_NO_HOSTS}"
-            The status should be success
-            The stderr should include "not ready after"
-            The stderr should include "falling back to corefile without hosts plugin"
-        End
-
-        It 'handles IPv6 addresses in hosts file'
-            LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
-            SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            echo "2001:db8::1 mcr.microsoft.com" > "${LOCALDNS_HOSTS_FILE}"
+            # No hosts file exists — simulates dig not having completed yet.
+            # With reload 5s + fallthrough, CoreDNS starts fine and picks up the file later.
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_WITH_HOSTS}"
@@ -97,7 +64,6 @@ Describe 'select_localdns_corefile()'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="false"
-            echo "10.0.0.1 mcr.microsoft.com" > "${LOCALDNS_HOSTS_FILE}"
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
