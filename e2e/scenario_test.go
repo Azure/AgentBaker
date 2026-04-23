@@ -1425,12 +1425,13 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-			},
+		Validator: func(ctx context.Context, s *Scenario) {
+			// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+			ValidateNvidiaModProbeInstalled(ctx, s)
+			ValidateKubeletHasNotStopped(ctx, s)
+			ValidateServicesDoNotRestartKubelet(ctx, s)
+			ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
+		},
 		},
 	})
 }
@@ -1460,6 +1461,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 		},
 	})
@@ -1483,6 +1485,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_NV6ads_A10_v5"
@@ -1516,6 +1519,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 		},
 	})
@@ -2015,6 +2019,7 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 		},
 	})
@@ -2070,6 +2075,7 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 		},
 	})
@@ -2096,6 +2102,7 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 		},
 	})
@@ -2364,6 +2371,7 @@ func runScenarioUbuntu2404GRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateNvidiaCdiRefreshServiceRunning(ctx, s)
 			},
 		},
 	})
