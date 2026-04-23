@@ -1987,6 +1987,7 @@ health-check.localdns.local:53 {
     {{- if and $isRootDomain $.IncludeHostsPlugin}}
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
+        reload 5s
         fallthrough
     }
     {{- end}}
@@ -2054,6 +2055,7 @@ health-check.localdns.local:53 {
     {{- if and $isRootDomain $.IncludeHostsPlugin}}
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
+        reload 5s
         fallthrough
     }
     {{- end}}
