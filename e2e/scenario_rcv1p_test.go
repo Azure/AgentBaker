@@ -97,15 +97,22 @@ func rcv1pSubscriptionID() string {
 	return ""
 }
 
-// rcv1pCluster returns the cluster function for RCV1P tests. Always uses a dedicated kubenet
-// cluster to avoid sharing a subnet with non-RCV1P tests, which prevents IP exhaustion when
-// many Windows tests run in parallel. When RCV1P_SUBSCRIPTION_ID is set, the cluster is created
-// in the RCV1P subscription. Otherwise a dedicated cluster on the default subscription is used.
+// rcv1pCluster returns the cluster function for Linux RCV1P tests. When RCV1P_SUBSCRIPTION_ID
+// is set, uses a dedicated kubenet cluster in the RCV1P subscription. Otherwise uses the default
+// kubenet cluster (Linux tests don't have IP exhaustion issues on kubenet).
 func rcv1pCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	if hasExplicitRCV1PSubscription() {
 		return ClusterRCV1PKubenet
 	}
-	return ClusterRCV1PDefaultKubenet
+	return ClusterKubenet
+}
+
+// rcv1pWindowsCluster returns the cluster function for Windows RCV1P tests. Windows tests must
+// use Azure CNI (not kubenet) because baseTemplateWindows() configures the NBC for Azure CNI
+// overlay mode — using kubenet causes azure-vnet plugin IP allocation failures. This matches
+// the cluster type used by all other non-RCV1P Windows tests (ClusterAzureNetwork).
+func rcv1pWindowsCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return ClusterAzureNetwork
 }
 
 var (

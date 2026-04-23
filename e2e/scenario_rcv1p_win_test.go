@@ -29,7 +29,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pCluster(),
+			Cluster:                rcv1pWindowsCluster(),
 			VHD:                    config.VHDWindows2022Containerd,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -51,7 +51,7 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pCluster(),
+			Cluster:                rcv1pWindowsCluster(),
 			VHD:                    config.VHDWindows23H2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -73,7 +73,7 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pCluster(),
+			Cluster:                rcv1pWindowsCluster(),
 			VHD:                    config.VHDWindows2025,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -96,7 +96,7 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pCluster(),
+			Cluster:                rcv1pWindowsCluster(),
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -118,7 +118,7 @@ func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pCluster(),
+			Cluster:                rcv1pWindowsCluster(),
 			VHD:                    config.VHDWindows23H2Gen2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
@@ -140,7 +140,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         rcv1pCluster(),
+			Cluster:         rcv1pWindowsCluster(),
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
