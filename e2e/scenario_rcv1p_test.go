@@ -97,13 +97,15 @@ func rcv1pSubscriptionID() string {
 	return ""
 }
 
-// rcv1pCluster returns the cluster function for RCV1P tests. When RCV1P_SUBSCRIPTION_ID is set,
-// uses a dedicated cluster in the RCV1P subscription. Otherwise uses the default kubenet cluster.
+// rcv1pCluster returns the cluster function for RCV1P tests. Always uses a dedicated kubenet
+// cluster to avoid sharing a subnet with non-RCV1P tests, which prevents IP exhaustion when
+// many Windows tests run in parallel. When RCV1P_SUBSCRIPTION_ID is set, the cluster is created
+// in the RCV1P subscription. Otherwise a dedicated cluster on the default subscription is used.
 func rcv1pCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	if hasExplicitRCV1PSubscription() {
 		return ClusterRCV1PKubenet
 	}
-	return ClusterKubenet
+	return ClusterRCV1PDefaultKubenet
 }
 
 var (
