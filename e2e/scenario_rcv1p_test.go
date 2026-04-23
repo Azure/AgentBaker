@@ -19,12 +19,16 @@
 package e2e
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -201,6 +205,137 @@ func rcv1pVMConfigMutator() func(*armcompute.VirtualMachineScaleSet) {
 		return rcv1pOptInVMConfigMutator
 	}
 	return nil
+}
+
+// REVERT ME: build and upload a CSE zip from the branch's staging/cse/windows/ so that
+// Windows RCV1P E2E tests exercise the actual RCV1P code instead of the published v0.0.52 package.
+var (
+	branchCSEZipURL  string
+	branchCSEZipErr  error
+	branchCSEZipOnce sync.Once
+)
+
+// getOrBuildBranchCSEPackageURL builds a CSE zip from staging/cse/windows/ (matching the
+// pipeline packaging in .pipelines/scripts/windows_package_cse.sh) and uploads it to the
+// E2E blob storage. Returns a SAS-signed URL. Uses sync.Once so the zip is built and
+// uploaded exactly once across all parallel tests.
+func getOrBuildBranchCSEPackageURL(t *testing.T) string {
+	t.Helper()
+	branchCSEZipOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		branchCSEZipURL, branchCSEZipErr = buildAndUploadCSEZip(ctx)
+	})
+	if branchCSEZipErr != nil {
+		t.Fatalf("failed to build/upload branch CSE zip: %v", branchCSEZipErr)
+	}
+	t.Logf("using branch CSE package URL: %s", branchCSEZipURL)
+	return branchCSEZipURL
+}
+
+func buildAndUploadCSEZip(ctx context.Context) (string, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return "", fmt.Errorf("find repo root: %w", err)
+	}
+	cseDir := filepath.Join(repoRoot, "staging", "cse", "windows")
+
+	tmpFile, err := os.CreateTemp("", "aks-windows-cse-scripts-branch-*.zip")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	zw := zip.NewWriter(tmpFile)
+	err = filepath.Walk(cseDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(cseDir, path)
+		if err != nil {
+			return err
+		}
+		// normalize to forward slashes for zip
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			return nil
+		}
+		// skip test files and debug helper (matches windows_package_cse.sh)
+		if strings.HasSuffix(rel, ".tests.ps1") || strings.Contains(rel, ".tests.suites") {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if rel == "README" || rel == "debug/update-scripts.ps1" {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		w, err := zw.Create(rel)
+		if err != nil {
+			return fmt.Errorf("create zip entry %s: %w", rel, err)
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open %s: %w", path, err)
+		}
+		defer f.Close()
+		_, err = io.Copy(w, f)
+		return err
+	})
+	if err != nil {
+		return "", fmt.Errorf("build zip: %w", err)
+	}
+	if err := zw.Close(); err != nil {
+		return "", fmt.Errorf("close zip writer: %w", err)
+	}
+
+	// seek to start for upload
+	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+		return "", fmt.Errorf("seek temp file: %w", err)
+	}
+
+	blobName := fmt.Sprintf("cse-packages/aks-windows-cse-scripts-branch-%s.zip",
+		time.Now().UTC().Format("20060102-150405"))
+	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobName, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("upload CSE zip: %w", err)
+	}
+	return url, nil
+}
+
+func findRepoRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			// e2e/ has its own go.mod, go up one more
+			if filepath.Base(dir) == "e2e" {
+				dir = filepath.Dir(dir)
+				continue
+			}
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("could not find repo root (go.mod) from %s", dir)
+		}
+		dir = parent
+	}
+}
+
+// rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
+// to use the branch-built CSE zip containing the RCV1P code.
+func rcv1pWindowsCSEMutator(t *testing.T) func(*datamodel.NodeBootstrappingConfiguration) {
+	cseURL := getOrBuildBranchCSEPackageURL(t)
+	return func(nbc *datamodel.NodeBootstrappingConfiguration) {
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL
+	}
 }
 
 // rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
