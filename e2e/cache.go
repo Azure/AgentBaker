@@ -214,6 +214,15 @@ func clusterRCV1PKubenet(ctx context.Context, request ClusterRequest) (*Cluster,
 	return prepareCluster(ctx, infra, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
+var ClusterRCV1PDefaultKubenet = cachedFunc(clusterRCV1PDefaultKubenet)
+
+// clusterRCV1PDefaultKubenet creates a dedicated kubenet cluster for RCV1P tests on the default
+// E2E subscription. This avoids sharing the main kubenet cluster's subnet with non-RCV1P tests,
+// preventing IP exhaustion when many Windows tests run in parallel.
+func clusterRCV1PDefaultKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	return prepareCluster(ctx, DefaultClusterInfra, getKubenetClusterModel("abe2e-rcv1p-default-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
+}
+
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
 func isNotFoundErr(err error) bool {
 	var respErr *azcore.ResponseError
