@@ -1,0 +1,18 @@
+Release notes for security patch 20260421T000000Z timestamp
+Package difference between 20260408T000000Z and 20260421T000000Z
+
+No reboot required
+
+
+=== Package Updates ===
+expat-libs  2.6.4-5.azl3  azurelinux-official-base
+expat  2.6.4-5.azl3  azurelinux-official-base
+curl-libs  8.11.1-6.azl3  azurelinux-official-base
+curl  8.11.1-6.azl3  azurelinux-official-base
+containerd2  2.0.0-19.azl3  azurelinux-official-base
+binutils-devel  2.41-11.azl3  azurelinux-official-base
+binutils  2.41-11.azl3  azurelinux-official-base
+sudo  1.9.17-2.azl3  azurelinux-official-base
+openssh-server  9.8p1-6.azl3  azurelinux-official-base
+openssh-clients  9.8p1-6.azl3  azurelinux-official-base
+openssh  9.8p1-6.azl3  azurelinux-official-base
