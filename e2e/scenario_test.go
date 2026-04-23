@@ -133,6 +133,22 @@ func Test_Flatcar_AzureCNI(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Ubuntu 22.04 scenario on a cluster configured with Azure CNI",
+		Config: Config{
+			Cluster: clusterAzureOverlayNetwork,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
