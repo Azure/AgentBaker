@@ -721,7 +721,7 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 
 // getLocalDnsCorefileBase64WithHostsPlugin generates a LocalDns corefile from the AKS node config
 // and returns it as a base64-encoded string. The includeHostsPlugin parameter controls whether
-// the hosts plugin block (hosts /etc/localdns/hosts { fallthrough }) is included in root-domain
+// the hosts plugin block (hosts /etc/localdns/hosts { reload 5s; fallthrough }) is included in root-domain
 // server blocks.
 //
 // The caller (parser.go) assigns the result to the appropriate environment variable:

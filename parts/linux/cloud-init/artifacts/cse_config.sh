@@ -1292,8 +1292,8 @@ generateLocalDNSFiles() {
     fi
 
     # Start with the base corefile as the initial active corefile.
-    # The experimental variant will be selected dynamically by localdns.sh
-    # once /etc/localdns/hosts has been populated by aks-localdns-hosts-setup.
+    # localdns.sh will select the appropriate variant (BASE or EXPERIMENTAL)
+    # based on the SHOULD_ENABLE_HOSTS_PLUGIN feature flag on service start.
     base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the generated corefile includes hosts plugin
@@ -1502,8 +1502,10 @@ disableAKSLocalDNSHostsSetup() {
         echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
     fi
 
-    # Remove the hosts file. Without it, select_localdns_corefile() in localdns.sh
-    # will fall back to the base corefile even if SHOULD_ENABLE_HOSTS_PLUGIN were somehow still true.
+    # Remove the hosts file to clean up stale data.
+    # select_localdns_corefile() selects based on SHOULD_ENABLE_HOSTS_PLUGIN,
+    # so removing the file isn't strictly needed for corefile selection, but
+    # it prevents CoreDNS from serving stale host entries if the feature is re-enabled later.
     if [ -f "${hosts_file}" ]; then
         rm -f "${hosts_file}"
         echo "Removed ${hosts_file}"
