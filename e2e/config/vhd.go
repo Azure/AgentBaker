@@ -180,6 +180,7 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 		Gallery: imageGalleryLinux,
 	}
+
 	VHDUbuntu2404ArmContainerd = &Image{
 		Name:    "2404gen2arm64containerd",
 		OS:      OSUbuntu,

@@ -642,7 +642,6 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("create a new images client: %v", err)
 	}
-
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
 		Name:                 &location,
 		RegionalReplicaCount: to.Ptr[int32](1),
