@@ -213,6 +213,30 @@ func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string
 							source, _ := contents["source"].(string)
 							// source is "data:;base64,<base64data>"
 							nbcCmdContent, _ = strings.CutPrefix(source, "data:;base64,")
+							// As of PR #8357, baker.go's flatcarTemplate marks the file with
+							// `compression: gzip`, so the base64 payload decodes to gzip bytes
+							// rather than plaintext shell. Ignition would normally gunzip it,
+							// but here we re-emit via cloud-config `!!binary`, which only
+							// base64-decodes. We must gunzip ourselves and re-base64 the
+							// plaintext, otherwise the resulting nbc-cmd-hack.sh contains raw
+							// gzip bytes and CSE exec fails with "cannot execute binary file"
+							// (exit 126).
+							if compression, _ := contents["compression"].(string); compression == "gzip" {
+								gzBytes, err := base64.StdEncoding.DecodeString(nbcCmdContent)
+								if err != nil {
+									return "", fmt.Errorf("failed to base64-decode gzipped nbc-cmd source: %w", err)
+								}
+								gzReader, err := gzip.NewReader(bytes.NewReader(gzBytes))
+								if err != nil {
+									return "", fmt.Errorf("failed to create gzip reader for nbc-cmd source: %w", err)
+								}
+								plain, err := io.ReadAll(gzReader)
+								_ = gzReader.Close()
+								if err != nil {
+									return "", fmt.Errorf("failed to gunzip nbc-cmd source: %w", err)
+								}
+								nbcCmdContent = base64.StdEncoding.EncodeToString(plain)
+							}
 						}
 					}
 				}
@@ -341,7 +365,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
 			require.NoError(s.T, err, "failed to inject customData write_files entries")
 		}
-		if s.Runtime.NBC.EnableScriptlessCSECmd && s.VHD.SupportsScriptless() {
+		if s.Runtime.NBC.EnableScriptlessCSECmd && !s.Runtime.NBC.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
 			// Validate that the custom data doesn't contain any script content,
 			// which indicates that the scriptless CSE is working as intended
 			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
@@ -749,7 +773,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
-		"localdns.log":                     "sudo journalctl -u localdns",
+		"containerd.log":                   "sudo journalctl -u containerd",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"waagent.log":                      "sudo cat /var/log/waagent.log",

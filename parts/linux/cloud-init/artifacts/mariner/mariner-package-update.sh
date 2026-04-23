@@ -56,8 +56,16 @@ tdnf_download() {
     retries=5
     dnf_download_output=/tmp/dnf-update.out
     for i in $(seq 1 $retries); do
-        ! (tdnf reinstall --repo "$repo" "$package_name" -y --downloadonly --downloaddir "$download_dir" 2>&1 | tee $dnf_download_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
-        cat $dnf_download_output && break || \
+        # Try install first; if the package is already installed with the same version,
+        # tdnf install will say "already installed" and skip the download, so we fall back to reinstall.
+        tdnf install --repo "$repo" "$package_name" -y --downloadonly --downloaddir "$download_dir" 2>&1 | tee $dnf_download_output
+        if grep -qi "already installed" $dnf_download_output; then
+            echo "package already installed, falling back to tdnf reinstall"
+            tdnf reinstall --repo "$repo" "$package_name" -y --downloadonly --downloaddir "$download_dir" 2>&1 | tee $dnf_download_output
+        fi
+        if ! grep -E "^([WE]:.*)|([eE]rr.*)$" $dnf_download_output; then
+            cat $dnf_download_output && break
+        fi
         cat $dnf_download_output
 
         if [ $i -eq $retries ]; then
@@ -65,7 +73,7 @@ tdnf_download() {
         else sleep 5
         fi
     done
-    echo Executed tdnf reinstall $package_name -y $i times
+    echo Executed tdnf download $package_name -y $i times
 }
 
 redact_token() {

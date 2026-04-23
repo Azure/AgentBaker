@@ -133,6 +133,22 @@ func Test_Flatcar_AzureCNI(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_AzureCNI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Ubuntu 22.04 scenario on a cluster configured with Azure CNI",
+		Config: Config{
+			Cluster: clusterAzureOverlayNetwork,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
@@ -686,6 +702,25 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2004FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen1 VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2004FIPSContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
@@ -1044,6 +1079,7 @@ func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NoneCached(t *testing
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+						TestMode:                true,
 					},
 				}
 				nbc.AgentPoolProfile.LocalDNSProfile = nil

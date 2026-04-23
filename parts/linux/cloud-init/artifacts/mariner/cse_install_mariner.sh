@@ -478,6 +478,34 @@ installRPMPackageFromFile() {
     rm -rf "${downloadDir}"
 }
 
+installPackageFromCache() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    echo "installing ${packageName} version ${desiredVersion}"
+    local downloadDir
+    local rpmFile=""
+    local fullPackageVersion=""
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
+
+    if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
+
+    # check cached rpms for matching filename
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+        echo "Failed to find cached rpm file for ${packageName} version ${desiredVersion}"
+        return 1
+    fi
+
+    rpmFile="${downloadDir}/${rpmFile}"
+    logs_to_events "AKS.CSE.install${packageName}.extractBinaryFromRPM" "extractBinaryFromRPM ${rpmFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
+    rm -rf "${downloadDir}"
+}
+
 downloadPkgFromVersion() {
     packageName="${1:-}"
     packageVersion="${2:-}"
