@@ -387,12 +387,12 @@ function Get-CACertificates {
             $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
             $operationJson = ($operationResponse.Content) | ConvertFrom-Json
 
-            if ($null -eq $operationJson -or $null -eq $operationJson.OperationRequests) {
+            if ($null -eq $operationJson -or $null -eq $operationJson.OperationsInfo) {
                 Write-Log "Warning: no operation requests found for $requestType"
                 continue
             }
 
-            foreach ($operation in $operationJson.OperationRequests) {
+            foreach ($operation in $operationJson.OperationsInfo) {
                 $resourceFileName = $operation.ResouceFileName
                 if ([string]::IsNullOrEmpty($resourceFileName)) {
                     continue
