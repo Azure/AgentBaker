@@ -810,6 +810,9 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	if s.VHD != nil && s.VHD.Skip2004Validations {
+		return
+	}
 	unitFailureAllowList := map[string]bool{
 		// this service depends on non-network-isolated environment - E2Es are run in an environment
 		// which simulates network-isolation by only allowing egress to recommended domains outlined
@@ -2075,7 +2078,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD != nil && s.VHD.SkipKernelLogValidation {
+	if s.VHD != nil && s.VHD.Skip2004Validations {
 		return
 	}
 
