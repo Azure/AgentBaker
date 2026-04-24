@@ -48,7 +48,7 @@ ig_extract_upstream_version() {
         return 0
     fi
 
-    echo "[ig] Could not parse upstream version from '${version}'"
+    echo "[ig] Could not parse upstream version from '${version}'" >&2
     return 1
 }
 
