@@ -783,8 +783,9 @@ MOCK
             When call add_iptable_rules_to_skip_conntrack_from_pods
             The output should include "Adding iptables rules to skip conntrack for queries to localdns."
             The output should include "*raw"
-            The output should include "-A raw -t raw -p udp --dport 53 -j NOTRACK"
-            The output should include "-A raw -t raw -p tcp --dport 53 -j NOTRACK"
+            The output should include "-A raw -t raw -p udp --dport 53 -m comment --comment"
+            The output should include "-A raw -t raw -p tcp --dport 53 -m comment --comment"
+            The output should include "-j NOTRACK"
             The output should include "COMMIT"
         End
 

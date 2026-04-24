@@ -464,8 +464,11 @@ add_iptable_rules_to_skip_conntrack_from_pods(){
     echo "Adding iptables rules to skip conntrack for queries to localdns."
     local restore_input="*raw"
     for RULE in "${IPTABLES_RULES[@]}"; do
+        # Insert comment match before -j target since -j must be last.
+        local rule_prefix="${RULE% -j *}"
+        local rule_target="${RULE#"$rule_prefix" }"
         restore_input="${restore_input}
--A ${RULE} -m comment --comment \"localdns: skip conntrack\""
+-A ${rule_prefix} -m comment --comment \"localdns: skip conntrack\" ${rule_target}"
     done
     restore_input="${restore_input}
 COMMIT"
