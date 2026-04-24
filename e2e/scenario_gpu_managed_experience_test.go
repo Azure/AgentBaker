@@ -316,6 +316,99 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404_FullyManagedGPU_NetworkIsolated(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that fully managed GPU experience works on a network-isolated Ubuntu 24.04 node",
+		Tags: Tags{
+			GPU:             true,
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// GPU settings — use Standard_NC6s_v3 (CUDA, not GRID) because:
+				// - CUDA driver container image is pre-cached on the Ubuntu VHD
+				// - GRID driver container is NOT pre-cached, so it would fail to pull from MCR in network isolation
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				// Network isolation settings
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["EnableManagedGPUExperience"] = to.Ptr("true")
+
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2404"
+
+				// Network isolation validation
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+
+				// GPU package version validation
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
+
+				// GPU service + resource validation
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
+
+				// DCGM validation
+				for _, packageName := range getDCGMPackageNames(os) {
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				}
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_UTIL")
+				ValidateNodeHasLabel(ctx, s, "kubernetes.azure.com/dcgm-exporter", "enabled")
+
+				// NPD validation
+				ValidateNodeProblemDetector(ctx, s)
+				RestartNodeProblemDetector(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePlugin(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginCondition(ctx, s)
+				ValidateNPDUnhealthyNvidiaDevicePluginAfterFailure(ctx, s)
+				ValidateNPDUnhealthyNvidiaDCGMServices(ctx, s)
+				ValidateNPDUnhealthyNvidiaDCGMServicesCondition(ctx, s)
+				ValidateNPDUnhealthyNvidiaDCGMServicesAfterFailure(ctx, s)
+				// Note: GRID license NPD checks are omitted because Standard_NC6s_v3
+				// uses CUDA drivers, not GRID drivers. GRID license validation is only
+				// applicable to converged GPU sizes (e.g. Standard_NV6ads_A10_v5).
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",
