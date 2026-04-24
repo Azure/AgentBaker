@@ -1724,6 +1724,124 @@ echo "  Resolved IPs match /etc/localdns/hosts entries"
 		"localdns should resolve FQDN from hosts file with matching IPs")
 }
 
+// ValidateLocalDNSHostsPluginHotReload verifies that CoreDNS hot-reloads the hosts file
+// after it gets populated. This simulates the scenario where localdns starts before
+// aks-localdns-hosts-setup finishes resolving FQDNs:
+//  1. Save the current hosts file content
+//  2. Truncate the hosts file to empty (simulating dig not having completed)
+//  3. Wait for CoreDNS to reload the empty file (reload 5s)
+//  4. Verify DNS still resolves via fallthrough to upstream (forward plugin)
+//  5. Restore the hosts file with the saved content
+//  6. Wait for CoreDNS to reload the restored file (reload 5s)
+//  7. Verify DNS resolves with IPs matching the hosts file entries (hosts plugin active)
+func ValidateLocalDNSHostsPluginHotReload(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	testFQDN := s.GetDefaultFQDNsForValidation()[0]
+	s.T.Logf("Testing hosts plugin hot-reload with %s", testFQDN)
+
+	script := fmt.Sprintf(`set -euo pipefail
+test_fqdn=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing CoreDNS hosts plugin hot-reload ==="
+echo "Test FQDN: $test_fqdn"
+echo ""
+
+# Escape dots in FQDN for regex
+test_fqdn_escaped=$(echo "$test_fqdn" | sed 's/\./\\./g')
+
+# Step 1: Save current hosts file content
+echo "Step 1: Saving current hosts file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+saved_content=$(cat "$hosts_file")
+echo "Saved hosts file content ($(echo "$saved_content" | wc -l) lines)"
+echo ""
+
+# Verify we have entries for the test FQDN before proceeding
+original_ips=$(echo "$saved_content" | grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_escaped}([[:space:]]|$)" | awk '{print $1}' | sort)
+if [ -z "$original_ips" ]; then
+    echo "ERROR: No IPv4 entries for $test_fqdn in hosts file — cannot test hot-reload"
+    exit 1
+fi
+echo "Original IPs for $test_fqdn from hosts file:"
+echo "$original_ips"
+echo ""
+
+# Step 2: Truncate the hosts file to simulate empty state
+echo "Step 2: Truncating hosts file to simulate delayed population..."
+sudo truncate -s 0 "$hosts_file"
+echo "Hosts file truncated"
+echo ""
+
+# Step 3: Wait for CoreDNS to pick up the empty file (reload 5s + buffer)
+echo "Step 3: Waiting 7s for CoreDNS to reload empty hosts file..."
+sleep 7
+echo ""
+
+# Step 4: Verify DNS still resolves via fallthrough to upstream
+echo "Step 4: Verifying DNS resolves via fallthrough (forward plugin)..."
+dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1)
+if [ -z "$dig_output" ]; then
+    echo "ERROR: DNS resolution failed with empty hosts file — fallthrough not working"
+    # Restore before failing
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    exit 1
+fi
+echo "✓ DNS resolves with empty hosts file (fallthrough working): $dig_output"
+echo ""
+
+# Step 5: Restore the hosts file
+echo "Step 5: Restoring hosts file with original content..."
+echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+echo "Hosts file restored"
+echo ""
+
+# Step 6: Wait for CoreDNS to reload the restored file
+echo "Step 6: Waiting 7s for CoreDNS to reload restored hosts file..."
+sleep 7
+echo ""
+
+# Step 7: Verify DNS resolves with IPs matching hosts file
+echo "Step 7: Verifying DNS resolves from hosts file entries..."
+dig_full=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
+resolved_ips=$(echo "$dig_full" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
+if [ -z "$resolved_ips" ]; then
+    echo "ERROR: No A records returned after restoring hosts file"
+    echo "Full dig output:"
+    echo "$dig_full"
+    exit 1
+fi
+
+echo "Resolved IPs after restore:"
+echo "$resolved_ips"
+echo ""
+
+echo "Comparing with original hosts file entries..."
+if [ "$original_ips" != "$resolved_ips" ]; then
+    echo "ERROR: Resolved IPs do not match hosts file entries after hot-reload"
+    echo "Expected (from hosts file):"
+    echo "$original_ips"
+    echo "Got (from dig):"
+    echo "$resolved_ips"
+    exit 1
+fi
+echo "✓ Resolved IPs match hosts file entries after hot-reload"
+echo ""
+
+echo "=== SUCCESS ==="
+echo "CoreDNS hosts plugin hot-reload verified:"
+echo "  1. Empty hosts file: DNS resolved via fallthrough"
+echo "  2. Restored hosts file: DNS resolved from hosts plugin with matching IPs"
+`, testFQDN)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"CoreDNS should hot-reload hosts file and serve matching IPs")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
