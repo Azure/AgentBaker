@@ -7,6 +7,7 @@ done
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
+HOTFIX_JSON="/opt/azure/containers/aks-node-controller-hotfix.json"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
@@ -18,15 +19,24 @@ log() {
     echo "$message"
 }
 
+# this is to ensure that shellspec won't interpret any further lines below
+${__SOURCED__:+return}
+
+if [ -f "$HOTFIX_JSON" ]; then
+    log "Downloading ANC hotfix from ${HOTFIX_JSON}"
+    if "$BIN_PATH" download-hotfix; then
+        log "Finished downloading ANC hotfix from ${HOTFIX_JSON}"
+    else
+        log "Failed to download ANC hotfix from ${HOTFIX_JSON}; falling back to staged binaries"
+    fi
+fi
+
 if [ -x "$HOTFIX_BIN" ]; then
     BIN_PATH="$HOTFIX_BIN"
     log "Using hotfix binary: $HOTFIX_BIN"
 else
     log "Using VHD-baked binary: $BIN_PATH"
 fi
-
-# this is to ensure that shellspec won't interpret any further lines below
-${__SOURCED__:+return}
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

@@ -90,6 +90,26 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 	})
 
+	t.Run("download-hotfix rejects unexpected arguments", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "download-hotfix", "extra"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		origVersion := Version
+		Version = "202603.30.0-hotfix1"
+		defer func() { Version = origVersion }()
+
+		configPath := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(configPath, []byte(`{"version": "202603.30.0-hotfix1"}`), 0o644))
+		tt.App.hotfixVersionPath = configPath
+
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "download-hotfix"})
+		assert.Equal(t, 0, exitCode)
+	})
+
 	t.Run("provision command with missing flag", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision"})

@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -23,58 +22,45 @@ const (
 	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
 	// hotfixBinaryPath is where the hotfix binary is placed alongside the VHD-baked binary.
 	// The wrapper script checks for this path and prefers it over the VHD-baked binary.
-	// This avoids overwriting a running binary, which is not possible on Windows.
 	hotfixBinaryPath = "/opt/azure/containers/aks-node-controller-hotfix"
 	// pkgBinaryPath is where apt/dnf package installs the binary.
 	pkgBinaryPath = "/usr/bin/aks-node-controller"
 )
 
-// selfUpdate checks for a hotfix version and installs it from PMC if needed.
-// It is called before command dispatch for provision and provision-wait commands.
-// On successful install, it re-execs the process with the new binary and never returns.
-// On any failure, it logs a warning so the VHD-baked binary proceeds.
-func (a *App) selfUpdate(ctx context.Context) {
+// downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
+// The wrapper script decides which binary to execute after this command returns.
+func (a *App) downloadHotfix(ctx context.Context) error {
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
 	hotfixVersion, err := readHotfixVersion(hotfixPath)
 	if err != nil {
-		slog.Error("failed to read hotfix version, proceeding with VHD-baked version",
-			"path", hotfixPath, "error", err)
-		return
+		return fmt.Errorf("read hotfix version from %s: %w", hotfixPath, err)
 	}
 
 	if hotfixVersion == "" {
-		return
+		slog.Info("hotfix config does not request a version, skipping download", "path", hotfixPath)
+		return nil
 	}
+
 	if Version == hotfixVersion {
-		slog.Info("ANC already at hotfix version, skipping self-update", "version", Version)
-		return
+		slog.Info("ANC already at hotfix version, skipping download", "version", Version)
+		return nil
 	}
 
-	slog.Info("ANC self-update triggered", "current", Version, "target", hotfixVersion)
+	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
-	installErr := a.installFromPMC(ctx, hotfixVersion)
-	if installErr != nil {
-		slog.Error("failed to install hotfix, proceeding with VHD-baked version",
-			"target", hotfixVersion, "error", installErr)
-		return
+	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
+		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
 
-	// Copy the hotfix binary alongside the VHD-baked binary rather than overwriting it.
-	// This avoids replacing a running binary (which is not possible on Windows) and lets
-	// the wrapper script choose the hotfix on subsequent restarts.
 	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
-		slog.Error("failed to copy hotfix binary alongside VHD binary, proceeding with current binary",
-			"error", err)
-		return
+		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	if err := a.reExec(); err != nil {
-		slog.Error("failed to re-exec after hotfix install, proceeding with current binary",
-			"error", err)
-	}
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	return nil
 }
 
 // hotfixConfig is the JSON structure of the hotfix configuration file.
@@ -291,15 +277,4 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 	}
 	slog.Info("installed hotfix binary alongside VHD binary", "src", src, "hotfixPath", dst)
 	return nil
-}
-
-// reExec replaces the current process with the updated hotfix binary.
-// On Linux this uses syscall.Exec which atomically replaces the process in-place.
-// TODO(windows): syscall.Exec is not available on Windows. When Windows hotfix support
-// is added, this will need a platform-specific implementation (e.g., spawn the hotfix
-// binary as a child process and exit, or defer to the wrapper script for restart).
-func (a *App) reExec() error {
-	args := append([]string{hotfixBinaryPath}, os.Args[1:]...)
-	slog.Info("re-executing with hotfix binary", "path", hotfixBinaryPath, "args", args)
-	return syscall.Exec(hotfixBinaryPath, args, os.Environ())
 }

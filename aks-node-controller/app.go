@@ -108,9 +108,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 			{
 				Name:  "version",
 				Usage: "Print the version",
-				Action: func(context.Context, *cli.Command) error {
-					_, _ = fmt.Println(Version)
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					_, _ = fmt.Fprintln(cmd.Root().Writer, Version)
 					return nil
+				},
+			},
+			{
+				Name:  "download-hotfix",
+				Usage: "Download the requested hotfix binary",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected download-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runDownloadHotfixCommand(ctx)
 				},
 			},
 		},
@@ -121,10 +131,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 }
 
 func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dryRun bool) error {
-	// Self-update before provisioning: check for hotfix version and install if needed.
-	// On success, syscall.Exec replaces this process and never returns.
-	// On any failure, selfUpdate logs a warning and returns nil (best-effort).
-	a.selfUpdate(ctx)
 	slog.Info("aks-node-controller started", "task", "Provision")
 
 	startTime := time.Now()
@@ -144,7 +150,6 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 }
 
 func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles ProvisionStatusFiles) (string, error) {
-	a.selfUpdate(ctx)
 	slog.Info("aks-node-controller started", "task", "ProvisionWait")
 
 	startTime := time.Now()
@@ -161,6 +166,17 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 	}
 	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
 	return provisionOutput, err
+}
+
+func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
+	slog.Info("aks-node-controller hotfix download started")
+	err := a.downloadHotfix(ctx)
+	if err != nil {
+		slog.Error("aks-node-controller hotfix download failed", "error", err)
+		return err
+	}
+	slog.Info("aks-node-controller hotfix download finished")
+	return nil
 }
 
 func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
