@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 const (
@@ -44,8 +46,17 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 		return nil
 	}
 
-	if Version == hotfixVersion {
-		slog.Info("ANC already at hotfix version, skipping download", "version", Version)
+	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
+	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
+	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
+	if err != nil {
+		slog.Warn("failed to compare versions, skipping hotfix download",
+			"current", Version, "hotfix", hotfixVersion, "error", err)
+		return nil
+	}
+	if !shouldUpgrade {
+		slog.Info("ANC version not targeted by hotfix, skipping download",
+			"current", Version, "hotfix", hotfixVersion)
 		return nil
 	}
 
@@ -277,4 +288,27 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 	}
 	slog.Info("installed hotfix binary alongside VHD binary", "src", src, "hotfixPath", dst)
 	return nil
+}
+
+// shouldUpgradeToHotfix returns true when the current ANC version should be upgraded
+// to the hotfix version. This is true only when both versions share the same YYYYMM.DD
+// base and the hotfix has a strictly higher PATCH number (patch-only matching).
+//
+// ANC versions use the format YYYYMM.DD.PATCH which is valid semver (Major.Minor.Patch).
+//
+// This ensures the hotfix only targets the specific VHD it was built for:
+//   - Older VHDs (different base) are skipped — remediated via VHD republish
+//   - Newer VHDs (different base) are skipped — fix is already baked in
+//   - Same version is skipped — already at hotfix
+//   - Unparseable versions (e.g. "dev") return an error — caller should skip
+func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
+	cv, err := semver.NewVersion(strings.TrimSpace(current))
+	if err != nil {
+		return false, fmt.Errorf("parsing current version %q: %w", current, err)
+	}
+	hv, err := semver.NewVersion(strings.TrimSpace(hotfix))
+	if err != nil {
+		return false, fmt.Errorf("parsing hotfix version %q: %w", hotfix, err)
+	}
+	return cv.Major() == hv.Major() && cv.Minor() == hv.Minor() && hv.Patch() > cv.Patch(), nil
 }
