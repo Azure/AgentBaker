@@ -271,9 +271,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
 	}
 
+	s.Runtime.NBC = nbc
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
