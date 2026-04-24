@@ -1,7 +1,7 @@
 package toolkit
 
 import (
-	"github.com/Masterminds/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 func CheckK8sConstraint(kubernetesVersion string, constraintStr string) (bool, error) {

@@ -5,17 +5,17 @@ go 1.24.12
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.6
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.1 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.2 // indirect
 	github.com/clarketm/json v1.17.1 // indirect
 	github.com/coreos/butane v0.25.1 // indirect
@@ -29,7 +29,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace github.com/Azure/agentbaker => ../

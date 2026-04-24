@@ -24,7 +24,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 const numInPair = 2
@@ -231,9 +231,15 @@ func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamod
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
-	v1, _ := semver.Make(actualVersion)
-	v2, _ := semver.Make(version)
-	return v1.GE(v2)
+	v1, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	v2, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return v1.GreaterThanEqual(v2)
 }
 
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
