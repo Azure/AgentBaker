@@ -200,6 +200,8 @@ func Test_Ubuntu2204_CSE_CachedPerformance(t *testing.T) {
 			VHD:               config.VHDUbuntu2204Gen2Containerd,
 			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Disable scriptless CSE so traditional CSE scripts run and emit timing events
+				nbc.EnableScriptlessCSECmd = false
 				// The default 1.30 only has tarballs, not .deb files, so it would never
 				// exercise the installDebPackageFromFile code path.
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.4"
@@ -232,6 +234,9 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2204Gen2Containerd,
 			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
 		},
@@ -249,6 +254,9 @@ func Test_Ubuntu2404_CSE_CachedPerformance(t *testing.T) {
 			VHD:               config.VHDUbuntu2404Gen2Containerd,
 			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Disable scriptless CSE so traditional CSE scripts run and emit timing events
+				nbc.EnableScriptlessCSECmd = false
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.4"
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.34.4"
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
 			},
@@ -273,6 +281,9 @@ func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2404Gen2Containerd,
 			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -296,6 +307,9 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDAzureLinuxV3Gen2,
 			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
@@ -310,6 +324,9 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDAzureLinuxV3Gen2,
 			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
 		},
