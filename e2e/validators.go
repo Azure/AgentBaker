@@ -1872,9 +1872,10 @@ echo "  4. Hosts file restored: canary resolves again (hot-reload works)"
 //  1. Save current hosts file, truncate it to empty
 //  2. Restart localdns (systemctl restart) — CoreDNS starts fresh with empty hosts file
 //  3. Verify DNS resolves for critical and non-critical FQDNs via fallthrough
-//  4. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
-//  5. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
-//  6. Restore original hosts file and restart localdns to leave node in clean state
+//  4. Inject fake IP for critical FQDN — proves step 3 used upstream, not stale hosts data
+//  5. Populate hosts file with original content + canary (simulates aks-localdns-hosts-setup)
+//  6. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
+//  7. Restore original hosts file and restart localdns to leave node in clean state
 func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1948,13 +1949,39 @@ fi
 echo "✓ Non-critical FQDN resolves via fallthrough"
 echo ""
 
-# Step 3: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
-echo "Step 3: Populating hosts file with canary entry (simulating delayed dig completion)..."
-echo "${canary_ip} ${canary_fqdn}" | sudo tee "$hosts_file" > /dev/null
+# Step 3: Prove critical FQDN is NOT being served by the hosts plugin.
+# Write a fake IP for the critical FQDN into the hosts file. If CoreDNS
+# switches to serving the fake IP after reload, that proves:
+#   - Step 2 resolution came from upstream (forward plugin), not hosts plugin
+#   - The hosts plugin is now active and serving from the file
+fake_critical_ip="192.0.2.50"
+echo "Step 3: Writing fake IP ($fake_critical_ip) for $critical_fqdn to prove resolution source..."
+echo "${fake_critical_ip} ${critical_fqdn}" | sudo tee "$hosts_file" > /dev/null
+
+echo "Waiting 7s for CoreDNS to reload hosts file with fake IP..."
+sleep 7
+
+critical_after_fake=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Critical FQDN after fake IP injection: '$critical_after_fake'"
+if [ "$critical_after_fake" != "$fake_critical_ip" ]; then
+    echo "ERROR: Critical FQDN did not resolve to fake IP after injection"
+    echo "Expected: $fake_critical_ip"
+    echo "Got: $critical_after_fake"
+    echo "This means the hosts plugin is not picking up the file"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Critical FQDN now resolves to fake IP — confirms step 2 used upstream, step 3 uses hosts plugin"
 echo ""
 
-# Step 4: Wait for CoreDNS to reload and verify canary resolves
-echo "Step 4: Waiting 7s for CoreDNS to reload populated hosts file..."
+# Step 4: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
+echo "Step 4: Populating hosts file with original content + canary entry..."
+{ echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
+echo ""
+
+# Step 5: Wait for CoreDNS to reload and verify canary resolves
+echo "Step 5: Waiting 7s for CoreDNS to reload populated hosts file..."
 sleep 7
 
 canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
@@ -1970,8 +1997,8 @@ fi
 echo "✓ Canary resolves — CoreDNS picked up the hosts file after cold start"
 echo ""
 
-# Step 5: Cleanup — restore original hosts file and restart localdns
-echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
+# Step 6: Cleanup — restore original hosts file and restart localdns
+echo "Step 6: Cleaning up — restoring original hosts file and restarting localdns..."
 echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
 sudo systemctl restart localdns
 echo ""
@@ -1988,7 +2015,8 @@ done
 echo "=== SUCCESS ==="
 echo "localdns cold start with empty hosts file verified:"
 echo "  1. Cold start with empty hosts file: DNS resolves via fallthrough"
-echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
+echo "  2. Fake IP injection: proves step 1 used upstream, not hosts plugin"
+echo "  3. Hosts file populated later: CoreDNS picks it up via reload"
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
