@@ -1872,13 +1872,14 @@ echo "  4. Hosts file restored: canary resolves again (hot-reload works)"
 // aks-localdns-hosts-setup finishes resolving FQDNs.
 //
 // Test flow:
-//  1. Save current hosts file, truncate it to empty
-//  2. Restart localdns (systemctl restart) — CoreDNS starts fresh with empty hosts file
-//  3. Verify DNS resolves for critical and non-critical FQDNs via fallthrough
-//  4. Inject fake IP for critical FQDN — proves step 3 used upstream, not stale hosts data
-//  5. Populate hosts file with original content + canary (simulates aks-localdns-hosts-setup)
-//  6. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
-//  7. Restore original hosts file and restart localdns to leave node in clean state
+//  1. Inject canary into current hosts file, verify it resolves (baseline)
+//  2. Truncate hosts file, restart localdns — CoreDNS starts fresh with empty hosts file
+//  3. Verify canary no longer resolves — proves hosts plugin loaded empty file, not stale data
+//  4. Verify critical and non-critical FQDNs resolve via fallthrough
+//  5. Inject fake IP for critical FQDN — proves step 4 used upstream, not hosts plugin
+//  6. Populate hosts file with original content + canary (simulates aks-localdns-hosts-setup)
+//  7. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
+//  8. Restore original hosts file and restart localdns to leave node in clean state
 func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1902,8 +1903,25 @@ saved_content=$(cat "$hosts_file")
 echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
 echo ""
 
-# Step 1: Truncate hosts file and restart localdns
-echo "Step 1: Truncating hosts file and restarting localdns..."
+# Step 1: Inject canary into current hosts file to establish baseline
+echo "Step 1: Injecting canary into hosts file before restart..."
+echo "${canary_ip} ${canary_fqdn}" | sudo tee -a "$hosts_file" > /dev/null
+
+echo "Waiting 7s for CoreDNS to reload hosts file with canary..."
+sleep 7
+
+canary_before=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Canary before restart: '$canary_before'"
+if [ "$canary_before" != "$canary_ip" ]; then
+    echo "ERROR: Canary not served before restart — cannot establish baseline"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    exit 1
+fi
+echo "✓ Canary resolves before restart — baseline established"
+echo ""
+
+# Step 2: Truncate hosts file and restart localdns
+echo "Step 2: Truncating hosts file and restarting localdns..."
 sudo truncate -s 0 "$hosts_file"
 sudo systemctl restart localdns
 echo "localdns restarted with empty hosts file"
@@ -1926,8 +1944,21 @@ for i in $(seq 1 15); do
 done
 echo ""
 
-# Step 2: Verify DNS resolves via fallthrough with empty hosts file
-echo "Step 2: Verifying DNS resolves via fallthrough after cold start..."
+# Step 3: Verify canary no longer resolves — proves hosts plugin loaded empty file
+echo "Step 3: Verifying canary no longer resolves after restart with empty hosts file..."
+canary_after_restart=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Canary after restart: '$canary_after_restart'"
+if [ "$canary_after_restart" = "$canary_ip" ]; then
+    echo "ERROR: Canary still resolves after restart with empty hosts file — stale data"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Canary no longer resolves — hosts plugin loaded empty file on restart"
+echo ""
+
+# Step 4: Verify DNS resolves via fallthrough with empty hosts file
+echo "Step 4: Verifying DNS resolves via fallthrough after cold start..."
 
 critical_fqdn="mcr.microsoft.com"
 critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
@@ -1952,13 +1983,13 @@ fi
 echo "✓ Non-critical FQDN resolves via fallthrough"
 echo ""
 
-# Step 3: Prove critical FQDN is NOT being served by the hosts plugin.
+# Step 5: Prove critical FQDN is NOT being served by the hosts plugin.
 # Write a fake IP for the critical FQDN into the hosts file. If CoreDNS
 # switches to serving the fake IP after reload, that proves:
 #   - Step 2 resolution came from upstream (forward plugin), not hosts plugin
 #   - The hosts plugin is now active and serving from the file
 fake_critical_ip="192.0.2.50"
-echo "Step 3: Writing fake IP ($fake_critical_ip) for $critical_fqdn to prove resolution source..."
+echo "Step 5: Writing fake IP ($fake_critical_ip) for $critical_fqdn to prove resolution source..."
 echo "${fake_critical_ip} ${critical_fqdn}" | sudo tee "$hosts_file" > /dev/null
 
 echo "Waiting 7s for CoreDNS to reload hosts file with fake IP..."
@@ -1975,16 +2006,16 @@ if [ "$critical_after_fake" != "$fake_critical_ip" ]; then
     sudo systemctl restart localdns
     exit 1
 fi
-echo "✓ Critical FQDN now resolves to fake IP — confirms step 2 used upstream, step 3 uses hosts plugin"
+echo "✓ Critical FQDN now resolves to fake IP — confirms step 4 used upstream, step 5 uses hosts plugin"
 echo ""
 
-# Step 4: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
-echo "Step 4: Populating hosts file with original content + canary entry..."
+# Step 6: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
+echo "Step 6: Populating hosts file with original content + canary entry..."
 { echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
 echo ""
 
-# Step 5: Wait for CoreDNS to reload and verify canary resolves
-echo "Step 5: Waiting 7s for CoreDNS to reload populated hosts file..."
+# Step 7: Wait for CoreDNS to reload and verify canary resolves
+echo "Step 7: Waiting 7s for CoreDNS to reload populated hosts file..."
 sleep 7
 
 canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
@@ -2000,8 +2031,8 @@ fi
 echo "✓ Canary resolves — CoreDNS picked up the hosts file after cold start"
 echo ""
 
-# Step 6: Cleanup — restore original hosts file and restart localdns
-echo "Step 6: Cleaning up — restoring original hosts file and restarting localdns..."
+# Step 8: Cleanup — restore original hosts file and restart localdns
+echo "Step 8: Cleaning up — restoring original hosts file and restarting localdns..."
 echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
 sudo systemctl restart localdns
 echo ""
@@ -2017,9 +2048,11 @@ done
 
 echo "=== SUCCESS ==="
 echo "localdns cold start with empty hosts file verified:"
-echo "  1. Cold start with empty hosts file: DNS resolves via fallthrough"
-echo "  2. Fake IP injection: proves step 1 used upstream, not hosts plugin"
-echo "  3. Hosts file populated later: CoreDNS picks it up via reload"
+echo "  1. Canary injected before restart: hosts plugin served it"
+echo "  2. Restart with empty hosts file: canary stopped resolving (no stale data)"
+echo "  3. Empty hosts file: critical and non-critical FQDNs resolve via fallthrough"
+echo "  4. Fake IP injection: proves fallthrough used upstream, not hosts plugin"
+echo "  5. Hosts file populated later: CoreDNS picks it up via reload"
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
