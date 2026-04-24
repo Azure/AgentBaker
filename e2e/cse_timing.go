@@ -128,7 +128,12 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 
 	// Read all event JSON files from the CSE events directory, explicitly
 	// appending a newline after each file so each JSON document is separated.
-	listCmd := fmt.Sprintf("sudo find %s -name '*.json' -exec sh -c 'cat \"$1\"; echo' _ {} \\;", cseEventsDir)
+	// Search both the primary events directory and any handler-version subdirectories,
+	// as the Guest Agent may move events between these locations.
+	listCmd := fmt.Sprintf(
+		"sudo find %s /var/log/azure/Microsoft.Azure.Extensions.CustomScript/ -name '*.json' -path '*/events/*' -exec sh -c 'cat \"$1\"; echo' _ {} \\; 2>/dev/null",
+		cseEventsDir,
+	)
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, listCmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSE events: %w", err)
