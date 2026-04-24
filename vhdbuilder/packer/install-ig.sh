@@ -65,7 +65,7 @@ ig_validate_version_compatibility() {
     ig_gadgets_upstream=$(ig_extract_upstream_version "${ig_gadgets_version}") || return 1
 
     if [[ "${ig_upstream}" != "${ig_gadgets_upstream}" ]]; then
-        echo "[ig] ig (${IG_VERSION}) and ig-gadgets (${ig_gadgets_version}) must share upstream version, found ${ig_upstream} vs ${ig_gadgets_upstream}"
+        echo "[ig] ig (${IG_VERSION}) and ig-gadgets (${ig_gadgets_version}) must share upstream version, found ${ig_upstream} vs ${ig_gadgets_upstream}" >&2
         return 1
     fi
 }
