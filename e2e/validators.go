@@ -1864,6 +1864,137 @@ echo "  4. Hosts file restored: canary resolves again (hot-reload works)"
 		"CoreDNS should hot-reload hosts file: canary inject → truncate → restore")
 }
 
+// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when restarted
+// with an empty hosts file — the exact scenario that occurs when localdns starts before
+// aks-localdns-hosts-setup finishes resolving FQDNs.
+//
+// Test flow:
+//  1. Save current hosts file, truncate it to empty
+//  2. Restart localdns (systemctl restart) — CoreDNS starts fresh with empty hosts file
+//  3. Verify DNS resolves for critical and non-critical FQDNs via fallthrough
+//  4. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
+//  5. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
+//  6. Restore original hosts file and restart localdns to leave node in clean state
+func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	s.T.Log("Testing localdns cold start with empty hosts file then population")
+
+	script := `set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+canary_fqdn="canary.localdns.test"
+canary_ip="192.0.2.99"
+
+echo "=== Testing localdns cold start with empty hosts file ==="
+echo ""
+
+# Step 0: Save current hosts file
+echo "Step 0: Saving current hosts file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+saved_content=$(cat "$hosts_file")
+echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
+echo ""
+
+# Step 1: Truncate hosts file and restart localdns
+echo "Step 1: Truncating hosts file and restarting localdns..."
+sudo truncate -s 0 "$hosts_file"
+sudo systemctl restart localdns
+echo "localdns restarted with empty hosts file"
+echo ""
+
+# Wait for localdns to be fully ready
+echo "Waiting for localdns to be ready..."
+for i in $(seq 1 15); do
+    if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
+        echo "localdns is ready after ${i}s"
+        break
+    fi
+    if [ "$i" -eq 15 ]; then
+        echo "ERROR: localdns did not become ready after 15s"
+        echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+        sudo systemctl restart localdns
+        exit 1
+    fi
+    sleep 1
+done
+echo ""
+
+# Step 2: Verify DNS resolves via fallthrough with empty hosts file
+echo "Step 2: Verifying DNS resolves via fallthrough after cold start..."
+
+critical_fqdn="mcr.microsoft.com"
+critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Critical FQDN ($critical_fqdn): '$critical_result'"
+if [ -z "$critical_result" ]; then
+    echo "ERROR: Critical FQDN failed to resolve after cold start with empty hosts file"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Critical FQDN resolves via fallthrough"
+
+noncritical_fqdn="www.bing.com"
+noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Non-critical FQDN ($noncritical_fqdn): '$noncritical_result'"
+if [ -z "$noncritical_result" ]; then
+    echo "ERROR: Non-critical FQDN failed to resolve after cold start with empty hosts file"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Non-critical FQDN resolves via fallthrough"
+echo ""
+
+# Step 3: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
+echo "Step 3: Populating hosts file with canary entry (simulating delayed dig completion)..."
+echo "${canary_ip} ${canary_fqdn}" | sudo tee "$hosts_file" > /dev/null
+echo ""
+
+# Step 4: Wait for CoreDNS to reload and verify canary resolves
+echo "Step 4: Waiting 7s for CoreDNS to reload populated hosts file..."
+sleep 7
+
+canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Canary dig result: '$canary_result'"
+if [ "$canary_result" != "$canary_ip" ]; then
+    echo "ERROR: Canary does not resolve after populating hosts file — hot-reload after cold start broken"
+    echo "Expected: $canary_ip"
+    echo "Got: $canary_result"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Canary resolves — CoreDNS picked up the hosts file after cold start"
+echo ""
+
+# Step 5: Cleanup — restore original hosts file and restart localdns
+echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
+echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+sudo systemctl restart localdns
+echo ""
+
+# Wait for localdns to be ready after final restart
+for i in $(seq 1 15); do
+    if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
+        echo "localdns is ready after cleanup"
+        break
+    fi
+    sleep 1
+done
+
+echo "=== SUCCESS ==="
+echo "localdns cold start with empty hosts file verified:"
+echo "  1. Cold start with empty hosts file: DNS resolves via fallthrough"
+echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should work after cold start with empty hosts file and pick up populated file")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
