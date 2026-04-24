@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,6 +19,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
+	"github.com/urfave/cli/v3"
 )
 
 type App struct {
@@ -34,42 +34,6 @@ type App struct {
 	aptSourcesDir string
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
-}
-
-// commandMetadata holds all metadata for a command in one place.
-type commandMetadata struct {
-	taskName string
-	handler  func(*App, context.Context, []string) error
-}
-
-// getCommandRegistry returns the command registry mapping command names to their metadata.
-// Adding a new command only requires adding one entry here.
-func getCommandRegistry() map[string]commandMetadata {
-	return map[string]commandMetadata{
-		"provision": {
-			taskName: "Provision",
-			handler: func(a *App, ctx context.Context, args []string) error {
-				provisionResult, err := a.runProvision(ctx, args[2:])
-				// Always notify after provisioning attempt (success is a no-op inside notifier)
-				a.writeCompleteFileOnError(provisionResult, err)
-				return err
-			},
-		},
-		"provision-wait": {
-			taskName: "ProvisionWait",
-			handler: func(a *App, ctx context.Context, args []string) error {
-				provisionStatusFiles := ProvisionStatusFiles{
-					ProvisionJSONFile:     provisionJSONFilePath,
-					ProvisionCompleteFile: provisionCompleteFilePath,
-				}
-				provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
-				//nolint:forbidigo // stdout is part of the interface
-				fmt.Println(provisionOutput)
-				slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-				return err
-			},
-		},
-	}
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -99,76 +63,120 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	if handled := handleInfoCommand(args); handled {
-		return 0
+	cmd := &cli.Command{
+		Name:    "aks-node-controller",
+		Usage:   "Parse contract and run csecmd",
+		Version: Version,
+		ExitErrHandler: func(context.Context, *cli.Command, error) {
+			// Return errors to the caller so exit codes are derived consistently in one place.
+		},
+		Action: func(context.Context, *cli.Command) error {
+			if len(args) > 1 {
+				return fmt.Errorf("unknown command: %s", args[1])
+			}
+			return errors.New("missing command argument")
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "provision",
+				Usage: "Run node provisioning",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provision-config", Usage: "path to the provision config file"},
+					&cli.StringFlag{Name: "nbc-cmd", Usage: "path to the NBC command file"},
+					&cli.BoolFlag{Name: "dry-run", Usage: "print the command that would be run without executing it"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					return a.runProvisionCommand(ctx, ProvisionFlags{
+						ProvisionConfig: cmd.String("provision-config"),
+						NBCCmd:          cmd.String("nbc-cmd"),
+					}, cmd.Bool("dry-run"))
+				},
+			},
+			{
+				Name:  "provision-wait",
+				Usage: "Wait for provisioning to complete",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					provisionStatusFiles := ProvisionStatusFiles{
+						ProvisionJSONFile:     provisionJSONFilePath,
+						ProvisionCompleteFile: provisionCompleteFilePath,
+					}
+					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
+					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
+					return err
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "Print the version",
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					_, _ = fmt.Fprintln(cmd.Root().Writer, Version)
+					return nil
+				},
+			},
+			{
+				Name:  "download-hotfix",
+				Usage: "Download the requested hotfix binary",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected download-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runDownloadHotfixCommand(ctx)
+				},
+			},
+		},
 	}
 
-	slog.Info("aks-node-controller started", "args", args)
-	err := a.run(ctx, args)
-	exitCode := errToExitCode(err)
-	if exitCode == 0 {
-		slog.Info("aks-node-controller finished successfully.")
-	} else {
-		slog.Error("aks-node-controller failed", "error", err)
-	}
-	return exitCode
+	err := cmd.Run(ctx, args)
+	return errToExitCode(err)
 }
 
-// handleInfoCommand handles --version, version, --help, and help commands
-// without logging noise. Returns true if handled.
-func handleInfoCommand(args []string) bool {
-	if len(args) < 2 {
-		return false
-	}
-	switch args[1] {
-	case "--version", "version":
-		_, _ = fmt.Fprintln(os.Stdout, Version)
-		return true
-	case "--help", "help":
-		_, _ = fmt.Fprintln(os.Stdout, "Usage: aks-node-controller <command> [options]")
-		_, _ = fmt.Fprintln(os.Stdout)
-		_, _ = fmt.Fprintln(os.Stdout, "Commands:")
-		_, _ = fmt.Fprintln(os.Stdout, "  provision       Run node provisioning")
-		_, _ = fmt.Fprintln(os.Stdout, "  provision-wait  Wait for provisioning to complete")
-		_, _ = fmt.Fprintln(os.Stdout, "  version         Print the version")
-		_, _ = fmt.Fprintln(os.Stdout, "  help            Print this help message")
-		return true
-	default:
-		return false
-	}
-}
-
-func (a *App) run(ctx context.Context, args []string) error {
-	command := ""
-	if len(args) >= 2 {
-		command = args[1]
-	}
-	if command == "" {
-		return errors.New("missing command argument")
-	}
-
-	cmd, ok := getCommandRegistry()[command]
-	if !ok {
-		return fmt.Errorf("unknown command: %s", command)
-	}
-
-	// Self-update before provisioning: check for hotfix version and install if needed.
-	// On success, syscall.Exec replaces this process and never returns.
-	// On any failure, selfUpdate logs a warning and returns nil (best-effort).
-	a.selfUpdate(ctx)
+func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dryRun bool) error {
+	slog.Info("aks-node-controller started", "task", "Provision")
 
 	startTime := time.Now()
-	a.eventLogger.LogEvent(cmd.taskName, "Starting", helpers.EventLevelInformational, startTime, startTime)
-
-	err := cmd.handler(a, ctx, args)
+	a.eventLogger.LogEvent("Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
+	provisionResult, err := a.runProvision(ctx, flags, dryRun)
+	a.writeCompleteFileOnError(provisionResult, err)
 	endTime := time.Now()
 	if err != nil {
 		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
-		a.eventLogger.LogEvent(cmd.taskName, message, helpers.EventLevelError, startTime, endTime)
+		a.eventLogger.LogEvent("Provision", message, helpers.EventLevelError, startTime, endTime)
+		slog.Error("aks-node-controller failed", "error", err)
 	} else {
-		a.eventLogger.LogEvent(cmd.taskName, "Completed", helpers.EventLevelInformational, startTime, endTime)
+		a.eventLogger.LogEvent("Provision", "Completed", helpers.EventLevelInformational, startTime, endTime)
+		slog.Info("aks-node-controller finished successfully.")
 	}
 	return err
+}
+
+func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles ProvisionStatusFiles) (string, error) {
+	slog.Info("aks-node-controller started", "task", "ProvisionWait")
+
+	startTime := time.Now()
+	a.eventLogger.LogEvent("ProvisionWait", "Starting", helpers.EventLevelInformational, startTime, startTime)
+	provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+	endTime := time.Now()
+	if err != nil {
+		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+		a.eventLogger.LogEvent("ProvisionWait", message, helpers.EventLevelError, startTime, endTime)
+		slog.Error("aks-node-controller failed", "error", err)
+	} else {
+		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
+		slog.Info("aks-node-controller finished successfully.")
+	}
+	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	return provisionOutput, err
+}
+
+func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
+	slog.Info("aks-node-controller hotfix download started")
+	err := a.downloadHotfix(ctx)
+	if err != nil {
+		slog.Error("aks-node-controller hotfix download failed", "error", err)
+		return err
+	}
+	slog.Info("aks-node-controller hotfix download finished")
+	return nil
 }
 
 func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
@@ -275,10 +283,10 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
-// runProvision encapsulates argument parsing and execution for the "provision" subcommand.
+// runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult, error) {
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
 	// Handle panics gracefully to ensure we always return a valid result
 	provisionResult := &ProvisionResult{}
 	var err error
@@ -293,25 +301,15 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 		}
 	}()
 
-	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
-	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
-	nbcCMD := fs.String("nbc-cmd", "", "path to the NBC command file")
-	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-	if parseErr := fs.Parse(args); parseErr != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
-		return provisionResult, errors.New(provisionResult.Error)
-	}
-
-	if *provisionConfig == "" && *nbcCMD == "" {
+	if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = "--provision-config or --nbc-cmd is required"
 		return provisionResult, errors.New(provisionResult.Error)
 	}
-	if *dryRun {
+	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	}
-	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig, NBCCmd: *nbcCMD})
+	return a.Provision(ctx, flags)
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,

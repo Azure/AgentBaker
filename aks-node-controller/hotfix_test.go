@@ -99,39 +99,36 @@ func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
 	})
 }
 
-func TestSelfUpdate_NoHotfixFile(t *testing.T) {
-	// When no hotfix-version file exists, selfUpdate should be a no-op.
+func TestDownloadHotfix_NoHotfixFile(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "nonexistent")
-	tt.App.selfUpdate(context.Background()) // should not panic
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 }
 
-func TestSelfUpdate_VersionMatch(t *testing.T) {
-	// When the compiled version matches the hotfix version, selfUpdate should skip.
+func TestDownloadHotfix_VersionMatch(t *testing.T) {
 	origVersion := Version
 	Version = "202603.30.0-hotfix1"
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0644))
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0o644))
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
-	tt.App.selfUpdate(context.Background()) // should not panic
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 }
 
-func TestSelfUpdate_UnreadableFile(t *testing.T) {
-	// When the hotfix file exists but is unreadable, selfUpdate should log warning and continue.
+func TestDownloadHotfix_UnreadableFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0"}`), 0644))
-	require.NoError(t, os.Chmod(path, 0000))
-	t.Cleanup(func() { _ = os.Chmod(path, 0644) })
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0"}`), 0o644))
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
-	tt.App.selfUpdate(context.Background()) // should not panic, logs warning
+	require.Error(t, tt.App.downloadHotfix(context.Background()))
 }
 
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {
