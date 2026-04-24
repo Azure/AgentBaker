@@ -167,7 +167,7 @@ var cachedCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
 
 		// Networking and node configuration
 		"configureNodeExporter":       10 * time.Second, // prod p50=1.60s p95=9.84s  p99=42.35s
-		"ensureNoDupOnPromiscuBridge":  8 * time.Second, // prod p50=0.70s p95=7.59s  p99=13.30s
+		"ensureNoDupOnPromiscuBridge": 14 * time.Second, // prod p50=0.70s p95=7.59s  p99=13.30s
 	},
 }
 
