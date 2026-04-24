@@ -1733,8 +1733,10 @@ echo "  Resolved IPs match /etc/localdns/hosts entries"
 //  2. Wait for CoreDNS reload, verify dig returns 192.0.2.99 (hosts plugin is serving it)
 //  3. Truncate the hosts file to empty (simulates dig not having completed on boot)
 //  4. Wait for CoreDNS reload, verify canary no longer resolves (proves empty file was reloaded)
-//  5. Restore original hosts file + canary, verify canary resolves again (hot-reload works)
-//  6. Clean up: restore original hosts file without canary
+//  5. Verify critical FQDNs (mcr.microsoft.com) and non-critical FQDNs (www.bing.com)
+//     still resolve via fallthrough to upstream — proves empty hosts file doesn't break DNS
+//  6. Restore original hosts file + canary, verify canary resolves again (hot-reload works)
+//  7. Clean up: restore original hosts file without canary
 func ValidateLocalDNSHostsPluginHotReload(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
@@ -1801,8 +1803,34 @@ fi
 echo "✓ Canary no longer resolves — CoreDNS reloaded the empty hosts file"
 echo ""
 
-# Step 5: Restore hosts file with original content + canary, verify canary resolves again
-echo "Step 5: Restoring hosts file with original content + canary..."
+# Step 5: Verify DNS still works for both critical and non-critical FQDNs via fallthrough
+echo "Step 5: Verifying fallthrough resolves critical and non-critical FQDNs with empty hosts file..."
+
+# Critical FQDN (normally in hosts file — must still resolve via upstream forward plugin)
+critical_fqdn="mcr.microsoft.com"
+critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Critical FQDN ($critical_fqdn) dig result: '$critical_result'"
+if [ -z "$critical_result" ]; then
+    echo "ERROR: Critical FQDN $critical_fqdn failed to resolve with empty hosts file — fallthrough broken"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    exit 1
+fi
+echo "✓ Critical FQDN resolves via fallthrough"
+
+# Non-critical FQDN (never in hosts file — must resolve via upstream forward plugin)
+noncritical_fqdn="www.bing.com"
+noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Non-critical FQDN ($noncritical_fqdn) dig result: '$noncritical_result'"
+if [ -z "$noncritical_result" ]; then
+    echo "ERROR: Non-critical FQDN $noncritical_fqdn failed to resolve with empty hosts file — fallthrough broken"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    exit 1
+fi
+echo "✓ Non-critical FQDN resolves via fallthrough"
+echo ""
+
+# Step 6: Restore hosts file with original content + canary, verify canary resolves again
+echo "Step 6: Restoring hosts file with original content + canary..."
 { echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
 echo ""
 
@@ -1822,8 +1850,8 @@ fi
 echo "✓ Canary resolves again — CoreDNS hot-reloaded the restored hosts file"
 echo ""
 
-# Step 6: Cleanup — restore original hosts file without canary
-echo "Step 6: Cleaning up — restoring original hosts file..."
+# Step 7: Cleanup — restore original hosts file without canary
+echo "Step 7: Cleaning up — restoring original hosts file..."
 echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
 echo ""
 
@@ -1831,7 +1859,8 @@ echo "=== SUCCESS ==="
 echo "CoreDNS hosts plugin hot-reload verified:"
 echo "  1. Canary injected: hosts plugin served it"
 echo "  2. Hosts file truncated: canary stopped resolving (empty file reloaded)"
-echo "  3. Hosts file restored: canary resolves again (hot-reload works)"
+echo "  3. Empty hosts file: critical and non-critical FQDNs resolve via fallthrough"
+echo "  4. Hosts file restored: canary resolves again (hot-reload works)"
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
