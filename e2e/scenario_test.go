@@ -371,7 +371,7 @@ func runScenarioACLGPUScriptless(t *testing.T, vmSize string, location string) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addTrustedLaunchToVMSSNoSecureBoot(vmss.Properties)
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
@@ -400,7 +400,7 @@ func runScenarioACLGRIDScriptless(t *testing.T, vmSize string) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addTrustedLaunchToVMSSNoSecureBoot(vmss.Properties)
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaModProbeInstalled(ctx, s)

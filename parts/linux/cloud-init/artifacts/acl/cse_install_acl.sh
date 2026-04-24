@@ -138,7 +138,7 @@ installACLGPUSysext() {
     local sysext_name=$1
     local version_id
     version_id=$(getACLVersionID) || exit $ERR_SYSEXT_VERSION_ID_NOT_FOUND
-    local mcr_base="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    local mcr_base="${MCR_REPOSITORY_BASE:-aclgpusysext.azurecr.io}"
     local registry_base="${mcr_base%/}/azurelinux/${version_id%.*}/azure-container-linux"
     mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_id}" \
         || exit $ERR_ORAS_PULL_SYSEXT_FAIL
