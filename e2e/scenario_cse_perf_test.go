@@ -238,6 +238,13 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 				nbc.EnableScriptlessCSECmd = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
 			},
 		},
 	})
@@ -311,6 +318,7 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 				nbc.EnableScriptlessCSECmd = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
 			},
 		},
 	})
@@ -328,6 +336,13 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 				nbc.EnableScriptlessCSECmd = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
 			},
 		},
 	})
