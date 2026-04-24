@@ -1725,121 +1725,117 @@ echo "  Resolved IPs match /etc/localdns/hosts entries"
 }
 
 // ValidateLocalDNSHostsPluginHotReload verifies that CoreDNS hot-reloads the hosts file
-// after it gets populated. This simulates the scenario where localdns starts before
-// aks-localdns-hosts-setup finishes resolving FQDNs:
-//  1. Save the current hosts file content
-//  2. Truncate the hosts file to empty (simulating dig not having completed)
-//  3. Wait for CoreDNS to reload the empty file (reload 5s)
-//  4. Verify DNS still resolves via fallthrough to upstream (forward plugin)
-//  5. Restore the hosts file with the saved content
-//  6. Wait for CoreDNS to reload the restored file (reload 5s)
-//  7. Verify DNS resolves with IPs matching the hosts file entries (hosts plugin active)
+// using a canary entry to prove the hosts plugin is actively serving (or not serving) entries.
+//
+// The test uses a fake FQDN (canary.localdns.test) with a known IP to definitively prove
+// that CoreDNS is reading from the hosts file, not upstream DNS:
+//  1. Inject a canary entry (192.0.2.99 canary.localdns.test) into the hosts file
+//  2. Wait for CoreDNS reload, verify dig returns 192.0.2.99 (hosts plugin is serving it)
+//  3. Truncate the hosts file to empty (simulates dig not having completed on boot)
+//  4. Wait for CoreDNS reload, verify canary no longer resolves (proves empty file was reloaded)
+//  5. Restore original hosts file + canary, verify canary resolves again (hot-reload works)
+//  6. Clean up: restore original hosts file without canary
 func ValidateLocalDNSHostsPluginHotReload(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	testFQDN := s.GetDefaultFQDNsForValidation()[0]
-	s.T.Logf("Testing hosts plugin hot-reload with %s", testFQDN)
+	s.T.Log("Testing hosts plugin hot-reload with canary entry")
 
-	script := fmt.Sprintf(`set -euo pipefail
-test_fqdn=%q
+	script := `set -euo pipefail
 hosts_file="/etc/localdns/hosts"
+canary_fqdn="canary.localdns.test"
+canary_ip="192.0.2.99"
 
 echo "=== Testing CoreDNS hosts plugin hot-reload ==="
-echo "Test FQDN: $test_fqdn"
 echo ""
 
-# Escape dots in FQDN for regex
-test_fqdn_escaped=$(echo "$test_fqdn" | sed 's/\./\\./g')
-
-# Step 1: Save current hosts file content
-echo "Step 1: Saving current hosts file..."
+# Save current hosts file content
+echo "Step 0: Saving current hosts file..."
 if [ ! -f "$hosts_file" ]; then
     echo "ERROR: Hosts file $hosts_file does not exist"
     exit 1
 fi
 saved_content=$(cat "$hosts_file")
-echo "Saved hosts file content ($(echo "$saved_content" | wc -l) lines)"
+echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
 echo ""
 
-# Verify we have entries for the test FQDN before proceeding
-original_ips=$(echo "$saved_content" | grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_escaped}([[:space:]]|$)" | awk '{print $1}' | sort)
-if [ -z "$original_ips" ]; then
-    echo "ERROR: No IPv4 entries for $test_fqdn in hosts file — cannot test hot-reload"
-    exit 1
-fi
-echo "Original IPs for $test_fqdn from hosts file:"
-echo "$original_ips"
+# Step 1: Inject canary entry into hosts file
+echo "Step 1: Injecting canary entry ($canary_ip $canary_fqdn) into hosts file..."
+echo "${canary_ip} ${canary_fqdn}" | sudo tee -a "$hosts_file" > /dev/null
 echo ""
 
-# Step 2: Truncate the hosts file to simulate empty state
-echo "Step 2: Truncating hosts file to simulate delayed population..."
-sudo truncate -s 0 "$hosts_file"
-echo "Hosts file truncated"
-echo ""
-
-# Step 3: Wait for CoreDNS to pick up the empty file (reload 5s + buffer)
-echo "Step 3: Waiting 7s for CoreDNS to reload empty hosts file..."
+# Step 2: Wait for CoreDNS to reload and verify canary resolves
+echo "Step 2: Waiting 7s for CoreDNS to reload hosts file with canary..."
 sleep 7
-echo ""
 
-# Step 4: Verify DNS still resolves via fallthrough to upstream
-echo "Step 4: Verifying DNS resolves via fallthrough (forward plugin)..."
-dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1)
-if [ -z "$dig_output" ]; then
-    echo "ERROR: DNS resolution failed with empty hosts file — fallthrough not working"
-    # Restore before failing
+echo "Querying localdns for canary FQDN..."
+canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Canary dig result: '$canary_result'"
+if [ "$canary_result" != "$canary_ip" ]; then
+    echo "ERROR: Canary entry not served by hosts plugin"
+    echo "Expected: $canary_ip"
+    echo "Got: $canary_result"
+    # Restore and fail
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
     exit 1
 fi
-echo "✓ DNS resolves with empty hosts file (fallthrough working): $dig_output"
+echo "✓ Canary resolves to $canary_ip — hosts plugin is serving entries"
 echo ""
 
-# Step 5: Restore the hosts file
-echo "Step 5: Restoring hosts file with original content..."
-echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-echo "Hosts file restored"
+# Step 3: Truncate the hosts file
+echo "Step 3: Truncating hosts file to empty..."
+sudo truncate -s 0 "$hosts_file"
 echo ""
 
-# Step 6: Wait for CoreDNS to reload the restored file
-echo "Step 6: Waiting 7s for CoreDNS to reload restored hosts file..."
+# Step 4: Wait for CoreDNS to reload empty file, verify canary no longer resolves
+echo "Step 4: Waiting 7s for CoreDNS to reload empty hosts file..."
 sleep 7
-echo ""
 
-# Step 7: Verify DNS resolves with IPs matching hosts file
-echo "Step 7: Verifying DNS resolves from hosts file entries..."
-dig_full=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
-resolved_ips=$(echo "$dig_full" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
-if [ -z "$resolved_ips" ]; then
-    echo "ERROR: No A records returned after restoring hosts file"
-    echo "Full dig output:"
-    echo "$dig_full"
+echo "Querying localdns for canary FQDN (should NOT resolve)..."
+canary_after_clear=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Canary dig result after truncate: '$canary_after_clear'"
+if [ "$canary_after_clear" = "$canary_ip" ]; then
+    echo "ERROR: Canary still resolves after hosts file was truncated — reload not working"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
     exit 1
 fi
-
-echo "Resolved IPs after restore:"
-echo "$resolved_ips"
+echo "✓ Canary no longer resolves — CoreDNS reloaded the empty hosts file"
 echo ""
 
-echo "Comparing with original hosts file entries..."
-if [ "$original_ips" != "$resolved_ips" ]; then
-    echo "ERROR: Resolved IPs do not match hosts file entries after hot-reload"
-    echo "Expected (from hosts file):"
-    echo "$original_ips"
-    echo "Got (from dig):"
-    echo "$resolved_ips"
+# Step 5: Restore hosts file with original content + canary, verify canary resolves again
+echo "Step 5: Restoring hosts file with original content + canary..."
+{ echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
+echo ""
+
+echo "Waiting 7s for CoreDNS to reload restored hosts file..."
+sleep 7
+
+echo "Querying localdns for canary FQDN (should resolve again)..."
+canary_after_restore=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Canary dig result after restore: '$canary_after_restore'"
+if [ "$canary_after_restore" != "$canary_ip" ]; then
+    echo "ERROR: Canary does not resolve after restoring hosts file — hot-reload broken"
+    echo "Expected: $canary_ip"
+    echo "Got: $canary_after_restore"
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
     exit 1
 fi
-echo "✓ Resolved IPs match hosts file entries after hot-reload"
+echo "✓ Canary resolves again — CoreDNS hot-reloaded the restored hosts file"
+echo ""
+
+# Step 6: Cleanup — restore original hosts file without canary
+echo "Step 6: Cleaning up — restoring original hosts file..."
+echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
 echo ""
 
 echo "=== SUCCESS ==="
 echo "CoreDNS hosts plugin hot-reload verified:"
-echo "  1. Empty hosts file: DNS resolved via fallthrough"
-echo "  2. Restored hosts file: DNS resolved from hosts plugin with matching IPs"
-`, testFQDN)
+echo "  1. Canary injected: hosts plugin served it"
+echo "  2. Hosts file truncated: canary stopped resolving (empty file reloaded)"
+echo "  3. Hosts file restored: canary resolves again (hot-reload works)"
+`
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"CoreDNS should hot-reload hosts file and serve matching IPs")
+		"CoreDNS should hot-reload hosts file: canary inject → truncate → restore")
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
