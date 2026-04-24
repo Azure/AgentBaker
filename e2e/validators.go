@@ -1482,6 +1482,65 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSIptablesRules checks that the NOTRACK iptables rules for localdns are correctly
+// applied in the raw table. These rules skip connection tracking for DNS traffic to localdns IPs
+// to prevent conntrack table exhaustion on busy nodes.
+func ValidateLocalDNSIptablesRules(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	script := `set -euo pipefail
+echo "Checking iptables raw table for localdns NOTRACK rules..."
+rules=$(sudo iptables -w -t raw -S 2>&1)
+echo "$rules"
+
+# Verify the localdns script uses iptables-restore (not legacy individual iptables calls)
+if grep -q "iptables-restore" /opt/azure/containers/localdns/localdns.sh; then
+    echo "PASS: localdns.sh uses iptables-restore (batched rules)"
+else
+    echo "FAIL: localdns.sh does not use iptables-restore — VHD may be outdated"
+    exit 1
+fi
+
+# Verify rules exist in both OUTPUT and PREROUTING chains for both protocols
+for chain in OUTPUT PREROUTING; do
+    chain_rules=$(sudo iptables -w -t raw -S "$chain" 2>&1)
+    for proto in tcp udp; do
+        if ! echo "$chain_rules" | grep -q "\-p ${proto}.*--dport 53.*NOTRACK"; then
+            echo "FAIL: missing NOTRACK rule for $proto in $chain chain"
+            exit 1
+        fi
+    done
+done
+
+# Verify the comment tag is present (used by cleanup logic)
+if ! sudo iptables -w -t raw -S | grep -q "localdns: skip conntrack"; then
+    echo "FAIL: localdns comment tag not found in iptables rules"
+    exit 1
+fi
+
+echo "PASS: all localdns NOTRACK iptables rules verified"
+
+# Verify NOTRACK rules are functional by doing DNS lookups and checking no conntrack entries exist
+echo "Verifying NOTRACK rules are functional..."
+dig bing.com @169.254.10.10 +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
+dig bing.com @169.254.10.11 +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
+
+# Check that no conntrack entries exist for localdns IPs on port 53
+for ip in 169.254.10.10 169.254.10.11; do
+    ct_count=$(sudo conntrack -C 2>/dev/null || echo "0")
+    ct_dns=$(sudo conntrack -L -d "$ip" -p udp --dport 53 2>/dev/null | wc -l)
+    if [ "$ct_dns" -gt 0 ]; then
+        echo "FAIL: found $ct_dns conntrack entries for $ip:53 — NOTRACK rules not working"
+        sudo conntrack -L -d "$ip" -p udp --dport 53 2>/dev/null
+        exit 1
+    fi
+    echo "PASS: no conntrack entries for $ip:53 (NOTRACK working, total ct entries: $ct_count)"
+done
+
+echo "PASS: NOTRACK rules are functional — DNS traffic bypasses conntrack"
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns iptables NOTRACK rules validation failed")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()

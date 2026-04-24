@@ -77,6 +77,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+		ValidateLocalDNSIptablesRules(ctx, s)
 		ValidateLocalDNSExporterMetrics(ctx, s)
 	}
 
