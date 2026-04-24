@@ -4,7 +4,7 @@ Reads the ANC hotfix version from hotfix/anc-hotfix-version.json and injects
 (or updates) the aks-node-controller-hotfix.json write_files entry into the
 EnableScriptlessCSECmd section of nodecustomdata.yml.
 
-Usage: python3 hack/anc_hotfix_generate.py
+Usage: python3 hotfix/anc_hotfix_generate.py
 
 This script is called by the anc-hotfix-generate GH Action.
 """
@@ -30,6 +30,9 @@ def read_hotfix_version():
     except FileNotFoundError:
         print(f"{VERSION_FILE} not found. Nothing to do.")
         return None
+    except json.JSONDecodeError as e:
+        print(f"ERROR: {VERSION_FILE} contains invalid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
 
     version = data.get("version", "").strip()
     if not version:
@@ -37,7 +40,7 @@ def read_hotfix_version():
         return None
 
     # Validate YYYYMM.DD.PATCH format
-    if not re.match(r'^\d{6}\.\d{1,2}\.\d+$', version):
+    if not re.match(r'^\d{6}\.\d{2}\.\d+$', version):
         print(f"ERROR: invalid version format '{version}', "
               f"expected YYYYMM.DD.PATCH (e.g., 202604.01.1)", file=sys.stderr)
         sys.exit(1)
@@ -87,10 +90,6 @@ def inject(version):
         print("ERROR: could not find EnableScriptlessCSECmd / {{- else}} boundary "
               "in template", file=sys.stderr)
         sys.exit(1)
-
-    print(f"Template structure:", file=sys.stderr)
-    print(f"  EnableScriptlessCSECmd: line {scriptless_start + 1}", file=sys.stderr)
-    print(f"  {{{{- else}}}}: line {else_idx + 1}", file=sys.stderr)
 
     entry_lines = build_hotfix_entry(version)
 
