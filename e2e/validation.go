@@ -100,8 +100,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 				// and CoreDNS's reload 5s hot-reloads the hosts file when it gets populated.
 				// Validate hosts plugin serves responses with IPs matching /etc/localdns/hosts
 				ValidateLocalDNSHostsPluginBypass(ctx, s)
-				// Validate CoreDNS hot-reloads the hosts file: truncate → fallthrough works → restore → IPs match
-				ValidateLocalDNSHostsPluginHotReload(ctx, s)
+				// Validate IPv6 entries in hosts file are served correctly by CoreDNS (skips if no IPv6 present)
+				ValidateLocalDNSHostsPluginIPv6(ctx, s)
 				// Validate localdns cold start with empty hosts file: restart → fallthrough → populate → reload
 				ValidateLocalDNSHostsPluginColdStart(ctx, s)
 			}
