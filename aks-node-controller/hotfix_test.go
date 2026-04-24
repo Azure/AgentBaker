@@ -107,16 +107,86 @@ func TestDownloadHotfix_NoHotfixFile(t *testing.T) {
 
 func TestDownloadHotfix_VersionMatch(t *testing.T) {
 	origVersion := Version
-	Version = "202603.30.0-hotfix1"
+	Version = "202604.01.1"
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+}
+
+func TestDownloadHotfix_DifferentBaseSkips(t *testing.T) {
+	origVersion := Version
+	Version = "202605.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip when version base doesn't match")
+}
+
+func TestDownloadHotfix_DevVersionSkips(t *testing.T) {
+	origVersion := Version
+	Version = "dev"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip when Version is 'dev' (parse error)")
+}
+
+func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	tt.App.aptSourcesDir = aptDir
+	// Will fail at copyBinaryAlongside since pkgBinaryPath doesn't exist in test,
+	// but install should have been called.
+	_ = tt.App.downloadHotfix(context.Background())
+	assert.True(t, installCalled, "should proceed when base matches and hotfix patch is higher")
 }
 
 func TestDownloadHotfix_UnreadableFile(t *testing.T) {
@@ -253,4 +323,57 @@ func TestCopyBinaryAlongside(t *testing.T) {
 				"temp file should be cleaned up: %s", e.Name())
 		}
 	})
+}
+
+func TestShouldUpgradeToHotfix(t *testing.T) {
+tests := []struct {
+name    string
+current string
+hotfix  string
+want    bool
+wantErr bool
+}{
+// Positive: same base, hotfix has higher patch
+{"base .0 → hotfix .1", "202604.01.0", "202604.01.1", true, false},
+{"base .0 → hotfix .2", "202604.01.0", "202604.01.2", true, false},
+{"hotfix .1 → hotfix .2", "202604.01.1", "202604.01.2", true, false},
+
+// Negative: same version
+{"same version .0", "202604.01.0", "202604.01.0", false, false},
+{"same version .1", "202604.01.1", "202604.01.1", false, false},
+
+// Negative: different base (different YYYYMM)
+{"different month", "202603.15.0", "202604.01.1", false, false},
+{"newer month", "202605.01.0", "202604.01.1", false, false},
+
+// Negative: different base (different DD)
+{"different day", "202604.15.0", "202604.01.1", false, false},
+
+// Negative: current patch higher than hotfix
+{"current patch higher", "202604.01.2", "202604.01.1", false, false},
+
+// Error cases
+{"dev current", "dev", "202604.01.1", false, true},
+{"dev hotfix", "202604.01.0", "dev", false, true},
+{"both dev", "dev", "dev", false, true},
+{"empty current", "", "202604.01.1", false, true},
+{"empty hotfix", "202604.01.0", "", false, true},
+
+// Scenario: hotfix only targets matching VHD
+{"scenario: affected VHD", "202604.01.0", "202604.01.1", true, false},
+{"scenario: older VHD skips", "202603.15.0", "202604.01.1", false, false},
+{"scenario: newer VHD skips", "202605.01.0", "202604.01.1", false, false},
+{"scenario: already hotfixed", "202604.01.1", "202604.01.1", false, false},
+}
+for _, tc := range tests {
+t.Run(tc.name, func(t *testing.T) {
+got, err := shouldUpgradeToHotfix(tc.current, tc.hotfix)
+if tc.wantErr {
+assert.Error(t, err)
+} else {
+require.NoError(t, err)
+assert.Equal(t, tc.want, got, "current=%s hotfix=%s", tc.current, tc.hotfix)
+}
+})
+}
 }

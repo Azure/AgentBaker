@@ -5,6 +5,7 @@ go 1.24.12
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/go-cmp v0.7.0
@@ -17,7 +18,6 @@ require (
 require (
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.1 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.2 // indirect
 	github.com/clarketm/json v1.17.1 // indirect
 	github.com/coreos/butane v0.25.1 // indirect
