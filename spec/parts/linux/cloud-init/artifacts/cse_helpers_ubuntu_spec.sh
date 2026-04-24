@@ -85,6 +85,7 @@ Describe 'apt_get_install budget timeout'
             When call _apt_get_install 1 0 "-y" 0 fake-package
             The status should eq 0
             The stdout should include 'Executed apt-get install "fake-package"'
+            The stderr should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         End
     End
 
@@ -117,6 +118,7 @@ Describe 'apt_get_install budget timeout'
             When call apt_get_install 1 0 60 fake-package
             The status should eq 0
             The stdout should include 'Executed apt-get install "fake-package"'
+            The stderr should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         End
     End
 End

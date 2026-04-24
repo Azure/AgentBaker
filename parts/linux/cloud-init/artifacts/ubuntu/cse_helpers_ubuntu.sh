@@ -58,20 +58,23 @@ _apt_get_install() {
     shift && shift && shift && shift
     local packages=("${@}")
 
+    local hasBudget=false
+    if [ "${maxBudget}" -gt 0 ]; then
+        hasBudget=true
+    fi
+
     local opStartTime
     opStartTime=$(date +%s)
 
     for i in $(seq 1 $retries); do
-        # CSE timeout guard — only during real CSE runs
-        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
-            if ! check_cse_timeout; then
-                echo "CSE timeout approaching, exiting apt_get_install early." >&2
-                return 2
-            fi
+        # CSE timeout guard
+        if ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting apt_get_install early." >&2
+            return 2
         fi
 
         # Per-operation budget check
-        if [ "${maxBudget}" -gt 0 ]; then
+        if [ "$hasBudget" = true ]; then
             local opElapsed
             opElapsed=$(( $(date +%s) - opStartTime ))
             if [ "$opElapsed" -ge "$maxBudget" ]; then
@@ -86,17 +89,19 @@ _apt_get_install() {
 
         # Cap per-attempt timeout to the remaining budget so a single attempt
         # cannot overrun the operation window.
-        local aptTimeout=""
-        if [ "${maxBudget}" -gt 0 ]; then
+        local install_ok=false
+        if [ "$hasBudget" = true ]; then
             local remaining=$(( maxBudget - ( $(date +%s) - opStartTime ) ))
             if [ "$remaining" -lt 1 ]; then
                 echo "apt_get_install budget of ${maxBudget}s exceeded, exiting early." >&2
                 return 2
             fi
-            aptTimeout="timeout $remaining"
+            timeout "$remaining" apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${packages[@]}" && install_ok=true
+        else
+            apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${packages[@]}" && install_ok=true
         fi
 
-        if ${aptTimeout} apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${packages[@]}"; then
+        if [ "$install_ok" = true ]; then
             echo "Executed apt-get install \"${packages[*]}\" $i times"
             wait_for_apt_locks
             DEBIAN_FRONTEND=noninteractive apt-get clean
@@ -108,11 +113,11 @@ _apt_get_install() {
             return 1
         else
             # Check budget/CSE again before sleeping
-            if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
+            if ! check_cse_timeout; then
                 echo "CSE timeout approaching, exiting apt_get_install early." >&2
                 return 2
             fi
-            if [ "${maxBudget}" -gt 0 ]; then
+            if [ "$hasBudget" = true ]; then
                 local postElapsed=$(( $(date +%s) - opStartTime ))
                 if [ "$postElapsed" -ge "$maxBudget" ]; then
                     echo "apt_get_install budget of ${maxBudget}s exceeded after ${postElapsed}s, exiting early." >&2
