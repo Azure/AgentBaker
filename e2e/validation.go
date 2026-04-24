@@ -102,6 +102,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 				ValidateLocalDNSHostsPluginBypass(ctx, s)
 				// Validate CoreDNS hot-reloads the hosts file: truncate → fallthrough works → restore → IPs match
 				ValidateLocalDNSHostsPluginHotReload(ctx, s)
+				// Validate localdns cold start with empty hosts file: restart → fallthrough → populate → reload
+				ValidateLocalDNSHostsPluginColdStart(ctx, s)
 			}
 		}
 	}
