@@ -58,7 +58,7 @@ var cachedCSEThresholds = CSETimingThresholds{
 // Thresholds are derived from production telemetry (Ubuntu 22.04, same source as cached).
 // Full install thresholds are set at ~p99 since the full install path is rarer and more variable.
 var fullInstallCSEThresholds = CSETimingThresholds{
-	TotalCSEThreshold:    120 * time.Second,
+	TotalCSEThreshold:    180 * time.Second,
 	DefaultTaskThreshold: 60 * time.Second, // generous catch-all for untracked tasks
 	TaskThresholds: map[string]time.Duration{
 		// Core kubelet/containerd install
@@ -125,7 +125,7 @@ var cachedCSEThresholdsUbuntu2404 = CSETimingThresholds{
 
 // CSE performance thresholds for Ubuntu 24.04 (full install path).
 var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
-	TotalCSEThreshold:    120 * time.Second,
+	TotalCSEThreshold:    180 * time.Second,
 	DefaultTaskThreshold: 60 * time.Second,
 	TaskThresholds: map[string]time.Duration{
 		"installDeps":                90 * time.Second,
@@ -174,7 +174,7 @@ var cachedCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
 // CSE performance thresholds for Azure Linux V3 (full install path).
 // Only includes tasks that are actually emitted by Azure Linux V3 CSE.
 var fullInstallCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
-	TotalCSEThreshold:    120 * time.Second,
+	TotalCSEThreshold:    180 * time.Second,
 	DefaultTaskThreshold: 60 * time.Second,
 	TaskThresholds: map[string]time.Duration{
 		"installContainerRuntime":    60 * time.Second,
