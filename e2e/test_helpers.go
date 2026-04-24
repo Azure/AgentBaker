@@ -413,6 +413,16 @@ func validateVM(ctx context.Context, s *Scenario) {
 		require.NoError(s.T, err)
 	}
 
+	// Extract CSE timing events immediately after SSH is available, before other
+	// validators run. The Guest Agent periodically sweeps the events directory,
+	// so we must read events before the delay from pod scheduling and validation.
+	if s.Config.Validator != nil {
+		report, err := ExtractCSETimings(ctx, s)
+		if err == nil && len(report.Tasks) > 0 {
+			s.Runtime.CSETimingReport = report
+		}
+	}
+
 	if !s.Config.SkipDefaultValidation {
 		ValidateNodeCanRunAPod(ctx, s)
 		switch s.VHD.OS {

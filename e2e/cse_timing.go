@@ -242,28 +242,31 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		s.T.Fatalf("ValidateCSETimings requires *testing.T for sub-test support, got %T", s.T)
 	}
 
-	report, err := ExtractCSETimings(ctx, s)
-	if err != nil {
-		// Skip (don't fail) if no CSE timing events are found — some VHDs
-		// (e.g., Ubuntu 24.04) may not have CSE event instrumentation enabled yet.
-		s.T.Skipf("skipping CSE timing validation: %v", err)
-		return nil
+	// Use pre-cached report if available (extracted eagerly before GA swept events).
+	// Fall back to live extraction if no cached report exists.
+	report := s.Runtime.CSETimingReport
+	if report == nil {
+		var err error
+		report, err = ExtractCSETimings(ctx, s)
+		if err != nil {
+			s.T.Fatalf("failed to extract CSE timings: %v", err)
+			return nil
+		}
 	}
 
 	// Always log the full timing report
 	report.LogReport(ctx, s.T)
 
-	// Skip if no tasks were parsed — an empty report makes regression detection ineffective
-	// but shouldn't fail the test if the VHD doesn't support event logging.
+	// Fail if no tasks were parsed — an empty report makes regression detection ineffective.
 	if len(report.Tasks) == 0 {
-		s.T.Skipf("no CSE task timings were parsed; skipping performance validation")
+		s.T.Fatalf("no CSE task timings were parsed; cannot validate performance thresholds")
 		return nil
 	}
 
-	// Skip if the critical cse_start task is missing — without it TotalCSEDuration()
+	// Fail if the critical cse_start task is missing — without it TotalCSEDuration()
 	// returns 0 and the total duration threshold check would silently pass.
 	if report.GetTask("AKS.CSE.cse_start") == nil {
-		s.T.Skipf("AKS.CSE.cse_start task not found in timing report; skipping CSE duration validation")
+		s.T.Fatalf("AKS.CSE.cse_start task not found in timing report; cannot validate total CSE duration")
 		return nil
 	}
 
