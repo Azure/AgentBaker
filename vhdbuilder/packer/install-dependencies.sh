@@ -136,6 +136,13 @@ if isACL "$OS" "$OS_VARIANT"; then
   # Repoint /etc/resolv.conf from the stub (127.0.0.53) to the real upstream file
   # so DNS queries go directly through localdns.
   disableSystemdResolvedCache
+  # Enable oem-cloudinit.service so coreos-cloudinit processes #cloud-config custom data.
+  # The azurelinux-release package ships a 90-default.preset with "disable *" which prevents
+  # oem-cloudinit from being auto-enabled. The enable-oem-cloudinit.service fallback also
+  # fails because userConfigProvided=true in /etc/.ignition-result.json (set during VHD build).
+  # Without this, the scriptless NBC e2e provisioning path (which relies on #cloud-config
+  # with coreos.units) will not work.
+  systemctl enable oem-cloudinit.service || echo "##vso[task.logissue type=warning]Failed to enable oem-cloudinit.service"
 fi
 capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
