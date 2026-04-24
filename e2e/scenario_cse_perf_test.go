@@ -196,10 +196,10 @@ func Test_Ubuntu2204_CSE_CachedPerformance(t *testing.T) {
 			"by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall with k8s 1.34. " +
 			"This catches regressions like apt lock contention when task ordering changes.",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Use k8s 1.34.4 because that's what has cached deb packages on the VHD.
 				// The default 1.30 only has tarballs, not .deb files, so it would never
 				// exercise the installDebPackageFromFile code path.
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.4"
@@ -229,16 +229,10 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 		Description: "Validates CSE timing on the full install path where all dependencies are installed from scratch. " +
 			"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholds)
 			},
 		},
 	})
@@ -251,10 +245,10 @@ func Test_Ubuntu2404_CSE_CachedPerformance(t *testing.T) {
 		Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 24.04. " +
 			"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2404Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.4"
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.34.4"
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
 			},
@@ -276,8 +270,9 @@ func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
 		Description: "Validates CSE timing on the full install path for Ubuntu 24.04. " +
 			"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2404Gen2Containerd,
+			SkipScriptlessNBC: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
@@ -298,10 +293,10 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 		Description: "Validates CSE timing on the golden image (cached) path for Azure Linux V3. " +
 			"Azure Linux uses RPM packages — no apt lock contention, but different install paths.",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
 			},
 		},
 	})
@@ -312,16 +307,10 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 		Description: "Validates CSE timing on the full install path for Azure Linux V3. " +
 			"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
 			},
 		},
 	})

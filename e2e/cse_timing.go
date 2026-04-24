@@ -314,11 +314,12 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		}
 	}
 
-	// Verify all configured threshold suffixes matched at least one task.
-	// This catches task renames or removals that would silently disable regression checks.
+	// Log warnings for configured threshold suffixes that didn't match any task.
+	// This helps detect task renames/removals without hard-failing, since some tasks
+	// only fire on specific install paths (cached vs full) or OS variants.
 	for _, suffix := range sortedSuffixes {
 		if !matchedSuffixes[suffix] {
-			s.T.Errorf("threshold suffix %q did not match any CSE task — task may have been renamed or removed", suffix)
+			s.T.Logf("⚠️  threshold suffix %q did not match any CSE task — task may not fire on this install path, or may have been renamed", suffix)
 		}
 	}
 
