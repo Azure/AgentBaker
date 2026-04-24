@@ -154,54 +154,37 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 // CSE performance thresholds for Azure Linux V3 (cached path).
 // Derived from production telemetry (GuestAgentGenericLogs, FA/azcore, ~1K samples per task over 10 minutes).
 // AzureLinux uses RPM packages, not apt/deb — no aptmarkWALinuxAgent or installDebPackageFromFile tasks.
+// Only includes tasks that are actually emitted by Azure Linux V3 CSE (no Ubuntu-specific tasks).
 var cachedCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
 	TotalCSEThreshold:    60 * time.Second,
 	DefaultTaskThreshold: 45 * time.Second,
 	TaskThresholds: map[string]time.Duration{
 		// Core kubelet/containerd install (RPM-based, no apt lock contention)
-		"configureKubeletAndKubectl": 34 * time.Second, // prod p50=4.56s  p95=33.57s p99=47.93s
-		"ensureContainerd":            2 * time.Second, // prod p50=0.81s  p95=1.22s  p99=1.59s
-		"ensureKubelet":               5 * time.Second, // prod p50=2.47s  p95=4.85s  p99=9.31s
-
-		// Kubelet install variants
+		"configureKubeletAndKubectl":  34 * time.Second, // prod p50=4.56s  p95=33.57s p99=47.93s
+		"ensureContainerd":             2 * time.Second, // prod p50=0.81s  p95=1.22s  p99=1.59s
+		"ensureKubelet":                5 * time.Second, // prod p50=2.47s  p95=4.85s  p99=9.31s
 		"installKubeletKubectlFromPkg": 52 * time.Second, // prod p50=29.03s p95=51.86s p99=65.20s
-		"installKubeletKubectlFromURL":  7 * time.Second, // prod p50=4.36s  p95=6.80s  p99=10.68s
-		"extractKubeBinaries":           7 * time.Second, // prod p50=4.59s  p95=6.87s  p99=11.46s
-
-		// Credential provider
-		"installCredentialProviderFromUrl": 2 * time.Second, // prod p50=0.79s p95=1.43s p99=1.77s
-		"installCredentialProviderFromPkg": 4 * time.Second, // prod p50=1.71s p95=3.73s p99=10.61s
 
 		// Networking and node configuration
-		"configureNodeExporter":    10 * time.Second, // prod p50=1.60s p95=9.84s  p99=42.35s
-		"ensureSnapshotUpdate":      2 * time.Second, // prod p50=0.64s p95=1.05s  p99=1.44s
-		"ensureNoDupOnPromiscuBridge": 8 * time.Second, // prod p50=0.70s p95=7.59s  p99=13.30s
-		"retrycmd_nslookup":         2 * time.Second, // prod p50=0.33s p95=1.36s  p99=3.42s
+		"configureNodeExporter":       10 * time.Second, // prod p50=1.60s p95=9.84s  p99=42.35s
+		"ensureNoDupOnPromiscuBridge":  8 * time.Second, // prod p50=0.70s p95=7.59s  p99=13.30s
 	},
 }
 
 // CSE performance thresholds for Azure Linux V3 (full install path).
+// Only includes tasks that are actually emitted by Azure Linux V3 CSE.
 var fullInstallCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
 	TotalCSEThreshold:    120 * time.Second,
 	DefaultTaskThreshold: 60 * time.Second,
 	TaskThresholds: map[string]time.Duration{
-		"installDeps":                90 * time.Second,
 		"installContainerRuntime":    60 * time.Second,
 		"configureKubeletAndKubectl": 48 * time.Second, // prod p99=47.93s
 		"ensureContainerd":            3 * time.Second, // prod p99=1.59s
 		"ensureKubelet":              10 * time.Second, // prod p99=9.31s
-
 		"installKubeletKubectlFromPkg": 66 * time.Second, // prod p99=65.20s
-		"installKubeletKubectlFromURL": 11 * time.Second, // prod p99=10.68s
-		"extractKubeBinaries":          12 * time.Second, // prod p99=11.46s
-
-		"installCredentialProviderFromUrl": 2 * time.Second,  // prod p99=1.77s
-		"installCredentialProviderFromPkg": 11 * time.Second, // prod p99=10.61s
 
 		"configureNodeExporter":       43 * time.Second, // prod p99=42.35s
-		"ensureSnapshotUpdate":         2 * time.Second, // prod p99=1.44s
 		"ensureNoDupOnPromiscuBridge": 14 * time.Second, // prod p99=13.30s
-		"retrycmd_nslookup":            4 * time.Second, // prod p99=3.42s
 		"enableLocalDNS":              24 * time.Second, // prod p50=0s p95=12.85s p99=23.16s
 	},
 }
