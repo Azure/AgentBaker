@@ -3212,13 +3212,6 @@ func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 		s.T.Logf("REVERT ME: wireserver diagnostics stderr:\n%s", diagResult.stderr)
 	}
 
-	// REVERT ME: Canary check — this string should NEVER exist in the CSE log.
-	// If this test PASSES, it proves the SSH ExitMissingError bug (exec.go:130) is
-	// silently swallowing failures and all validators are broken.
-	// If this test FAILS (as expected), validators are working correctly.
-	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
-		"CANARY_STRING_THAT_SHOULD_NEVER_EXIST_IN_ANY_LOG_FILE_EVER_12345")
-
 	// Validate the provisioning log shows wireserver was queried and returned opted-in
 	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
 		"IsOptedInForRootCerts wireserver response:")
