@@ -279,6 +279,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
+		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
+		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
+		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
+		s.Runtime.NBC = nil
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
