@@ -126,10 +126,16 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled                = $global:EnableSecureTLSBootstrapping;
-                Deadline               = $global:SecureTLSBootstrappingDeadline;
-                AADResource            = $global:SecureTLSBootstrappingAADResource;
-                UserAssignedIdentityID = $global:SecureTLSBootstrappingUserAssignedIdentityID
+                Enabled                   = $global:EnableSecureTLSBootstrapping;
+                AADResource               = $global:SecureTLSBootstrappingAADResource;
+                UserAssignedIdentityID    = $global:SecureTLSBootstrappingUserAssignedIdentityID;
+                ValidateKubeconfigTimeout = $global:ValidateKubeconfigTimeout;
+                GetAccessTokenTimeout     = $global:GetAccessTokenTimeout;
+                GetInstanceDataTimeout    = $global:GetInstanceDataTimeout;
+                GetNonceTimeout           = $global:GetNonceTimeout;
+                GetAttestedDataTimeout    = $global:GetAttestedDataTimeout;
+                GetCredentialTimeout      = $global:GetCredentialTimeout;
+                Deadline                  = $global:Deadline
             };
         };
         Kubeproxy    = @{

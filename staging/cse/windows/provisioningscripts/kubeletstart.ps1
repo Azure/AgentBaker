@@ -16,9 +16,15 @@ $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.Node
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsSkipCleanupNetwork)
 
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled)
-$global:SecureTLSBootstrappingDeadline = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Deadline
 $global:SecureTLSBootstrappingAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.AADResource
 $global:SecureTLSBootstrappingUserAssignedIdentityID = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.UserAssignedIdentityID
+$global:SecureTLSBootstrappingValidateKubeconfigTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.ValidateKubeconfigTimeout
+$global:SecureTLSBootstrappingGetAccessTokenTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetAccessTokenTimeout
+$global:SecureTLSBootstrappingGetInstanceDataTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetInstanceDataTimeout
+$global:SecureTLSBootstrappingGetNonceTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetNonceTimeout
+$global:SecureTLSBootstrappingGetAttestedDataTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetAttestedDataTimeout
+$global:SecureTLSBootstrappingGetCredentialTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetCredentialTimeout
+$global:SecureTLSBootstrappingDeadline = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Deadline
 
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
@@ -108,14 +114,32 @@ if ($global:EnableSecureTLSBootstrapping) {
         KubeDir = "$global:KubeDir"
         MasterIP = "$global:MasterIP"
     }
-    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
-        $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
-    }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrapAADResource)) {
         $SecureTLSBootstrappingArgs["AADResource"] = "$global:SecureTLSBootstrapAADResource"
     }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingUserAssignedIdentityID)) {
         $SecureTLSBootstrappingArgs["UserAssignedIdentityID"] = "$global:SecureTLSBootstrappingUserAssignedIdentityID"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingValidateKubeconfigTimeout)) {
+        $SecureTLSBootstrappingArgs["ValidateKubeconfigTimeout"] = "$global:SecureTLSBootstrappingValidateKubeconfigTimeout"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetAccessTokenTimeout)) {
+        $SecureTLSBootstrappingArgs["GetAccessTokenTimeout"] = "$global:SecureTLSBootstrappingGetAccessTokenTimeout"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetInstanceDataTimeout)) {
+        $SecureTLSBootstrappingArgs["GetInstanceDataTimeout"] = "$global:SecureTLSBootstrappingGetInstanceDataTimeout"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetNonceTimeout)) {
+        $SecureTLSBootstrappingArgs["GetNonceTimeout"] = "$global:SecureTLSBootstrappingGetNonceTimeout"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetAttestedDataTimeout)) {
+        $SecureTLSBootstrappingArgs["GetAttestedDataTimeout"] = "$global:SecureTLSBootstrappingGetAttestedDataTimeout"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetCredentialTimeout)) {
+        $SecureTLSBootstrappingArgs["GetCredentialTimeout"] = "$global:SecureTLSBootstrappingGetCredentialTimeout"
+    }
+    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
+        $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
     }
     & "c:\k\securetlsbootstrap.ps1" @SecureTLSBootstrappingArgs
 }
