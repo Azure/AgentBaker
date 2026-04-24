@@ -7,7 +7,7 @@ on:
     branches:
       - 'official/**'
     paths:
-      - 'hack/anc-hotfix-version.json'
+      - 'hotfix/anc-hotfix-version.json'
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -54,7 +54,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Inject ANC hotfix version into template
-        run: python3 hack/anc_hotfix_generate.py
+        run: python3 hotfix/anc_hotfix_generate.py
 
       - name: Commit changes via API
         env:

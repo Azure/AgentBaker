@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reads the ANC hotfix version from hack/anc-hotfix-version.json and injects
+Reads the ANC hotfix version from hotfix/anc-hotfix-version.json and injects
 (or updates) the aks-node-controller-hotfix.json write_files entry into the
 EnableScriptlessCSECmd section of nodecustomdata.yml.
 
@@ -14,7 +14,7 @@ import re
 import sys
 
 TEMPLATE = "parts/linux/cloud-init/nodecustomdata.yml"
-VERSION_FILE = "hack/anc-hotfix-version.json"
+VERSION_FILE = "hotfix/anc-hotfix-version.json"
 HOTFIX_PATH = "/opt/azure/containers/aks-node-controller-hotfix.json"
 
 # Marker comments for idempotent injection
