@@ -1,0 +1,26 @@
+Release notes for security patch 20260421T000000Z timestamp
+Package difference between 20260408T000000Z and 20260421T000000Z
+No reboot required
+Upgrade: openssl:amd64 (3.0.2-0ubuntu1.21, 3.0.2-0ubuntu1.23)
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27), vim-common:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27)
+Upgrade: libpolkit-agent-1-0:amd64 (0.105-33, 0.105-33ubuntu0.1), polkitd:amd64 (0.105-33, 0.105-33ubuntu0.1), libpolkit-gobject-1-0:amd64 (0.105-33, 0.105-33ubuntu0.1), pkexec:amd64 (0.105-33, 0.105-33ubuntu0.1), policykit-1:amd64 (0.105-33, 0.105-33ubuntu0.1)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-174.184, 5.15.0-176.186)
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27)
+Upgrade: libssl3:amd64 (3.0.2-0ubuntu1.21, 3.0.2-0ubuntu1.23)
+Upgrade: linux-tools-common:amd64 (5.15.0-174.184, 5.15.0-176.186)
+Upgrade: linux-libc-dev:amd64 (5.15.0-174.184, 5.15.0-176.186)
+
+Package difference between AKSUbuntu-2204gen2containerd-202603.30.0 and 20260421T000000Z
+No reboot required
+Upgrade: libpolkit-agent-1-0:amd64 (0.105-33, 0.105-33ubuntu0.1), polkitd:amd64 (0.105-33, 0.105-33ubuntu0.1), libpolkit-gobject-1-0:amd64 (0.105-33, 0.105-33ubuntu0.1), pkexec:amd64 (0.105-33, 0.105-33ubuntu0.1), policykit-1:amd64 (0.105-33, 0.105-33ubuntu0.1)
+Upgrade: pollinate:amd64 (4.33-3ubuntu2.1, 4.33-3ubuntu2.3)
+Upgrade: linux-tools-common:amd64 (5.15.0-173.183, 5.15.0-176.186)
+Upgrade: python3-jwt:amd64 (2.3.0-1ubuntu0.2, 2.3.0-1ubuntu0.3)
+Upgrade: openssl:amd64 (3.0.2-0ubuntu1.21, 3.0.2-0ubuntu1.23)
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27), vim-common:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-173.183, 5.15.0-176.186)
+Upgrade: python3-pyasn1:amd64 (0.4.8-1ubuntu0.1, 0.4.8-1ubuntu0.2)
+Upgrade: libarchive13:amd64 (3.6.0-1ubuntu1.5, 3.6.0-1ubuntu1.6)
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.26, 2:8.2.3995-1ubuntu2.27)
+Upgrade: linux-libc-dev:amd64 (5.15.0-173.183, 5.15.0-176.186)
+Upgrade: libssl3:amd64 (3.0.2-0ubuntu1.21, 3.0.2-0ubuntu1.23)
