@@ -209,7 +209,7 @@ function install_certs_to_trust_store {
 # Certificate refresh behavior summary:
 # - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
 # - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
-# - Wireserver failures are treated as non-fatal, and cert trust-store updates are skipped gracefully.
+# - Wireserver failures are fatal — cert installation must succeed for the selected mode.
 
 refresh_location="${2:-${LOCATION}}"
 
@@ -233,7 +233,8 @@ if [ "$cert_endpoint_mode" = "legacy" ]; then
     if retrieve_legacy_certs; then
         install_certs_to_trust_store
     else
-        echo "Warning: failed to retrieve legacy certificates from wireserver; continuing without trust store updates"
+        echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
+        exit 1
     fi
 elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
     if is_opted_in_for_root_certs; then
@@ -241,7 +242,8 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
         if retrieve_rcv1p_certs; then
             install_certs_to_trust_store
         else
-            echo "Warning: failed to retrieve rcv1p certificates from wireserver; continuing without trust store updates"
+            echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
+            exit 1
         fi
     fi
 fi
