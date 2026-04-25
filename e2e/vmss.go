@@ -949,7 +949,6 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 	return nil
 }
 
-// REVERT ME: added error logging around azcopy to diagnose why blob uploads fail (BlobNotFound)
 const uploadLogsPowershellScript = `
 param(
     [string]$arg1,
@@ -957,47 +956,18 @@ param(
     [string]$arg3
 )
 
-# REVERT ME: verbose error logging for azcopy upload diagnostics
-function Run-AzCopy {
-    param([string]$Source, [string]$Dest)
-    if (-not (Test-Path $Source)) {
-        Write-Host "AZCOPY SKIP: source not found: $Source"
-        return
-    }
-    Write-Host "AZCOPY: copying $Source -> $Dest"
-    $output = & .\azcopy.exe copy $Source $Dest 2>&1
-    $exitCode = $LASTEXITCODE
-    Write-Host "AZCOPY: exit=$exitCode output=$output"
-    if ($exitCode -ne 0) {
-        Write-Host "AZCOPY ERROR: failed to copy $Source (exit=$exitCode)"
-    }
-}
-
-try {
-    Write-Host "Downloading azcopy..."
-    Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
-    Expand-Archive azcopy.zip
-    cd .\azcopy\*
-    $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    $env:AZCOPY_MSI_RESOURCE_STRING=$arg3
-    Write-Host "MSI resource: $arg3"
-    Write-Host "Blob destination: $arg1"
-} catch {
-    Write-Host "AZCOPY SETUP ERROR: $_"
-}
-
-try {
-    C:\k\debug\collect-windows-logs.ps1
-    $CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
-    Run-AzCopy -Source $CollectedLogs -Dest "$arg1/collected-node-logs.zip"
-} catch {
-    Write-Host "COLLECT-LOGS ERROR: $_"
-}
-
-Run-AzCopy -Source "C:\azuredata\CustomDataSetupScript.log" -Dest "$arg1/cse.log"
-Run-AzCopy -Source "C:\AzureData\provision.complete" -Dest "$arg1/provision.complete"
-Run-AzCopy -Source "C:\k\kubelet.err.log" -Dest "$arg1/kubelet.err.log"
-Run-AzCopy -Source "C:\k\containerd.err.log" -Dest "$arg1/containerd.err.log"
+Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
+Expand-Archive azcopy.zip
+cd .\azcopy\*
+$env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
+$env:AZCOPY_MSI_RESOURCE_STRING=$arg3
+C:\k\debug\collect-windows-logs.ps1
+$CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
+.\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
+.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
+.\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
+.\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
+.\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
 
 # Collect network configuration information
 ipconfig /all > network_config.txt
@@ -1011,13 +981,16 @@ Get-NetNeighbor >> network_config.txt
 Get-NetConnectionProfile >> network_config.txt
 hnsdiag list networks >> network_config.txt
 hnsdiag list endpoints >> network_config.txt
-Run-AzCopy -Source "network_config.txt" -Dest "$arg1/network_config.txt"
+.\azcopy.exe copy "network_config.txt" "$arg1/network_config.txt"
 `
 
 // extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
-	// Always collect Windows logs for debugging (revert this to restore failure-only collection)
+	if !s.T.Failed() {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
 	pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
@@ -1096,17 +1069,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
-
-	// REVERT ME: log RunCommand stdout/stderr to diagnose azcopy upload failures
-	if runCommandResp.Properties != nil && runCommandResp.Properties.InstanceView != nil {
-		iv := runCommandResp.Properties.InstanceView
-		if iv.Output != nil && *iv.Output != "" {
-			s.T.Logf("RunCommand stdout:\n%s", *iv.Output)
-		}
-		if iv.Error != nil && *iv.Error != "" {
-			s.T.Logf("RunCommand stderr:\n%s", *iv.Error)
-		}
-	}
 
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
