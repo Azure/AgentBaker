@@ -98,12 +98,12 @@ MOCK_EOF
             When run command bash "${TEST_SCRIPT}"
             The status should be success
             # Verify the script attempts to resolve all expected public cloud FQDNs
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for packages.microsoft.com"
-            The output should include "Resolving addresses for management.azure.com"
-            The output should include "Resolving addresses for login.microsoftonline.com"
-            The output should include "Resolving addresses for acs-mirror.azureedge.net"
-            The output should include "Resolving addresses for packages.aks.azure.com"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+            The output should include "Dispatching resolution for packages.microsoft.com"
+            The output should include "Dispatching resolution for management.azure.com"
+            The output should include "Dispatching resolution for login.microsoftonline.com"
+            The output should include "Dispatching resolution for acs-mirror.azureedge.net"
+            The output should include "Dispatching resolution for packages.aks.azure.com"
             # Verify hosts file contains real resolved entries
             The contents of file "$HOSTS_FILE" should include "mcr.microsoft.com"
             The contents of file "$HOSTS_FILE" should include "packages.microsoft.com"
@@ -146,14 +146,14 @@ MOCK_EOF
             The status should be success
             The output should include "Received 5 critical FQDNs from RP"
             # Should resolve China-specific endpoints
-            The output should include "Resolving addresses for mcr.azure.cn"
-            The output should include "Resolving addresses for mcr.azk8s.cn"
-            The output should include "Resolving addresses for login.partner.microsoftonline.cn"
-            The output should include "Resolving addresses for management.chinacloudapi.cn"
-            The output should include "Resolving addresses for packages.microsoft.com"
+            The output should include "Dispatching resolution for mcr.azure.cn"
+            The output should include "Dispatching resolution for mcr.azk8s.cn"
+            The output should include "Dispatching resolution for login.partner.microsoftonline.cn"
+            The output should include "Dispatching resolution for management.chinacloudapi.cn"
+            The output should include "Dispatching resolution for packages.microsoft.com"
             # Should NOT attempt public cloud endpoints (they weren't passed)
-            The output should not include "Resolving addresses for login.microsoftonline.com"
-            The output should not include "Resolving addresses for management.azure.com"
+            The output should not include "Dispatching resolution for login.microsoftonline.com"
+            The output should not include "Dispatching resolution for management.azure.com"
         End
 
         It 'resolves US Gov cloud FQDNs when passed by RP'
@@ -161,12 +161,12 @@ MOCK_EOF
             When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Received 6 critical FQDNs from RP"
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for login.microsoftonline.us"
-            The output should include "Resolving addresses for management.usgovcloudapi.net"
-            The output should include "Resolving addresses for packages.aks.azure.com"
-            The output should not include "Resolving addresses for login.microsoftonline.com"
-            The output should not include "Resolving addresses for management.azure.com"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+            The output should include "Dispatching resolution for login.microsoftonline.us"
+            The output should include "Dispatching resolution for management.usgovcloudapi.net"
+            The output should include "Dispatching resolution for packages.aks.azure.com"
+            The output should not include "Dispatching resolution for login.microsoftonline.com"
+            The output should not include "Dispatching resolution for management.azure.com"
         End
 
         It 'resolves arbitrary sovereign cloud FQDNs when passed by RP'
@@ -174,8 +174,8 @@ MOCK_EOF
             When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Received 2 critical FQDNs from RP"
-            The output should include "Resolving addresses for mcr.microsoft.com"
-            The output should include "Resolving addresses for login.microsoftonline.com"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+            The output should include "Dispatching resolution for login.microsoftonline.com"
         End
 
         It 'exits gracefully when LOCALDNS_CRITICAL_FQDNS is unset'
@@ -219,7 +219,7 @@ EOF
             When run command bash "${TEST_SCRIPT}"
             The status should be success
             The output should include "Received 1 critical FQDNs from RP"
-            The output should include "Resolving addresses for mcr.microsoft.com"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
         End
     End
 
