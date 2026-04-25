@@ -337,16 +337,19 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		}
 	}
 
-	// Dynamic tracking: create sub-tests for any task that exceeds DefaultTaskThreshold
+	// Dynamic tracking: create sub-tests for any CSE task that exceeds DefaultTaskThreshold
 	// but wasn't matched by a specific threshold above. This ensures newly added CSE tasks
 	// automatically appear in ADO Pipeline Analytics without code changes.
-	// Skip cse_start since it's already validated by TotalCSEThreshold.
+	// Skip cse_start (validated by TotalCSEThreshold) and non-CSE events (e.g., AKS.Runtime.*).
 	if thresholds.DefaultTaskThreshold > 0 {
 		for _, task := range report.Tasks {
 			if matchedTasks[task.TaskName] {
 				continue
 			}
 			if task.TaskName == "AKS.CSE.cse_start" {
+				continue
+			}
+			if !strings.HasPrefix(task.TaskName, "AKS.CSE.") {
 				continue
 			}
 			if task.Duration < thresholds.DefaultTaskThreshold {

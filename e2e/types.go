@@ -211,6 +211,12 @@ type Config struct {
 	// Use this for scenarios that depend on CSE script execution (e.g., CSE timing validation)
 	// which is not available in scriptless mode.
 	SkipScriptlessNBC bool
+
+	// EagerCSETimingExtraction when true causes CSE timing events to be extracted
+	// immediately after SSH is established, before other validators run.
+	// This prevents the Guest Agent from sweeping events before they can be read.
+	// Only set this on CSE performance test scenarios.
+	EagerCSETimingExtraction bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

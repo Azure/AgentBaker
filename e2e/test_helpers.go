@@ -416,7 +416,8 @@ func validateVM(ctx context.Context, s *Scenario) {
 	// Extract CSE timing events immediately after SSH is available, before other
 	// validators run. The Guest Agent periodically sweeps the events directory,
 	// so we must read events before the delay from pod scheduling and validation.
-	if s.Config.Validator != nil {
+	// Only runs for CSE perf test scenarios (gated by EagerCSETimingExtraction).
+	if s.EagerCSETimingExtraction {
 		report, err := ExtractCSETimings(ctx, s)
 		if err == nil && len(report.Tasks) > 0 {
 			s.Runtime.CSETimingReport = report

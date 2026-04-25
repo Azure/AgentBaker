@@ -48,7 +48,7 @@ var cachedCSEThresholds = CSETimingThresholds{
 		// Networking and node configuration
 		"retrycmd_nslookup":      4 * time.Second, // prod p50=0.55s p95=3.89s p99=5.60s
 		"configureNodeExporter": 44 * time.Second, // prod p50=1.62s p95=43.9s p99=117.45s (high tail!)
-		"ensureSnapshotUpdate":   2 * time.Second, // prod p50=0.59s p95=1.15s p99=1.55s
+		"ubuntuSnapshotUpdate":   2 * time.Second, // prod p50=0.59s p95=1.15s p99=1.55s
 	},
 }
 
@@ -79,14 +79,13 @@ var fullInstallCSEThresholds = CSETimingThresholds{
 		// Credential provider
 		"installCredentialProviderFromUrl": 3 * time.Second,  // prod p99=2.89s
 		"installCredentialProviderFromPkg": 7 * time.Second,  // prod p99=6.34s
-		"installCredentialProviderFromPMC": 40 * time.Second, // prod p50=3.38s p95=23.66s p99=39.37s
 		"downloadCredentialProvider":       3 * time.Second,  // prod p99=2.12s
 		"installCredentialProvider":        7 * time.Second,  // prod p99=6.02s
 
 		// Networking and node configuration
 		"retrycmd_nslookup":      6 * time.Second,  // prod p99=5.60s
 		"configureNodeExporter": 120 * time.Second, // prod p99=117.45s (extreme tail!)
-		"ensureSnapshotUpdate":    2 * time.Second, // prod p99=1.55s
+		"ubuntuSnapshotUpdate":    2 * time.Second, // prod p99=1.55s
 		"downloadPkgFromVersion":  4 * time.Second, // prod p50=0.30s p95=1.04s p99=3.39s
 	},
 }
@@ -119,7 +118,7 @@ var cachedCSEThresholdsUbuntu2404 = CSETimingThresholds{
 
 		// Networking and node configuration
 		"configureNodeExporter": 44 * time.Second, // prod p50=1.37s p95=11.48s p99=60.68s
-		"ensureSnapshotUpdate":   2 * time.Second, // same as 22.04
+		"ubuntuSnapshotUpdate":   2 * time.Second, // same as 22.04
 	},
 }
 
@@ -143,11 +142,10 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 
 		"installCredentialProviderFromUrl": 3 * time.Second,
 		"installCredentialProviderFromPkg": 9 * time.Second,  // prod p99=8.57s
-		"installCredentialProviderFromPMC": 19 * time.Second, // prod p50=3.01s p95=9.39s p99=18.09s
 		"downloadCredentialProvider":       3 * time.Second,
 
 		"configureNodeExporter": 61 * time.Second, // prod p99=60.68s
-		"ensureSnapshotUpdate":   2 * time.Second,
+		"ubuntuSnapshotUpdate":   2 * time.Second,
 	},
 }
 
@@ -198,7 +196,8 @@ func Test_Ubuntu2204_CSE_CachedPerformance(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			SkipScriptlessNBC:          true,
+EagerCSETimingExtraction: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Disable scriptless CSE so traditional CSE scripts run and emit timing events
 				nbc.EnableScriptlessCSECmd = false
@@ -233,7 +232,8 @@ func Test_Ubuntu2204_CSE_FullInstallPerformance(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2204Gen2Containerd,
-			SkipScriptlessNBC: true,
+			SkipScriptlessNBC:          true,
+EagerCSETimingExtraction: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
@@ -259,7 +259,8 @@ func Test_Ubuntu2404_CSE_CachedPerformance(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC: true,
+			SkipScriptlessNBC:          true,
+EagerCSETimingExtraction: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Disable scriptless CSE so traditional CSE scripts run and emit timing events
 				nbc.EnableScriptlessCSECmd = false
@@ -287,7 +288,8 @@ func Test_Ubuntu2404_CSE_FullInstallPerformance(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDUbuntu2404Gen2Containerd,
-			SkipScriptlessNBC: true,
+			SkipScriptlessNBC:          true,
+EagerCSETimingExtraction: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
@@ -313,7 +315,8 @@ func Test_AzureLinuxV3_CSE_CachedPerformance(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			SkipScriptlessNBC:          true,
+EagerCSETimingExtraction: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
@@ -331,7 +334,8 @@ func Test_AzureLinuxV3_CSE_FullInstallPerformance(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			VHD:               config.VHDAzureLinuxV3Gen2,
-			SkipScriptlessNBC: true,
+			SkipScriptlessNBC:          true,
+EagerCSETimingExtraction: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
