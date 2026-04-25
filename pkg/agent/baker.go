@@ -1287,7 +1287,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetMCRRepositoryBase": func() string {
 			if config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase == "" {
-				return "aclgpusysext.azurecr.io"
+				return "mcr.microsoft.com"
 			}
 			return config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase
 		},
