@@ -3021,46 +3021,7 @@ func rcv1pTrustStoreDir(s *Scenario) string {
 func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// REVERT ME: Diagnostic block — probe wireserver endpoints and dump CSE log tail from the VM
-	// so we can see exactly what the wireserver returns for operationrequests and what the CSE logged.
-	diagCommand := []string{
-		"$ErrorActionPreference = 'Continue'",
-		"Write-Host '=== DIAGNOSTIC: probing wireserver rcv1p endpoints ==='",
-		"try {",
-		"  $optIn = Invoke-WebRequest -Uri 'http://168.63.129.16/acms/isOptedInForRootCerts' -UseBasicParsing -TimeoutSec 30",
-		"  Write-Host \"isOptedInForRootCerts: $($optIn.Content)\"",
-		"} catch { Write-Host \"isOptedInForRootCerts ERROR: $_\" }",
-		"try {",
-		"  $root = Invoke-WebRequest -Uri 'http://168.63.129.16/machine?comp=acmspackage&type=operationrequestsroot&ext=json' -UseBasicParsing -TimeoutSec 30",
-		"  Write-Host \"operationrequestsroot status=$($root.StatusCode) length=$($root.Content.Length)\"",
-		"  Write-Host \"operationrequestsroot content: $($root.Content)\"",
-		"} catch { Write-Host \"operationrequestsroot ERROR: $_\" }",
-		"try {",
-		"  $intermediate = Invoke-WebRequest -Uri 'http://168.63.129.16/machine?comp=acmspackage&type=operationrequestsintermediate&ext=json' -UseBasicParsing -TimeoutSec 30",
-		"  Write-Host \"operationrequestsintermediate status=$($intermediate.StatusCode) length=$($intermediate.Content.Length)\"",
-		"  Write-Host \"operationrequestsintermediate content: $($intermediate.Content)\"",
-		"} catch { Write-Host \"operationrequestsintermediate ERROR: $_\" }",
-		"try {",
-		"  $legacy = Invoke-WebRequest -Uri 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json' -UseBasicParsing -TimeoutSec 30",
-		"  Write-Host \"legacy cacertificates status=$($legacy.StatusCode) length=$($legacy.Content.Length)\"",
-		"  $legacyJson = $legacy.Content | ConvertFrom-Json",
-		"  if ($legacyJson.Certificates) { Write-Host \"legacy cert count: $($legacyJson.Certificates.Length)\" } else { Write-Host 'legacy: no Certificates array' }",
-		"} catch { Write-Host \"legacy cacertificates ERROR: $_\" }",
-		"Write-Host '=== DIAGNOSTIC: C:\\ca folder contents ==='",
-		"if (Test-Path 'C:\\ca') { Get-ChildItem -Path 'C:\\ca' -File | ForEach-Object { Write-Host \"  $($_.Name) ($($_.Length) bytes)\" } } else { Write-Host 'C:\\ca does not exist' }",
-		"Write-Host '=== DIAGNOSTIC: CSE log tail (last 60 lines with CA/cert/wireserver) ==='",
-		"if (Test-Path 'C:\\AzureData\\CustomDataSetupScript.log') {",
-		"  Get-Content 'C:\\AzureData\\CustomDataSetupScript.log' -Tail 200 | Where-Object { $_ -match 'CA |cert|wireserver|optedin|operation|acms|Write cert|Warning' } | Select-Object -Last 60 | ForEach-Object { Write-Host $_ }",
-		"} else { Write-Host 'CSE log not found' }",
-		"Write-Host '=== END DIAGNOSTIC ==='",
-	}
-	diagResult := execScriptOnVMForScenario(ctx, s, strings.Join(diagCommand, "\n"))
-	s.T.Logf("REVERT ME: wireserver diagnostics stdout:\n%s", diagResult.stdout)
-	if diagResult.stderr != "" {
-		s.T.Logf("REVERT ME: wireserver diagnostics stderr:\n%s", diagResult.stderr)
-	}
-
-	// Validate the provisioning log shows wireserver was queried and returned opted-in
+	// Validate the provisioning logshows wireserver was queried and returned opted-in
 	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
 		"IsOptedInForRootCerts wireserver response:")
 
