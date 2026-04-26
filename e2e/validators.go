@@ -1542,39 +1542,42 @@ for ip in 169.254.10.10 169.254.10.11; do
     echo "PASS: no conntrack entries for $ip:53 with NOTRACK rules active"
 done
 
-# Negative test: temporarily drop NOTRACK rules, do a DNS lookup, and verify conntrack entries DO appear.
+# Negative test: temporarily drop NOTRACK rules, do DNS lookups, and verify conntrack entries DO appear.
 # This proves our conntrack check is actually capable of detecting entries.
+# We use TCP (+tcp) because TCP conntrack entries persist in ESTABLISHED/TIME_WAIT state,
+# unlike UDP entries which can expire almost immediately.
 echo "Negative test: verifying conntrack entries appear WITHOUT NOTRACK rules..."
 saved_rules=$(sudo iptables -w -t raw -S | grep "localdns: skip conntrack")
 sudo iptables -w -t raw -S | grep "localdns: skip conntrack" | while IFS= read -r rule; do
-    # Convert -A to -D to delete the rule
     sudo iptables -w -t raw $(echo "$rule" | sed 's/^-A/-D/') 2>/dev/null || true
 done
 
 # Flush any leftover conntrack entries before the negative test
-for ip in 169.254.10.10 169.254.10.11; do
-    sudo conntrack -D -d "$ip" -p udp --dport 53 2>/dev/null || true
+sudo conntrack -D -d 169.254.10.10 2>/dev/null || true
+
+# Do multiple DNS lookups over TCP without NOTRACK — should create conntrack entries
+for i in 1 2 3 4 5; do
+    dig bing.com @169.254.10.10 +tcp +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
 done
+sleep 0.5
 
-# Do a DNS lookup without NOTRACK — this SHOULD create conntrack entries
-dig bing.com @169.254.10.10 +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
+# Check for ANY conntrack entries involving localdns IP — proves conntrack is active
+ct_neg=$(sudo conntrack -L -d 169.254.10.10 2>/dev/null | wc -l)
+echo "Conntrack entries for 169.254.10.10 without NOTRACK: $ct_neg"
 
-ct_dns_neg=$(sudo conntrack -L -d 169.254.10.10 -p udp --dport 53 2>/dev/null | wc -l)
-echo "Conntrack entries for 169.254.10.10:53 without NOTRACK: $ct_dns_neg"
-
-# Restore NOTRACK rules
+# Restore NOTRACK rules before checking result (ensure cleanup even on failure)
 echo "$saved_rules" | while IFS= read -r rule; do
     sudo iptables -w -t raw $rule 2>/dev/null || true
 done
 
 # Clean up conntrack entries created during negative test
-sudo conntrack -D -d 169.254.10.10 -p udp --dport 53 2>/dev/null || true
+sudo conntrack -D -d 169.254.10.10 2>/dev/null || true
 
-if [ "$ct_dns_neg" -eq 0 ]; then
+if [ "$ct_neg" -eq 0 ]; then
     echo "FAIL: no conntrack entries appeared even without NOTRACK rules — conntrack check may be broken"
     exit 1
 fi
-echo "PASS: conntrack entries appeared without NOTRACK, confirming NOTRACK enforcement is real"
+echo "PASS: $ct_neg conntrack entries appeared without NOTRACK, confirming NOTRACK enforcement is real"
 
 echo "PASS: NOTRACK rules are functional — DNS traffic bypasses conntrack"
 `
