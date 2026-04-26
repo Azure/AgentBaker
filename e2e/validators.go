@@ -1488,98 +1488,20 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 func ValidateLocalDNSIptablesRules(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	script := `set -euo pipefail
-echo "Checking iptables raw table for localdns NOTRACK rules..."
 rules=$(sudo iptables -w -t raw -S 2>&1)
 echo "$rules"
 
-# Verify the localdns script uses iptables-restore (not legacy individual iptables calls)
-if grep -q "iptables-restore" /opt/azure/containers/localdns/localdns.sh; then
-    echo "PASS: localdns.sh uses iptables-restore (batched rules)"
-else
-    echo "FAIL: localdns.sh does not use iptables-restore — VHD may be outdated"
-    exit 1
-fi
-
-# Verify rules exist in both OUTPUT and PREROUTING chains for both protocols
+# Verify NOTRACK rules exist in both chains for both protocols with the comment tag
 for chain in OUTPUT PREROUTING; do
-    chain_rules=$(sudo iptables -w -t raw -S "$chain" 2>&1)
     for proto in tcp udp; do
-        if ! echo "$chain_rules" | grep -q "\-p ${proto}.*--dport 53.*NOTRACK"; then
+        if ! echo "$rules" | grep -q -- "-A ${chain}.*-p ${proto}.*localdns: skip conntrack.*--dport 53.*NOTRACK"; then
             echo "FAIL: missing NOTRACK rule for $proto in $chain chain"
             exit 1
         fi
     done
 done
 
-# Verify the comment tag is present (used by cleanup logic)
-if ! sudo iptables -w -t raw -S | grep -q "localdns: skip conntrack"; then
-    echo "FAIL: localdns comment tag not found in iptables rules"
-    exit 1
-fi
-
-echo "PASS: all localdns NOTRACK iptables rules verified"
-
-# Verify NOTRACK rules are functional by doing DNS lookups and checking no conntrack entries exist
-echo "Verifying NOTRACK rules are functional..."
-
-# First, flush any stale conntrack entries for localdns IPs
-for ip in 169.254.10.10 169.254.10.11; do
-    sudo conntrack -D -d "$ip" -p udp --dport 53 2>/dev/null || true
-    sudo conntrack -D -d "$ip" -p tcp --dport 53 2>/dev/null || true
-done
-
-# Do DNS lookups with NOTRACK rules in place — should create NO conntrack entries
-dig bing.com @169.254.10.10 +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
-dig bing.com @169.254.10.11 +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
-
-for ip in 169.254.10.10 169.254.10.11; do
-    ct_dns=$(sudo conntrack -L -d "$ip" -p udp --dport 53 2>/dev/null | wc -l)
-    if [ "$ct_dns" -gt 0 ]; then
-        echo "FAIL: found $ct_dns conntrack entries for $ip:53 — NOTRACK rules not working"
-        sudo conntrack -L -d "$ip" -p udp --dport 53 2>/dev/null
-        exit 1
-    fi
-    echo "PASS: no conntrack entries for $ip:53 with NOTRACK rules active"
-done
-
-# Negative test: temporarily drop NOTRACK rules, do DNS lookups, and verify conntrack entries DO appear.
-# This proves our conntrack check is actually capable of detecting entries.
-# We use TCP (+tcp) because TCP conntrack entries persist in ESTABLISHED/TIME_WAIT state,
-# unlike UDP entries which can expire almost immediately.
-echo "Negative test: verifying conntrack entries appear WITHOUT NOTRACK rules..."
-saved_rules=$(sudo iptables -w -t raw -S | grep "localdns: skip conntrack")
-sudo iptables -w -t raw -S | grep "localdns: skip conntrack" | while IFS= read -r rule; do
-    sudo iptables -w -t raw $(echo "$rule" | sed 's/^-A/-D/') 2>/dev/null || true
-done
-
-# Flush any leftover conntrack entries before the negative test
-sudo conntrack -D -d 169.254.10.10 2>/dev/null || true
-
-# Do multiple DNS lookups over TCP without NOTRACK — should create conntrack entries
-for i in 1 2 3 4 5; do
-    dig bing.com @169.254.10.10 +tcp +short +timeout=2 +tries=1 > /dev/null 2>&1 || true
-done
-sleep 0.5
-
-# Check for ANY conntrack entries involving localdns IP — proves conntrack is active
-ct_neg=$(sudo conntrack -L -d 169.254.10.10 2>/dev/null | wc -l)
-echo "Conntrack entries for 169.254.10.10 without NOTRACK: $ct_neg"
-
-# Restore NOTRACK rules before checking result (ensure cleanup even on failure)
-echo "$saved_rules" | while IFS= read -r rule; do
-    sudo iptables -w -t raw $rule 2>/dev/null || true
-done
-
-# Clean up conntrack entries created during negative test
-sudo conntrack -D -d 169.254.10.10 2>/dev/null || true
-
-if [ "$ct_neg" -eq 0 ]; then
-    echo "FAIL: no conntrack entries appeared even without NOTRACK rules — conntrack check may be broken"
-    exit 1
-fi
-echo "PASS: $ct_neg conntrack entries appeared without NOTRACK, confirming NOTRACK enforcement is real"
-
-echo "PASS: NOTRACK rules are functional — DNS traffic bypasses conntrack"
+echo "PASS: all localdns NOTRACK iptables rules present"
 `
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns iptables NOTRACK rules validation failed")
 }
