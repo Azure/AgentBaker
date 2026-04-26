@@ -74,6 +74,16 @@ function make_request_with_retry {
     return 1
 }
 
+# Returns:
+#   0 - opted in (wireserver confirmed IsOptedInForRootCerts=true)
+#   1 - not opted in (wireserver responded with false; valid, skip certs)
+#   2 - wireserver unreachable after retries (caller must treat as fatal)
+#
+# Wireserver unreachable must be fatal (return 2) rather than silently skipping certs.
+# If the subscription is opted in for hardened root certs but we silently fall back to
+# the distro's default trust store, we leave a security hole — the node would trust CAs
+# that the customer explicitly intended to replace. Failing hard surfaces the problem
+# immediately instead of letting the node run with an insecure certificate configuration.
 function is_opted_in_for_root_certs {
     local opt_in_response
     local request_status
@@ -255,7 +265,16 @@ if [ "$cert_endpoint_mode" = "legacy" ]; then
         exit 1
     fi
 elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
-    if is_opted_in_for_root_certs; then
+    is_opted_in_for_root_certs
+    opt_in_result=$?
+    if [ $opt_in_result -eq 2 ]; then
+        # Fatal: wireserver was unreachable after retries. We cannot determine whether
+        # the node should use hardened certs or the default trust store. Silently
+        # falling back to the distro trust store would be a security hole if the
+        # customer intended hardened certs, so we fail hard here.
+        echo "ERROR: cannot provision node — wireserver unreachable for cert opt-in check"
+        exit 1
+    elif [ $opt_in_result -eq 0 ]; then
         install_ca_refresh_schedule=1
         if retrieve_rcv1p_certs; then
             install_certs_to_trust_store
