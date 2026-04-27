@@ -21,6 +21,7 @@ package e2e
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -113,9 +114,13 @@ func rcv1pCluster() func(ctx context.Context, request ClusterRequest) (*Cluster,
 
 // rcv1pWindowsCluster returns the cluster function for Windows RCV1P tests. Windows tests must
 // use Azure CNI (not kubenet) because baseTemplateWindows() configures the NBC for Azure CNI
-// overlay mode — using kubenet causes azure-vnet plugin IP allocation failures. This matches
-// the cluster type used by all other non-RCV1P Windows tests (ClusterAzureNetwork).
+// overlay mode — using kubenet causes azure-vnet plugin IP allocation failures. When
+// RCV1P_SUBSCRIPTION_ID is set, uses a dedicated Azure CNI cluster in the RCV1P subscription
+// to match the subscription used for VMSS operations.
 func rcv1pWindowsCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	if hasExplicitRCV1PSubscription() {
+		return ClusterRCV1PAzureNetwork
+	}
 	return ClusterAzureNetwork
 }
 
@@ -194,7 +199,16 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 		return false, fmt.Errorf("feature flag query returned status %d: %s", resp.StatusCode, bodyStr)
 	}
 
-	return strings.Contains(bodyStr, `"Registered"`), nil
+	var result struct {
+		Properties struct {
+			State string `json:"state"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false, fmt.Errorf("failed to parse feature flag response: %w", err)
+	}
+
+	return result.Properties.State == "Registered", nil
 }
 
 // rcv1pVMConfigMutator returns the VMConfigMutator for RCV1P positive tests.
