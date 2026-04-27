@@ -1488,7 +1488,7 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 func ValidateLocalDNSIptablesRules(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	script := `set -euo pipefail
-rules=$(sudo iptables -w -t raw -S 2>&1)
+rules=$(sudo iptables -w -t raw -S | tr -d '\r')
 echo "$rules"
 
 # Verify NOTRACK rules exist in both chains for both protocols with the comment tag
