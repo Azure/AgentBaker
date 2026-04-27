@@ -181,7 +181,7 @@ func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PKubenet,
+			Cluster:                ClusterRCV1PAzureNetwork,
 			VHD:                    config.VHDWindows2022Containerd,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
