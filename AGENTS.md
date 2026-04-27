@@ -109,6 +109,7 @@ Analyze PRs for these compatibility scenarios:
     - Only allowed runtime downloads: packages.aks.azure.com or other explicitly allowed sources in CSE
   - **Function signature changes**: Parameters, return values, exit codes that break callers
   - **Missing test coverage**: Changes to provisioning logic without corresponding e2e tests
+  - **ANC hotfix entry removal**: If a PR removes or modifies the `anc-hotfix: auto-generated` block in `parts/linux/cloud-init/nodecustomdata.yml` or resets `hotfix/anc-hotfix-version.json` to `{}`, **always confirm with the PR owner** that all affected VHDs have been republished with the fix baked in or are out of the 6-month support window. Premature removal means nodes provisioned via scale-up on the old buggy VHD will no longer receive the hotfix.
 
 **2. Windows Bidirectional Compatibility**
 - **Context**: Windows VHD and CSE scripts release on different cadences with no guaranteed order
