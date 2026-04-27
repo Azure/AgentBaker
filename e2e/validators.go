@@ -1488,19 +1488,25 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 func ValidateLocalDNSIptablesRules(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	script := `set -euo pipefail
-rules=$(sudo iptables -w -t raw -S | tr -d '\r')
-echo "$rules"
-
-# Verify NOTRACK rules exist in both chains for both protocols with the comment tag
+failed=0
+# Check each rule individually to avoid multiline grep issues
 for chain in OUTPUT PREROUTING; do
     for proto in tcp udp; do
-        if ! echo "$rules" | grep -q -- "-A ${chain}.*-p ${proto}.*localdns: skip conntrack.*--dport 53.*NOTRACK"; then
+        rule=$(sudo iptables -w -t raw -S "$chain" | tr -d '\r' | grep -m1 -- "-p ${proto}.*localdns: skip conntrack.*--dport 53.*NOTRACK" || true)
+        if [ -n "$rule" ]; then
+            echo "OK: $chain/$proto: $rule"
+        else
             echo "FAIL: missing NOTRACK rule for $proto in $chain chain"
-            exit 1
+            failed=1
         fi
     done
 done
 
+if [ "$failed" -ne 0 ]; then
+    echo "Dumping all raw table rules for debugging:"
+    sudo iptables -w -t raw -S | tr -d '\r'
+    exit 1
+fi
 echo "PASS: all localdns NOTRACK iptables rules present"
 `
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns iptables NOTRACK rules validation failed")
