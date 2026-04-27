@@ -34,6 +34,8 @@ type App struct {
 	aptSourcesDir string
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
+	// scriptHotfixManifestPath overrides the default script hotfix manifest location for testing.
+	scriptHotfixManifestPath string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -237,6 +239,13 @@ func (a *App) getNodeCustomDataPath() string {
 	return defaultNodeCustomDataPath
 }
 
+func (a *App) getScriptHotfixManifestPath() string {
+	if a.scriptHotfixManifestPath != "" {
+		return a.scriptHotfixManifestPath
+	}
+	return defaultScriptHotfixManifestPath
+}
+
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
 
@@ -253,6 +262,12 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 
 	if flags.NBCCmd != "" {
 		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+
+		if err := applyScriptHotfix(a.getScriptHotfixManifestPath(), Version); err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = err.Error()
 			return provisionResult, err

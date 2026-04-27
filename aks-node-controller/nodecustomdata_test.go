@@ -79,3 +79,146 @@ write_files:
 	require.NoError(t, err)
 	assert.Equal(t, "0", result.ExitCode)
 }
+
+func TestApplyScriptHotfix_VersionMatch(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create staging directory and a staged script
+	stagingDir := filepath.Join(tempDir, "hotfix", "scripts")
+	require.NoError(t, os.MkdirAll(stagingDir, 0o755))
+
+	stagingPath := filepath.Join(stagingDir, "provision_installs.sh")
+	require.NoError(t, os.WriteFile(stagingPath, []byte("#!/bin/bash\n# hotfixed script"), 0o744))
+
+	destPath := filepath.Join(tempDir, "dest", "provision_installs.sh")
+
+	manifest := fmt.Sprintf(`{"targetVersion":"202604.27.0","files":[{"staging":"%s","destination":"%s"}]}`,
+		stagingPath, destPath)
+	manifestPath := filepath.Join(stagingDir, "manifest.json")
+	require.NoError(t, os.WriteFile(manifestPath, []byte(manifest), 0o644))
+
+	// Current version matches target base (same YYYYMM.DD)
+	err := applyScriptHotfix(manifestPath, "202604.27.0")
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(destPath)
+	require.NoError(t, err)
+	assert.Equal(t, "#!/bin/bash\n# hotfixed script", string(content))
+}
+
+func TestApplyScriptHotfix_VersionMatch_HigherPatch(t *testing.T) {
+	tempDir := t.TempDir()
+
+	stagingDir := filepath.Join(tempDir, "hotfix", "scripts")
+	require.NoError(t, os.MkdirAll(stagingDir, 0o755))
+
+	stagingPath := filepath.Join(stagingDir, "provision_installs.sh")
+	require.NoError(t, os.WriteFile(stagingPath, []byte("#!/bin/bash\n# hotfixed"), 0o744))
+
+	destPath := filepath.Join(tempDir, "dest", "provision_installs.sh")
+
+	manifest := fmt.Sprintf(`{"targetVersion":"202604.27.0","files":[{"staging":"%s","destination":"%s"}]}`,
+		stagingPath, destPath)
+	manifestPath := filepath.Join(stagingDir, "manifest.json")
+	require.NoError(t, os.WriteFile(manifestPath, []byte(manifest), 0o644))
+
+	// Node has ANC-hotfixed version (patch 1) but same base — should still apply
+	err := applyScriptHotfix(manifestPath, "202604.27.1")
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(destPath)
+	require.NoError(t, err)
+	assert.Equal(t, "#!/bin/bash\n# hotfixed", string(content))
+}
+
+func TestApplyScriptHotfix_VersionMismatch(t *testing.T) {
+	tempDir := t.TempDir()
+
+	stagingDir := filepath.Join(tempDir, "hotfix", "scripts")
+	require.NoError(t, os.MkdirAll(stagingDir, 0o755))
+
+	stagingPath := filepath.Join(stagingDir, "provision_installs.sh")
+	require.NoError(t, os.WriteFile(stagingPath, []byte("#!/bin/bash\n# hotfixed"), 0o744))
+
+	destPath := filepath.Join(tempDir, "dest", "provision_installs.sh")
+
+	manifest := fmt.Sprintf(`{"targetVersion":"202604.27.0","files":[{"staging":"%s","destination":"%s"}]}`,
+		stagingPath, destPath)
+	manifestPath := filepath.Join(stagingDir, "manifest.json")
+	require.NoError(t, os.WriteFile(manifestPath, []byte(manifest), 0o644))
+
+	// Node is on a different VHD version — should NOT apply
+	err := applyScriptHotfix(manifestPath, "202602.19.0")
+	require.NoError(t, err)
+
+	// Destination should not exist
+	_, err = os.ReadFile(destPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestApplyScriptHotfix_NoManifest(t *testing.T) {
+	err := applyScriptHotfix("/nonexistent/path/manifest.json", "202604.27.0")
+	require.NoError(t, err)
+}
+
+func TestApplyScriptHotfix_EmptyManifest(t *testing.T) {
+	tempDir := t.TempDir()
+	manifestPath := filepath.Join(tempDir, "manifest.json")
+	require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0o644))
+
+	err := applyScriptHotfix(manifestPath, "202604.27.0")
+	require.NoError(t, err)
+}
+
+func TestApplyScriptHotfix_DevVersion(t *testing.T) {
+	tempDir := t.TempDir()
+
+	stagingDir := filepath.Join(tempDir, "hotfix", "scripts")
+	require.NoError(t, os.MkdirAll(stagingDir, 0o755))
+
+	stagingPath := filepath.Join(stagingDir, "test.sh")
+	require.NoError(t, os.WriteFile(stagingPath, []byte("#!/bin/bash"), 0o744))
+
+	destPath := filepath.Join(tempDir, "dest", "test.sh")
+
+	manifest := fmt.Sprintf(`{"targetVersion":"202604.27.0","files":[{"staging":"%s","destination":"%s"}]}`,
+		stagingPath, destPath)
+	manifestPath := filepath.Join(stagingDir, "manifest.json")
+	require.NoError(t, os.WriteFile(manifestPath, []byte(manifest), 0o644))
+
+	// Dev version can't be parsed — should skip gracefully
+	err := applyScriptHotfix(manifestPath, "dev")
+	require.NoError(t, err)
+
+	_, err = os.ReadFile(destPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestIsScriptHotfixTargeted(t *testing.T) {
+	tests := []struct {
+		name     string
+		current  string
+		target   string
+		expected bool
+		wantErr  bool
+	}{
+		{"exact match", "202604.27.0", "202604.27.0", true, false},
+		{"same base higher patch", "202604.27.1", "202604.27.0", true, false},
+		{"same base lower patch", "202604.27.0", "202604.27.1", true, false},
+		{"different base", "202602.19.0", "202604.27.0", false, false},
+		{"different minor", "202604.24.0", "202604.27.0", false, false},
+		{"dev current", "dev", "202604.27.0", false, true},
+		{"dev target", "202604.27.0", "dev", false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := isScriptHotfixTargeted(tt.current, tt.target)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, got)
+			}
+		})
+	}
+}

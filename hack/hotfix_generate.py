@@ -12,12 +12,16 @@ Note: once we move to the final stage of scriptless, we no longer need to hotfix
 the scripts into the template and can remove this script entirely.
 """
 
+import json
 import subprocess
 import sys
 import re
 
 TEMPLATE = "parts/linux/cloud-init/nodecustomdata.yml"
 ARTIFACTS_DIR = "parts/linux/cloud-init/artifacts"
+SIG_VERSION_PATH = "pkg/agent/datamodel/linux_sig_version.json"
+HOTFIX_STAGING_DIR = "/opt/azure/hotfix/scripts"
+HOTFIX_MANIFEST_PATH = f"{HOTFIX_STAGING_DIR}/manifest.json"
 
 # Map from source file paths (relative to artifacts/) to the GetVariableProperty
 # keys used in nodecustomdata.yml. Only scripts that appear as write_files entries
@@ -98,6 +102,64 @@ VARKEY_TO_BLOCK_GROUP = {
     "provisionInstallsFlatcar": "install_distro",
     "provisionInstallsACL": "install_distro",
 }
+
+# Map from varkey to the real destination path on the node.
+# These must match the constants in pkg/agent/const.go.
+# For distro-variant scripts, all variants share the same destination path
+# (the distro-specific content is selected at template render time).
+VARKEY_TO_DEST_PATH = {
+    "provisionSource": "/opt/azure/containers/provision_source.sh",
+    "provisionSourceUbuntu": "/opt/azure/containers/provision_source_distro.sh",
+    "provisionSourceMariner": "/opt/azure/containers/provision_source_distro.sh",
+    "provisionSourceAzlOSGuard": "/opt/azure/containers/provision_source_distro.sh",
+    "provisionSourceFlatcar": "/opt/azure/containers/provision_source_distro.sh",
+    "provisionSourceACL": "/opt/azure/containers/provision_source_distro.sh",
+    "provisionInstalls": "/opt/azure/containers/provision_installs.sh",
+    "provisionInstallsUbuntu": "/opt/azure/containers/provision_installs_distro.sh",
+    "provisionInstallsMariner": "/opt/azure/containers/provision_installs_distro.sh",
+    "provisionInstallsAzlOSGuard": "/opt/azure/containers/provision_installs_distro.sh",
+    "provisionInstallsFlatcar": "/opt/azure/containers/provision_installs_distro.sh",
+    "provisionInstallsACL": "/opt/azure/containers/provision_installs_distro.sh",
+    "provisionConfigs": "/opt/azure/containers/provision_configs.sh",
+    "provisionScript": "/opt/azure/containers/provision.sh",
+    "provisionStartScript": "/opt/azure/containers/provision_start.sh",
+    "provisionRedactCloudConfig": "/opt/azure/containers/provision_redact_cloud_config.py",
+    "provisionSendLogs": "/opt/azure/containers/provision_send_logs.py",
+    "reconcilePrivateHostsScript": "/opt/azure/containers/reconcilePrivateHosts.sh",
+    "bindMountScript": "/opt/azure/containers/bind-mount.sh",
+    "migPartitionScript": "/opt/azure/containers/mig-partition.sh",
+    "dhcpv6ConfigurationScript": "/opt/azure/containers/enable-dhcpv6.sh",
+    "ensureIMDSRestrictionScript": "/opt/azure/containers/ensure_imds_restriction.sh",
+    "ensureNoDupEbtablesScript": "/opt/azure/containers/ensure-no-dup.sh",
+    "cloudInitStatusCheckScript": "/opt/azure/containers/cloud-init-status-check.sh",
+    "measureTLSBootstrappingLatencyScript": "/opt/azure/containers/measure-tls-bootstrapping-latency.sh",
+    "validateKubeletCredentialsScript": "/opt/azure/containers/validate-kubelet-credentials.sh",
+    "customSearchDomainsScript": "/opt/azure/containers/setup-custom-search-domains.sh",
+    "configureAzureNetworkScript": "/opt/azure-network/configure-azure-network.sh",
+    "initAKSCustomCloud": "/opt/azure/containers/init-aks-custom-cloud.sh",
+    "snapshotUpdateScript": "/opt/azure/containers/ubuntu-snapshot-update.sh",
+    "packageUpdateScriptMariner": "/opt/azure/containers/mariner-package-update.sh",
+    "kubeletSystemdService": "/etc/systemd/system/kubelet.service",
+    "reconcilePrivateHostsService": "/etc/systemd/system/reconcile-private-hosts.service",
+    "bindMountSystemdService": "/etc/systemd/system/bind-mount.service",
+    "dhcpv6SystemdService": "/etc/systemd/system/dhcpv6.service",
+    "migPartitionSystemdService": "/etc/systemd/system/mig-partition.service",
+    "secureTLSBootstrapService": "/etc/systemd/system/secure-tls-bootstrap.service",
+    "ensureNoDupEbtablesService": "/etc/systemd/system/ensure-no-dup.service",
+    "measureTLSBootstrappingLatencyService": "/etc/systemd/system/measure-tls-bootstrapping-latency.service",
+    "snapshotUpdateService": "/etc/systemd/system/snapshot-update.service",
+    "snapshotUpdateTimer": "/etc/systemd/system/snapshot-update.timer",
+    "packageUpdateServiceMariner": "/etc/systemd/system/snapshot-update.service",
+    "packageUpdateTimerMariner": "/etc/systemd/system/snapshot-update.timer",
+    "azureNetworkUdevRule": "/etc/udev/rules.d/99-azure-network.rules",
+    "componentManifestFile": "/opt/azure/manifest.json",
+}
+
+
+def read_target_version():
+    """Read the VHD image version from linux_sig_version.json."""
+    with open(SIG_VERSION_PATH) as f:
+        return json.load(f)["version"]
 
 
 def detect_changed_varkeys(base_ref):
@@ -222,8 +284,68 @@ def parse_write_files_blocks(traditional_lines):
     return blocks
 
 
+def rewrite_block_to_staging(block_lines, varkeys):
+    """Rewrite a write_files block to use staging paths instead of real destination paths.
+
+    For each '- path:' line, replace the path (which may be a Go template function call)
+    with a staging path under HOTFIX_STAGING_DIR. The staging filename is derived from
+    the destination path basename.
+
+    Returns (rewritten_lines, staging_to_dest_mapping) where the mapping is a list of
+    (staging_path, dest_path) tuples for the manifest.
+    """
+    rewritten = []
+    manifest_entries = []
+
+    # Collect unique destination paths from the varkeys in this block
+    dest_paths = set()
+    for vk in varkeys:
+        if vk in VARKEY_TO_DEST_PATH:
+            dest_paths.add(VARKEY_TO_DEST_PATH[vk])
+
+    for line in block_lines:
+        stripped = line.strip()
+        if stripped.startswith('- path:'):
+            # Extract the path value (may be a Go template expression or literal)
+            path_value = stripped[len('- path:'):].strip()
+
+            # Find which dest path this corresponds to by matching template functions
+            matched_dest = None
+            for vk in varkeys:
+                if vk in VARKEY_TO_DEST_PATH:
+                    dest = VARKEY_TO_DEST_PATH[vk]
+                    # Check if this path line could resolve to this dest
+                    # Template functions like {{GetCSEInstallScriptFilepath}} resolve to the dest
+                    basename = dest.rsplit('/', 1)[-1]
+                    staging = f"{HOTFIX_STAGING_DIR}/{basename}"
+                    if dest not in [e[1] for e in manifest_entries]:
+                        matched_dest = dest
+                        manifest_entries.append((staging, dest))
+                        break
+
+            if matched_dest:
+                basename = matched_dest.rsplit('/', 1)[-1]
+                staging_path = f"{HOTFIX_STAGING_DIR}/{basename}"
+                rewritten.append(f"- path: {staging_path}\n")
+            else:
+                rewritten.append(line)
+        else:
+            rewritten.append(line)
+
+    return rewritten, manifest_entries
+
+
 def inject_hotfix(target_varkeys):
-    """Extract matching write_files blocks from traditional section and inject into scriptless section."""
+    """Extract matching write_files blocks from traditional section and inject into scriptless section.
+
+    Scripts are written to staging paths under /opt/azure/hotfix/scripts/ along with a
+    manifest.json that maps staging paths to real destinations. ANC reads the manifest
+    at boot, checks the target version against its own VHD version, and copies files
+    only when the version matches.
+    """
+    target_version = read_target_version()
+    print(f"Target VHD version for hotfix: {target_version}", file=sys.stderr)
+
     with open(TEMPLATE, 'r') as f:
         content = f.read()
 
@@ -254,27 +376,53 @@ def inject_hotfix(target_varkeys):
     selected_blocks = []
     for varkeys, block_lines in blocks:
         if varkeys & target_varkeys:
-            selected_blocks.append(block_lines)
+            selected_blocks.append((varkeys, block_lines))
             print(f"  Selected block with varkeys: {varkeys}", file=sys.stderr)
 
     if not selected_blocks:
         print("No matching write_files blocks found for the target varkeys.", file=sys.stderr)
         return False
 
+    # Build staging blocks and manifest entries
+    all_manifest_entries = []
+    staged_blocks = []
+    for varkeys, block_lines in selected_blocks:
+        rewritten, entries = rewrite_block_to_staging(block_lines, varkeys)
+        staged_blocks.append(rewritten)
+        all_manifest_entries.extend(entries)
+
+    # Deduplicate manifest entries (distro variants share the same dest path)
+    seen_dests = set()
+    unique_entries = []
+    for staging, dest in all_manifest_entries:
+        if dest not in seen_dests:
+            seen_dests.add(dest)
+            unique_entries.append({"staging": staging, "destination": dest})
+
+    manifest = {"targetVersion": target_version, "files": unique_entries}
+    manifest_json = json.dumps(manifest, separators=(',', ':'))
+
     hotfix_lines = [
         "\n",
-        "# ---- hotfix: auto-generated by hotfix-generate GH Action ----\n",
+        f"# ---- hotfix: auto-generated by hotfix-generate GH Action (target={target_version}) ----\n",
+        f"- path: {HOTFIX_MANIFEST_PATH}\n",
+        '  permissions: "0644"\n',
+        "  owner: root\n",
+        f"  content: |\n",
+        f"    {manifest_json}\n",
+        "\n",
     ]
-    for block_lines in selected_blocks:
+    for block_lines in staged_blocks:
         hotfix_lines.extend(block_lines)
-    hotfix_lines.append("# ---- end hotfix ----\n")
+    hotfix_lines.append(f"# ---- end hotfix ----\n")
 
     final_lines = lines[:else_line] + hotfix_lines + lines[else_line:]
 
     with open(TEMPLATE, 'w') as f:
         f.writelines(final_lines)
 
-    print(f"\nInjected {len(selected_blocks)} write_files block(s) into EnableScriptlessCSECmd section", file=sys.stderr)
+    print(f"\nInjected {len(staged_blocks)} write_files block(s) to staging paths", file=sys.stderr)
+    print(f"Manifest: {manifest_json}", file=sys.stderr)
     print(f"Updated {TEMPLATE}", file=sys.stderr)
     return True
 
