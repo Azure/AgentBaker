@@ -25,6 +25,14 @@ write_files:
     Any overridden files will be listed here - Hotfix mode
     Example: {{GetCSEHelpersScriptFilepath}}
 
+
+# ---- anc-hotfix: auto-generated ----
+- path: /opt/azure/containers/aks-node-controller-hotfix.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {"version":"202504.27.0"}
+# ---- end anc-hotfix ----
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
