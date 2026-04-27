@@ -50,7 +50,7 @@ def read_hotfix_version():
 
 def build_hotfix_entry(version):
     """Build the write_files YAML lines for the hotfix JSON config."""
-    hotfix_json = json.dumps({"version": version})
+    hotfix_json = json.dumps({"version": version}, separators=(',', ':'))
     return [
         f"\n",
         f"{BEGIN_MARKER}\n",
