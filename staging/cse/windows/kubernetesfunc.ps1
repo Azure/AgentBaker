@@ -129,13 +129,13 @@ function Write-KubeClusterConfig {
                 Enabled                   = $global:EnableSecureTLSBootstrapping;
                 AADResource               = $global:SecureTLSBootstrappingAADResource;
                 UserAssignedIdentityID    = $global:SecureTLSBootstrappingUserAssignedIdentityID;
-                ValidateKubeconfigTimeout = $global:ValidateKubeconfigTimeout;
-                GetAccessTokenTimeout     = $global:GetAccessTokenTimeout;
-                GetInstanceDataTimeout    = $global:GetInstanceDataTimeout;
-                GetNonceTimeout           = $global:GetNonceTimeout;
-                GetAttestedDataTimeout    = $global:GetAttestedDataTimeout;
-                GetCredentialTimeout      = $global:GetCredentialTimeout;
-                Deadline                  = $global:Deadline
+                ValidateKubeconfigTimeout = $global:SecureTLSBootstrappingValidateKubeconfigTimeout;
+                GetAccessTokenTimeout     = $global:SecureTLSBootstrappingGetAccessTokenTimeout;
+                GetInstanceDataTimeout    = $global:SecureTLSBootstrappingGetInstanceDataTimeout;
+                GetNonceTimeout           = $global:SecureTLSBootstrappingGetNonceTimeout;
+                GetAttestedDataTimeout    = $global:SecureTLSBootstrappingGetAttestedDataTimeout;
+                GetCredentialTimeout      = $global:SecureTLSBootstrappingGetCredentialTimeout;
+                Deadline                  = $global:SecureTLSBootstrappingDeadline
             };
         };
         Kubeproxy    = @{
