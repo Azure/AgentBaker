@@ -214,6 +214,19 @@ func clusterRCV1PKubenet(ctx context.Context, request ClusterRequest) (*Cluster,
 	return prepareCluster(ctx, infra, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
+var ClusterRCV1PAzureNetwork = cachedFunc(clusterRCV1PAzureNetwork)
+
+// clusterRCV1PAzureNetwork creates an Azure CNI cluster in the RCV1P subscription for Windows cert mode testing.
+// Windows tests require Azure CNI (not kubenet) because baseTemplateWindows() configures the NBC for
+// Azure CNI overlay mode.
+func clusterRCV1PAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	infra := RCV1PClusterInfra()
+	if infra == nil {
+		return nil, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set, cannot create RCV1P Azure CNI cluster")
+	}
+	return prepareCluster(ctx, infra, getAzureNetworkClusterModel("abe2e-rcv1p-azure-v1", request.Location, request.K8sSystemPoolSKU), false, false)
+}
+
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
 func isNotFoundErr(err error) bool {
 	var respErr *azcore.ResponseError
