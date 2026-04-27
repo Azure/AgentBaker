@@ -303,7 +303,9 @@ function Should-InstallCACertificatesRefreshTask {
 
     try {
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
-        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        # Use 10 retries to match Linux make_request_with_retry resilience against
+        # transient wireserver unavailability and rate limiting.
+        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
         Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
         $optInJson = $optInResponse.Content | ConvertFrom-Json
         return ($optInJson.IsOptedInForRootCerts -eq $true)
@@ -347,10 +349,15 @@ function Get-CACertificates {
         Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
     }
 
+    # Get-CACertificates downloads Azure root CA certificates from wireserver and writes them
+    # to the local certificate folder. When called with -FailOnError, wireserver unreachable
+    # after retries is fatal — silently falling back to the OS default trust store would be a
+    # security hole if the customer intended hardened root certs. This matches the Linux
+    # behavior in init-aks-custom-cloud.sh (is_opted_in_for_root_certs return code 2 = fatal).
     try {
         if ($certEndpointMode -eq "legacy") {
             $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
-            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
             $caCerts = ($rawData.Content) | ConvertFrom-Json
             if ($null -eq $caCerts -or $null -eq $caCerts.Certificates -or $caCerts.Certificates.Length -eq 0) {
                 if ($FailOnError) {
@@ -371,7 +378,8 @@ function Get-CACertificates {
         }
 
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
-        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+        # Wireserver opt-in check: 10 retries to match Linux make_request_with_retry.
+        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
         Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
         $optInJson = $optInResponse.Content | ConvertFrom-Json
         if ($optInJson.IsOptedInForRootCerts -ne $true) {
@@ -384,7 +392,7 @@ function Get-CACertificates {
 
         foreach ($requestType in $operationRequestTypes) {
             $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
-            $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+            $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
             $operationJson = ($operationResponse.Content) | ConvertFrom-Json
 
             if ($null -eq $operationJson -or $null -eq $operationJson.OperationsInfo) {
@@ -402,7 +410,7 @@ function Get-CACertificates {
                 $resourceExt = [IO.Path]::GetExtension($resourceFileName).TrimStart('.')
                 $resourceUri = "http://168.63.129.16/machine?comp=acmspackage&type=$resourceType&ext=$resourceExt"
 
-                $certContentResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+                $certContentResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
                 if ([string]::IsNullOrEmpty($certContentResponse.Content)) {
                     Write-Log "Warning: empty certificate content for $resourceFileName"
                     continue
