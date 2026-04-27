@@ -180,10 +180,16 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Secure TLS Bootstrap settings
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
-$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}";
 $global:SecureTLSBootstrappingAADResource = "{{GetSecureTLSBootstrappingAADResource}}";
 $global:SecureTLSBootstrappingUserAssignedIdentityID = "{{GetSecureTLSBootstrappingUserAssignedIdentityID}}";
 $global:CustomSecureTLSBootstrappingClientDownloadURL = "{{GetCustomSecureTLSBootstrappingClientDownloadURL}}";
+$global:SecureTLSBootstrappingValidateKubeconfigTimeout = "{{GetSecureTLSBootstrappingValidateKubeconfigTimeout}}";
+$global:SecureTLSBootstrappingGetAccessTokenTimeout = "{{GetSecureTLSBootstrappingGetAccessTokenTimeout}}";
+$global:SecureTLSBootstrappingGetInstanceDataTimeout = "{{GetSecureTLSBootstrappingGetInstanceDataTimeout}}";
+$global:SecureTLSBootstrappingGetNonceTimeout = "{{GetSecureTLSBootstrappingGetNonceTimeout}}";
+$global:SecureTLSBootstrappingGetAttestedDataTimeout = "{{GetSecureTLSBootstrappingGetAttestedDataTimeout}}";
+$global:SecureTLSBootstrappingGetCredentialTimeout = "{{GetSecureTLSBootstrappingGetCredentialTimeout}}";
+$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}";
 
 # uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
 # this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
