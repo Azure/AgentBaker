@@ -308,10 +308,8 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
         # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
         # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
         # wrong for ussec/usnat legacy environments.
-        local new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
-        local existing
+        new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
         existing=$(crontab -l 2>/dev/null || true)
-        local filtered
         filtered=$(printf '%s\n' "$existing" | grep -v "\"$scriptPath\" ca-refresh" || true)
         if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
             echo "Failed to install ca-refresh cron job via crontab" >&2
