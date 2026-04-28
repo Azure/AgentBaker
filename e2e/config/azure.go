@@ -564,8 +564,13 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	}
 
 	if replicatedToCurrentRegion(version, location) {
-		toolkit.Logf(ctx, "Image version %s is already in region %s", *version.ID, location)
-		return nil
+		// Intent-to-replicate is registered in PublishingProfile.TargetRegions, but that
+		// does NOT mean the regional replica is actually serving traffic. The regional
+		// replication state can still be "Replicating" while the parent ProvisioningState
+		// is "Succeeded" — this is the source of GalleryImageNotFound 404s on VMSS create.
+		// Wait for the regional state itself before declaring success.
+		toolkit.Logf(ctx, "Image version %s is already a target of region %s; verifying regional replication state", *version.ID, location)
+		return a.waitForRegionalReplicationCompleted(ctx, image, version, location)
 	}
 	regions := make([]string, 0, len(version.Properties.PublishingProfile.TargetRegions))
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
@@ -575,12 +580,114 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Replicating to region %s", location)
 
 	start := time.Now() // Record the start time
-	err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location)
+	if err := a.replicateImageVersionToCurrentRegion(ctx, image, version, location); err != nil {
+		return err
+	}
+
+	// The replicate LRO above completes when the parent resource is Succeeded, but the
+	// regional replica may still be in "Replicating" state for several more minutes.
+	// Block until that regional state hits Completed; otherwise downstream VMSS create
+	// will see GalleryImageNotFound and the test will appear to fail for a non-test reason.
+	if err := a.waitForRegionalReplicationCompleted(ctx, image, version, location); err != nil {
+		return err
+	}
 	elapsed := time.Since(start) // Calculate the elapsed time
 
 	toolkit.LogDuration(ctx, elapsed, 3*time.Minute, fmt.Sprintf("Replication took: %s (%s)", elapsed, *version.ID))
 
-	return err
+	return nil
+}
+
+// waitForRegionalReplicationCompleted polls the gallery image version with the
+// ReplicationStatus expand option until the named region's RegionalReplicationStatus.State
+// is Completed. Returns an error if the regional replication enters a terminal Failed state
+// or the wait times out. Treats Unknown as transient (Azure occasionally emits Unknown
+// briefly during state transitions).
+//
+// This closes a documented gap in the SIG API: the parent provisioning LRO can succeed
+// before per-region replicas are actually serving traffic. Without this wait, callers see
+// GalleryImageNotFound 404s on VMSS creation that look like bugs but are infra eventual
+// consistency.
+func (a *AzureClient) waitForRegionalReplicationCompleted(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion, location string) error {
+	imgVersionClient, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create image version client for replication wait: %w", err)
+	}
+
+	getOpts := &armcompute.GalleryImageVersionsClientGetOptions{
+		Expand: to.Ptr(armcompute.ReplicationStatusTypesReplicationStatus),
+	}
+
+	var lastLoggedState armcompute.ReplicationState
+	const (
+		pollInterval = 15 * time.Second
+		pollTimeout  = 20 * time.Minute
+	)
+
+	pollErr := wait.PollUntilContextTimeout(ctx, pollInterval, pollTimeout, true, func(ctx context.Context) (bool, error) {
+		resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, getOpts)
+		if err != nil {
+			// Transient API errors should not abort the wait; the SDK already retries throttling.
+			toolkit.Logf(ctx, "transient error getting image version replication status (will retry): %v", err)
+			return false, nil
+		}
+
+		regional := findRegionalReplicationStatus(resp.GalleryImageVersion.Properties.ReplicationStatus, location)
+		if regional == nil || regional.State == nil {
+			// Region not yet present in the status summary; keep waiting.
+			return false, nil
+		}
+
+		state := *regional.State
+		if state != lastLoggedState {
+			progress := int32(0)
+			if regional.Progress != nil {
+				progress = *regional.Progress
+			}
+			toolkit.Logf(ctx, "Image version %s regional replication state in %s: %s (progress: %d%%)", *version.ID, location, state, progress)
+			lastLoggedState = state
+		}
+
+		switch state {
+		case armcompute.ReplicationStateCompleted:
+			return true, nil
+		case armcompute.ReplicationStateFailed:
+			details := ""
+			if regional.Details != nil {
+				details = *regional.Details
+			}
+			return false, fmt.Errorf("regional replication of %s to %s failed: %s", *version.ID, location, details)
+		case armcompute.ReplicationStateReplicating, armcompute.ReplicationStateUnknown:
+			return false, nil
+		default:
+			// Forward-compat: unknown future states treated as in-progress.
+			return false, nil
+		}
+	})
+
+	if pollErr != nil {
+		return fmt.Errorf("waiting for regional replication of %s to %s to complete: %w", *version.ID, location, pollErr)
+	}
+	toolkit.Logf(ctx, "Image version %s regional replication to %s confirmed Completed", *version.ID, location)
+	return nil
+}
+
+// findRegionalReplicationStatus finds the RegionalReplicationStatus for the given location
+// (case-insensitive, ignoring spaces) within the version-wide ReplicationStatus.
+func findRegionalReplicationStatus(status *armcompute.ReplicationStatus, location string) *armcompute.RegionalReplicationStatus {
+	if status == nil {
+		return nil
+	}
+	normalized := strings.ToLower(strings.ReplaceAll(location, " ", ""))
+	for _, regional := range status.Summary {
+		if regional == nil || regional.Region == nil {
+			continue
+		}
+		if strings.ToLower(strings.ReplaceAll(*regional.Region, " ", "")) == normalized {
+			return regional
+		}
+	}
+	return nil
 }
 
 func (a *AzureClient) waitForVersionOperationCompletion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
@@ -686,6 +793,31 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image, l
 	}
 
 	return VHDResourceID(*resp.ID), nil
+}
+
+// WaitForImageVersionReplicatedToRegion is the public entrypoint for callers (e.g. the
+// VMSS create retry loop) that need to confirm a previously-resolved image is actually
+// serving traffic in a region before retrying a request that just failed with
+// GalleryImageNotFound. It fetches the live image version with ReplicationStatus
+// expanded and blocks until the regional state is Completed (or fails fast on terminal
+// Failed). It does not initiate replication; callers should have already gone through
+// EnsureSIGImageVersion / LatestSIGImageVersionByTag.
+func (a *AzureClient) WaitForImageVersionReplicatedToRegion(ctx context.Context, image *Image, location string) error {
+	if image == nil {
+		return fmt.Errorf("nil image")
+	}
+	if image.Version == "" {
+		return fmt.Errorf("image %s has no resolved version; cannot check replication state", image.Name)
+	}
+	imgVersionClient, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create image version client: %w", err)
+	}
+	resp, err := imgVersionClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
+	if err != nil {
+		return fmt.Errorf("get image version %s/%s for replication-wait: %w", image.Name, image.Version, err)
+	}
+	return a.waitForRegionalReplicationCompleted(ctx, image, &resp.GalleryImageVersion, location)
 }
 
 func DefaultRetryOpts() policy.RetryOptions {
