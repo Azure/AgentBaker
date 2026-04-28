@@ -99,6 +99,7 @@
       "matchUpdateTypes": [
         "patch"
       ],
+      "allowedVersions": "!/~(alpha|beta|rc)/",
       "automerge": true,
       "enabled": true,
       "groupName": "runc-containerd-ca_watcher",
@@ -119,6 +120,7 @@
       "matchUpdateTypes": [
         "minor"
       ],
+      "allowedVersions": "!/~(alpha|beta|rc)/",
       "automerge": false,
       "enabled": true,
       "groupName": "runc-containerd-minor",
