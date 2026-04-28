@@ -1530,3 +1530,24 @@ func decodeButaneResource(resource base0_5.Resource) ([]byte, error) {
 	}
 	return contents, nil
 }
+
+var _ = Describe("getArmResourceEndpoint", func() {
+	It("returns public cloud endpoint by default", func() {
+		Expect(getArmResourceEndpoint(datamodel.AzurePublicCloud)).To(Equal("https://management.azure.com/"))
+	})
+	It("returns Fairfax endpoint for AzureUSGovernmentCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.AzureUSGovernmentCloud)).To(Equal("https://management.usgovcloudapi.net/"))
+	})
+	It("returns Mooncake endpoint for AzureChinaCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.AzureChinaCloud)).To(Equal("https://management.chinacloudapi.cn/"))
+	})
+	It("returns USNat endpoint for USNatCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.USNatCloud)).To(Equal("https://management.azure.eaglex.ic.gov/"))
+	})
+	It("returns USSec endpoint for USSecCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.USSecCloud)).To(Equal("https://management.azure.microsoft.scloud/"))
+	})
+	It("returns public cloud endpoint for unknown cloud", func() {
+		Expect(getArmResourceEndpoint("SomeUnknownCloud")).To(Equal("https://management.azure.com/"))
+	})
+})

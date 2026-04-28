@@ -612,6 +612,23 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	}
 }
 
+// getArmResourceEndpoint returns the ARM resource endpoint for the given cloud name.
+// This is used as the "resource" parameter in IMDS token requests.
+func getArmResourceEndpoint(cloudName string) string {
+	switch cloudName {
+	case datamodel.AzureUSGovernmentCloud:
+		return "https://management.usgovcloudapi.net/"
+	case datamodel.AzureChinaCloud:
+		return "https://management.chinacloudapi.cn/"
+	case datamodel.USNatCloud:
+		return "https://management.azure.eaglex.ic.gov/"
+	case datamodel.USSecCloud:
+		return "https://management.azure.microsoft.scloud/"
+	default:
+		return "https://management.azure.com/"
+	}
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
@@ -1015,6 +1032,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return cs.Properties.CustomCloudEnv.Name
 			}
 			return GetCloudTargetEnv(cs.Location)
+		},
+		"GetArmResourceEndpoint": func() string {
+			if cs.IsAKSCustomCloud() && cs.Properties.CustomCloudEnv.ResourceManagerEndpoint != "" {
+				return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
+			}
+			return getArmResourceEndpoint(GetCloudTargetEnv(cs.Location))
 		},
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
