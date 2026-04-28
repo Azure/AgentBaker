@@ -101,10 +101,27 @@ func RunScenario(t *testing.T, s *Scenario) {
 			require.NoError(t, err)
 		})
 	}
+
+	if supportsScriptlessAKSNodeConfig(s) {
+		t.Run("scriptless_anc", func(t *testing.T) {
+			t.Parallel()
+			sCopy := copyScenario(s)
+			if sCopy.Runtime == nil {
+				sCopy.Runtime = &ScenarioRuntime{}
+			}
+			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
+			err := runScenario(t, sCopy)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
 	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
+}
+
+func supportsScriptlessAKSNodeConfig(s *Scenario) bool {
+	return s.AKSNodeConfigMutator != nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
