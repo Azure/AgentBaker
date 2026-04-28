@@ -642,6 +642,137 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_ANCHotfix_WrongBaseVersion tests that the ANC hotfix download is
+// skipped when the hotfix version targets a different VHD base (YYYYMM.DD).
+// The VHD-baked ANC has a real version (e.g. 202604.27.0), and the hotfix JSON
+// requests a version with a completely different base (202501.01.1).
+// shouldUpgradeToHotfix returns false → no download → no hotfix binary → VHD binary used.
+func Test_Ubuntu2204_ANCHotfix_WrongBaseVersion(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that ANC hotfix download is skipped when hotfix version targets a different VHD base",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					// Hotfix JSON with a base version that doesn't match any current VHD
+					Path:    "/opt/azure/containers/aks-node-controller-hotfix.json",
+					Content: `{"version":"202501.01.1"}`,
+				},
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Wrapper should have found the hotfix config and attempted download-hotfix
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log",
+					"ANC version not targeted by hotfix")
+				// No hotfix binary should exist — download was skipped
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
+				// Wrapper should have fallen back to the VHD-baked binary
+				ValidateJournalctlOutput(ctx, s, "aks-node-controller", "Using VHD-baked binary")
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_ANCHotfix_BinarySelection tests that the wrapper script correctly
+// selects a pre-existing hotfix binary over the VHD-baked binary. This validates the
+// wrapper's binary selection logic without requiring an actual PMC download.
+// A stub script at the hotfix binary path delegates to the real ANC binary.
+func Test_Ubuntu2204_ANCHotfix_BinarySelection(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the wrapper selects a pre-seeded hotfix binary and provision succeeds",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					// Hotfix JSON — version doesn't matter here because download-hotfix
+					// will be skipped (wrong base) but the pre-seeded binary will be found.
+					Path:    "/opt/azure/containers/aks-node-controller-hotfix.json",
+					Content: `{"version":"202501.01.1"}`,
+				},
+				{
+					// Pre-seed the hotfix binary path with a stub script that delegates
+					// to the real VHD-baked ANC binary. This simulates a successful
+					// hotfix download without needing PMC.
+					Path:        "/opt/azure/containers/aks-node-controller-hotfix",
+					Permissions: "0755",
+					Content:     "#!/bin/bash\nexec /opt/azure/containers/aks-node-controller \"$@\"",
+				},
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Wrapper should have selected the hotfix binary
+				ValidateJournalctlOutput(ctx, s, "aks-node-controller", "Using hotfix binary")
+				// The stub delegates to real ANC, so provision should succeed
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log",
+					"aks-node-controller finished successfully")
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_ANCHotfix_NoHotfixJSON tests the normal path where no hotfix
+// JSON config exists. The wrapper should skip the download-hotfix step entirely
+// and use the VHD-baked binary.
+func Test_Ubuntu2204_ANCHotfix_NoHotfixJSON(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that provision succeeds normally when no ANC hotfix JSON is present",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// No hotfix config → wrapper skips download-hotfix entirely
+				ValidateJournalctlOutput(ctx, s, "aks-node-controller", "Using VHD-baked binary")
+				// Hotfix binary should not exist
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
+				// Provision should complete successfully
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log",
+					"aks-node-controller finished successfully")
+			},
+		},
+	})
+}
+
+// Test_Ubuntu2204_ANCHotfix_BadVersion tests graceful handling when the hotfix
+// JSON contains an unparseable version string. ANC should log a warning and
+// skip the download, falling back to the VHD-baked binary.
+func Test_Ubuntu2204_ANCHotfix_BadVersion(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that ANC gracefully handles an unparseable hotfix version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					Path:    "/opt/azure/containers/aks-node-controller-hotfix.json",
+					Content: `{"version":"not-a-valid-version"}`,
+				},
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// ANC should warn about the unparseable version
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log",
+					"failed to compare versions, skipping hotfix download")
+				// No hotfix binary should exist
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix")
+				// Wrapper falls back to VHD binary, provision succeeds
+				ValidateJournalctlOutput(ctx, s, "aks-node-controller", "Using VHD-baked binary")
+			},
+		},
+	})
+}
+
 // Returns config for the 'gpu' E2E scenario
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
