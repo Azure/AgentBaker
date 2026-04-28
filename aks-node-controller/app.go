@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -237,8 +238,187 @@ func (a *App) getNodeCustomDataPath() string {
 	return defaultNodeCustomDataPath
 }
 
+// compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
+// It logs variables that are only in one environment or that have different values between the two.
+func compareEnvs(ctx context.Context, flags ProvisionFlags, nodeCustomDataPath string) {
+	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+	if err != nil {
+		slog.Error("compareEnvs: failed to build cmd from provision config", "error", err)
+		return
+	}
+
+	// Extract CSE-specific env vars from provision config by filtering out unmodified OS env vars.
+	osEnv := envSliceToMap(os.Environ())
+	pcAllEnv := envSliceToMap(provisionConfigCmd.Env)
+	pcEnv := make(map[string]string, len(pcAllEnv))
+	for k, v := range pcAllEnv {
+		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
+			pcEnv[k] = v
+		}
+	}
+
+	// Parse env vars directly from the NBC command file content.
+	nbcCmdContent, err := os.ReadFile(flags.NBCCmd)
+	if err != nil {
+		slog.Error("compareEnvs: failed to read nbc-cmd file", "error", err)
+		return
+	}
+	nbcEnv := parseEnvVarsFromNBCCmdContent(string(nbcCmdContent))
+
+	// Collect all keys from both environments.
+	allKeys := make(map[string]struct{})
+	for k := range pcEnv {
+		allKeys[k] = struct{}{}
+	}
+	for k := range nbcEnv {
+		allKeys[k] = struct{}{}
+	}
+
+	sortedKeys := make([]string, 0, len(allKeys))
+	for k := range allKeys {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	for _, key := range sortedKeys {
+		pcVal, inPC := pcEnv[key]
+		nbcVal, inNBC := nbcEnv[key]
+		switch {
+		case inPC && !inNBC:
+			slog.Info("env compare: only in provision-config", "key", key, "value", pcVal)
+		case !inPC && inNBC:
+			slog.Info("env compare: only in nbc-cmd", "key", key, "value", nbcVal)
+		case pcVal != nbcVal:
+			slog.Info("env compare: value differs", "key", key, "provision-config", pcVal, "nbc-cmd", nbcVal)
+		}
+	}
+}
+
+// parseEnvVarsFromNBCCmdContent extracts environment variable assignments from an NBC command string.
+// The command is a bash one-liner with KEY=VALUE pairs (quoted or unquoted) interspersed with shell commands.
+// Only variables with uppercase/underscore names are extracted.
+func parseEnvVarsFromNBCCmdContent(content string) map[string]string {
+	result := make(map[string]string)
+	n := len(content)
+	i := 0
+
+	for i < n {
+		// Skip whitespace and semicolons.
+		for i < n && (content[i] == ' ' || content[i] == '\t' || content[i] == '\n' || content[i] == ';') {
+			i++
+		}
+		if i >= n {
+			break
+		}
+
+		// Try to read an uppercase variable name.
+		keyStart := i
+		if !isEnvKeyStart(content[i]) {
+			i = skipToken(content, i)
+			continue
+		}
+		for i < n && isEnvKeyChar(content[i]) {
+			i++
+		}
+
+		// Must be followed by '='.
+		if i >= n || content[i] != '=' {
+			i = skipToken(content, i)
+			continue
+		}
+
+		key := content[keyStart:i]
+		i++ // skip '='
+
+		// Parse value: handle concatenated quoted and unquoted segments.
+		var value strings.Builder
+		for i < n {
+			if content[i] == '"' {
+				// Quoted section: read until closing quote.
+				i++ // skip opening quote
+				for i < n && content[i] != '"' {
+					value.WriteByte(content[i])
+					i++
+				}
+				if i < n {
+					i++ // skip closing quote
+				}
+			} else if content[i] == ' ' || content[i] == '\t' || content[i] == '\n' || content[i] == ';' {
+				break
+			} else {
+				// Before consuming, check if this looks like a new KEY= (handles missing spaces between assignments).
+				if looksLikeEnvAssignment(content, i) {
+					break
+				}
+				value.WriteByte(content[i])
+				i++
+			}
+		}
+
+		result[key] = value.String()
+	}
+
+	return result
+}
+
+func isEnvKeyStart(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+func isEnvKeyChar(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+// skipToken advances past the current non-whitespace token, respecting double-quoted sections.
+func skipToken(content string, i int) int {
+	n := len(content)
+	for i < n && content[i] != ' ' && content[i] != '\t' && content[i] != '\n' && content[i] != ';' {
+		if content[i] == '"' {
+			i++
+			for i < n && content[i] != '"' {
+				i++
+			}
+			if i < n {
+				i++
+			}
+		} else {
+			i++
+		}
+	}
+	return i
+}
+
+// looksLikeEnvAssignment checks if position i starts a KEY= pattern (at least 2-char uppercase key followed by '=').
+func looksLikeEnvAssignment(content string, i int) bool {
+	n := len(content)
+	if i >= n || !isEnvKeyStart(content[i]) {
+		return false
+	}
+	j := i + 1
+	for j < n && isEnvKeyChar(content[j]) {
+		j++
+	}
+	return j < n && content[j] == '=' && j-i >= 2
+}
+
+// envSliceToMap converts a slice of "KEY=VALUE" strings into a map.
+// For duplicate keys the last value wins, matching exec.Cmd behavior.
+func envSliceToMap(env []string) map[string]string {
+	m := make(map[string]string, len(env))
+	for _, entry := range env {
+		k, v, _ := strings.Cut(entry, "=")
+		m[k] = v
+	}
+	return m
+}
+
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
+
+	// If both flags are provided, compare environments before proceeding.
+	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
+		compareEnvs(ctx, flags, a.getNodeCustomDataPath())
+	}
 
 	var cmd *exec.Cmd
 	if flags.ProvisionConfig != "" {
@@ -251,7 +431,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		}
 	}
 
-	if flags.NBCCmd != "" {
+	if flags.NBCCmd != "" && flags.ProvisionConfig == "" {
 		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = err.Error()

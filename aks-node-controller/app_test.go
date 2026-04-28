@@ -366,3 +366,62 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 		assert.Contains(t, err.Error(), "missing ExitCode")
 	})
 }
+
+func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
+	t.Run("simple unquoted vars", func(t *testing.T) {
+		content := `ADMINUSER=azureuser KUBERNETES_VERSION=1.33.7 MOBY_VERSION=`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+		assert.Equal(t, "1.33.7", got["KUBERNETES_VERSION"])
+		assert.Equal(t, "", got["MOBY_VERSION"])
+	})
+
+	t.Run("quoted values", func(t *testing.T) {
+		content := `ENABLE_MANAGED_GPU="false" DISABLE_SSH="false"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "false", got["ENABLE_MANAGED_GPU"])
+		assert.Equal(t, "false", got["DISABLE_SSH"])
+	})
+
+	t.Run("url values", func(t *testing.T) {
+		content := `KUBE_BINARY_URL=https://packages.aks.azure.com/kubernetes/v1.33.7/binaries/kubernetes-node-linux-amd64.tar.gz`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "https://packages.aks.azure.com/kubernetes/v1.33.7/binaries/kubernetes-node-linux-amd64.tar.gz", got["KUBE_BINARY_URL"])
+	})
+
+	t.Run("skips shell commands", func(t *testing.T) {
+		content := `echo hello; ADMINUSER=azureuser /usr/bin/nohup /bin/bash -c "script"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+		assert.NotContains(t, got, "echo")
+	})
+
+	t.Run("handles missing space between assignments", func(t *testing.T) {
+		content := `KUBELET_CONFIG_FILE_ENABLED="true"PRE_PROVISION_ONLY="false"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "true", got["KUBELET_CONFIG_FILE_ENABLED"])
+		assert.Equal(t, "false", got["PRE_PROVISION_ONLY"])
+	})
+
+	t.Run("semicolons as delimiters", func(t *testing.T) {
+		content := `PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log"; echo foo; ADMINUSER=azureuser`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "/var/log/azure/cluster-provision-cse-output.log", got["PROVISION_OUTPUT"])
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+	})
+
+	t.Run("real nbc command snippet", func(t *testing.T) {
+		content := `PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log"; echo $(date),$(hostname) > ${PROVISION_OUTPUT}; ADMINUSER=azureuser MOBY_VERSION= TENANT_ID=72f988bf-86f1-41af-91ab-2d7cd011db47 KUBERNETES_VERSION=1.33.7 KUBE_BINARY_URL=https://packages.aks.azure.com/kubernetes/v1.33.7/binaries/kubernetes-node-linux-amd64.tar.gz VM_TYPE=vmss NETWORK_PLUGIN=kubenet ENABLE_MANAGED_GPU="false" GPU_NEEDS_FABRIC_MANAGER="false" CSE_TIMEOUT="900" /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "/var/log/azure/cluster-provision-cse-output.log", got["PROVISION_OUTPUT"])
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+		assert.Equal(t, "", got["MOBY_VERSION"])
+		assert.Equal(t, "72f988bf-86f1-41af-91ab-2d7cd011db47", got["TENANT_ID"])
+		assert.Equal(t, "1.33.7", got["KUBERNETES_VERSION"])
+		assert.Equal(t, "vmss", got["VM_TYPE"])
+		assert.Equal(t, "kubenet", got["NETWORK_PLUGIN"])
+		assert.Equal(t, "false", got["ENABLE_MANAGED_GPU"])
+		assert.Equal(t, "false", got["GPU_NEEDS_FABRIC_MANAGER"])
+		assert.Equal(t, "900", got["CSE_TIMEOUT"])
+	})
+}
