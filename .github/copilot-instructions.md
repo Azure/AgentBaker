@@ -153,6 +153,7 @@ Analyze PRs for these compatibility scenarios:
   7. If modifying identity lists in `assignees` or `reviewers`, update all related grouped rules consistently to avoid ownership drift.
   8. On GitHub, both `assignees` and `reviewers` may include team handles using the `team:<slug>` format; if used, ensure the team exists in the AKS org and has at least read permission to the AgentBaker repo.
   9. Keep `minor` updates disabled by default; only allow minor updates through explicit, narrow `packageRules` (avoid broad datasource/wildcard exceptions). Example context: https://github.com/Azure/AgentBaker/pull/7898 (broad matching led to unintended cross-stream minor jumps).
+  10. Never combine `matchUpdateTypes` and `allowedVersions` in the same `packageRules` entry — Renovate rejects this. Put `allowedVersions` in a separate rule; Renovate merges all matching rules. Context: #8420.
 - **Analysis steps for every package update PR**:
   1. **Identify the component and version change**: Parse the diff in `parts/common/components.json` to extract exact old → new versions for each OS/release entry.
   2. **Determine the update type**: Classify as major, minor, or patch using semver. Major and minor updates carry higher risk than patch updates.
