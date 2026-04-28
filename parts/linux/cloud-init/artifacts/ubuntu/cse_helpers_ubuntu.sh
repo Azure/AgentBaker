@@ -6,11 +6,10 @@ echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 aptmarkWALinuxAgent() {
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [ "$1" = "hold" ]; then
-        exit $ERR_HOLD_WALINUXAGENT
+        retrycmd_if_failure 120 5 25 bash -c 'printf "walinuxagent hold\n" | dpkg --set-selections' || exit $ERR_HOLD_WALINUXAGENT
     elif [ "$1" = "unhold" ]; then
-        exit $ERR_RELEASE_HOLD_WALINUXAGENT
+        retrycmd_if_failure 120 5 25 bash -c 'printf "walinuxagent install\n" | dpkg --set-selections' || exit $ERR_RELEASE_HOLD_WALINUXAGENT
     fi
     echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
@@ -162,7 +161,7 @@ apt_get_dist_upgrade() {
     export DEBIAN_FRONTEND=noninteractive
     dpkg --configure -a --force-confdef
     apt-get -f -y install
-    apt-mark showhold
+    dpkg --get-selections | awk '$2=="hold"{print $1}'
     ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
