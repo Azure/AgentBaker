@@ -360,6 +360,33 @@ Describe "Invoke-OrasLogin" {
   }
 }
 
+Describe "Get-ArmResourceEndpoint" {
+  It "returns public cloud endpoint by default" {
+    $script:TargetEnvironment = ""
+    Get-ArmResourceEndpoint | Should -Be "https://management.azure.com/"
+  }
+  It "returns public cloud endpoint for AzurePublicCloud" {
+    $script:TargetEnvironment = "AzurePublicCloud"
+    Get-ArmResourceEndpoint | Should -Be "https://management.azure.com/"
+  }
+  It "returns Fairfax endpoint for AzureUSGovernmentCloud" {
+    $script:TargetEnvironment = "AzureUSGovernmentCloud"
+    Get-ArmResourceEndpoint | Should -Be "https://management.usgovcloudapi.net/"
+  }
+  It "returns Mooncake endpoint for AzureChinaCloud" {
+    $script:TargetEnvironment = "AzureChinaCloud"
+    Get-ArmResourceEndpoint | Should -Be "https://management.chinacloudapi.cn/"
+  }
+  It "returns USNat endpoint for USNatCloud" {
+    $script:TargetEnvironment = "USNatCloud"
+    Get-ArmResourceEndpoint | Should -Be "https://management.azure.eaglex.ic.gov/"
+  }
+  It "returns USSec endpoint for USSecCloud" {
+    $script:TargetEnvironment = "USSecCloud"
+    Get-ArmResourceEndpoint | Should -Be "https://management.azure.microsoft.scloud/"
+  }
+}
+
 Describe "Get-BootstrapRegistryDomainName" {
   It "should return default mcr domain when no overrides are set" {
     $global:MCRRepositoryBase = ""

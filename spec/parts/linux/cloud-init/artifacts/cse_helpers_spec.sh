@@ -273,6 +273,39 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    Describe 'get_arm_resource_endpoint'
+        It 'returns public cloud endpoint by default'
+            TARGET_CLOUD=""
+            When run get_arm_resource_endpoint
+            The stdout should equal "https://management.azure.com/"
+        End
+        It 'returns public cloud endpoint for AzurePublicCloud'
+            TARGET_CLOUD="AzurePublicCloud"
+            When run get_arm_resource_endpoint
+            The stdout should equal "https://management.azure.com/"
+        End
+        It 'returns Fairfax endpoint for AzureUSGovernmentCloud'
+            TARGET_CLOUD="AzureUSGovernmentCloud"
+            When run get_arm_resource_endpoint
+            The stdout should equal "https://management.usgovcloudapi.net/"
+        End
+        It 'returns Mooncake endpoint for AzureChinaCloud'
+            TARGET_CLOUD="AzureChinaCloud"
+            When run get_arm_resource_endpoint
+            The stdout should equal "https://management.chinacloudapi.cn/"
+        End
+        It 'returns USNat endpoint for USNatCloud'
+            TARGET_CLOUD="USNatCloud"
+            When run get_arm_resource_endpoint
+            The stdout should equal "https://management.azure.eaglex.ic.gov/"
+        End
+        It 'returns USSec endpoint for USSecCloud'
+            TARGET_CLOUD="USSecCloud"
+            When run get_arm_resource_endpoint
+            The stdout should equal "https://management.azure.microsoft.scloud/"
+        End
+    End
+
     Describe 'oras_login_with_kubelet_identity'
         It 'should return if client_id or tenant_id is empty'
             local acr_url="unneeded.azurecr.io"

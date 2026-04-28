@@ -144,6 +144,20 @@ function Set-PodInfraContainerImage {
     Remove-Item -Path $podInfraContainerImageTar -Force -ErrorAction SilentlyContinue
 }
 
+# Returns the ARM resource endpoint for the current cloud environment.
+# Uses $TargetEnvironment (set by kuberneteswindowssetup.ps1 from GetTargetEnvironment)
+# to determine the correct endpoint. Each sovereign cloud has its own ARM
+# management endpoint required for IMDS token requests.
+function Get-ArmResourceEndpoint {
+    switch ($TargetEnvironment) {
+        "AzureUSGovernmentCloud" { return "https://management.usgovcloudapi.net/" }
+        "AzureChinaCloud"        { return "https://management.chinacloudapi.cn/" }
+        "USNatCloud"             { return "https://management.azure.eaglex.ic.gov/" }
+        "USSecCloud"             { return "https://management.azure.microsoft.scloud/" }
+        default                  { return "https://management.azure.com/" }
+    }
+}
+
 function Invoke-OrasLogin {
     param(
         [Parameter(Mandatory = $true)][string]
@@ -172,7 +186,8 @@ function Invoke-OrasLogin {
     }
 
     # Get AAD Access Token using Managed Identity Metadata Service
-    $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$ClientID"
+    $armResource = Get-ArmResourceEndpoint
+    $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${armResource}&client_id=$ClientID"
     try {
         $requestArgs = @{
             Uri     = $accessUrl

@@ -1259,6 +1259,20 @@ assert_refresh_token() {
     return 0
 }
 
+# Returns the ARM resource endpoint for the current cloud environment.
+# Uses TARGET_CLOUD (set by cse_cmd.sh from GetTargetEnvironment) to
+# determine the correct endpoint. Each sovereign cloud has its own ARM
+# management endpoint required for IMDS token requests.
+get_arm_resource_endpoint() {
+    case "${TARGET_CLOUD:-}" in
+        AzureUSGovernmentCloud)  echo "https://management.usgovcloudapi.net/" ;;
+        AzureChinaCloud)         echo "https://management.chinacloudapi.cn/" ;;
+        USNatCloud)              echo "https://management.azure.eaglex.ic.gov/" ;;
+        USSecCloud)              echo "https://management.azure.microsoft.scloud/" ;;
+        *)                       echo "https://management.azure.com/" ;;
+    esac
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
@@ -1279,8 +1293,11 @@ oras_login_with_kubelet_identity() {
         return $ret_code
     fi
 
+    local arm_resource
+    arm_resource=$(get_arm_resource_endpoint)
+
     set +x
-    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
+    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${arm_resource}&client_id=$client_id"
     raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
     ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
