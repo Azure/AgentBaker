@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +40,8 @@ import (
 var (
 	//go:embed templates/kubenet-cni.json.gtpl
 	kubenetTemplateContent []byte
+	//go:embed templates/kubenet-cni-hairpin.json.gtpl
+	kubenetTemplateHairpinContent []byte
 	//go:embed  templates/containerd.toml.gtpl
 	containerdConfigTemplateText string
 	//nolint:gochecknoglobals
@@ -144,8 +147,36 @@ func getStringifiedStringArray(arr []string, delimiter string) string {
 }
 
 // getKubenetTemplate returns the base64 encoded Kubenet template.
+// On Ubuntu 24.04+ (kernel 6.8+), promiscuous mode no longer implicitly enables
+// hairpin forwarding in the bridge. Use explicit hairpinMode for those nodes.
 func getKubenetTemplate() string {
+	if needsExplicitHairpinMode() {
+		return base64.StdEncoding.EncodeToString(kubenetTemplateHairpinContent)
+	}
 	return base64.StdEncoding.EncodeToString(kubenetTemplateContent)
+}
+
+// needsExplicitHairpinMode checks /etc/os-release to determine if the node is
+// running Ubuntu 24.04+, where kernel 6.8+ requires explicit BR_HAIRPIN_MODE.
+func needsExplicitHairpinMode() bool {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return false
+	}
+	var id, versionID string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "ID=") {
+			id = strings.Trim(strings.TrimPrefix(line, "ID="), `"`)
+		} else if strings.HasPrefix(line, "VERSION_ID=") {
+			versionID = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), `"`)
+		}
+	}
+	if strings.ToLower(id) != "ubuntu" {
+		return false
+	}
+	// Compare VERSION_ID >= "24.04" lexicographically (works for Ubuntu version format)
+	return versionID >= "24.04"
 }
 
 // getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
