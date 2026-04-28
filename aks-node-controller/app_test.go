@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +18,59 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// logRecord holds a captured slog record for test assertions.
+type logRecord struct {
+	Level   slog.Level
+	Message string
+	Attrs   map[string]string
+}
+
+// logCapturer is a slog.Handler that captures log records for test verification.
+type logCapturer struct {
+	mu      sync.Mutex
+	records []logRecord
+}
+
+func (c *logCapturer) Enabled(_ context.Context, _ slog.Level) bool { return true }
+
+func (c *logCapturer) Handle(_ context.Context, r slog.Record) error {
+	rec := logRecord{
+		Level:   r.Level,
+		Message: r.Message,
+		Attrs:   make(map[string]string),
+	}
+	r.Attrs(func(a slog.Attr) bool {
+		rec.Attrs[a.Key] = a.Value.String()
+		return true
+	})
+	c.mu.Lock()
+	c.records = append(c.records, rec)
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *logCapturer) WithAttrs(_ []slog.Attr) slog.Handler { return c }
+func (c *logCapturer) WithGroup(_ string) slog.Handler      { return c }
+
+func (c *logCapturer) getRecords() []logRecord {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]logRecord, len(c.records))
+	copy(out, c.records)
+	return out
+}
+
+// installLogCapturer replaces the default slog logger with a capturing handler
+// and returns the capturer. It restores the original logger when the test ends.
+func installLogCapturer(t *testing.T) *logCapturer {
+	t.Helper()
+	cap := &logCapturer{}
+	orig := slog.Default()
+	slog.SetDefault(slog.New(cap))
+	t.Cleanup(func() { slog.SetDefault(orig) })
+	return cap
+}
 
 type testExitError struct {
 	Code int
@@ -423,5 +479,216 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 		assert.Equal(t, "false", got["ENABLE_MANAGED_GPU"])
 		assert.Equal(t, "false", got["GPU_NEEDS_FABRIC_MANAGER"])
 		assert.Equal(t, "900", got["CSE_TIMEOUT"])
+	})
+}
+
+func TestCompareEnvs(t *testing.T) {
+	// Build a cmd from the test provision config to discover which CSE env vars it produces.
+	// We filter out OS env vars (same as compareEnvs does) to get the "expected" env set.
+	buildConfigEnv := func(t *testing.T) map[string]string {
+		t.Helper()
+		cmd, err := buildCmdFromProvisionConfig(context.Background(), "parser/testdata/test_aksnodeconfig.json")
+		require.NoError(t, err)
+		osEnv := envSliceToMap(os.Environ())
+		allEnv := envSliceToMap(cmd.Env)
+		configEnv := make(map[string]string, len(allEnv))
+		for k, v := range allEnv {
+			if osVal, inOS := osEnv[k]; !inOS || osVal != v {
+				configEnv[k] = v
+			}
+		}
+		return configEnv
+	}
+
+	// writeNBCCmd writes an NBC command script to a temp file and returns its path.
+	writeNBCCmd := func(t *testing.T, content string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "nbc_cmd.sh")
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+		return p
+	}
+
+	// findRecords returns all captured log records matching the given message prefix.
+	findRecords := func(records []logRecord, msgPrefix string) []logRecord {
+		var matched []logRecord
+		for _, r := range records {
+			if len(r.Message) >= len(msgPrefix) && r.Message[:len(msgPrefix)] == msgPrefix {
+				matched = append(matched, r)
+			}
+		}
+		return matched
+	}
+
+	t.Run("matching env vars produce no diff logs", func(t *testing.T) {
+		cap := installLogCapturer(t)
+		configEnv := buildConfigEnv(t)
+
+		// Build an NBC cmd that has the same env vars as the config.
+		var parts []string
+		for k, v := range configEnv {
+			if v == "" {
+				parts = append(parts, k+"=")
+			} else {
+				parts = append(parts, k+"=\""+v+"\"")
+			}
+		}
+		nbcContent := strings.Join(parts, " ")
+		nbcPath := writeNBCCmd(t, nbcContent)
+
+		compareEnvs(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          nbcPath,
+		}, "")
+
+		records := cap.getRecords()
+		onlyInPC := findRecords(records, "env compare: only in provision-config")
+		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
+		valueDiffers := findRecords(records, "env compare: value differs")
+
+		assert.Empty(t, onlyInPC, "expected no vars only in provision-config")
+		assert.Empty(t, onlyInNBC, "expected no vars only in nbc-cmd")
+		assert.Empty(t, valueDiffers, "expected no value differences")
+	})
+
+	t.Run("var only in provision-config is logged", func(t *testing.T) {
+		cap := installLogCapturer(t)
+		configEnv := buildConfigEnv(t)
+
+		// Build NBC cmd with all config vars except ADMINUSER.
+		var parts []string
+		for k, v := range configEnv {
+			if k == "ADMINUSER" {
+				continue
+			}
+			if v == "" {
+				parts = append(parts, k+"=")
+			} else {
+				parts = append(parts, k+"=\""+v+"\"")
+			}
+		}
+		nbcContent := strings.Join(parts, " ")
+		nbcPath := writeNBCCmd(t, nbcContent)
+
+		compareEnvs(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          nbcPath,
+		}, "")
+
+		records := cap.getRecords()
+		onlyInPC := findRecords(records, "env compare: only in provision-config")
+		require.Len(t, onlyInPC, 1)
+		assert.Equal(t, "ADMINUSER", onlyInPC[0].Attrs["key"])
+		assert.Equal(t, configEnv["ADMINUSER"], onlyInPC[0].Attrs["value"])
+	})
+
+	t.Run("var only in nbc-cmd is logged", func(t *testing.T) {
+		cap := installLogCapturer(t)
+		configEnv := buildConfigEnv(t)
+
+		// Build NBC cmd with all config vars plus an extra var.
+		var parts []string
+		for k, v := range configEnv {
+			if v == "" {
+				parts = append(parts, k+"=")
+			} else {
+				parts = append(parts, k+"=\""+v+"\"")
+			}
+		}
+		parts = append(parts, `EXTRA_NBC_ONLY="extra_value"`)
+		nbcContent := strings.Join(parts, " ")
+		nbcPath := writeNBCCmd(t, nbcContent)
+
+		compareEnvs(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          nbcPath,
+		}, "")
+
+		records := cap.getRecords()
+		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
+		require.Len(t, onlyInNBC, 1)
+		assert.Equal(t, "EXTRA_NBC_ONLY", onlyInNBC[0].Attrs["key"])
+		assert.Equal(t, "extra_value", onlyInNBC[0].Attrs["value"])
+	})
+
+	t.Run("differing values are logged", func(t *testing.T) {
+		cap := installLogCapturer(t)
+		configEnv := buildConfigEnv(t)
+
+		// Build NBC cmd with all config vars but change VM_TYPE value.
+		var parts []string
+		for k, v := range configEnv {
+			if k == "VM_TYPE" {
+				parts = append(parts, k+"=standard")
+				continue
+			}
+			if v == "" {
+				parts = append(parts, k+"=")
+			} else {
+				parts = append(parts, k+"=\""+v+"\"")
+			}
+		}
+		nbcContent := strings.Join(parts, " ")
+		nbcPath := writeNBCCmd(t, nbcContent)
+
+		compareEnvs(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          nbcPath,
+		}, "")
+
+		records := cap.getRecords()
+		valueDiffers := findRecords(records, "env compare: value differs")
+		require.Len(t, valueDiffers, 1)
+		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
+		assert.Equal(t, configEnv["VM_TYPE"], valueDiffers[0].Attrs["provision-config"])
+		assert.Equal(t, "standard", valueDiffers[0].Attrs["nbc-cmd"])
+	})
+
+	t.Run("multiple differences are all logged", func(t *testing.T) {
+		cap := installLogCapturer(t)
+		configEnv := buildConfigEnv(t)
+
+		// NBC cmd: remove ADMINUSER (only in config), add EXTRA_VAR (only in NBC), change VM_TYPE (differs).
+		var parts []string
+		for k, v := range configEnv {
+			if k == "ADMINUSER" {
+				continue
+			}
+			if k == "VM_TYPE" {
+				parts = append(parts, k+"=changed")
+				continue
+			}
+			if v == "" {
+				parts = append(parts, k+"=")
+			} else {
+				parts = append(parts, k+"=\""+v+"\"")
+			}
+		}
+		parts = append(parts, `EXTRA_VAR="new"`)
+		nbcContent := strings.Join(parts, " ")
+		nbcPath := writeNBCCmd(t, nbcContent)
+
+		compareEnvs(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          nbcPath,
+		}, "")
+
+		records := cap.getRecords()
+		onlyInPC := findRecords(records, "env compare: only in provision-config")
+		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
+		valueDiffers := findRecords(records, "env compare: value differs")
+
+		// ADMINUSER should be only in provision-config.
+		require.Len(t, onlyInPC, 1)
+		assert.Equal(t, "ADMINUSER", onlyInPC[0].Attrs["key"])
+
+		// EXTRA_VAR should be only in nbc-cmd.
+		require.Len(t, onlyInNBC, 1)
+		assert.Equal(t, "EXTRA_VAR", onlyInNBC[0].Attrs["key"])
+		assert.Equal(t, "new", onlyInNBC[0].Attrs["value"])
+
+		// VM_TYPE should differ.
+		require.Len(t, valueDiffers, 1)
+		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
+		assert.Equal(t, "changed", valueDiffers[0].Attrs["nbc-cmd"])
 	})
 }
