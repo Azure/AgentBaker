@@ -99,11 +99,11 @@ func TestApp_Run(t *testing.T) {
 	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		origVersion := Version
-		Version = "202603.30.0-hotfix1"
+		Version = "202604.01.1"
 		defer func() { Version = origVersion }()
 
 		configPath := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(configPath, []byte(`{"version": "202603.30.0-hotfix1"}`), 0o644))
+		require.NoError(t, os.WriteFile(configPath, []byte(`{"version": "202604.01.1"}`), 0o644))
 		tt.App.hotfixVersionPath = configPath
 
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "download-hotfix"})

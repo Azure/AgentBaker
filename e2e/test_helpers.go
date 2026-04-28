@@ -104,7 +104,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
+	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -271,14 +271,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/"
 	}
 
+	s.Runtime.NBC = nbc
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
+		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
+		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
+		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
+		s.Runtime.NBC = nil
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -407,6 +411,17 @@ func validateVM(ctx context.Context, s *Scenario) {
 	if !s.Config.SkipSSHConnectivityValidation {
 		err := validateSSHConnectivity(ctx, s)
 		require.NoError(s.T, err)
+	}
+
+	// Extract CSE timing events immediately after SSH is available, before other
+	// validators run. The Guest Agent periodically sweeps the events directory,
+	// so we must read events before the delay from pod scheduling and validation.
+	// Only runs for CSE perf test scenarios (gated by EagerCSETimingExtraction).
+	if s.EagerCSETimingExtraction {
+		report, err := ExtractCSETimings(ctx, s)
+		if err == nil && len(report.Tasks) > 0 {
+			s.Runtime.CSETimingReport = report
+		}
 	}
 
 	if !s.Config.SkipDefaultValidation {

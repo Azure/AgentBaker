@@ -1350,6 +1350,154 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_ArtifactStreaming_TrustedLaunch(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using artifact streaming with trusted launch can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2TLContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ArtifactStreaming_TrustedLaunch_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using artifact streaming with trusted launch can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2TLContainerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ArtifactStreaming_FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 FIPS node using artifact streaming can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
+					EnableFips1403Encryption: to.Ptr(true),
+				}
+				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
+				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
+				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ArtifactStreaming_FIPS_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 FIPS node using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
+					EnableFips1403Encryption: to.Ptr(true),
+				}
+				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
+				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
+				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ArtifactStreaming_NetworkIsolatedCluster(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node in a network isolated cluster using artifact streaming can be properly bootstrapped",
+		Tags: Tags{
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
