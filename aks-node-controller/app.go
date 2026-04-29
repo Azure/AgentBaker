@@ -241,7 +241,15 @@ func (a *App) getNodeCustomDataPath() string {
 // compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
 // It logs variables that are only in one environment or that have different values between the two.
 // A summary of all differences is also emitted as a guest agent event for Kusto querying.
+// This function is best-effort: any error is logged and returned from,
+// so it never blocks provisioning.
 func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers.EventLogger) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("compareEnvs panicked", "panic", r)
+		}
+	}()
+
 	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
 	if err != nil {
 		slog.Error("compareEnvs: failed to build cmd from provision config", "error", err)
@@ -431,14 +439,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// If both flags are provided, compare environments before proceeding.
 	// This is best-effort and should not block provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					slog.Error("compareEnvs panicked", "panic", r)
-				}
-			}()
-			compareEnvs(ctx, flags, a.eventLogger)
-		}()
+		compareEnvs(ctx, flags, a.eventLogger)
 	}
 
 	var cmd *exec.Cmd
