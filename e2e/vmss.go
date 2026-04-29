@@ -475,11 +475,18 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
+	vmssModel := createVMSSModel(ctx, s)
+
+	// Record whether the outgoing VMSS model includes the RCV1P opt-in tag.
+	// This is used after creation to detect platform auto-injection vs tags we set.
+	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+	_, requestedRCV1PTag := vmssModel.Tags[rcv1pTagKey]
+
 	operation, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
-		createVMSSModel(ctx, s),
+		vmssModel,
 		nil,
 	)
 	if err != nil {
@@ -515,15 +522,11 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 
 	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
-	// For RCV1P tests, annotates the opt-in tag to help distinguish our tags from platform-injected ones.
+	// For RCV1P tests, compares request tags vs response tags to detect platform auto-injection.
 	vmssID := "<unknown>"
 	if vmssResp.ID != nil {
 		vmssID = *vmssResp.ID
 	}
-	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
-	// Determine if we explicitly set the RCV1P tag (only when RCV1P_SUBSCRIPTION_ID is provided)
-	rcv1pSubID := config.Config.RCV1PSubscriptionID
-	weSetRCV1PTag := s.Tags.RCV1PCertMode && rcv1pSubID != "" && !strings.HasPrefix(rcv1pSubID, "$(")
 	if vmssResp.Tags != nil {
 		s.T.Logf("VMSS %s (id: %s) tags after creation (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
 		for k, v := range vmssResp.Tags {
@@ -532,17 +535,32 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 				val = *v
 			}
 			if k == rcv1pTagKey {
-				if weSetRCV1PTag {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — set by us]", k, val)
+				if requestedRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — set by us in VMSS request]", k, val)
 				} else {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — platform-injected, NOT set by us]", k, val)
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — AUTO-INJECTED by platform, NOT in our VMSS request]", k, val)
 				}
 			} else {
 				s.T.Logf("  tag: %s = %s", k, val)
 			}
 		}
+		// Detect platform auto-injection: tag appeared in response but was NOT in our request.
+		if respVal, hasTag := vmssResp.Tags[rcv1pTagKey]; hasTag && !requestedRCV1PTag {
+			val := "<nil>"
+			if respVal != nil {
+				val = *respVal
+			}
+			s.T.Logf("WARNING: platform auto-injected RCV1P opt-in tag %q=%s on VMSS — "+
+				"PlatformSettingsOverride feature flag may be causing auto-injection on subscription %s",
+				rcv1pTagKey, val, s.GetSubscriptionID())
+			if s.Tags.RCV1PCertMode && strings.EqualFold(val, "true") {
+				s.T.Logf("WARNING: auto-injected tag value is 'true' — negative (NotOptedIn) tests will be "+
+					"INVALID on this subscription because wireserver will serve certificates regardless of our intent")
+			}
+		}
 		if _, hasTag := vmssResp.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
-			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VMSS — this is expected for negative tests]", rcv1pTagKey)
+			s.T.Logf("  RCV1P opt-in tag %q NOT present on VMSS (not in request, not auto-injected) — "+
+				"wireserver should report IsOptedInForRootCerts=false", rcv1pTagKey)
 		}
 	} else {
 		s.T.Logf("VMSS %s (id: %s) has no tags after creation", s.Runtime.VMSSName, vmssID)
@@ -577,10 +595,10 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 				val = *v
 			}
 			if k == rcv1pTagKey {
-				if weSetRCV1PTag {
+				if requestedRCV1PTag {
 					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, set by us]", k, val)
 				} else {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, platform-injected]", k, val)
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, AUTO-INJECTED by platform]", k, val)
 				}
 			} else {
 				s.T.Logf("  tag: %s = %s", k, val)
