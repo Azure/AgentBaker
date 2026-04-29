@@ -922,6 +922,17 @@ select_localdns_corefile() {
         echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}" >&2
 
         if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-}" = "true" ]; then
+            # Defensive guard: if the hosts file doesn't exist on disk,
+            # enableAKSLocalDNSHostsSetup may have bailed early (e.g. LOCALDNS_CRITICAL_FQDNS
+            # was empty, or touch failed) without creating the file, while generateLocalDNSFiles
+            # still wrote SHOULD_ENABLE_HOSTS_PLUGIN=true to the env file. Fall back to BASE
+            # corefile to avoid CoreDNS referencing a missing hosts file.
+            local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+            if [ ! -f "${hosts_file}" ]; then
+                echo "SHOULD_ENABLE_HOSTS_PLUGIN=true but ${hosts_file} is missing — falling back to BASE corefile" >&2
+                echo "${LOCALDNS_COREFILE_BASE}"
+                return 0
+            fi
             echo "Hosts plugin is enabled, using corefile with hosts plugin (reload will pick up hosts file when populated)" >&2
             echo "${LOCALDNS_COREFILE_EXPERIMENTAL}"
             return 0

@@ -21,22 +21,29 @@ Describe 'select_localdns_corefile()'
         # We set __SOURCED__=1 to only source the functions, not run main execution
         # shellcheck disable=SC1090
         __SOURCED__=1 . "${LOCALDNS_PATH}"
+        # Use a temp file for hosts file path so tests don't need root
+        _TEST_HOSTS_FILE="$(mktemp)"
+        export LOCALDNS_HOSTS_FILE="${_TEST_HOSTS_FILE}"
     }
 
     cleanup() {
         unset LOCALDNS_COREFILE_BASE
         unset LOCALDNS_COREFILE_EXPERIMENTAL
         unset SHOULD_ENABLE_HOSTS_PLUGIN
+        rm -f "${_TEST_HOSTS_FILE:-}" 2>/dev/null || true
+        unset LOCALDNS_HOSTS_FILE
+        unset _TEST_HOSTS_FILE
     }
 
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
     Context 'when both corefile variants are available and hosts plugin is enabled'
-        It 'returns EXPERIMENTAL regardless of hosts file state'
+        It 'returns EXPERIMENTAL when hosts file exists'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
+            # _TEST_HOSTS_FILE already exists from setup (mktemp)
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_WITH_HOSTS}"
@@ -45,17 +52,18 @@ Describe 'select_localdns_corefile()'
             The stderr should include "reload will pick up hosts file when populated"
         End
 
-        It 'returns EXPERIMENTAL even when hosts file is empty (CoreDNS reload handles it)'
+        It 'falls back to BASE when hosts file is missing (enableAKSLocalDNSHostsSetup bailed early)'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
             LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
-            # No hosts file exists — simulates dig not having completed yet.
-            # With reload 5s + fallthrough, CoreDNS starts fine and picks up the file later.
+            # Remove the hosts file to simulate enableAKSLocalDNSHostsSetup bailing early
+            # (e.g. empty LOCALDNS_CRITICAL_FQDNS) without creating the hosts file
+            rm -f "${_TEST_HOSTS_FILE}"
 
             When call select_localdns_corefile
-            The output should equal "${COREFILE_WITH_HOSTS}"
+            The output should equal "${COREFILE_NO_HOSTS}"
             The status should be success
-            The stderr should include "using corefile with hosts plugin"
+            The stderr should include "falling back to BASE corefile"
         End
     End
 
