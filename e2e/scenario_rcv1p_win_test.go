@@ -14,6 +14,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
 // Test_RCV1P_Windows2022 validates RCV1P cert download and Windows certificate store
