@@ -1541,6 +1541,15 @@ var _ = Describe("getArmResourceEndpoint", func() {
 	It("returns Mooncake endpoint for AzureChinaCloud", func() {
 		Expect(getArmResourceEndpoint(datamodel.AzureChinaCloud)).To(Equal("https://management.chinacloudapi.cn/"))
 	})
+	It("returns German cloud endpoint for AzureGermanCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.AzureGermanCloud)).To(Equal("https://management.microsoftazure.de/"))
+	})
+	It("returns German cloud endpoint for AzureGermanyCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.AzureGermanyCloud)).To(Equal("https://management.microsoftazure.de/"))
+	})
+	It("returns Bleu cloud endpoint for AzureBleuCloud", func() {
+		Expect(getArmResourceEndpoint(datamodel.AzureBleuCloud)).To(Equal("https://management.azure.microsoft.scloud/"))
+	})
 	It("returns USNat endpoint for USNatCloud", func() {
 		Expect(getArmResourceEndpoint(datamodel.USNatCloud)).To(Equal("https://management.azure.eaglex.ic.gov/"))
 	})

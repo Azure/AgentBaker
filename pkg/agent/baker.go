@@ -620,6 +620,10 @@ func getArmResourceEndpoint(cloudName string) string {
 		return "https://management.usgovcloudapi.net/"
 	case datamodel.AzureChinaCloud:
 		return "https://management.chinacloudapi.cn/"
+	case datamodel.AzureGermanCloud, datamodel.AzureGermanyCloud:
+		return "https://management.microsoftazure.de/"
+	case datamodel.AzureBleuCloud:
+		return "https://management.azure.microsoft.scloud/"
 	case datamodel.USNatCloud:
 		return "https://management.azure.eaglex.ic.gov/"
 	case datamodel.USSecCloud:
