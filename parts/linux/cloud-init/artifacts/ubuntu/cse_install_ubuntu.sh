@@ -46,7 +46,6 @@ installDeps() {
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
@@ -63,13 +62,41 @@ installDeps() {
         pkg_list+=("aznfs=3.0.14")
     fi
 
-    for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-            tail -n 200 /var/log/apt/term.log || true
-            tail -n 200 /var/log/dpkg.log || true
-            exit $ERR_APT_INSTALL_TIMEOUT
+    # Filter out packages already installed at the required version to skip
+    # the expensive apt_get_update + per-package apt_get_install loop (~100s).
+    local missing_pkgs=()
+    for pkg in "${pkg_list[@]}"; do
+        local pkg_name="${pkg%%=*}"
+        if ! dpkg -l "$pkg_name" 2>/dev/null | grep -q "^ii"; then
+            missing_pkgs+=("$pkg")
+        elif [ "$pkg_name" != "$pkg" ]; then
+            # Package has a pinned version (e.g., aznfs=3.0.14).
+            # Check if installed version matches the requested one.
+            local requested_ver="${pkg#*=}"
+            local installed_ver
+            installed_ver=$(dpkg-query -W -f='${Version}' "$pkg_name" 2>/dev/null) || installed_ver=""
+            if [ "$installed_ver" != "$requested_ver" ] && ! echo "$installed_ver" | grep -q "^${requested_ver}"; then
+                missing_pkgs+=("$pkg")
+            fi
         fi
     done
+
+    if [ ${#missing_pkgs[@]} -gt 0 ]; then
+        echo "Packages to install (${#missing_pkgs[@]}/${#pkg_list[@]}): ${missing_pkgs[*]}"
+        apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+        if ! apt_get_install 30 1 600 "${missing_pkgs[@]}"; then
+            echo "Batch install failed, falling back to individual package install"
+            for apt_package in "${missing_pkgs[@]}"; do
+                if ! apt_get_install 30 1 600 "$apt_package"; then
+                    tail -n 200 /var/log/apt/term.log || true
+                    tail -n 200 /var/log/dpkg.log || true
+                    exit $ERR_APT_INSTALL_TIMEOUT
+                fi
+            done
+        fi
+    else
+        echo "All ${#pkg_list[@]} required packages are already installed, skipping apt_get_update and apt_get_install"
+    fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
