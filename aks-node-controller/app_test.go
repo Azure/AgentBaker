@@ -65,11 +65,11 @@ func (c *logCapturer) getRecords() []logRecord {
 // and returns the capturer. It restores the original logger when the test ends.
 func installLogCapturer(t *testing.T) *logCapturer {
 	t.Helper()
-	cap := &logCapturer{}
+	logCap := &logCapturer{}
 	orig := slog.Default()
-	slog.SetDefault(slog.New(cap))
+	slog.SetDefault(slog.New(logCap))
 	t.Cleanup(func() { slog.SetDefault(orig) })
-	return cap
+	return logCap
 }
 
 type testExitError struct {
@@ -547,20 +547,9 @@ func TestCompareEnvs(t *testing.T) {
 		return p
 	}
 
-	// findRecords returns all captured log records matching the given message prefix.
-	findRecords := func(records []logRecord, msgPrefix string) []logRecord {
-		var matched []logRecord
-		for _, r := range records {
-			if len(r.Message) >= len(msgPrefix) && r.Message[:len(msgPrefix)] == msgPrefix {
-				matched = append(matched, r)
-			}
-		}
-		return matched
-	}
-
 	t.Run("matching env vars produce no diff logs", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		cap := installLogCapturer(t)
+		logCap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
 		// Build an NBC cmd that has the same env vars as the config.
@@ -580,14 +569,15 @@ func TestCompareEnvs(t *testing.T) {
 			NBCCmd:          nbcPath,
 		}, tt.eventLogger)
 
-		records := cap.getRecords()
-		onlyInPC := findRecords(records, "env compare: only in provision-config")
-		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
-		valueDiffers := findRecords(records, "env compare: value differs")
-
-		assert.Empty(t, onlyInPC, "expected no vars only in provision-config")
-		assert.Empty(t, onlyInNBC, "expected no vars only in nbc-cmd")
-		assert.Empty(t, valueDiffers, "expected no value differences")
+		records := logCap.getRecords()
+		var foundNoOp bool
+		for _, r := range records {
+			if strings.Contains(r.Message, "env compare: no differences found") {
+				foundNoOp = true
+			}
+			assert.NotContains(t, r.Message, "env var differences", "expected no differences logged")
+		}
+		assert.True(t, foundNoOp, "expected 'no differences' log message")
 
 		// Verify guest agent event was emitted with match message.
 		events := tt.eventLogger.Events()
@@ -604,7 +594,7 @@ func TestCompareEnvs(t *testing.T) {
 
 	t.Run("var only in provision-config is logged", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		cap := installLogCapturer(t)
+		logCap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
 		// Build NBC cmd with all config vars except ADMINUSER.
@@ -627,11 +617,14 @@ func TestCompareEnvs(t *testing.T) {
 			NBCCmd:          nbcPath,
 		}, tt.eventLogger)
 
-		records := cap.getRecords()
-		onlyInPC := findRecords(records, "env compare: only in provision-config")
-		require.Len(t, onlyInPC, 1)
-		assert.Equal(t, "ADMINUSER", onlyInPC[0].Attrs["key"])
-		assert.NotContains(t, onlyInPC[0].Attrs, "value", "raw env var values must not be logged")
+		records := logCap.getRecords()
+		var foundDiff bool
+		for _, r := range records {
+			if strings.Contains(r.Message, "only-in-pc: ADMINUSER") {
+				foundDiff = true
+			}
+		}
+		assert.True(t, foundDiff, "expected summary log containing 'only-in-pc: ADMINUSER'")
 
 		// Verify guest agent event contains the diff.
 		events := tt.eventLogger.Events()
@@ -647,7 +640,7 @@ func TestCompareEnvs(t *testing.T) {
 
 	t.Run("var only in nbc-cmd is logged", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		cap := installLogCapturer(t)
+		logCap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
 		// Build NBC cmd with all config vars plus an extra var.
@@ -668,11 +661,14 @@ func TestCompareEnvs(t *testing.T) {
 			NBCCmd:          nbcPath,
 		}, tt.eventLogger)
 
-		records := cap.getRecords()
-		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
-		require.Len(t, onlyInNBC, 1)
-		assert.Equal(t, "EXTRA_NBC_ONLY", onlyInNBC[0].Attrs["key"])
-		assert.NotContains(t, onlyInNBC[0].Attrs, "value", "raw env var values must not be logged")
+		records := logCap.getRecords()
+		var foundDiff bool
+		for _, r := range records {
+			if strings.Contains(r.Message, "only-in-nbc: EXTRA_NBC_ONLY") {
+				foundDiff = true
+			}
+		}
+		assert.True(t, foundDiff, "expected summary log containing 'only-in-nbc: EXTRA_NBC_ONLY'")
 
 		// Verify guest agent event contains the diff.
 		events := tt.eventLogger.Events()
@@ -688,7 +684,7 @@ func TestCompareEnvs(t *testing.T) {
 
 	t.Run("differing values are logged", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		cap := installLogCapturer(t)
+		logCap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
 		// Build NBC cmd with all config vars but change VM_TYPE value.
@@ -712,12 +708,14 @@ func TestCompareEnvs(t *testing.T) {
 			NBCCmd:          nbcPath,
 		}, tt.eventLogger)
 
-		records := cap.getRecords()
-		valueDiffers := findRecords(records, "env compare: value differs")
-		require.Len(t, valueDiffers, 1)
-		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
-		assert.NotContains(t, valueDiffers[0].Attrs, "provision-config", "raw env var values must not be logged")
-		assert.NotContains(t, valueDiffers[0].Attrs, "nbc-cmd", "raw env var values must not be logged")
+		records := logCap.getRecords()
+		var foundDiff bool
+		for _, r := range records {
+			if strings.Contains(r.Message, "differs: VM_TYPE") {
+				foundDiff = true
+			}
+		}
+		assert.True(t, foundDiff, "expected summary log containing 'differs: VM_TYPE'")
 
 		// Verify guest agent event contains the diff.
 		events := tt.eventLogger.Events()
@@ -733,7 +731,7 @@ func TestCompareEnvs(t *testing.T) {
 
 	t.Run("multiple differences are all logged", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		cap := installLogCapturer(t)
+		logCap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
 		// NBC cmd: remove ADMINUSER (only in config), add EXTRA_VAR (only in NBC), change VM_TYPE (differs).
@@ -761,24 +759,17 @@ func TestCompareEnvs(t *testing.T) {
 			NBCCmd:          nbcPath,
 		}, tt.eventLogger)
 
-		records := cap.getRecords()
-		onlyInPC := findRecords(records, "env compare: only in provision-config")
-		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
-		valueDiffers := findRecords(records, "env compare: value differs")
-
-		// ADMINUSER should be only in provision-config.
-		require.Len(t, onlyInPC, 1)
-		assert.Equal(t, "ADMINUSER", onlyInPC[0].Attrs["key"])
-
-		// EXTRA_VAR should be only in nbc-cmd.
-		require.Len(t, onlyInNBC, 1)
-		assert.Equal(t, "EXTRA_VAR", onlyInNBC[0].Attrs["key"])
-		assert.NotContains(t, onlyInNBC[0].Attrs, "value", "raw env var values must not be logged")
-
-		// VM_TYPE should differ.
-		require.Len(t, valueDiffers, 1)
-		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
-		assert.NotContains(t, valueDiffers[0].Attrs, "nbc-cmd", "raw env var values must not be logged")
+		records := logCap.getRecords()
+		var foundSummary bool
+		for _, r := range records {
+			if strings.Contains(r.Message, "env var differences (3)") {
+				foundSummary = true
+				assert.Contains(t, r.Message, "only-in-pc: ADMINUSER")
+				assert.Contains(t, r.Message, "only-in-nbc: EXTRA_VAR")
+				assert.Contains(t, r.Message, "differs: VM_TYPE")
+			}
+		}
+		assert.True(t, foundSummary, "expected summary log with all 3 differences")
 
 		// Verify guest agent event has all 3 diffs.
 		events := tt.eventLogger.Events()

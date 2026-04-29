@@ -295,22 +295,21 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
-			slog.Info("env compare: only in provision-config", "key", key)
 			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
 		case !inPC && inNBC:
-			slog.Info("env compare: only in nbc-cmd", "key", key)
 			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
 		case pcVal != nbcVal:
-			slog.Info("env compare: value differs", "key", key)
 			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
 		}
 	}
 
 	now := time.Now()
 	if len(diffs) == 0 {
+		slog.Info("env compare: no differences found between provision-config and nbc-cmd env vars")
 		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
 	} else {
 		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
+		slog.Info(message)
 		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
 	}
 }
@@ -325,7 +324,7 @@ func parseEnvVarsFromNBCCmdContent(content string) map[string]string {
 
 	for i < n {
 		// Skip whitespace and semicolons.
-		for i < n && (content[i] == ' ' || content[i] == '\t' || content[i] == '\n' || content[i] == ';') {
+		for i < n && isDelimiter(content[i]) {
 			i++
 		}
 		if i >= n {
@@ -351,35 +350,47 @@ func parseEnvVarsFromNBCCmdContent(content string) map[string]string {
 		key := content[keyStart:i]
 		i++ // skip '='
 
-		// Parse value: handle concatenated quoted and unquoted segments.
-		var value strings.Builder
-		for i < n {
-			if content[i] == '"' {
-				// Quoted section: read until closing quote.
-				i++ // skip opening quote
-				for i < n && content[i] != '"' {
-					value.WriteByte(content[i])
-					i++
-				}
-				if i < n {
-					i++ // skip closing quote
-				}
-			} else if content[i] == ' ' || content[i] == '\t' || content[i] == '\n' || content[i] == ';' {
-				break
-			} else {
-				// Before consuming, check if this looks like a new KEY= (handles missing spaces between assignments).
-				if looksLikeEnvAssignment(content, i) {
-					break
-				}
-				value.WriteByte(content[i])
-				i++
-			}
-		}
-
-		result[key] = value.String()
+		var value string
+		value, i = parseEnvValue(content, i)
+		result[key] = value
 	}
 
 	return result
+}
+
+// parseEnvValue parses the value portion of a KEY=VALUE assignment starting at position i.
+// It handles concatenated quoted and unquoted segments. Returns the parsed value and the new position.
+func parseEnvValue(content string, i int) (string, int) {
+	n := len(content)
+	var value strings.Builder
+	for i < n {
+		switch {
+		case content[i] == '"':
+			// Quoted section: read until closing quote.
+			i++ // skip opening quote
+			for i < n && content[i] != '"' {
+				value.WriteByte(content[i])
+				i++
+			}
+			if i < n {
+				i++ // skip closing quote
+			}
+		case isDelimiter(content[i]):
+			return value.String(), i
+		default:
+			// Before consuming, check if this looks like a new KEY= (handles missing spaces between assignments).
+			if looksLikeEnvAssignment(content, i) {
+				return value.String(), i
+			}
+			value.WriteByte(content[i])
+			i++
+		}
+	}
+	return value.String(), i
+}
+
+func isDelimiter(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == ';'
 }
 
 func isEnvKeyStart(c byte) bool {
@@ -419,7 +430,7 @@ func looksLikeEnvAssignment(content string, i int) bool {
 	for j < n && isEnvKeyChar(content[j]) {
 		j++
 	}
-	return j < n && content[j] == '=' && j-i >= 2
+	return j < n && content[j] == '=' && j-i >= 1
 }
 
 // envSliceToMap converts a slice of "KEY=VALUE" strings into a map.
