@@ -520,6 +520,7 @@ func TestCompareEnvs(t *testing.T) {
 	}
 
 	t.Run("matching env vars produce no diff logs", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
 		cap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
@@ -538,7 +539,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "")
+		}, "", tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
@@ -548,9 +549,22 @@ func TestCompareEnvs(t *testing.T) {
 		assert.Empty(t, onlyInPC, "expected no vars only in provision-config")
 		assert.Empty(t, onlyInNBC, "expected no vars only in nbc-cmd")
 		assert.Empty(t, valueDiffers, "expected no value differences")
+
+		// Verify guest agent event was emitted with match message.
+		events := tt.eventLogger.Events()
+		require.NotEmpty(t, events)
+		var found bool
+		for _, e := range events {
+			if strings.Contains(e.TaskName, "CompareEnvs") {
+				assert.Contains(t, e.Message, "env vars match")
+				found = true
+			}
+		}
+		assert.True(t, found, "expected CompareEnvs guest agent event")
 	})
 
 	t.Run("var only in provision-config is logged", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
 		cap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
@@ -572,16 +586,28 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "")
+		}, "", tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
 		require.Len(t, onlyInPC, 1)
 		assert.Equal(t, "ADMINUSER", onlyInPC[0].Attrs["key"])
 		assert.Equal(t, configEnv["ADMINUSER"], onlyInPC[0].Attrs["value"])
+
+		// Verify guest agent event contains the diff.
+		events := tt.eventLogger.Events()
+		var found bool
+		for _, e := range events {
+			if strings.Contains(e.TaskName, "CompareEnvs") {
+				assert.Contains(t, e.Message, "only-in-pc: ADMINUSER")
+				found = true
+			}
+		}
+		assert.True(t, found, "expected CompareEnvs guest agent event")
 	})
 
 	t.Run("var only in nbc-cmd is logged", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
 		cap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
@@ -601,16 +627,28 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "")
+		}, "", tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
 		require.Len(t, onlyInNBC, 1)
 		assert.Equal(t, "EXTRA_NBC_ONLY", onlyInNBC[0].Attrs["key"])
 		assert.Equal(t, "extra_value", onlyInNBC[0].Attrs["value"])
+
+		// Verify guest agent event contains the diff.
+		events := tt.eventLogger.Events()
+		var found bool
+		for _, e := range events {
+			if strings.Contains(e.TaskName, "CompareEnvs") {
+				assert.Contains(t, e.Message, "only-in-nbc: EXTRA_NBC_ONLY")
+				found = true
+			}
+		}
+		assert.True(t, found, "expected CompareEnvs guest agent event")
 	})
 
 	t.Run("differing values are logged", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
 		cap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
@@ -633,7 +671,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "")
+		}, "", tt.eventLogger)
 
 		records := cap.getRecords()
 		valueDiffers := findRecords(records, "env compare: value differs")
@@ -641,9 +679,21 @@ func TestCompareEnvs(t *testing.T) {
 		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
 		assert.Equal(t, configEnv["VM_TYPE"], valueDiffers[0].Attrs["provision-config"])
 		assert.Equal(t, "standard", valueDiffers[0].Attrs["nbc-cmd"])
+
+		// Verify guest agent event contains the diff.
+		events := tt.eventLogger.Events()
+		var found bool
+		for _, e := range events {
+			if strings.Contains(e.TaskName, "CompareEnvs") {
+				assert.Contains(t, e.Message, "differs: VM_TYPE")
+				found = true
+			}
+		}
+		assert.True(t, found, "expected CompareEnvs guest agent event")
 	})
 
 	t.Run("multiple differences are all logged", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
 		cap := installLogCapturer(t)
 		configEnv := buildConfigEnv(t)
 
@@ -670,7 +720,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "")
+		}, "", tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
@@ -690,5 +740,19 @@ func TestCompareEnvs(t *testing.T) {
 		require.Len(t, valueDiffers, 1)
 		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
 		assert.Equal(t, "changed", valueDiffers[0].Attrs["nbc-cmd"])
+
+		// Verify guest agent event has all 3 diffs.
+		events := tt.eventLogger.Events()
+		var found bool
+		for _, e := range events {
+			if strings.Contains(e.TaskName, "CompareEnvs") {
+				assert.Contains(t, e.Message, "env var differences (3)")
+				assert.Contains(t, e.Message, "only-in-pc: ADMINUSER")
+				assert.Contains(t, e.Message, "only-in-nbc: EXTRA_VAR")
+				assert.Contains(t, e.Message, "differs: VM_TYPE")
+				found = true
+			}
+		}
+		assert.True(t, found, "expected CompareEnvs guest agent event")
 	})
 }

@@ -240,7 +240,8 @@ func (a *App) getNodeCustomDataPath() string {
 
 // compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
 // It logs variables that are only in one environment or that have different values between the two.
-func compareEnvs(ctx context.Context, flags ProvisionFlags, nodeCustomDataPath string) {
+// A summary of all differences is also emitted as a guest agent event for Kusto querying.
+func compareEnvs(ctx context.Context, flags ProvisionFlags, nodeCustomDataPath string, eventLogger *helpers.EventLogger) {
 	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
 	if err != nil {
 		slog.Error("compareEnvs: failed to build cmd from provision config", "error", err)
@@ -280,17 +281,29 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, nodeCustomDataPath s
 	}
 	sort.Strings(sortedKeys)
 
+	var diffs []string
 	for _, key := range sortedKeys {
 		pcVal, inPC := pcEnv[key]
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
 			slog.Info("env compare: only in provision-config", "key", key, "value", pcVal)
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s=%s", key, pcVal))
 		case !inPC && inNBC:
 			slog.Info("env compare: only in nbc-cmd", "key", key, "value", nbcVal)
+			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s=%s", key, nbcVal))
 		case pcVal != nbcVal:
 			slog.Info("env compare: value differs", "key", key, "provision-config", pcVal, "nbc-cmd", nbcVal)
+			diffs = append(diffs, fmt.Sprintf("differs: %s pc=%s nbc=%s", key, pcVal, nbcVal))
 		}
+	}
+
+	now := time.Now()
+	if len(diffs) == 0 {
+		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
+	} else {
+		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
+		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
 	}
 }
 
@@ -416,22 +429,20 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	provisionResult := &ProvisionResult{}
 
 	// If both flags are provided, compare environments before proceeding.
+	// This is best-effort and should not block provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
-		compareEnvs(ctx, flags, a.getNodeCustomDataPath())
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("compareEnvs panicked", "panic", r)
+				}
+			}()
+			compareEnvs(ctx, flags, a.getNodeCustomDataPath(), a.eventLogger)
+		}()
 	}
 
 	var cmd *exec.Cmd
-	if flags.ProvisionConfig != "" {
-		var err error
-		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
-		if err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
-	}
-
-	if flags.NBCCmd != "" && flags.ProvisionConfig == "" {
+	if flags.NBCCmd != "" {
 		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = err.Error()
@@ -440,6 +451,17 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 
 		var err error
 		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+	}
+
+	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
+	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
+		var err error
+		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
 		if err != nil {
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = err.Error()
