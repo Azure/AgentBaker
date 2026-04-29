@@ -237,6 +237,48 @@ installKubeletKubectlFromPkg() {
     installRPMPackageFromFile "kubectl" "${desiredVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
 }
 
+findAznfsRpm() {
+  local dir="$1"
+  find "${dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | sort -V | tail -1
+}
+
+installAznfsPackage() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "aznfs package install is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
+  # (via components.json). It must be present; fail immediately if not found.
+  local aznfs_download_dir="/opt/aznfs/downloads"
+  local aznfs_rpm_file
+  aznfs_rpm_file=$(findAznfsRpm "${aznfs_download_dir}")
+  if [ -z "${aznfs_rpm_file}" ]; then
+    echo "Error: aznfs RPM not found in ${aznfs_download_dir}. It should have been pre-downloaded during VHD build."
+    return $ERR_AZNFS_INSTALL_FAIL
+  fi
+
+  echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+    return $ERR_AZNFS_INSTALL_FAIL
+  fi
+
+  # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
+  local aznfs_config="/opt/microsoft/aznfs/data/config"
+  if [ -f "${aznfs_config}" ]; then
+    sed -i 's/AUTOUPDATE=.*/AUTOUPDATE=false/' "${aznfs_config}"
+    echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
+  fi
+
+  # Restart aznfswatchdogv4 to pick up the updated config
+  systemctl restart aznfswatchdogv4
+
+  # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
+  # services at the same time while we only need aznfswatchdogv4
+  systemctl disable aznfswatchdog
+  systemctl stop aznfswatchdog
+}
+
 installToolFromLocalRepo() {
     local tool_name=$1
     local tool_download_dir=$2

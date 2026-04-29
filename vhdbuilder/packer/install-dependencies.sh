@@ -579,6 +579,17 @@ while IFS= read -r p; do
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
       ;;
+    "aznfs")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
+        mkdir -p "${downloadDir}"
+        aznfsFilename=$(basename "${evaluatedURL}")
+        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
+        retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT
+        echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
+      ;;
     "blobfuse"|"blobfuse2")
       for version in "${PACKAGE_VERSIONS[@]}"; do
         if isUbuntu "$OS"; then
