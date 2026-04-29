@@ -160,9 +160,9 @@ installNetworkPlugin() {
         echo "One or more required CNI plugins not found in $CNI_BIN_DIR; installing fixed CNI plugins without removing existing binaries"
         installFixedCNI
     fi
-    # CNI_DOWNLOADS_DIR is scratch space for cached tarballs from VHD build.
-    # All needed binaries have been moved to CNI_BIN_DIR above, so clean up
-    # unconditionally to reclaim disk space (~50MB of extracted cni-plugins).
+    # The required CNI binaries are now in CNI_BIN_DIR, either pre-baked on
+    # the VHD or freshly installed by installFixedCNI above. Clean up the
+    # downloads scratch space to reclaim disk (~50MB of extracted cni-plugins).
     rm -rf "${CNI_DOWNLOADS_DIR:?}" &
 }
 
