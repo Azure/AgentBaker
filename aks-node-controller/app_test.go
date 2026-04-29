@@ -539,7 +539,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "", tt.eventLogger)
+		}, tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
@@ -586,7 +586,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "", tt.eventLogger)
+		}, tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
@@ -627,7 +627,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "", tt.eventLogger)
+		}, tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
@@ -671,7 +671,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "", tt.eventLogger)
+		}, tt.eventLogger)
 
 		records := cap.getRecords()
 		valueDiffers := findRecords(records, "env compare: value differs")
@@ -720,7 +720,7 @@ func TestCompareEnvs(t *testing.T) {
 		compareEnvs(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
 			NBCCmd:          nbcPath,
-		}, "", tt.eventLogger)
+		}, tt.eventLogger)
 
 		records := cap.getRecords()
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
