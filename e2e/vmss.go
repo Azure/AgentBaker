@@ -533,6 +533,11 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 
 	model := createVMSSModel(ctx, s)
 
+	// Record whether the outgoing VMSS model includes the RCV1P opt-in tag.
+	// This is used after creation to detect platform auto-injection vs tags we set.
+	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+	_, requestedRCV1PTag := model.Tags[rcv1pTagKey]
+
 	// For scenarios that need VM instance tags (e.g., RCV1P), we must apply tags
 	// before CSE runs because wireserver checks per-VM-instance tags. The only
 	// working method for Uniform VMSS is BeginUpdate (full PUT), which takes ~108s.
@@ -620,6 +625,50 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	s.T.Log(result)
 
+	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// For RCV1P tests, compares request tags vs response tags to detect platform auto-injection.
+	vmssID := "<unknown>"
+	if vmssResp.ID != nil {
+		vmssID = *vmssResp.ID
+	}
+	if vmssResp.Tags != nil {
+		s.T.Logf("VMSS %s (id: %s) tags (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
+		for k, v := range vmssResp.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			if k == rcv1pTagKey {
+				if requestedRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — set by us in VMSS request]", k, val)
+				} else {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — AUTO-INJECTED by platform, NOT in our VMSS request]", k, val)
+				}
+			} else {
+				s.T.Logf("  tag: %s = %s", k, val)
+			}
+		}
+		// Detect platform auto-injection: tag appeared in response but was NOT in our request.
+		if respVal, hasTag := vmssResp.Tags[rcv1pTagKey]; hasTag && !requestedRCV1PTag {
+			val := "<nil>"
+			if respVal != nil {
+				val = *respVal
+			}
+			s.T.Logf("WARNING: platform auto-injected RCV1P opt-in tag %q=%s on VMSS — "+
+				"PlatformSettingsOverride feature flag may be causing auto-injection on subscription %s",
+				rcv1pTagKey, val, s.GetSubscriptionID())
+			if s.Tags.RCV1PCertMode && strings.EqualFold(val, "true") {
+				s.T.Logf("WARNING: auto-injected tag value is 'true' — negative (NotOptedIn) tests will be "+
+					"INVALID on this subscription because wireserver will serve certificates regardless of our intent")
+			}
+		}
+		if _, hasTag := vmssResp.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+			s.T.Logf("  RCV1P opt-in tag %q NOT present on VMSS (not in request, not auto-injected) — "+
+				"wireserver should report IsOptedInForRootCerts=false", rcv1pTagKey)
+		}
+	} else {
+		s.T.Logf("VMSS %s (id: %s) has no tags", s.Runtime.VMSSName, vmssID)
+	}
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -632,6 +681,35 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	err = waitForVMRunningState(ctx, s, vm.VM)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
+	}
+
+	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmInstanceID := "<unknown>"
+	if vm.VM.ID != nil {
+		vmInstanceID = *vm.VM.ID
+	}
+	if vm.VM.Tags != nil {
+		s.T.Logf("VM instance %s (id: %s) tags (%d):", *vm.VM.InstanceID, vmInstanceID, len(vm.VM.Tags))
+		for k, v := range vm.VM.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			if k == rcv1pTagKey {
+				if requestedRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, set by us]", k, val)
+				} else {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, AUTO-INJECTED by platform]", k, val)
+				}
+			} else {
+				s.T.Logf("  tag: %s = %s", k, val)
+			}
+		}
+		if _, hasTag := vm.VM.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VM instance — this is expected for negative tests]", rcv1pTagKey)
+		}
+	} else {
+		s.T.Logf("VM instance %s (id: %s) has no tags", *vm.VM.InstanceID, vmInstanceID)
 	}
 
 	return &ScenarioVM{
