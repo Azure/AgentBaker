@@ -64,20 +64,27 @@ installDeps() {
 
     # Filter out packages already installed at the required version to skip
     # the expensive apt_get_update + per-package apt_get_install loop (~100s).
+    # Uses dpkg -l for real packages. For virtual packages (e.g., rng-tools
+    # provided by rng-tools-debian), dpkg -s detects satisfaction without
+    # touching the apt cache.
     local missing_pkgs=()
     for pkg in "${pkg_list[@]}"; do
         local pkg_name="${pkg%%=*}"
-        if ! dpkg -l "$pkg_name" 2>/dev/null | grep -q "^ii"; then
-            missing_pkgs+=("$pkg")
-        elif [ "$pkg_name" != "$pkg" ]; then
-            # Package has a pinned version (e.g., aznfs=3.0.14).
-            # Check if installed version matches the requested one.
-            local requested_ver="${pkg#*=}"
-            local installed_ver
-            installed_ver=$(dpkg-query -W -f='${Version}' "$pkg_name" 2>/dev/null) || installed_ver=""
-            if [ "$installed_ver" != "$requested_ver" ] && ! echo "$installed_ver" | grep -q "^${requested_ver}"; then
-                missing_pkgs+=("$pkg")
+        if dpkg -l "$pkg_name" 2>/dev/null | grep -q "^ii"; then
+            if [ "$pkg_name" != "$pkg" ]; then
+                # Package has a pinned version (e.g., aznfs=3.0.14).
+                # Check if installed version matches the requested one.
+                local requested_ver="${pkg#*=}"
+                local installed_ver
+                installed_ver=$(dpkg-query -W -f='${Version}' "$pkg_name" 2>/dev/null) || installed_ver=""
+                if [ "$installed_ver" != "$requested_ver" ] && ! echo "$installed_ver" | grep -q "^${requested_ver}"; then
+                    missing_pkgs+=("$pkg")
+                fi
             fi
+        elif ! dpkg -s "$pkg_name" &>/dev/null; then
+            # dpkg -s also resolves virtual packages — it succeeds when
+            # any provider is installed (e.g., rng-tools → rng-tools-debian).
+            missing_pkgs+=("$pkg")
         fi
     done
 
