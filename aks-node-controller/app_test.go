@@ -282,6 +282,45 @@ func TestApp_Provision(t *testing.T) {
 		assert.Equal(t, "240", result.ExitCode)
 		assert.Contains(t, result.Error, "read NBC command file "+scriptPath)
 	})
+
+	t.Run("compareEnvs failure does not block nbc-cmd provisioning", func(t *testing.T) {
+		// Use an invalid provision-config path so compareEnvs will fail internally.
+		// Provisioning via nbc-cmd should still succeed.
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned\n"), 0o600))
+
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: cmdRunner,
+		})
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "/nonexistent/invalid_config.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "provisioned")
+	})
+
+	t.Run("compareEnvs panic does not block nbc-cmd provisioning", func(t *testing.T) {
+		// Use a nil eventLogger so that compareEnvs panics with a nil pointer
+		// dereference when it calls eventLogger.LogEvent after parsing succeeds.
+		// The defer/recover inside compareEnvs must catch this and allow
+		// provisioning to proceed normally.
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned after panic\n"), 0o600))
+
+		app := &App{
+			cmdRun:      cmdRunner,
+			eventLogger: nil, // nil to trigger panic inside compareEnvs
+		}
+		result, err := app.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "provisioned after panic")
+	})
 }
 
 func TestApp_Provision_DryRun(t *testing.T) {
