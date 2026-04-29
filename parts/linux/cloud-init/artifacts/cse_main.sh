@@ -488,9 +488,6 @@ function nodePrep {
     fi
 
     checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
-    fi
 
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).
