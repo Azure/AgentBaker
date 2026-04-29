@@ -701,7 +701,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 				},
 			},
 			PublishingProfile: &armcompute.GalleryImageVersionPublishingProfile{
-				ReplicationMode: to.Ptr(armcompute.ReplicationModeShallow),
+				ReplicationMode: to.Ptr(armcompute.ReplicationModeFull),
 				TargetRegions: []*armcompute.TargetRegion{
 					{
 						Name:                 to.Ptr(s.Location),
