@@ -287,14 +287,14 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
-			slog.Info("env compare: only in provision-config", "key", key, "value", pcVal)
-			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s=%s", key, pcVal))
+			slog.Info("env compare: only in provision-config", "key", key)
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
 		case !inPC && inNBC:
-			slog.Info("env compare: only in nbc-cmd", "key", key, "value", nbcVal)
-			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s=%s", key, nbcVal))
+			slog.Info("env compare: only in nbc-cmd", "key", key)
+			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
 		case pcVal != nbcVal:
-			slog.Info("env compare: value differs", "key", key, "provision-config", pcVal, "nbc-cmd", nbcVal)
-			diffs = append(diffs, fmt.Sprintf("differs: %s pc=%s nbc=%s", key, pcVal, nbcVal))
+			slog.Info("env compare: value differs", "key", key)
+			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
 		}
 	}
 

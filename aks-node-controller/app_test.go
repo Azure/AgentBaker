@@ -592,7 +592,7 @@ func TestCompareEnvs(t *testing.T) {
 		onlyInPC := findRecords(records, "env compare: only in provision-config")
 		require.Len(t, onlyInPC, 1)
 		assert.Equal(t, "ADMINUSER", onlyInPC[0].Attrs["key"])
-		assert.Equal(t, configEnv["ADMINUSER"], onlyInPC[0].Attrs["value"])
+		assert.NotContains(t, onlyInPC[0].Attrs, "value", "raw env var values must not be logged")
 
 		// Verify guest agent event contains the diff.
 		events := tt.eventLogger.Events()
@@ -633,7 +633,7 @@ func TestCompareEnvs(t *testing.T) {
 		onlyInNBC := findRecords(records, "env compare: only in nbc-cmd")
 		require.Len(t, onlyInNBC, 1)
 		assert.Equal(t, "EXTRA_NBC_ONLY", onlyInNBC[0].Attrs["key"])
-		assert.Equal(t, "extra_value", onlyInNBC[0].Attrs["value"])
+		assert.NotContains(t, onlyInNBC[0].Attrs, "value", "raw env var values must not be logged")
 
 		// Verify guest agent event contains the diff.
 		events := tt.eventLogger.Events()
@@ -677,8 +677,8 @@ func TestCompareEnvs(t *testing.T) {
 		valueDiffers := findRecords(records, "env compare: value differs")
 		require.Len(t, valueDiffers, 1)
 		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
-		assert.Equal(t, configEnv["VM_TYPE"], valueDiffers[0].Attrs["provision-config"])
-		assert.Equal(t, "standard", valueDiffers[0].Attrs["nbc-cmd"])
+		assert.NotContains(t, valueDiffers[0].Attrs, "provision-config", "raw env var values must not be logged")
+		assert.NotContains(t, valueDiffers[0].Attrs, "nbc-cmd", "raw env var values must not be logged")
 
 		// Verify guest agent event contains the diff.
 		events := tt.eventLogger.Events()
@@ -734,12 +734,12 @@ func TestCompareEnvs(t *testing.T) {
 		// EXTRA_VAR should be only in nbc-cmd.
 		require.Len(t, onlyInNBC, 1)
 		assert.Equal(t, "EXTRA_VAR", onlyInNBC[0].Attrs["key"])
-		assert.Equal(t, "new", onlyInNBC[0].Attrs["value"])
+		assert.NotContains(t, onlyInNBC[0].Attrs, "value", "raw env var values must not be logged")
 
 		// VM_TYPE should differ.
 		require.Len(t, valueDiffers, 1)
 		assert.Equal(t, "VM_TYPE", valueDiffers[0].Attrs["key"])
-		assert.Equal(t, "changed", valueDiffers[0].Attrs["nbc-cmd"])
+		assert.NotContains(t, valueDiffers[0].Attrs, "nbc-cmd", "raw env var values must not be logged")
 
 		// Verify guest agent event has all 3 diffs.
 		events := tt.eventLogger.Events()
