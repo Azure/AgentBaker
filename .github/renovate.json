@@ -96,6 +96,16 @@
         "aks/aks-node-ca-watcher",
         "Azure/WALinuxAgent"
       ],
+      "allowedVersions": "!/~(alpha|beta|rc)/"
+    },
+    {
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd",
+        "containerd2",
+        "aks/aks-node-ca-watcher",
+        "Azure/WALinuxAgent"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],

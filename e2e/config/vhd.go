@@ -60,6 +60,13 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
+	VHDUbuntu2204Gen2TLContainerd = &Image{
+		Name:    "2204gen2TLcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
+		Gallery: imageGalleryLinux,
+	}
 	VHDUbuntu2004FIPSContainerd = &Image{
 		Name:                "2004fipscontainerd",
 		OS:                  OSUbuntu,

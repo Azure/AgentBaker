@@ -53,3 +53,17 @@ jobs:
         set -ex
         go test -v -run ^Test_Version_Consistency_GPU_Managed_Components$ .
 
+  dcgm-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: e2e/go.mod
+        cache-dependency-path: e2e/go.sum
+    - name: Verify DCGM Exporter package compatibility
+      working-directory: ./e2e
+      run: |
+        set -ex
+        go test -v -run ^TestDCGMExporterCompatibility$ ./components/
+

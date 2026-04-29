@@ -23,11 +23,11 @@ log() {
 ${__SOURCED__:+return}
 
 if [ -f "$HOTFIX_JSON" ]; then
-    log "Downloading ANC hotfix from ${HOTFIX_JSON}"
+    log "Found ANC hotfix config at ${HOTFIX_JSON}; running download-hotfix"
     if "$BIN_PATH" download-hotfix; then
-        log "Finished downloading ANC hotfix from ${HOTFIX_JSON}"
+        log "ANC download-hotfix completed; binary selection follows"
     else
-        log "Failed to download ANC hotfix from ${HOTFIX_JSON}; falling back to staged binaries"
+        log "ANC download-hotfix failed; binary selection follows"
     fi
 fi
 

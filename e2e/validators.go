@@ -18,7 +18,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
@@ -1254,10 +1254,10 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
 	// check if versions[0] is great than or equal to 1.2.0
 	// check semantic version
-	semver, err := semver.ParseTolerant(versions[0])
+	parsedVersion, err := semver.NewVersion(versions[0])
 	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
-	require.GreaterOrEqual(s.T, int(semver.Major), 1, "expected moby-runc major version to be at least 1, got %d", semver.Major)
-	require.GreaterOrEqual(s.T, int(semver.Minor), 2, "expected moby-runc minor version to be at least 2, got %d", semver.Minor)
+	require.GreaterOrEqual(s.T, int(parsedVersion.Major()), 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major())
+	require.GreaterOrEqual(s.T, int(parsedVersion.Minor()), 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor())
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 

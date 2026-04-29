@@ -20,7 +20,7 @@ import (
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 /*
@@ -343,9 +343,15 @@ func GetCloudTargetEnv(location string) string {
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
-	v1, _ := semver.Make(actualVersion)
-	v2, _ := semver.Make(version)
-	return v1.GE(v2)
+	v1, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	v2, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return v1.GreaterThanEqual(v2)
 }
 
 func getCustomDataFromJSON(jsonStr string) string {

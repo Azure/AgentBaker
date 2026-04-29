@@ -1137,7 +1137,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.30-ubuntu20.04u4"
+                "latestVersion": "1.7.31-ubuntu20.04u1"
               }
             ]
           }
@@ -1167,7 +1167,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.0.0-19.azl3"
+                "latestVersion": "2.1.6-2.azl3"
               }
             ]
           },
@@ -1947,7 +1947,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.19.0-ubuntu24.04u1"
+                "latestVersion": "0.19.0-ubuntu24.04u2"
               }
             ]
           },
@@ -1955,7 +1955,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=nvidia-device-plugin, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.19.0-ubuntu22.04u1"
+                "latestVersion": "0.19.0-ubuntu22.04u2"
               }
             ]
           }
@@ -1965,7 +1965,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=nvidia-device-plugin, os=azurelinux, release=3.0",
-                "latestVersion": "0.19.0-1.azl3"
+                "latestVersion": "0.19.0-2.azl3"
               }
             ]
           }
@@ -2228,6 +2228,31 @@
         },
         "flatcar": {
           "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "aznfs",
+      "downloadLocation": "/opt/aznfs/downloads",
+      "downloadURIs": {
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "3.0.15-1"
+              }
+            ],
+            "downloadURL": "https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${version}.$(uname -m).rpm"
+          },
+          "OSGUARD/v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",

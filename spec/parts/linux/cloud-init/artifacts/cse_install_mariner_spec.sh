@@ -282,4 +282,57 @@ Describe 'cse_install_mariner.sh'
             The variable GRID_CALLED should not equal "true"
         End
     End
+
+    Describe 'installAznfsPackage'
+        ERR_AZNFS_INSTALL_FAIL=242
+        aznfs_test_dir="$PWD/spec/tmp/aznfs-test"
+
+        setup_aznfs() {
+            mkdir -p "${aznfs_test_dir}/opt/aznfs/downloads"
+            # Create a fake aznfs RPM file
+            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+        }
+
+        cleanup_aznfs() {
+            rm -rf "${aznfs_test_dir}"
+        }
+
+        # Mock gpg/rpm to avoid 'command not found' on CI
+        gpg() {
+            return 0
+        }
+        rpm() {
+            return 0
+        }
+
+        BeforeEach 'setup_aznfs'
+        AfterEach 'cleanup_aznfs'
+
+        It 'skips install on non-AzureLinux 3.0'
+            OS_VERSION="2.0"
+            When call installAznfsPackage
+            The output should include "only supported on Azure Linux 3.0"
+        End
+
+        It 'installs pre-downloaded RPM on AzureLinux 3.0'
+            OS_VERSION="3.0"
+            # Override findAznfsRpm to return our test RPM
+            findAznfsRpm() {
+                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+            }
+            When call installAznfsPackage
+            The output should include "Installing aznfs from pre-downloaded RPM"
+        End
+
+        It 'fails when pre-downloaded RPM is not found'
+            OS_VERSION="3.0"
+            # Override findAznfsRpm to return empty (no RPM found)
+            findAznfsRpm() {
+                echo ""
+            }
+            When call installAznfsPackage
+            The output should include "aznfs RPM not found"
+            The status should equal 242
+        End
+    End
 End
