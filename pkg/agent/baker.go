@@ -612,27 +612,6 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	}
 }
 
-// getArmResourceEndpoint returns the ARM resource endpoint for the given cloud name.
-// This is used as the "resource" parameter in IMDS token requests.
-func getArmResourceEndpoint(cloudName string) string {
-	switch cloudName {
-	case datamodel.AzureUSGovernmentCloud:
-		return "https://management.usgovcloudapi.net/"
-	case datamodel.AzureChinaCloud:
-		return "https://management.chinacloudapi.cn/"
-	case datamodel.AzureGermanCloud, datamodel.AzureGermanyCloud:
-		return "https://management.microsoftazure.de/"
-	case datamodel.AzureBleuCloud:
-		return "https://management.azure.microsoft.scloud/"
-	case datamodel.USNatCloud:
-		return "https://management.azure.eaglex.ic.gov/"
-	case datamodel.USSecCloud:
-		return "https://management.azure.microsoft.scloud/"
-	default:
-		return "https://management.azure.com/"
-	}
-}
-
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
@@ -1356,6 +1335,26 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
 		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
+	}
+}
+
+// getArmResourceEndpoint returns the ARM resource endpoint for the given cloud name.
+func getArmResourceEndpoint(cloudName string) string {
+	switch cloudName {
+	case datamodel.AzureUSGovernmentCloud:
+		return "https://management.usgovcloudapi.net/"
+	case datamodel.AzureChinaCloud:
+		return "https://management.chinacloudapi.cn/"
+	case datamodel.AzureGermanCloud, datamodel.AzureGermanyCloud:
+		return "https://management.microsoftazure.de/"
+	case datamodel.AzureBleuCloud:
+		return "https://management.azure.microsoft.scloud/"
+	case datamodel.USNatCloud:
+		return "https://management.azure.eaglex.ic.gov/"
+	case datamodel.USSecCloud:
+		return "https://management.azure.microsoft.scloud/"
+	default:
+		return "https://management.azure.com/"
 	}
 }
 
