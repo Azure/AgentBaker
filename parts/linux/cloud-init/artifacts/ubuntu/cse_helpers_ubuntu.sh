@@ -7,9 +7,14 @@ aptmarkWALinuxAgent() {
     echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
     wait_for_apt_locks
     if [ "$1" = "hold" ]; then
+        # set dpkg selection to 'hold' — prevents apt from upgrading walinuxagent
         retrycmd_if_failure 120 5 25 bash -c 'printf "walinuxagent hold\n" | dpkg --set-selections' || exit $ERR_HOLD_WALINUXAGENT
     elif [ "$1" = "unhold" ]; then
+        # set dpkg selection back to 'install' (unhold) — allows apt to upgrade walinuxagent again
         retrycmd_if_failure 120 5 25 bash -c 'printf "walinuxagent install\n" | dpkg --set-selections' || exit $ERR_RELEASE_HOLD_WALINUXAGENT
+    else
+        echo "$(date),$(hostname), errorAptmarkWALinuxAgent invalid argument '$1'" >&2
+        return 1
     fi
     echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
 }
