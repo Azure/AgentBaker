@@ -77,8 +77,11 @@ installDeps() {
                 local requested_ver="${pkg#*=}"
                 local installed_ver
                 installed_ver=$(dpkg-query -W -f='${Version}' "$pkg_name" 2>/dev/null) || installed_ver=""
-                if [ "$installed_ver" != "$requested_ver" ] && ! echo "$installed_ver" | grep -q "^${requested_ver}"; then
-                    missing_pkgs+=("$pkg")
+                if [ "$installed_ver" != "$requested_ver" ]; then
+                    case "$installed_ver" in
+                        "${requested_ver}"*) ;; # prefix matches (e.g., 3.0.14-1 matches 3.0.14)
+                        *) missing_pkgs+=("$pkg") ;;
+                    esac
                 fi
             fi
         elif ! dpkg -s "$pkg_name" &>/dev/null; then
