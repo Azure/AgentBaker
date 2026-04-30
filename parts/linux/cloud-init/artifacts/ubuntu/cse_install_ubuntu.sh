@@ -462,14 +462,13 @@ installContainerdWithAptGet() {
     local containerdMajorMinorPatchVersion="${1}"
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    local t0=$(date +%s%3N)
+    # Query installed version via dpkg metadata instead of running the containerd
+    # binary. `containerd -version` takes ~5.7s to load the full runtime just to
+    # print a version string; dpkg-query is instant.
     currentVersion=""
-    if command -v containerd &> /dev/null; then
-        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
+        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | cut -d '+' -f1)
     fi
-    echo "  containerd version check: $(( $(date +%s%3N) - t0 ))ms (version=${currentVersion:-none})"
-    # v1.4.1 is our lowest supported version of containerd
 
     if [ -z "$currentVersion" ]; then
         currentVersion="0.0.0"
@@ -477,10 +476,8 @@ installContainerdWithAptGet() {
 
     currentMajorMinor="$(echo $currentVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
     desiredMajorMinor="$(echo $containerdMajorMinorPatchVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
-    local t1=$(date +%s%3N)
     semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
     hasGreaterVersion="$?"
-    echo "  semverCompare: $(( $(date +%s%3N) - t1 ))ms"
 
     if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
@@ -508,11 +505,9 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    local t_start=$(date +%s%3N)
     # UBUNTU_RELEASE is already set at script load time from cse_install.sh.
     # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
     UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
-    echo "  os-release read: $(( $(date +%s%3N) - t_start ))ms"
     CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
@@ -526,7 +521,6 @@ installStandaloneContainerd() {
 
     echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    echo "  installStandaloneContainerd total: $(( $(date +%s%3N) - t_start ))ms"
 }
 
 downloadContainerdFromVersion() {
