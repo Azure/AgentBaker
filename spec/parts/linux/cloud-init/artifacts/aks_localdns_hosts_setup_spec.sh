@@ -791,7 +791,7 @@ MOCK_EOF
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "No upstream DNS file found, using system resolver"
+            The output should include "No valid upstream DNS servers configured, using system resolver"
         End
 
         It 'uses upstream DNS server from file when available'
@@ -871,19 +871,24 @@ MOCK_EOF
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "No upstream DNS file found, using system resolver"
+            The output should include "No valid upstream DNS servers configured, using system resolver"
             The file "$HOSTS_FILE" should be exist
             The contents of file "$HOSTS_FILE" should include "1.2.3.4"
         End
 
-        It 'resolves no IPs when upstream-dns file contains only whitespace'
-            # Whitespace-only file: cat|tr produces "   ", [ -n "   " ] is true,
-            # but `for server in ${UPSTREAM_DNS_SERVERS}` word-splits to zero iterations.
-            # No dig calls are made, so no IPs resolve — script exits gracefully.
+        It 'falls back to system resolver when upstream-dns file contains only whitespace'
+            # Whitespace-only file is normalized to empty string, so script falls back
+            # to system resolver instead of silently making zero dig calls.
             cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
 #!/usr/bin/env bash
-echo "ERROR: dig should not be called with whitespace-only upstream" >&2
-exit 1
+# Reject if @server is passed — whitespace-only file should NOT produce @server args
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument: ${arg}" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
 MOCK_EOF
             chmod +x "${MOCK_BIN}/dig"
             TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
@@ -892,11 +897,9 @@ MOCK_EOF
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            # Script sees non-empty string so takes the "Using upstream DNS servers" branch
-            The output should include "Using upstream DNS servers:"
-            # But word splitting yields zero servers, so no dig calls, no IPs resolved
-            The output should include "WARNING: No IP addresses resolved for any domain"
-            The file "$HOSTS_FILE" should not be exist
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
         End
 
         It 'handles newline-separated DNS servers in upstream-dns file'
@@ -999,7 +1002,7 @@ MOCK_EOF
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
-            The output should include "No upstream DNS file found, using system resolver"
+            The output should include "No valid upstream DNS servers configured, using system resolver"
             The file "$HOSTS_FILE" should be exist
             The contents of file "$HOSTS_FILE" should include "1.2.3.4"
         End
