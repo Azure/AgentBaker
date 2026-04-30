@@ -135,11 +135,43 @@ resolve_domain_to_file() {
     wait "${v4_pid}" "${v6_pid}"
 }
 
-for i in "${!CRITICAL_FQDNS[@]}"; do
-    echo "Dispatching resolution for ${CRITICAL_FQDNS[$i]}..."
-    resolve_domain_to_file "$i" "${CRITICAL_FQDNS[$i]}" &
+MAX_RETRIES=3
+RETRY_DELAY=2
+
+# Build list of indices still needing resolution (initially all).
+PENDING_INDICES=("${!CRITICAL_FQDNS[@]}")
+
+for attempt in $(seq 1 "${MAX_RETRIES}"); do
+    if [ ${#PENDING_INDICES[@]} -eq 0 ]; then
+        break
+    fi
+    if [ "$attempt" -gt 1 ]; then
+        echo "Retry ${attempt}/${MAX_RETRIES}: re-resolving ${#PENDING_INDICES[@]} failed domain(s) after ${RETRY_DELAY}s..."
+        sleep "${RETRY_DELAY}"
+    fi
+    for i in "${PENDING_INDICES[@]}"; do
+        echo "Dispatching resolution for ${CRITICAL_FQDNS[$i]}..."
+        resolve_domain_to_file "$i" "${CRITICAL_FQDNS[$i]}" &
+    done
+    wait
+
+    # Check which domains still have no results and need another retry.
+    STILL_PENDING=()
+    for i in "${PENDING_INDICES[@]}"; do
+        v4=$(cat "${RESULTS_DIR}/${i}.v4" 2>/dev/null || true)
+        v6=$(cat "${RESULTS_DIR}/${i}.v6" 2>/dev/null || true)
+        if [ -z "${v4}" ] && [ -z "${v6}" ]; then
+            STILL_PENDING+=("$i")
+        fi
+    done
+    PENDING_INDICES=("${STILL_PENDING[@]+"${STILL_PENDING[@]}"}")
 done
-wait
+
+if [ ${#PENDING_INDICES[@]} -gt 0 ]; then
+    for i in "${PENDING_INDICES[@]}"; do
+        echo "WARNING: Failed to resolve ${CRITICAL_FQDNS[$i]} after ${MAX_RETRIES} attempts"
+    done
+fi
 echo "All FQDN resolutions completed, assembling hosts file content..."
 
 # Assemble output in original FQDN order so the hosts file is deterministic

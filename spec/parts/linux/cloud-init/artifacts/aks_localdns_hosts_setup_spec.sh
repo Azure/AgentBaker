@@ -51,6 +51,7 @@ EOF
     }
 
     # Creates a mock dig executable that simulates DNS failure (empty output).
+    # Also mocks timeout and sleep for macOS compatibility and fast retries.
     create_failure_mock() {
         local mock_bin_dir="$1"
         mkdir -p "${mock_bin_dir}"
@@ -60,6 +61,17 @@ EOF
 exit 0
 MOCK_EOF
         chmod +x "${mock_bin_dir}/dig"
+        cat > "${mock_bin_dir}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/timeout"
+        cat > "${mock_bin_dir}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/sleep"
     }
 
     # -----------------------------------------------------------------------
@@ -283,6 +295,7 @@ EOF
         It 'exits gracefully when no DNS records are resolved'
             When run command bash "${TEST_SCRIPT}"
             The status should be success
+            The output should include "WARNING: Failed to resolve"
             The output should include "WARNING: No IP addresses resolved for any domain"
             The output should include "This is likely a temporary DNS issue"
         End
@@ -310,6 +323,12 @@ EOF
             MOCK_BIN="${TEST_DIR}/mock_bin"
             mkdir -p "${MOCK_BIN}"
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            # Mock sleep for fast retries
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
         }
 
         cleanup() {
@@ -448,12 +467,149 @@ EXISTING
         End
     End
 
+    Describe 'Retry logic for transient DNS failures (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'retries only failed domains and succeeds on second attempt'
+            # Mock dig: uses a state file to fail on first call per domain, succeed on second.
+            # mcr.microsoft.com always succeeds. packages.aks.azure.com fails first, succeeds on retry.
+            local state_dir="${TEST_DIR}/dig_state"
+            mkdir -p "${state_dir}"
+            cat > "${MOCK_BIN}/dig" << MOCK_EOF
+#!/usr/bin/env bash
+domain=""
+record_type=""
+for arg in "\$@"; do
+    if [[ "\$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "\$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    elif [[ "\$arg" != +* ]] && [[ "\$arg" != @* ]] && [[ "\$arg" != "-t" ]]; then
+        domain="\$arg"
+    fi
+done
+
+if [[ "\$domain" == "mcr.microsoft.com" && "\$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+    exit 0
+fi
+
+if [[ "\$domain" == "packages.aks.azure.com" && "\$record_type" == "A" ]]; then
+    STATE_FILE="${state_dir}/packages.aks.azure.com"
+    if [ ! -f "\$STATE_FILE" ]; then
+        touch "\$STATE_FILE"
+        # First attempt: fail
+        exit 0
+    fi
+    # Retry: succeed
+    echo "5.6.7.8"
+    exit 0
+fi
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Override RETRY_DELAY to 0 so test doesn't sleep
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com,packages.aks.azure.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Retry 2/3: re-resolving 1 failed domain(s)"
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "5.6.7.8 packages.aks.azure.com"
+        End
+
+        It 'does not retry domains that succeeded on first attempt'
+            # Mock dig: all domains succeed immediately
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    fi
+done
+if [[ "$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com,packages.aks.azure.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # Should NOT retry since all succeeded
+            The output should not include "Retry"
+            The output should not include "WARNING: Failed to resolve"
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 packages.aks.azure.com"
+        End
+
+        It 'reports failure after exhausting all retries'
+            create_failure_mock "${MOCK_BIN}"
+            # Mock sleep to avoid delay
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Retry 2/3"
+            The output should include "Retry 3/3"
+            The output should include "WARNING: Failed to resolve mcr.microsoft.com after 3 attempts"
+            The output should include "WARNING: No IP addresses resolved for any domain"
+        End
+    End
+
     Describe 'Invalid DNS response filtering (mock)'
         setup() {
             TEST_DIR=$(mktemp -d)
             MOCK_BIN="${TEST_DIR}/mock_bin"
             mkdir -p "${MOCK_BIN}"
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            # Mock timeout and sleep for macOS compatibility and fast retries
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
         }
 
         cleanup() {
@@ -602,6 +758,18 @@ MOCK_EOF
             MOCK_BIN="${TEST_DIR}/mock_bin"
             mkdir -p "${MOCK_BIN}"
             export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            # Mock timeout and sleep for macOS compatibility and fast retries
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
         }
 
         cleanup() {
