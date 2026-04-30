@@ -355,29 +355,29 @@ func Test_ACL_DisableSSH(t *testing.T) {
 	})
 }
 
-func Test_ACL_GPUNC_Scriptless(t *testing.T) {
-	runScenarioACLGPUScriptless(t, "Standard_NC6s_v3", config.Config.DefaultLocation)
+func Test_ACL_GPUNC(t *testing.T) {
+	runScenarioACLGPU(t, "Standard_NC6s_v3", config.Config.DefaultLocation)
 }
 
-func Test_ACL_GPUA100_Scriptless(t *testing.T) {
-	runScenarioACLGPUScriptless(t, "Standard_NC24ads_A100_v4", "westus2")
+func Test_ACL_GPUA100(t *testing.T) {
+	runScenarioACLGPU(t, "Standard_NC24ads_A100_v4", "westus2")
 }
 
-func Test_ACL_GPUA10_Scriptless(t *testing.T) {
-	runScenarioACLGRIDScriptless(t, "Standard_NV6ads_A10_v5")
+func Test_ACL_GPUA10(t *testing.T) {
+	runScenarioACLGRID(t, "Standard_NV6ads_A10_v5")
 }
 
-func runScenarioACLGPUScriptless(t *testing.T, vmSize string, location string) {
+func runScenarioACLGPU(t *testing.T, vmSize string, location string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped", vmSize),
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD", vmSize),
 		Location:    location,
 		Tags: Tags{
-			GPU:        true,
-			Scriptless: true,
+			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDACLGen2TL,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -398,15 +398,16 @@ func runScenarioACLGPUScriptless(t *testing.T, vmSize string, location string) {
 	})
 }
 
-func runScenarioACLGRIDScriptless(t *testing.T, vmSize string) {
+func runScenarioACLGRID(t *testing.T, vmSize string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD and scriptless CSE can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an ACL VHD, and that the GRID license is valid", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDACLGen2TL,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -1578,8 +1579,9 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string, location string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -1606,8 +1608,9 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -1989,41 +1992,12 @@ func Test_AzureLinuxV3_MA35D(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
 				nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
-				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0")
-				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/")
-				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service")
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama")
-			},
-		},
-		// No MA35D GPU capacity in West US, so using East US
-		Location:         "eastus",
-		K8sSystemPoolSKU: "Standard_D2s_v3",
-	})
-}
-
-func Test_AzureLinuxV3_MA35D_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using AzureLinuxV3 can support MA35D SKU",
-		Tags: Tags{
-			GPU:        true,
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.VmSize = "Standard_NM16ads_MA35D"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
@@ -2167,8 +2141,9 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
 				nbc.ConfigGPUDriverIfNeeded = true

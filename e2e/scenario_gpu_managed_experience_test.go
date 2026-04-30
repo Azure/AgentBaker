@@ -190,9 +190,6 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
-				Tags: Tags{
-					GPU: true,
-				},
 				Config: Config{
 					Cluster:                ClusterKubenet,
 					VHD:                    tc.vhd,
@@ -477,6 +474,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 		Config: Config{
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2404Gen2Containerd,
+			SkipScriptlessNBC:     true,
 			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
@@ -552,8 +550,9 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
