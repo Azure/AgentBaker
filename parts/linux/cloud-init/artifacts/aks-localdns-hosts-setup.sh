@@ -43,12 +43,16 @@ UPSTREAM_DNS_FILE="/etc/localdns/upstream-dns"
 UPSTREAM_DNS_SERVERS=""
 if [ -f "${UPSTREAM_DNS_FILE}" ]; then
     # File contains space-separated DNS server IPs (e.g., "10.0.0.4 10.0.0.5" or "168.63.129.16").
-    UPSTREAM_DNS_SERVERS=$(cat "${UPSTREAM_DNS_FILE}" 2>/dev/null | tr '\n' ' ')
+    # Normalize whitespace so a file with only spaces/tabs/newlines is treated as empty,
+    # preventing a code path where we claim to use upstream servers but never call dig.
+    UPSTREAM_DNS_SERVERS=$(tr -s '[:space:]' ' ' < "${UPSTREAM_DNS_FILE}" 2>/dev/null)
+    UPSTREAM_DNS_SERVERS="${UPSTREAM_DNS_SERVERS# }"
+    UPSTREAM_DNS_SERVERS="${UPSTREAM_DNS_SERVERS% }"
 fi
 if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
     echo "Using upstream DNS servers: ${UPSTREAM_DNS_SERVERS}"
 else
-    echo "No upstream DNS file found, using system resolver"
+    echo "No valid upstream DNS servers configured, using system resolver"
 fi
 
 # Function to resolve IPv4 addresses for a domain
