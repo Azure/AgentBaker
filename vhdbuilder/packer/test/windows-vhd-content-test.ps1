@@ -604,6 +604,49 @@ function Test-ToolsToCacheOnVHD {
     }
 }
 
+function Test-WindowsExporterOnVHD {
+    # The Install-WindowsExporterOnVHD step in configure-windows-vhd.ps1 must have:
+    #   1. Extracted windows-exporter.exe into C:\k\windows-exporter
+    #   2. Placed windows-exporter-config.yml alongside it
+    #   3. Placed windows-exporter-health.ps1 alongside it
+    #   4. Created the sentinel file the aks-vm-extension honors to no-op
+    # The service is registered at CSE time (staging/cse/windows/windowsexporterfunc.ps1),
+    # so we intentionally do NOT expect the service to exist on the VHD itself.
+    $exporterDir = "C:\k\windows-exporter"
+    $expected = @(
+        (Join-Path $exporterDir "windows-exporter.exe"),
+        (Join-Path $exporterDir "windows-exporter-config.yml"),
+        (Join-Path $exporterDir "windows-exporter-health.ps1"),
+        "C:\k\skip_vhd_windows_exporter"
+    )
+
+    $missing = @()
+    foreach ($path in $expected)
+    {
+        if (-not (Test-Path -Path $path))
+        {
+            $missing += $path
+        }
+        else
+        {
+            Write-OutputWithTimestamp "windows-exporter asset present: $path"
+        }
+    }
+
+    if ($missing.Count -gt 0)
+    {
+        Write-ErrorWithTimestamp "Missing windows-exporter VHD assets: $($missing -join ', ')"
+        exit 1
+    }
+
+    $svc = Get-Service "aks-windows-exporter" -ErrorAction SilentlyContinue
+    if ($svc)
+    {
+        Write-ErrorWithTimestamp "Service aks-windows-exporter should not be registered on the VHD (CSE registers it at provisioning); found state: $($svc.Status)"
+        exit 1
+    }
+}
+
 function Test-ExpandVolumeTask {
     $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
     $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
@@ -759,6 +802,9 @@ Test-WindowsDefenderPlatformUpdate
 
 Write-OutputWithTimestamp "Test: ToolsToCacheOnVHD"
 Test-ToolsToCacheOnVHD
+
+Write-OutputWithTimestamp "Test: WindowsExporterOnVHD"
+Test-WindowsExporterOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask

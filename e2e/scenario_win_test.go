@@ -85,6 +85,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 					ValidateSSHKeyLiteralPreservation(ctx, s, sshKeyInterpolationComment),
 				)
@@ -112,6 +113,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 					ValidateContainerdWindowsPriorityClass(ctx, s),
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -139,6 +141,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -166,6 +169,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -194,6 +198,7 @@ func Test_Windows2025(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -222,6 +227,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -252,6 +258,7 @@ func Test_Windows2025Gen2TrustedLaunch(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -319,6 +326,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -380,6 +388,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -411,6 +420,7 @@ func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
 					ValidateCiliumIsNotRunningWindows(ctx, s),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 					ValidateCollectWindowsLogsScript(ctx, s),
 				)
 			},
@@ -557,6 +567,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 						`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
 						`https://mcr.azk8s.cn`),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 				)
 			},
 		},
@@ -608,6 +619,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 					ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`),
 					ValidateDotnetNotInstalledWindows(ctx, s),
 					ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+					ValidateWindowsExporter(ctx, s),
 				)
 			},
 		},
@@ -649,4 +661,3 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 		},
 	})
 }
-
