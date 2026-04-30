@@ -24,7 +24,6 @@ pr:
       - vhdbuilder/packer/*.ps1
       - vhdbuilder/packer/test/*.ps1
       - vhdbuilder/packer/test/run-test.sh
-      - vhdbuilder/packer/windows-sub-cleanup.sh
       - vhdbuilder/packer/cleanup.sh
       - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
       - vhdbuilder/packer/generate-vhd-publishing-info.sh
@@ -81,21 +80,3 @@ stages:
       build2025: False
       build2025gen2: True
 
-  - stage: delete_old_windows_vhds
-    dependsOn: [ ]
-    condition: always()
-    jobs:
-      - job: build
-        timeoutInMinutes: 180
-        steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-              scriptType: bash
-              scriptLocation: inlineScript
-              inlineScript: |
-                bash ./.pipelines/scripts/windows-sub-cleanup.sh
-            enabled: true
-            displayName: Old Windows VHD Cleanup
-            env:
-              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
