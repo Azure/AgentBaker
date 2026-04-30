@@ -290,9 +290,15 @@ EOF
     # Safe to run unconditionally — idempotent if already mitigated.
     if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
         if ! grep -qs "algif_aead" /etc/modprobe.d/*.conf 2>/dev/null; then
-            echo "install algif_aead /bin/false" > /etc/modprobe.d/disable-algif_aead.conf
+            printf "install algif_aead /bin/false\nblacklist algif_aead\n" > /etc/modprobe.d/disable-algif_aead.conf
         fi
-        rmmod algif_aead 2>/dev/null || true
+        if grep -q '^algif_aead ' /proc/modules 2>/dev/null; then
+            if rmmod algif_aead 2>/dev/null; then
+                echo "CVE-2026-31431: successfully unloaded algif_aead module"
+            else
+                echo "CVE-2026-31431: failed to unload algif_aead (in use), reboot required for full mitigation"
+            fi
+        fi
     fi
 
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
