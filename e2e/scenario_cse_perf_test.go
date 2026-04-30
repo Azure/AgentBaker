@@ -27,7 +27,7 @@ var cachedCSEThresholds = CSETimingThresholds{
 	TaskThresholds: map[string]time.Duration{
 		// Core kubelet/containerd install
 		"installDebPackageFromFile":   22 * time.Second, // prod p50=3.88s p95=21.55s p99=42.88s
-		"holdWALinuxAgent":         24 * time.Second, // prod p50=0.49s p90=23.32s p95=37.47s (bimodal: apt lock)
+		"holdWALinuxAgent":            24 * time.Second, // prod p50=0.49s p90=23.32s p95=37.47s (bimodal: apt lock)
 		"configureKubeletAndKubectl":  27 * time.Second, // prod p50=6.56s p95=26.06s p99=44.39s
 		"ensureContainerd":            3 * time.Second,  // prod p50=0.94s p95=1.99s  p99=2.80s
 		"ensureKubelet":               10 * time.Second, // prod p50=3.27s p95=6.20s  p99=10.01s
@@ -65,7 +65,7 @@ var fullInstallCSEThresholds = CSETimingThresholds{
 		"installDeps":                 90 * time.Second, // no direct prod data; generous for full install
 		"installContainerRuntime":     60 * time.Second, // prod p50=0.26s p99=0.78s (cached); much higher on full
 		"installDebPackageFromFile":   45 * time.Second, // prod p99=42.88s
-		"holdWALinuxAgent":         60 * time.Second, // prod p99=58.07s (bimodal: apt lock contention)
+		"holdWALinuxAgent":            60 * time.Second, // prod p99=58.07s (bimodal: apt lock contention)
 		"configureKubeletAndKubectl":  45 * time.Second, // prod p99=44.39s
 		"ensureContainerd":            5 * time.Second,  // prod p99=2.80s; slightly higher for full install
 		"ensureKubelet":               15 * time.Second, // prod p99=10.01s; slightly higher for full install
@@ -99,7 +99,7 @@ var cachedCSEThresholdsUbuntu2404 = CSETimingThresholds{
 	TaskThresholds: map[string]time.Duration{
 		// Core kubelet/containerd install
 		"installDebPackageFromFile":   24 * time.Second, // prod p50=4.92s p95=23.74s p99=33.47s
-		"holdWALinuxAgent":         11 * time.Second, // prod p50=4.45s p95=10.97s p99=15.09s (less bimodal than 22.04)
+		"holdWALinuxAgent":            11 * time.Second, // prod p50=4.45s p95=10.97s p99=15.09s (less bimodal than 22.04)
 		"configureKubeletAndKubectl":  38 * time.Second, // prod p50=21.65s p95=37.28s p99=45.94s
 		"ensureContainerd":            2 * time.Second,  // prod p50=0.76s p95=1.34s  p99=1.84s
 		"ensureKubelet":               8 * time.Second,  // prod p50=4.32s p95=7.47s  p99=10.50s
@@ -130,7 +130,7 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 		"installDeps":                 90 * time.Second,
 		"installContainerRuntime":     60 * time.Second,
 		"installDebPackageFromFile":   34 * time.Second, // prod p99=33.47s
-		"holdWALinuxAgent":         16 * time.Second, // prod p99=15.09s (better than 22.04)
+		"holdWALinuxAgent":            16 * time.Second, // prod p99=15.09s (better than 22.04)
 		"configureKubeletAndKubectl":  46 * time.Second, // prod p99=45.94s
 		"ensureContainerd":            3 * time.Second,  // prod p99=1.84s
 		"ensureKubelet":               11 * time.Second, // prod p99=10.50s

@@ -473,9 +473,11 @@ installContainerdWithAptGet() {
     # Query installed version via dpkg metadata instead of running the containerd
     # binary. `containerd -version` takes ~5.7s to load the full runtime just to
     # print a version string; dpkg-query is instant.
+    # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
+    # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
     currentVersion=""
     if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
-        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | cut -d '+' -f1)
+        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
 
     if [ -z "$currentVersion" ]; then
