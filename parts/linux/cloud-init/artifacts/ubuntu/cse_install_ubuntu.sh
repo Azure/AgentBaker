@@ -65,11 +65,19 @@ installDeps() {
 
     # Batch install all packages in a single apt_get_install call instead of
     # looping one-by-one. On failure, fall back to individual installs for
-    # diagnostic clarity.
-    if ! apt_get_install 30 1 600 "${pkg_list[@]}"; then
+    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
         echo "Batch install failed, falling back to individual package install"
         for apt_package in "${pkg_list[@]}"; do
-            if ! apt_get_install 30 1 600 "$apt_package"; then
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
                 tail -n 200 /var/log/apt/term.log || true
                 tail -n 200 /var/log/dpkg.log || true
                 exit $ERR_APT_INSTALL_TIMEOUT
