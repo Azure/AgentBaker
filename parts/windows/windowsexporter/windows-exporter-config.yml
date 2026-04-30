@@ -1,0 +1,11 @@
+web:
+  listen-address: ":19182"
+collectors:
+  # explicitly enabled for version: https://github.com/prometheus-community/windows_exporter/tree/v0.31.2
+  # NOTE: `cpu_info`, `container` and `process` collectors are added to default collectors
+  enabled: "cpu,logical_disk,memory,net,os,physical_disk,service,system,cpu_info,container,process"
+collector:
+  service:
+    include: "aks-windows-exporter|kubelet|kubeproxy|containerd|hns|csi-proxy"
+log:
+  level: debug
