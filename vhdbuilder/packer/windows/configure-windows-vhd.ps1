@@ -760,6 +760,85 @@ function Set-WinRmServiceAutoStart
     sc.exe config winrm start=auto
 }
 
+function Install-WindowsExporterOnVHD
+{
+    # Stage windows-exporter assets into C:\k\windows-exporter so the CSE-time
+    # Install-WindowsExporter function (staging/cse/windows/windowsexporterfunc.ps1)
+    # can register the aks-windows-exporter service at node provisioning.
+    #
+    # Migrated from aks-vm-extension; the sentinel file is the coordination hook
+    # that tells the extension to no-op on nodes built from this VHD.
+    $exporterCacheDir   = "c:\akse-cache\windows-exporter"
+    $exporterInstallDir = "C:\k\windows-exporter"
+    $exporterConfigSrc  = "c:\k\windows-exporter-config.yml"
+    $exporterHealthSrc  = "c:\k\windows-exporter-health.ps1"
+    $exporterSentinel   = "C:\k\skip_vhd_windows_exporter"
+
+    if (-not (Test-Path $exporterCacheDir))
+    {
+        Write-Log "windows-exporter cache directory not found at $exporterCacheDir; skipping VHD install"
+        return
+    }
+
+    $exporterZip = Get-ChildItem -Path $exporterCacheDir -Filter "windows-exporter_*_amd64.zip" -File |
+                   Sort-Object -Property Name -Descending |
+                   Select-Object -First 1
+    if (-not $exporterZip)
+    {
+        Write-Log "No windows-exporter zip found under $exporterCacheDir; skipping VHD install"
+        return
+    }
+
+    New-Item -ItemType Directory -Path $exporterInstallDir -Force | Out-Null
+
+    Write-Log "Extracting $($exporterZip.FullName) to $exporterInstallDir"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    # Clean any prior extraction to avoid zip-extract "already exists" failures on re-runs
+    Get-ChildItem -Path $exporterInstallDir -Force -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($exporterZip.FullName, $exporterInstallDir)
+
+    $exporterBinary = Join-Path $exporterInstallDir "windows-exporter.exe"
+    if (-not (Test-Path $exporterBinary))
+    {
+        # Some zip payloads nest the binary under a subfolder; flatten into install dir.
+        $nestedBinary = Get-ChildItem -Path $exporterInstallDir -Filter "windows-exporter.exe" -Recurse -File |
+                        Select-Object -First 1
+        if ($nestedBinary)
+        {
+            Move-Item -Path $nestedBinary.FullName -Destination $exporterBinary -Force
+        }
+    }
+    if (-not (Test-Path $exporterBinary))
+    {
+        throw "windows-exporter.exe not found after extracting $($exporterZip.Name)"
+    }
+
+    if (Test-Path $exporterConfigSrc)
+    {
+        Copy-Item -Path $exporterConfigSrc -Destination (Join-Path $exporterInstallDir "windows-exporter-config.yml") -Force
+    }
+    else
+    {
+        throw "windows-exporter config not staged at $exporterConfigSrc"
+    }
+
+    if (Test-Path $exporterHealthSrc)
+    {
+        Copy-Item -Path $exporterHealthSrc -Destination (Join-Path $exporterInstallDir "windows-exporter-health.ps1") -Force
+    }
+    else
+    {
+        throw "windows-exporter health script not staged at $exporterHealthSrc"
+    }
+
+    # Drop the sentinel last so partial installs don't appear complete to CSE.
+    New-Item -ItemType File -Path $exporterSentinel -Force | Out-Null
+
+    LogFilesInDirectory $exporterInstallDir
+    Write-Log "windows-exporter staged on VHD; sentinel $exporterSentinel dropped"
+}
+
 function Set-WinRmServiceDelayedStart
 {
     # Hyper-V messes with networking components on startup after the feature is enabled
@@ -1044,6 +1123,7 @@ try
             Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Install-WindowsCiliumNetworking
+            Install-WindowsExporterOnVHD
             # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
             # the keys set. So we kinda have to do both now :cry:
             Update-Registry

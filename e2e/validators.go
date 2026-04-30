@@ -805,6 +805,55 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
 }
 
+// ValidateWindowsExporter asserts that the aks-windows-exporter service registered by
+// staging/cse/windows/windowsexporterfunc.ps1 is running and serving Prometheus metrics.
+//
+// When the VHD does not carry the windows-exporter assets (older VHDs where the
+// aks-vm-extension still installs the service), the sentinel file is absent and we
+// skip the validation - the extension owns the service in that mode and AgentBaker
+// has no guarantee about the service state at this point in provisioning.
+func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	const (
+		sentinel    = `C:\k\skip_vhd_windows_exporter`
+		binary      = `C:\k\windows-exporter\windows-exporter.exe`
+		configFile  = `C:\k\windows-exporter\windows-exporter-config.yml`
+		serviceName = "aks-windows-exporter"
+		metricsURL  = "http://localhost:19182/metrics"
+	)
+
+	sentinelCheck := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", sentinel),
+		"Write-Output 'PRESENT'",
+	}
+	res := execScriptOnVMForScenario(ctx, s, strings.Join(sentinelCheck, "\n"))
+	if strings.Contains(res.stdout, "SKIP") {
+		s.T.Logf("Skipping aks-windows-exporter validation: sentinel %s not found (aks-vm-extension manages the service on this VHD)", sentinel)
+		return
+	}
+
+	s.T.Logf("skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
+
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing binary: %s' }", binary, binary),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing config: %s' }", configFile, configFile),
+		fmt.Sprintf("$svc = Get-Service -Name %s", serviceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
+		// Hit the metrics endpoint and require a windows-exporter-specific metric.
+		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
+		"if ($resp.StatusCode -ne 200) { throw \"metrics endpoint returned $($resp.StatusCode)\" }",
+		"if ($resp.Content -notmatch 'windows_os_info') { throw 'windows_os_info metric missing from /metrics response' }",
+		"if ($resp.Content -notmatch 'windows_cpu_time_total') { throw 'windows_cpu_time_total metric missing from /metrics response' }",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{

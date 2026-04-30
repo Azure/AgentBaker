@@ -88,7 +88,9 @@
                 "parts/common/components.json",
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/windows/windows_settings.json",
-                "vhdbuilder/packer/windows/components_json_helpers.ps1"
+                "vhdbuilder/packer/windows/components_json_helpers.ps1",
+                "parts/windows/windowsexporter/windows-exporter-config.yml",
+                "parts/windows/windowsexporter/windows-exporter-health.ps1"
             ],
             "destination": "c:/k/"
         },
