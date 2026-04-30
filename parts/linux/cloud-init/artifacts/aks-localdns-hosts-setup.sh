@@ -188,7 +188,7 @@ for i in "${!CRITICAL_FQDNS[@]}"; do
         # Preserve existing entries from the current hosts file so we don't lose
         # the last known good IPs when a single FQDN fails to resolve.
         if [ -f "${HOSTS_FILE}" ]; then
-            EXISTING_ENTRIES=$(grep -E "^[^#].*[[:space:]]${DOMAIN}$" "${HOSTS_FILE}" 2>/dev/null || true)
+            EXISTING_ENTRIES=$(awk -v domain="${DOMAIN}" '$0 !~ /^[[:space:]]*#/ && $2 == domain' "${HOSTS_FILE}" 2>/dev/null || true)
             if [ -n "${EXISTING_ENTRIES}" ]; then
                 RESOLVED_ANY=true
                 HOSTS_CONTENT+="

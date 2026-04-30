@@ -1676,7 +1676,7 @@ expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_e
 if [ -z "$expected_ips" ]; then
     echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
     echo "Hosts file contents:"
-    sudo cat "$hosts_file"
+    cat "$hosts_file"
     exit 1
 fi
 
