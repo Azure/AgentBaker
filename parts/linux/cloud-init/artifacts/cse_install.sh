@@ -149,7 +149,7 @@ installNetworkPlugin() {
     fi
     # Check if required CNI plugins are already cached
     local required_plugins=("bridge" "host-local" "loopback")
-       local all_plugins_exist=true
+    local all_plugins_exist=true
     for plugin in "${required_plugins[@]}"; do
         if [ ! -f "$CNI_BIN_DIR/$plugin" ]; then
             all_plugins_exist=false
@@ -159,8 +159,11 @@ installNetworkPlugin() {
     if [ "$all_plugins_exist" = "false" ]; then
         echo "One or more required CNI plugins not found in $CNI_BIN_DIR; installing fixed CNI plugins without removing existing binaries"
         installFixedCNI
-        rm -rf "${CNI_DOWNLOADS_DIR:?}" &
     fi
+    # The required CNI binaries are now in CNI_BIN_DIR, either pre-baked on
+    # the VHD or freshly installed by installFixedCNI above. Clean up the
+    # downloads scratch space to reclaim disk (~50MB of extracted cni-plugins).
+    rm -rf "${CNI_DOWNLOADS_DIR:?}" &
 }
 
 # downloadCredentialProvider is always called during build time by install-dependencies.sh.

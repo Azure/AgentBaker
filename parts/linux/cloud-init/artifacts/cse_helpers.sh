@@ -158,6 +158,8 @@ ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, r
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
+ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
