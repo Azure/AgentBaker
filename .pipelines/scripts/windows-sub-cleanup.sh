@@ -94,7 +94,7 @@ if [ -n "${AZURE_RESOURCE_GROUP_NAME}" ]; then
   done
 fi
 
-# attemp to clean up old test Windows SIG image versions over 3 months ago
+# attempt to clean up old test Windows SIG image versions over 7 days ago
 if [ -n "${AZURE_RESOURCE_GROUP_NAME}" ]; then
   gallery_list=$(az sig list -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
 
