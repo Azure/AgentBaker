@@ -284,10 +284,11 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    # CVE-2026-31431 (Copy Fail): Mitigate algif_aead LPE on Ubuntu nodes.
+    # CVE-2026-31431 (Copy Fail): Mitigate algif_aead LPE vulnerability.
+    # Affects Ubuntu 20.04/22.04/24.04 and AzureLinux 3.0 (kernel >=4.15).
     # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
     # Safe to run unconditionally — idempotent if already mitigated.
-    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
         if ! grep -qs "algif_aead" /etc/modprobe.d/*.conf 2>/dev/null; then
             echo "install algif_aead /bin/false" > /etc/modprobe.d/disable-algif_aead.conf
         fi
