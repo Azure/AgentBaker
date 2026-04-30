@@ -60,7 +60,8 @@ resolve_ipv4() {
     local output=""
     if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
         for server in ${UPSTREAM_DNS_SERVERS}; do
-            output=$(timeout 3 dig +short -t A "${domain}" @"${server}" 2>/dev/null) && break
+            output=$(timeout 3 dig +short -t A "${domain}" @"${server}" 2>/dev/null) || true
+            [ -n "${output}" ] && break
         done
     else
         output=$(timeout 3 dig +short -t A "${domain}" 2>/dev/null) || return 0
@@ -85,7 +86,8 @@ resolve_ipv6() {
     local output=""
     if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
         for server in ${UPSTREAM_DNS_SERVERS}; do
-            output=$(timeout 3 dig +short -t AAAA "${domain}" @"${server}" 2>/dev/null) && break
+            output=$(timeout 3 dig +short -t AAAA "${domain}" @"${server}" 2>/dev/null) || true
+            [ -n "${output}" ] && break
         done
     else
         output=$(timeout 3 dig +short -t AAAA "${domain}" 2>/dev/null) || return 0

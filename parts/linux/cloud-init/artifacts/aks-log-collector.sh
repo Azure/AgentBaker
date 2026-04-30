@@ -213,8 +213,8 @@ collectToZip collect/journalctl_nvidia-dcgm-exporter.txt journalctl -u nvidia-dc
 collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-device-plugin --no-pager
 
 # Collect logs of LocalDNS and hosts-setup services if present
-collectToZip collect/journalctl_localdns.txt journalctl -u localdns --no-pager
-collectToZip collect/journalctl_aks-localdns-hosts-setup.txt journalctl -u aks-localdns-hosts-setup --no-pager
+collectToZip collect/journalctl_localdns.txt journalctl -u localdns.service --no-pager
+collectToZip collect/journalctl_aks-localdns-hosts-setup.txt journalctl -u aks-localdns-hosts-setup.service --no-pager
 
 # Collect container runtime information
 collectToZip collect/crictl_version.txt crictl version
