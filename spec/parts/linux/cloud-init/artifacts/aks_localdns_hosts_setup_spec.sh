@@ -304,6 +304,150 @@ EOF
         End
     End
 
+    Describe 'Partial DNS failure preserves existing entries (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'preserves existing entries for FQDNs that fail to resolve'
+            # Mock dig: mcr.microsoft.com resolves, packages.aks.azure.com fails
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Check if mcr.microsoft.com is in the arguments
+for arg in "$@"; do
+    if [[ "$arg" == "mcr.microsoft.com" ]]; then
+        # Check record type
+        for a2 in "$@"; do
+            if [[ "$a2" == "AAAA" ]]; then
+                exit 0
+            fi
+        done
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+# All other domains return empty (simulate failure)
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout to just exec the command (macOS doesn't have timeout)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            chmod +x "${MOCK_BIN}/dig"
+            # Pre-populate hosts file with entries for both domains
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+# packages.aks.azure.com
+10.0.0.2 packages.aks.azure.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com,packages.aks.azure.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # mcr.microsoft.com should have the NEW resolved IP
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            # packages.aks.azure.com should have the OLD preserved IP
+            The contents of file "$HOSTS_FILE" should include "10.0.0.2 packages.aks.azure.com"
+            The output should include "preserving existing entries"
+            The output should include "Preserved"
+        End
+
+        It 'preserves multiple existing entries for a failed FQDN'
+            # Mock dig: all domains fail
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout (macOS compat)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Pre-populate hosts file with multiple IPs for mcr.microsoft.com
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 mcr.microsoft.com
+2001:db8::1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The contents of file "$HOSTS_FILE" should include "10.0.0.1 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "10.0.0.2 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1 mcr.microsoft.com"
+            The output should include "Preserved"
+        End
+
+        It 'marks preserved entries with resolution failed comment'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout (macOS compat)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+10.0.0.1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "preserving existing entries"
+            The contents of file "$HOSTS_FILE" should include "preserved"
+            The contents of file "$HOSTS_FILE" should include "resolution failed"
+        End
+
+        It 'does not preserve when no existing entries exist for failed FQDN'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout (macOS compat)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Hosts file exists but has no entry for the FQDN we're resolving
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+10.0.0.1 other.domain.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No existing entries to preserve for mcr.microsoft.com"
+        End
+    End
+
     Describe 'Invalid DNS response filtering (mock)'
         setup() {
             TEST_DIR=$(mktemp -d)
