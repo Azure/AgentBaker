@@ -1434,26 +1434,26 @@ enableAKSLocalDNSHostsSetup() {
     # Older VHDs (or certain build modes) may not include them.
     if [ ! -f "${hosts_setup_script}" ]; then
         echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-localdns-hosts-setup"
-        return
+        return 0
     fi
     if [ ! -x "${hosts_setup_script}" ]; then
         echo "Warning: ${hosts_setup_script} is not executable, skipping aks-localdns-hosts-setup"
-        return
+        return 0
     fi
     if [ ! -f "${hosts_setup_service}" ]; then
         echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-localdns-hosts-setup"
-        return
+        return 0
     fi
     if [ ! -f "${hosts_setup_timer}" ]; then
         echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-localdns-hosts-setup"
-        return
+        return 0
     fi
 
     # Verify LOCALDNS_CRITICAL_FQDNS is set before proceeding; if not, skip hosts setup.
     if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
         echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
         echo "Skipping aks-localdns-hosts-setup. Corefile will fall back to version without hosts plugin."
-        return
+        return 0
     fi
 
     # Write a minimal environment file so the systemd service (which reads from

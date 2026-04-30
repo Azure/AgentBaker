@@ -1346,7 +1346,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if profile.LocalDNSProfile == nil {
 				return ""
 			}
-			return strings.Join(profile.LocalDNSProfile.CriticalFQDNs, ",")
+			criticalFQDNs := make([]string, 0, len(profile.LocalDNSProfile.CriticalFQDNs))
+			for _, fqdn := range profile.LocalDNSProfile.CriticalFQDNs {
+				trimmedFQDN := strings.TrimSpace(fqdn)
+				if trimmedFQDN == "" {
+					continue
+				}
+				criticalFQDNs = append(criticalFQDNs, trimmedFQDN)
+			}
+			return strings.Join(criticalFQDNs, ",")
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
