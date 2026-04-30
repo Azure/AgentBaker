@@ -730,7 +730,8 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 //   - LOCALDNS_GENERATED_COREFILE (kept for backward compat with old VHDs, same as BASE)
 //
 // Runtime selection between BASE and EXPERIMENTAL happens in localdns.sh
-// (via select_localdns_corefile(), invoked on localdns service start/restart) based on the availability of /etc/localdns/hosts.
+// (via select_localdns_corefile(), invoked on localdns service start/restart) based on
+// SHOULD_ENABLE_HOSTS_PLUGIN and the availability of the corresponding corefile environment variables.
 func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {
 	if aksnodeconfig == nil {
 		return ""
@@ -752,7 +753,8 @@ func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Con
 
 	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, includeHostsPlugin)
 	if err != nil {
-		return fmt.Sprintf("error getting localdns corefile (%s) from aks node config: %v", variant, err)
+		log.Printf("error getting localdns corefile (%s) from aks node config: %v", variant, err)
+		return ""
 	}
 	return base64.StdEncoding.EncodeToString([]byte(localDnsConfig))
 }
