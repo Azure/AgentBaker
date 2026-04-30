@@ -418,6 +418,7 @@ health-check.localdns.local:53 {
     bind 169.254.10.10
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
+        ttl 5
         reload 5s
         fallthrough
     }
@@ -486,6 +487,7 @@ testdomain456.com:53 {
     bind 169.254.10.11
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
+        ttl 5
         reload 5s
         fallthrough
     }
@@ -606,6 +608,7 @@ health-check.localdns.local:53 {
     bind 169.254.10.10
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
+        ttl 5
         reload 5s
         fallthrough
     }
@@ -674,6 +677,7 @@ testdomain456.com:53 {
     bind 169.254.10.11
     # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
     hosts /etc/localdns/hosts {
+        ttl 5
         reload 5s
         fallthrough
     }

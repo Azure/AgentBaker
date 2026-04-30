@@ -150,7 +150,24 @@ for i in "${!CRITICAL_FQDNS[@]}"; do
     IPV6_ADDRS=$(cat "${RESULTS_DIR}/${i}.v6" 2>/dev/null || true)
 
     if [ -z "${IPV4_ADDRS}" ] && [ -z "${IPV6_ADDRS}" ]; then
-        echo "  WARNING: No IP addresses resolved for ${DOMAIN}"
+        echo "  WARNING: No IP addresses resolved for ${DOMAIN} — preserving existing entries"
+        # Preserve existing entries from the current hosts file so we don't lose
+        # the last known good IPs when a single FQDN fails to resolve.
+        if [ -f "${HOSTS_FILE}" ]; then
+            EXISTING_ENTRIES=$(grep -E "^[^#].*[[:space:]]${DOMAIN}$" "${HOSTS_FILE}" 2>/dev/null || true)
+            if [ -n "${EXISTING_ENTRIES}" ]; then
+                RESOLVED_ANY=true
+                HOSTS_CONTENT+="
+# ${DOMAIN} (preserved — resolution failed)"
+                while IFS= read -r entry; do
+                    HOSTS_CONTENT+="
+${entry}"
+                done <<< "${EXISTING_ENTRIES}"
+                echo "  Preserved $(echo "${EXISTING_ENTRIES}" | wc -l) existing entries for ${DOMAIN}"
+                continue
+            fi
+        fi
+        echo "  No existing entries to preserve for ${DOMAIN}"
         continue
     fi
 
