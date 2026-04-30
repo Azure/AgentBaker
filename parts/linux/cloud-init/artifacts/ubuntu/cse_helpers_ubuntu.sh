@@ -3,8 +3,8 @@
 echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
-aptmarkWALinuxAgent() {
-    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
+holdWALinuxAgent() {
+    echo $(date),$(hostname), startHoldWALinuxAgent "$1"
     wait_for_apt_locks
     if [ "$1" = "hold" ]; then
         # set dpkg selection to 'hold' — prevents apt from upgrading walinuxagent
@@ -13,10 +13,10 @@ aptmarkWALinuxAgent() {
         # set dpkg selection back to 'install' (unhold) — allows apt to upgrade walinuxagent again
         retrycmd_if_failure 120 5 25 bash -c 'set -o pipefail; printf "walinuxagent install\n" | dpkg --set-selections' || exit $ERR_RELEASE_HOLD_WALINUXAGENT
     else
-        echo "$(date),$(hostname), errorAptmarkWALinuxAgent invalid argument '$1'" >&2
+        echo "$(date),$(hostname), errorHoldWALinuxAgent invalid argument '$1'" >&2
         exit 1
     fi
-    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
+    echo $(date),$(hostname), endHoldWALinuxAgent "$1"
 }
 
 wait_for_apt_locks() {

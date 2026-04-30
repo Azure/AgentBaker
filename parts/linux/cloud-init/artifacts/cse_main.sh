@@ -59,7 +59,7 @@ function basePrep {
     if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
         echo "Skipping holding walinuxagent"
     else
-        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+        logs_to_events "AKS.CSE.holdWALinuxAgent" holdWALinuxAgent hold
     fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
@@ -531,7 +531,7 @@ function nodePrep {
                 echo "Skipping unholding walinuxagent"
             else
                 # logs_to_events should not be run on & commands
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         fi
     else
@@ -557,7 +557,7 @@ function nodePrep {
             if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
                 echo "Skipping unholding walinuxagent"
             else
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
