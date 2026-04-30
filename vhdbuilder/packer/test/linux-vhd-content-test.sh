@@ -1238,8 +1238,38 @@ testNfsServerService() {
   echo "$test:Finish"
 }
 
-# Tests that the pam.d settings are set correctly, per the function
-# addFailLockDir in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# CVE-2026-31431 (Copy Fail): Verify algif_aead kernel module is disabled.
+# The modprobe-CIS.conf should contain "install algif_aead /bin/false" which
+# prevents the module from loading. Verify the config is present, the module
+# is not loaded, and that attempting to load it fails.
+testAlgifAeadDisabled() {
+  local test="testAlgifAeadDisabled"
+  echo "$test:Start"
+
+  # Verify modprobe config blocks the module
+  if ! grep -qs "install algif_aead /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+    err "$test" "algif_aead disable rule not found in /etc/modprobe.d/*.conf"
+    return 1
+  fi
+  echo "$test: modprobe config correctly blocks algif_aead"
+
+  # Verify the module is not currently loaded
+  if grep -qE '^algif_aead ' /proc/modules 2>/dev/null; then
+    err "$test" "algif_aead kernel module is loaded despite being disabled"
+    return 1
+  fi
+  echo "$test: algif_aead module is not loaded"
+
+  # Verify that attempting to load the module fails
+  if modprobe algif_aead 2>/dev/null; then
+    err "$test" "modprobe algif_aead succeeded — module should be blocked"
+    rmmod algif_aead 2>/dev/null || true
+    return 1
+  fi
+  echo "$test: modprobe algif_aead correctly refused to load"
+
+  echo "$test:Finish"
+}
 testPamDSettings() {
   local os_sku="${1}"
   local os_version="${2}"
@@ -2340,3 +2370,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
+testAlgifAeadDisabled
