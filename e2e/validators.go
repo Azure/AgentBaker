@@ -2253,3 +2253,43 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
+
+// ValidateAlgifAeadMitigation verifies CVE-2026-31431 mitigation is active:
+// the algif_aead kernel module must be blocked via modprobe config, not loaded,
+// and modprobe must refuse to load it.
+func ValidateAlgifAeadMitigation(ctx context.Context, s *Scenario) {
+s.T.Helper()
+
+// Flatcar uses a different kernel module setup
+if s.VHD.Flatcar {
+s.T.Log("Skipping algif_aead validation: not applicable for Flatcar")
+return
+}
+
+script := strings.Join([]string{
+`# Check modprobe config blocks the module`,
+`if ! grep -qs 'install algif_aead /bin/false' /etc/modprobe.d/*.conf 2>/dev/null; then`,
+`  echo "FAIL: algif_aead disable rule not found in /etc/modprobe.d/*.conf"`,
+`  exit 1`,
+`fi`,
+`echo "PASS: modprobe config blocks algif_aead"`,
+``,
+`# Check module is not loaded`,
+`if grep -qE '^algif_aead ' /proc/modules 2>/dev/null; then`,
+`  echo "FAIL: algif_aead module is loaded"`,
+`  exit 1`,
+`fi`,
+`echo "PASS: algif_aead module is not loaded"`,
+``,
+`# Check modprobe refuses to load it`,
+`if sudo modprobe algif_aead 2>/dev/null; then`,
+`  echo "FAIL: modprobe algif_aead succeeded, should be blocked"`,
+`  sudo rmmod algif_aead 2>/dev/null || true`,
+`  exit 1`,
+`fi`,
+`echo "PASS: modprobe algif_aead correctly refused"`,
+}, "\n")
+
+execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+"CVE-2026-31431 (algif_aead) mitigation validation failed")
+}
