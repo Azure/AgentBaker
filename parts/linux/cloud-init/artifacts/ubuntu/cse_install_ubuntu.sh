@@ -46,6 +46,7 @@ installDeps() {
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
@@ -62,50 +63,18 @@ installDeps() {
         pkg_list+=("aznfs=3.0.14")
     fi
 
-    # Filter out packages already installed at the required version to skip
-    # the expensive apt_get_update + per-package apt_get_install loop (~100s).
-    # Uses dpkg -l for real packages. For virtual packages (e.g., rng-tools
-    # provided by rng-tools-debian), dpkg -s detects satisfaction without
-    # touching the apt cache.
-    local missing_pkgs=()
-    for pkg in "${pkg_list[@]}"; do
-        local pkg_name="${pkg%%=*}"
-        if dpkg -l "$pkg_name" 2>/dev/null | grep -q "^ii"; then
-            if [ "$pkg_name" != "$pkg" ]; then
-                # Package has a pinned version (e.g., aznfs=3.0.14).
-                # Check if installed version matches the requested one.
-                local requested_ver="${pkg#*=}"
-                local installed_ver
-                installed_ver=$(dpkg-query -W -f='${Version}' "$pkg_name" 2>/dev/null) || installed_ver=""
-                if [ "$installed_ver" != "$requested_ver" ]; then
-                    case "$installed_ver" in
-                        "${requested_ver}"*) ;; # prefix matches (e.g., 3.0.14-1 matches 3.0.14)
-                        *) missing_pkgs+=("$pkg") ;;
-                    esac
-                fi
+    # Batch install all packages in a single apt_get_install call instead of
+    # looping one-by-one. On failure, fall back to individual installs for
+    # diagnostic clarity.
+    if ! apt_get_install 30 1 600 "${pkg_list[@]}"; then
+        echo "Batch install failed, falling back to individual package install"
+        for apt_package in "${pkg_list[@]}"; do
+            if ! apt_get_install 30 1 600 "$apt_package"; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
             fi
-        elif ! dpkg -s "$pkg_name" &>/dev/null; then
-            # dpkg -s also resolves virtual packages — it succeeds when
-            # any provider is installed (e.g., rng-tools → rng-tools-debian).
-            missing_pkgs+=("$pkg")
-        fi
-    done
-
-    if [ ${#missing_pkgs[@]} -gt 0 ]; then
-        echo "Packages to install (${#missing_pkgs[@]}/${#pkg_list[@]}): ${missing_pkgs[*]}"
-        apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-        if ! apt_get_install 30 1 600 "${missing_pkgs[@]}"; then
-            echo "Batch install failed, falling back to individual package install"
-            for apt_package in "${missing_pkgs[@]}"; do
-                if ! apt_get_install 30 1 600 "$apt_package"; then
-                    tail -n 200 /var/log/apt/term.log || true
-                    tail -n 200 /var/log/dpkg.log || true
-                    exit $ERR_APT_INSTALL_TIMEOUT
-                fi
-            done
-        fi
-    else
-        echo "All ${#pkg_list[@]} required packages are already installed, skipping apt_get_update and apt_get_install"
+        done
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
