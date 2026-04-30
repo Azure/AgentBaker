@@ -1296,11 +1296,12 @@ generateLocalDNSFiles() {
     # based on the SHOULD_ENABLE_HOSTS_PLUGIN feature flag on service start.
     base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
-    # Log whether the generated corefile includes hosts plugin
+    # Log whether the initial corefile includes hosts plugin.
+    # This is the BASE corefile; localdns.sh may select the EXPERIMENTAL variant at service start.
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
-        echo "Generated corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
+        echo "Initial corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
     else
-        echo "Generated corefile at ${LOCALDNS_CORE_FILE} DOES NOT include hosts plugin"
+        echo "Initial corefile at ${LOCALDNS_CORE_FILE} DOES NOT include hosts plugin (localdns.sh selects variant at runtime)"
     fi
 
     # Create environment file for corefile regeneration.
