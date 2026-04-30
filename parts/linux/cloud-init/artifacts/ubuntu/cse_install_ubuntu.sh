@@ -504,8 +504,9 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    UBUNTU_RELEASE=$(lsb_release -r -s)
-    UBUNTU_CODENAME=$(lsb_release -c -s)
+    # UBUNTU_RELEASE is already set at script load time from cse_install.sh.
+    # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
+    UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
