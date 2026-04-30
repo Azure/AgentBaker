@@ -98,7 +98,7 @@ fi
 if [ -n "${AZURE_RESOURCE_GROUP_NAME}" ]; then
   gallery_list=$(az sig list -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
 
-  due_date=$(date +%F -d "90 days ago")
+  due_date=$(date +%F -d "7 days ago")
   for gallery in $gallery_list; do
     image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
     for image_definition in $image_defs; do
