@@ -20,9 +20,10 @@ Describe 'aks-localdns-hosts-setup.sh'
 set -uo pipefail
 HOSTS_FILE="${hosts_file}"
 UPSTREAM_DNS_FILE="${test_dir}/upstream-dns"
+LOCALDNS_COREFILE="${test_dir}/updated.localdns.corefile"
 export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
 EOF
-        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
         echo "${test_script}"
     }
@@ -43,9 +44,10 @@ set -uo pipefail
 export PATH="${mock_bin_dir}:\$PATH"
 HOSTS_FILE="${hosts_file}"
 UPSTREAM_DNS_FILE="${test_dir}/upstream-dns"
+LOCALDNS_COREFILE="${test_dir}/updated.localdns.corefile"
 export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
 EOF
-        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
         chmod +x "${test_script}"
         echo "${test_script}"
     }
@@ -197,9 +199,10 @@ MOCK_EOF
 set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
 UPSTREAM_DNS_FILE="${TEST_DIR}/upstream-dns"
+LOCALDNS_COREFILE="${TEST_DIR}/updated.localdns.corefile"
 unset LOCALDNS_CRITICAL_FQDNS
 EOF
-            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
@@ -215,9 +218,10 @@ EOF
 set -uo pipefail
 HOSTS_FILE="${HOSTS_FILE}"
 UPSTREAM_DNS_FILE="${TEST_DIR}/upstream-dns"
+LOCALDNS_COREFILE="${TEST_DIR}/updated.localdns.corefile"
 export LOCALDNS_CRITICAL_FQDNS=""
 EOF
-            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
             chmod +x "${test_script}"
 
             When run command bash "${test_script}"
@@ -999,6 +1003,193 @@ MOCK_EOF
             chmod +x "${MOCK_BIN}/dig"
             TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
             # Do NOT create upstream-dns file
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to corefile when upstream-dns file is missing'
+            # Mock dig that only succeeds with @10.0.0.4 (the upstream from corefile)
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+# No @server or wrong server — fail
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file, but create a corefile with root domain block
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.0.0.4 {
+        policy sequential
+        max_concurrent 1000
+    }
+    cache 30 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile: 10.0.0.4"
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to corefile with multiple upstream DNS servers'
+            # Mock dig that succeeds with either @10.0.0.4 or @10.0.0.5
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" || "$arg" == "@10.0.0.5" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Corefile with two upstream servers in root domain forward
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+.:53 {
+    bind 169.254.10.10
+    forward . 10.0.0.4 10.0.0.5 {
+        policy sequential
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile:"
+            The output should include "Using upstream DNS servers:"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'does not use cluster.local forward IP from corefile'
+            # Mock dig that fails if @10.0.0.10 (CoreDNS service VIP) is used
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.10" ]]; then
+        echo "ERROR: should not use CoreDNS service VIP" >&2
+        exit 1
+    fi
+    if [[ "$arg" == "@168.63.129.16" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Corefile where root domain uses Azure DNS and cluster.local uses CoreDNS VIP
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile: 168.63.129.16"
+            The output should include "Using upstream DNS servers: 168.63.129.16"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to corefile when upstream-dns file contains only whitespace'
+            # Mock dig that succeeds with @10.0.0.4 from corefile fallback
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Whitespace-only upstream-dns file triggers corefile fallback
+            printf '   \n  \n' > "${TEST_DIR}/upstream-dns"
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+.:53 {
+    bind 169.254.10.10
+    forward . 10.0.0.4 {
+        policy sequential
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile: 10.0.0.4"
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'uses system resolver when both upstream-dns file and corefile are missing'
+            # Mock dig that succeeds without @server (system resolver)
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file or corefile
 
             When run command bash "${TEST_SCRIPT}"
             The status should be success
