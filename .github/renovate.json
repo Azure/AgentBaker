@@ -273,6 +273,9 @@
       "reviewers": [
         "team:containerinsights"
       ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
       "assignees": [
         "ganga1980",
         "suyadav1",
