@@ -1313,6 +1313,9 @@ generateLocalDNSFiles() {
     # LOCALDNS_COREFILE_EXPERIMENTAL is the variant WITH hosts plugin.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] && [ -z "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ]; then
+        echo "WARNING: SHOULD_ENABLE_HOSTS_PLUGIN=true but LOCALDNS_COREFILE_EXPERIMENTAL is empty. Hosts plugin will fall back to BASE corefile at runtime."
+    fi
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
 LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_base}
 LOCALDNS_COREFILE_BASE=${corefile_base}
