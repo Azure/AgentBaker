@@ -38,6 +38,14 @@ EOF
         local fqdns="${4:-mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com}"
         local test_script="${test_dir}/aks-localdns-hosts-setup-test.sh"
 
+        # Mock date to return a fixed timestamp that won't collide with test
+        # assertion substrings (e.g., "1:2" appears in times like "21:28").
+        cat > "${mock_bin_dir}/date" << 'MOCK_EOF'
+#!/usr/bin/env bash
+echo "Thu Jan  1 00:00:00 UTC 2099"
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/date"
+
         cat > "${test_script}" << EOF
 #!/usr/bin/env bash
 set -uo pipefail
