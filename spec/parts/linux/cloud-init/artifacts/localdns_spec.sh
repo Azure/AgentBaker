@@ -1539,7 +1539,7 @@ EOF
             The stdout should include "skipping annotation."
         End
 
-        It 'should skip annotation if corefile does not contain hosts plugin block'
+        It 'should attempt to remove annotation if corefile does not contain hosts plugin block'
             # Create corefile without hosts plugin
             cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
 .:53 {
@@ -1548,7 +1548,7 @@ EOF
 EOF
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Localdns corefile does not contain hosts plugin block, skipping annotation."
+            The stdout should include "Localdns corefile does not contain hosts plugin block."
         End
 
         It 'should skip annotation if hosts file does not exist'
@@ -1564,8 +1564,7 @@ EOF
             rm -f "$LOCALDNS_HOSTS_FILE"
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Hosts file does not exist"
-            The stdout should include "skipping annotation despite corefile having hosts plugin."
+            The stdout should include "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
         End
 
         It 'should skip annotation if hosts file has no IP mappings'
@@ -1584,7 +1583,7 @@ EOF
 EOF
             When run annotate_node_with_hosts_plugin_status
             The status should be success
-            The stdout should include "Hosts file exists but has no IP mappings, skipping annotation."
+            The stdout should include "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
         End
 
         It 'should skip annotation if kubectl binary is not found'
@@ -1814,6 +1813,80 @@ KUBECTL_EOF
             The stdout should include "Waiting for node testnode123 to be registered in the cluster"
             The stdout should include "Node testnode123 is registered in the cluster"
             The stdout should include "Successfully set hosts plugin annotation"
+        End
+
+        It 'should remove stale annotation on rollback when corefile has no hosts plugin block'
+            # Create corefile WITHOUT hosts plugin block (simulates rollback to BASE corefile)
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
+            touch "$KUBECONFIG"
+
+            if [ ! -d /opt ]; then
+                Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
+            fi
+
+            # Create mock kubectl binary that verifies the annotation removal (- suffix)
+            mkdir -p /opt/bin || Skip "Cannot create /opt/bin directory"
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" && "$4" == "--overwrite" && "$5" == "node" ]]; then
+    # Verify the annotation key ends with - (removal)
+    if [[ "$7" == "kubernetes.azure.com/localdns-hosts-plugin-" ]]; then
+        echo "node/testnode123 annotated"
+        exit 0
+    else
+        echo "Error: Expected annotation removal key ending with -, got: $7" >&2
+        exit 1
+    fi
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns corefile does not contain hosts plugin block."
+            The stdout should include "Removing hosts plugin annotation for node testnode123 (hosts plugin not active)."
+            The stdout should include "Successfully removed hosts plugin annotation."
+        End
+
+        It 'should handle annotation removal failure gracefully (non-fatal)'
+            # Create corefile WITHOUT hosts plugin block (rollback scenario)
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
+            touch "$KUBECONFIG"
+
+            if [ ! -d /opt ]; then
+                Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
+            fi
+
+            # Create mock kubectl binary that fails the removal
+            mkdir -p /opt/bin || Skip "Cannot create /opt/bin directory"
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" ]]; then
+    echo "Error: failed to remove annotation" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Removing hosts plugin annotation for node testnode123 (hosts plugin not active)."
+            The stdout should include "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
+            The stderr should include "Error: failed to remove annotation"
         End
 
         It 'should timeout and skip annotation if node never registers'
