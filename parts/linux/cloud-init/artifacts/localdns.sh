@@ -484,8 +484,8 @@ annotate_node_with_hosts_plugin_status() {
     if grep -q "hosts /etc/localdns/hosts" "${corefile_path}"; then
         # Additionally verify that the hosts file exists and has content
         local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
-        if [ -f "${hosts_file}" ] && grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}"; then
-            echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null || echo 0) entries."
+        if [ -f "${hosts_file}" ] && grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[[:alnum:]]' "${hosts_file}"; then
+            echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[[:alnum:]]' "${hosts_file}" 2>/dev/null || echo 0) entries."
             should_annotate=true
         else
             echo "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
