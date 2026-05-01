@@ -467,32 +467,27 @@ annotate_node_with_hosts_plugin_status() {
     # This is the ground truth - we check the actual corefile being used by the service,
     # not just what was selected during CSE, in case the file was modified or regenerated.
     local corefile_path="${UPDATED_LOCALDNS_CORE_FILE:-/opt/azure/containers/localdns/updated.localdns.corefile}"
+    local should_annotate=false
 
     if [ ! -f "${corefile_path}" ]; then
         echo "Localdns corefile not found at ${corefile_path}, skipping annotation."
         return 0
     fi
 
-    # Check if the corefile contains the hosts plugin block
-    if ! grep -q "hosts /etc/localdns/hosts" "${corefile_path}"; then
-        echo "Localdns corefile does not contain hosts plugin block, skipping annotation."
-        return 0
+    # Determine whether hosts plugin is active based on corefile and hosts file state
+    if grep -q "hosts /etc/localdns/hosts" "${corefile_path}"; then
+        # Additionally verify that the hosts file exists and has content
+        local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+        if [ -f "${hosts_file}" ] && grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}"; then
+            echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null || echo 0) entries."
+            should_annotate=true
+        else
+            echo "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
+            return 0
+        fi
+    else
+        echo "Localdns corefile does not contain hosts plugin block."
     fi
-
-    # Additionally verify that the hosts file exists and has content
-    # Allow overriding for testing via LOCALDNS_HOSTS_FILE environment variable
-    local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
-    if [ ! -f "${hosts_file}" ]; then
-        echo "Hosts file does not exist at ${hosts_file}, skipping annotation despite corefile having hosts plugin."
-        return 0
-    fi
-
-    if ! grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}"; then
-        echo "Hosts file exists but has no IP mappings, skipping annotation."
-        return 0
-    fi
-
-    echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[a-zA-Z]' "${hosts_file}" 2>/dev/null || echo 0) entries."
 
     # Only proceed if we have the necessary kubectl binary and configuration
     if [ ! -x /opt/bin/kubectl ]; then
@@ -548,12 +543,23 @@ annotate_node_with_hosts_plugin_status() {
         return 0
     fi
 
-    # Set annotation to indicate hosts plugin is in use
-    echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
-    if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
-        echo "Successfully set hosts plugin annotation."
+    # Set or remove annotation based on hosts plugin state
+    if [ "${should_annotate}" = "true" ]; then
+        echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
+            echo "Successfully set hosts plugin annotation."
+        else
+            echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+        fi
     else
-        echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+        # Remove stale annotation after rollback to avoid advertising hosts plugin as enabled
+        # when it's no longer in use. The - suffix tells kubectl to remove the annotation.
+        echo "Removing hosts plugin annotation for node ${node_name} (hosts plugin not active)."
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin-; then
+            echo "Successfully removed hosts plugin annotation."
+        else
+            echo "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
+        fi
     fi
 
     return 0
