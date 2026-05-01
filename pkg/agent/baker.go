@@ -1020,7 +1020,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if cs.IsAKSCustomCloud() && cs.Properties.CustomCloudEnv.ResourceManagerEndpoint != "" {
 				return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
 			}
-			return getArmResourceEndpoint(GetCloudTargetEnv(cs.Location))
+			return GetARMResourceEndpoint(GetCloudTargetEnv(cs.Location))
 		},
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
@@ -1338,8 +1338,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	}
 }
 
-// getArmResourceEndpoint returns the ARM resource endpoint for the given cloud name.
-func getArmResourceEndpoint(cloudName string) string {
+// GetARMResourceEndpoint returns the ARM resource endpoint for the given cloud name.
+func GetARMResourceEndpoint(cloudName string) string {
 	switch cloudName {
 	case datamodel.AzureUSGovernmentCloud:
 		return "https://management.usgovcloudapi.net/"
