@@ -96,8 +96,14 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
-
+    # Configure SSH pubkey auth in background — not critical for provisioning and
+    # the SSH service may not be ready yet in scriptless mode (ANC starts early).
+    (
+        # Wait for SSH service: "ssh" on Ubuntu, "sshd" on AzureLinux
+        systemctl is-active --quiet ssh.service || systemctl is-active --quiet sshd.service || \
+            systemctl start ssh.service 2>/dev/null || systemctl start sshd.service 2>/dev/null || true
+        logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
+    ) &
 
     if [ "${DISABLE_SSH}" = "true" ]; then
         disableSSH || exit $ERR_DISABLE_SSH
