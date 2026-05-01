@@ -40,7 +40,7 @@ echo "Received ${#CRITICAL_FQDNS[@]} critical FQDNs from RP"
 # If the file doesn't exist yet (first run during CSE, before localdns starts), we don't pin
 # any upstream — dig uses the system resolver, which still points to the real upstream at that point.
 UPSTREAM_DNS_FILE="/etc/localdns/upstream-dns"
-LOCALDNS_COREFILE="/etc/localdns/updated.localdns.corefile"
+LOCALDNS_COREFILE="/opt/azure/containers/localdns/updated.localdns.corefile"
 UPSTREAM_DNS_SERVERS=""
 if [ -f "${UPSTREAM_DNS_FILE}" ]; then
     # File contains space-separated DNS server IPs (e.g., "10.0.0.4 10.0.0.5" or "168.63.129.16").
