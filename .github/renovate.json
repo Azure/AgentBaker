@@ -273,9 +273,6 @@
       "reviewers": [
         "team:containerinsights"
       ],
-      "matchUpdateTypes": [
-        "minor"
-      ],
       "assignees": [
         "ganga1980",
         "suyadav1",
@@ -283,6 +280,15 @@
         "zanejohnson-azure",
         "joby-thomas"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "enabled": true
     },
     {
       "matchPackageNames": [
