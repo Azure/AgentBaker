@@ -91,8 +91,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 				s.T.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
 			} else {
 				// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
-				// The hosts file is already populated by CSE (enableAKSLocalDNSHostsSetup runs the script
-				// synchronously during provisioning), so no explicit service trigger is needed here.
+				// CSE sets up the hosts file and enables the aks-localdns-hosts-setup timer, but population
+				// is performed asynchronously by the timer/service rather than synchronously during provisioning.
 				ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
 				// Validate aks-localdns-hosts-setup service ran successfully and timer is active
 				ValidateAKSLocalDNSHostsSetupService(ctx, s)

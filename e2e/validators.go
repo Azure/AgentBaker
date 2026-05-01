@@ -1485,45 +1485,68 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
+// The hosts file is populated asynchronously by the aks-localdns-hosts-setup timer/service, so we poll with a timeout.
 func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
 	s.T.Helper()
 
-	// Build script that resolves each FQDN and checks it exists in hosts file
+	// Build script that polls until all FQDNs have at least one IPv4 entry in hosts file
 	script := fmt.Sprintf(`set -euo pipefail
 hosts_file="/etc/localdns/hosts"
 fqdns=(%s)
+timeout_secs=60
+poll_interval_secs=5
+deadline=$((SECONDS + timeout_secs))
 
-echo "=== Validating /etc/localdns/hosts contains resolved IPs for critical FQDNs ==="
-echo ""
-echo "Current hosts file contents:"
-cat "$hosts_file"
-echo ""
-
-errors=0
-for fqdn in "${fqdns[@]}"; do
-    echo "Checking FQDN: $fqdn"
-    # Escape dots in FQDN for use in regex (. is a regex wildcard)
-    fqdn_escaped=$(echo "$fqdn" | sed 's/\./\\./g')
-
-    # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
-    # rather than requiring every currently resolved IP to be present. This avoids
-    # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
-    if grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn_escaped"'([[:space:]]|$)' "$hosts_file"; then
-        echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+while true; do
+    echo "Current hosts file contents:"
+    if [ -f "$hosts_file" ]; then
+        cat "$hosts_file"
     else
-        echo "  ERROR: No IPv4 entry found for $fqdn in hosts file"
-        errors=$((errors + 1))
+        echo "Hosts file not found yet: $hosts_file"
     fi
-done
+    echo ""
 
-echo ""
-if [ $errors -gt 0 ]; then
-    echo "FAILED: $errors FQDNs missing from hosts file"
-    exit 1
-else
-    echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
-    exit 0
-fi
+    errors=0
+    for fqdn in "${fqdns[@]}"; do
+        echo "Checking FQDN: $fqdn"
+        # Escape dots in FQDN for use in regex (. is a regex wildcard)
+        fqdn_escaped=$(echo "$fqdn" | sed 's/\./\\./g')
+
+        # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+        # rather than requiring every currently resolved IP to be present. This avoids
+        # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+        if [ -f "$hosts_file" ] && grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn_escaped"'([[:space:]]|$)' "$hosts_file"; then
+            echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+        else
+            echo "  WAIT: No IPv4 entry found for $fqdn in hosts file yet"
+            errors=$((errors + 1))
+        fi
+    done
+
+    echo ""
+    if [ "$errors" -eq 0 ]; then
+        echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
+        exit 0
+    fi
+
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "FAILED: Timed out after ${timeout_secs}s waiting for $errors FQDN(s) to appear in hosts file"
+        echo ""
+        echo "Final hosts file contents:"
+        if [ -f "$hosts_file" ]; then
+            cat "$hosts_file"
+        else
+            echo "Hosts file not found: $hosts_file"
+        fi
+        echo ""
+        echo "Recent journal output for aks-localdns-hosts-setup.service and timer:"
+        journalctl --no-pager -u aks-localdns-hosts-setup.service -u aks-localdns-hosts-setup.timer -n 50 || true
+        exit 1
+    fi
+
+    echo "Retrying in ${poll_interval_secs}s..."
+    sleep "$poll_interval_secs"
+done
 `, quoteFQDNsForBash(fqdns))
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
