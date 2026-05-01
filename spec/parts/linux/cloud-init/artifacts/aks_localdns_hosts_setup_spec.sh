@@ -77,6 +77,25 @@ MOCK_EOF
     }
 
     # -----------------------------------------------------------------------
+    # Tests verifying production constants match expected paths
+    # -----------------------------------------------------------------------
+
+    Describe 'Production path constants'
+        It 'has the correct corefile path matching localdns.sh'
+            # Verify that the hardcoded LOCALDNS_COREFILE path in the hosts-setup script
+            # matches the UPDATED_LOCALDNS_CORE_FILE path used by localdns.sh.
+            # This catches path mismatches that unit tests mask by overriding to temp dirs.
+            When run command grep '^LOCALDNS_COREFILE=' "${SCRIPT_PATH}"
+            The output should include '/opt/azure/containers/localdns/updated.localdns.corefile'
+        End
+
+        It 'has the correct upstream DNS file path'
+            When run command grep '^UPSTREAM_DNS_FILE=' "${SCRIPT_PATH}"
+            The output should include '/etc/localdns/upstream-dns'
+        End
+    End
+
+    # -----------------------------------------------------------------------
     # Tests using real dig (no mocks)
     # -----------------------------------------------------------------------
 
