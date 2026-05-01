@@ -286,7 +286,8 @@
         "azuremonitor/containerinsights/ciprod"
       ],
       "matchUpdateTypes": [
-        "minor"
+        "minor",
+        "patch"
       ],
       "enabled": true
     },
