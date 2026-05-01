@@ -1,6 +1,0 @@
-server = "https://mcr.azk8s.cn"
-
-[host."https://mcr.azure.cn"]
-  capabilities = ["pull", "resolve"]
-[host."https://mcr.azure.cn".header]
-    X-Forwarded-For = ["mcr.azk8s.cn"]
