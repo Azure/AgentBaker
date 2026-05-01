@@ -493,6 +493,23 @@ func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string)
 	}
 }
 
+func ValidateSymlinkTarget(ctx context.Context, s *Scenario, linkPath string, expectedTarget string) {
+	s.T.Helper()
+	steps := []string{
+		"set -ex",
+		fmt.Sprintf("readlink -f %s", linkPath),
+	}
+	result := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if result.exitCode != "0" {
+		s.T.Fatalf("expected symlink at %s, but readlink failed: %s", linkPath, result.stderr)
+	}
+	actual := strings.TrimSpace(result.stdout)
+	expected := strings.TrimSpace(expectedTarget)
+	if actual != expected {
+		s.T.Fatalf("expected symlink %s to point to %s, but it points to %s", linkPath, expected, actual)
+	}
+}
+
 func ValidateFileIsRegularFile(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 

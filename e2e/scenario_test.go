@@ -212,6 +212,27 @@ func Test_ACL(t *testing.T) {
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
 				// ACL uses Azure Linux CA trust paths under /etc (read-only /usr via dm-verity)
 				ValidateNonEmptyDirectory(ctx, s, "/etc/pki/ca-trust/source/anchors")
+
+				// Verify the ACL-specific storage.links workaround from parts/linux/cloud-init/acl.yml
+				// took effect: explicit sysinit.target.wants symlinks ensure the ignition-bootcmds and
+				// ignition-file-extract services run on first boot even though /etc/machine-id is empty
+				// (rather than absent) after the ACL VHD build.
+				//
+				// This workaround is only rendered into customData on the legacy CSE path. In scriptless
+				// mode the bootstrapping path is driven by aks-node-controller and these ignition
+				// services are not part of the customData, so skip the validation there.
+				if s.Runtime == nil || !s.Runtime.EnableScriptlessNBCCSECmd {
+					ValidateSymlinkTarget(ctx, s,
+						"/etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service",
+						"/etc/systemd/system/ignition-bootcmds.service",
+					)
+					ValidateSymlinkTarget(ctx, s,
+						"/etc/systemd/system/sysinit.target.wants/ignition-file-extract.service",
+						"/etc/systemd/system/ignition-file-extract.service",
+					)
+					ValidateSystemdUnitIsNotFailed(ctx, s, "ignition-bootcmds.service")
+					ValidateSystemdUnitIsNotFailed(ctx, s, "ignition-file-extract.service")
+				}
 			},
 		},
 	})
