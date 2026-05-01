@@ -40,6 +40,7 @@ echo "Received ${#CRITICAL_FQDNS[@]} critical FQDNs from RP"
 # If the file doesn't exist yet (first run during CSE, before localdns starts), we don't pin
 # any upstream — dig uses the system resolver, which still points to the real upstream at that point.
 UPSTREAM_DNS_FILE="/etc/localdns/upstream-dns"
+LOCALDNS_COREFILE="/etc/localdns/updated.localdns.corefile"
 UPSTREAM_DNS_SERVERS=""
 if [ -f "${UPSTREAM_DNS_FILE}" ]; then
     # File contains space-separated DNS server IPs (e.g., "10.0.0.4 10.0.0.5" or "168.63.129.16").
@@ -48,6 +49,30 @@ if [ -f "${UPSTREAM_DNS_FILE}" ]; then
     UPSTREAM_DNS_SERVERS=$(tr -s '[:space:]' ' ' < "${UPSTREAM_DNS_FILE}" 2>/dev/null)
     UPSTREAM_DNS_SERVERS="${UPSTREAM_DNS_SERVERS# }"
     UPSTREAM_DNS_SERVERS="${UPSTREAM_DNS_SERVERS% }"
+fi
+# Fallback: if the upstream-dns file is missing/empty/corrupt, parse the upstream from the
+# corefile's root domain (".:53") server block. We only want the root domain's "forward ." IPs
+# (the real VNet DNS servers), not cluster.local's forward (CoreDNS service VIP which may not
+# be reachable via dig from the host). The corefile always has the correct upstream IPs after
+# localdns.sh runs replace_azurednsip_in_corefile().
+if [ -z "${UPSTREAM_DNS_SERVERS}" ] && [ -f "${LOCALDNS_COREFILE}" ]; then
+    UPSTREAM_DNS_SERVERS=$(awk '
+        /^\.:53[[:space:]]/ { in_root=1 }
+        in_root && /^[[:space:]]*forward[[:space:]]+\./ {
+            for (i=3; i<=NF; i++) {
+                if ($i == "{") break
+                printf "%s ", $i
+            }
+            exit
+        }
+        # A new server block (non-indented line ending with {) exits root
+        in_root && /^[^[:space:]].*\{/ && !/^\.:53/ { in_root=0 }
+    ' "${LOCALDNS_COREFILE}" 2>/dev/null)
+    UPSTREAM_DNS_SERVERS="${UPSTREAM_DNS_SERVERS# }"
+    UPSTREAM_DNS_SERVERS="${UPSTREAM_DNS_SERVERS% }"
+    if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
+        echo "Upstream DNS file unavailable, parsed upstream from corefile: ${UPSTREAM_DNS_SERVERS}"
+    fi
 fi
 if [ -n "${UPSTREAM_DNS_SERVERS}" ]; then
     echo "Using upstream DNS servers: ${UPSTREAM_DNS_SERVERS}"
