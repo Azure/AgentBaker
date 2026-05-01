@@ -643,6 +643,54 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_ANCHotfix_BinarySelection tests that the wrapper script correctly
+// selects a pre-existing hotfix binary over the VHD-baked binary. This validates the
+// wrapper's binary selection logic without requiring an actual PMC download.
+// A stub script at the hotfix binary path delegates to the real ANC binary.
+//
+// Note: In the EnableScriptlessCSECmd (non-NBC) path, the wrapper runs at boot and
+// performs binary selection, but exits before provisioning because no config/nbc-cmd
+// file exists at that point. Provisioning happens later via CSE → provision.sh.
+// This test validates the wrapper's selection logic; node readiness (implicit in
+// RunScenario) confirms provisioning succeeded via the CSE path.
+func Test_Ubuntu2204_ANCHotfix_BinarySelection(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the wrapper selects a pre-seeded hotfix binary",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					// Hotfix JSON — triggers download-hotfix, but a real hotfix install
+					// should be skipped because this intentionally old version will not
+					// target the VHD base version. The pre-seeded binary below will still
+					// be found and selected by the wrapper.
+					Path:    "/opt/azure/containers/aks-node-controller-hotfix.json",
+					Content: `{"version":"200001.01.1"}`,
+				},
+				{
+					// Pre-seed the hotfix binary path with a stub script that delegates
+					// to the real VHD-baked ANC binary. This simulates a successful
+					// hotfix download without needing PMC.
+					Path:        "/opt/azure/containers/aks-node-controller-hotfix",
+					Permissions: "0755",
+					Content:     "#!/bin/bash\nexec /opt/azure/containers/aks-node-controller \"$@\"",
+				},
+			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Wrapper found the pre-seeded hotfix binary and selected it
+				ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", "Using hotfix binary")
+				// download-hotfix was triggered by the hotfix JSON
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log",
+					"aks-node-controller hotfix download finished")
+			},
+		},
+	})
+}
+
 // Returns config for the 'gpu' E2E scenario
 func Test_Ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
