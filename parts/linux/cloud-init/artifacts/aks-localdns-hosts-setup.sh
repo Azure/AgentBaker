@@ -341,7 +341,7 @@ if [ $VALID_ENTRIES -eq 0 ]; then
     exit 1
 fi
 
-echo "✓ All entries in temporary hosts file are valid (IP FQDN format)"
+echo "All entries in temporary hosts file are valid (IP FQDN format)"
 echo "Found ${VALID_ENTRIES} valid IP address mappings"
 
 # Atomic rename with explicit error checking - only done after validation passes

@@ -840,6 +840,9 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 // from the LocalDnsProfile. These FQDNs are passed from the RP so the hosts
 // setup script doesn't need cloud-specific logic.
 func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
+	if config == nil {
+		return ""
+	}
 	fqdns := config.GetLocalDnsProfile().GetCriticalFqdns()
 	trimmed := make([]string, 0, len(fqdns))
 	for _, fqdn := range fqdns {
