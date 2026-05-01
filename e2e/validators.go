@@ -1645,7 +1645,7 @@ echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
 echo ""
 
 echo "Checking hosts plugin has fallthrough directive..."
-if ! grep -A1 "hosts /etc/localdns/hosts" "$corefile" | grep -q "fallthrough"; then
+if ! grep -A5 "hosts /etc/localdns/hosts" "$corefile" | grep -q "fallthrough"; then
     echo "WARNING: hosts plugin may be missing 'fallthrough' directive"
 fi
 echo "✓ hosts plugin configuration looks correct"
