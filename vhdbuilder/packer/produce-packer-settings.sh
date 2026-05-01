@@ -23,6 +23,13 @@ CREATE_TIME="$(date +%s)"
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
 
+# RELEASE_IMAGE_VERSION is the AgentBaker release image version (YYYYMM.DD.PATCH) baked into the VHD so a
+# provisioned node can self-identify which AgentBaker release it corresponds to. The release pipeline sets
+# IMAGE_VERSION (see .pipelines/templates/.set-image-version-template.yaml); for ad-hoc/PR builds we fall
+# back to the current date which matches the convention used downstream by generate-vhd-publishing-info.sh
+# and vhd-scanning.sh.
+RELEASE_IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
+
 # Check if the file exists, if it does, the build is triggered from an official branch
 if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
   # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
@@ -230,6 +237,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "SKIP_EXTENSION_CHECK": "${SKIP_EXTENSION_CHECK}",
   "INSTALL_OPEN_SSH_SERVER": "${INSTALL_OPEN_SSH_SERVER}",
   "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
+  "release_image_version": "${RELEASE_IMAGE_VERSION}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",

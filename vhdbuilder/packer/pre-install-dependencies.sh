@@ -31,6 +31,15 @@ if isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT"; then
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
+# Bake the AgentBaker release image version into the ACL VHD so a provisioned node can
+# self-identify which AgentBaker release it corresponds to. RELEASE_IMAGE_VERSION is
+# YYYYMM.DD.PATCH and is plumbed in by produce-packer-settings.sh from the pipeline's
+# IMAGE_VERSION env (with a date-based fallback for non-release runs).
+if isACL "$OS" "$OS_VARIANT" && [ -n "${RELEASE_IMAGE_VERSION:-}" ]; then
+  echo "${RELEASE_IMAGE_VERSION}" > /opt/azure/vhd-image-version
+  chmod 644 /opt/azure/vhd-image-version
+fi
+
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
