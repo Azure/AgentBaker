@@ -461,6 +461,12 @@ wait_for_localdns_ready() {
     return 0
 }
 
+# Sentinel file: presence means "this node may already have the hosts-plugin annotation,
+# so reconcile it on startup." Created after a successful annotation set, removed after
+# a successful annotation removal. Avoids unnecessary kubeconfig waits on nodes that
+# never used the feature.
+LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER="${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER:-/opt/azure/containers/localdns-hosts-plugin-annotation.present}"
+
 # Set node annotation to indicate hosts plugin is in use if the hosts file has contents.
 annotate_node_with_hosts_plugin_status() {
     # Check if the running localdns corefile actually contains the hosts plugin block.
@@ -548,6 +554,7 @@ annotate_node_with_hosts_plugin_status() {
         echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
         if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
             echo "Successfully set hosts plugin annotation."
+            touch "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}"
         else
             echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
         fi
@@ -557,7 +564,9 @@ annotate_node_with_hosts_plugin_status() {
         echo "Removing hosts plugin annotation for node ${node_name} (hosts plugin not active)."
         if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin-; then
             echo "Successfully removed hosts plugin annotation."
+            rm -f "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}"
         else
+            # Keep marker so the next restart retries removal
             echo "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
         fi
     fi
@@ -1063,11 +1072,15 @@ export_resource_metrics
 
 # Set node annotation to indicate hosts plugin is in use (if applicable).
 # --------------------------------------------------------------------------------------------------------------------
-# Run annotation in background to avoid blocking CSE completion
-# The annotation is a best-effort operation that should not delay node provisioning
-annotate_node_with_hosts_plugin_status &
-ANNOTATION_PID=$!
-echo "Started hosts plugin annotation in background (PID: ${ANNOTATION_PID})"
+# Only run when hosts plugin is currently enabled or was previously enabled (marker exists).
+# The marker avoids unnecessary kubeconfig waits on nodes that never used the feature.
+if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] || [ -f "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}" ]; then
+    annotate_node_with_hosts_plugin_status &
+    ANNOTATION_PID=$!
+    echo "Started hosts plugin annotation in background (PID: ${ANNOTATION_PID})"
+else
+    echo "Hosts plugin not enabled and no prior annotation marker found, skipping annotation."
+fi
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------

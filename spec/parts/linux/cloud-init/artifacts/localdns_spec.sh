@@ -1507,11 +1507,13 @@ EOF
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/opt/azure/containers/localdns/updated.localdns.corefile"
             LOCALDNS_HOSTS_FILE="${TEST_DIR}/etc/localdns/hosts"
+            LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER="${TEST_DIR}/opt/azure/containers/localdns-hosts-plugin-annotation.present"
 
             # Create test directories
             mkdir -p "$(dirname "$KUBECONFIG")"
             mkdir -p "$(dirname "$UPDATED_LOCALDNS_CORE_FILE")"
             mkdir -p "$(dirname "$LOCALDNS_HOSTS_FILE")"
+            mkdir -p "$(dirname "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER")"
 
             # Mock hostname command
             hostname() {
@@ -1688,6 +1690,7 @@ KUBECTL_EOF
             The stdout should include "Localdns is using hosts plugin and hosts file has 3 entries."
             The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
             The stdout should include "Successfully set hosts plugin annotation."
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should be file
         End
 
         It 'should handle kubectl annotation failure gracefully (non-fatal)'
@@ -1823,6 +1826,8 @@ KUBECTL_EOF
 }
 EOF
             touch "$KUBECONFIG"
+            # Simulate prior annotation by creating marker
+            touch "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER"
 
             if [ ! -d /opt ]; then
                 Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
@@ -1853,6 +1858,7 @@ KUBECTL_EOF
             The stdout should include "Localdns corefile does not contain hosts plugin block."
             The stdout should include "Removing hosts plugin annotation for node testnode123 (hosts plugin not active)."
             The stdout should include "Successfully removed hosts plugin annotation."
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should not be exist
         End
 
         It 'should handle annotation removal failure gracefully (non-fatal)'
@@ -1863,6 +1869,8 @@ KUBECTL_EOF
 }
 EOF
             touch "$KUBECONFIG"
+            # Simulate prior annotation by creating marker
+            touch "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER"
 
             if [ ! -d /opt ]; then
                 Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
@@ -1887,6 +1895,8 @@ KUBECTL_EOF
             The stdout should include "Removing hosts plugin annotation for node testnode123 (hosts plugin not active)."
             The stdout should include "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
             The stderr should include "Error: failed to remove annotation"
+            # Marker should be kept so the next restart retries removal
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should be file
         End
 
         It 'should timeout and skip annotation if node never registers'
