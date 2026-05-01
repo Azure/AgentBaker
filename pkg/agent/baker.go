@@ -92,7 +92,7 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.EnableScriptlessNBCCSECmd {
+	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
 		config.DisableCustomData = true
 		config.EnableScriptlessCSECmd = true
 		nbcCMD := t.getLinuxNodeCSECommand(config)
@@ -352,7 +352,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if config.EnableScriptlessNBCCSECmd {
+	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
 		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
