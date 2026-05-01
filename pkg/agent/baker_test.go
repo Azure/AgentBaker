@@ -1286,7 +1286,78 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 })
 
 var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		agentPoolProfile := &datamodel.AgentPoolProfile{
+			Name:   "nodepool1",
+			OSType: datamodel.Linux,
+			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+		}
+
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
+				},
+			},
+			AgentPoolProfile:          agentPoolProfile,
+			CloudSpecConfig:           datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:             &datamodel.K8sComponents{},
+			KubeletConfig:             map[string]string{},
+			EnableScriptlessNBCCSECmd: true,
+			PreProvisionOnly:          preProvisionOnly,
+		}
+	}
+
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
+		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+	})
+
+	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(true)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
+		Expect(err).NotTo(HaveOccurred())
+
+		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+
+		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nbcCmdFilePath))
+	})
+})
+
+var _ = Describe("getNodeBootstrappingCmd", func() {
+	It("should use the regular linux CSE command when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		agentPoolProfile := &datamodel.AgentPoolProfile{
 			Name:   "nodepool1",
@@ -1315,20 +1386,11 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 			K8sComponents:             &datamodel.K8sComponents{},
 			KubeletConfig:             map[string]string{},
 			EnableScriptlessNBCCSECmd: true,
+			PreProvisionOnly:          true,
 		}
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
-		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
-		Expect(err).NotTo(HaveOccurred())
-
-		renderConfig := *config
-		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
-		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-
-		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
-		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
-		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 })
 
