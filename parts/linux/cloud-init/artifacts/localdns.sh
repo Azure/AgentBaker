@@ -906,13 +906,13 @@ start_localdns_watchdog() {
 
 # Selects the appropriate corefile variant based on feature flags.
 # Reads globals from the localdns environment file:
-#   LOCALDNS_COREFILE_BASE         — base corefile (no experimental plugins)
-#   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
+#   LOCALDNS_COREFILE_BASE         — base corefile (no hosts plugin)
+#   LOCALDNS_COREFILE_WITH_HOSTS   — corefile with hosts plugin
 #   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
 #
 # Selection logic:
-#   1. If both BASE and EXPERIMENTAL are available, select based on SHOULD_ENABLE_HOSTS_PLUGIN.
-#      The EXPERIMENTAL corefile includes `hosts /etc/localdns/hosts { reload 5s; fallthrough }`,
+#   1. If both BASE and WITH_HOSTS are available, select based on SHOULD_ENABLE_HOSTS_PLUGIN.
+#      The WITH_HOSTS corefile includes `hosts /etc/localdns/hosts { reload 5s; fallthrough }`,
 #      so CoreDNS will start immediately and hot-reload the hosts file when it's populated
 #      by aks-localdns-hosts-setup (no need to poll/wait here).
 #   2. If only BASE is available, use it (no dynamic selection).
@@ -922,7 +922,7 @@ start_localdns_watchdog() {
 # All diagnostic messages go to stderr.
 select_localdns_corefile() {
     # Case 1: Both corefile variants available — feature-flag-based selection
-    if [ -n "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ] && \
+    if [ -n "${LOCALDNS_COREFILE_WITH_HOSTS:-}" ] && \
        [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
         echo "Both corefile variants available, selecting based on feature flag..." >&2
         echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}" >&2
@@ -940,7 +940,7 @@ select_localdns_corefile() {
                 return 0
             fi
             echo "Hosts plugin is enabled, using corefile with hosts plugin (reload will pick up hosts file when populated)" >&2
-            echo "${LOCALDNS_COREFILE_EXPERIMENTAL}"
+            echo "${LOCALDNS_COREFILE_WITH_HOSTS}"
             return 0
         else
             echo "Hosts plugin is not enabled, using corefile without hosts plugin" >&2
@@ -975,8 +975,8 @@ ${__SOURCED__:+return}
 
 # Regenerate corefile on every startup to enable dynamic variant selection.
 # ---------------------------------------------------------------------------------------------------------------------
-# This allows switching between EXPERIMENTAL and BASE corefile variants based on feature flags.
-# When the hosts plugin is enabled, the EXPERIMENTAL corefile uses `reload 5s` so CoreDNS
+# This allows switching between WITH_HOSTS and BASE corefile variants based on feature flags.
+# When the hosts plugin is enabled, the WITH_HOSTS corefile uses `reload 5s` so CoreDNS
 # will hot-reload the hosts file when aks-localdns-hosts-setup populates it — no polling needed.
 regenerate_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 

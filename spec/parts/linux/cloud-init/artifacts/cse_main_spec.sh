@@ -2,11 +2,11 @@
 
 # Unit tests for select_localdns_corefile() function
 # select_localdns_corefile() reads globals from the environment:
-#   LOCALDNS_COREFILE_BASE         — base corefile (no experimental plugins)
-#   LOCALDNS_COREFILE_EXPERIMENTAL   — corefile with experimental plugins (e.g. hosts)
+#   LOCALDNS_COREFILE_BASE         — base corefile (no hosts plugin)
+#   LOCALDNS_COREFILE_WITH_HOSTS   — corefile with hosts plugin
 #   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
 # Selection is purely based on the SHOULD_ENABLE_HOSTS_PLUGIN feature flag.
-# The EXPERIMENTAL corefile uses `reload 5s` so CoreDNS hot-reloads the hosts file
+# The WITH_HOSTS corefile uses `reload 5s` so CoreDNS hot-reloads the hosts file
 # when it gets populated — no polling/waiting is done in this function.
 
 Describe 'select_localdns_corefile()'
@@ -28,7 +28,7 @@ Describe 'select_localdns_corefile()'
 
     cleanup() {
         unset LOCALDNS_COREFILE_BASE
-        unset LOCALDNS_COREFILE_EXPERIMENTAL
+        unset LOCALDNS_COREFILE_WITH_HOSTS
         unset SHOULD_ENABLE_HOSTS_PLUGIN
         rm -f "${_TEST_HOSTS_FILE:-}" 2>/dev/null || true
         unset LOCALDNS_HOSTS_FILE
@@ -39,9 +39,9 @@ Describe 'select_localdns_corefile()'
     AfterEach 'cleanup'
 
     Context 'when both corefile variants are available and hosts plugin is enabled'
-        It 'returns EXPERIMENTAL when hosts file exists'
+        It 'returns WITH_HOSTS when hosts file exists'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
+            LOCALDNS_COREFILE_WITH_HOSTS="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             # _TEST_HOSTS_FILE already exists from setup (mktemp)
 
@@ -54,7 +54,7 @@ Describe 'select_localdns_corefile()'
 
         It 'falls back to BASE when hosts file is missing (enableAKSLocalDNSHostsSetup bailed early)'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
+            LOCALDNS_COREFILE_WITH_HOSTS="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             # Remove the hosts file to simulate enableAKSLocalDNSHostsSetup bailing early
             # (e.g. empty LOCALDNS_CRITICAL_FQDNS) without creating the hosts file
@@ -70,7 +70,7 @@ Describe 'select_localdns_corefile()'
     Context 'when both corefile variants are available and hosts plugin is disabled'
         It 'returns BASE when SHOULD_ENABLE_HOSTS_PLUGIN=false'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
+            LOCALDNS_COREFILE_WITH_HOSTS="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="false"
 
             When call select_localdns_corefile
@@ -81,7 +81,7 @@ Describe 'select_localdns_corefile()'
 
         It 'returns BASE when SHOULD_ENABLE_HOSTS_PLUGIN is empty'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
+            LOCALDNS_COREFILE_WITH_HOSTS="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN=""
 
             When call select_localdns_corefile
@@ -92,7 +92,7 @@ Describe 'select_localdns_corefile()'
 
         It 'returns BASE when SHOULD_ENABLE_HOSTS_PLUGIN is any value other than "true"'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            LOCALDNS_COREFILE_EXPERIMENTAL="${COREFILE_WITH_HOSTS}"
+            LOCALDNS_COREFILE_WITH_HOSTS="${COREFILE_WITH_HOSTS}"
             SHOULD_ENABLE_HOSTS_PLUGIN="yes"
 
             When call select_localdns_corefile
@@ -103,9 +103,9 @@ Describe 'select_localdns_corefile()'
     End
 
     Context 'when only BASE is available (no dynamic selection)'
-        It 'returns BASE when EXPERIMENTAL is not set'
+        It 'returns BASE when WITH_HOSTS is not set'
             LOCALDNS_COREFILE_BASE="${COREFILE_NO_HOSTS}"
-            unset LOCALDNS_COREFILE_EXPERIMENTAL
+            unset LOCALDNS_COREFILE_WITH_HOSTS
 
             When call select_localdns_corefile
             The output should equal "${COREFILE_NO_HOSTS}"
@@ -117,7 +117,7 @@ Describe 'select_localdns_corefile()'
     Context 'when no corefile variants are available'
         It 'returns failure when neither variant is set'
             unset LOCALDNS_COREFILE_BASE
-            unset LOCALDNS_COREFILE_EXPERIMENTAL
+            unset LOCALDNS_COREFILE_WITH_HOSTS
 
             When call select_localdns_corefile
             The output should equal ""

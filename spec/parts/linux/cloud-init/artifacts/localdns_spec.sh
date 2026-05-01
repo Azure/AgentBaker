@@ -91,7 +91,7 @@ EOF
         It 'should fail to regenerate when no corefile variants are available'
             rm -f "$LOCALDNS_CORE_FILE"
             unset LOCALDNS_COREFILE_BASE
-            unset LOCALDNS_COREFILE_EXPERIMENTAL
+            unset LOCALDNS_COREFILE_WITH_HOSTS
             When run regenerate_localdns_corefile
             The status should be failure
             The stdout should include "No corefile selected. Cannot regenerate corefile."
@@ -139,7 +139,7 @@ EOF
         It 'should return failure if localdns corefile does not exist and regeneration fails'
             rm -f "$LOCALDNS_CORE_FILE"
             unset LOCALDNS_COREFILE_BASE
-            unset LOCALDNS_COREFILE_EXPERIMENTAL
+            unset LOCALDNS_COREFILE_WITH_HOSTS
             When run verify_localdns_corefile
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."

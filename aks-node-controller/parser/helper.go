@@ -726,10 +726,10 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 //
 // The caller (parser.go) assigns the result to the appropriate environment variable:
 //   - LOCALDNS_COREFILE_BASE (includeHostsPlugin=false)
-//   - LOCALDNS_COREFILE_EXPERIMENTAL (includeHostsPlugin=true)
+//   - LOCALDNS_COREFILE_WITH_HOSTS (includeHostsPlugin=true)
 //   - LOCALDNS_GENERATED_COREFILE (kept for backward compat with old VHDs, same as BASE)
 //
-// Runtime selection between BASE and EXPERIMENTAL happens in localdns.sh
+// Runtime selection between BASE and WITH_HOSTS happens in localdns.sh
 // (via select_localdns_corefile(), invoked on localdns service start/restart) based on
 // SHOULD_ENABLE_HOSTS_PLUGIN and the availability of the corresponding corefile environment variables.
 func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {

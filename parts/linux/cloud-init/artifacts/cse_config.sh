@@ -1271,8 +1271,8 @@ LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
 # Both corefile variants are read from globals set in cse_cmd.sh:
-#   LOCALDNS_COREFILE_BASE         — standard corefile without experimental plugins
-#   LOCALDNS_COREFILE_EXPERIMENTAL — corefile with experimental plugins (e.g. hosts plugin)
+#   LOCALDNS_COREFILE_BASE         — standard corefile without hosts plugin
+#   LOCALDNS_COREFILE_WITH_HOSTS — corefile with hosts plugin
 # The base variant is written as the initial active corefile.
 # Both variants are saved to /etc/localdns/environment so localdns.sh
 # can dynamically switch between them on restart.
@@ -1292,12 +1292,12 @@ generateLocalDNSFiles() {
     fi
 
     # Start with the base corefile as the initial active corefile.
-    # localdns.sh will select the appropriate variant (BASE or EXPERIMENTAL)
+    # localdns.sh will select the appropriate variant (BASE or WITH_HOSTS)
     # based on the SHOULD_ENABLE_HOSTS_PLUGIN feature flag on service start.
     base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
 
     # Log whether the initial corefile includes hosts plugin.
-    # This is the BASE corefile; localdns.sh may select the EXPERIMENTAL variant at service start.
+    # This is the BASE corefile; localdns.sh may select the WITH_HOSTS variant at service start.
     if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
         echo "Initial corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
     else
@@ -1310,16 +1310,16 @@ generateLocalDNSFiles() {
     # All corefile values are base64-encoded; localdns.sh decodes them at runtime.
     # LOCALDNS_BASE64_ENCODED_COREFILE is the legacy key for old VHDs.
     # LOCALDNS_COREFILE_BASE is the new name ("BASE" = base variant without hosts plugin, not base64).
-    # LOCALDNS_COREFILE_EXPERIMENTAL is the variant WITH hosts plugin.
+    # LOCALDNS_COREFILE_WITH_HOSTS is the variant WITH hosts plugin.
     LOCALDNS_ENV_FILE="/etc/localdns/environment"
     mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
-    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] && [ -z "${LOCALDNS_COREFILE_EXPERIMENTAL:-}" ]; then
-        echo "WARNING: SHOULD_ENABLE_HOSTS_PLUGIN=true but LOCALDNS_COREFILE_EXPERIMENTAL is empty. Hosts plugin will fall back to BASE corefile at runtime."
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] && [ -z "${LOCALDNS_COREFILE_WITH_HOSTS:-}" ]; then
+        echo "WARNING: SHOULD_ENABLE_HOSTS_PLUGIN=true but LOCALDNS_COREFILE_WITH_HOSTS is empty. Hosts plugin will fall back to BASE corefile at runtime."
     fi
     cat > "${LOCALDNS_ENV_FILE}" <<EOF
 LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_base}
 LOCALDNS_COREFILE_BASE=${corefile_base}
-LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL:-}
+LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS:-}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
 LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
 EOF

@@ -803,7 +803,7 @@ providers:
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             KUBELET_NODE_LABELS=""
             LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
-            LOCALDNS_COREFILE_EXPERIMENTAL=$(echo -n "localdns corefile with hosts" | base64)
+            LOCALDNS_COREFILE_WITH_HOSTS=$(echo -n "localdns corefile with hosts" | base64)
             LOCALDNS_COREFILE_BASE=$(echo -n "localdns corefile" | base64)
             LOCALDNS_MEMORY_LIMIT="128M"
             LOCALDNS_CPU_LIMIT="200.0%"
@@ -881,7 +881,7 @@ providers:
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
             LOCALDNS_COREFILE_BASE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
-            LOCALDNS_COREFILE_EXPERIMENTAL=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_COREFILE_WITH_HOSTS=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
             LOCALDNS_CPU_LIMIT="250%"
             # Create mock localdns assets that would be present on VHD
@@ -953,7 +953,7 @@ providers:
         # Environment file creation with both corefile variants.
         It 'should create environment file with all corefile variants for dynamic selection'
             # Set up both corefile variants
-            LOCALDNS_COREFILE_EXPERIMENTAL=$(echo -n "corefile with hosts plugin" | base64)
+            LOCALDNS_COREFILE_WITH_HOSTS=$(echo -n "corefile with hosts plugin" | base64)
             LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
             SHOULD_ENABLE_HOSTS_PLUGIN="true"
             LOCALDNS_ENV_FILE="$TMP_DIR/environment"
@@ -966,7 +966,7 @@ providers:
             The path "$LOCALDNS_ENV_FILE" should be file
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
             The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE="
-            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_EXPERIMENTAL=${LOCALDNS_COREFILE_EXPERIMENTAL}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS}"
             The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
         End
 
