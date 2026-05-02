@@ -1750,6 +1750,7 @@ KUBECTL_EOF
             The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
             The stdout should include "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
             The stderr should include "Error: failed to annotate node"
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should not be exist
         End
 
         It 'should convert hostname to lowercase for node name'
