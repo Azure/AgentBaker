@@ -99,10 +99,18 @@ function basePrep {
     # Configure SSH pubkey auth in background — not critical for provisioning and
     # the SSH service may not be ready yet in scriptless mode (ANC starts early).
     (
-        # Wait for SSH service: "ssh" on Ubuntu, "sshd" on AzureLinux
-        systemctl is-active --quiet ssh.service || systemctl is-active --quiet sshd.service || \
-            systemctl start ssh.service 2>/dev/null || systemctl start sshd.service 2>/dev/null || true
-        logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
+        # Wait for /run/sshd to be created by the SSH service (ssh on Ubuntu, sshd on AzureLinux)
+        SSH_WAIT_SECONDS=0
+        while [ ! -d /run/sshd ] && [ "$SSH_WAIT_SECONDS" -lt 30 ]; do
+            sleep 1
+            SSH_WAIT_SECONDS=$((SSH_WAIT_SECONDS + 1))
+        done
+        if [ ! -d /run/sshd ]; then
+            echo "AKS.CSE.configureSSHPubkeyAuth.background: timed out after ${SSH_WAIT_SECONDS}s waiting for /run/sshd"
+            return
+        fi
+        echo "AKS.CSE.configureSSHPubkeyAuth.background: waited ${SSH_WAIT_SECONDS}s for /run/sshd"
+        logs_to_events "AKS.CSE.configureSSHPubkeyAuth.background" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
     ) &
 
     if [ "${DISABLE_SSH}" = "true" ]; then
