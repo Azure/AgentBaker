@@ -1693,6 +1693,29 @@ KUBECTL_EOF
             The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should be file
         End
 
+        It 'should count entries with digit-starting hostnames correctly'
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# AKS critical FQDN addresses
+10.0.0.1 1password.com
+10.0.0.2 mcr.microsoft.com
+2001:db8::1 3scale.example.com
+EOF
+            # No kubectl available — function will count entries then skip at kubectl check
+            rm -f /opt/bin/kubectl 2>/dev/null || true
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "hosts file has 3 entries"
+            The stdout should include "kubectl binary not found"
+        End
+
         It 'should handle kubectl annotation failure gracefully (non-fatal)'
             # Create valid corefile and hosts file
             cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
