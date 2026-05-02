@@ -775,6 +775,8 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
 		"containerd.log":                   "sudo journalctl -u containerd",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
+		"nvidia-installer.log":             `sudo bash -c 'latest=$(ls -1t /var/log/nvidia-installer-*.log 2>/dev/null | head -n1); if [ -n "$latest" ]; then echo "=== $latest ==="; cat "$latest"; fi'`,
+		"nvidia-installer.strace":          `sudo cat /var/log/nvidia-installer.strace`,
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"waagent.log":                      "sudo cat /var/log/waagent.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",

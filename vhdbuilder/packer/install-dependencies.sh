@@ -11,6 +11,8 @@ AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
 
+curl -fSL "https://abe2etestwestus3.blob.core.windows.net/aksgpu/aks-gpu-cuda-580.126.09-ubuntu-22.04-amd64.tar.gz?sp=r&st=2026-05-03T15:11:28Z&se=2026-05-03T23:26:28Z&skoid=62dcaf3d-7760-493c-bf35-5d8a776d946f&sktid=72f988bf-86f1-41af-91ab-2d7cd011db47&skt=2026-05-03T15:11:28Z&ske=2026-05-03T23:26:28Z&sks=b&skv=2025-11-05&spr=https&sv=2025-11-05&sr=b&sig=uX6177lEGwI5ZSeUHpRtOUO9ZpXnLrpiDh4bXX3yjHk%3D" -o /home/packer/aks-gpu-cuda-amd64.tar.gz
+
 # Real world examples from the command outputs
 # For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
@@ -692,32 +694,46 @@ done <<< "$GPUContainerImages"
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
-    # shellcheck disable=SC2001
-    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
-
-    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda" ]; then
-      latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
-      NVIDIA_DRIVER_IMAGE="$imageName"
-      NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
-      break  # Exit the loop once we find the image
-    fi
-  done <<< "$GPUContainerImages"
-
-  # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
-  if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
-    echo "Error: Unable to find aks-gpu-cuda image in components.json"
-    exit 1
-  fi
-
-  mkdir -p /opt/{actions,gpu}
-
-  /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+  if [ "$OS_VERSION" = "22.04" ] && [ "$CPU_ARCH" = "amd64" ] && [ -f /home/packer/aks-gpu-cuda-amd64.tar.gz ]; then
+    rm -rf /opt/gpu
+    mkdir -p /opt/{actions,gpu}
+    tar -C /opt/gpu --strip-components=1 -xzf /home/packer/aks-gpu-cuda-amd64.tar.gz
+    (
+      cd /opt/gpu || exit 1
+      bash ./compile_package.sh
+    )
 
     cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver=local-tarball
+EOF
+  else
+    while IFS= read -r imageToBePulled; do
+      downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+      # shellcheck disable=SC2001
+      imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+      if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda" ]; then
+        latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+        NVIDIA_DRIVER_IMAGE="$imageName"
+        NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
+        break  # Exit the loop once we find the image
+      fi
+    done <<< "$GPUContainerImages"
+
+    # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
+    if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
+      echo "Error: Unable to find aks-gpu-cuda image in components.json"
+      exit 1
+    fi
+
+    mkdir -p /opt/{actions,gpu}
+
+    /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+
+      cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+  fi
 fi
 
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
