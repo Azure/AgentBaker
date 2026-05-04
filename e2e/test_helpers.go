@@ -109,7 +109,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 			if sCopy.Runtime == nil {
 				sCopy.Runtime = &ScenarioRuntime{}
 			}
-			sCopy.Runtime.EnableScriptlessNBCCSECmd = true
+			sCopy.Runtime.EnableScriptlessANC = true
 			err := runScenario(t, sCopy)
 			require.NoError(t, err)
 		})
@@ -297,9 +297,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
-		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
-		s.Runtime.NBC = nil
+		// NBC is kept for comparison mode (compareEnvs) where both configs are needed,
+		// but disable scriptless flags so validators don't fire incorrectly.
+		nbc.EnableScriptlessCSECmd = false
+		nbc.EnableScriptlessNBCCSECmd = false
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
