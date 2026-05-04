@@ -243,6 +243,16 @@ ${entry}"
             HOSTS_CONTENT+="
 ${addr} ${DOMAIN}"
         done
+    elif [ -f "${HOSTS_FILE}" ]; then
+        # IPv4 resolution returned empty but IPv6 succeeded — preserve existing IPv4 entries
+        EXISTING_V4=$(awk -v domain="${DOMAIN}" '$0 !~ /^[[:space:]]*#/ && $2 == domain && $1 ~ /^[0-9]+\./' "${HOSTS_FILE}" 2>/dev/null || true)
+        if [ -n "${EXISTING_V4}" ]; then
+            while IFS= read -r entry; do
+                HOSTS_CONTENT+="
+${entry}"
+            done <<< "${EXISTING_V4}"
+            echo "  Preserved $(echo "${EXISTING_V4}" | wc -l) existing IPv4 entries for ${DOMAIN}"
+        fi
     fi
 
     if [ -n "${IPV6_ADDRS}" ]; then
@@ -250,6 +260,16 @@ ${addr} ${DOMAIN}"
             HOSTS_CONTENT+="
 ${addr} ${DOMAIN}"
         done
+    elif [ -f "${HOSTS_FILE}" ]; then
+        # IPv6 resolution returned empty but IPv4 succeeded — preserve existing IPv6 entries
+        EXISTING_V6=$(awk -v domain="${DOMAIN}" '$0 !~ /^[[:space:]]*#/ && $2 == domain && $1 ~ /:/' "${HOSTS_FILE}" 2>/dev/null || true)
+        if [ -n "${EXISTING_V6}" ]; then
+            while IFS= read -r entry; do
+                HOSTS_CONTENT+="
+${entry}"
+            done <<< "${EXISTING_V6}"
+            echo "  Preserved $(echo "${EXISTING_V6}" | wc -l) existing IPv6 entries for ${DOMAIN}"
+        fi
     fi
 done
 

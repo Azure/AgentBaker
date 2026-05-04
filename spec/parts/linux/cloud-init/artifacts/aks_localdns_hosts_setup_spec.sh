@@ -496,6 +496,91 @@ EXISTING
             The status should be success
             The output should include "No existing entries to preserve for mcr.microsoft.com"
         End
+
+        It 'preserves existing AAAA entries when only A records are returned'
+            # Mock dig: mcr.microsoft.com returns A but not AAAA
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "mcr.microsoft.com" ]]; then
+        for a2 in "$@"; do
+            if [[ "$a2" == "AAAA" ]]; then
+                exit 0  # No AAAA response
+            fi
+        done
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Pre-populate hosts file with both A and AAAA entries
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+2001:db8::1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # New A record should be present
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            # Old AAAA record should be preserved
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1 mcr.microsoft.com"
+            The output should include "Preserved"
+            The output should include "existing IPv6"
+        End
+
+        It 'preserves existing A entries when only AAAA records are returned'
+            # Mock dig: mcr.microsoft.com returns AAAA but not A
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "mcr.microsoft.com" ]]; then
+        for a2 in "$@"; do
+            if [[ "$a2" == "AAAA" ]]; then
+                echo "2001:db8::99"
+                exit 0
+            fi
+        done
+        # No A response
+        exit 0
+    fi
+done
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Pre-populate hosts file with both A and AAAA entries
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+2001:db8::1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # New AAAA record should be present
+            The contents of file "$HOSTS_FILE" should include "2001:db8::99 mcr.microsoft.com"
+            # Old A record should be preserved
+            The contents of file "$HOSTS_FILE" should include "10.0.0.1 mcr.microsoft.com"
+            The output should include "Preserved"
+            The output should include "existing IPv4"
+        End
     End
 
     Describe 'Retry logic for transient DNS failures (mock)'
