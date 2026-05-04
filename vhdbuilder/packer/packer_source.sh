@@ -175,17 +175,12 @@ copyPackerFiles() {
       echo "Unexpected OS version '${OS_VERSION}' in kata feature flag code path"
       exit 1
     fi
-    KATACC_CONFIG_DIR=/opt/confidential-containers/share/kata-containers
 
     # shellcheck disable=SC3010
     if [ "${OS_VERSION}" = "2.0" ]; then
       KATA_INITRD_SRC=/home/packer/kata-containers-initrd-base.img
       KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
       cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
-
-      KATACC_IMAGE_SRC=/home/packer/kata-containers.img
-      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
-      cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
     elif [ "${OS_VERSION}" = "3.0" ]; then
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img

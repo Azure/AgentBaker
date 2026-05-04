@@ -1663,13 +1663,6 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
-	pod_annotations = ["io.katacontainers.*"]
-  snapshotter = "tardev"
-  runtime_type = "io.containerd.kata-cc.v2"
-  privileged_without_host_devices = true
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
-    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -1740,13 +1733,6 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
-	pod_annotations = ["io.katacontainers.*"]
-  snapshotter = "tardev"
-  runtime_type = "io.containerd.kata-cc.v2"
-  privileged_without_host_devices = true
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
-    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -1862,13 +1848,6 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
-	pod_annotations = ["io.katacontainers.*"]
-  snapshotter = "tardev"
-  runtime_type = "io.containerd.kata-cc.v2"
-  privileged_without_host_devices = true
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
-    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 )

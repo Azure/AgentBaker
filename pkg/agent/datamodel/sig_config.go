@@ -383,10 +383,6 @@ const (
 	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
 	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
-	// DO NOT MODIFY: Used for freezing Kata VHD for kata-cc runtime, until the image is deprecated.
-	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
-	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
-
 	// Check with Keith and Alex, since they have their own branch for GB200.
 	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
 
@@ -656,20 +652,6 @@ var (
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V3gen2arm64fips",
 		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSCBLMarinerResourceGroup,
-		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2katagen2",
-		Version:       FrozenCBLMarinerV2KataGen2SIGImageVersion,
-	}
-
-	SIGAzureLinuxV2KataImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V2katagen2",
-		Version:       FrozenAzureLinuxV2KataGen2SIGImageVersion,
 	}
 
 	SIGAzureLinuxV3KataImageConfigTemplate = SigImageConfigTemplate{
