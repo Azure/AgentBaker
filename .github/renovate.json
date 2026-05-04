@@ -283,6 +283,16 @@
     },
     {
       "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "enabled": true
+    },
+    {
+      "matchPackageNames": [
         "azure-cns",
         "containernetworking/azure-cns"
       ],
