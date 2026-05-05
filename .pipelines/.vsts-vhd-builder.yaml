@@ -247,6 +247,50 @@ stages:
           parameters:
             artifactName: acl-arm64-tl-gen2
 
+    - job: buildaclfipstlgen2
+      timeoutInMinutes: 360
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]acl'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
+            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260506.01'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: acl-fips-tl-gen2
+
+    - job: buildaclarm64fipstlgen2
+      timeoutInMinutes: 360
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]acl'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260506.01'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: acl-arm64-fips-tl-gen2
+
   - stage: e2e
     dependsOn: build
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))

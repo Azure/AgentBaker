@@ -28,3 +28,14 @@ disableNtpAndTimesyncdInstallChrony() {
 
     systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
+installFIPS() {
+    echo "Installing FIPS..."
+
+    install -D -m 0644 \
+     /boot/acl/uki-addons/fips.addon.efi \
+     /boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi
+
+    touch /etc/system-fips
+    chmod 644 /etc/system-fips
+}

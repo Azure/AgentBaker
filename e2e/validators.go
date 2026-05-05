@@ -486,6 +486,18 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	}
 }
 
+func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateFileExists(ctx, s, "/etc/system-fips")
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`test "$(cat /proc/sys/crypto/fips_enabled)" = "1"`,
+		0,
+		"expected /proc/sys/crypto/fips_enabled to be 1",
+	)
+}
+
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if fileExist(ctx, s, fileName) {
@@ -2788,7 +2800,7 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD.Flatcar {
+	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
 		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
 		return
 	}

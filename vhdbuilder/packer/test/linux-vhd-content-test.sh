@@ -595,7 +595,7 @@ testFips() {
   enable_fips=$2
 
   # shellcheck disable=SC3010
-  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
+  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2" || ${os_version} == "acl") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -613,6 +613,19 @@ testFips() {
         echo "fips header files exist."
       else
         err $test "fips header files don't exist."
+      fi
+    fi
+
+    if [ ${os_version} = "acl" ]; then
+      if [ -f /etc/system-fips ]; then
+        echo "/etc/system-fips marker file exists."
+      else
+        err $test "/etc/system-fips marker file does not exist."
+      fi
+      if [ -f /boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi ]; then
+        echo "ACL FIPS UKI addon file exists in active ESP location."
+      else
+        err $test "ACL FIPS UKI addon file does not exist in active ESP location."
       fi
     fi
   fi
