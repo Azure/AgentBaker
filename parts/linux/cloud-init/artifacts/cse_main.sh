@@ -35,6 +35,9 @@ if ! command -v checkServiceHealth >/dev/null 2>&1; then
         local service=$1
         local state
         state=$(systemctl show -p ActiveState --value "$service" 2>/dev/null) || true
+        if [ "$state" = "active" ]; then
+            return 0
+        fi
         if [ "$state" = "failed" ]; then
             echo "$service is in a failed state"
             return 1
