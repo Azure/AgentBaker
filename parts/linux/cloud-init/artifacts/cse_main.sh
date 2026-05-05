@@ -24,6 +24,41 @@ done
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
+# Backward-compatible shims: when a hotfixed cse_main.sh (provision.sh) is delivered
+# to a node running an older VHD, functions added after the VHD was built will be
+# missing from the VHD's cse_helpers.sh. Define minimal fallbacks here so that the
+# hotfixed script doesn't fail with "command not found".
+# These shims are no-ops or safe defaults and are only used when the real function
+# is absent; if the VHD already defines them, these are skipped.
+if ! command -v checkServiceHealth >/dev/null 2>&1; then
+    checkServiceHealth() {
+        local service=$1
+        local state
+        state=$(systemctl show -p ActiveState --value "$service" 2>/dev/null) || true
+        if [ "$state" = "failed" ]; then
+            echo "$service is in a failed state"
+            return 1
+        fi
+    }
+fi
+if ! command -v isACL >/dev/null 2>&1; then
+    isACL() { return 1; }
+fi
+if ! command -v isAmdAmaEnabledNode >/dev/null 2>&1; then
+    isAmdAmaEnabledNode() { return 1; }
+fi
+if ! command -v should_enable_managed_gpu_experience >/dev/null 2>&1; then
+    should_enable_managed_gpu_experience() { echo ""; }
+fi
+if ! command -v fetch_and_cache_imds_instance_metadata >/dev/null 2>&1; then
+    fetch_and_cache_imds_instance_metadata() { true; }
+fi
+if ! command -v waitForContainerdReady >/dev/null 2>&1; then
+    waitForContainerdReady() {
+        retrycmd_if_failure 120 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
+    }
+fi
+
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
