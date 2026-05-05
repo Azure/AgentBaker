@@ -375,6 +375,7 @@ function nodePrep {
 
     # By default, never reboot new nodes.
     REBOOTREQUIRED=false
+    DEP_MOD_PID=""
 
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
@@ -382,6 +383,9 @@ function nodePrep {
 
         # Install GPU drivers
         logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
+
+        depmod -a "$(uname -r)" >/var/log/nvidia-depmod.log 2>&1 &
+        DEP_MOD_PID=$!
 
         # Install fabric manager if needed
         if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
@@ -539,6 +543,10 @@ function nodePrep {
     fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
+
+    if [ -n "$DEP_MOD_PID" ]; then
+         wait "$DEP_MOD_PID"
+    fi
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'

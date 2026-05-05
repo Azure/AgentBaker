@@ -949,16 +949,25 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-        waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
-        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-        ret=$?
+        if [ "${UBUNTU_RELEASE}" = "22.04" ] && [ "$(getCPUArch)" = "amd64" ] && [ -f /opt/gpu/install_package.sh ]; then
+            echo "Using local Ubuntu 22.04 amd64 GPU driver package from /opt/gpu"
+            sed -i 's#\./nvidia-installer -s #strace -tt -f -o /var/log/nvidia-installer.strace ./nvidia-installer -s #' /opt/gpu/install_package.sh
+            retrycmd_if_failure 5 10 600 bash -c "cd /opt/gpu && bash ./install_package.sh"
+            ret=$?
+        else
+            waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
+            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+            ret=$?
+            if [ "$ret" -eq 0 ]; then
+                ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            fi
+        fi
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
             exit $ERR_GPU_DRIVERS_START_FAIL
         fi
-        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
