@@ -49,7 +49,7 @@ jobs:
             echo "private-key=$private_key" >> $GITHUB_OUTPUT
 
       - name: Generate App token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}
