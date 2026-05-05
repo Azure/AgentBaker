@@ -513,7 +513,8 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
-# drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+# file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
     BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
@@ -542,6 +543,14 @@ configureAndStartSecureTLSBootstrapping() {
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
     fi
 
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    echo "BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}" > "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    fi
+
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
@@ -549,7 +558,7 @@ configureAndStartSecureTLSBootstrapping() {
 [Unit]
 Before=kubelet.service
 [Service]
-Environment="BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}"
+EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 [Install]
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
