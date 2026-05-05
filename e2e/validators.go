@@ -1942,21 +1942,31 @@ echo "Step 3: Populating hosts file with original content + canary entry..."
 { echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
 echo ""
 
-# Step 4: Wait for CoreDNS to reload and verify canary resolves
-echo "Step 4: Waiting 30s for CoreDNS to reload populated hosts file..."
-sleep 30
+# Step 4: Poll until CoreDNS reloads the populated hosts file and canary resolves
+echo "Step 4: Polling for canary resolution (up to 60s)..."
+canary_resolved=false
+for i in $(seq 1 30); do
+    canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=2 +tries=1 2>&1 || true)
+    if [ "$canary_result" = "$canary_ip" ]; then
+        echo "✓ Canary resolves after ${i}x2s — CoreDNS picked up the hosts file after cold start"
+        canary_resolved=true
+        break
+    fi
+    sleep 2
+done
 
-canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
-echo "Canary dig result: '$canary_result'"
-if [ "$canary_result" != "$canary_ip" ]; then
-    echo "ERROR: Canary does not resolve after populating hosts file — hot-reload after cold start broken"
+if [ "$canary_resolved" != "true" ]; then
+    echo "ERROR: Canary did not resolve after 60s — hot-reload after cold start broken"
     echo "Expected: $canary_ip"
-    echo "Got: $canary_result"
+    echo "Last dig result: '$canary_result'"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
     sudo systemctl restart localdns
     exit 1
 fi
-echo "✓ Canary resolves — CoreDNS picked up the hosts file after cold start"
 echo ""
 
 # Step 5: Cleanup — restore original hosts file and restart localdns
