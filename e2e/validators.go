@@ -1942,13 +1942,21 @@ echo "Step 3: Populating hosts file with original content + canary entry..."
 { echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
 echo ""
 
-# Step 4: Poll until CoreDNS reloads the populated hosts file and canary resolves
-echo "Step 4: Polling for canary resolution (up to 60s)..."
+# Step 4: Wait for hosts plugin reload then verify canary resolves
+# IMPORTANT: We must wait for the hosts plugin to reload (configured with "reload 5s")
+# BEFORE making the first canary query. If we query too early, the hosts plugin hasn't
+# picked up the new file yet and the query falls through to the forward plugin, which
+# returns NXDOMAIN. The cache plugin then caches that NXDOMAIN for the SOA TTL (can be
+# minutes/hours), making all subsequent queries return NXDOMAIN even after the hosts
+# plugin reloads — the cached negative response shadows the hosts entry.
+echo "Step 4: Waiting 7s for hosts plugin reload (5s cycle + margin)..."
+sleep 7
+echo "Polling for canary resolution (up to 60s)..."
 canary_resolved=false
 for i in $(seq 1 30); do
     canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=2 +tries=1 2>&1 || true)
     if [ "$canary_result" = "$canary_ip" ]; then
-        echo "✓ Canary resolves after ${i}x2s — CoreDNS picked up the hosts file after cold start"
+        echo "✓ Canary resolves after 7s+${i}x2s — CoreDNS picked up the hosts file after cold start"
         canary_resolved=true
         break
     fi
