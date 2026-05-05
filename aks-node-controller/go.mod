@@ -5,7 +5,7 @@ go 1.24.12
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
-	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/go-cmp v0.7.0
 	github.com/stretchr/testify v1.11.1
