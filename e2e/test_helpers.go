@@ -117,7 +117,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+	return !s.Tags.Scriptless && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
 }
 
 func supportsScriptlessAKSNodeConfig(s *Scenario) bool {
@@ -370,9 +370,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	s.Tags.VHDCaching = s.VHDCaching
-	if s.AKSNodeConfigMutator != nil {
-		s.Tags.Scriptless = true
-	}
 
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
