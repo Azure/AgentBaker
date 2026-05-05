@@ -24,12 +24,12 @@ done
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-# Backward-compatible shims: when a hotfixed cse_main.sh (provision.sh) is delivered
-# to a node running an older VHD, functions added after the VHD was built will be
-# missing from the VHD's cse_helpers.sh. Define minimal fallbacks here so that the
-# hotfixed script doesn't fail with "command not found".
-# These shims are no-ops or safe defaults and are only used when the real function
-# is absent; if the VHD already defines them, these are skipped.
+# ---- BEGIN BACKWARD-COMPAT SHIMS ----
+# When a hotfixed cse_main.sh (provision.sh) is delivered to a node running an
+# older VHD, functions added after the VHD was built will be missing from the
+# VHD's cse_helpers.sh. These minimal fallbacks prevent "command not found" errors.
+# Each shim is guarded by `command -v` so it's skipped when the real function exists.
+# Remove this block when the minimum supported VHD is >= v20260413.
 if ! command -v checkServiceHealth >/dev/null 2>&1; then
     checkServiceHealth() {
         local service=$1
@@ -61,6 +61,7 @@ if ! command -v waitForContainerdReady >/dev/null 2>&1; then
         retrycmd_if_failure 120 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
     }
 fi
+# ---- END BACKWARD-COMPAT SHIMS ----
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
