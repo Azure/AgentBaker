@@ -1857,6 +1857,11 @@ hosts_file="/etc/localdns/hosts"
 canary_fqdn="canary.localdns.test"
 canary_ip="192.0.2.99"
 
+# Helper: validate that dig output contains at least one valid IP address (not error text).
+has_valid_ip() {
+    echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
 echo "=== Testing localdns cold start with empty hosts file ==="
 echo ""
 
@@ -1879,13 +1884,17 @@ echo ""
 
 # Wait for localdns to be fully ready
 echo "Waiting for localdns to be ready..."
-for i in $(seq 1 15); do
+for i in $(seq 1 30); do
     if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
         echo "localdns is ready after ${i}s"
         break
     fi
-    if [ "$i" -eq 15 ]; then
-        echo "ERROR: localdns did not become ready after 15s"
+    if [ "$i" -eq 30 ]; then
+        echo "ERROR: localdns did not become ready after 30s"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 30 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
         echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
         sudo systemctl restart localdns
         exit 1
@@ -1900,8 +1909,12 @@ echo "Step 2: Verifying DNS resolves via fallthrough after cold start..."
 critical_fqdn="mcr.microsoft.com"
 critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
 echo "Critical FQDN ($critical_fqdn): '$critical_result'"
-if [ -z "$critical_result" ]; then
-    echo "ERROR: Critical FQDN failed to resolve after cold start with empty hosts file"
+if ! has_valid_ip "$critical_result"; then
+    echo "ERROR: Critical FQDN did not return a valid IP after cold start with empty hosts file"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
     sudo systemctl restart localdns
     exit 1
@@ -1911,8 +1924,12 @@ echo "✓ Critical FQDN resolves via fallthrough"
 noncritical_fqdn="www.bing.com"
 noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
 echo "Non-critical FQDN ($noncritical_fqdn): '$noncritical_result'"
-if [ -z "$noncritical_result" ]; then
-    echo "ERROR: Non-critical FQDN failed to resolve after cold start with empty hosts file"
+if ! has_valid_ip "$noncritical_result"; then
+    echo "ERROR: Non-critical FQDN did not return a valid IP after cold start with empty hosts file"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
     sudo systemctl restart localdns
     exit 1
@@ -1926,8 +1943,8 @@ echo "Step 3: Populating hosts file with original content + canary entry..."
 echo ""
 
 # Step 4: Wait for CoreDNS to reload and verify canary resolves
-echo "Step 4: Waiting 15s for CoreDNS to reload populated hosts file..."
-sleep 15
+echo "Step 4: Waiting 30s for CoreDNS to reload populated hosts file..."
+sleep 30
 
 canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
 echo "Canary dig result: '$canary_result'"
@@ -1949,10 +1966,17 @@ sudo systemctl restart localdns
 echo ""
 
 # Wait for localdns to be ready after final restart
-for i in $(seq 1 15); do
+for i in $(seq 1 30); do
     if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
         echo "localdns is ready after cleanup"
         break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: localdns did not become ready after cleanup (30s)"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 30 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     fi
     sleep 1
 done
