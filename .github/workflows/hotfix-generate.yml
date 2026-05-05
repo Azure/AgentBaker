@@ -39,7 +39,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
 
       - name: Retrieve App private key
-        uses: azure/cli@v2
+        uses: azure/cli@v3
         id: app-private-key
         with:
           azcliversion: latest
