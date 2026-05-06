@@ -16,6 +16,8 @@ const (
 
 	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
 
+	NBCCmdFilePath = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
@@ -28,6 +30,28 @@ cat <<'EOF' | base64 -d >%[1]s
 %[2]s
 EOF
 chmod 0600 %[1]s
+
+logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
+systemctl start --no-block aks-node-controller.service
+`
+
+	boothookPhase3Template = `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+logger -t aks-boothook "boothook start $(date -Ins)"
+
+mkdir -p /opt/azure/containers
+
+cat <<'EOF' | base64 -d >%[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
+
+cat <<'EOF' | base64 -d >%[3]s
+%[4]s
+EOF
+chmod 0600 %[3]s
 
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
@@ -62,6 +86,34 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
 	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON)
+
+	var customData bytes.Buffer
+	writer := multipart.NewWriter(&customData)
+
+	fmt.Fprintf(&customData, "MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&customData, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", writer.Boundary())
+
+	if err := writeMIMEPart(writer, "text/cloud-boothook", boothook); err != nil {
+		return "", fmt.Errorf("failed to write boothook part: %w", err)
+	}
+	if err := writeMIMEPart(writer, "text/cloud-config", cloudConfigTemplate); err != nil {
+		return "", fmt.Errorf("failed to write cloud-config part: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize multipart custom data: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
+}
+
+func CustomDataPhase3(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (string, error) {
+	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+
+	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	boothook := fmt.Sprintf(boothookPhase3Template, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, nbcCSECMD)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)

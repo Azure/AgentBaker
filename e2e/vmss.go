@@ -90,65 +90,26 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 // avoiding the race condition where runcmd or boothook scripts execute before networking is available.
 // Flatcar cannot use boothooks (coreos-cloudinit doesn't support MIME multipart), so it uses cloud-config
 // with a coreos.units block to define and start the service instead.
-func CustomDataWithHack(s *Scenario, binaryURL, nbcCmdScript string) (string, error) {
-	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
-	nbcCmdPath := "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
-
-	// Build provision flags conditionally based on what's provided.
-	var flags []string
-	if s.Runtime.AKSNodeConfig != nil {
-		flags = append(flags, "--provision-config="+configPath)
-	}
-	if nbcCmdScript != "" {
-		flags = append(flags, "--nbc-cmd="+nbcCmdPath)
-	}
-	provisionFlags := strings.Join(flags, " ")
-
-	// Encode AKSNodeConfig if provided.
-	var encodedAksNodeConfigJSON string
-	if s.Runtime.AKSNodeConfig != nil {
-		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-		}
-		encodedAksNodeConfigJSON = base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	}
-
-	var customData string
-	if s.VHD.Flatcar {
-		customData = buildFlatcarCloudConfig(encodedAksNodeConfigJSON, configPath, nbcCmdScript, nbcCmdPath, binaryURL, provisionFlags)
-	} else {
-		customData = buildBoothookCloudConfig(encodedAksNodeConfigJSON, configPath, nbcCmdScript, nbcCmdPath, binaryURL, provisionFlags)
-	}
-	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
-}
-
-func buildBoothookCloudConfig(encodedConfig, configPath, nbcCmdScript, nbcCmdPath, binaryURL, provisionFlags string) string {
-	var sb strings.Builder
-	sb.WriteString(`#cloud-boothook
+func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
+	cloudConfigTemplate := `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
 mkdir -p /opt/azure/containers /opt/azure/bin
 
-`)
-	if encodedConfig != "" {
-		fmt.Fprintf(&sb, "cat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0600 %s\n",
-			configPath, encodedConfig, configPath)
-	}
-	if nbcCmdScript != "" {
-		fmt.Fprintf(&sb, "\ncat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0755 %s\n",
-			nbcCmdPath, base64.StdEncoding.EncodeToString([]byte(nbcCmdScript)), nbcCmdPath)
-	}
-	fmt.Fprintf(&sb, `
+cat <<'EOF' | base64 -d > %[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
+
 cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
 set -euo pipefail
 mkdir -p /opt/azure/bin
-curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
-/opt/azure/bin/aks-node-controller-hack provision %s
+/opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
 
 SCRIPT
 chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
@@ -169,42 +130,28 @@ UNIT
 
 systemctl daemon-reload
 systemctl start --no-block aks-node-controller-hack.service
-`, binaryURL, provisionFlags)
-	return sb.String()
-}
-
-func buildFlatcarCloudConfig(encodedConfig, configPath, nbcCmdScript, nbcCmdPath, binaryURL, provisionFlags string) string {
-	// Flatcar uses coreos-cloudinit which only supports a subset of cloud-config features
-	// and does not handle MIME multipart or boothooks. Use coreos.units to define the service instead.
-	// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
-	var sb strings.Builder
-	sb.WriteString("#cloud-config\nwrite_files:\n")
-	if encodedConfig != "" {
-		fmt.Fprintf(&sb, `- path: %s
+`
+	if s.VHD.Flatcar {
+		// Flatcar uses coreos-cloudinit which only supports a subset of cloud-config features
+		// and does not handle MIME multipart or boothooks. Use coreos.units to define the service instead.
+		// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
+		cloudConfigTemplate = `#cloud-config
+write_files:
+- path: %[1]s
   permissions: "0600"
   owner: root
   content: !!binary |
-   %s
-`, configPath, encodedConfig)
-	}
-	if nbcCmdScript != "" {
-		fmt.Fprintf(&sb, `- path: %s
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s
-`, nbcCmdPath, base64.StdEncoding.EncodeToString([]byte(nbcCmdScript)))
-	}
-	fmt.Fprintf(&sb, `- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+   %[2]s
+- path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
   owner: root
   content: |
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+    curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision %s
+    /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 coreos:
   units:
@@ -220,62 +167,159 @@ coreos:
         ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
         [Install]
         WantedBy=multi-user.target
-`, binaryURL, provisionFlags)
-	return sb.String()
+`
+	}
+
+	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
+
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, configPath, encodedAksNodeConfigJSON, binaryURL)
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 // CustomDataWithNBCCmdHack is similar to baker.boothooktemplate, but it uses a hack to run new aks-node-controller binary.
-func GunzipCustomData(s *Scenario, customData string) (string, error) {
-	var ignitionConfig map[string]interface{}
-	if err := json.Unmarshal([]byte(customData), &ignitionConfig); err != nil {
-		return "", fmt.Errorf("failed to parse ignition config: %w", err)
-	}
+// Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
+// (check aks-node-controller.service for details).
+// with a coreos.units block to define and start the service instead.
+func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(s.T, err)
 
-	// Extract the nbc-cmd-hack.sh content from the ignition storage.files
-	var nbcCmdContent string
-	if storage, ok := ignitionConfig["storage"].(map[string]interface{}); ok {
-		if files, ok := storage["files"].([]interface{}); ok {
-			for _, f := range files {
-				file, _ := f.(map[string]interface{})
-				if file["path"] == "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh" {
-					if contents, ok := file["contents"].(map[string]interface{}); ok {
-						source, _ := contents["source"].(string)
-						// source is "data:;base64,<base64data>"
-						nbcCmdContent, _ = strings.CutPrefix(source, "data:;base64,")
-						// As of PR #8357, baker.go's flatcarTemplate marks the file with
-						// `compression: gzip`, so the base64 payload decodes to gzip bytes
-						// rather than plaintext shell. Ignition would normally gunzip it,
-						// but here we re-emit via cloud-config `!!binary`, which only
-						// base64-decodes. We must gunzip ourselves and re-base64 the
-						// plaintext, otherwise the resulting nbc-cmd-hack.sh contains raw
-						// gzip bytes and CSE exec fails with "cannot execute binary file"
-						// (exit 126).
-						if compression, _ := contents["compression"].(string); compression == "gzip" {
-							gzBytes, err := base64.StdEncoding.DecodeString(nbcCmdContent)
-							if err != nil {
-								return "", fmt.Errorf("failed to base64-decode gzipped nbc-cmd source: %w", err)
+	customData = strings.Replace(string(decoded), "aks-node-controller-nbc-cmd.sh", "aks-node-controller-nbc-cmd-hack.sh", -1)
+
+	if s.VHD.Flatcar {
+		// For Flatcar, customData is an ignition JSON config from baker.go's flatcarTemplate.
+		// Ignition's "enabled: true" only creates enable symlinks but does NOT start services,
+		// so we can't use ignition JSON to start the hack service reliably.
+		// Instead, convert to #cloud-config format with coreos.units "command: start",
+		// which coreos-cloudinit processes and explicitly starts the service.
+		var ignitionConfig map[string]interface{}
+		if err := json.Unmarshal([]byte(customData), &ignitionConfig); err != nil {
+			return "", fmt.Errorf("failed to parse ignition config: %w", err)
+		}
+
+		// Extract the nbc-cmd-hack.sh content from the ignition storage.files
+		var nbcCmdContent string
+		if storage, ok := ignitionConfig["storage"].(map[string]interface{}); ok {
+			if files, ok := storage["files"].([]interface{}); ok {
+				for _, f := range files {
+					file, _ := f.(map[string]interface{})
+					if file["path"] == "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh" {
+						if contents, ok := file["contents"].(map[string]interface{}); ok {
+							source, _ := contents["source"].(string)
+							// source is "data:;base64,<base64data>"
+							nbcCmdContent, _ = strings.CutPrefix(source, "data:;base64,")
+							// As of PR #8357, baker.go's flatcarTemplate marks the file with
+							// `compression: gzip`, so the base64 payload decodes to gzip bytes
+							// rather than plaintext shell. Ignition would normally gunzip it,
+							// but here we re-emit via cloud-config `!!binary`, which only
+							// base64-decodes. We must gunzip ourselves and re-base64 the
+							// plaintext, otherwise the resulting nbc-cmd-hack.sh contains raw
+							// gzip bytes and CSE exec fails with "cannot execute binary file"
+							// (exit 126).
+							if compression, _ := contents["compression"].(string); compression == "gzip" {
+								gzBytes, err := base64.StdEncoding.DecodeString(nbcCmdContent)
+								if err != nil {
+									return "", fmt.Errorf("failed to base64-decode gzipped nbc-cmd source: %w", err)
+								}
+								gzReader, err := gzip.NewReader(bytes.NewReader(gzBytes))
+								if err != nil {
+									return "", fmt.Errorf("failed to create gzip reader for nbc-cmd source: %w", err)
+								}
+								plain, err := io.ReadAll(gzReader)
+								_ = gzReader.Close()
+								if err != nil {
+									return "", fmt.Errorf("failed to gunzip nbc-cmd source: %w", err)
+								}
+								nbcCmdContent = base64.StdEncoding.EncodeToString(plain)
 							}
-							gzReader, err := gzip.NewReader(bytes.NewReader(gzBytes))
-							if err != nil {
-								return "", fmt.Errorf("failed to create gzip reader for nbc-cmd source: %w", err)
-							}
-							plain, err := io.ReadAll(gzReader)
-							_ = gzReader.Close()
-							if err != nil {
-								return "", fmt.Errorf("failed to gunzip nbc-cmd source: %w", err)
-							}
-							nbcCmdContent = base64.StdEncoding.EncodeToString(plain)
 						}
 					}
 				}
 			}
 		}
-	}
-	if nbcCmdContent == "" {
-		return "", fmt.Errorf("failed to extract nbc-cmd-hack.sh content from ignition config")
+		if nbcCmdContent == "" {
+			return "", fmt.Errorf("failed to extract nbc-cmd-hack.sh content from ignition config")
+		}
+
+		// Build a #cloud-config that writes both the nbc-cmd script and hack runner,
+		// then starts the hack service via coreos.units command: start
+		cloudConfig := fmt.Sprintf(`#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+  permissions: "0600"
+  owner: root
+  content: !!binary |
+   %[1]s
+- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /opt/azure/bin
+    curl -fSL --retry 10 --retry-delay 2 "%[2]s" -o /opt/azure/bin/aks-node-controller-hack
+    chmod +x /opt/azure/bin/aks-node-controller-hack
+    /opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+coreos:
+  units:
+    - name: aks-node-controller-hack.service
+      command: start
+      content: |
+        [Unit]
+        Description=Downloads and runs the AKS node controller hack
+        After=network-online.target
+        Wants=network-online.target
+        [Service]
+        Type=oneshot
+        ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+        [Install]
+        WantedBy=multi-user.target
+`, nbcCmdContent, binaryURL)
+
+		return base64.StdEncoding.EncodeToString([]byte(cloudConfig)), nil
 	}
 
-	return nbcCmdContent, nil
+	cloudConfigTemplate := `%s
+
+mkdir -p /opt/azure/bin
+
+cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
+#!/bin/bash
+set -euo pipefail
+mkdir -p /opt/azure/bin
+curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+chmod +x /opt/azure/bin/aks-node-controller-hack
+
+/opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+
+SCRIPT
+chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
+
+cat <<'UNIT' > /etc/systemd/system/aks-node-controller-hack.service
+[Unit]
+Description=Downloads and runs the AKS node controller hack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+
+[Install]
+WantedBy=basic.target
+UNIT
+
+systemctl daemon-reload
+systemctl start --no-block aks-node-controller-hack.service
+`
+
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, binaryURL)
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachineScaleSet {
@@ -293,12 +337,12 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 	}
 
-	if s.Runtime.AKSNodeConfig != nil && s.Runtime.EnableScriptlessANC {
+	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
 
 		var nbcCmdScript string
 		nbcCmdScript = nodeBootstrapping.CSE
-		customData = func(nbcCmdScript string) string {
+		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
@@ -312,19 +356,23 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			data, err := CustomDataWithHack(s, binaryURL, nbcCmdScript)
+			data, err := CustomDataWithHack(s, binaryURL)
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
-		}(nbcCmdScript)
+		}()
+
+		if s.Runtime.EnableScriptlessANC {
+			customData, err = nodeconfigutils.CustomDataPhase3(s.Runtime.AKSNodeConfig, nbcCmdScript)
+			require.NoError(s.T, err, "failed to generate custom data for phase 3")
+		}
 
 	} else {
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly {
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			customData, err = CustomDataWithHack(s, binaryURL, customData)
-			customData, err = GunzipCustomData(s, customData)
+			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
 			require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
 		}
 		if len(s.Config.CustomDataWriteFiles) > 0 {
