@@ -160,10 +160,6 @@ copyPackerFiles() {
   INIT_CUSTOM_CLOUD_DEST=/opt/azure/containers/init-aks-custom-cloud.sh
   cpAndMode $INIT_CUSTOM_CLOUD_SRC $INIT_CUSTOM_CLOUD_DEST 0744
 
-  INIT_CUSTOM_CLOUD_OP_REQ_SRC=/home/packer/init-aks-custom-cloud-operation-requests.sh
-  INIT_CUSTOM_CLOUD_OP_REQ_DEST=/opt/azure/containers/init-aks-custom-cloud-operation-requests.sh
-  cpAndMode $INIT_CUSTOM_CLOUD_OP_REQ_SRC $INIT_CUSTOM_CLOUD_OP_REQ_DEST 0744
-
   PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600

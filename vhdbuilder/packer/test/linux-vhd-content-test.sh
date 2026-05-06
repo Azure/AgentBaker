@@ -1530,6 +1530,35 @@ testPam() {
   return $retval
 }
 
+testInitAKSCustomCloudScripts() {
+  local test="testInitAKSCustomCloudScripts"
+  local f="/opt/azure/containers/init-aks-custom-cloud.sh"
+
+  if [ ! -f "$f" ]; then
+    err $test "expected baked init script missing: $f"
+    return
+  fi
+  local mode
+  mode=$(stat -c %a "$f")
+  if [ "$mode" != "744" ]; then
+    err $test "expected mode 744 on $f, got $mode"
+  fi
+
+  if ! grep -q 'make_request_with_retry' "$f"; then
+    err $test "$f is not the operation-requests variant (missing make_request_with_retry marker)"
+  fi
+
+  if [ "$OS" = "$UBUNTU_OS_NAME" ] || [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
+    if ! grep -qE '^IS_UBUNTU=|^IS_FLATCAR=|^IS_ACL=' "$f"; then
+      err $test "$f does not contain expected Ubuntu/Flatcar/ACL marker (wrong distro variant baked for $OS_SKU)"
+    fi
+  elif [ "$OS" = "$MARINER_OS_NAME" ] || [ "$OS" = "$AZURELINUX_OS_NAME" ]; then
+    if ! grep -qE '^IS_MARINER=|^IS_AZURELINUX=' "$f"; then
+      err $test "$f does not contain expected Mariner/AzureLinux marker (wrong distro variant baked for $OS_SKU)"
+    fi
+  fi
+}
+
 testContainerImagePrefetchScript() {
   local test="testContainerImagePrefetchScript"
   local container_image_prefetch_script_path="/opt/azure/containers/prefetch.sh"
@@ -2366,6 +2395,7 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testInitAKSCustomCloudScripts
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerService
