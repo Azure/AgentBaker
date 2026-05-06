@@ -11,3 +11,5 @@ info:
 	 @echo "Git Commit:        ${GIT_COMMIT}"
 	 @echo "Git Tree State:    ${GIT_DIRTY}"
 	 @echo "Docker Version:    ${DOCKER_VERSION}"
+
+
