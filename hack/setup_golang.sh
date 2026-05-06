@@ -1,6 +1,16 @@
 #!/bin/bash
 set -euxo pipefail
 
+# This script installs Microsoft's Go distribution via apt-get on Ubuntu hosts.
+# On hosts without apt-get (e.g. Azure Linux build agents), assume Go is already
+# provided by the build environment and skip the Ubuntu-specific setup.
+if ! command -v apt-get >/dev/null 2>&1; then
+    echo "apt-get not found; skipping Ubuntu-specific Go setup."
+    echo "Assuming Go is provided by the build environment:"
+    go version
+    exit 0
+fi
+
 purge_go() {
     sudo apt-get purge golang*
     sudo apt-get update
