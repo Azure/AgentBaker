@@ -230,6 +230,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests.sh",
+      "destination": "/home/packer/init-aks-custom-cloud-operation-requests.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.service",
       "destination": "/home/packer/reconcile-private-hosts.service"
     },
