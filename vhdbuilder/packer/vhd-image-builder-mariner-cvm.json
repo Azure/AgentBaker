@@ -239,7 +239,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh",
       "destination": "/home/packer/init-aks-custom-cloud.sh"
     },
     {
