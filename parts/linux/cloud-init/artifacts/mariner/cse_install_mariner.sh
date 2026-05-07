@@ -25,6 +25,9 @@ installDeps() {
       echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
       dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
+    elif [ "$OS_VERSION" = "4.0" ]; then
+      # AzL4 cloud-native repo is added during VHD build (pre-install-dependencies.sh)
+      echo "AzureLinux 4.0: cloud-native repo configured during VHD build"
     else
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
@@ -32,11 +35,35 @@ installDeps() {
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
-      if ! dnf_install 30 1 600 $dnf_package; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    done
+
+    # Common packages available across all AzureLinux versions
+    local common_packages="ca-certificates cifs-utils conntrack-tools cracklib ethtool fuse iproute ipset jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath"
+
+    if [ "$OS_VERSION" = "4.0" ]; then
+      # AzL4 is Fedora 43-based and has package renames/removals vs AzL3:
+      #   iptables    -> iptables-nft  (nft backend is the only option)
+      #   ebtables    -> (removed)     (folded into iptables-nft)
+      #   iotop       -> iotop-c       (C rewrite replaces Python original)
+      #   blobfuse2   -> (not yet available in alpha2)
+      #   dnf-automatic -> (removed)   (dnf5 has no automatic module)
+      #   check-restart -> (not yet available in alpha2)
+      #   cloud-init-azure-kvp -> (not yet available in alpha2)
+      #   inotify-tools -> (not yet available in alpha2)
+      #   AppArmor    -> (removed)     (SELinux replaces AppArmor in AzL4)
+      local azl4_packages="iptables-nft iotop-c"
+      for dnf_package in $common_packages $azl4_packages; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    else
+      local legacy_packages="ebtables iptables iotop check-restart cloud-init-azure-kvp dnf-automatic inotify-tools blobfuse2"
+      for dnf_package in $common_packages $legacy_packages; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
 
     # install 2.0 specific packages
     # the blobfuse package is not available in AzureLinux 3.0
