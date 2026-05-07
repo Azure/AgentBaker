@@ -78,6 +78,7 @@
     {
       "type": "shell",
       "inline": [
+        "if command -v getenforce >/dev/null 2>&1 && [ \"$(getenforce)\" != \"Disabled\" ]; then sudo setenforce 0; sudo sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config; sudo systemctl start auditd 2>/dev/null || true; sudo systemctl restart sshd; echo 'SELinux: disabled for AKS VHD (AzL4 permissive mode breaks dbus socket labeling)'; fi",
         "sudo mkdir -p /opt/azure/containers",
         "sudo mkdir -p /opt/scripts",
         "sudo mkdir -p /opt/certs"
@@ -787,6 +788,24 @@
       "direction": "download",
       "source": "/opt/azure/vhd-build-performance-data.json",
       "destination": "vhd-build-performance-data.json"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "echo '=== SELinux AVC denial summary from VHD build ==='; sudo ausearch -m avc --raw 2>/dev/null | sudo audit2allow 2>/dev/null | sudo tee /opt/azure/selinux-audit-summary.txt || true; echo '--- Total AVC denials ---'; sudo ausearch -m avc 2>/dev/null | grep -c 'type=AVC' || echo '0'; echo '--- Unique denied operations ---'; sudo ausearch -m avc --raw 2>/dev/null | sudo audit2allow -a 2>/dev/null | head -100 || true; sudo cp /var/log/audit/audit.log /opt/azure/selinux-audit-full.log 2>/dev/null || true; sudo chmod 644 /opt/azure/selinux-audit-summary.txt /opt/azure/selinux-audit-full.log 2>/dev/null || true; echo '=== SELinux audit collection done ==='"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/selinux-audit-summary.txt",
+      "destination": "selinux-audit-summary.txt"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/selinux-audit-full.log",
+      "destination": "selinux-audit-full.log"
     },
     {
       "type": "file",

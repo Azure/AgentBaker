@@ -31,10 +31,67 @@ if isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT"; then
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
+# AzureLinux 4.0 ships with SELinux in enforcing mode.
+# The Packer template (vhd-image-builder-mariner.json) handles the initial SELinux
+# disable + pam_selinux removal + sshd restart before this script runs.
+# This block is a safety net for the current session.
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  if command -v getenforce &>/dev/null; then
+    echo "AzureLinux 4.0: SELinux mode is $(getenforce)"
+    setenforce 0 2>/dev/null || true
+    if [ -f /etc/selinux/config ]; then
+      sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+    fi
+  fi
+
+  # AzL4 uses DNF5 which renamed --downloaddir to --destdir.
+  # AKS CSE scripts (rendered by RP from main branch) still use --downloaddir.
+  # Create a wrapper that translates the flag so CSE works without RP changes.
+  if command -v dnf &>/dev/null; then
+    real_dnf=$(command -v dnf)
+    cat > /usr/local/bin/dnf <<DNFWRAP
+#!/bin/bash
+# DNF5 compatibility wrapper: translates --downloaddir to --destdir
+exec $real_dnf "\${@//--downloaddir=/--destdir=}"
+DNFWRAP
+    chmod +x /usr/local/bin/dnf
+    echo "AzureLinux 4.0: installed dnf wrapper for --downloaddir compatibility"
+  fi
+
+  # AzL4 containerd doesn't auto-start. Enable it so it starts on boot
+  # (CSE expects containerd running when it starts kubelet).
+  systemctl enable containerd 2>/dev/null || true
+fi
+
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
+
+# AzL4 (Fedora-based) does not ship /etc/pam.d/system-account, but the
+# CIS-hardened system-auth copied by copyPackerFiles references it via
+# "account include system-account". Create it if missing to prevent
+# PAM errors on all subsequent sudo calls.
+if [ ! -f /etc/pam.d/system-account ]; then
+  echo "Creating missing /etc/pam.d/system-account"
+  cat > /etc/pam.d/system-account <<'PAMEOF'
+# system-account - created for compatibility with CIS-hardened system-auth
+account   required      pam_unix.so
+account   required      pam_permit.so
+PAMEOF
+  chmod 644 /etc/pam.d/system-account
+fi
+
+# AzL4 (Fedora 43): pam_faillock.so preauth does not cache the auth token,
+# so pam_unix.so "use_authtok" in the auth context fails (no token to use).
+# Remove use_authtok from auth lines only — password context keeps it.
+if [[ "${OS_VERSION}" == "4.0" ]]; then
+  for f in /etc/pam.d/system-auth /etc/pam.d/system-password; do
+    if [ -f "$f" ]; then
+      sed -i '/^auth.*pam_unix\.so/s/ use_authtok//' "$f"
+    fi
+  done
+fi
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
@@ -46,6 +103,12 @@ fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
 if ! isFlatcar "$OS" && ! isACL "$OS" "$OS_VARIANT" ; then
+    # AzL4 alpha image does not ship rsyslog pre-installed; install it first.
+    if ! systemctl list-unit-files rsyslog.service &>/dev/null; then
+      if command -v dnf &>/dev/null; then
+        dnf install -y rsyslog || echo "Warning: failed to install rsyslog"
+      fi
+    fi
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi
 
@@ -124,7 +187,8 @@ fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 # Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0
-# The kernel has an OOT patch that auto-enables lockdown when secure boot is detected
+# The AzL3 kernel has an OOT patch that auto-enables lockdown when secure boot is detected.
+# AzL4 (Fedora-based) does NOT have this OOT patch — it uses upstream lockdown behavior.
 if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
   disableKernelLockdownCmdline
 fi

@@ -6,8 +6,11 @@ installBcc() {
     echo "Installing BCC tools..."
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_install 120 5 25 bcc-tools || exit $ERR_BCC_INSTALL_TIMEOUT
-    echo "Installing BCC examples..."
-    dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
+    # bcc-examples is not available in AzureLinux 4.0 (Fedora-based)
+    if [ "$OS_VERSION" != "4.0" ]; then
+      echo "Installing BCC examples..."
+      dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
 }
 
 installBpftrace() {
@@ -48,6 +51,11 @@ skip_if_unavailable=True
 sslverify=1
 EOF
     fi
+
+  # AzureLinux 4.0: No NVIDIA repo available yet for alpha; skip GPU support.
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "AzureLinux 4.0: NVIDIA repo not yet available, skipping GPU setup"
+  fi
 }
 
 forceEnableIpForward() {
@@ -93,6 +101,12 @@ listInstalledPackages() {
 
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
+    # AzureLinux 4.0 uses dnf5 and does not ship dnf-automatic.
+    if [ "$OS_VERSION" = "4.0" ]; then
+      echo "AzureLinux 4.0: dnf-automatic not present, skipping disable"
+      return 0
+    fi
+
     # Ensure the automatic notifyonly timer is disabled.
     systemctl stop dnf-automatic-notifyonly.timer || exit 1
     systemctl disable dnf-automatic-notifyonly.timer || exit 1
@@ -120,6 +134,12 @@ disableTimesyncd() {
 
 # Regardless of UU mode, ensure check-restart is running
 enableCheckRestart() {
+  # AzureLinux 4.0 does not ship check-restart; skip for now.
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "AzureLinux 4.0: check-restart not available, skipping"
+    return 0
+  fi
+
   # Even if UU is disabled, we should still run check-restart so that kured
   # will work as expected if it is installed.
   # At 8:000:00 UTC check if a reboot-required package was installed

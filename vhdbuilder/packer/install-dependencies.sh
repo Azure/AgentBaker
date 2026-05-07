@@ -1017,20 +1017,20 @@ configureLsmWithBpf() {
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
       fi
-    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
+    elif isMarinerOrAzureLinux "$OS" && { [ "$OS_VERSION" = "3.0" ] || [ "$OS_VERSION" = "4.0" ]; }; then
       if [ -f /etc/default/grub ]; then
         if grep -q "lsm=" /etc/default/grub; then
           sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
         fi
-        echo "Updating GRUB configuration for Azure Linux 3.0..."
+        echo "Updating GRUB configuration for Azure Linux..."
         grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: /etc/default/grub not found, skipping LSM configuration"
       fi
     else
-      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
+      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0+, skipping"
     fi
 
     echo "LSM configuration update completed"
