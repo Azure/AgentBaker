@@ -206,6 +206,22 @@ Describe 'Get-CACertificates' {
         { Get-CACertificates -Location 'ussecwest' -FailOnError } | Should -Throw '*CA certificates rawdata is empty*'
     }
 
+    It 'throws when opted in but no certs downloaded with -FailOnError' {
+        $script:callCount = 0
+        Mock Retry-Command -MockWith {
+            param($Command, $Args, $Retries, $RetryDelaySeconds)
+            $script:callCount++
+            $uri = $PSBoundParameters['Args'].Uri
+            if ($uri -match 'isOptedInForRootCerts') {
+                return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":true}' }
+            }
+            # Return empty operation info for cert endpoints
+            return [PSCustomObject]@{ Content = '{"OperationsInfo":[]}' }
+        }
+
+        { Get-CACertificates -Location 'southcentralus' -FailOnError } | Should -Throw '*No CA certificates were downloaded*'
+    }
+
     It 'falls back to legacy endpoint when called without -Location (backward compat)' {
         $script:retryUris = @()
         Mock Retry-Command -MockWith {
