@@ -79,10 +79,29 @@ func skipIfRCV1PNotConfigured(t *testing.T) {
 	rcv1pAutoDetectOnce.Do(func() {
 		config.Config.RCV1PSubscriptionID = e2eSubID
 		config.RCV1PAzure = e2eAzure
+		rcv1pAutoDetected = true
 	})
 }
 
-var rcv1pAutoDetectOnce sync.Once
+var (
+	rcv1pAutoDetectOnce sync.Once
+	// rcv1pAutoDetected is true when the RCV1P subscription was auto-detected from the
+	// E2E subscription rather than explicitly set via RCV1P_SUBSCRIPTION_ID. On auto-detected
+	// (enrolled) subscriptions, the platform auto-injects the opt-in tag on ALL VMSSes,
+	// making "not opted in" negative tests impossible.
+	rcv1pAutoDetected bool
+)
+
+// skipNotOptedInOnAutoDetect skips NotOptedIn negative tests when the RCV1P subscription was
+// auto-detected. On enrolled subscriptions, the platform auto-injects the opt-in tag on ALL
+// VMSSes, making it impossible to test the "not opted in" scenario.
+func skipNotOptedInOnAutoDetect(t *testing.T) {
+	t.Helper()
+	if rcv1pAutoDetected {
+		t.Skip("skipping NotOptedIn test: RCV1P subscription was auto-detected from E2E subscription — " +
+			"platform auto-injects opt-in tag on all VMSSes in enrolled subscriptions")
+	}
+}
 
 var (
 	featureFlagChecks sync.Map // subscriptionID -> *featureFlagResult
@@ -307,6 +326,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 // subscription feature alone is not sufficient — the VM must also be explicitly tagged.
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	skipNotOptedInOnAutoDetect(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
 		AzureClient:    config.RCV1PAzure,
