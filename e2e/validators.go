@@ -1482,6 +1482,533 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
+// This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
+// can rotate between queries. We verify presence, not exact IP matching.
+// The hosts file is populated asynchronously by the aks-localdns-hosts-setup timer/service, so we poll with a timeout.
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
+	s.T.Helper()
+
+	// Build script that polls until all FQDNs have at least one IPv4 entry in hosts file
+	script := fmt.Sprintf(`set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+fqdns=(%s)
+timeout_secs=60
+poll_interval_secs=5
+deadline=$((SECONDS + timeout_secs))
+
+while true; do
+    echo "Current hosts file contents:"
+    if [ -f "$hosts_file" ]; then
+        cat "$hosts_file"
+    else
+        echo "Hosts file not found yet: $hosts_file"
+    fi
+    echo ""
+
+    errors=0
+    for fqdn in "${fqdns[@]}"; do
+        echo "Checking FQDN: $fqdn"
+        # Escape dots in FQDN for use in regex (. is a regex wildcard)
+        fqdn_escaped=$(echo "$fqdn" | sed 's/\./\\./g')
+
+        # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+        # rather than requiring every currently resolved IP to be present. This avoids
+        # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+        if [ -f "$hosts_file" ] && grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn_escaped"'([[:space:]]|$)' "$hosts_file"; then
+            echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+        else
+            echo "  WAIT: No IPv4 entry found for $fqdn in hosts file yet"
+            errors=$((errors + 1))
+        fi
+    done
+
+    echo ""
+    if [ "$errors" -eq 0 ]; then
+        echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
+        exit 0
+    fi
+
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "FAILED: Timed out after ${timeout_secs}s waiting for $errors FQDN(s) to appear in hosts file"
+        echo ""
+        echo "Final hosts file contents:"
+        if [ -f "$hosts_file" ]; then
+            cat "$hosts_file"
+        else
+            echo "Hosts file not found: $hosts_file"
+        fi
+        echo ""
+        echo "Recent journal output for aks-localdns-hosts-setup.service and timer:"
+        journalctl --no-pager -u aks-localdns-hosts-setup.service -u aks-localdns-hosts-setup.timer -n 50 || true
+        exit 1
+    fi
+
+    echo "Retrying in ${poll_interval_secs}s..."
+    sleep "$poll_interval_secs"
+done
+`, quoteFQDNsForBash(fqdns))
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts file should contain resolved IPs for critical FQDNs")
+}
+
+// quoteFQDNsForBash converts a slice of FQDNs to a bash array string
+func quoteFQDNsForBash(fqdns []string) string {
+	return strings.Join(lo.Map(fqdns, func(fqdn string, _ int) string {
+		return fmt.Sprintf("%q", fqdn)
+	}), " ")
+}
+
+// ValidateAKSLocalDNSHostsSetupService checks that aks-localdns-hosts-setup.service ran successfully
+// and the aks-localdns-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
+func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check that aks-localdns-hosts-setup.service (oneshot) completed without failure
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-localdns-hosts-setup.service")
+
+	// Check that aks-localdns-hosts-setup.timer is active for periodic refresh
+	ValidateSystemdUnitIsRunning(ctx, s, "aks-localdns-hosts-setup.timer")
+}
+
+// ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
+// via the CoreDNS hosts plugin. It checks:
+//  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
+//
+// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+// regardless of which plugin served the response.
+func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Verify the node has the hosts plugin annotation
+	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
+	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
+	s.T.Log("Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
+	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
+
+	var node *corev1.Node
+	var err error
+	var annotationValue string
+	var exists bool
+	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+		annotationValue, exists = node.Annotations[annotationKey]
+		if exists && annotationValue == "enabled" {
+			s.T.Logf("✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
+			break
+		}
+
+		if attempt == maxAttempts {
+			s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
+				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+		}
+
+		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+		sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+		if sleepDuration > 10*time.Second {
+			sleepDuration = 10 * time.Second
+		}
+		s.T.Logf("Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
+		time.Sleep(sleepDuration)
+	}
+
+	// Step 2: Verify the Corefile has the hosts plugin configured
+	s.T.Log("Verifying Corefile contains hosts plugin configuration...")
+	corefileCheckScript := `set -euo pipefail
+corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
+
+echo "=== Verifying Corefile configuration ==="
+echo "Checking if $corefile exists..."
+if [ ! -f "$corefile" ]; then
+    echo "ERROR: Corefile $corefile does not exist"
+    exit 1
+fi
+echo "✓ Corefile exists"
+echo ""
+
+echo "Checking if Corefile contains hosts plugin directive..."
+if ! grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+    echo "ERROR: Corefile does not contain 'hosts /etc/localdns/hosts' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
+echo ""
+
+echo "Checking hosts plugin has fallthrough directive..."
+if ! grep -A5 "hosts /etc/localdns/hosts" "$corefile" | grep -q "fallthrough"; then
+    echo "WARNING: hosts plugin may be missing 'fallthrough' directive"
+fi
+echo "✓ hosts plugin configuration looks correct"
+echo ""
+
+echo "Corefile contents:"
+cat "$corefile"
+echo ""
+echo "=== Corefile validation successful ==="
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
+		"Corefile should contain hosts plugin configuration")
+
+	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
+	// This validates the hosts plugin is working by checking that the IPs returned by dig
+	// match the entries in /etc/localdns/hosts for the same FQDN. If the response came from
+	// upstream DNS instead of the hosts plugin, the IPs would likely differ due to CDN rotation,
+	// load balancer failover, or regional DNS updates.
+	//
+	// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+	// regardless of which plugin served the response — they reflect server capabilities,
+	// not response source. The IP match combined with corefile verification (step 2) and
+	// node annotation (step 1) is sufficient proof.
+	//
+	// We use the first FQDN from GetDefaultFQDNsForValidation() (e.g. mcr.microsoft.com) because
+	// it's a real FQDN that aks-localdns-hosts-setup.service populates from the NBC's CriticalFQDNs list.
+	// This avoids race conditions with the aks-localdns-hosts-setup.timer overwriting fake test entries.
+	testFQDN := s.GetDefaultFQDNsForValidation()[0]
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with matching IPs", testFQDN)
+
+	script := fmt.Sprintf(`set -euo pipefail
+test_fqdn=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing localdns hosts plugin functionality ==="
+echo "Testing FQDN: $test_fqdn"
+echo ""
+
+# Step 1: Get the expected IPs from /etc/localdns/hosts
+echo "Reading expected IPs from $hosts_file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Extract IPv4 addresses for the test FQDN from hosts file
+# Escape dots in FQDN for regex (. matches any char in ERE)
+test_fqdn_escaped=$(echo "$test_fqdn" | sed 's/\./\\./g')
+expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_escaped}([[:space:]]|$)" "$hosts_file" | awk '{print $1}' | sort)
+if [ -z "$expected_ips" ]; then
+    echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
+    echo "Hosts file contents:"
+    cat "$hosts_file"
+    exit 1
+fi
+
+echo "Expected IPs from hosts file:"
+echo "$expected_ips"
+echo ""
+
+# Step 2: Query localdns with dig and capture full output
+echo "Querying localdns for $test_fqdn at 169.254.10.10..."
+dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
+echo "Full dig output:"
+echo "$dig_output"
+echo ""
+
+# Step 3: Extract resolved IPs from dig ANSWER section and compare with hosts file
+# Reuse escaped FQDN for regex matching of dig output
+resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
+if [ -z "$resolved_ips" ]; then
+    echo "ERROR: No A records returned from dig query"
+    exit 1
+fi
+
+echo "Resolved IPs from dig:"
+echo "$resolved_ips"
+echo ""
+
+echo "Comparing resolved IPs with hosts file entries..."
+if [ "$expected_ips" != "$resolved_ips" ]; then
+    echo "ERROR: Resolved IPs do not match hosts file entries"
+    echo "Expected (from hosts file):"
+    echo "$expected_ips"
+    echo "Got (from dig):"
+    echo "$resolved_ips"
+    exit 1
+fi
+echo "✓ Resolved IPs match hosts file entries"
+echo ""
+
+echo "=== SUCCESS ==="
+echo "The localdns hosts plugin is working correctly:"
+echo "  Resolved IPs match /etc/localdns/hosts entries"
+`, testFQDN)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should resolve FQDN from hosts file with matching IPs")
+}
+
+// ValidateLocalDNSHostsPluginIPv6 checks that IPv6 entries in /etc/localdns/hosts are
+// properly served by CoreDNS's hosts plugin. If the hosts file has no IPv6 entries
+// (some FQDNs don't have AAAA records), the test is skipped gracefully.
+//
+// Test flow:
+//  1. Find the first FQDN with an IPv6 entry in the hosts file
+//  2. Query localdns for AAAA records for that FQDN
+//  3. Verify the returned IPv6 addresses match the hosts file entries
+func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	s.T.Log("Testing hosts plugin serves IPv6 entries from hosts file")
+
+	script := `set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Validating IPv6 handling in hosts plugin ==="
+echo ""
+
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Find the first FQDN that has an IPv6 entry in the hosts file
+# IPv6 addresses contain colons, so we look for lines starting with hex:hex patterns
+ipv6_line=$(grep -E '^[0-9a-fA-F]*:[0-9a-fA-F:]+[[:space:]]' "$hosts_file" | head -1 || true)
+
+if [ -z "$ipv6_line" ]; then
+    echo "No IPv6 entries found in hosts file — skipping IPv6 validation"
+    echo "This is expected if none of the critical FQDNs have AAAA records"
+    exit 0
+fi
+
+# Extract the FQDN and expected IPv6 address from the hosts file line
+ipv6_fqdn=$(echo "$ipv6_line" | awk '{print $2}')
+echo "Found IPv6 entry for FQDN: $ipv6_fqdn"
+echo ""
+
+# Get all IPv6 addresses for this FQDN from the hosts file
+expected_ipv6=$(grep -E '^[0-9a-fA-F]*:[0-9a-fA-F:]+[[:space:]]' "$hosts_file" | \
+    awk -v fqdn="$ipv6_fqdn" '$2 == fqdn {print $1}' | sort)
+echo "Expected IPv6 addresses from hosts file:"
+echo "$expected_ipv6"
+echo ""
+
+# Query localdns for AAAA records
+echo "Querying localdns for AAAA records..."
+dig_result=$(dig "$ipv6_fqdn" @169.254.10.10 -t AAAA +short +timeout=5 +tries=2 2>&1 || true)
+echo "Dig AAAA result: '$dig_result'"
+echo ""
+
+# Filter to only valid IPv6 addresses (contain colons)
+resolved_ipv6=$(echo "$dig_result" | grep ':' | sort)
+
+if [ -z "$resolved_ipv6" ]; then
+    echo "ERROR: No AAAA records returned by localdns for $ipv6_fqdn"
+    echo "Expected at least one IPv6 address from hosts file"
+    exit 1
+fi
+
+echo "Resolved IPv6 addresses:"
+echo "$resolved_ipv6"
+echo ""
+
+# Verify at least one expected IPv6 address is in the dig result
+match_found=false
+for expected in $expected_ipv6; do
+    if echo "$resolved_ipv6" | grep -qi "$expected"; then
+        echo "✓ IPv6 address $expected matches"
+        match_found=true
+    fi
+done
+
+if [ "$match_found" != "true" ]; then
+    echo "ERROR: None of the expected IPv6 addresses from hosts file were returned by localdns"
+    echo "Expected (from hosts file): $expected_ipv6"
+    echo "Got (from dig): $resolved_ipv6"
+    exit 1
+fi
+
+echo ""
+echo "=== SUCCESS ==="
+echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"CoreDNS hosts plugin should serve IPv6 entries from hosts file")
+}
+
+// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when restarted
+// with an empty hosts file — the exact scenario that occurs when localdns starts before
+// aks-localdns-hosts-setup finishes resolving FQDNs.
+//
+// Test flow:
+//  1. Truncate hosts file, restart localdns — CoreDNS starts fresh with empty hosts file and empty cache
+//  2. Verify critical and non-critical FQDNs resolve via fallthrough (upstream DNS)
+//  3. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
+//  4. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
+//  5. Restore original hosts file and restart localdns to leave node in clean state
+func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	s.T.Log("Testing localdns cold start with empty hosts file then population")
+
+	script := `set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+canary_fqdn="canary.localdns.test"
+canary_ip="192.0.2.99"
+
+# Helper: validate that dig output contains at least one valid IP address (not error text).
+has_valid_ip() {
+    echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
+echo "=== Testing localdns cold start with empty hosts file ==="
+echo ""
+
+# Step 0: Save current hosts file
+echo "Step 0: Saving current hosts file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+saved_content=$(cat "$hosts_file")
+echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
+echo ""
+
+# Step 1: Truncate hosts file and restart localdns (clears both hosts map and DNS cache)
+echo "Step 1: Truncating hosts file and restarting localdns..."
+sudo truncate -s 0 "$hosts_file"
+sudo systemctl restart localdns
+echo "localdns restarted with empty hosts file"
+echo ""
+
+# Wait for localdns to be fully ready
+echo "Waiting for localdns to be ready..."
+for i in $(seq 1 30); do
+    if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
+        echo "localdns is ready after ${i}s"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "ERROR: localdns did not become ready after 30s"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 30 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+        echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+        sudo systemctl restart localdns
+        exit 1
+    fi
+    sleep 1
+done
+echo ""
+
+# Step 2: Verify DNS resolves via fallthrough with empty hosts file
+echo "Step 2: Verifying DNS resolves via fallthrough after cold start..."
+
+critical_fqdn="mcr.microsoft.com"
+critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Critical FQDN ($critical_fqdn): '$critical_result'"
+if ! has_valid_ip "$critical_result"; then
+    echo "ERROR: Critical FQDN did not return a valid IP after cold start with empty hosts file"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Critical FQDN resolves via fallthrough"
+
+noncritical_fqdn="www.bing.com"
+noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Non-critical FQDN ($noncritical_fqdn): '$noncritical_result'"
+if ! has_valid_ip "$noncritical_result"; then
+    echo "ERROR: Non-critical FQDN did not return a valid IP after cold start with empty hosts file"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Non-critical FQDN resolves via fallthrough"
+echo ""
+
+# Step 3: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
+echo "Step 3: Populating hosts file with original content + canary entry..."
+{ echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
+echo ""
+
+# Step 4: Wait for hosts plugin reload then verify canary resolves
+# IMPORTANT: We must wait for the hosts plugin to reload (configured with "reload 5s")
+# BEFORE making the first canary query. If we query too early, the hosts plugin hasn't
+# picked up the new file yet and the query falls through to the forward plugin, which
+# returns NXDOMAIN. The cache plugin then caches that NXDOMAIN for the SOA TTL (can be
+# minutes/hours), making all subsequent queries return NXDOMAIN even after the hosts
+# plugin reloads — the cached negative response shadows the hosts entry.
+echo "Step 4: Waiting 15s for hosts plugin reload (5s cycle + safety margin)..."
+sleep 15
+echo "Polling for canary resolution (up to 60s)..."
+canary_resolved=false
+for i in $(seq 1 30); do
+    canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=2 +tries=1 2>&1 || true)
+    if [ "$canary_result" = "$canary_ip" ]; then
+        echo "✓ Canary resolves after 15s+${i}x2s — CoreDNS picked up the hosts file after cold start"
+        canary_resolved=true
+        break
+    fi
+    sleep 2
+done
+
+if [ "$canary_resolved" != "true" ]; then
+    echo "ERROR: Canary did not resolve after 60s — hot-reload after cold start broken"
+    echo "Expected: $canary_ip"
+    echo "Last dig result: '$canary_result'"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo ""
+
+# Step 5: Cleanup — restore original hosts file and restart localdns
+echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
+echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+sudo systemctl restart localdns
+echo ""
+
+# Wait for localdns to be ready after final restart
+for i in $(seq 1 30); do
+    if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
+        echo "localdns is ready after cleanup"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: localdns did not become ready after cleanup (30s)"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 30 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    fi
+    sleep 1
+done
+
+echo "=== SUCCESS ==="
+echo "localdns cold start with empty hosts file verified:"
+echo "  1. Restart with empty hosts file: DNS resolves via fallthrough"
+echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should work after cold start with empty hosts file and pick up populated file")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
