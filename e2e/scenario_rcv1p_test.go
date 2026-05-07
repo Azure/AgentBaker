@@ -37,22 +37,52 @@ import (
 // if the subscription has the PlatformSettingsOverride feature registered.
 const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
 
-// skipIfRCV1PNotConfigured skips the test when the RCV1P subscription is not configured.
-// This happens in regular CI runs where the RCV1P variable group is not linked, causing
-// Azure DevOps to pass the literal unexpanded string "$(RCV1P_SUBSCRIPTION_ID)".
-// It always logs the feature flag status on the E2E subscription for diagnostics,
-// and verifies the flag is registered on the RCV1P subscription when available.
+// skipIfRCV1PNotConfigured skips the test when no subscription with the RCV1P feature flag
+// is available. It checks in order:
+//  1. Explicit RCV1P_SUBSCRIPTION_ID (dedicated RCV1P subscription)
+//  2. E2E_SUBSCRIPTION_ID auto-detection (checks if the feature flag is registered)
+//
+// When E2E_SUBSCRIPTION_ID has the feature flag registered (e.g., MSFT tenant pipelines),
+// the RCV1P tests run automatically without needing a separate variable.
 func skipIfRCV1PNotConfigured(t *testing.T) {
 	t.Helper()
-	// Always log feature flag status on the default E2E subscription for diagnostics
-	logE2ESubscriptionFeatureFlag(t)
 
 	subID := strings.TrimSpace(config.Config.RCV1PSubscriptionID)
-	if subID == "" || strings.HasPrefix(subID, "$(") {
-		t.Skip("RCV1P_SUBSCRIPTION_ID not set or not resolved, skipping RCV1P cert mode test")
+	if subID != "" && !strings.HasPrefix(subID, "$(") {
+		// Explicit RCV1P subscription configured — verify it has the feature flag
+		checkPlatformSettingsOverrideFeatureFlag(t, subID, config.RCV1PAzure, true)
+		return
 	}
-	checkPlatformSettingsOverrideFeatureFlag(t, subID, config.RCV1PAzure, true)
+
+	// No explicit RCV1P subscription — try auto-detecting from the E2E subscription
+	t.Log("RCV1P_SUBSCRIPTION_ID not set, checking if E2E subscription has PlatformSettingsOverride feature flag...")
+	e2eSubID := strings.TrimSpace(config.Config.SubscriptionID)
+	if e2eSubID == "" {
+		t.Skip("neither RCV1P_SUBSCRIPTION_ID nor E2E_SUBSCRIPTION_ID is set, skipping RCV1P test")
+	}
+
+	e2eAzure, err := config.NewAzureClient()
+	if err != nil {
+		t.Skipf("failed to create E2E Azure client for feature flag auto-detection: %v", err)
+	}
+
+	registered, err := queryFeatureFlag(t.Context(), e2eSubID, e2eAzure)
+	if err != nil {
+		t.Skipf("failed to query feature flag on E2E subscription %s: %v", e2eSubID, err)
+	}
+	if !registered {
+		t.Skipf("E2E subscription %s does not have PlatformSettingsOverride registered, skipping RCV1P test", e2eSubID)
+	}
+
+	// E2E subscription is enrolled — configure RCV1P globals so the rest of the test infra works
+	t.Logf("auto-detected PlatformSettingsOverride on E2E subscription %s, using it for RCV1P tests", e2eSubID)
+	rcv1pAutoDetectOnce.Do(func() {
+		config.Config.RCV1PSubscriptionID = e2eSubID
+		config.RCV1PAzure = e2eAzure
+	})
 }
+
+var rcv1pAutoDetectOnce sync.Once
 
 var (
 	featureFlagChecks sync.Map // subscriptionID -> *featureFlagResult
@@ -88,19 +118,6 @@ func checkPlatformSettingsOverrideFeatureFlag(t *testing.T, subscriptionID strin
 		t.Fatalf("Microsoft.Compute/PlatformSettingsOverride is NOT registered on subscription %s; "+
 			"wireserver will not serve root certificates without this feature flag", subscriptionID)
 	}
-}
-
-// logE2ESubscriptionFeatureFlag logs the PlatformSettingsOverride feature flag status on the
-// default E2E subscription for diagnostic purposes. This helps understand wireserver behavior
-// (e.g., IsOptedInForRootCerts responses) even in non-RCV1P test runs.
-func logE2ESubscriptionFeatureFlag(t *testing.T) {
-	t.Helper()
-	e2eAzure, err := config.NewAzureClient()
-	if err != nil {
-		t.Logf("WARNING: failed to create E2E Azure client for feature flag check: %v", err)
-		return
-	}
-	checkPlatformSettingsOverrideFeatureFlag(t, config.Config.SubscriptionID, e2eAzure, false)
 }
 
 func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config.AzureClient) (bool, error) {
