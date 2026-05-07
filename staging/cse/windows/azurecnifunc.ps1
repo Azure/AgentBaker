@@ -36,7 +36,7 @@ function Install-VnetPlugins {
         $orasReference = "$global:BootstrapProfileContainerRegistryServer/aks/packages/azure/${orasPackageName}:${containerdVersionTag}"
         $cachedFileName = Get-FileNameFromUrl -Url $VNetCNIPluginsURL
         try {
-            Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $tarfile; CachedFile = $cachedFileName } -Retries 5 -RetryDelaySeconds 10
+            Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $zipfile; CachedFile = $cachedFileName } -Retries 5 -RetryDelaySeconds 10
         }
         catch {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
