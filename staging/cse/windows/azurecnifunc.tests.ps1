@@ -70,6 +70,46 @@ Describe 'GetBroadestRangesForEachAddress' {
     }
 }
 
+Describe 'Get-PackageNameAndVersionFromCniUrl' {
+    It 'Should parse package name and version for azure-vnet-cni URL' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni'
+        $result.Version | Should -Be 'v1.6.20'
+    }
+
+    It 'Should parse package name and version for azure-vnet-cni-swift URL' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-swift-windows-amd64-v1.6.20.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni-swift'
+        $result.Version | Should -Be 'v1.6.20'
+    }
+
+    It 'Should parse package name and hotfix version suffix from URL' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.1-hotfix20241024ApipaGW/binaries/azure-vnet-cni-windows-amd64-v1.6.1-hotfix20241024ApipaGW.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni'
+        $result.Version | Should -Be 'v1.6.1-hotfix20241024ApipaGW'
+    }
+
+    It 'Should return null for invalid URL format' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-linux-amd64-v1.6.20.tar.gz'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Be $null
+    }
+}
+
 Describe 'Set-AzureCNIConfig' {
     BeforeEach {
         $azureCNIConfDir = "$PSScriptRoot\azurecnifunc.tests.suites"
