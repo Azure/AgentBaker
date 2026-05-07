@@ -21,6 +21,7 @@ import (
 // installation on Windows Server 2022.
 func Test_RCV1P_Windows2022(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
 		AzureClient:    config.RCV1PAzure,
@@ -33,7 +34,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 			VHD:                    config.VHDWindows2022Containerd,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
 			},
@@ -44,6 +45,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 // Test_RCV1P_Windows23H2 validates RCV1P on Windows Server 23H2, the annual channel release.
 func Test_RCV1P_Windows23H2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 23H2 with VM opt-in tag",
 		AzureClient:    config.RCV1PAzure,
@@ -56,7 +58,7 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 			VHD:                    config.VHDWindows23H2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
 			},
@@ -67,6 +69,7 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 // Test_RCV1P_Windows2025 validates RCV1P on Windows Server 2025 (non-gen2).
 func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
 		AzureClient:    config.RCV1PAzure,
@@ -80,6 +83,7 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				cseMutator(nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -93,6 +97,7 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 // installation on Windows Server 2022 Gen2. Covers the gen2 pipeline job.
 func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
 		AzureClient:    config.RCV1PAzure,
@@ -105,7 +110,7 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
 			},
@@ -116,6 +121,7 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 // Test_RCV1P_Windows23H2Gen2 validates RCV1P on Windows Server 23H2 Gen2. Covers the gen2 pipeline job.
 func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 23H2 Gen2 with VM opt-in tag",
 		AzureClient:    config.RCV1PAzure,
@@ -128,7 +134,7 @@ func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
 			VHD:                    config.VHDWindows23H2Gen2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
 			},
@@ -139,6 +145,7 @@ func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
 // Test_RCV1P_Windows2025Gen2 validates RCV1P on Windows Server 2025 Gen2. Covers the gen2 pipeline job.
 func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
 		AzureClient:    config.RCV1PAzure,
@@ -155,6 +162,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 			},
 			VMInstanceTags: rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				cseMutator(nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -172,6 +180,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	skipNotOptedInOnAutoDetect(t)
+	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
 		AzureClient:    config.RCV1PAzure,
@@ -182,7 +191,7 @@ func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 		Config: Config{
 			Cluster:                ClusterRCV1PAzureNetwork,
 			VHD:                    config.VHDWindows2022Containerd,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PNotOptedInWindows(ctx, s)
 			},
