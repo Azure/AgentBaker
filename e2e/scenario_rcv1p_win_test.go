@@ -75,12 +75,9 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PAzureNetwork,
-			VHD:     config.VHDWindows2025,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-				rcv1pOptInVMConfigMutator(vmss)
-			},
+			Cluster:         ClusterRCV1PAzureNetwork,
+			VHD:             config.VHDWindows2025,
+			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
