@@ -589,6 +589,19 @@ installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+
+    # AzL4 ships containerd 2.x in its base repos; the version from components.json
+    # (e.g. 1.7.20) does not exist. Install whatever version the repo provides.
+    if [ "$OS_VERSION" = "4.0" ]; then
+        echo "AzureLinux 4.0: installing containerd from base repo (ignoring requested version ${desiredVersion})"
+        if ! dnf_install 30 1 600 containerd; then
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+        systemctl enable containerd || true
+        systemctl start containerd || true
+        return 0
+    fi
+
     # check if containerd command is available before running it
     if command -v containerd &> /dev/null; then
         CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
