@@ -16,10 +16,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
-func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {}
+func EmptyBootstrapConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {}
 func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
 
-func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
+func DualStackConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 	properties := configuration.ContainerService.Properties
 	properties.FeatureFlags.EnableIPv6DualStack = true
 }
@@ -244,7 +244,7 @@ func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows23H2Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 				// Secure TLS Bootstrapping isn't supported on this CSE script package version
 				nbc.SecureTLSBootstrappingConfig.Enabled = false
@@ -263,7 +263,7 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 				// Secure TLS Bootstrapping isn't supported on this CSE script package version
 				nbc.SecureTLSBootstrappingConfig.Enabled = false
@@ -282,7 +282,7 @@ func Test_Windows2025(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -307,7 +307,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -333,7 +333,7 @@ func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
 			VHD:                   config.VHDWindows2025Gen2,
 			VMConfigMutator:       EmptyVMConfigMutator,
 			WaitForSSHAfterReboot: 5 * time.Minute,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
 					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
@@ -363,7 +363,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
 					Deadline:               (10 * time.Second).String(),
@@ -447,7 +447,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				// 2025 supported in 1.32+ .
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
 				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
@@ -473,7 +473,7 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 			Cluster:         ClusterCiliumNetwork,
 			VHD:             config.VHDWindows23H2Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				// cilium is only supported in 1.30 or greater.
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.30.9"
 				configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane = datamodel.EbpfDataplane_cilium
@@ -496,7 +496,7 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows23H2Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
 					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
 				}
@@ -550,7 +550,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -585,7 +585,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDWindows2025Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -632,7 +632,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 			Cluster:         ClusterAzureBootstrapProfileCache,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
