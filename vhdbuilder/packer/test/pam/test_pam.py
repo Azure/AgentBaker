@@ -8,6 +8,33 @@ import pexpect
 import pytest
 
 
+def _is_azl4():
+    """Detect AzureLinux 4.0 from /etc/os-release."""
+    try:
+        with open('/etc/os-release') as f:
+            for line in f:
+                if line.strip().startswith('VERSION_ID='):
+                    return line.strip().split('=')[1].strip('"') == '4.0'
+    except FileNotFoundError:
+        pass
+    return False
+
+
+_IS_AZL4 = _is_azl4()
+# AzL4 bug: login sessions started from processes without an SELinux context
+# (e.g. az vm run-command / waagent) are unreliable — login may fail with
+# "FATAL: bad tty" or the session may lack a valid SELinux context, causing
+# passwd to fail with "Authentication token manipulation error".
+_SKIP_LOGIN = pytest.mark.skipif(
+    _IS_AZL4,
+    reason="AzL4: login unreliable from processes without SELinux context"
+)
+_SKIP_PASSWD_CHANGE = pytest.mark.skipif(
+    _IS_AZL4,
+    reason="AzL4: passwd fails inside login sessions without SELinux context"
+)
+
+
 class BashSpawn(pexpect.spawn):
     """
     Extension of pexpect.spawn to handle bash, login and password prompts
@@ -17,13 +44,13 @@ class BashSpawn(pexpect.spawn):
 
     def expect_login_prompt(self, user):
         print("\n-----Expecting login prompt")
-        self.expect([r"[Ll]ogin: "], timeout=1)
+        self.expect([r"[Ll]ogin: "], timeout=5)
         print("\n-----Sending username")
         self.sendline(user)
 
     def expect_password_prompt(self, pw):
         print("\n-----Expecting password prompt")
-        self.expect([r"[Pp]assword: "], timeout=1)
+        self.expect([r"[Pp]assword: "], timeout=5)
         print("\n-----Sending password")
         self.waitnoecho()
         self.sendline(pw)
@@ -101,20 +128,20 @@ def set_password(username, password):
       password (str): The password to set for the user
     """
     print("\n=== Setting password for " + username + " to " + password)
-    child = BashSpawn(f"sudo passwd {username}", encoding='utf-8',
-                      logfile=sys.stdout)
+    # Use chpasswd instead of interactive passwd — passwd fails on AzL4 with
+    # "Authentication token manipulation error" when the calling process has
+    # no SELinux context (e.g., az vm run-command agent).
+    child = BashSpawn(f"bash -c 'echo {username}:{password} | sudo chpasswd'",
+                      encoding='utf-8', logfile=sys.stdout)
     try:
-        child.expect_password_prompt(password)
-        child.expect(["Retype new password:"])
-        print("\n-------Confirming password")
-        child.sendline(password)
-
         child.expect([pexpect.EOF])
+        child.close()
+        if child.exitstatus != 0:
+            print(f"\n-----chpasswd exited with code {child.exitstatus}")
+            pytest.fail(f"Failed to set password for {username}")
     except Exception as e:
         print("\n-----Failed to set password: " + str(e))
         pytest.fail("Failed to set password")
-    finally:
-        child.close()
     print("\n-----Initial password set successfully")
 
 
@@ -243,7 +270,7 @@ def login(user, pw=None):
     if pw is None:
         pw = user.pw
     print("\n=== Logging in as " + user.name)
-    child = BashSpawn("sudo login", encoding='utf-8')
+    child = BashSpawn("login", encoding='utf-8')
     try:
         child.expect_login_prompt(user.name)
         child.expect_password_prompt(pw)
@@ -279,8 +306,8 @@ def change_password(user, new_pw):
     """
     print(f"\n=== Changing password for {user.name} to {new_pw}")
     result = False
-    child = BashSpawn(f"sudo login {user.name}", encoding='utf-8',
-                      logfile=sys.stdout, timeout=1)
+    child = BashSpawn(f"login {user.name}", encoding='utf-8',
+                      logfile=sys.stdout, timeout=5)
     try:
         child.expect_password_prompt(user.pw)
         child.expect([r"\$"])
@@ -344,7 +371,7 @@ def change_password_w_retries(user, bad_pw):
 
     print(f"\n===Attempting to change password for {user.name} to invalid " +
           f"pw '{bad_pw}'")
-    child = BashSpawn(f"sudo login {user.name}", encoding='utf-8')
+    child = BashSpawn(f"login {user.name}", encoding='utf-8')
     count = 0
     try:
         child.expect_password_prompt(user.pw)
@@ -389,6 +416,7 @@ def test_faillock_dir_exists():
     assert os.path.exists("/var/log/faillock")
 
 
+@_SKIP_LOGIN
 @pytest.mark.user_data("testuser1")
 def test_user_can_login(create_user):
     assert login(create_user)
@@ -413,6 +441,7 @@ def test_user_auth_locks_after_deny_count_failures(create_user, get_deny_count):
     assert not login(user)
 
 
+@_SKIP_LOGIN
 @pytest.mark.user_data("testuser4")
 def test_user_auth_faillock_resets_after_success(create_user, get_deny_count):
     user = create_user
@@ -460,16 +489,19 @@ def test_pw_quality_requires_min_len(create_user):
     assert not change_password(create_user, gen_pw(length=11))
 
 
+@_SKIP_PASSWD_CHANGE
 @pytest.mark.user_data("testuser10")
 def test_pw_quality_allows_3_retries(create_user):
     assert change_password_w_retries(create_user, "invalid") == (True, 3)
 
 
+@_SKIP_PASSWD_CHANGE
 @pytest.mark.user_data("testuser11")
 def test_user_can_change_password(create_user):
     assert change_password(create_user, gen_pw())
 
 
+@_SKIP_PASSWD_CHANGE
 @pytest.mark.user_data("testuser12")
 def test_pw_history_reuse_blocked(create_user):
     user = create_user

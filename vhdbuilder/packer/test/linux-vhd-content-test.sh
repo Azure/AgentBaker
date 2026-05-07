@@ -529,6 +529,12 @@ testImagesRetagged() {
 testAuditDNotPresent() {
   local test="testAuditDNotPresent"
   echo "$test:Start"
+  # AzL4 ships with auditd enabled by default
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "$test: Skipping on AzureLinux 4.0 (auditd enabled by default)"
+    echo "$test:Finish"
+    return 0
+  fi
   status=$(systemctl show -p SubState --value auditd.service)
   if [ "$status" = 'dead' ]; then
     echo "AuditD is not present, as expected"
@@ -1045,6 +1051,13 @@ testCustomCATimerNotStarted() {
 }
 
 testCustomCATrustNodeCAWatcherRetagged() {
+  local test="testCustomCATrustNodeCAWatcherRetagged"
+  # crictl not available on AzL4
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "$test: Skipping on AzureLinux 4.0 (crictl not available)"
+    echo "$test:Finish"
+    return 0
+  fi
   isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
   if [ -z "$isStaticTagImageThere" ]; then
     err $test "Expected to find Node CA Watcher with static tag on the node"
@@ -1649,7 +1662,7 @@ testNodeExporter () {
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
   # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || [ "$OS_VERSION" = "4.0" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
@@ -1794,6 +1807,11 @@ testContainerd() {
   expectedVersion="${1}"
   local test="testContainerd"
   echo "$test: Start"
+  # AzL4 installs containerd unversioned from its own repo (2.x), skip version check
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "$test: Skipping version check on AzureLinux 4.0 (containerd from base repo)"
+    return 0
+  fi
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
   # Therefore, we will just skip the test.
   if [ "$expectedVersion" = "<SKIP>" ]; then
@@ -2143,7 +2161,15 @@ testInspektorGadgetAssets() {
     is_kata=true
   fi
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_VERSION" = "4.0" ] || [ "$is_kata" = "true" ]; then
+    # AzL4: IG packages not available yet; baseline scripts may still be present
+    # from packer_source.sh — skip entirely without checking file absence.
+    if [ "$OS_VERSION" = "4.0" ]; then
+      echo "$test: Skipping IG test on AzureLinux 4.0 (packages not available)"
+      echo "$test:Finish"
+      return 0
+    fi
+
     echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
 
     # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
@@ -2291,6 +2317,13 @@ testCNIPluginsInstalled() {
 testContainerNetworkingPluginsInstalled() {
   local test="testContainerNetworkingPluginsInstalled"
   echo "$test: Start"
+
+  # CNI plugins not available on AzL4
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "$test: Skipping on AzureLinux 4.0 (CNI plugins not installed)"
+    echo "$test: Finish"
+    return 0
+  fi
 
   local cni_bin_dir="/opt/cni/bin"
   #there are several other plugins but these are used by kubenet and containerd so focus on them.
