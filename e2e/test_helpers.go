@@ -350,7 +350,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	}
 
-	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
+	err = getCustomScriptExtensionStatus(ctx, s, scenarioVM.VM)
 	require.NoError(s.T, err)
 
 	if !s.Config.SkipDefaultValidation {
@@ -464,12 +464,11 @@ func validateVM(ctx context.Context, s *Scenario) {
 	}
 }
 
-func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
 	// Re-fetch the VM with instance view to ensure we have fresh extension status data.
 	// The VM object passed in may have been fetched before the CSE finished executing,
 	// so the extension status message could be empty or stale.
 	if vmssVM.InstanceID != nil {
-		ctx := context.Background()
 		freshVM, err := s.GetAzure().VMSSVM.Get(ctx,
 			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 			s.Runtime.VMSSName,
