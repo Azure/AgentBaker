@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
@@ -299,22 +300,25 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 
 func addFirewallRules(
 	ctx context.Context, clusterModel *armcontainerservice.ManagedCluster,
-	location string,
 ) error {
+	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, "adding firewall rules")()
-	routeTableName := "abe2e-fw-rt"
-	rtGetResp, err := config.Azure.RouteTables.Get(
-		ctx,
-		*clusterModel.Properties.NodeResourceGroup,
-		routeTableName,
-		nil,
-	)
-	if err == nil && len(rtGetResp.Properties.Subnets) != 0 {
-		// already associated with aks subnet
-		return nil
+
+	rg := *clusterModel.Properties.NodeResourceGroup
+	vnet, err := getClusterVNet(ctx, rg)
+	if err != nil {
+		return err
 	}
 
-	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
+	// For kubenet, the AKS-managed route table must stay attached so that pod
+	// routes (managed by cloud-provider-azure) and firewall routes coexist.
+	// For Azure CNI variants, the subnet may not have any route table, so we
+	// create and associate a dedicated one before adding the firewall routes.
+	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, rg, vnet.name, "aks-subnet", nil)
+	if err != nil {
+		return fmt.Errorf("failed to get AKS subnet: %w", err)
+	}
+	aksRTName, err := ensureFirewallRouteTable(ctx, clusterModel, vnet.name, aksSubnetResp.Subnet)
 	if err != nil {
 		return err
 	}
@@ -330,7 +334,7 @@ func addFirewallRules(
 	toolkit.Logf(ctx, "Creating subnet %s in VNet %s", firewallSubnetName, vnet.name)
 	subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(
 		ctx,
-		*clusterModel.Properties.NodeResourceGroup,
+		rg,
 		vnet.name,
 		firewallSubnetName,
 		firewallSubnetParams,
@@ -363,7 +367,7 @@ func addFirewallRules(
 	toolkit.Logf(ctx, "Creating public IP %s", publicIPName)
 	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(
 		ctx,
-		*clusterModel.Properties.NodeResourceGroup,
+		rg,
 		publicIPName,
 		publicIPParams,
 		nil,
@@ -382,7 +386,7 @@ func addFirewallRules(
 
 	firewallName := "abe2e-fw"
 	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
-	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, *clusterModel.Properties.NodeResourceGroup, firewallName, *firewall, nil)
+	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, firewallName, *firewall, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start Firewall creation: %w", err)
 	}
@@ -404,92 +408,101 @@ func addFirewallRules(
 		return fmt.Errorf("failed to get firewall private IP address")
 	}
 
-	routeTableParams := armnetwork.RouteTable{
-		Location: to.Ptr(location),
-		Properties: &armnetwork.RouteTablePropertiesFormat{
-			Routes: []*armnetwork.Route{
-				// Allow internal VNet traffic to bypass the firewall
-				{
-					Name: to.Ptr("vnet-local"),
-					Properties: &armnetwork.RoutePropertiesFormat{
-						AddressPrefix: to.Ptr("10.224.0.0/16"), // AKS subnet CIDR
-						NextHopType:   to.Ptr(armnetwork.RouteNextHopTypeVnetLocal),
-					},
-				},
-				// Route all other traffic (internet-bound) through the firewall
-				{
-					Name: to.Ptr("default-route-to-firewall"),
-					Properties: &armnetwork.RoutePropertiesFormat{
-						AddressPrefix:    to.Ptr("0.0.0.0/0"),
-						NextHopType:      to.Ptr(armnetwork.RouteNextHopTypeVirtualAppliance),
-						NextHopIPAddress: to.Ptr(firewallPrivateIP),
-					},
-				},
+	// Add firewall routes to the existing AKS route table using individual
+	// route operations. This avoids replacing the entire table (which would
+	// race with cloud-provider-azure pod route updates) and preserves the
+	// subnet association so pod CIDR routes remain active.
+	firewallRoutes := []armnetwork.Route{
+		{
+			Name: to.Ptr("vnet-local"),
+			Properties: &armnetwork.RoutePropertiesFormat{
+				AddressPrefix: to.Ptr("10.224.0.0/16"),
+				NextHopType:   to.Ptr(armnetwork.RouteNextHopTypeVnetLocal),
 			},
-			DisableBgpRoutePropagation: to.Ptr(true),
+		},
+		{
+			Name: to.Ptr("default-route-to-firewall"),
+			Properties: &armnetwork.RoutePropertiesFormat{
+				AddressPrefix:    to.Ptr("0.0.0.0/0"),
+				NextHopType:      to.Ptr(armnetwork.RouteNextHopTypeVirtualAppliance),
+				NextHopIPAddress: to.Ptr(firewallPrivateIP),
+			},
 		},
 	}
 
-	toolkit.Logf(ctx, "Creating route table %s", routeTableName)
-	rtPoller, err := config.Azure.RouteTables.BeginCreateOrUpdate(
-		ctx,
-		*clusterModel.Properties.NodeResourceGroup,
-		routeTableName,
-		routeTableParams,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to start creating route table: %w", err)
+	for _, route := range firewallRoutes {
+		toolkit.Logf(ctx, "Adding route %q to AKS route table %q", *route.Name, aksRTName)
+		poller, err := config.Azure.Routes.BeginCreateOrUpdate(ctx, rg, aksRTName, *route.Name, route, nil)
+		if err != nil {
+			return fmt.Errorf("failed to start adding route %q: %w", *route.Name, err)
+		}
+		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		if err != nil {
+			return fmt.Errorf("failed to add route %q to AKS route table: %w", *route.Name, err)
+		}
 	}
 
-	rtResp, err := rtPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return fmt.Errorf("failed to create route table: %w", err)
-	}
-
-	toolkit.Logf(ctx, "Created route table with ID: %s", *rtResp.ID)
-
-	// Get the AKS subnet and associate it with the route table
-	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, *clusterModel.Properties.NodeResourceGroup, vnet.name, "aks-subnet", nil)
-	if err != nil {
-		return fmt.Errorf("failed to get AKS subnet: %w", err)
-	}
-
-	// Update subnet to associate with route table
-	aksSubnet := aksSubnetResp.Subnet
-	if aksSubnet.Properties == nil {
-		aksSubnet.Properties = &armnetwork.SubnetPropertiesFormat{}
-	}
-	aksSubnet.Properties.RouteTable = &armnetwork.RouteTable{
-		ID: rtResp.ID,
-	}
-
-	toolkit.Logf(ctx, "Associating route table with AKS subnet")
-	subnetUpdatePoller, err := config.Azure.Subnet.BeginCreateOrUpdate(
-		ctx,
-		*clusterModel.Properties.NodeResourceGroup,
-		vnet.name,
-		"aks-subnet",
-		aksSubnet,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to start updating subnet with route table: %w", err)
-	}
-
-	_, err = subnetUpdatePoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return fmt.Errorf("failed to associate route table with subnet: %w", err)
-	}
-
-	toolkit.Logf(ctx, "Successfully configured firewall and routing for AKS cluster")
+	toolkit.Logf(ctx, "Successfully added firewall routes to AKS route table %q", aksRTName)
 	return nil
 }
 
-func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, resourceGroupName string, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {
+func ensureFirewallRouteTable(
+	ctx context.Context,
+	clusterModel *armcontainerservice.ManagedCluster,
+	vnetName string,
+	aksSubnet armnetwork.Subnet,
+) (string, error) {
+	if aksSubnet.Properties == nil {
+		return "", fmt.Errorf("AKS subnet has no properties")
+	}
+	if aksSubnet.Properties.RouteTable != nil && aksSubnet.Properties.RouteTable.ID != nil {
+		aksRTID := *aksSubnet.Properties.RouteTable.ID
+		parsedRT, err := arm.ParseResourceID(aksRTID)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse AKS route table resource ID %q: %w", aksRTID, err)
+		}
+		if parsedRT.Name == "" {
+			return "", fmt.Errorf("parsed empty route table name from resource ID %q", aksRTID)
+		}
+		return parsedRT.Name, nil
+	}
+
+	if clusterModel.Properties == nil || clusterModel.Properties.NetworkProfile == nil || clusterModel.Properties.NetworkProfile.NetworkPlugin == nil {
+		return "", fmt.Errorf("AKS subnet has no route table associated and cluster network plugin is unknown")
+	}
+	if *clusterModel.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginKubenet {
+		return "", fmt.Errorf("AKS subnet has no route table associated for kubenet cluster")
+	}
+
+	rg := *clusterModel.Properties.NodeResourceGroup
+	routeTableName := "abe2e-fw-rt"
+	toolkit.Logf(ctx, "AKS subnet has no route table; creating dedicated firewall route table %q", routeTableName)
+	poller, err := config.Azure.RouteTables.BeginCreateOrUpdate(ctx, rg, routeTableName, armnetwork.RouteTable{
+		Location: clusterModel.Location,
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to start creating firewall route table %q: %w", routeTableName, err)
+	}
+	routeTableResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return "", fmt.Errorf("failed to create firewall route table %q: %w", routeTableName, err)
+	}
+
+	aksSubnet.Properties.RouteTable = &armnetwork.RouteTable{
+		ID: routeTableResp.ID,
+	}
+	if err := updateSubnet(ctx, clusterModel, aksSubnet, vnetName); err != nil {
+		return "", fmt.Errorf("failed to associate firewall route table %q with AKS subnet: %w", routeTableName, err)
+	}
+
+	return routeTableName, nil
+}
+
+func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, kubeletIdentity *armcontainerservice.UserAssignedIdentity, isNonAnonymousPull bool) error {
 	if cluster == nil || kube == nil || kubeletIdentity == nil {
 		return errors.New("cluster, kubeclient, and kubeletIdentity cannot be nil when adding Private Azure Container Registry")
 	}
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
 	if err := createPrivateAzureContainerRegistry(ctx, cluster, resourceGroupName, isNonAnonymousPull); err != nil {
 		return fmt.Errorf("failed to create private acr: %w", err)
 	}
@@ -514,7 +527,8 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 	return nil
 }
 
-func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, location string) error {
+func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster) error {
+	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)

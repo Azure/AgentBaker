@@ -985,6 +985,40 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", "07401b.f395accd246ae52d"))
 	})
 
+	It("should handle secure TLS bootstrapping configuration", func() {
+		baseConfig.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+			Enabled:                   true,
+			AADResource:               "custom-resource",
+			UserAssignedIdentityID:    "user-assigned-identity-id",
+			CustomClientDownloadURL:   "custom-client-download-url",
+			ValidateKubeconfigTimeout: "custom-validate-kubeconfig-timeout",
+			GetAccessTokenTimeout:     "custom-get-access-token-timeout",
+			GetInstanceDataTimeout:    "custom-get-instance-data-timeout",
+			GetNonceTimeout:           "custom-get-nonce-timeout",
+			GetAttestedDataTimeout:    "custom-get-attested-data-timeout",
+			GetCredentialTimeout:      "custom-get-credential-timeout",
+			Deadline:                  "custom-deadline",
+		}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_SECURE_TLS_BOOTSTRAPPING", "true"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "custom-resource"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID", "user-assigned-identity-id"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT", "custom-validate-kubeconfig-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT", "custom-get-access-token-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT", "custom-get-instance-data-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT", "custom-get-nonce-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "custom-get-attested-data-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "custom-get-credential-timeout"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_DEADLINE", "custom-deadline"))
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL", "custom-client-download-url"))
+	})
+
 	It("should handle kubelet serving certificate rotation", func() {
 		baseConfig.KubeletConfig["--rotate-server-certificates"] = "true"
 
@@ -1120,6 +1154,57 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
 	})
 
+	It("should set NEEDS_CGROUPV2 for CustomizedImage with AzureLinux OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImage
+		typedConfig.OSSKU = datamodel.OSSKUAzureLinux
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
+	It("should set NEEDS_CGROUPV2 for CustomizedImage with Flatcar OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImage
+		typedConfig.OSSKU = datamodel.OSSKUFlatcar
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
+	It("should set NEEDS_CGROUPV2 for CustomizedImageTrustedLaunch with AzureContainerLinux OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImageTrustedLaunch
+		typedConfig.OSSKU = datamodel.OSSKUAzureContainerLinux
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
 	It("should panic when template processing fails", func() {
 		// Create invalid config that will cause template processing to fail
 		invalidConfig := &datamodel.NodeBootstrappingConfiguration{
@@ -1200,6 +1285,115 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 	})
 })
 
+var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		agentPoolProfile := &datamodel.AgentPoolProfile{
+			Name:   "nodepool1",
+			OSType: datamodel.Linux,
+			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+		}
+
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
+				},
+			},
+			AgentPoolProfile:          agentPoolProfile,
+			CloudSpecConfig:           datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:             &datamodel.K8sComponents{},
+			KubeletConfig:             map[string]string{},
+			EnableScriptlessNBCCSECmd: true,
+			PreProvisionOnly:          preProvisionOnly,
+		}
+	}
+
+	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
+		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+	})
+
+	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(true)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
+		Expect(err).NotTo(HaveOccurred())
+
+		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+
+		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nbcCmdFilePath))
+	})
+})
+
+var _ = Describe("getNodeBootstrappingCmd", func() {
+	It("should use the regular linux CSE command when pre-provisioning is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		agentPoolProfile := &datamodel.AgentPoolProfile{
+			Name:   "nodepool1",
+			OSType: datamodel.Linux,
+			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+		}
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
+				},
+			},
+			AgentPoolProfile:          agentPoolProfile,
+			CloudSpecConfig:           datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:             &datamodel.K8sComponents{},
+			KubeletConfig:             map[string]string{},
+			EnableScriptlessNBCCSECmd: true,
+			PreProvisionOnly:          true,
+		}
+
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+	})
+})
+
 var _ = Describe("cloudInitToButane", func() {
 	checkForUnit := func(butane flatcar1_1.Config) {
 		Expect(butane.Systemd.Units).To(HaveLen(2))
@@ -1210,7 +1404,7 @@ var _ = Describe("cloudInitToButane", func() {
 
 	It("should convert bootcmds to a systemd unit and shell script", func() {
 		var config = cloudInit{BootCommands: []string{"echo hello world", "ls 'some dir'"}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
@@ -1253,7 +1447,7 @@ var _ = Describe("cloudInitToButane", func() {
 				Content:     string(gzipped),
 			},
 		}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
 		tarball, err := decodeButaneResource(file.Contents)
@@ -1282,7 +1476,7 @@ var _ = Describe("cloudInitToButane", func() {
 				Content:     encoded,
 			},
 		}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
 		tarball, err := decodeButaneResource(file.Contents)
@@ -1302,7 +1496,7 @@ var _ = Describe("cloudInitToButane", func() {
 
 	It("should create a system unit but not a shell script with no bootcmds", func() {
 		var config = cloudInit{BootCommands: []string{}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(BeEmpty())
 		Expect(butane.Systemd.Units).NotTo(BeEmpty())
@@ -1316,6 +1510,24 @@ var _ = Describe("cloudInitToButane", func() {
 			}
 		}
 		Expect(found).To(BeTrue())
+	})
+
+	It("should include storage links for ACL butane config", func() {
+		var config = cloudInit{BootCommands: []string{"echo hello"}}
+		var butane = cloudInitToButane(config, kubernetesACLNodeCustomDataYaml)
+		checkForUnit(butane)
+		Expect(butane.Storage.Links).To(HaveLen(2))
+		Expect(butane.Storage.Links[0].Path).To(Equal("/etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service"))
+		Expect(*butane.Storage.Links[0].Target).To(Equal("/etc/systemd/system/ignition-bootcmds.service"))
+		Expect(butane.Storage.Links[1].Path).To(Equal("/etc/systemd/system/sysinit.target.wants/ignition-file-extract.service"))
+		Expect(*butane.Storage.Links[1].Target).To(Equal("/etc/systemd/system/ignition-file-extract.service"))
+	})
+
+	It("should not include storage links for Flatcar butane config", func() {
+		var config = cloudInit{BootCommands: []string{"echo hello"}}
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
+		checkForUnit(butane)
+		Expect(butane.Storage.Links).To(BeEmpty())
 	})
 })
 

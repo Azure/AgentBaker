@@ -513,12 +513,42 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
-# drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+# file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
-    BOOTSTRAP_CLIENT_FLAGS="--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-"2m0s"} --aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+    BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --validate-kubeconfig-timeout=${SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-access-token-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-instance-data-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-nonce-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-attested-data-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-credential-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_DEADLINE}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
+    fi
+
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    echo "BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}" > "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
@@ -528,7 +558,7 @@ configureAndStartSecureTLSBootstrapping() {
 [Unit]
 Before=kubelet.service
 [Service]
-Environment="BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}"
+EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 [Install]
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
@@ -952,7 +982,7 @@ configGPUDrivers() {
     fi
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 30 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
@@ -981,9 +1011,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then
@@ -1288,6 +1318,49 @@ enableLocalDNS() {
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+    # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
+    # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
+}
+
+# Configures the localdns metrics exporter socket to listen on the node IP.
+# Runs after ensureKubelet (the kubelet node label is added separately before ensureKubelet).
+# The VHD default binds to 0.0.0.0 which already works for vmagent scraping.
+# The drop-in narrows binding to the node IP for tighter scoping when available.
+configureLocalDNSExporterSocket() {
+    # Guard: skip everything if the socket unit doesn't exist (old VHD without exporter files).
+    # This is a backward compatibility check for VHDs built before the exporter was added.
+    # Without this guard, we'd create an orphaned drop-in directory and
+    # systemctlEnableAndStartNoBlock would hit its retry loop (~100 retries × 5s) for a missing unit.
+    if ! systemctl cat localdns-exporter.socket &>/dev/null; then
+        echo "localdns-exporter: socket unit not found on this VHD, skipping"
+        return 0
+    fi
+
+    # Create drop-in to narrow socket binding from 0.0.0.0 to the node IP.
+    local node_ip
+    node_ip=$(get_primary_nic_ip)
+    if [ -n "${node_ip}" ]; then
+        echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353"
+        mkdir -p /etc/systemd/system/localdns-exporter.socket.d
+        tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+[Socket]
+ListenStream=
+ListenStream=${node_ip}:9353
+EOF
+        systemctl daemon-reload
+    else
+        echo "localdns-exporter: get_primary_nic_ip returned empty, using VHD default (0.0.0.0:9353)"
+    fi
+
+    # Enable localdns metrics exporter socket for Prometheus scraping.
+    # This is optional observability — don't block provisioning if it fails.
+    # Note: the kubelet node label is added separately in cse_main.sh before ensureKubelet.
+    echo "Enabling localdns-exporter.socket for metrics collection."
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
+        echo "Enable localdns-exporter.socket succeeded."
+    else
+        echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
+    fi
 }
 
 configureManagedGPUExperience() {

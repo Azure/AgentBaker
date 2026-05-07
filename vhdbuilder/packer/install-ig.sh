@@ -12,16 +12,15 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # Debs are only published to the 20.04 repo on PMC; the 20.04 deb is compatible
 # with 22.04 and 24.04. Maintainers: ebpf-tools within Azure org on GitHub.
 #
-# Dependency constraints differ by OS (defined in the ig-gadgets Dalec spec):
-#   Ubuntu (deb-based): ig >= <gadgets_version>  — ig can be newer than gadgets
-#   AzureLinux (azl3):  ig == <gadgets_version>  — ig must match gadgets exactly
-# This means on AzureLinux, ig and ig-gadgets MUST be bumped together or the
-# RPM install will fail with "conflicting requests".
+# ig and ig-gadgets must share the same upstream IG version (X.Y.Z), but their
+# distro/package revisions can differ. The PMC feeds typically publish multiple
+# ig revisions per OS while ig-gadgets is published once per upstream release.
+# Example: ig 0.51.0-4.azl3 is compatible with ig-gadgets 0.51.0-1.azl3.
 # Since ig-gadgets is NOT in components.json (no Renovate coverage), its version
-# must be updated manually here whenever ig is bumped for AzureLinux.
-# testInspektorGadgetAssets should catch this behavior if we're off.
-IG_GADGETS_DEB_VERSION="0.49.1-ubuntu20.04u1"
-IG_GADGETS_RPM_VERSION="0.49.1-1.azl3"
+# must still be updated manually here whenever ig moves to a new upstream
+# release. testInspektorGadgetAssets should catch any mismatch.
+IG_GADGETS_DEB_VERSION="0.51.0-ubuntu20.04u1"
+IG_GADGETS_RPM_VERSION="0.51.0-1.azl3"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)
@@ -39,6 +38,36 @@ ig_detect_arch() {
             return 1
             ;;
     esac
+}
+
+ig_extract_upstream_version() {
+    local version="${1:-}"
+
+    if [[ "${version}" =~ ^([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+
+    echo "[ig] Could not parse upstream version from '${version}'" >&2
+    return 1
+}
+
+ig_validate_version_compatibility() {
+    local ig_gadgets_version ig_upstream ig_gadgets_upstream
+
+    if [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
+        ig_gadgets_version="${IG_GADGETS_RPM_VERSION}"
+    else
+        ig_gadgets_version="${IG_GADGETS_DEB_VERSION}"
+    fi
+
+    ig_upstream=$(ig_extract_upstream_version "${IG_VERSION}") || return 1
+    ig_gadgets_upstream=$(ig_extract_upstream_version "${ig_gadgets_version}") || return 1
+
+    if [[ "${ig_upstream}" != "${ig_gadgets_upstream}" ]]; then
+        echo "[ig] ig (${IG_VERSION}) and ig-gadgets (${ig_gadgets_version}) must share upstream version, found ${ig_upstream} vs ${ig_gadgets_upstream}" >&2
+        return 1
+    fi
 }
 
 ig_download_file() {
@@ -156,6 +185,7 @@ installIG() {
     fi
 
     IG_VERSION="${version}"
+    ig_validate_version_compatibility || return 1
 
     IG_BUILD_ROOT="${download_dir}"
     if [[ -z "${IG_BUILD_ROOT}" || "${IG_BUILD_ROOT}" == "null" ]]; then

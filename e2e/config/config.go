@@ -63,7 +63,6 @@ type Configuration struct {
 	DisableScriptLessCompilation           bool          `env:"DISABLE_SCRIPTLESS_COMPILATION"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableSecureTLSBootstrapping           bool          `env:"ENABLE_SECURE_TLS_BOOTSTRAPPING" envDefault:"true"`
-	EnableScriptlessCSECmd                 bool          `env:"ENABLE_SCRIPTLESS_CSE_CMD" envDefault:"false"`
 	ExtendedTests                          string        `env:"EXTENDED_TESTS" envDefault:""`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
@@ -180,7 +179,7 @@ func mustGetNewRSAKeyPair() ([]byte, []byte, string) {
 
 	privateKeyFileName, err := writePrivateKeyToTempFile(privatePEMBytes)
 	if err != nil {
-		panic(fmt.Sprintf("failed to write private key to temp file: %v", err))
+		panic(fmt.Sprintf("failed to write private key to temp file: %w", err))
 	}
 
 	return privatePEMBytes, publicKeyBytes, privateKeyFileName

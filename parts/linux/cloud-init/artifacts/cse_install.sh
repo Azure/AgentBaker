@@ -149,7 +149,7 @@ installNetworkPlugin() {
     fi
     # Check if required CNI plugins are already cached
     local required_plugins=("bridge" "host-local" "loopback")
-       local all_plugins_exist=true
+    local all_plugins_exist=true
     for plugin in "${required_plugins[@]}"; do
         if [ ! -f "$CNI_BIN_DIR/$plugin" ]; then
             all_plugins_exist=false
@@ -159,8 +159,11 @@ installNetworkPlugin() {
     if [ "$all_plugins_exist" = "false" ]; then
         echo "One or more required CNI plugins not found in $CNI_BIN_DIR; installing fixed CNI plugins without removing existing binaries"
         installFixedCNI
-        rm -rf "${CNI_DOWNLOADS_DIR:?}" &
     fi
+    # The required CNI binaries are now in CNI_BIN_DIR, either pre-baked on
+    # the VHD or freshly installed by installFixedCNI above. Clean up the
+    # downloads scratch space to reclaim disk (~50MB of extracted cni-plugins).
+    rm -rf "${CNI_DOWNLOADS_DIR:?}" &
 }
 
 # downloadCredentialProvider is always called during build time by install-dependencies.sh.
@@ -203,7 +206,13 @@ downloadCredentialProvider() {
 
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
-    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    # Only apply per-operation budget during real CSE runs (CSE_STARTTIME_SECONDS set).
+    # During VHD build, use 0 (unlimited) to avoid flakiness from transient network issues.
+    local cred_budget=0
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        cred_budget=300
+    fi
+    retrycmd_get_tarball 120 5 60 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL $cred_budget || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     echo "Credential Provider downloaded successfully"
 }
 
@@ -228,7 +237,7 @@ installOras() {
 
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
+    retrycmd_get_tarball 120 5 60 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} 300 || exit $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
         echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
@@ -279,7 +288,7 @@ downloadSecureTLSBootstrapClient() {
 
     echo "installing aks-secure-tls-bootstrap-client from: $CLIENT_DOWNLOAD_URL"
     CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
-    retrycmd_get_tarball 120 5 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    retrycmd_get_tarball 120 5 60 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} 300 || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 
     if [ -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client" ]; then
         echo "aks-secure-tls-bootstrap-client already exists in $CLIENT_EXTRACTED_DIR, will overwrite existing aks-secure-tls-bootstrap-client installation at ${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
@@ -319,7 +328,7 @@ downloadAzureCNI() {
     VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 5 60 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} 300 || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
@@ -336,7 +345,7 @@ installCNILegacy() {
         if [ -z "${CPU_ARCH:-}" ]; then
             CPU_ARCH="$(getCPUArch)"
         fi
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-${CPU_ARCH}-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        retrycmd_get_tarball 120 5 60 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-${CPU_ARCH}-v1.4.1.tgz" 300 || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
         return
     fi
@@ -390,7 +399,7 @@ downloadCrictl() {
     logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
     url=$(update_base_url $url)
     crictlTgzTmp=${url##*/}
-    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} 300 || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -499,7 +508,7 @@ extractKubeBinaries() {
             fi
         else
             # download the kube package from the default URL
-            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            retrycmd_get_tarball 120 5 60 "${k8s_tgz_tmp}" ${kube_binary_url} 300 || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [ ! -f "${k8s_tgz_tmp}" ] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
@@ -517,6 +526,18 @@ installToolFromBootstrapProfileRegistry() {
 
     # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
     local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
+
+    if [ "${NETWORK_ISOLATED_CLUSTER_TEST_MODE}" = "true" ]; then
+        echo "NETWORK_ISOLATED_CLUSTER_TEST_MODE=true, skipping installPackageFromCache for ${tool_name}"
+    else
+        if installPackageFromCache "$tool_name" "$version"; then
+            if [ -n "$install_path" ]; then
+                mv "$(which "$tool_name")" "$install_path"
+            fi
+            return 0
+        fi
+    fi
+    echo "install from cache failed for ${tool_name}, start to pull from registry"
 
     version_tag="${version}"
     if [ "${version}" != "v*" ]; then

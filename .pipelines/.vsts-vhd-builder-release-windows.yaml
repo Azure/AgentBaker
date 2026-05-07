@@ -79,24 +79,6 @@ parameters:
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
-  - stage: CheckUseContainerUrlsFromJson
-    jobs:
-      - job: SetURLToDefault
-        condition: eq(variables['useContainerUrlsFromJson'], 'True')
-        steps:
-          - script: echo "Setting Windows Container Image JSON URL to ${{ parameters.windowsContainerImageJsonUrl }}"
-            displayName: Set Windows Container Image JSON URL
-          - powershell: |
-              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl]${{ parameters.windowsContainerImageJsonUrl }}"
-            displayName: Set pipeline variable windowsContainerImageJsonUrl
-      - job: SetURLToEmpty
-        condition: eq(variables['useContainerUrlsFromJson'], 'False')
-        steps:
-          - script: echo "Setting Windows Container Image JSON URL to an empty string"
-            displayName: Set Windows Container Image JSON URL to empty
-          - powershell: |
-              Write-Host "##vso[task.setvariable variable=windowsContainerImageJsonUrl;isOutput=true]''"
-            displayName: Set pipeline variable windowsContainerImageJsonUrl to empty
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
       vhddebug: ${{ parameters.vhddebug }}
@@ -112,3 +94,7 @@ stages:
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      ${{ if eq(parameters.useContainerUrlsFromJson, true) }}:
+        windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      ${{ else }}:
+        windowsContainerImageJsonUrl: ""

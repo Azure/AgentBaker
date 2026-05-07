@@ -43,6 +43,47 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	return t.getLinuxNodeBootstrappingPayload(config)
 }
 
+const (
+	boothookTemplate = `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+logger -t aks-boothook "boothook start $(date -Ins)"
+
+mkdir -p /opt/azure/containers
+
+cat <<'EOF' | base64 -d | gzip -d >%[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
+
+cat <<'EOF' | base64 -d | gzip -d >%[3]s
+%[4]s
+EOF
+chmod 0600 %[3]s
+
+logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
+systemctl start --no-block aks-node-controller.service
+`
+	flatcarTemplate = `{
+     "ignition": { "version": "3.4.0" },
+     "storage": {
+       "files": [{
+        "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
+        "mode": 384,
+        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+       },
+	   {
+        "path": "/opt/azure/containers/nodecustomdata.yml",
+        "mode": 384,
+        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+       }]
+      }
+     }`
+	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
+	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+)
+
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
@@ -51,6 +92,28 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
+		config.DisableCustomData = true
+		config.EnableScriptlessCSECmd = true
+		nbcCMD := t.getLinuxNodeCSECommand(config)
+		encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
+		nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+		var customData string
+		if config.IsFlatcar() || config.IsACL() {
+			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData)
+		} else {
+			customData = fmt.Sprintf(
+				boothookTemplate,
+				nodeCustomDataPath,
+				encodedNodeCustomData,
+				nbcCmdFilePath,
+				encodedNBCCMD,
+			)
+		}
+
+		return base64.StdEncoding.EncodeToString([]byte(customData))
+	}
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
@@ -182,11 +245,11 @@ func buildIgnitionTarball(entries []ignitionTarEntry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func cloudInitToButane(customData cloudInit) flatcar1_1.Config {
+func cloudInitToButane(customData cloudInit, butaneYamlPath string) flatcar1_1.Config {
 	butaneconfig := flatcar1_1.Config{}
-	b, e := parts.Templates.ReadFile(kubernetesFlatcarNodeCustomDataYaml)
+	b, e := parts.Templates.ReadFile(butaneYamlPath)
 	if e != nil {
-		panic(fmt.Errorf("yaml file %s does not exist", kubernetesFlatcarNodeCustomDataYaml))
+		panic(fmt.Errorf("yaml file %s does not exist", butaneYamlPath))
 	}
 	if e = yaml.Unmarshal(b, &butaneconfig); e != nil {
 		panic(fmt.Errorf("failed to unmarshal butane config: %w", e))
@@ -241,7 +304,11 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		panic(fmt.Errorf("no write files found in customData"))
 	}
 
-	var butaneconfig = cloudInitToButane(customData)
+	butaneYamlPath := kubernetesFlatcarNodeCustomDataYaml
+	if config.IsACL() {
+		butaneYamlPath = kubernetesACLNodeCustomDataYaml
+	}
+	var butaneconfig = cloudInitToButane(customData, butaneYamlPath)
 	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
 	if e != nil {
 		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
@@ -288,6 +355,9 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
+	}
+	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
+		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -593,9 +663,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"EnableSecureTLSBootstrapping": func() bool {
 			return config.SecureTLSBootstrappingConfig.GetEnabled()
 		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
-		},
 		"GetSecureTLSBootstrappingAADResource": func() string {
 			return config.SecureTLSBootstrappingConfig.GetAADResource()
 		},
@@ -604,6 +671,27 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCustomSecureTLSBootstrappingClientDownloadURL": func() string {
 			return config.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()
+		},
+		"GetSecureTLSBootstrappingValidateKubeconfigTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetValidateKubeconfigTimeout()
+		},
+		"GetSecureTLSBootstrappingGetAccessTokenTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetAccessTokenTimeout()
+		},
+		"GetSecureTLSBootstrappingGetInstanceDataTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetInstanceDataTimeout()
+		},
+		"GetSecureTLSBootstrappingGetNonceTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetNonceTimeout()
+		},
+		"GetSecureTLSBootstrappingGetAttestedDataTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetAttestedDataTimeout()
+		},
+		"GetSecureTLSBootstrappingGetCredentialTimeout": func() string {
+			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
+		},
+		"GetSecureTLSBootstrappingDeadline": func() string {
+			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -621,7 +709,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro() || profile.IsFlatcar() || profile.IsACL()
+			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() ||
+				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -717,7 +806,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
 				profile.Distro == datamodel.CustomizedImageKata ||
-				profile.Distro == datamodel.CustomizedImageLinuxGuard
+				profile.Distro == datamodel.CustomizedImageLinuxGuard ||
+				profile.Distro == datamodel.CustomizedImageTrustedLaunch
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -1238,6 +1328,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
+		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessNBCCSECmd },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

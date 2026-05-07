@@ -16,6 +16,13 @@ Describe 'cse_install_mariner.sh'
         function systemctl() {
             return 0
         }
+        function logs_to_events() {
+            echo "$2"
+            return 0
+        }
+        function fallbackToKubeBinaryInstall() {
+            return 1
+        }
     }
     BeforeAll 'setup'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
@@ -45,14 +52,10 @@ Describe 'cse_install_mariner.sh'
             rm -rf "$rpm_cache_root"
         }
 
-        ln() {
-            echo "ln $@"
-        }
-
         BeforeEach 'setup_rpm_cache'
         AfterEach 'cleanup_rpm_cache'
 
-        It 'installs cached dependency RPMs when they are present'
+        It 'extracts the requested RPM when cached dependency RPMs are present'
             desiredVersion="1.34.0-5.azl3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
@@ -62,25 +65,19 @@ Describe 'cse_install_mariner.sh'
             touch "$dependencyRpm"
             touch "$conflictRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
-            The output should include "Installing kubelet with cached dependency RPMs"
-            The output should include "$dependencyRpm"
-            The output should include "$kubeletRpm"
-            The output should include "dnf install 30 1 600"
-            The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
         End
 
-        It 'installs only the requested RPM when no cached dependencies exist'
+        It 'extracts only the requested RPM when no cached dependencies exist'
             desiredVersion="1.34.0-5.azl3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
             touch "$kubeletRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "dnf install 30 1 600 $kubeletRpm"
-            The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
         End
 
-        It 'does not pass duplicate release versions to dnf causing conflicts'
+        It 'selects the latest matching release when multiple cached RPMs exist'
             desiredVersion="1.34.3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             release1="$rpmDir/kubelet-1.34.3-1.azl3.x86_64.rpm"
@@ -88,10 +85,7 @@ Describe 'cse_install_mariner.sh'
             touch "$release1"
             touch "$release2"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            # sort -V | tail -n 1 should pick the latest release as the primary RPM
-            The output should include "dnf install 30 1 600 $release2"
-            # the older release should be skipped, not added as a dependency
-            The output should include "Skipping cached kubelet rpm"
+            The output should include "extractBinaryFromRPM $release2 kubelet /opt/bin/kubelet"
             The output should not include "$release1"
         End
 
@@ -286,6 +280,59 @@ Describe 'cse_install_mariner.sh'
             When call downloadGPUDrivers
             The output should not include "NVIDIA GRID driver"
             The variable GRID_CALLED should not equal "true"
+        End
+    End
+
+    Describe 'installAznfsPackage'
+        ERR_AZNFS_INSTALL_FAIL=242
+        aznfs_test_dir="$PWD/spec/tmp/aznfs-test"
+
+        setup_aznfs() {
+            mkdir -p "${aznfs_test_dir}/opt/aznfs/downloads"
+            # Create a fake aznfs RPM file
+            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+        }
+
+        cleanup_aznfs() {
+            rm -rf "${aznfs_test_dir}"
+        }
+
+        # Mock gpg/rpm to avoid 'command not found' on CI
+        gpg() {
+            return 0
+        }
+        rpm() {
+            return 0
+        }
+
+        BeforeEach 'setup_aznfs'
+        AfterEach 'cleanup_aznfs'
+
+        It 'skips install on non-AzureLinux 3.0'
+            OS_VERSION="2.0"
+            When call installAznfsPackage
+            The output should include "only supported on Azure Linux 3.0"
+        End
+
+        It 'installs pre-downloaded RPM on AzureLinux 3.0'
+            OS_VERSION="3.0"
+            # Override findAznfsRpm to return our test RPM
+            findAznfsRpm() {
+                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+            }
+            When call installAznfsPackage
+            The output should include "Installing aznfs from pre-downloaded RPM"
+        End
+
+        It 'fails when pre-downloaded RPM is not found'
+            OS_VERSION="3.0"
+            # Override findAznfsRpm to return empty (no RPM found)
+            findAznfsRpm() {
+                echo ""
+            }
+            When call installAznfsPackage
+            The output should include "aznfs RPM not found"
+            The status should equal 242
         End
     End
 End

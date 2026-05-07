@@ -59,7 +59,7 @@ function basePrep {
     if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
         echo "Skipping holding walinuxagent"
     else
-        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+        logs_to_events "AKS.CSE.holdWALinuxAgent" holdWALinuxAgent hold
     fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
@@ -69,6 +69,11 @@ function basePrep {
         apt-get -y autoremove chrony
         echo $?
         systemctl restart systemd-timesyncd
+    fi
+
+    # pre-warm coredns by checking its version.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        nohup /bin/sh -c '/opt/azure/containers/localdns/binary/coredns --version >/dev/null 2>&1' >/dev/null 2>&1 &
     fi
 
     # Eval proxy vars to ensure curl commands use proxy if configured.
@@ -279,6 +284,23 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
+    # CVE-2026-31431 (Copy Fail): Mitigate algif_aead LPE vulnerability.
+    # Affects Ubuntu 20.04/22.04/24.04 and AzureLinux 3.0 (kernel >=4.15).
+    # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
+    # Safe to run unconditionally — idempotent if already mitigated.
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
+        if ! grep -qs "algif_aead" /etc/modprobe.d/*.conf 2>/dev/null; then
+            printf "install algif_aead /bin/false\nblacklist algif_aead\n" > /etc/modprobe.d/disable-algif_aead.conf
+        fi
+        if grep -q '^algif_aead ' /proc/modules 2>/dev/null; then
+            if rmmod algif_aead 2>/dev/null; then
+                echo "CVE-2026-31431: successfully unloaded algif_aead module"
+            else
+                echo "CVE-2026-31431: failed to unload algif_aead (in use), reboot required for full mitigation"
+            fi
+        fi
+    fi
+
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
@@ -484,10 +506,25 @@ function nodePrep {
 
     checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
+        checkServiceHealth secure-tls-bootstrap || true
+    fi
+
+    # Add localdns-exporter kubelet node label before ensureKubelet so it's
+    # included in --node-labels at kubelet startup (~0ms, just a variable append).
+    # Only add the label if the exporter socket unit exists on this VHD — otherwise
+    # the node would advertise exporter=enabled but have no exporter to scrape.
+    # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Configure localdns metrics exporter socket after ensureKubelet.
+    # This is optional observability — don't block provisioning if it fails.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket || true
+    fi
 
     if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
@@ -511,7 +548,7 @@ function nodePrep {
                 echo "Skipping unholding walinuxagent"
             else
                 # logs_to_events should not be run on & commands
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         fi
     else
@@ -537,7 +574,7 @@ function nodePrep {
             if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
                 echo "Skipping unholding walinuxagent"
             else
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then

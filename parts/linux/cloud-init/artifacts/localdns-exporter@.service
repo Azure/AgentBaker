@@ -1,0 +1,30 @@
+[Unit]
+Description=Localdns Prometheus Exporter Per-Connection Worker
+Documentation=https://github.com/Azure/AgentBaker
+
+[Service]
+Type=simple
+Environment=LOCALDNS_SCRIPT_PATH=/opt/azure/containers/localdns
+ExecStart=/opt/azure/containers/localdns/localdns_exporter.sh
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+
+# Security hardening - run as unprivileged dynamic user
+# Exporter only reads pre-generated world-readable .prom metrics files (no systemd queries)
+DynamicUser=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+PrivateMounts=yes

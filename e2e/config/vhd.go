@@ -60,6 +60,25 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
+	VHDUbuntu2204Gen2TLContainerd = &Image{
+		Name:    "2204gen2TLcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
+		Gallery: imageGalleryLinux,
+	}
+	VHDUbuntu2004FIPSContainerd = &Image{
+		Name:                "2004fipscontainerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuFipsContainerd2004,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+		UnsupportedGen2:                   true,
+		Skip2004Validations:               true,
+	}
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
 		OS:                  OSUbuntu,
@@ -301,6 +320,7 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
+	Skip2004Validations                 bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }
@@ -308,6 +328,10 @@ type Image struct {
 func (i *Image) String() string {
 	// a starter for a string for debugging.
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
+}
+
+func (i *Image) SupportsScriptless() bool {
+	return !i.Flatcar && !i.Distro.IsWindowsDistro()
 }
 
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {

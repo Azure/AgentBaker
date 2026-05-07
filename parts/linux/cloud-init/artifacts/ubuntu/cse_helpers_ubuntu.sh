@@ -3,16 +3,20 @@
 echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
 
-aptmarkWALinuxAgent() {
-    echo $(date),$(hostname), startAptmarkWALinuxAgent "$1"
+holdWALinuxAgent() {
+    echo $(date),$(hostname), startHoldWALinuxAgent "$1"
     wait_for_apt_locks
-    retrycmd_if_failure 120 5 25 apt-mark $1 walinuxagent || \
     if [ "$1" = "hold" ]; then
-        exit $ERR_HOLD_WALINUXAGENT
+        # set dpkg selection to 'hold' — prevents apt from upgrading walinuxagent
+        retrycmd_if_failure 120 5 25 bash -c 'set -o pipefail; printf "walinuxagent hold\n" | dpkg --set-selections' || exit $ERR_HOLD_WALINUXAGENT
     elif [ "$1" = "unhold" ]; then
-        exit $ERR_RELEASE_HOLD_WALINUXAGENT
+        # set dpkg selection back to 'install' (unhold) — allows apt to upgrade walinuxagent again
+        retrycmd_if_failure 120 5 25 bash -c 'set -o pipefail; printf "walinuxagent install\n" | dpkg --set-selections' || exit $ERR_RELEASE_HOLD_WALINUXAGENT
+    else
+        echo "$(date),$(hostname), errorHoldWALinuxAgent invalid argument '$1'" >&2
+        exit 1
     fi
-    echo $(date),$(hostname), endAptmarkWALinuxAgent "$1"
+    echo $(date),$(hostname), endHoldWALinuxAgent "$1"
 }
 
 wait_for_apt_locks() {
@@ -54,15 +58,55 @@ _apt_get_install() {
     local retries=$1
     local wait_sleep=$2
     local apt_opts=$3
-    shift && shift && shift
+    local maxBudget=${4:-0}
+    shift && shift && shift && shift
+    local packages=("${@}")
+
+    local hasBudget=false
+    if [ "${maxBudget}" -gt 0 ]; then
+        hasBudget=true
+    fi
+
+    local opStartTime
+    opStartTime=$(date +%s)
 
     for i in $(seq 1 $retries); do
+        # CSE timeout guard
+        if ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting apt_get_install early." >&2
+            return 2
+        fi
+
+        # Per-operation budget check
+        if [ "$hasBudget" = true ]; then
+            local opElapsed
+            opElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$opElapsed" -ge "$maxBudget" ]; then
+                echo "apt_get_install budget of ${maxBudget}s exceeded after ${opElapsed}s, exiting early." >&2
+                return 2
+            fi
+        fi
+
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
 
-        if apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${@}"; then
-            echo "Executed apt-get install \"${packages[@]}\" $i times"
+        # Cap per-attempt timeout to the remaining budget so a single attempt
+        # cannot overrun the operation window.
+        local install_ok=false
+        if [ "$hasBudget" = true ]; then
+            local remaining=$(( maxBudget - ( $(date +%s) - opStartTime ) ))
+            if [ "$remaining" -lt 1 ]; then
+                echo "apt_get_install budget of ${maxBudget}s exceeded, exiting early." >&2
+                return 2
+            fi
+            timeout "$remaining" apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${packages[@]}" && install_ok=true
+        else
+            apt-get install ${apt_opts} -o Dpkg::Options::="--force-confold" --no-install-recommends "${packages[@]}" && install_ok=true
+        fi
+
+        if [ "$install_ok" = true ]; then
+            echo "Executed apt-get install \"${packages[*]}\" $i times"
             wait_for_apt_locks
             DEBIAN_FRONTEND=noninteractive apt-get clean
             wait_for_apt_locks
@@ -72,14 +116,31 @@ _apt_get_install() {
         if [ $i -eq $retries ]; then
             return 1
         else
+            # Check budget/CSE again before sleeping
+            if ! check_cse_timeout; then
+                echo "CSE timeout approaching, exiting apt_get_install early." >&2
+                return 2
+            fi
+            if [ "$hasBudget" = true ]; then
+                local postElapsed=$(( $(date +%s) - opStartTime ))
+                if [ "$postElapsed" -ge "$maxBudget" ]; then
+                    echo "apt_get_install budget of ${maxBudget}s exceeded after ${postElapsed}s, exiting early." >&2
+                    return 2
+                fi
+            fi
             sleep $wait_sleep
             apt_get_update
         fi
     done
 }
 apt_get_install() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    _apt_get_install $retries $wait_sleep "-y" "$@"
+    local retries=$1; local wait_sleep=$2; local timeout=$3; shift && shift && shift
+    # Only apply per-operation budget during real CSE runs; during VHD build use no cap.
+    local maxBudget=0
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        maxBudget=$timeout
+    fi
+    _apt_get_install "$retries" "$wait_sleep" "-y" "$maxBudget" "$@"
 }
 apt_get_purge() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -105,7 +166,7 @@ apt_get_dist_upgrade() {
     export DEBIAN_FRONTEND=noninteractive
     dpkg --configure -a --force-confdef
     apt-get -f -y install
-    apt-mark showhold
+    dpkg --get-selections | awk '$2=="hold"{print $1}'
     ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
@@ -118,9 +179,12 @@ apt_get_dist_upgrade() {
   wait_for_apt_locks
 }
 installDebPackageFromFile() {
-    DEB_FILE=$1
+    export DEBIAN_FRONTEND=noninteractive
+    local DEB_FILE=$1
     wait_for_apt_locks
-    retrycmd_if_failure 10 5 600 apt-get -y -f install ${DEB_FILE} --allow-downgrades
+    retrycmd_if_failure 3 5 120 dpkg --force-confdef --force-confold -i "${DEB_FILE}" || {
+        retrycmd_if_failure 10 5 600 apt-get -y -f install "${DEB_FILE}" --allow-downgrades
+    }
     if [ "$?" -ne 0 ]; then
         return 1
     fi
@@ -165,7 +229,8 @@ apt_get_install_from_local_repo() {
     # Install package from local repo using core installation function
     local retries=10
     local wait_sleep=5
-    if ! _apt_get_install $retries $wait_sleep "${opts}" "${package_name}"; then
+    # maxBudget=0: no per-operation time cap for local repo installs (no network download involved)
+    if ! _apt_get_install $retries $wait_sleep "${opts}" 0 "${package_name}"; then
         echo "Failed to install ${package_name} from local repo"
         rm -f "${tmp_list}"
         rmdir "${tmp_dir}"

@@ -42,6 +42,7 @@ const (
 // cloud-init (i.e. ARM customData) source file references.
 const (
 	kubernetesFlatcarNodeCustomDataYaml   = "linux/cloud-init/flatcar.yml"
+	kubernetesACLNodeCustomDataYaml       = "linux/cloud-init/acl.yml"
 	kubernetesNodeCustomDataYaml          = "linux/cloud-init/nodecustomdata.yml"
 	kubernetesCSECommandString            = "linux/cloud-init/artifacts/cse_cmd.sh"
 	kubernetesCSEStartScript              = "linux/cloud-init/artifacts/cse_start.sh"

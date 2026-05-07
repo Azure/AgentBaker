@@ -8,7 +8,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Masterminds/semver"
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -325,6 +325,34 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 Gen2 with Windows Cilium Networking (WCN) enabled",
+		Config: Config{
+			Cluster:               ClusterAzureNetwork,
+			VHD:                   config.VHDWindows2025Gen2,
+			VMConfigMutator:       EmptyVMConfigMutator,
+			WaitForSSHAfterReboot: 5 * time.Minute,
+			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
+					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+				}
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateWindowsCiliumIsRunning(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 using secure TLS bootstrapping bootstrap token fallback",
@@ -616,9 +644,9 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 	})
 }
 
-func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
+func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that Windows nodes in network isolated clusters download kubelet binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
+		Description: "Tests that Windows nodes in network isolated clusters download kubelet/containerd binaries via ORAS when BootstrapProfileContainerRegistryServer is set",
 		Tags: Tags{
 			NetworkIsolated: true,
 			NonAnonymousACR: false,
@@ -633,6 +661,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
+						TestMode:                true,
 					},
 				}
 			},
@@ -640,6 +669,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasKubeletDownload(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				// Verify kubelet binaries were downloaded via ORAS instead of HTTP
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download kubelet binaries with oras")
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Start to download containerd with oras")
 			},
 		},
 	})

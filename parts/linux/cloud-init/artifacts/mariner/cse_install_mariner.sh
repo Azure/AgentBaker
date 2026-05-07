@@ -32,7 +32,7 @@ installDeps() {
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
+    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -213,8 +213,7 @@ installCredentialProviderFromPkg() {
 	echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
-    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || exit "$ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 }
 
   getPackageCacheRoot() {
@@ -233,8 +232,51 @@ installCredentialProviderFromPkg() {
 
 installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
-	  installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
-    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
+
+	  installRPMPackageFromFile "kubelet" "${desiredVersion}" "/opt/bin/kubelet" || exit "$ERR_KUBELET_INSTALL_FAIL"
+    installRPMPackageFromFile "kubectl" "${desiredVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
+}
+
+findAznfsRpm() {
+  local dir="$1"
+  find "${dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | sort -V | tail -1
+}
+
+installAznfsPackage() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "aznfs package install is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
+  # (via components.json). It must be present; fail immediately if not found.
+  local aznfs_download_dir="/opt/aznfs/downloads"
+  local aznfs_rpm_file
+  aznfs_rpm_file=$(findAznfsRpm "${aznfs_download_dir}")
+  if [ -z "${aznfs_rpm_file}" ]; then
+    echo "Error: aznfs RPM not found in ${aznfs_download_dir}. It should have been pre-downloaded during VHD build."
+    return $ERR_AZNFS_INSTALL_FAIL
+  fi
+
+  echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+    return $ERR_AZNFS_INSTALL_FAIL
+  fi
+
+  # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
+  local aznfs_config="/opt/microsoft/aznfs/data/config"
+  if [ -f "${aznfs_config}" ]; then
+    sed -i 's/AUTOUPDATE=.*/AUTOUPDATE=false/' "${aznfs_config}"
+    echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
+  fi
+
+  # Restart aznfswatchdogv4 to pick up the updated config
+  systemctl restart aznfswatchdogv4
+
+  # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
+  # services at the same time while we only need aznfswatchdogv4
+  systemctl disable aznfswatchdog
+  systemctl stop aznfswatchdog
 }
 
 installToolFromLocalRepo() {
@@ -351,7 +393,7 @@ updateDnfWithNvidiaPkg() {
 
   readonly nvidia_repo_path="/etc/yum.repos.d/nvidia-built-azurelinux.repo"
   local nvidia_repo_url="https://developer.download.nvidia.com/compute/cuda/repos/azl3/${repo_arch}/cuda-azl3.repo"
-  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
+  retrycmd_curl_file 120 5 25 ${nvidia_repo_path} ${nvidia_repo_url} 300 || exit $ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -403,22 +445,60 @@ installNvidiaManagedExpPkgFromCache() {
   done
 }
 
+extractBinaryFromRPM() {
+    local rpmFile="${1}"
+    local packageName="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local extractDir
+    local binaryPath=""
+
+    extractDir=$(mktemp -d) || return 1
+    if ! (cd "${extractDir}" && rpm2cpio "${rpmFile}" | cpio -idm >/dev/null 2>&1); then
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    for candidate in "${extractDir}/usr/bin/${packageName}" "${extractDir}/usr/local/bin/${packageName}"; do
+        if [ -f "${candidate}" ]; then
+            binaryPath="${candidate}"
+            break
+        fi
+    done
+
+    if [ -z "${binaryPath}" ]; then
+        echo "Failed to locate ${packageName} binary in ${rpmFile}"
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    mkdir -p "$(dirname "${targetPath}")"
+
+    mv "${binaryPath}" "${targetPath}"
+    chown root:root "${targetPath}"
+    chmod 0755 "${targetPath}"
+
+    rm -rf "${extractDir}"
+}
+
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
     echo "installing ${packageName} version ${desiredVersion}"
     local downloadDir
+    local rpmFile=""
+    local fullPackageVersion=""
     downloadDir="$(getPackageDownloadDir "${packageName}")"
+
+    if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
 
     # check cached rpms for matching filename
     rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
-        if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
-            echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
-            rm -rf "${downloadDir}"
-            return 0
-        fi
-
         # query all package versions and get the latest version for matching k8s version
         # e.g. 1.34.0-5.azl3
         fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
@@ -427,7 +507,7 @@ installRPMPackageFromFile() {
             return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
-        downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
+        downloadPkgFromVersion "${packageName}" "${fullPackageVersion}" "${downloadDir}"
         rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
@@ -436,41 +516,35 @@ installRPMPackageFromFile() {
     fi
 
     rpmFile="${downloadDir}/${rpmFile}"
-    local rpmArgs=("${rpmFile}")
-    local -a cachedRpmFiles=()
-    mapfile -t cachedRpmFiles < <(find "${downloadDir}" -maxdepth 1 -type f -name "*.rpm" -print 2>/dev/null | sort)
+    logs_to_events "AKS.CSE.install${packageName}.extractBinaryFromRPM" "extractBinaryFromRPM ${rpmFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
+    rm -rf "${downloadDir}"
+}
 
-    # selecting the correct version of dependency rpms from the cache
-    for cachedRpm in "${cachedRpmFiles[@]}"; do
-      if [ "${cachedRpm}" = "${rpmFile}" ]; then
-        continue
-      fi
+installPackageFromCache() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    echo "installing ${packageName} version ${desiredVersion}"
+    local downloadDir
+    local rpmFile=""
+    local fullPackageVersion=""
+    downloadDir="$(getPackageDownloadDir "${packageName}")"
 
-      local cachedBaseName
-      cachedBaseName=$(basename "${cachedRpm}")
-
-      case "${cachedBaseName}" in
-        *${packageName}*)
-          echo "Skipping cached ${packageName} rpm ${cachedBaseName} because it does not match desired version ${desiredVersion}"
-          continue
-          ;;
-      esac
-
-      rpmArgs+=("${cachedRpm}")
-    done
-
-    if [ ${#rpmArgs[@]} -gt 1 ]; then
-        echo "Installing ${packageName} with cached dependency RPMs: ${rpmArgs[*]}"
+    if fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
     fi
 
-    # When dependency RPMs are cached, they are included in the argument list to dnf_install.
-    # When no dependency RPM is cached, only the main package RPM is included.
-    # And dnf_install will handle installing dependencies from configured repos (downloading from network) as needed.
-    if ! dnf_install 30 1 600 "${rpmArgs[@]}"; then
-        exit $ERR_APT_INSTALL_TIMEOUT
+    # check cached rpms for matching filename
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    if [ -z "${rpmFile}" ]; then
+        echo "Failed to find cached rpm file for ${packageName} version ${desiredVersion}"
+        return 1
     fi
-    mkdir -p /opt/bin
-    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
+
+    rpmFile="${downloadDir}/${rpmFile}"
+    logs_to_events "AKS.CSE.install${packageName}.extractBinaryFromRPM" "extractBinaryFromRPM ${rpmFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     rm -rf "${downloadDir}"
 }
 

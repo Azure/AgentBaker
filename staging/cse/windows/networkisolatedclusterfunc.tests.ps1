@@ -383,6 +383,32 @@ Describe "Get-BootstrapRegistryDomainName" {
   }
 }
 
+Describe "Get-FileNameFromUrl" {
+  It "should return file name for url without query string" {
+    $url = "https://contoso.blob.core.windows.net/packages/windowszip.zip"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "windowszip.zip"
+  }
+
+  It "should strip query string before extracting file name" {
+    $url = "https://contoso.blob.core.windows.net/packages/windowszip.zip?sv=2025-01-01&sig=token"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "windowszip.zip"
+  }
+
+  It "should return the last segment for nested paths" {
+    $url = "https://contoso.blob.core.windows.net/packages/release/v1.30.0/kubernetes-node-image.tar.gz"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "kubernetes-node-image.tar.gz"
+  }
+
+  It "should return empty when url ends with slash" {
+    $url = "https://contoso.blob.core.windows.net/packages/release/v1.30.0/"
+
+    Get-FileNameFromUrl -Url $url | Should -Be ""
+  }
+}
+
 Describe "DownloadFileWithOras" {
   BeforeEach {
     $global:OrasPath = "Mock-OrasCli"
@@ -471,5 +497,68 @@ Describe "DownloadFileWithOras" {
     $destPath = "c:\test.zip"
 
     { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -Platform "linux/amd64" } | Should -Not -Throw
+  }
+
+  It "should copy from cache and skip oras pull when CachedFile is provided" {
+    $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    $cacheSubDir = Join-Path $cacheRoot "nested"
+    $cachedFileName = "windowszip.zip"
+    $cachedFilePath = Join-Path $cacheSubDir $cachedFileName
+    $destPath = "c:\k.zip"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+
+    New-Item -ItemType Directory -Path $cacheSubDir -Force | Out-Null
+    Set-Content -Path $cachedFilePath -Value "cached-content" -NoNewline
+
+    $global:CacheDir = $cacheRoot
+    $script:orasInvoked = $false
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:orasInvoked = $true
+      $global:LASTEXITCODE = 0
+    }
+
+    Mock Copy-Item -MockWith {}
+
+    try {
+      { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
+      Assert-MockCalled -CommandName 'Copy-Item' -Exactly -Times 1 -ParameterFilter {
+        $Path -eq $cachedFilePath -and $Destination -eq $destPath -and $Force
+      }
+      Assert-MockCalled -CommandName 'Move-Item' -Times 0
+      $script:orasInvoked | Should -Be $false
+    }
+    finally {
+      Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+      $global:CacheDir = "c:\akse-cache"
+    }
+  }
+
+  It "should invoke oras pull and skip cache copy when CachedFile is provided but missing from cache" {
+    $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    $cachedFileName = "windowszip.zip"
+    $destPath = "c:\k.zip"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+
+    New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+
+    $global:CacheDir = $cacheRoot
+    $script:orasInvoked = $false
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:orasInvoked = $true
+      $global:LASTEXITCODE = 0
+    }
+
+    Mock Copy-Item -MockWith {}
+
+    try {
+      { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
+      Assert-MockCalled -CommandName 'Copy-Item' -Times 0
+      $script:orasInvoked | Should -Be $true
+    }
+    finally {
+      Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
   }
 }

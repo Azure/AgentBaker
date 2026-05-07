@@ -52,7 +52,7 @@ echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 if [ "$OS" = "$UBUNTU_OS_NAME" ] && echo "$FEATURE_FLAGS" | grep -q "cvm"; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
-  apt_get_install 30 1 600 grub-efi || exit 1
+  apt_get_install 10 2 120 grub-efi || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
@@ -77,16 +77,6 @@ if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
   updateAptWithMicrosoftPkg
-  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.5.2" # TODO (djsly) this should be centralized and moved to components.json!
-  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
-  for apt_package in ${required_pkg_list[*]}; do
-      if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
-          exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-  done
 fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
@@ -262,6 +252,62 @@ unpackTgzToCNIDownloadsDIR() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
+cacheVersionedKubernetesPackageBinary() {
+  local package_name=${1}
+  local package_version=${2}
+  local download_dir=${3}
+  local version_no_epoch
+  local k8s_version
+  local binary_path="/opt/bin/${package_name}"
+
+  version_no_epoch="${package_version#*:}"
+  k8s_version="${version_no_epoch%%-*}"
+  binary_path="${binary_path}-${k8s_version}"
+
+  mkdir -p /opt/bin
+
+  if isUbuntu "$OS"; then
+    local deb_file
+    local tmp_dir
+
+    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_${version_no_epoch}*" -print -quit 2>/dev/null) || deb_file=""
+    if [ -z "${deb_file}" ]; then
+      echo "Failed to locate cached ${package_name} deb for ${package_version}"
+      return 1
+    fi
+
+    tmp_dir=$(mktemp -d)
+    if ! dpkg-deb -x "${deb_file}" "${tmp_dir}"; then
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    if [ ! -f "${tmp_dir}/usr/bin/${package_name}" ]; then
+      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    install -m0755 "${tmp_dir}/usr/bin/${package_name}" "${binary_path}"
+    rm -rf "${tmp_dir}"
+  elif isMarinerOrAzureLinux "$OS"; then
+    local rpm_file
+
+    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-${version_no_epoch}*" -print -quit 2>/dev/null) || rpm_file=""
+    if [ -z "${rpm_file}" ]; then
+      echo "Failed to locate cached ${package_name} rpm for ${package_version}"
+      return 1
+    fi
+
+    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${package_name}" "./usr/local/bin/${package_name}" | install -m0755 /dev/stdin "${binary_path}"
+  else
+    echo "Skipping versioned binary extraction for unsupported OS ${OS}"
+    return 0
+  fi
+
+  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
+}
+
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
 # The binary is expected to be present during bootstrapping, no dynamic download logic exists for this one
 downloadCNIPlugins() {
@@ -306,7 +352,7 @@ installCNI() {
     elif isMarinerOrAzureLinux "$OS"; then
         packageName="containernetworking-plugins-${version}"
         echo "Installing ${packageName} with dnf"
-        dnf_install 30 1 600 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        dnf_install 10 2 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
         mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
     else
         echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
@@ -469,11 +515,23 @@ while IFS= read -r p; do
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    azure-acr-credential-provider-pmc|kubelet|kubectl)
+    azure-acr-credential-provider-pmc)
       name=${name%-pmc}
       for version in ${PACKAGE_VERSIONS[@]}; do
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+        fi
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    kubelet|kubectl)
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if isMarinerOrAzureLinux || isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_K8S_INSTALL_ERR
         elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
@@ -521,6 +579,32 @@ while IFS= read -r p; do
     "acr-mirror")
       # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
       ;;
+    "aznfs")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
+        mkdir -p "${downloadDir}"
+        aznfsFilename=$(basename "${evaluatedURL}")
+        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
+        retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT
+        echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
+      ;;
+    "blobfuse"|"blobfuse2")
+      for version in "${PACKAGE_VERSIONS[@]}"; do
+        if isUbuntu "$OS"; then
+          if ! apt_get_install 10 2 120 "${name}=${version}"; then
+            journalctl --no-pager -u "${name}" || true
+            tail -n 200 /var/log/apt/term.log || true
+            tail -n 200 /var/log/dpkg.log || true
+            exit $ERR_APT_INSTALL_TIMEOUT
+          fi
+          echo "  - ${name} version ${version}" >> "${VHD_LOGS_FILEPATH}"
+        else
+          echo "  - ${name} installation skipped for ${OS}" >> "${VHD_LOGS_FILEPATH}"
+        fi
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -542,10 +626,10 @@ installAndConfigureArtifactStreaming() {
   retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
   case "$downloadURL" in
     *.deb)
-      apt_get_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
       ;;
     *.rpm)
-      dnf_install 30 1 600 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
       ;;
     *)
       echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
