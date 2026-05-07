@@ -90,8 +90,8 @@ function is_opted_in_for_root_certs {
     opt_in_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts")
     local request_status=$?
     if [ $request_status -ne 0 ] || [ -z "$opt_in_response" ]; then
-        echo "Warning: failed to determine IsOptedInForRootCerts state"
-        return 1
+        echo "ERROR: wireserver unreachable or returned empty response for IsOptedInForRootCerts"
+        return 2
     fi
 
     if echo "$opt_in_response" | grep -q "IsOptedInForRootCerts=true"; then
