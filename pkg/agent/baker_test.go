@@ -1530,33 +1530,3 @@ func decodeButaneResource(resource base0_5.Resource) ([]byte, error) {
 	}
 	return contents, nil
 }
-
-var _ = Describe("GetARMResourceEndpoint", func() {
-	It("returns public cloud endpoint by default", func() {
-		Expect(GetARMResourceEndpoint(datamodel.AzurePublicCloud)).To(Equal("https://management.azure.com/"))
-	})
-	It("returns Fairfax endpoint for AzureUSGovernmentCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.AzureUSGovernmentCloud)).To(Equal("https://management.usgovcloudapi.net/"))
-	})
-	It("returns Mooncake endpoint for AzureChinaCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.AzureChinaCloud)).To(Equal("https://management.chinacloudapi.cn/"))
-	})
-	It("returns German cloud endpoint for AzureGermanCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.AzureGermanCloud)).To(Equal("https://management.microsoftazure.de/"))
-	})
-	It("returns German cloud endpoint for AzureGermanyCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.AzureGermanyCloud)).To(Equal("https://management.microsoftazure.de/"))
-	})
-	It("returns Bleu cloud endpoint for AzureBleuCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.AzureBleuCloud)).To(Equal("https://management.azure.microsoft.scloud/"))
-	})
-	It("returns USNat endpoint for USNatCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.USNatCloud)).To(Equal("https://management.azure.eaglex.ic.gov/"))
-	})
-	It("returns USSec endpoint for USSecCloud", func() {
-		Expect(GetARMResourceEndpoint(datamodel.USSecCloud)).To(Equal("https://management.azure.microsoft.scloud/"))
-	})
-	It("returns public cloud endpoint for unknown cloud", func() {
-		Expect(GetARMResourceEndpoint("SomeUnknownCloud")).To(Equal("https://management.azure.com/"))
-	})
-})

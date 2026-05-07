@@ -130,7 +130,7 @@ oom_score = -999
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_ENVIRONMENT"])
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
-				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
+				assert.Equal(t, "", vars["ARM_RESOURCE_ENDPOINT"])
 			},
 		},
 		{
@@ -430,7 +430,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NO_PROXY_URLS", "")
 				assertHasKeyWithValue(t, vars, "HTTP_PROXY_TRUSTED_CA", "")
 				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
-				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
+				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "")
 				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
 				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "")

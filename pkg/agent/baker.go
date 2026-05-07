@@ -1017,10 +1017,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetCloudTargetEnv(cs.Location)
 		},
 		"GetArmResourceEndpoint": func() string {
-			if cs.IsAKSCustomCloud() && cs.Properties.CustomCloudEnv.ResourceManagerEndpoint != "" {
+			if cs.Properties != nil && cs.Properties.CustomCloudEnv != nil {
 				return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
 			}
-			return GetARMResourceEndpoint(GetCloudTargetEnv(cs.Location))
+			return ""
 		},
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
@@ -1335,26 +1335,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
 		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
-	}
-}
-
-// GetARMResourceEndpoint returns the ARM resource endpoint for the given cloud name.
-func GetARMResourceEndpoint(cloudName string) string {
-	switch cloudName {
-	case datamodel.AzureUSGovernmentCloud:
-		return "https://management.usgovcloudapi.net/"
-	case datamodel.AzureChinaCloud:
-		return "https://management.chinacloudapi.cn/"
-	case datamodel.AzureGermanCloud, datamodel.AzureGermanyCloud:
-		return "https://management.microsoftazure.de/"
-	case datamodel.AzureBleuCloud:
-		return "https://management.azure.microsoft.scloud/"
-	case datamodel.USNatCloud:
-		return "https://management.azure.eaglex.ic.gov/"
-	case datamodel.USSecCloud:
-		return "https://management.azure.microsoft.scloud/"
-	default:
-		return "https://management.azure.com/"
 	}
 }
 

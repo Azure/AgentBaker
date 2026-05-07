@@ -570,22 +570,22 @@ func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 }
 
 // getArmResourceEndpoint returns the ARM resource endpoint to use as the IMDS
-// "resource" parameter when acquiring an AAD token. For AKS custom clouds (Azure
-// Stack), it extracts resourceManagerEndpoint from the custom env JSON. For all
-// other clouds, it maps the cloud name to the corresponding sovereign endpoint.
+// "resource" parameter when acquiring an AAD token. The endpoint is sourced
+// from the resourceManagerEndpoint field of CustomEnvJsonContent, which is
+// populated by AKS RP. Returns empty string if not present; callers handle
+// the empty case (e.g. cse_helpers.sh defaults to the public ARM endpoint).
 func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
-	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		var env struct {
-			ResourceManagerEndpoint string `json:"resourceManagerEndpoint"`
-		}
-		raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
-		if raw != "" {
-			if err := json.Unmarshal([]byte(raw), &env); err == nil && env.ResourceManagerEndpoint != "" {
-				return env.ResourceManagerEndpoint
-			}
-		}
+	raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
+	if raw == "" {
+		return ""
 	}
-	return agent.GetARMResourceEndpoint(getCloudTargetEnv(v))
+	var env struct {
+		ResourceManagerEndpoint string `json:"resourceManagerEndpoint"`
+	}
+	if err := json.Unmarshal([]byte(raw), &env); err != nil {
+		return ""
+	}
+	return env.ResourceManagerEndpoint
 }
 
 func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
