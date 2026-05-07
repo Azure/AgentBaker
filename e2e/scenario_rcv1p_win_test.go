@@ -174,6 +174,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 // script correctly skips certificate download and refresh task registration.
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	skipNotOptedInOnAutoDetect(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
 		AzureClient:    config.RCV1PAzure,
