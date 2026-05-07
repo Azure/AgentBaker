@@ -16,7 +16,31 @@ function Install-VnetPlugins {
     # Download Azure VNET CNI plugins.
     # Mirror from https://github.com/Azure/azure-container-networking/releases
     $zipfile = [Io.path]::Combine("$AzureCNIDir", "azure-vnet.zip")
-    DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+    if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+        DownloadFileOverHttp -Url $VNetCNIPluginsURL -DestinationPath $zipfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+    }
+    else {
+        # ni path
+        # Extract package name and version from URL for ORAS reference.
+        # URL format: https://packages.aks.azure.com/azure-cni/v${version}/binaries/<package-name>-windows-amd64-v${version}.zip
+        # packageName could be azure-vnet-cni, azure-vnet-cni-overlay, azure-vnet-cni-swift
+        $packageInfo = Get-PackageNameAndVersionFromCniUrl -Url $VNetCNIPluginsURL
+        if (-not $packageInfo) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE -ErrorMessage "Failed to extract containerd version tag from URL: $VNetCNIPluginsURL"
+        }
+        $containerdVersionTag = $packageInfo.Version
+        $orasPackageName = $packageInfo.PackageName
+
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAzureVnetCniWithOras" -TaskMessage "Start to download Azure VNet CNI with oras. ContainerdVersionTag: $containerdVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+        $orasReference = "$global:BootstrapProfileContainerRegistryServer/aks/packages/azure/${orasPackageName}:${containerdVersionTag}"
+        $cachedFileName = Get-FileNameFromUrl -Url $VNetCNIPluginsURL
+        try {
+            Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $tarfile; CachedFile = $cachedFileName } -Retries 5 -RetryDelaySeconds 10
+        }
+        catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+        }
+    }
     AKS-Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
     del $zipfile
 
@@ -24,6 +48,25 @@ function Install-VnetPlugins {
     # kernel automatically creates a loopback interface for each network namespace.
     # Copy CNI network config file and set bridge mode.
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
+}
+
+function Get-PackageNameAndVersionFromCniUrl {
+    Param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]
+        $Url
+    )
+
+    # Expected format:
+    # https://packages.aks.azure.com/azure-cni/vX.Y.Z/binaries/<package-name>-windows-amd64-vX.Y.Z[-suffix].zip
+    $pattern = '/binaries/(?<PackageName>.+)-windows-amd64-(?<Version>v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9._-]+)?)\.zip$'
+    if ($Url -match $pattern) {
+        return [PSCustomObject]@{
+            PackageName = $matches['PackageName']
+            Version     = $matches['Version']
+        }
+    }
+
+    return $null
 }
 
 function Set-AzureCNIConfig {
