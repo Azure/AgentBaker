@@ -430,6 +430,9 @@ function Get-CACertificates {
         }
 
         if (-not $downloadedAny) {
+            if ($FailOnError) {
+                throw "No CA certificates were downloaded in rcv1p mode despite IsOptedInForRootCerts=true"
+            }
             Write-Log "Warning: no CA certificates were downloaded in rcv1p mode"
         }
 
