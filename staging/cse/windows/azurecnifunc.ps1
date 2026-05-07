@@ -23,7 +23,8 @@ function Install-VnetPlugins {
         # ni path
         # Extract package name and version from URL for ORAS reference.
         # URL format: https://packages.aks.azure.com/azure-cni/v${version}/binaries/<package-name>-windows-amd64-v${version}.zip
-        # packageName could be azure-vnet-cni, azure-vnet-cni-overlay, azure-vnet-cni-swift
+        # packageName examples include azure-vnet-cni, azure-vnet-cni-overlay, azure-vnet-cni-swift,
+        # and Windows single-tenancy variants such as azure-vnet-cni-singletenancy (including suffixed forms).
         $packageInfo = Get-PackageNameAndVersionFromCniUrl -Url $VNetCNIPluginsURL
         if (-not $packageInfo) {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE -ErrorMessage "Failed to extract containerd version tag from URL: $VNetCNIPluginsURL"
