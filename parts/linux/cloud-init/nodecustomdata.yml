@@ -25,6 +25,15 @@ write_files:
     Any overridden files will be listed here - Hotfix mode
     Example: {{GetCSEHelpersScriptFilepath}}
 
+{{if IsAKSCustomCloud}}
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+{{end}}
+
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
