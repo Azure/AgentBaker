@@ -1008,6 +1008,10 @@ getPackageJSON() {
     # For AZURELINUX, check the OS version (e.g. 3.0) prefixed with "v" before "current" (e.g. v3.0).
     if isMarinerOrAzureLinux "${os}"; then
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
+        # AzL4: fall back to v3.0 packages when v4.0 entry doesn't exist
+        if [ "$osVersion" = "4.0" ]; then
+            search=".downloadURIs.${osLowerCase}.\"${osVariant}/v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v3.0\" // ${search}"
+        fi
     # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
     elif isUbuntu "${os}"; then
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
