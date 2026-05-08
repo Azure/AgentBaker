@@ -134,6 +134,7 @@ installCriCtlPackage() {
     echo "Downloading crictl from ${url}"
     curl -sL "${url}" -o /tmp/crictl.tar.gz || exit 1
     tar -xzf /tmp/crictl.tar.gz -C /usr/local/bin || exit 1
+    chown root:root /usr/local/bin/crictl
     rm -f /tmp/crictl.tar.gz
     echo "crictl installed via static binary: $(crictl --version 2>/dev/null)"
   fi

@@ -1662,7 +1662,7 @@ testNodeExporter () {
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
   # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || [ "$OS_VERSION" = "4.0" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
@@ -1794,6 +1794,8 @@ testCriCtl() {
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
+  # Strip leading 'v' if present (static binary from GitHub includes it)
+  crictl_version=${crictl_version#v}
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
