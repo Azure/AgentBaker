@@ -111,6 +111,16 @@ Describe 'Get-PackageNameAndVersionFromCniUrl' {
 }
 
 Describe 'Install-VnetPlugins ORAS path' {
+    BeforeAll {
+        # Stub functions from networkisolatedclusterfunc.ps1 that are not sourced in tests
+        if (-not (Get-Command 'Get-FileNameFromUrl' -ErrorAction SilentlyContinue)) {
+            function global:Get-FileNameFromUrl { param($Url) return "azure-vnet-cni-windows-amd64-v1.6.20.zip" }
+        }
+        if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+            function global:DownloadFileWithOras { }
+        }
+    }
+
     BeforeEach {
         Mock Set-ExitCode -MockWith {
             param($ExitCode, $ErrorMessage)
