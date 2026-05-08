@@ -1294,6 +1294,37 @@ testAlgifAeadDisabled() {
 
   echo "$test:Finish"
 }
+
+# DirtyFrag: Verify xfrm ESP and RxRPC kernel modules are disabled.
+# These modules are used in the DirtyFrag LPE exploit chain.
+# The rxrpc path bypasses AppArmor userns restrictions.
+testDirtyFragModulesDisabled() {
+  local test="testDirtyFragModulesDisabled"
+  echo "$test:Start"
+
+  local failed=0
+  for mod in esp4 esp6 rxrpc; do
+    if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+      err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
+      failed=1
+    else
+      echo "$test: modprobe config correctly blocks ${mod}"
+    fi
+
+    if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
+      err "$test" "${mod} kernel module is loaded despite being disabled"
+      failed=1
+    else
+      echo "$test: ${mod} module is not loaded"
+    fi
+  done
+
+  if [ "$failed" -ne 0 ]; then
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
 testPamDSettings() {
   local os_sku="${1}"
   local os_version="${2}"
@@ -2378,3 +2409,4 @@ testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testAlgifAeadDisabled
+testDirtyFragModulesDisabled
