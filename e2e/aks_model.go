@@ -621,11 +621,11 @@ func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACR
 
 	privateZoneName := "privatelink.azurecr.io"
 	var privateZone *armprivatedns.PrivateZone
-	if privateZone, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName); err != nil {
+	if privateZone, err = createPrivateZone(ctx, config.Azure, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	if err = createPrivateDNSLink(ctx, vnet, nodeResourceGroup, privateZoneName); err != nil {
+	if err = createPrivateDNSLink(ctx, config.Azure, vnet, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
@@ -872,8 +872,8 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 	return &resp.PrivateEndpoint, nil
 }
 
-func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
-	pzResp, err := config.Azure.PrivateZonesClient.Get(
+func createPrivateZone(ctx context.Context, azure *config.AzureClient, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
+	pzResp, err := azure.PrivateZonesClient.Get(
 		ctx,
 		nodeResourceGroup,
 		privateZoneName,
@@ -885,7 +885,7 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
 	}
-	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
+	poller, err := azure.PrivateZonesClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
 		privateZoneName,
@@ -896,7 +896,7 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 		// 409 means another operation is in progress — wait and re-fetch
 		var respErr *azcore.ResponseError
 		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-			return waitForPrivateZone(ctx, nodeResourceGroup, privateZoneName)
+			return waitForPrivateZone(ctx, azure, nodeResourceGroup, privateZoneName)
 		}
 		return nil, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
 	}
@@ -909,11 +909,11 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 	return &resp.PrivateZone, nil
 }
 
-func waitForPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
+func waitForPrivateZone(ctx context.Context, azure *config.AzureClient, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
 	defer toolkit.LogStepCtxf(ctx, "waiting for private DNS zone %s (409 conflict)", privateZoneName)()
 	var zone *armprivatedns.PrivateZone
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
+		resp, err := azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
 		if err != nil {
 			var respErr *azcore.ResponseError
 			if errors.As(err, &respErr) && respErr.StatusCode == 404 {
@@ -930,9 +930,9 @@ func waitForPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName 
 	return zone, nil
 }
 
-func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
+func createPrivateDNSLink(ctx context.Context, azure *config.AzureClient, vnet VNet, nodeResourceGroup, privateZoneName string) error {
 	networkLinkName := "link-ABE2ETests"
-	_, err := config.Azure.VirutalNetworkLinksClient.Get(
+	_, err := azure.VirutalNetworkLinksClient.Get(
 		ctx,
 		nodeResourceGroup,
 		privateZoneName,
@@ -945,7 +945,7 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 		return nil
 	}
 
-	vnetForId, err := config.Azure.VNet.Get(ctx, nodeResourceGroup, vnet.name, nil)
+	vnetForId, err := azure.VNet.Get(ctx, nodeResourceGroup, vnet.name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get vnet: %w", err)
 	}
@@ -958,7 +958,7 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 			RegistrationEnabled: to.Ptr(false),
 		},
 	}
-	poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
+	poller, err := azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
 		privateZoneName,
@@ -972,7 +972,7 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
 			toolkit.Logf(ctx, "Virtual network link creation conflict (409), waiting for completion")
 			return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-				_, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, nodeResourceGroup, privateZoneName, networkLinkName, nil)
+				_, err := azure.VirutalNetworkLinksClient.Get(ctx, nodeResourceGroup, privateZoneName, networkLinkName, nil)
 				if err != nil {
 					var respErr *azcore.ResponseError
 					if errors.As(err, &respErr) && respErr.StatusCode == 404 {
