@@ -70,7 +70,7 @@ The SRE guidelines ground other coding guidelines and practices.
 
 ### ShellScripts Guidelines
 
-- use shellcheck for sanity checking
+- use shellcheck for sanity checking — **all shell scripts must pass the CI shellcheck gate** (`make validate-shell`). This enforces POSIX compliance even in `#!/bin/bash` scripts (e.g., use `[ ]` not `[[ ]]`, use `=` not `==` for string comparison). Use `# shellcheck disable=SCXXXX` inline comments only when necessary and with justification.
 - use ShellSpec for testing — all shell script changes should have corresponding tests in `spec/parts/linux/`
 - the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
 - when using functions defined in other files, ensure it is sourced properly.
