@@ -92,13 +92,14 @@ EOF
 }
 
 function add_key_ubuntu {
-    local key_name=$1
+    local repodepot_endpoint="$1"
+    local key_name="$2"
 
-    key_url="${repodepot_endpoint}/keys/${key_name}"
+    local key_url="${repodepot_endpoint}/keys/${key_name}"
     check_url $key_url
     echo "Adding $key_name key to keyring..."
-    key_data=$(wget -O - $key_url)
-    key_path=$(derive_key_paths $key_name)
+    local key_data=$(wget -O - $key_url)
+    local key_path=$(derive_key_paths $key_name)
     echo "$key_data" | gpg --dearmor | tee $key_path > /dev/null
     echo "$key_name key added to keyring."
 }
@@ -115,11 +116,12 @@ function derive_key_paths {
 }
 
 function add_ms_keys {
+    local repodepot_endpoint="$1"
     # Add the Microsoft package server keys to keyring.
     echo "Adding Microsoft keys to keyring..."
 
-    add_key_ubuntu microsoft.asc
-    add_key_ubuntu msopentech.asc
+    add_key_ubuntu "$repodepot_endpoint" microsoft.asc
+    add_key_ubuntu "$repodepot_endpoint" msopentech.asc
 }
 
 function aptget_update {
