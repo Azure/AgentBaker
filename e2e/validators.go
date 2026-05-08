@@ -2796,7 +2796,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	script := strings.Join([]string{
 		`failed=0`,
 		`for mod in algif_aead esp4 esp6 rxrpc; do`,
-		`  if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+		`  if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
 		`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf"`,
 		`    failed=1`,
 		`  else`,

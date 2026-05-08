@@ -50,52 +50,26 @@ get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
 
-# Disable kernel modules with known LPE vulnerabilities.
-# Writes modprobe blacklist rules and unloads any already-loaded modules.
+# Disable a single kernel module with a known LPE vulnerability.
+# Writes a modprobe blacklist rule and unloads the module if loaded.
 # Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
 # Safe to run unconditionally — idempotent (overwrites with same content if already present).
 # Defined in cse_main.sh (not sourced) to support scriptless provisioning.
 #
-# To add a new CVE mitigation, append to the MODULES array below.
-disableVulnerableKernelModules() {
-    # Each entry: "module_name:config_file:description"
-    local MODULES=(
-        "algif_aead:disable-algif_aead.conf:CVE-2026-31431 (Copy Fail)"
-        "esp4:disable-dirtyfrag.conf:DirtyFrag (xfrm-ESP page-cache write)"
-        "esp6:disable-dirtyfrag.conf:DirtyFrag (xfrm-ESP6 page-cache write)"
-        "rxrpc:disable-dirtyfrag.conf:DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
-    )
+# Usage: disableVulnerableKernelModule <module_name> <description>
+disableVulnerableKernelModule() {
+    local mod="$1"
+    local desc="$2"
 
-    # Group modules by config file and write each file once
-    declare -A config_contents
-    for entry in "${MODULES[@]}"; do
-        local mod="${entry%%:*}"
-        local rest="${entry#*:}"
-        local conf="${rest%%:*}"
-        local desc="${rest#*:}"
-        config_contents["$conf"]+="# ${desc}
-install ${mod} /bin/false
-blacklist ${mod}
-"
-    done
+    printf '# %s\ninstall %s /bin/false\nblacklist %s\n' "$desc" "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
 
-    for conf in "${!config_contents[@]}"; do
-        echo "${config_contents[$conf]}" > "/etc/modprobe.d/${conf}"
-    done
-
-    # Unload any already-loaded vulnerable modules
-    for entry in "${MODULES[@]}"; do
-        local mod="${entry%%:*}"
-        local desc="${entry#*:}"
-        desc="${desc#*:}"
-        if grep -q "^${mod} " /proc/modules 2>/dev/null; then
-            if modprobe -r "$mod" 2>/dev/null; then
-                echo "${desc}: successfully unloaded ${mod}"
-            else
-                echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
-            fi
+    if grep -q "^${mod} " /proc/modules 2>/dev/null; then
+        if modprobe -r "$mod" 2>/dev/null; then
+            echo "${desc}: successfully unloaded ${mod}"
+        else
+            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
         fi
-    done
+    fi
 }
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
@@ -344,8 +318,12 @@ EOF
 
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag).
     # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then
-        logs_to_events "AKS.CSE.disableVulnerableKernelModules" disableVulnerableKernelModules
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
     fi
 
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then

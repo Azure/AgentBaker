@@ -1271,7 +1271,7 @@ testVulnerableKernelModulesDisabled() {
 
   local failed=0
   for mod in algif_aead esp4 esp6 rxrpc; do
-    if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+    if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
       err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
       failed=1
     else
@@ -1287,7 +1287,7 @@ testVulnerableKernelModulesDisabled() {
 
     if modprobe "${mod}" 2>/dev/null; then
       err "$test" "modprobe ${mod} succeeded — module should be blocked"
-      rmmod "${mod}" 2>/dev/null || true
+      modprobe -r "${mod}" 2>/dev/null || true
       failed=1
     else
       echo "$test: modprobe ${mod} correctly refused to load"
