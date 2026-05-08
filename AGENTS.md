@@ -57,6 +57,8 @@ When making changes, reason whether the file is used in VHD building stage, or p
 
 One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder. 
 
+When modifying E2E cluster infrastructure (daemonsets, firewall rules, DNS zones, ACR, proxy) in `prepareCluster`, bump `clusterInfraVersion` in `e2e/cluster.go` so existing cached clusters get re-configured.
+
 The SRE guidelines ground other coding guidelines and practices.
 
 ### Golang Guidelines

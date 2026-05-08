@@ -60,10 +60,17 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
 }
 
+// clusterInfraVersion must be bumped when changing cluster infrastructure setup
+// (daemonsets, firewall rules, DNS zones, ACR, maintenance config). When this
+// version doesn't match the sentinel stored on an existing cluster, the full
+// infrastructure DAG re-runs to apply the changes.
+const clusterInfraVersion = "1"
+
 // prepareCluster runs all cluster preparation steps as a concurrent DAG.
-// This function contains complex concurrent orchestration — keep it as
-// minimal as possible and push all non-trivial logic into the individual
-// task functions it calls.
+//
+// Infrastructure tasks (firewall, ACR, daemonsets, maintenance) are skipped when
+// the cluster already exists and has a matching infrastructure version sentinel.
+// If you change cluster infrastructure, bump clusterInfraVersion above.
 func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.ManagedCluster, isNetworkIsolated, attachPrivateAcr bool) (*Cluster, error) {
 	defer toolkit.LogStepCtx(ctx, "preparing cluster")()
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
@@ -76,39 +83,34 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return nil, fmt.Errorf("get or create cluster: %w", err)
 	}
 
+	needsInfra := cluster.Tags == nil || cluster.Tags["e2e-infra-version"] == nil || *cluster.Tags["e2e-infra-version"] != clusterInfraVersion
+	if !needsInfra {
+		toolkit.Logf(ctx, "cluster infrastructure v%s already configured, skipping setup", clusterInfraVersion)
+	}
+
 	g := dag.NewGroup(ctx)
 
-	// bastion creates AzureBastionSubnet — a VNet-level mutation that must
-	// finish before other subnet writes (firewall / network-isolated setup)
-	// to avoid Azure VNet serialisation races.
 	bastion := dag.Go(g, func(ctx context.Context) (*Bastion, error) {
 		return getOrCreateBastion(ctx, cluster)
 	})
-	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
 	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
 	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	// networkSetup adds firewall routes to the existing AKS route table or
-	// creates/associates a dedicated one when Azure CNI has none, or applies
-	// the network-isolated NSG. It must run after bastion (both mutate the
-	// VNet) and before collectGarbageVMSS (which needs network setup done).
-	// collectGarbageVMSS also depends on kube to clean up stale K8s Node
-	// objects whose backing VMSS no longer exist.
-	var networkDeps []dag.Dep
-	if !isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
-	}
-	if isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
-	}
-	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
-	needACR := isNetworkIsolated || attachPrivateAcr
-	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
-	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
-	dag.Run1(g, kube, ensureDebugDaemonsets(cluster, isNetworkIsolated), append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)...)
 	extract := dag.Go1(g, kube, extractClusterParams(cluster))
+
+	if needsInfra {
+		dag.Run(g, func(ctx context.Context) error {
+			if err := runInfrastructureSetup(ctx, cluster, kube.MustGet(), identity.MustGet(), bastion.MustGet(), isNetworkIsolated, attachPrivateAcr); err != nil {
+				return err
+			}
+			return tagClusterInfraVersion(ctx, cluster)
+		})
+	}
+
+	// Always collect garbage — stale VMSSes accumulate between test runs.
+	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) })
 
 	if err := g.Wait(); err != nil {
 		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
@@ -121,6 +123,35 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		ClusterParams:   extract.MustGet(),
 		Bastion:         bastion.MustGet(),
 	}, nil
+}
+
+func runInfrastructureSetup(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient, identity *armcontainerservice.UserAssignedIdentity, bastion *Bastion, isNetworkIsolated, attachPrivateAcr bool) error {
+	defer toolkit.LogStepCtx(ctx, "setting up cluster infrastructure")()
+
+	if err := ensureMaintenanceConfiguration(ctx, cluster); err != nil {
+		return fmt.Errorf("maintenance config: %w", err)
+	}
+
+	if !isNetworkIsolated {
+		if err := addFirewallRules(ctx, cluster); err != nil {
+			return fmt.Errorf("firewall rules: %w", err)
+		}
+	}
+	if isNetworkIsolated {
+		if err := addNetworkIsolatedSettings(ctx, cluster); err != nil {
+			return fmt.Errorf("network isolated settings: %w", err)
+		}
+	}
+
+	needACR := isNetworkIsolated || attachPrivateAcr
+	if err := addACR(cluster, needACR, true)(ctx, kube, identity); err != nil {
+		return fmt.Errorf("ACR (non-anon): %w", err)
+	}
+	if err := addACR(cluster, needACR, false)(ctx, kube, identity); err != nil {
+		return fmt.Errorf("ACR (anon): %w", err)
+	}
+
+	return kube.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
 }
 
 func addACR(cluster *armcontainerservice.ManagedCluster, needACR, isNonAnonymousPull bool) func(context.Context, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
@@ -248,6 +279,28 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 	}
 
 	return createNewAKSClusterWithRetry(ctx, cluster)
+}
+
+const infraSentinelName = "e2e-infra-version"
+
+func tagClusterInfraVersion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	poller, err := config.Azure.AKS.BeginUpdateTags(
+		ctx,
+		config.ResourceGroupName(*cluster.Location),
+		*cluster.Name,
+		armcontainerservice.TagsObject{
+			Tags: map[string]*string{infraSentinelName: to.Ptr(clusterInfraVersion)},
+		},
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("tagging cluster with infra version: %w", err)
+	}
+	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("waiting for cluster tag update: %w", err)
+	}
+	toolkit.Logf(ctx, "tagged cluster %s with %s=%s", *cluster.Name, infraSentinelName, clusterInfraVersion)
+	return nil
 }
 
 // isExistingCluster checks if an AKS cluster exists. return the cluster only if its provisioning state is Succeeded and can be used. non-nil error if not retriable

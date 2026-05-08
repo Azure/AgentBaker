@@ -116,6 +116,13 @@ Important `go test` flags:
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
+### Cluster Infrastructure Changes
+
+Cluster infrastructure (firewall rules, ACR, debug daemonsets, DNS zones, proxy) is only set up once when a cluster is
+first created. Subsequent test runs skip infrastructure setup if the cluster already exists and has a matching version
+sentinel. If you change cluster infrastructure in `prepareCluster` (e.g., add a new daemonset, modify firewall rules),
+**bump `clusterInfraVersion`** in `cluster.go` so existing clusters get re-configured on the next run.
+
 ## IDE Configuration
 
 ### Global Settings
