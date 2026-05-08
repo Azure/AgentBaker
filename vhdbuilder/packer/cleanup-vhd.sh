@@ -21,5 +21,11 @@ fi
 rm -f /opt/azure/disk-usage.txt
 # remove image-fetcher binary from the image since it's only needed during build and is not expected to be present on the final image
 rm -f /opt/azure/containers/image-fetcher
+# Security: remove compiler toolchain from Ubuntu VHDs to prevent on-node exploit compilation.
+# gcc/make are needed at build time (dkms, kernel module compilation) but should not ship.
+# Azure Linux already does not include gcc. See AB#37878492.
+if command -v apt-get &>/dev/null; then
+  apt-get purge -y --auto-remove gcc gcc-[0-9]* cpp cpp-[0-9]* make 2>/dev/null || true
+fi
 # Cleanup IMDS instance metadata cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json
