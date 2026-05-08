@@ -312,9 +312,9 @@ func findRepoRoot() (string, error) {
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
 // to use the branch-built CSE zip containing the RCV1P code.
 // TODO(rcv1p): remove this once the RCV1P code ships in a published CSE package.
-func rcv1pWindowsCSEMutator(t *testing.T) func(*datamodel.NodeBootstrappingConfiguration) {
+func rcv1pWindowsCSEMutator(t *testing.T) func(*Cluster, *datamodel.NodeBootstrappingConfiguration) {
 	cseURL := getOrBuildBranchCSEPackageURL(t)
-	return func(nbc *datamodel.NodeBootstrappingConfiguration) {
+	return func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL
 	}
 }
@@ -336,7 +336,7 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
@@ -362,7 +362,7 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 			VHD:             config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
@@ -388,7 +388,7 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 			VHD:             config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
@@ -414,7 +414,7 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 			VHD:     config.VHDFlatcarGen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
@@ -443,7 +443,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 				rcv1pOptInVMConfigMutator(vmss)
 			},
 			VMInstanceTags: rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
@@ -472,7 +472,7 @@ func Test_RCV1P_NotOptedIn(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterRCV1PKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PNotOptedIn(ctx, s)
