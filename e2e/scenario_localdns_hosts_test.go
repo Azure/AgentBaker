@@ -37,7 +37,7 @@ func Test_LocalDNSHostsPlugin(t *testing.T) {
 				Config: Config{
 					Cluster: ClusterKubenet,
 					VHD:     tt.vhd,
-					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+					BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 						nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 					},
 					VMConfigMutator: tt.vmConfigMutator,
@@ -75,7 +75,7 @@ func Test_LocalDNSHostsPlugin_Scriptless(t *testing.T) {
 					Cluster:         ClusterKubenet,
 					VHD:             tt.vhd,
 					VMConfigMutator: tt.vmConfigMutator,
-					AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+					AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 						config.LocalDnsProfile.EnableHostsPlugin = true
 					},
 				},

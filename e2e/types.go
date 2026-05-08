@@ -168,10 +168,10 @@ type Config struct {
 	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
-	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
+	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
-	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
+	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)

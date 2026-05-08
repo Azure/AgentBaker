@@ -13,11 +13,6 @@ import (
 )
 
 const (
-	// cseEventsDir is the directory where CSE task timing events are stored on the VM.
-	// This matches EVENTS_LOGGING_DIR defined in both cse_helpers.sh and cse_start.sh.
-	// Events are written directly here (not in per-handler subdirectories) — each file
-	// is a single-line JSON object named <epoch-ms>.json.
-	cseEventsDir = "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 	// provisionJSONPath is the path to the provision.json file with overall boot timing.
 	provisionJSONPath = "/var/log/azure/aks/provision.json"
 )
@@ -33,23 +28,23 @@ type CSETaskTiming struct {
 
 // CSEProvisionTiming represents the overall provisioning timing from provision.json.
 type CSEProvisionTiming struct {
-	ExitCode              string `json:"ExitCode"`
-	ExecDuration          string `json:"ExecDuration"`
-	KernelStartTime       string `json:"KernelStartTime"`
-	CloudInitLocalStart   string `json:"CloudInitLocalStartTime"`
-	CloudInitStart        string `json:"CloudInitStartTime"`
-	CloudFinalStart       string `json:"CloudFinalStartTime"`
-	CSEStartTime          string `json:"CSEStartTime"`
-	GuestAgentStartTime   string `json:"GuestAgentStartTime"`
-	SystemdSummary        string `json:"SystemdSummary"`
-	BootDatapoints        json.RawMessage `json:"BootDatapoints"`
+	ExitCode            string          `json:"ExitCode"`
+	ExecDuration        string          `json:"ExecDuration"`
+	KernelStartTime     string          `json:"KernelStartTime"`
+	CloudInitLocalStart string          `json:"CloudInitLocalStartTime"`
+	CloudInitStart      string          `json:"CloudInitStartTime"`
+	CloudFinalStart     string          `json:"CloudFinalStartTime"`
+	CSEStartTime        string          `json:"CSEStartTime"`
+	GuestAgentStartTime string          `json:"GuestAgentStartTime"`
+	SystemdSummary      string          `json:"SystemdSummary"`
+	BootDatapoints      json.RawMessage `json:"BootDatapoints"`
 }
 
 // CSETimingReport holds all parsed timing data from a VM.
 type CSETimingReport struct {
-	Tasks      []CSETaskTiming
-	Provision  *CSEProvisionTiming
-	taskIndex  map[string]*CSETaskTiming
+	Tasks     []CSETaskTiming
+	Provision *CSEProvisionTiming
+	taskIndex map[string]*CSETaskTiming
 }
 
 // cseEventJSON matches the JSON structure written by logs_to_events() in cse_helpers.sh.
@@ -128,11 +123,10 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 
 	// Read all event JSON files from the CSE events directory, explicitly
 	// appending a newline after each file so each JSON document is separated.
-	// Search both the primary events directory and any handler-version subdirectories,
-	// as the Guest Agent may move events between these locations.
+	// Search the CustomScript directory tree for any events/ subdirectories,
+	// as the Guest Agent may store events in handler-version subdirectories.
 	listCmd := fmt.Sprintf(
-		"sudo find %s /var/log/azure/Microsoft.Azure.Extensions.CustomScript/ -name '*.json' -path '*/events/*' -exec sh -c 'cat \"$1\"; echo' _ {} \\; 2>/dev/null",
-		cseEventsDir,
+		"sudo find /var/log/azure/Microsoft.Azure.Extensions.CustomScript/ -name '*.json' -path '*/events/*' -exec sh -c 'cat \"$1\"; echo' _ {} \\; 2>/dev/null",
 	)
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, listCmd)
 	if err != nil {
