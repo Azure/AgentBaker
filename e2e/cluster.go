@@ -126,7 +126,7 @@ func prepareCluster(ctx context.Context, infra *ClusterInfra, clusterModel *armc
 	}, debugDeps...)
 	if !isNetworkIsolated {
 		dag.Run(g, func(ctx context.Context) error {
-			return setupPrivateDNSForAPIServer(ctx, cluster)
+			return setupPrivateDNSForAPIServer(ctx, infra, cluster)
 		})
 	}
 	extract := dag.Go1(g, kube, extractClusterParams(cluster))
@@ -844,7 +844,7 @@ func ensureResourceGroupWithInfra(ctx context.Context, infra *ClusterInfra, loca
 // setupPrivateDNSForAPIServer creates a private DNS zone for the API server FQDN
 // linked to the cluster VNet with an A record pointing to the current public IP.
 // Simulates a customer environment with minimal private DNS entries.
-func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+func setupPrivateDNSForAPIServer(ctx context.Context, infra *ClusterInfra, cluster *armcontainerservice.ManagedCluster) error {
 	defer toolkit.LogStepCtx(ctx, "setting up private DNS for API server")()
 
 	fqdn := *cluster.Properties.Fqdn
@@ -870,7 +870,7 @@ func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservi
 		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
 	}
 
-	vnet, err := getClusterVNet(ctx, nodeRG)
+	vnet, err := getClusterVNet(ctx, infra, nodeRG)
 	if err != nil {
 		return fmt.Errorf("getting cluster VNet: %w", err)
 	}
