@@ -315,17 +315,16 @@ EOF
     # rxrpc path bypasses AppArmor userns restrictions — does NOT require user namespaces.
     # Confirmed exploitable on Ubuntu 24.04 (kernel 6.8). No upstream patch exists yet.
     # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-        local dirtyfrag_needs_update=false
-        for mod in esp4 esp6 rxrpc; do
-            if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
-                dirtyfrag_needs_update=true
-                break
-            fi
-        done
-        if [ "$dirtyfrag_needs_update" = "true" ]; then
-            printf "install esp4 /bin/false\nblacklist esp4\ninstall esp6 /bin/false\nblacklist esp6\ninstall rxrpc /bin/false\nblacklist rxrpc\n" > /etc/modprobe.d/disable-dirtyfrag.conf
-        fi
+    # Safe to run unconditionally — idempotent, overwrites with same content if already present.
+    if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then
+        cat > /etc/modprobe.d/disable-dirtyfrag.conf <<EOF
+install esp4 /bin/false
+blacklist esp4
+install esp6 /bin/false
+blacklist esp6
+install rxrpc /bin/false
+blacklist rxrpc
+EOF
         for mod in rxrpc esp4 esp6; do
             if grep -q "^${mod} " /proc/modules 2>/dev/null; then
                 if modprobe -r "$mod" 2>/dev/null; then
