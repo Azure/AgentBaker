@@ -81,9 +81,9 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			Cluster:         ClusterRCV1PAzureNetwork,
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
-			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				cseMutator(nbc)
+			VMInstanceTags:  rcv1pVMInstanceTags(),
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				cseMutator(nil, nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -161,8 +161,8 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 				rcv1pOptInVMConfigMutator(vmss)
 			},
 			VMInstanceTags: rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				cseMutator(nbc)
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				cseMutator(nil, nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
