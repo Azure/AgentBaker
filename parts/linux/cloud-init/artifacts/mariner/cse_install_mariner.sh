@@ -123,7 +123,9 @@ installCriCtlPackage() {
     # AzL4: kubernetes-cri-tools RPM requires SymCrypt which is not available.
     # Fall back to downloading the static crictl binary from GitHub.
     echo "dnf install failed for ${packageName}, falling back to static binary download"
-    local crictl_version="v${version}"
+    # Strip RPM release suffix (e.g. 1.34.0-2.azl3 -> 1.34.0)
+    local upstream_version="${version%%-*}"
+    local crictl_version="v${upstream_version}"
     local arch="amd64"
     if [ "$(getCPUArch)" = "arm64" ]; then
       arch="arm64"
