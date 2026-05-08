@@ -129,18 +129,14 @@ Describe 'Install-VnetPlugins ORAS path' {
         Mock Logs-To-Event -MockWith { } -Verifiable
         Mock Create-Directory -MockWith { } -Verifiable
         Mock AKS-Expand-Archive -MockWith { } -Verifiable
-        Mock Remove-Item -MockWith { } -Verifiable
         Mock Get-FileNameFromUrl -MockWith { return "azure-vnet-cni-windows-amd64-v1.6.20.zip" } -Verifiable
+        Mock DownloadFileWithOras -MockWith { } -Verifiable
 
-        # Suppress move and del
-        function move { }
-        function del { }
+        # Suppress move and del which operate on files that don't exist in test
+        Mock Move-Item -MockWith { } -Verifiable
+        Mock Remove-Item -MockWith { } -Verifiable
 
         $global:AzureCNIDir = $TestDrive
-
-        # Create directories that the function expects to exist
-        New-Item -ItemType Directory -Path "$TestDrive\cniconf" -Force | Out-Null
-        New-Item -ItemType Directory -Path "$TestDrive\cnibin" -Force | Out-Null
     }
 
     AfterEach {
@@ -148,59 +144,48 @@ Describe 'Install-VnetPlugins ORAS path' {
     }
 
     Context 'ORAS reference construction' {
-        It 'Should construct correct ORAS reference for azure-vnet-cni' {
+        It 'Should call DownloadFileWithOras with correct reference for azure-vnet-cni' {
             $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
-
-            Mock Retry-Command -MockWith { } -Verifiable
 
             Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
 
-            Assert-MockCalled -CommandName "Retry-Command" -Exactly -Times 1 -ParameterFilter {
-                $Command -eq "DownloadFileWithOras" -and
-                $Args.Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni:v1.6.20"
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni:v1.6.20"
             }
         }
 
-        It 'Should construct correct ORAS reference for azure-vnet-cni-overlay' {
+        It 'Should call DownloadFileWithOras with correct reference for azure-vnet-cni-overlay' {
             $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
-
-            Mock Retry-Command -MockWith { } -Verifiable
 
             Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-overlay-windows-amd64-v1.6.20.zip"
 
-            Assert-MockCalled -CommandName "Retry-Command" -Exactly -Times 1 -ParameterFilter {
-                $Command -eq "DownloadFileWithOras" -and
-                $Args.Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni-overlay:v1.6.20"
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni-overlay:v1.6.20"
             }
         }
 
-        It 'Should construct correct ORAS reference for azure-vnet-cni-swift' {
+        It 'Should call DownloadFileWithOras with correct reference for azure-vnet-cni-swift' {
             $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
-
-            Mock Retry-Command -MockWith { } -Verifiable
 
             Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-swift-windows-amd64-v1.6.20.zip"
 
-            Assert-MockCalled -CommandName "Retry-Command" -Exactly -Times 1 -ParameterFilter {
-                $Command -eq "DownloadFileWithOras" -and
-                $Args.Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni-swift:v1.6.20"
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni-swift:v1.6.20"
             }
         }
 
-        It 'Should pass correct destination path (zipfile) to ORAS download' {
+        It 'Should pass correct destination path to DownloadFileWithOras' {
             $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
-
-            Mock Retry-Command -MockWith { } -Verifiable
 
             Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
 
             $expectedZipPath = [Io.path]::Combine("$global:AzureCNIDir", "azure-vnet.zip")
-            Assert-MockCalled -CommandName "Retry-Command" -Exactly -Times 1 -ParameterFilter {
-                $Args.DestinationPath -eq $expectedZipPath
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $DestinationPath -eq $expectedZipPath
             }
         }
     }
@@ -222,7 +207,8 @@ Describe 'Install-VnetPlugins ORAS path' {
         It 'Should set exit code on pull failure' {
             $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
 
-            Mock Retry-Command -MockWith { throw "oras pull failed" } -Verifiable
+            Mock DownloadFileWithOras -MockWith { throw "oras pull failed" }
+            Mock Start-Sleep -MockWith { }
 
             { Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip" } | Should -Throw "*Exhausted retries*"
