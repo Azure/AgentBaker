@@ -2386,7 +2386,7 @@ testCompilerToolchainAbsent() {
   local test="testCompilerToolchainAbsent"
   echo "$test:Start"
 
-  if [[ "${OS_SKU}" == "CBLMariner" ]] || [[ "${OS_SKU}" == "AzureLinux" ]]; then
+  if [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
     echo "$test: Skipping on ${OS_SKU} (gcc never shipped)"
     echo "$test:Finish"
     return 0
@@ -2404,7 +2404,7 @@ testCompilerToolchainAbsent() {
 
   # Also check no gcc packages installed
   local gcc_pkgs
-  gcc_pkgs=$(dpkg --get-selections 2>/dev/null | awk '/^(gcc|cpp|g\+\+|make)[- \t]/' | grep -v 'lib' || true)
+  gcc_pkgs=$(dpkg --get-selections 2>/dev/null | awk '/^(gcc|cpp|g\+\+|make)[- \t]/' | grep -vE '(lib|-base)' || true)
   if [ -n "$gcc_pkgs" ]; then
     err "$test" "gcc-related packages still installed: ${gcc_pkgs}"
     failed=1

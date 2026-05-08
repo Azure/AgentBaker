@@ -25,12 +25,14 @@ rm -f /opt/azure/containers/image-fetcher
 # gcc/make are needed at build time (dkms, kernel module compilation) but should not ship.
 # Azure Linux already does not include gcc. See AB#37878492.
 if command -v apt-get &>/dev/null; then
-  # Resolve installed gcc/cpp/make packages explicitly to avoid silent glob failures
-  GCC_PKGS=$(dpkg --get-selections 2>/dev/null | awk '/^(gcc|cpp|g\+\+|make)[- \t]/{print $1}' | grep -v 'lib' || true)
+  # Resolve installed gcc/cpp/make packages explicitly to avoid silent glob failures.
+  # Exclude *-base packages (e.g. gcc-12-base) — they provide libgcc-s1 which is a
+  # system-critical dependency; --auto-remove would cascade into removing libc6.
+  GCC_PKGS=$(dpkg --get-selections 2>/dev/null | awk '/^(gcc|cpp|g\+\+|make)[- \t]/{print $1}' | grep -vE '(lib|-base)' || true)
   if [ -n "$GCC_PKGS" ]; then
     echo "Purging compiler toolchain: $GCC_PKGS"
     # shellcheck disable=SC2086
-    apt-get purge -y --auto-remove $GCC_PKGS
+    apt-get purge -y $GCC_PKGS
   fi
   # Verify removal — fail the build if compiler tools remain
   for tool in gcc g++ cc make; do
