@@ -907,7 +907,7 @@ func setupPrivateDNSForAPIServer(ctx context.Context, infra *ClusterInfra, clust
 	}
 
 	// createPrivateZone and createPrivateDNSLink handle 409 conflicts internally
-	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
+	if _, err := createPrivateZone(ctx, infra.Azure, nodeRG, fqdn); err != nil {
 		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
 	}
 
@@ -915,11 +915,11 @@ func setupPrivateDNSForAPIServer(ctx context.Context, infra *ClusterInfra, clust
 	if err != nil {
 		return fmt.Errorf("getting cluster VNet: %w", err)
 	}
-	if err := createPrivateDNSLink(ctx, vnet, nodeRG, fqdn); err != nil {
+	if err := createPrivateDNSLink(ctx, infra.Azure, vnet, nodeRG, fqdn); err != nil {
 		return fmt.Errorf("linking private zone to VNet: %w", err)
 	}
 
-	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@",
+	_, err = infra.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@",
 		armprivatedns.RecordSet{Properties: &armprivatedns.RecordSetProperties{TTL: to.Ptr[int64](300), ARecords: aRecords}}, nil)
 	if err != nil {
 		return fmt.Errorf("creating A record in zone %q: %w", fqdn, err)
