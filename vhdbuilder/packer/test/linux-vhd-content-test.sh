@@ -2378,3 +2378,42 @@ testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testAlgifAeadDisabled
+
+# Security: Verify compiler toolchain is not present on the VHD.
+# gcc/make enable on-node compilation of kernel exploits (e.g., DirtyFrag).
+# Only applicable to Ubuntu — Azure Linux never ships gcc.
+testCompilerToolchainAbsent() {
+  local test="testCompilerToolchainAbsent"
+  echo "$test:Start"
+
+  if [[ "${OS_SKU}" == "CBLMariner" ]] || [[ "${OS_SKU}" == "AzureLinux" ]]; then
+    echo "$test: Skipping on ${OS_SKU} (gcc never shipped)"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  local failed=0
+  for tool in gcc g++ cc make; do
+    if command -v "$tool" &>/dev/null; then
+      err "$test" "${tool} found at $(command -v "$tool") — should have been removed in cleanup-vhd.sh"
+      failed=1
+    else
+      echo "$test: ${tool} not present ✓"
+    fi
+  done
+
+  # Also check no gcc packages installed
+  local gcc_pkgs
+  gcc_pkgs=$(dpkg --get-selections 2>/dev/null | awk '/^(gcc|cpp|g\+\+|make)[- \t]/' | grep -v 'lib' || true)
+  if [ -n "$gcc_pkgs" ]; then
+    err "$test" "gcc-related packages still installed: ${gcc_pkgs}"
+    failed=1
+  fi
+
+  if [ "$failed" -ne 0 ]; then
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
+testCompilerToolchainAbsent

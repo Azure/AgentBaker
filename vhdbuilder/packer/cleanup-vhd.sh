@@ -25,7 +25,21 @@ rm -f /opt/azure/containers/image-fetcher
 # gcc/make are needed at build time (dkms, kernel module compilation) but should not ship.
 # Azure Linux already does not include gcc. See AB#37878492.
 if command -v apt-get &>/dev/null; then
-  apt-get purge -y --auto-remove gcc gcc-[0-9]* cpp cpp-[0-9]* make 2>/dev/null || true
+  # Resolve installed gcc/cpp/make packages explicitly to avoid silent glob failures
+  GCC_PKGS=$(dpkg --get-selections 2>/dev/null | awk '/^(gcc|cpp|g\+\+|make)[- \t]/{print $1}' | grep -v 'lib' || true)
+  if [ -n "$GCC_PKGS" ]; then
+    echo "Purging compiler toolchain: $GCC_PKGS"
+    # shellcheck disable=SC2086
+    apt-get purge -y --auto-remove $GCC_PKGS
+  fi
+  # Verify removal — fail the build if compiler tools remain
+  for tool in gcc g++ cc make; do
+    if command -v "$tool" &>/dev/null; then
+      echo "ERROR: $tool is still present after purge at $(command -v "$tool")"
+      exit 1
+    fi
+  done
+  echo "Compiler toolchain successfully removed"
 fi
 # Cleanup IMDS instance metadata cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json
