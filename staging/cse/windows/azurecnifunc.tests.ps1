@@ -134,8 +134,13 @@ Describe 'Install-VnetPlugins ORAS path' {
 
         # Suppress move and del
         function move { }
+        function del { }
 
         $global:AzureCNIDir = $TestDrive
+
+        # Create directories that the function expects to exist
+        New-Item -ItemType Directory -Path "$TestDrive\cniconf" -Force | Out-Null
+        New-Item -ItemType Directory -Path "$TestDrive\cnibin" -Force | Out-Null
     }
 
     AfterEach {
