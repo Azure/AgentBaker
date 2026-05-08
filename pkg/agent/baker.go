@@ -1636,6 +1636,9 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   enable_cdi = true
+  {{- if IsACL }}
+  enable_selinux = true
+  {{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false
@@ -1728,6 +1731,10 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
 
+{{- if IsACL }}
+[plugins."io.containerd.cri.v1.runtime"]
+  enable_selinux = true
+{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd]
   {{- if IsNSeriesSKU }}
   default_runtime_name = "nvidia-container-runtime"
@@ -1806,6 +1813,10 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
 
+{{- if IsACL }}
+[plugins."io.containerd.cri.v1.runtime"]
+  enable_selinux = true
+{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
@@ -1850,6 +1861,9 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
+  {{- if IsACL }}
+  enable_selinux = true
+  {{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if IsKata }}
     disable_snapshot_annotations = false

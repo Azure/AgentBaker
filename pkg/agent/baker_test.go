@@ -1434,6 +1434,95 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("ENABLE_UNATTENDED_UPGRADES", "false"))
 	})
+
+	// Containerd's CRI plugin only labels container processes/files when
+	// enable_selinux=true. ACL ships SELinux (toggleable via the
+	// acl-node-security-profile IMDS tag); without this flag, containers run
+	// as unlabeled_t and trigger AVC denials in enforcing mode. We gate the
+	// flag on IsACL so other distros remain unchanged.
+	Describe("containerd config enable_selinux", func() {
+		decodeContainerdConfig := func(cseCmd, key string) string {
+			vars := decodeCSEVars(cseCmd)
+			Expect(vars).To(HaveKey(key))
+			decoded, err := base64.StdEncoding.DecodeString(vars[key])
+			Expect(err).NotTo(HaveOccurred())
+			return string(decoded)
+		}
+
+		It("should set enable_selinux=true for ACL distros (V1 GPU template)", func() {
+			baseConfig.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+			cfg := decodeContainerdConfig(cseCmd, "CONTAINERD_CONFIG_CONTENT")
+			Expect(cfg).To(ContainSubstring("enable_selinux = true"))
+		})
+
+		It("should set enable_selinux=true for ACL distros (V1 NoGPU template)", func() {
+			baseConfig.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+			cfg := decodeContainerdConfig(cseCmd, "CONTAINERD_CONFIG_NO_GPU_CONTENT")
+			Expect(cfg).To(ContainSubstring("enable_selinux = true"))
+		})
+
+		It("should set enable_selinux=true when OSSKU is AzureContainerLinux", func() {
+			baseConfig.OSSKU = datamodel.OSSKUAzureContainerLinux
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+			cfg := decodeContainerdConfig(cseCmd, "CONTAINERD_CONFIG_CONTENT")
+			Expect(cfg).To(ContainSubstring("enable_selinux = true"))
+		})
+
+		It("should not set enable_selinux for non-ACL distros", func() {
+			distros := []datamodel.Distro{
+				datamodel.AKSUbuntuContainerd2204Gen2,
+				datamodel.AKSCBLMarinerV2Gen2,
+				datamodel.AKSAzureLinuxV2Gen2,
+				datamodel.AKSFlatcarGen2,
+			}
+			for _, distro := range distros {
+				config, err := deepcopy.Anything(baseConfig)
+				Expect(err).To(BeNil())
+				typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+				Expect(ok).To(BeTrue())
+				typedConfig.AgentPoolProfile.Distro = distro
+
+				cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+				cfg := decodeContainerdConfig(cseCmd, "CONTAINERD_CONFIG_CONTENT")
+				Expect(cfg).NotTo(ContainSubstring("enable_selinux"), "distro %s should not set enable_selinux", distro)
+				cfg = decodeContainerdConfig(cseCmd, "CONTAINERD_CONFIG_NO_GPU_CONTENT")
+				Expect(cfg).NotTo(ContainSubstring("enable_selinux"), "distro %s NoGPU should not set enable_selinux", distro)
+			}
+		})
+
+		It("should set enable_selinux=true under runtime plugin for ACL on V2 (2404) template", func() {
+			// Forward-compat: ACL doesn't currently use 2404 distros, but if it ever does
+			// the V2 templates must also gate enable_selinux on IsACL.
+			profile := baseConfig.AgentPoolProfile
+			profile.Distro = datamodel.AKSUbuntuContainerd2404Gen2
+			baseConfig.OSSKU = datamodel.OSSKUAzureContainerLinux
+
+			gpuOut, err := containerdConfigFromTemplate(baseConfig, profile, containerdV2ConfigTemplate)
+			Expect(err).NotTo(HaveOccurred())
+			gpuDecoded, err := base64.StdEncoding.DecodeString(gpuOut)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(gpuDecoded)).To(ContainSubstring("[plugins.\"io.containerd.cri.v1.runtime\"]\n  enable_selinux = true"))
+
+			noGpuOut, err := containerdConfigFromTemplate(baseConfig, profile, containerdV2NoGPUConfigTemplate)
+			Expect(err).NotTo(HaveOccurred())
+			noGpuDecoded, err := base64.StdEncoding.DecodeString(noGpuOut)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(noGpuDecoded)).To(ContainSubstring("[plugins.\"io.containerd.cri.v1.runtime\"]\n  enable_selinux = true"))
+		})
+
+		It("should not set enable_selinux on V2 template when not ACL", func() {
+			profile := baseConfig.AgentPoolProfile
+			profile.Distro = datamodel.AKSUbuntuContainerd2404Gen2
+
+			gpuOut, err := containerdConfigFromTemplate(baseConfig, profile, containerdV2ConfigTemplate)
+			Expect(err).NotTo(HaveOccurred())
+			gpuDecoded, err := base64.StdEncoding.DecodeString(gpuOut)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(gpuDecoded)).NotTo(ContainSubstring("enable_selinux"))
+		})
+	})
 })
 
 var _ = Describe("getLinuxNodeBootstrappingPayload", func() {

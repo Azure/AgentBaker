@@ -169,4 +169,9 @@ message Configuration {
 
   // CSE timeout override in seconds. If not specified, defaults to 15 minutes with a maximum of 360 minutes (6 hours).
   optional int32 cse_timeout = 44;
+
+  // Specifies whether the node uses Azure Container Linux (ACL).
+  // ACL is a Flatcar-derived distro with SELinux support; certain provisioning
+  // configuration (e.g. enabling SELinux labelling in containerd) is gated on this flag.
+  bool is_acl = 45;
 }

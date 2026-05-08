@@ -3,6 +3,9 @@ oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
+  {{- if .GetIsAcl }}
+  enable_selinux = true
+  {{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if .GetIsKata }}
     disable_snapshot_annotations = false

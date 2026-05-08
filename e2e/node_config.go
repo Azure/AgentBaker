@@ -300,6 +300,8 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			},
 		},
 		NeedsCgroupv2: to.Ptr(true),
+		// IsAcl is wired through to gate ACL-only knobs in containerd config (e.g. enable_selinux).
+		IsAcl: nbc.IsACL(),
 		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
 		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
 		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.

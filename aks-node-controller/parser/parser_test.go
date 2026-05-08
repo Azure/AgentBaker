@@ -261,6 +261,44 @@ oom_score = -999
 				assert.Equal(t, "false", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
 			},
 		},
+		{
+			// ACL ships SELinux (toggleable via the acl-node-security-profile IMDS tag);
+			// without enable_selinux=true, containerd's CRI plugin doesn't apply
+			// container_t labels and containers run as unlabeled_t, triggering AVC
+			// denials in enforcing mode.
+			name:       "ACL containerd config has enable_selinux=true",
+			folder:     "ACL+EnableSelinux",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.IsAcl = true
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				gpuCfg, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_CONTENT"]))
+				require.NoError(t, err)
+				assert.Contains(t, gpuCfg, "enable_selinux = true")
+				noGpuCfg, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+				require.NoError(t, err)
+				assert.Contains(t, noGpuCfg, "enable_selinux = true")
+			},
+		},
+		{
+			name:       "non-ACL containerd config has no enable_selinux",
+			folder:     "AKSUbuntu2204+NoSelinux",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.IsAcl = false
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				gpuCfg, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_CONTENT"]))
+				require.NoError(t, err)
+				assert.NotContains(t, gpuCfg, "enable_selinux")
+				noGpuCfg, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+				require.NoError(t, err)
+				assert.NotContains(t, noGpuCfg, "enable_selinux")
+			},
+		},
 	}
 
 	for _, tt := range tests {
