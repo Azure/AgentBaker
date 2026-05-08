@@ -222,7 +222,7 @@ Describe 'Install-VnetPlugins ORAS path' {
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip" } | Should -Throw "*Exhausted retries*"
 
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
             }
         }
     }
