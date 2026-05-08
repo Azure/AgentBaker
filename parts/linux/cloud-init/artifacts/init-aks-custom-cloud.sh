@@ -166,6 +166,7 @@ function process_cert_operations {
         return 1
     fi
 
+    local saved_count=0
     for cert_filename in "${cert_filenames[@]}"; do
         echo "Processing certificate file: $cert_filename"
 
@@ -182,7 +183,14 @@ function process_cert_operations {
 
         echo "$cert_content" > "/root/AzureCACertificates/$cert_filename"
         echo "Successfully saved certificate: $cert_filename"
+        saved_count=$((saved_count + 1))
     done
+
+    if [ $saved_count -eq 0 ]; then
+        echo "Error: all certificate content fetches failed for $endpoint_type (${#cert_filenames[@]} filenames found but 0 saved)"
+        return 1
+    fi
+    echo "Saved $saved_count/${#cert_filenames[@]} certificates for $endpoint_type"
 }
 
 function retrieve_rcv1p_certs {
