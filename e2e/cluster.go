@@ -852,45 +852,25 @@ func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservi
 		return fmt.Errorf("no IPv4 addresses for %q", fqdn)
 	}
 
-	zoneName := fqdn
-	if err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		_, err := createPrivateZone(ctx, nodeRG, zoneName)
-		if err != nil {
-			var respErr *azcore.ResponseError
-			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-				return false, nil // concurrent operation, retry
-			}
-			return false, err
-		}
-		return true, nil
-	}); err != nil {
-		return fmt.Errorf("creating private zone %q: %w", zoneName, err)
+	// createPrivateZone and createPrivateDNSLink handle 409 conflicts internally
+	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
 	}
 
 	vnet, err := getClusterVNet(ctx, nodeRG)
 	if err != nil {
 		return fmt.Errorf("getting cluster VNet: %w", err)
 	}
-	if err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		err := createPrivateDNSLink(ctx, vnet, nodeRG, zoneName)
-		if err != nil {
-			var respErr *azcore.ResponseError
-			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	}); err != nil {
+	if err := createPrivateDNSLink(ctx, vnet, nodeRG, fqdn); err != nil {
 		return fmt.Errorf("linking private zone to VNet: %w", err)
 	}
 
-	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, zoneName, armprivatedns.RecordTypeA, "@",
+	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@",
 		armprivatedns.RecordSet{Properties: &armprivatedns.RecordSetProperties{TTL: to.Ptr[int64](300), ARecords: aRecords}}, nil)
 	if err != nil {
-		return fmt.Errorf("creating A record in zone %q: %w", zoneName, err)
+		return fmt.Errorf("creating A record in zone %q: %w", fqdn, err)
 	}
 
-	toolkit.Logf(ctx, "private DNS zone %q → %v", zoneName, ips)
+	toolkit.Logf(ctx, "private DNS zone %q → %v", fqdn, ips)
 	return nil
 }
