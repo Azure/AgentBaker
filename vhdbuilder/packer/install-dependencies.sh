@@ -240,6 +240,19 @@ elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
+# AzL4: components.json has no v4.0 entry for containernetworking-plugins, so the
+# package loop skips it. Install unversioned from the AzL3 cloud-native repo and
+# place binaries in CNI_BIN_DIR so kubelet can find loopback/bridge/portmap at boot.
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  echo "AzureLinux 4.0: installing containernetworking-plugins from AzL3 cloud-native repo"
+  mkdir -p "$CNI_BIN_DIR"
+  dnf_install 10 2 120 containernetworking-plugins || exit $ERR_CNI_VERSION_INVALID
+  if [ -d /usr/bin/containernetworking-plugins ]; then
+    cp -n /usr/bin/containernetworking-plugins/* "$CNI_BIN_DIR/" 2>/dev/null || true
+  fi
+  echo "  - containernetworking-plugins (AzL3 fallback)" >> ${VHD_LOGS_FILEPATH}
+fi
+
 # doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
   local download_dir=${1}
