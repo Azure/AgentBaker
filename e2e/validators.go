@@ -2820,3 +2820,45 @@ func ValidateAlgifAeadMitigation(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"CVE-2026-31431 (algif_aead) mitigation validation failed")
 }
+
+// ValidateDirtyFragMitigation verifies DirtyFrag LPE mitigation is active:
+// the esp4, esp6, and rxrpc kernel modules must be blocked via modprobe config,
+// not loaded, and modprobe must refuse to load them. The rxrpc path bypasses
+// AppArmor userns restrictions and was confirmed exploitable on Ubuntu 24.04.
+func ValidateDirtyFragMitigation(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD.Flatcar {
+		s.T.Log("Skipping DirtyFrag validation: not applicable for Flatcar")
+		return
+	}
+
+	script := strings.Join([]string{
+		`failed=0`,
+		`for mod in esp4 esp6 rxrpc; do`,
+		`  if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+		`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf"`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: modprobe config blocks ${mod}"`,
+		`  fi`,
+		`  if grep -qE "^${mod} " /proc/modules 2>/dev/null; then`,
+		`    echo "FAIL: ${mod} module is loaded"`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: ${mod} module is not loaded"`,
+		`  fi`,
+		`  if sudo modprobe "${mod}" 2>/dev/null; then`,
+		`    echo "FAIL: modprobe ${mod} succeeded, should be blocked"`,
+		`    sudo modprobe -r "${mod}" 2>/dev/null || true`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: modprobe ${mod} correctly refused"`,
+		`  fi`,
+		`done`,
+		`exit $failed`,
+	}, "\n")
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"DirtyFrag (esp4/esp6/rxrpc) mitigation validation failed")
+}

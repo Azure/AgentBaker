@@ -1304,6 +1304,7 @@ testDirtyFragModulesDisabled() {
 
   local failed=0
   for mod in esp4 esp6 rxrpc; do
+    # Verify modprobe config blocks the module
     if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
       err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
       failed=1
@@ -1311,11 +1312,21 @@ testDirtyFragModulesDisabled() {
       echo "$test: modprobe config correctly blocks ${mod}"
     fi
 
+    # Verify the module is not currently loaded
     if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
       err "$test" "${mod} kernel module is loaded despite being disabled"
       failed=1
     else
       echo "$test: ${mod} module is not loaded"
+    fi
+
+    # Verify that attempting to load the module fails
+    if modprobe "${mod}" 2>/dev/null; then
+      err "$test" "modprobe ${mod} succeeded — module should be blocked"
+      rmmod "${mod}" 2>/dev/null || true
+      failed=1
+    else
+      echo "$test: modprobe ${mod} correctly refused to load"
     fi
   done
 
