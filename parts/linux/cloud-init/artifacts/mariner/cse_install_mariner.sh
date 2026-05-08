@@ -26,8 +26,17 @@ installDeps() {
       dnf_install 30 1 600 azurelinux-repos-cloud-native
       dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
     elif [ "$OS_VERSION" = "4.0" ]; then
-      # AzL4 cloud-native repo is added during VHD build (pre-install-dependencies.sh)
-      echo "AzureLinux 4.0: cloud-native repo configured during VHD build"
+      # AzL4 does not yet have its own cloud-native repo. Use AzL3 cloud-native
+      # repo as a fallback — packages are glibc-compatible and work on AzL4.
+      echo "AzureLinux 4.0: adding AzL3 cloud-native repo as fallback"
+      cat > /etc/yum.repos.d/azl3-cloud-native.repo <<'REPOEOF'
+[azl3-cloud-native]
+name=AzureLinux 3.0 Cloud Native (fallback for AzL4)
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/$basearch
+enabled=1
+gpgcheck=0
+skip_if_unavailable=True
+REPOEOF
     else
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
@@ -110,7 +119,22 @@ installCriCtlPackage() {
     echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
   fi
   echo "Installing ${packageName} with dnf"
-  dnf_install 30 1 600 ${packageName} || exit 1
+  if ! dnf_install 30 1 600 ${packageName}; then
+    # AzL4: kubernetes-cri-tools RPM requires SymCrypt which is not available.
+    # Fall back to downloading the static crictl binary from GitHub.
+    echo "dnf install failed for ${packageName}, falling back to static binary download"
+    local crictl_version="v${version}"
+    local arch="amd64"
+    if [ "$(getCPUArch)" = "arm64" ]; then
+      arch="arm64"
+    fi
+    local url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${crictl_version}/crictl-${crictl_version}-linux-${arch}.tar.gz"
+    echo "Downloading crictl from ${url}"
+    curl -sL "${url}" -o /tmp/crictl.tar.gz || exit 1
+    tar -xzf /tmp/crictl.tar.gz -C /usr/local/bin || exit 1
+    rm -f /tmp/crictl.tar.gz
+    echo "crictl installed via static binary: $(crictl --version 2>/dev/null)"
+  fi
 }
 
 downloadGridDrivers() {
