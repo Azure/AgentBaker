@@ -117,7 +117,14 @@ Describe 'Install-VnetPlugins ORAS path' {
             function global:Get-FileNameFromUrl { param($Url) return "azure-vnet-cni-windows-amd64-v1.6.20.zip" }
         }
         if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
-            function global:DownloadFileWithOras { }
+            function global:DownloadFileWithOras {
+                param(
+                    [string]$Reference,
+                    [string]$DestinationPath,
+                    [string]$Platform = "windows/amd64",
+                    [string]$CachedFile = ""
+                )
+            }
         }
     }
 
@@ -131,6 +138,7 @@ Describe 'Install-VnetPlugins ORAS path' {
         Mock AKS-Expand-Archive -MockWith { } -Verifiable
         Mock Get-FileNameFromUrl -MockWith { return "azure-vnet-cni-windows-amd64-v1.6.20.zip" } -Verifiable
         Mock DownloadFileWithOras -MockWith { } -Verifiable
+        Mock Start-Sleep -MockWith { } -Verifiable
 
         # Suppress move and del which operate on files that don't exist in test
         Mock Move-Item -MockWith { } -Verifiable
