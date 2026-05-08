@@ -50,6 +50,28 @@ get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
 
+# Disable a single kernel module with a known LPE vulnerability.
+# Writes a modprobe blacklist rule and unloads the module if loaded.
+# Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
+# Safe to run unconditionally — idempotent (overwrites with same content if already present).
+# Defined in cse_main.sh (not sourced) to support scriptless provisioning.
+#
+# Usage: disableVulnerableKernelModule <module_name> <description>
+disableVulnerableKernelModule() {
+    local mod="$1"
+    local desc="$2"
+
+    printf '# %s\ninstall %s /bin/false\nblacklist %s\n' "$desc" "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
+
+    if grep -q "^${mod} " /proc/modules 2>/dev/null; then
+        if modprobe -r "$mod" 2>/dev/null; then
+            echo "${desc}: successfully unloaded ${mod}"
+        else
+            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
+        fi
+    fi
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
@@ -284,21 +306,14 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    # CVE-2026-31431 (Copy Fail): Mitigate algif_aead LPE vulnerability.
-    # Affects Ubuntu 20.04/22.04/24.04 and AzureLinux 3.0 (kernel >=4.15).
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag).
     # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
-    # Safe to run unconditionally — idempotent if already mitigated.
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-        if ! grep -qs "algif_aead" /etc/modprobe.d/*.conf 2>/dev/null; then
-            printf "install algif_aead /bin/false\nblacklist algif_aead\n" > /etc/modprobe.d/disable-algif_aead.conf
-        fi
-        if grep -q '^algif_aead ' /proc/modules 2>/dev/null; then
-            if rmmod algif_aead 2>/dev/null; then
-                echo "CVE-2026-31431: successfully unloaded algif_aead module"
-            else
-                echo "CVE-2026-31431: failed to unload algif_aead (in use), reboot required for full mitigation"
-            fi
-        fi
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
     fi
 
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
