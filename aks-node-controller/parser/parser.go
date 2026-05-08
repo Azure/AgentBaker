@@ -111,6 +111,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CONTAINERD_ULIMITS":                                   getUlimitContent(config.GetCustomLinuxOsConfig().GetUlimitConfig()),
 		"TARGET_CLOUD":                                         getTargetCloud(config),
 		"TARGET_ENVIRONMENT":                                   getTargetEnvironment(config),
+		"ARM_RESOURCE_ENDPOINT":                                getArmResourceEndpoint(config),
 		"CUSTOM_ENV_JSON":                                      config.GetCustomCloudConfig().GetCustomEnvJsonContent(),
 		"IS_CUSTOM_CLOUD":                                      fmt.Sprintf("%v", getIsAksCustomCloud(config.GetCustomCloudConfig())),
 		"AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX":       config.GetCustomCloudConfig().GetContainerRegistryDnsSuffix(),

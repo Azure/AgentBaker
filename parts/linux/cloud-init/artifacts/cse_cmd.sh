@@ -114,6 +114,7 @@ CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* see GetCustomEnvironmentJSON for more weirdness. */}}
 TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTargetEnvironment}} {{- end -}}"
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
+ARM_RESOURCE_ENDPOINT="{{GetArmResourceEndpoint}}"
 CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
 IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
 AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX="{{- if IsAKSCustomCloud}}{{AKSCustomCloudContainerRegistryDNSSuffix}}{{end}}"

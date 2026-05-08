@@ -569,6 +569,36 @@ func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 	return getTargetEnvironment(v)
 }
 
+// getArmResourceEndpoint returns the ARM resource endpoint to use as the IMDS
+// "resource" parameter when acquiring an AAD token.
+//   - For AKS custom clouds (Azure Stack): sourced from
+//     CustomEnvJsonContent.resourceManagerEndpoint, which is populated by AKS RP.
+//   - For public sovereign clouds (Fairfax / Mooncake): mapped by cloud name.
+//     These endpoints are public knowledge so hardcoding is acceptable.
+//   - Default (Azure public cloud and any unknown): https://management.azure.com/.
+func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
+	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
+		raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
+		if raw == "" {
+			return ""
+		}
+		var env struct {
+			ResourceManagerEndpoint string `json:"resourceManagerEndpoint"`
+		}
+		if err := json.Unmarshal([]byte(raw), &env); err != nil {
+			return ""
+		}
+		return env.ResourceManagerEndpoint
+	}
+	switch getCloudTargetEnv(v) {
+	case "AzureUSGovernmentCloud":
+		return "https://management.usgovcloudapi.net/"
+	case "AzureChinaCloud":
+		return "https://management.chinacloudapi.cn/"
+	}
+	return "https://management.azure.com/"
+}
+
 func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
 		return fmt.Sprintf("/etc/kubernetes/%s.json", getTargetEnvironment(v))

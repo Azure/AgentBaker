@@ -1185,6 +1185,77 @@ func Test_getTargetCloud(t *testing.T) {
 	}
 }
 
+func Test_getArmResourceEndpoint(t *testing.T) {
+	tests := []struct {
+		name string
+		v    *aksnodeconfigv1.Configuration
+		want string
+	}{
+		{
+			name: "Empty config returns public cloud default",
+			v:    &aksnodeconfigv1.Configuration{},
+			want: "https://management.azure.com/",
+		},
+		{
+			name: "Public cloud location returns public cloud default",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "eastus"},
+			},
+			want: "https://management.azure.com/",
+		},
+		{
+			name: "China cloud by location returns Mooncake endpoint",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "chinaeast2"},
+			},
+			want: "https://management.chinacloudapi.cn/",
+		},
+		{
+			name: "US Gov by location returns Fairfax endpoint",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "usgovvirginia"},
+			},
+			want: "https://management.usgovcloudapi.net/",
+		},
+		{
+			name: "AKS custom cloud with resourceManagerEndpoint in CustomEnvJsonContent",
+			v: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName:   helpers.AksCustomCloudName,
+					CustomEnvJsonContent: `{"resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/"}`,
+				},
+			},
+			want: "https://management.azure.microsoft.fakecustomcloud/",
+		},
+		{
+			name: "AKS custom cloud with empty CustomEnvJsonContent returns empty",
+			v: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName: helpers.AksCustomCloudName,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "AKS custom cloud with malformed JSON returns empty",
+			v: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName:   helpers.AksCustomCloudName,
+					CustomEnvJsonContent: `{not-json`,
+				},
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getArmResourceEndpoint(tt.v); got != tt.want {
+				t.Errorf("getArmResourceEndpoint() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getLinuxAdminUsername(t *testing.T) {
 	type args struct {
 		username string
