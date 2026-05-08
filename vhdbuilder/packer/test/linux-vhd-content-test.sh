@@ -1240,6 +1240,44 @@ testNfsServerService() {
 
 # Tests that the pam.d settings are set correctly, per the function
 # addFailLockDir in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# Verify all kernel modules with known LPE vulnerabilities are disabled.
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# To add a new CVE mitigation, append the module to the loop below.
+testVulnerableKernelModulesDisabled() {
+  local test="testVulnerableKernelModulesDisabled"
+  echo "$test:Start"
+
+  local failed=0
+  for mod in algif_aead esp4 esp6 rxrpc; do
+    if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+      err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
+      failed=1
+    else
+      echo "$test: modprobe config correctly blocks ${mod}"
+    fi
+
+    if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
+      err "$test" "${mod} kernel module is loaded despite being disabled"
+      failed=1
+    else
+      echo "$test: ${mod} module is not loaded"
+    fi
+
+    if modprobe "${mod}" 2>/dev/null; then
+      err "$test" "modprobe ${mod} succeeded — module should be blocked"
+      modprobe -r "${mod}" 2>/dev/null || true
+      failed=1
+    else
+      echo "$test: modprobe ${mod} correctly refused to load"
+    fi
+  done
+
+  if [ "$failed" -ne 0 ]; then
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
 testPamDSettings() {
   local os_sku="${1}"
   local os_version="${2}"
@@ -2340,3 +2378,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
+testVulnerableKernelModulesDisabled

@@ -2253,3 +2253,45 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
+
+// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
+// LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
+// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+// To add a new CVE mitigation, append the module name to the list below.
+func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD.Flatcar {
+		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
+		return
+	}
+
+	script := strings.Join([]string{
+		`failed=0`,
+		`for mod in algif_aead esp4 esp6 rxrpc; do`,
+		`  if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+		`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf"`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: modprobe config blocks ${mod}"`,
+		`  fi`,
+		`  if grep -qE "^${mod} " /proc/modules 2>/dev/null; then`,
+		`    echo "FAIL: ${mod} module is loaded"`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: ${mod} module is not loaded"`,
+		`  fi`,
+		`  if sudo modprobe "${mod}" 2>/dev/null; then`,
+		`    echo "FAIL: modprobe ${mod} succeeded, should be blocked"`,
+		`    sudo modprobe -r "${mod}" 2>/dev/null || true`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: modprobe ${mod} correctly refused"`,
+		`  fi`,
+		`done`,
+		`exit $failed`,
+	}, "\n")
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+}
