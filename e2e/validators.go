@@ -2781,61 +2781,21 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
 
-// ValidateAlgifAeadMitigation verifies CVE-2026-31431 mitigation is active:
-// the algif_aead kernel module must be blocked via modprobe config, not loaded,
-// and modprobe must refuse to load it.
-func ValidateAlgifAeadMitigation(ctx context.Context, s *Scenario) {
-	s.T.Helper()
-
-	// Flatcar uses a different kernel module setup
-	if s.VHD.Flatcar {
-		s.T.Log("Skipping algif_aead validation: not applicable for Flatcar")
-		return
-	}
-
-	script := strings.Join([]string{
-		`# Check modprobe config blocks the module`,
-		`if ! grep -qs 'install algif_aead /bin/false' /etc/modprobe.d/*.conf 2>/dev/null; then`,
-		`  echo "FAIL: algif_aead disable rule not found in /etc/modprobe.d/*.conf"`,
-		`  exit 1`,
-		`fi`,
-		`echo "PASS: modprobe config blocks algif_aead"`,
-		``,
-		`# Check module is not loaded`,
-		`if grep -qE '^algif_aead ' /proc/modules 2>/dev/null; then`,
-		`  echo "FAIL: algif_aead module is loaded"`,
-		`  exit 1`,
-		`fi`,
-		`echo "PASS: algif_aead module is not loaded"`,
-		``,
-		`# Check modprobe refuses to load it`,
-		`if sudo modprobe algif_aead 2>/dev/null; then`,
-		`  echo "FAIL: modprobe algif_aead succeeded, should be blocked"`,
-		`  sudo rmmod algif_aead 2>/dev/null || true`,
-		`  exit 1`,
-		`fi`,
-		`echo "PASS: modprobe algif_aead correctly refused"`,
-	}, "\n")
-
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"CVE-2026-31431 (algif_aead) mitigation validation failed")
-}
-
-// ValidateDirtyFragMitigation verifies DirtyFrag LPE mitigation is active:
-// the esp4, esp6, and rxrpc kernel modules must be blocked via modprobe config,
-// not loaded, and modprobe must refuse to load them. The rxrpc path bypasses
-// AppArmor userns restrictions and was confirmed exploitable on Ubuntu 24.04.
-func ValidateDirtyFragMitigation(ctx context.Context, s *Scenario) {
+// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
+// LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
+// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+// To add a new CVE mitigation, append the module name to the list below.
+func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	if s.VHD.Flatcar {
-		s.T.Log("Skipping DirtyFrag validation: not applicable for Flatcar")
+		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
 		return
 	}
 
 	script := strings.Join([]string{
 		`failed=0`,
-		`for mod in esp4 esp6 rxrpc; do`,
+		`for mod in algif_aead esp4 esp6 rxrpc; do`,
 		`  if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
 		`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf"`,
 		`    failed=1`,
@@ -2860,5 +2820,5 @@ func ValidateDirtyFragMitigation(ctx context.Context, s *Scenario) {
 	}, "\n")
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-		"DirtyFrag (esp4/esp6/rxrpc) mitigation validation failed")
+		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
 }

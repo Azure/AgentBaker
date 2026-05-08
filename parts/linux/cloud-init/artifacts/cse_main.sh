@@ -294,46 +294,10 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    # CVE-2026-31431 (Copy Fail): Mitigate algif_aead LPE vulnerability.
-    # Affects Ubuntu 20.04/22.04/24.04 and AzureLinux 3.0 (kernel >=4.15).
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag).
     # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
-    # Safe to run unconditionally — idempotent if already mitigated.
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-        if ! grep -qs "algif_aead" /etc/modprobe.d/*.conf 2>/dev/null; then
-            printf "install algif_aead /bin/false\nblacklist algif_aead\n" > /etc/modprobe.d/disable-algif_aead.conf
-        fi
-        if grep -q '^algif_aead ' /proc/modules 2>/dev/null; then
-            if rmmod algif_aead 2>/dev/null; then
-                echo "CVE-2026-31431: successfully unloaded algif_aead module"
-            else
-                echo "CVE-2026-31431: failed to unload algif_aead (in use), reboot required for full mitigation"
-            fi
-        fi
-    fi
-
-    # DirtyFrag: Mitigate xfrm-ESP + RxRPC page-cache write LPE vulnerabilities.
-    # rxrpc path bypasses AppArmor userns restrictions — does NOT require user namespaces.
-    # Confirmed exploitable on Ubuntu 24.04 (kernel 6.8). No upstream patch exists yet.
-    # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
-    # Safe to run unconditionally — idempotent, overwrites with same content if already present.
     if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then
-        cat > /etc/modprobe.d/disable-dirtyfrag.conf <<EOF
-install esp4 /bin/false
-blacklist esp4
-install esp6 /bin/false
-blacklist esp6
-install rxrpc /bin/false
-blacklist rxrpc
-EOF
-        for mod in rxrpc esp4 esp6; do
-            if grep -q "^${mod} " /proc/modules 2>/dev/null; then
-                if modprobe -r "$mod" 2>/dev/null; then
-                    echo "DirtyFrag: successfully unloaded ${mod} module"
-                else
-                    echo "DirtyFrag: failed to unload ${mod} (in use), reboot required for full mitigation"
-                fi
-            fi
-        done
+        logs_to_events "AKS.CSE.disableVulnerableKernelModules" disableVulnerableKernelModules
     fi
 
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then

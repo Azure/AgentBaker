@@ -1262,49 +1262,15 @@ testNfsServerService() {
   echo "$test:Finish"
 }
 
-# CVE-2026-31431 (Copy Fail): Verify algif_aead kernel module is disabled.
-# The modprobe-CIS.conf should contain "install algif_aead /bin/false" which
-# prevents the module from loading. Verify the config is present, the module
-# is not loaded, and that attempting to load it fails.
-testAlgifAeadDisabled() {
-  local test="testAlgifAeadDisabled"
-  echo "$test:Start"
-
-  # Verify modprobe config blocks the module
-  if ! grep -qs "install algif_aead /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
-    err "$test" "algif_aead disable rule not found in /etc/modprobe.d/*.conf"
-    return 1
-  fi
-  echo "$test: modprobe config correctly blocks algif_aead"
-
-  # Verify the module is not currently loaded
-  if grep -qE '^algif_aead ' /proc/modules 2>/dev/null; then
-    err "$test" "algif_aead kernel module is loaded despite being disabled"
-    return 1
-  fi
-  echo "$test: algif_aead module is not loaded"
-
-  # Verify that attempting to load the module fails
-  if modprobe algif_aead 2>/dev/null; then
-    err "$test" "modprobe algif_aead succeeded — module should be blocked"
-    rmmod algif_aead 2>/dev/null || true
-    return 1
-  fi
-  echo "$test: modprobe algif_aead correctly refused to load"
-
-  echo "$test:Finish"
-}
-
-# DirtyFrag: Verify xfrm ESP and RxRPC kernel modules are disabled.
-# These modules are used in the DirtyFrag LPE exploit chain.
-# The rxrpc path bypasses AppArmor userns restrictions.
-testDirtyFragModulesDisabled() {
-  local test="testDirtyFragModulesDisabled"
+# Verify all kernel modules with known LPE vulnerabilities are disabled.
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# To add a new CVE mitigation, append the module to the loop below.
+testVulnerableKernelModulesDisabled() {
+  local test="testVulnerableKernelModulesDisabled"
   echo "$test:Start"
 
   local failed=0
-  for mod in esp4 esp6 rxrpc; do
-    # Verify modprobe config blocks the module
+  for mod in algif_aead esp4 esp6 rxrpc; do
     if ! grep -qs "install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
       err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
       failed=1
@@ -1312,7 +1278,6 @@ testDirtyFragModulesDisabled() {
       echo "$test: modprobe config correctly blocks ${mod}"
     fi
 
-    # Verify the module is not currently loaded
     if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
       err "$test" "${mod} kernel module is loaded despite being disabled"
       failed=1
@@ -1320,7 +1285,6 @@ testDirtyFragModulesDisabled() {
       echo "$test: ${mod} module is not loaded"
     fi
 
-    # Verify that attempting to load the module fails
     if modprobe "${mod}" 2>/dev/null; then
       err "$test" "modprobe ${mod} succeeded — module should be blocked"
       rmmod "${mod}" 2>/dev/null || true
@@ -2419,5 +2383,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
-testAlgifAeadDisabled
-testDirtyFragModulesDisabled
+testVulnerableKernelModulesDisabled
