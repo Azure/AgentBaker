@@ -1022,15 +1022,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
 			}
 			// Public sovereign clouds (FF/MC) — endpoints are public knowledge so
-			// it's safe to map by cloud name. Public cloud falls through to empty;
-			// scripts default to https://management.azure.com/.
+			// it's safe to map by cloud name. Default to public cloud otherwise.
 			switch GetCloudTargetEnv(cs.Location) {
 			case datamodel.AzureUSGovernmentCloud:
 				return "https://management.usgovcloudapi.net/"
 			case datamodel.AzureChinaCloud:
 				return "https://management.chinacloudapi.cn/"
 			}
-			return ""
+			return "https://management.azure.com/"
 		},
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()

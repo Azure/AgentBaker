@@ -1192,16 +1192,16 @@ func Test_getArmResourceEndpoint(t *testing.T) {
 		want string
 	}{
 		{
-			name: "Nil config returns empty (public cloud default)",
+			name: "Empty config returns public cloud default",
 			v:    &aksnodeconfigv1.Configuration{},
-			want: "",
+			want: "https://management.azure.com/",
 		},
 		{
-			name: "Public cloud location returns empty",
+			name: "Public cloud location returns public cloud default",
 			v: &aksnodeconfigv1.Configuration{
 				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "eastus"},
 			},
-			want: "",
+			want: "https://management.azure.com/",
 		},
 		{
 			name: "China cloud by location returns Mooncake endpoint",

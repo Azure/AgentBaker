@@ -575,8 +575,7 @@ func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 //     CustomEnvJsonContent.resourceManagerEndpoint, which is populated by AKS RP.
 //   - For public sovereign clouds (Fairfax / Mooncake): mapped by cloud name.
 //     These endpoints are public knowledge so hardcoding is acceptable.
-//   - For Azure public cloud (and any unknown): returns empty; cse_helpers.sh
-//     defaults to https://management.azure.com/.
+//   - Default (Azure public cloud and any unknown): https://management.azure.com/.
 func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
 		raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
@@ -597,7 +596,7 @@ func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
 	case "AzureChinaCloud":
 		return "https://management.chinacloudapi.cn/"
 	}
-	return ""
+	return "https://management.azure.com/"
 }
 
 func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
