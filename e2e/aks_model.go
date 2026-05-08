@@ -914,7 +914,11 @@ func waitForPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName 
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
 		if err != nil {
-			return false, nil
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+				return false, nil // zone doesn't exist yet
+			}
+			return false, err
 		}
 		zone = &resp.PrivateZone
 		return true, nil
@@ -968,7 +972,14 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 			toolkit.Logf(ctx, "Virtual network link creation conflict (409), waiting for completion")
 			return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 				_, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, nodeResourceGroup, privateZoneName, networkLinkName, nil)
-				return err == nil, nil
+				if err != nil {
+					var respErr *azcore.ResponseError
+					if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+						return false, nil // link doesn't exist yet
+					}
+					return false, err
+				}
+				return true, nil
 			})
 		}
 		return fmt.Errorf("failed to create virtual network link in BeginCreateOrUpdate: %w", err)
