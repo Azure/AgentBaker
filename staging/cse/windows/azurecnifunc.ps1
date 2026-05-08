@@ -39,7 +39,8 @@ function Install-VnetPlugins {
             Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $zipfile; CachedFile = $cachedFileName } -Retries 5 -RetryDelaySeconds 10
         }
         catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+            # TODO: modify WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE to WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE after new VHD release
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
         }
     }
     AKS-Expand-Archive -path $zipfile -DestinationPath $AzureCNIBinDir
