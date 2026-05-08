@@ -1192,21 +1192,33 @@ func Test_getArmResourceEndpoint(t *testing.T) {
 		want string
 	}{
 		{
-			name: "Nil config returns empty",
+			name: "Nil config returns empty (public cloud default)",
 			v:    &aksnodeconfigv1.Configuration{},
 			want: "",
 		},
 		{
-			name: "Missing CustomEnvJsonContent returns empty",
+			name: "Public cloud location returns empty",
 			v: &aksnodeconfigv1.Configuration{
-				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-					CustomCloudEnvName: "AzureChinaCloud",
-				},
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "eastus"},
 			},
 			want: "",
 		},
 		{
-			name: "CustomEnvJsonContent with resourceManagerEndpoint returns it verbatim",
+			name: "China cloud by location returns Mooncake endpoint",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "chinaeast2"},
+			},
+			want: "https://management.chinacloudapi.cn/",
+		},
+		{
+			name: "US Gov by location returns Fairfax endpoint",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "usgovvirginia"},
+			},
+			want: "https://management.usgovcloudapi.net/",
+		},
+		{
+			name: "AKS custom cloud with resourceManagerEndpoint in CustomEnvJsonContent",
 			v: &aksnodeconfigv1.Configuration{
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
 					CustomCloudEnvName:   helpers.AksCustomCloudName,
@@ -1216,18 +1228,19 @@ func Test_getArmResourceEndpoint(t *testing.T) {
 			want: "https://management.azure.microsoft.fakecustomcloud/",
 		},
 		{
-			name: "CustomEnvJsonContent without resourceManagerEndpoint returns empty",
+			name: "AKS custom cloud with empty CustomEnvJsonContent returns empty",
 			v: &aksnodeconfigv1.Configuration{
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-					CustomEnvJsonContent: `{"name":"SomeCloud"}`,
+					CustomCloudEnvName: helpers.AksCustomCloudName,
 				},
 			},
 			want: "",
 		},
 		{
-			name: "Malformed CustomEnvJsonContent returns empty",
+			name: "AKS custom cloud with malformed JSON returns empty",
 			v: &aksnodeconfigv1.Configuration{
 				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName:   helpers.AksCustomCloudName,
 					CustomEnvJsonContent: `{not-json`,
 				},
 			},

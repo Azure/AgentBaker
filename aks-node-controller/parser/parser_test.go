@@ -130,7 +130,7 @@ oom_score = -999
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_ENVIRONMENT"])
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
-				assert.Equal(t, "", vars["ARM_RESOURCE_ENDPOINT"])
+				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
 			},
 		},
 		{

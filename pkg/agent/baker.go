@@ -1017,8 +1017,18 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetCloudTargetEnv(cs.Location)
 		},
 		"GetArmResourceEndpoint": func() string {
+			// Custom clouds (Azure Stack): RP populates CustomCloudEnv.ResourceManagerEndpoint.
 			if cs.Properties != nil && cs.Properties.CustomCloudEnv != nil {
 				return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
+			}
+			// Public sovereign clouds (FF/MC) — endpoints are public knowledge so
+			// it's safe to map by cloud name. Public cloud falls through to empty;
+			// scripts default to https://management.azure.com/.
+			switch GetCloudTargetEnv(cs.Location) {
+			case datamodel.AzureUSGovernmentCloud:
+				return "https://management.usgovcloudapi.net/"
+			case datamodel.AzureChinaCloud:
+				return "https://management.chinacloudapi.cn/"
 			}
 			return ""
 		},

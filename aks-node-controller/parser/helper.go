@@ -570,22 +570,34 @@ func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 }
 
 // getArmResourceEndpoint returns the ARM resource endpoint to use as the IMDS
-// "resource" parameter when acquiring an AAD token. The endpoint is sourced
-// from the resourceManagerEndpoint field of CustomEnvJsonContent, which is
-// populated by AKS RP. Returns empty string if not present; callers handle
-// the empty case (e.g. cse_helpers.sh defaults to the public ARM endpoint).
+// "resource" parameter when acquiring an AAD token.
+//   - For AKS custom clouds (Azure Stack): sourced from
+//     CustomEnvJsonContent.resourceManagerEndpoint, which is populated by AKS RP.
+//   - For public sovereign clouds (Fairfax / Mooncake): mapped by cloud name.
+//     These endpoints are public knowledge so hardcoding is acceptable.
+//   - For Azure public cloud (and any unknown): returns empty; cse_helpers.sh
+//     defaults to https://management.azure.com/.
 func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
-	raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
-	if raw == "" {
-		return ""
+	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
+		raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
+		if raw == "" {
+			return ""
+		}
+		var env struct {
+			ResourceManagerEndpoint string `json:"resourceManagerEndpoint"`
+		}
+		if err := json.Unmarshal([]byte(raw), &env); err != nil {
+			return ""
+		}
+		return env.ResourceManagerEndpoint
 	}
-	var env struct {
-		ResourceManagerEndpoint string `json:"resourceManagerEndpoint"`
+	switch getCloudTargetEnv(v) {
+	case "AzureUSGovernmentCloud":
+		return "https://management.usgovcloudapi.net/"
+	case "AzureChinaCloud":
+		return "https://management.chinacloudapi.cn/"
 	}
-	if err := json.Unmarshal([]byte(raw), &env); err != nil {
-		return ""
-	}
-	return env.ResourceManagerEndpoint
+	return ""
 }
 
 func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
