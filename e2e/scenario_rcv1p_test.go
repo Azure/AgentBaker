@@ -410,8 +410,8 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
-			VHD:     config.VHDFlatcarGen2,
+			Cluster:         ClusterRCV1PKubenet,
+			VHD:             config.VHDFlatcarGen2,
 			VMConfigMutator: rcv1pOptInVMConfigMutator,
 			VMInstanceTags:  rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
