@@ -30,7 +30,6 @@ Describe 'disableVulnerableKernelModule()'
         The file "${MODPROBE_DIR}/disable-algif_aead.conf" should be exist
         The contents of file "${MODPROBE_DIR}/disable-algif_aead.conf" should include "install algif_aead /bin/false"
         The contents of file "${MODPROBE_DIR}/disable-algif_aead.conf" should include "blacklist algif_aead"
-        The contents of file "${MODPROBE_DIR}/disable-algif_aead.conf" should include "CVE-2026-31431"
     End
 
     It 'creates separate config files per module'

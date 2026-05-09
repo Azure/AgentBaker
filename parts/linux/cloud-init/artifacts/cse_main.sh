@@ -61,7 +61,7 @@ disableVulnerableKernelModule() {
     local mod="$1"
     local desc="$2"
 
-    printf '# %s\ninstall %s /bin/false\nblacklist %s\n' "$desc" "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
+    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
 
     if grep -q "^${mod} " /proc/modules 2>/dev/null; then
         if modprobe -r "$mod" 2>/dev/null; then
