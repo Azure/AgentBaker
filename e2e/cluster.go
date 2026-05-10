@@ -24,6 +24,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
@@ -336,23 +337,32 @@ func waitForClusterDeletion(ctx context.Context, clusterName, resourceGroupName 
 
 func waitUntilClusterReady(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
+	var clusterDeleted bool
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName(location), name, nil)
 		if err != nil {
+			var azErr *azcore.ResponseError
+			if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+				clusterDeleted = true
+				return true, nil
+			}
 			return false, err
 		}
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating":
+		case "Updating", "Assigned", "Creating", "Deleting", "Canceled", "Canceling":
 			return false, nil
 		default:
-			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)
+			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)
 		}
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for cluster %s to be ready: %w", name, err)
+	}
+	if clusterDeleted {
+		return nil, nil
 	}
 	return &cluster.ManagedCluster, nil
 }
@@ -511,13 +521,30 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	var bastionSubnetID string
-	bastionSubnet, subnetGetErr := config.Azure.Subnet.Get(ctx, nodeRG, vnet.name, bastionSubnetName, nil)
-	if subnetGetErr != nil {
-		var subnetAzErr *azcore.ResponseError
-		if !errors.As(subnetGetErr, &subnetAzErr) || subnetAzErr.StatusCode != http.StatusNotFound {
-			return nil, fmt.Errorf("get subnet %q in vnet %q rg %q: %w", bastionSubnetName, vnet.name, nodeRG, subnetGetErr)
+	var bastionSubnet armnetwork.SubnetsClientGetResponse
+	var subnetGetErr error
+	// Retry the subnet GET with a per-call timeout to tolerate ARM hangs.
+	// Without this, a single unresponsive GET consumes the entire 20-minute cluster prep budget.
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		bastionSubnet, subnetGetErr = config.Azure.Subnet.Get(callCtx, nodeRG, vnet.name, bastionSubnetName, nil)
+		if subnetGetErr == nil {
+			return true, nil
 		}
+		var subnetAzErr *azcore.ResponseError
+		if errors.As(subnetGetErr, &subnetAzErr) && subnetAzErr.StatusCode == http.StatusNotFound {
+			return true, nil // 404 is expected — will create below
+		}
+		toolkit.Logf(ctx, "transient error getting subnet %q (retrying): %v", bastionSubnetName, subnetGetErr)
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get subnet %q in vnet %q rg %q: retries exhausted: %w (last subnet error: %v)", bastionSubnetName, vnet.name, nodeRG, err, subnetGetErr)
+	}
 
+	if subnetGetErr != nil {
+		// 404 — need to create
 		toolkit.Logf(ctx, "creating subnet %s in VNet %s (rg %s)", bastionSubnetName, vnet.name, nodeRG)
 		subnetParams := armnetwork.Subnet{
 			Properties: &armnetwork.SubnetPropertiesFormat{
@@ -705,8 +732,9 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
 
-	// Build a set of all existing VMSS names while deleting old ones.
-	existingVMSS := map[string]struct{}{}
+	// Build a set of VMSS names that should be kept — exclude VMSS that are
+	// being deleted so their stale K8s nodes can be cleaned up in the same pass.
+	keptVMSS := map[string]struct{}{}
 	pager := config.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -714,19 +742,20 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 			return fmt.Errorf("failed to get next page of VMSS: %w", err)
 		}
 		for _, vmss := range page.Value {
-			existingVMSS[*vmss.Name] = struct{}{}
-
 			if _, ok := vmss.Tags["KEEP_VMSS"]; ok {
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 			// don't delete managed pools
 			if _, ok := vmss.Tags["aks-managed-poolName"]; ok {
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 
 			// don't delete VMSS created in the last hour. They might be currently used in tests
 			// extra 10 minutes is a buffer for test cleanup, clock drift and timeout adjustments
 			if config.Config.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.Config.TestTimeout+10*time.Minute {
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 
@@ -735,13 +764,16 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 			})
 			if err != nil {
 				toolkit.Logf(ctx, "failed to delete vmss %q: %s", *vmss.Name, err)
+				// Keep in map so we don't try to delete its nodes while VMSS is still around
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 			toolkit.Logf(ctx, "deleted vmss %q (age: %v)", *vmss.ID, time.Since(*vmss.Properties.TimeCreated))
+			// Don't add to keptVMSS — nodes from this VMSS should be cleaned up
 		}
 	}
 
-	if err := collectGarbageNodes(ctx, kube, existingVMSS); err != nil {
+	if err := collectGarbageNodes(ctx, kube, keptVMSS); err != nil {
 		return fmt.Errorf("failed to collect garbage K8s nodes: %w", err)
 	}
 	return nil
@@ -751,7 +783,7 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 // longer exists. This prevents stale nodes from accumulating in the cluster
 // and overwhelming the cloud-provider-azure route controller with perpetual
 // "instance not found" failures.
-func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map[string]struct{}) error {
+func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[string]struct{}) error {
 	defer toolkit.LogStepCtx(ctx, "collecting garbage K8s nodes")()
 
 	nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
@@ -759,7 +791,7 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 		return fmt.Errorf("listing K8s nodes for garbage collection: %w", err)
 	}
 
-	var deleteErrors []error
+	var deleted, failed int
 	for _, node := range nodes.Items {
 		// skip managed pool nodes (system nodepool)
 		if strings.HasPrefix(node.Name, "aks-") {
@@ -772,19 +804,25 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 		}
 		vmssName := node.Name[:len(node.Name)-6]
 
-		if _, exists := existingVMSS[vmssName]; exists {
+		if _, exists := keptVMSS[vmssName]; exists {
 			continue
 		}
 
 		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
-			deleteErrors = append(deleteErrors, fmt.Errorf("deleting stale node %q: %w", node.Name, err))
+			if apierrors.IsNotFound(err) {
+				toolkit.Logf(ctx, "stale K8s node %q already gone", node.Name)
+				continue
+			}
+			toolkit.Logf(ctx, "warning: failed to delete stale K8s node %q: %v", node.Name, err)
+			failed++
 			continue
 		}
 		toolkit.Logf(ctx, "deleted stale K8s node %q (VMSS %q not found)", node.Name, vmssName)
+		deleted++
 	}
 
-	if len(deleteErrors) > 0 {
-		return fmt.Errorf("failed to delete %d stale nodes, first error: %w", len(deleteErrors), deleteErrors[0])
+	if failed > 0 && deleted == 0 {
+		return fmt.Errorf("failed to delete any of %d stale nodes", failed)
 	}
 	return nil
 }
