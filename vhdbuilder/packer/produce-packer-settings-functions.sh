@@ -73,31 +73,31 @@ function ensure_sig_image_name_linux() {
 
 function download_windows_json_artifact() {
 	filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
-	echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
+	echo "Downloading $filename from wcct storage account using Azure CLI auth"
 
 	# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
 	# For details on the expected format and how to manually retrieve the JSON blob,
 	# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
-	if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
+
+	# Parse storage account, container, and blob path from the URL
+	# URL format: https://<account>.blob.core.windows.net/<container>/<blob_path>
+	local storage_account container blob_path
+	storage_account=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://\([^.]*\)\.blob\.core\.windows\.net/.*|\1|p')
+	container=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://[^/]*/\([^/]*\)/.*|\1|p')
+	blob_path=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://[^/]*/[^/]*/\(.*\)|\1|p')
+
+	echo "Storage account: $storage_account, Container: $container, Blob: $blob_path"
+
+	if az storage blob download \
+		--account-name "$storage_account" \
+		--container-name "$container" \
+		--name "$blob_path" \
+		--file "${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename" \
+		--auth-mode login; then
 		echo "Successfully downloaded the latest artifact: $filename"
 	else
-		# loop through azcopy log files
-		for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-			echo "Azcopy log file: $f"
-			# upload the log file as an attachment to vso
-			set +x
-			echo "##vso[build.uploadlog]$f"
-			set -x
-			# check if the log file contains any errors
-			if grep -q '"level":"Error"' "$f"; then
-				echo "log file $f contains errors"
-				set +x
-				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-				set -x
-				# print the log file
-				cat "$f"
-			fi
-		done
+		echo "##vso[task.logissue type=error]Failed to download $filename from storage account $storage_account"
+		echo "Error: az storage blob download failed for ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	fi
 
 	# Parse the json artifact to get the image urls

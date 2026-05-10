@@ -164,15 +164,15 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 		}
 	}
 	if original.BootstrapConfigMutator != nil {
-		firstStage.BootstrapConfigMutator = func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			original.BootstrapConfigMutator(nbc)
+		firstStage.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			original.BootstrapConfigMutator(cluster, nbc)
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
-		firstStage.AKSNodeConfigMutator = func(nodeconfig *aksnodeconfigv1.Configuration) {
-			original.AKSNodeConfigMutator(nodeconfig)
+		firstStage.AKSNodeConfigMutator = func(cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) {
+			original.AKSNodeConfigMutator(cluster, nodeconfig)
 			nodeconfig.PreProvisionOnly = true
 		}
 	}
@@ -290,11 +290,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	s.Runtime.NBC = nbc
 	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
+		s.BootstrapConfigMutator(s.Runtime.Cluster, nbc)
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
-		s.AKSNodeConfigMutator(nodeconfig)
+		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
 		// NBC is kept for comparison mode (compareEnvs) where both configs are needed,
@@ -853,7 +853,7 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableNvidia = true

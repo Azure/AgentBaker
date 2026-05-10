@@ -160,6 +160,30 @@ validateOrasOCIArtifact() {
   return 0
 }
 
+extractIgUpstreamVersion() {
+  local version="${1:-}"
+  local upstream_version
+
+  upstream_version=$(printf '%s\n' "$version" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p')
+  if [ -n "$upstream_version" ]; then
+    echo "$upstream_version"
+    return 0
+  fi
+
+  return 1
+}
+
+igPackageVersionsShareUpstreamVersion() {
+  local ig_ver="$1"
+  local ig_gadgets_ver="$2"
+  local ig_upstream ig_gadgets_upstream
+
+  ig_upstream=$(extractIgUpstreamVersion "$ig_ver") || return 1
+  ig_gadgets_upstream=$(extractIgUpstreamVersion "$ig_gadgets_ver") || return 1
+
+  [ "$ig_upstream" = "$ig_gadgets_upstream" ]
+}
+
 testAcrCredentialProviderInstalled() {
   local test="testAcrCredentialProviderInstalled"
   echo "$test:Start"
@@ -1238,8 +1262,44 @@ testNfsServerService() {
   echo "$test:Finish"
 }
 
-# Tests that the pam.d settings are set correctly, per the function
-# addFailLockDir in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# Verify all kernel modules with known LPE vulnerabilities are disabled.
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# To add a new CVE mitigation, append the module to the loop below.
+testVulnerableKernelModulesDisabled() {
+  local test="testVulnerableKernelModulesDisabled"
+  echo "$test:Start"
+
+  local failed=0
+  for mod in algif_aead esp4 esp6 rxrpc; do
+    if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+      err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
+      failed=1
+    else
+      echo "$test: modprobe config correctly blocks ${mod}"
+    fi
+
+    if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
+      err "$test" "${mod} kernel module is loaded despite being disabled"
+      failed=1
+    else
+      echo "$test: ${mod} module is not loaded"
+    fi
+
+    if modprobe "${mod}" 2>/dev/null; then
+      err "$test" "modprobe ${mod} succeeded — module should be blocked"
+      modprobe -r "${mod}" 2>/dev/null || true
+      failed=1
+    else
+      echo "$test: modprobe ${mod} correctly refused to load"
+    fi
+  done
+
+  if [ "$failed" -ne 0 ]; then
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
 testPamDSettings() {
   local os_sku="${1}"
   local os_version="${2}"
@@ -2142,44 +2202,27 @@ testInspektorGadgetAssets() {
     err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
   fi
 
-  # Verify ig / ig-gadgets version dependency constraint (defined in ig-gadgets Dalec spec).
-  #   AzureLinux (azl3):  ig == ig-gadgets  — versions must match exactly
-  #   Ubuntu (deb-based): ig >= ig-gadgets  — ig can be newer than gadgets
-  # A mismatch on AzureLinux causes "conflicting requests" during RPM install,
-  # so catching it here prevents broken VHD builds from shipping.
+  # Verify ig / ig-gadgets compatibility by upstream IG version.
+  # Distro/package revisions can differ as long as both packages share the same
+  # X.Y.Z release (for example, ig 0.51.0-4.azl3 with ig-gadgets 0.51.0-1.azl3).
+  # Query the full package version and normalize it here so the test covers the
+  # supported revision skew explicitly instead of relying on package-manager
+  # formatting details.
+  local ig_ver ig_gadgets_ver
   if [ "$OS_SKU" = "AzureLinux" ]; then
-    local ig_ver ig_gadgets_ver
-    ig_ver=$(rpm -q --queryformat '%{VERSION}' ig 2>/dev/null || echo "")
-    ig_gadgets_ver=$(rpm -q --queryformat '%{VERSION}' ig-gadgets 2>/dev/null || echo "")
-
-    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
-      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
-    elif [ "$ig_ver" != "$ig_gadgets_ver" ]; then
-      err $test "AzureLinux requires ig == ig-gadgets (Dalec spec) but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
-    else
-      echo "$test: AzureLinux ig/ig-gadgets version constraint satisfied (both ${ig_ver})"
-    fi
+    ig_ver=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' ig 2>/dev/null || echo "")
+    ig_gadgets_ver=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' ig-gadgets 2>/dev/null || echo "")
   else
-    local ig_ver ig_gadgets_ver ig_semver ig_gadgets_semver
     ig_ver=$(dpkg-query -W -f '${Version}' ig 2>/dev/null || echo "")
     ig_gadgets_ver=$(dpkg-query -W -f '${Version}' ig-gadgets 2>/dev/null || echo "")
+  fi
 
-    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
-      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
-    else
-      # Extract base semver (e.g. "0.49.1" from "0.49.1-ubuntu22.04u1")
-      ig_semver=$(echo "$ig_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-      ig_gadgets_semver=$(echo "$ig_gadgets_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-
-      # sort -V: smallest version first; ig_gadgets_semver must be <= ig_semver
-      local oldest
-      oldest=$(printf '%s\n%s\n' "$ig_semver" "$ig_gadgets_semver" | sort -V | head -n1)
-      if [ "$oldest" != "$ig_gadgets_semver" ]; then
-        err $test "Ubuntu requires ig >= ig-gadgets (Dalec spec) but found ig=${ig_semver} ig-gadgets=${ig_gadgets_semver}"
-      else
-        echo "$test: Ubuntu ig/ig-gadgets version constraint satisfied (ig=${ig_semver} ig-gadgets=${ig_gadgets_semver})"
-      fi
-    fi
+  if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
+    err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
+  elif ! igPackageVersionsShareUpstreamVersion "$ig_ver" "$ig_gadgets_ver"; then
+    err $test "ig and ig-gadgets must share upstream version but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
+  else
+    echo "$test: ig/ig-gadgets upstream version compatibility satisfied (ig=${ig_ver} ig-gadgets=${ig_gadgets_ver})"
   fi
 
   echo "$test:Finish"
@@ -2340,3 +2383,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
+testVulnerableKernelModulesDisabled

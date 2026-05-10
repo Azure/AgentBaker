@@ -881,6 +881,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		s.T.Logf("no VMSS instances found")
 		return
 	}
+
 	instanceID := *page.Value[0].InstanceID
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
@@ -932,11 +933,17 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+	if err != nil {
+		s.T.Logf("failed to initiate run command on VMSS instance %s: %s", instanceID, err)
+		return
+	}
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+	if err != nil {
+		s.T.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
+		return
+	}
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)

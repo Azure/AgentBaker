@@ -130,6 +130,7 @@ oom_score = -999
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_ENVIRONMENT"])
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
+				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
 			},
 		},
 		{
@@ -227,6 +228,38 @@ oom_score = -999
 				assert.Equal(t, "true", vars["IS_KATA"])
 				assert.Equal(t, "true", vars["ENABLE_UNATTENDED_UPGRADES"])
 				assert.Equal(t, "true", vars["NEEDS_CGROUPV2"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with LocalDNS and hosts plugin enabled",
+			folder:     "AKSUbuntu2204+LocalDNS+HostsPlugin",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true,
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with LocalDNS enabled but hosts plugin disabled",
+			folder:     "AKSUbuntu2204+LocalDNS",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false,
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
+				assert.Equal(t, "false", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
 			},
 		},
 	}
@@ -429,6 +462,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NO_PROXY_URLS", "")
 				assertHasKeyWithValue(t, vars, "HTTP_PROXY_TRUSTED_CA", "")
 				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
+				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
 				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
 				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "")

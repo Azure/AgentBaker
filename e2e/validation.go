@@ -73,11 +73,39 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached.
+	// localdns validation is skipped for VHDs with UnsupportedLocalDns=true:
+	// FIPS VHDs, older pinned VHDs (privatekube, network-isolated-k8s-not-cached), and AzureLinux OSGuard.
+	// See e2e/config/vhd.go for the full list.
 	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 		ValidateLocalDNSExporterMetrics(ctx, s)
+
+		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
+		if s.IsHostsPluginEnabled() {
+			// Guard: skip hosts plugin validation if the VHD doesn't have the required artifacts.
+			// The Agentbaker E2E pipeline uses VHDs from main, which may not yet include
+			// aks-localdns-hosts-setup artifacts until the PR merges. This mirrors the pattern
+			// used by PR #7917 for the localdns-exporter feature.
+			if !vhdHasHostsPluginArtifacts(ctx, s) {
+				s.T.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
+			} else {
+				// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
+				// CSE sets up the hosts file and enables the aks-localdns-hosts-setup timer, but population
+				// is performed asynchronously by the timer/service rather than synchronously during provisioning.
+				ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
+				// Validate aks-localdns-hosts-setup service ran successfully and timer is active
+				ValidateAKSLocalDNSHostsSetupService(ctx, s)
+				// No restart needed: select_localdns_corefile() uses feature flag to select WITH_HOSTS corefile,
+				// and CoreDNS's reload 5s hot-reloads the hosts file when it gets populated.
+				// Validate hosts plugin serves responses with IPs matching /etc/localdns/hosts
+				ValidateLocalDNSHostsPluginBypass(ctx, s)
+				// Validate IPv6 entries in hosts file are served correctly by CoreDNS (skips if no IPv6 present)
+				ValidateLocalDNSHostsPluginIPv6(ctx, s)
+				// Validate localdns cold start with empty hosts file: restart → fallthrough → populate → reload
+				ValidateLocalDNSHostsPluginColdStart(ctx, s)
+			}
+		}
 	}
 
 	ValidateInspektorGadget(ctx, s)
@@ -88,6 +116,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
 	validateWireServerBlocked(ctx, s)
+	ValidateVulnerableKernelModulesDisabled(ctx, s)
 
 	// base NBC templates define a mock service principal profile that we can still use to test
 	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
@@ -293,4 +322,12 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 			s.T.FailNow()
 		}
 	}
+}
+
+// vhdHasHostsPluginArtifacts checks if the VHD has aks-localdns-hosts-setup.service installed
+// by running a file existence check on the VM. Returns false if the service file is absent,
+// meaning the VHD predates the hosts plugin feature and validators should be skipped.
+func vhdHasHostsPluginArtifacts(ctx context.Context, s *Scenario) bool {
+	result := execScriptOnVMForScenario(ctx, s, "test -f /etc/systemd/system/aks-localdns-hosts-setup.service")
+	return result.exitCode == "0"
 }

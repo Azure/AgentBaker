@@ -199,3 +199,37 @@ EOF
     End
   End
 End
+
+Describe 'Inspektor Gadget version helper functions'
+  BeforeAll "eval \"\$(sed -n '/^extractIgUpstreamVersion()/,/^}/p;/^igPackageVersionsShareUpstreamVersion()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  Describe 'extractIgUpstreamVersion'
+    It 'extracts the upstream version from an Ubuntu package version'
+      When call extractIgUpstreamVersion "0.51.0-ubuntu24.04u4"
+      The output should equal "0.51.0"
+    End
+
+    It 'extracts the upstream version from an Azure Linux package version'
+      When call extractIgUpstreamVersion "0.51.0-4.azl3"
+      The output should equal "0.51.0"
+    End
+
+    It 'fails for an unparsable package version'
+      When call extractIgUpstreamVersion "not-a-version"
+      The status should equal 1
+      The output should equal ""
+    End
+  End
+
+  Describe 'igPackageVersionsShareUpstreamVersion'
+    It 'accepts matching upstream versions with different distro revisions'
+      When call igPackageVersionsShareUpstreamVersion "0.51.0-4.azl3" "0.51.0-1.azl3"
+      The status should equal 0
+    End
+
+    It 'rejects different upstream versions'
+      When call igPackageVersionsShareUpstreamVersion "0.51.1-1.azl3" "0.51.0-1.azl3"
+      The status should equal 1
+    End
+  End
+End

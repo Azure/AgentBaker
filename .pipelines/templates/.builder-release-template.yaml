@@ -168,6 +168,13 @@ steps:
         echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
         exit 0
       fi
+
+      if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
+        echo "OS SKU is AzureContainerLinux - VHD is not compatible with prefetch optimization"
+        echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
+        exit 0
+      fi
+
       if [ "${ARCHITECTURE,,}" = "arm64" ]; then
         if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
           echo "arm64 with trusted launch - VHD is incompatible with prefetch optimization"

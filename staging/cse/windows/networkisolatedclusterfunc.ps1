@@ -172,7 +172,8 @@ function Invoke-OrasLogin {
     }
 
     # Get AAD Access Token using Managed Identity Metadata Service
-    $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$ClientID"
+    $armEndpoint = if ([string]::IsNullOrWhiteSpace($ArmResourceEndpoint)) { "https://management.azure.com/" } else { $ArmResourceEndpoint }
+    $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${armEndpoint}&client_id=$ClientID"
     try {
         $requestArgs = @{
             Uri     = $accessUrl

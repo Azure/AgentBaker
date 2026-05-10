@@ -47,6 +47,7 @@ $Location="{{ GetVariable "location" }}"
 $UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
 {{ end }}
 $TargetEnvironment="{{ GetTargetEnvironment }}"
+$ArmResourceEndpoint="{{ GetArmResourceEndpoint }}"
 $AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
 $NetworkAPIVersion="2018-08-01"
 
