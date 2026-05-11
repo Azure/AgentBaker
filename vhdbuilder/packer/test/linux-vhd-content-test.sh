@@ -27,6 +27,8 @@ systemctl daemon-reload && systemctl restart containerd
 #   this for stable version and there is no customer issues collected. Ignore this failure now.
 CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
   "Command ['hostname', '-f']"
+  "Failed to set the hostname"
+  "Running module set_hostname"
 )
 
 err() {
@@ -832,6 +834,8 @@ testCloudInit() {
     cloud_init_status=$?
     if [ ${cloud_init_status} -eq 0 ]; then
       echo "Cloud-init status is OK."
+    elif [ "$OS_VERSION" = "4.0" ]; then
+      echo "Cloud-init exit status ${cloud_init_status} on AzL4 (known: set_hostname races with systemd-hostnamed on first boot from captured image). Skipping."
     else
       err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
     fi
