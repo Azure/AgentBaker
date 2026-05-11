@@ -44,6 +44,17 @@ if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
     fi
   fi
 
+  # AzL4 (Fedora 43) ships firewalld enabled by default. Its nftables rules
+  # interfere with kube-proxy iptables and block pod overlay traffic to
+  # Azure DNS (168.63.129.16), breaking konnectivity-agent and coredns.
+  # AKS manages its own iptables/nftables rules via kube-proxy and ip-masq-agent.
+  if systemctl is-active firewalld &>/dev/null; then
+    echo "AzureLinux 4.0: disabling firewalld (conflicts with kube-proxy iptables)"
+    systemctl stop firewalld
+    systemctl disable firewalld
+    systemctl mask firewalld
+  fi
+
   # AzL4 uses DNF5 which renamed --downloaddir to --destdir.
   # AKS CSE scripts (rendered by RP from main branch) still use --downloaddir.
   # Create a wrapper that translates the flag so CSE works without RP changes.
