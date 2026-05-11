@@ -879,7 +879,6 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	return maintained
 }
 
-//nolint:dupl // each distro family needs its own map, structural similarity is expected.
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSUbuntuFipsContainerd2004:           SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
@@ -918,7 +917,6 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	}
 }
 
-//nolint:dupl // each distro family needs its own map, structural similarity is expected.
 func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSAzureLinuxV2:                  SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
