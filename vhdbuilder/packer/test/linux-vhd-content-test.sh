@@ -815,14 +815,18 @@ testCloudInit() {
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
+        local ignored=false
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
             # shellcheck disable=SC3010
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
-            else
-                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
+                ignored=true
+                break
             fi
         done
+        if [ "$ignored" = "false" ]; then
+            err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
+        fi
       done
       echo "Cloud-init log is OK."
     else
