@@ -51,7 +51,7 @@ chmod 0600 %[1]s
 cat <<'EOF' | base64 -d >%[3]s
 %[4]s
 EOF
-chmod 0600 %[3]s
+chmod 0755 %[3]s
 
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
@@ -113,7 +113,8 @@ func CustomDataPhase3(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (str
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookPhase3Template, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, nbcCSECMD)
+	encodedNBCCSECmd := base64.StdEncoding.EncodeToString([]byte(nbcCSECMD))
+	boothook := fmt.Sprintf(boothookPhase3Template, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, encodedNBCCSECmd)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)

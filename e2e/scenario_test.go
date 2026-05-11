@@ -26,7 +26,7 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.LocalDnsProfile = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {},
@@ -50,7 +50,7 @@ func Test_Flatcar(t *testing.T) {
 					},
 				}
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.CustomCaCerts = []string{encodedTestCert}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -92,7 +92,7 @@ func Test_Flatcar_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_D2pds_V5"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -114,7 +114,7 @@ func Test_AzureLinuxV3_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_D2pds_V5"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -136,7 +136,7 @@ func Test_Flatcar_AzureCNI(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -158,7 +158,7 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -221,7 +221,7 @@ func Test_ACL(t *testing.T) {
 					},
 				}
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.CustomCaCerts = []string{encodedTestCert}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -251,7 +251,7 @@ func Test_ACL_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
 				nbc.IsARM64 = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_D2pds_v6"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -301,7 +301,7 @@ func Test_ACL_AzureCNI(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -372,7 +372,7 @@ func Test_ACL_DisableSSH(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableSsh = to.Ptr(false)
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
@@ -492,7 +492,7 @@ func Test_AzureLinuxV3_AzureCNI(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 		},
@@ -513,7 +513,7 @@ func Test_AzureLinuxV3(t *testing.T) {
 					},
 				}
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.MessageOfTheDay = "Zm9vYmFyDQo="
 				config.CustomCaCerts = []string{encodedTestCert}
 			},
@@ -750,7 +750,7 @@ func Test_Ubuntu2204(t *testing.T) {
 					},
 				}
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.MessageOfTheDay = "Zm9vYmFyDQo="
 				config.CustomCaCerts = []string{encodedTestCert}
 			},
@@ -775,7 +775,7 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 			VHD:     config.VHDUbuntu2204FIPSContainerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
@@ -802,7 +802,7 @@ func Test_Ubuntu2004FIPS(t *testing.T) {
 			VHD:     config.VHDUbuntu2004FIPSContainerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
@@ -826,7 +826,7 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2FIPSContainerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
@@ -856,7 +856,7 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2FIPSTLContainerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -886,7 +886,7 @@ func Test_Ubuntu2204_EntraIDSSH(t *testing.T) {
 				// Enable Entra ID SSH authentication
 				nbc.SSHStatus = datamodel.EntraIDSSH
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.DisablePubkeyAuth = to.Ptr(true)
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since Entra ID SSH disables private key authentication
@@ -940,7 +940,7 @@ func Test_AzureLinuxV3_DisableSSH(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableSsh = to.Ptr(false)
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
@@ -962,7 +962,7 @@ func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableSsh = to.Ptr(false)
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
@@ -984,7 +984,7 @@ func Test_Flatcar_DisableSSH(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SSHStatus = datamodel.SSHOff
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableSsh = to.Ptr(false)
 			},
 			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
@@ -1290,7 +1290,7 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.VmSize = "Standard_D2pds_V5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -1309,7 +1309,7 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1334,7 +1334,7 @@ func Test_Ubuntu2204_ArtifactStreaming_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_D2pds_V5"
 			},
@@ -1384,7 +1384,7 @@ func Test_AzureLinuxV3_ArtifactStreaming(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1459,7 +1459,7 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_D2pds_V5"
 			},

@@ -450,6 +450,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// If both flags are provided, compare environments before proceeding.
 	// This is best-effort and should not block provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
+		slog.Info("ProvisionConfig and NBCCmd both provided, comparing envs")
 		compareEnvs(ctx, flags, a.eventLogger)
 	}
 

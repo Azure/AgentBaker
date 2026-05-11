@@ -90,26 +90,67 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 // avoiding the race condition where runcmd or boothook scripts execute before networking is available.
 // Flatcar cannot use boothooks (coreos-cloudinit doesn't support MIME multipart), so it uses cloud-config
 // with a coreos.units block to define and start the service instead.
-func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
-	cloudConfigTemplate := `#cloud-boothook
+func CustomDataWithHack(s *Scenario, nbcCmdScript, binaryURL string) (string, error) {
+	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
+	nbcCmdPath := "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+
+	// Build provision flags conditionally based on what's provided.
+	var flags []string
+	var encodedNBCCSECmd string
+	if s.Runtime.AKSNodeConfig != nil {
+		flags = append(flags, "--provision-config="+configPath)
+	}
+	if nbcCmdScript != "" {
+		flags = append(flags, "--nbc-cmd="+nbcCmdPath)
+		encodedNBCCSECmd = base64.StdEncoding.EncodeToString([]byte(nbcCmdScript))
+	}
+	provisionFlags := strings.Join(flags, " ")
+
+	// Encode AKSNodeConfig if provided.
+	var encodedAksNodeConfigJSON string
+	if s.Runtime.AKSNodeConfig != nil {
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+		}
+		encodedAksNodeConfigJSON = base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	}
+
+	var customData string
+	if s.VHD.Flatcar {
+		customData = buildFlatcarCloudConfig(encodedAksNodeConfigJSON, configPath, encodedNBCCSECmd, nbcCmdPath, binaryURL, provisionFlags)
+	} else {
+		customData = buildBoothookCloudConfig(encodedAksNodeConfigJSON, configPath, encodedNBCCSECmd, nbcCmdPath, binaryURL, provisionFlags)
+	}
+	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+}
+
+func buildBoothookCloudConfig(encodedConfig, configPath, encodedNBCCmd, nbcCmdPath, binaryURL, provisionFlags string) string {
+	var sb strings.Builder
+	sb.WriteString(`#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
 mkdir -p /opt/azure/containers /opt/azure/bin
 
-cat <<'EOF' | base64 -d > %[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
-
+`)
+	if encodedConfig != "" {
+		fmt.Fprintf(&sb, "cat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0600 %s\n",
+			configPath, encodedConfig, configPath)
+	}
+	if encodedNBCCmd != "" {
+		fmt.Fprintf(&sb, "\ncat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0755 %s\n",
+			nbcCmdPath, encodedNBCCmd, nbcCmdPath)
+	}
+	fmt.Fprintf(&sb, `
 cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
 set -euo pipefail
 mkdir -p /opt/azure/bin
-curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
+curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
-/opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
+/opt/azure/bin/aks-node-controller-hack provision %s
 
 SCRIPT
 chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
@@ -130,28 +171,42 @@ UNIT
 
 systemctl daemon-reload
 systemctl start --no-block aks-node-controller-hack.service
-`
-	if s.VHD.Flatcar {
-		// Flatcar uses coreos-cloudinit which only supports a subset of cloud-config features
-		// and does not handle MIME multipart or boothooks. Use coreos.units to define the service instead.
-		// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
-		cloudConfigTemplate = `#cloud-config
-write_files:
-- path: %[1]s
+`, binaryURL, provisionFlags)
+	return sb.String()
+}
+
+func buildFlatcarCloudConfig(encodedConfig, configPath, encodedNBCCmd, nbcCmdPath, binaryURL, provisionFlags string) string {
+	// Flatcar uses coreos-cloudinit which only supports a subset of cloud-config features
+	// and does not handle MIME multipart or boothooks. Use coreos.units to define the service instead.
+	// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
+	var sb strings.Builder
+	sb.WriteString("#cloud-config\nwrite_files:\n")
+	if encodedConfig != "" {
+		fmt.Fprintf(&sb, `- path: %s
   permissions: "0600"
   owner: root
   content: !!binary |
-   %[2]s
-- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+   %s
+`, configPath, encodedConfig)
+	}
+	if encodedNBCCmd != "" {
+		fmt.Fprintf(&sb, `- path: %s
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s
+`, nbcCmdPath, encodedNBCCmd)
+	}
+	fmt.Fprintf(&sb, `- path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
   owner: root
   content: |
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
+    curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
+    /opt/azure/bin/aks-node-controller-hack provision %s
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 coreos:
   units:
@@ -167,18 +222,8 @@ coreos:
         ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
         [Install]
         WantedBy=multi-user.target
-`
-	}
-
-	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-	}
-	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
-
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, configPath, encodedAksNodeConfigJSON, binaryURL)
-	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+`, binaryURL, provisionFlags)
+	return sb.String()
 }
 
 // CustomDataWithNBCCmdHack is similar to baker.boothooktemplate, but it uses a hack to run new aks-node-controller binary.
@@ -340,9 +385,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
 
-		var nbcCmdScript string
-		nbcCmdScript = nodeBootstrapping.CSE
-		customData = func() string {
+		var nbcCSECmd string
+		if s.Runtime.EnableScriptlessANC {
+			nbcCSECmd = nodeBootstrapping.CSE
+		}
+		customData = func(nbcCSECmd string) string {
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
@@ -356,15 +403,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			data, err := CustomDataWithHack(s, binaryURL)
+			data, err := CustomDataWithHack(s, nbcCSECmd, binaryURL)
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
-		}()
-
-		if s.Runtime.EnableScriptlessANC {
-			customData, err = nodeconfigutils.CustomDataPhase3(s.Runtime.AKSNodeConfig, nbcCmdScript)
-			require.NoError(s.T, err, "failed to generate custom data for phase 3")
-		}
+		}(nbcCSECmd)
 
 	} else {
 		cse = nodeBootstrapping.CSE
