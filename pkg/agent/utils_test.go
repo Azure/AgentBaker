@@ -954,10 +954,12 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 //   - byte-for-byte round-trip integrity (decoded output == stripped input)
 //   - bash -n syntax check on the decoded output (catches broken scripts)
 //
-// This is the exact pipeline used in production by getBase64EncodedGzippedCustomScript()
-// (pkg/agent/utils.go). The comment stripping happens BEFORE Go template execution, so
-// the stripped output must still be syntactically valid bash — a node cannot provision
-// if any CSE script has a syntax error after stripping.
+// This exercises the comment-stripping and encoding stages of the production pipeline
+// in getBase64EncodedGzippedCustomScript() (pkg/agent/utils.go). The Go template
+// execution step is not included here since it requires a full NodeBootstrappingConfiguration.
+// The comment stripping happens BEFORE template execution, so the stripped output must
+// still be syntactically valid bash — a node cannot provision if any CSE script has a
+// syntax error after stripping.
 func TestCSEScriptRoundTrip(t *testing.T) {
 	artifactsDir := filepath.Join(repoRoot(), "parts", "linux", "cloud-init", "artifacts")
 
