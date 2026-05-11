@@ -896,7 +896,7 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 			}, "\n"),
 		},
 		{
-			name: "grep with hash pattern is not a comment",
+			name: "hash inside quoted grep pattern is preserved",
 			input: strings.Join([]string{
 				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
 				`        modprobe -r "$mod"`,
@@ -920,7 +920,7 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 			}, "\n"),
 		},
 		{
-			name: "shebang line is preserved",
+			name:     "shebang line is preserved",
 			input:    "#!/bin/bash\nset -euo pipefail",
 			expected: "#!/bin/bash\nset -euo pipefail",
 		},
@@ -982,85 +982,85 @@ func TestCSEScriptRoundTrip(t *testing.T) {
 
 	for _, script := range scripts {
 		t.Run(script, func(t *testing.T) {
-			// Step 1: Read the raw script from parts/
-			raw, err := os.ReadFile(filepath.Join(artifactsDir, script))
-			if err != nil {
-				t.Fatalf("failed to read %s: %v", script, err)
-			}
-
-			// Step 2: Run removeComments (same as production pipeline step)
-			stripped := removeComments(raw)
-
-			// Step 3: gzip + base64 encode (production pipeline)
-			encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
-
-			// Step 4: base64 decode
-			gzipped, err := base64.StdEncoding.DecodeString(encoded)
-			if err != nil {
-				t.Fatalf("base64 decode failed: %v", err)
-			}
-
-			// Step 5: gunzip
-			decoded, err := getGzipDecodedValue(gzipped)
-			if err != nil {
-				t.Fatalf("gzip decode failed: %v", err)
-			}
-
-			// Validate: byte-for-byte round-trip integrity
-			if diff := cmp.Diff(string(stripped), string(decoded)); diff != "" {
-				t.Errorf("round-trip mismatch for %s (-stripped +decoded):\n%s", script, diff)
-			}
-
-			// Validate: bash -n syntax check on the decoded output.
-			// This catches broken scripts that removeComments might produce
-			// (orphaned lines, broken quotes, missing function bodies, etc.)
-			//
-			// Scripts containing Go template directives (e.g. cse_cmd.sh) are not
-			// valid bash until after template execution, so we skip bash -n for those.
-			// The round-trip integrity check above still covers them.
-			if strings.Contains(string(decoded), "{{") {
-				t.Logf("skipping bash -n for %s (contains Go template directives)", script)
-				return
-			}
-
-			// Known issue: removeComments uses a heuristic that can mangle scripts where
-			// '# ' appears inside string literals or heredocs (e.g. variable="# comment").
-			// These scripts are not broken in production because they are either:
-			// - not part of the CSE pipeline (deployed separately), or
-			// - the mangled content is in a non-critical path.
-			// Track fixes in: https://github.com/Azure/AgentBaker/issues/TBD
-			knownStripBroken := map[string]bool{
-				"aks-localdns-hosts-setup.sh": true, // HOSTS_CONTENT="# AKS..." truncated by trailing comment strip
-			}
-			if knownStripBroken[filepath.Base(script)] {
-				t.Logf("skipping bash -n for %s (known removeComments limitation — '# ' inside string literal)", script)
-				return
-			}
-
-			bashPath, err := exec.LookPath("bash")
-			if err != nil {
-				t.Skip("bash not available, skipping syntax check")
-			}
-
-			tmpFile, err := os.CreateTemp("", "cse-roundtrip-*.sh")
-			if err != nil {
-				t.Fatalf("failed to create temp file: %v", err)
-			}
-			defer os.Remove(tmpFile.Name())
-
-			if _, err := tmpFile.Write(decoded); err != nil {
-				tmpFile.Close()
-				t.Fatalf("failed to write temp file: %v", err)
-			}
-			tmpFile.Close()
-
-			cmd := exec.Command(bashPath, "-O", "extglob", "-n", tmpFile.Name())
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
-					script, string(output), err)
-			}
+			decoded := cseRoundTrip(t, filepath.Join(artifactsDir, script))
+			cseValidateBashSyntax(t, script, decoded)
 		})
 	}
 }
 
+// cseRoundTrip reads a shell script, runs it through the production CSE pipeline
+// (removeComments → gzip → base64 → decode → gunzip), validates byte-for-byte
+// round-trip integrity, and returns the decoded output.
+func cseRoundTrip(t *testing.T, path string) []byte {
+	t.Helper()
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", path, err)
+	}
+
+	stripped := removeComments(raw)
+	encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
+
+	gzipped, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("base64 decode failed: %v", err)
+	}
+
+	decoded, err := getGzipDecodedValue(gzipped)
+	if err != nil {
+		t.Fatalf("gzip decode failed: %v", err)
+	}
+
+	if diff := cmp.Diff(string(stripped), string(decoded)); diff != "" {
+		t.Errorf("round-trip mismatch (-stripped +decoded):\n%s", diff)
+	}
+
+	return decoded
+}
+
+// cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors
+// introduced by comment stripping. Skips scripts with Go template directives or
+// known removeComments limitations.
+func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
+	t.Helper()
+
+	if strings.Contains(string(decoded), "{{") {
+		t.Logf("skipping bash -n for %s (contains Go template directives)", script)
+		return
+	}
+
+	// Known limitation: removeComments mangles scripts where '# ' appears
+	// inside string literals or heredocs (e.g. variable="# comment").
+	knownStripBroken := map[string]bool{
+		"aks-localdns-hosts-setup.sh": true,
+	}
+	if knownStripBroken[filepath.Base(script)] {
+		t.Logf("skipping bash -n for %s (known removeComments limitation)", script)
+		return
+	}
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available, skipping syntax check")
+	}
+
+	tmpFile, err := os.CreateTemp("", "cse-roundtrip-*.sh")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	_, writeErr := tmpFile.Write(decoded)
+	tmpFile.Close()
+	if writeErr != nil {
+		t.Fatalf("failed to write temp file: %v", writeErr)
+	}
+
+	cmd := exec.Command(bashPath, "-O", "extglob", "-n", tmpFile.Name())
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
+			script, string(output), err)
+	}
+}
