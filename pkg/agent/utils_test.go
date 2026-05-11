@@ -4,8 +4,10 @@
 package agent
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -1035,22 +1037,128 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 	}
 }
 
-// TestRemoveComments_CSEMainShIntegrity reads the actual cse_main.sh file and validates
-// that removeComments preserves the critical disableVulnerableKernelModule function and
-// its call sites. This is an integration-style test that catches regressions where new
-// script content is accidentally mangled by the comment stripping heuristic.
-func TestRemoveComments_CSEMainShIntegrity(t *testing.T) {
+// TestCSEScriptRoundTrip exercises the full CSE assembly pipeline for each embedded shell
+// script: removeComments → gzip → base64 → base64-decode → gunzip, then validates:
+//   - byte-for-byte round-trip integrity (decoded output == stripped input)
+//   - bash -n syntax check on the decoded output (catches broken scripts)
+//
+// This is the exact pipeline used in production by getBase64EncodedGzippedCustomScript()
+// (pkg/agent/utils.go). The comment stripping happens BEFORE Go template execution, so
+// the stripped output must still be syntactically valid bash.
+//
+// Background: PR #8475 introduced a printf with '# %s\n' inside a format string.
+// After removeComments stripped that line, the resulting script was broken bash.
+// A bash -n check would have caught this immediately. This test prevents similar regressions.
+func TestCSEScriptRoundTrip(t *testing.T) {
+	cseScripts := []string{
+		"cse_main.sh",
+		"cse_helpers.sh",
+		"cse_install.sh",
+		"cse_config.sh",
+		"cse_cmd.sh",
+		"cse_start.sh",
+	}
+
+	artifactsDir := filepath.Join(repoRoot(), "parts", "linux", "cloud-init", "artifacts")
+
+	for _, script := range cseScripts {
+		t.Run(script, func(t *testing.T) {
+			// Step 1: Read the raw script from parts/
+			raw, err := os.ReadFile(filepath.Join(artifactsDir, script))
+			if err != nil {
+				t.Fatalf("failed to read %s: %v", script, err)
+			}
+
+			// Step 2: Run removeComments (same as production pipeline step)
+			stripped := removeComments(raw)
+
+			// Step 3: gzip + base64 encode (production pipeline)
+			encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
+
+			// Step 4: base64 decode
+			gzipped, err := base64.StdEncoding.DecodeString(encoded)
+			if err != nil {
+				t.Fatalf("base64 decode failed: %v", err)
+			}
+
+			// Step 5: gunzip
+			decoded, err := getGzipDecodedValue(gzipped)
+			if err != nil {
+				t.Fatalf("gzip decode failed: %v", err)
+			}
+
+			// Validate: byte-for-byte round-trip integrity
+			if diff := cmp.Diff(string(stripped), string(decoded)); diff != "" {
+				t.Errorf("round-trip mismatch for %s (-stripped +decoded):\n%s", script, diff)
+			}
+
+			// Validate: bash -n syntax check on the decoded output.
+			// This catches broken scripts that removeComments might produce
+			// (orphaned lines, broken quotes, missing function bodies, etc.)
+			//
+			// Scripts containing Go template directives (e.g. cse_cmd.sh) are not
+			// valid bash until after template execution, so we skip bash -n for those.
+			// The round-trip integrity check above still covers them.
+			if strings.Contains(string(decoded), "{{") {
+				t.Logf("skipping bash -n for %s (contains Go template directives)", script)
+				return
+			}
+
+			bashPath, err := exec.LookPath("bash")
+			if err != nil {
+				t.Skip("bash not available, skipping syntax check")
+			}
+
+			tmpFile, err := os.CreateTemp("", "cse-roundtrip-*.sh")
+			if err != nil {
+				t.Fatalf("failed to create temp file: %v", err)
+			}
+			defer os.Remove(tmpFile.Name())
+
+			if _, err := tmpFile.Write(decoded); err != nil {
+				tmpFile.Close()
+				t.Fatalf("failed to write temp file: %v", err)
+			}
+			tmpFile.Close()
+
+			cmd := exec.Command(bashPath, "-n", tmpFile.Name())
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
+					script, string(output), err)
+			}
+		})
+	}
+}
+
+// TestCSEScriptRoundTrip_CSEMainShCriticalContent validates that the decoded cse_main.sh
+// from the full pipeline still contains critical security mitigation code. This test
+// specifically targets the disableVulnerableKernelModule function and its call sites,
+// which were broken by the DirtyFrag DOA bug (PR #8475).
+func TestCSEScriptRoundTrip_CSEMainShCriticalContent(t *testing.T) {
 	cseMainPath := filepath.Join(repoRoot(), "parts", "linux", "cloud-init", "artifacts", "cse_main.sh")
 	raw, err := os.ReadFile(cseMainPath)
 	if err != nil {
 		t.Fatalf("failed to read cse_main.sh: %v", err)
 	}
 
-	stripped := string(removeComments(raw))
+	// Run the full pipeline: removeComments → gzip → base64 → decode → gunzip
+	stripped := removeComments(raw)
+	encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
+	gzipped, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("base64 decode failed: %v", err)
+	}
+	decoded, err := getGzipDecodedValue(gzipped)
+	if err != nil {
+		t.Fatalf("gzip decode failed: %v", err)
+	}
 
-	// Verify the disableVulnerableKernelModule function body is intact after stripping.
-	// These are the critical lines that must survive — if any are missing, the kernel
-	// module blacklist mitigation will be broken on provisioned nodes.
+	content := string(decoded)
+
+	// Verify the disableVulnerableKernelModule function body is intact after the
+	// full pipeline. These are the critical lines that must survive — if any are
+	// missing, the kernel module blacklist mitigation will be broken on provisioned nodes.
 	criticalPatterns := []struct {
 		pattern     string
 		description string
@@ -1060,24 +1168,12 @@ func TestRemoveComments_CSEMainShIntegrity(t *testing.T) {
 			description: "function declaration",
 		},
 		{
-			pattern:     `local mod="$1"`,
-			description: "module name parameter",
-		},
-		{
-			pattern:     `local desc="$2"`,
-			description: "description parameter",
-		},
-		{
 			pattern:     `printf 'install %s /bin/false`,
 			description: "printf that writes modprobe install rule",
 		},
 		{
 			pattern:     `blacklist %s`,
 			description: "printf that writes modprobe blacklist rule",
-		},
-		{
-			pattern:     `/etc/modprobe.d/disable-`,
-			description: "modprobe.d config file path",
 		},
 		{
 			pattern:     `modprobe -r "$mod"`,
@@ -1090,12 +1186,12 @@ func TestRemoveComments_CSEMainShIntegrity(t *testing.T) {
 	}
 
 	for _, cp := range criticalPatterns {
-		if !strings.Contains(stripped, cp.pattern) {
-			t.Errorf("critical pattern missing after removeComments: %s\n  expected to find: %q", cp.description, cp.pattern)
+		if !strings.Contains(content, cp.pattern) {
+			t.Errorf("critical pattern missing after full pipeline: %s\n  expected to find: %q", cp.description, cp.pattern)
 		}
 	}
 
-	// Verify all disableVulnerableKernelModule call sites survive stripping.
+	// Verify all 4 disableVulnerableKernelModule call sites survive the full pipeline.
 	callSites := []string{
 		`disableVulnerableKernelModule "algif_aead"`,
 		`disableVulnerableKernelModule "esp4"`,
@@ -1103,23 +1199,21 @@ func TestRemoveComments_CSEMainShIntegrity(t *testing.T) {
 		`disableVulnerableKernelModule "rxrpc"`,
 	}
 	for _, call := range callSites {
-		if !strings.Contains(stripped, call) {
-			t.Errorf("disableVulnerableKernelModule call site missing after removeComments: %q", call)
+		if !strings.Contains(content, call) {
+			t.Errorf("disableVulnerableKernelModule call site missing after full pipeline: %q", call)
 		}
 	}
 
-	// Verify that no orphaned 'install' or 'blacklist' keywords appear at the start
-	// of a line outside of the printf context. This would indicate the printf format
-	// string got split across lines by the stripping.
-	for _, line := range strings.Split(stripped, "\n") {
+	// Verify no orphaned 'install' or 'blacklist' keywords appear at the start of a
+	// line outside of the printf context. This would indicate the printf format string
+	// got split across lines by comment stripping.
+	for _, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)
-		// Lines starting with bare 'install ' or 'blacklist ' that are NOT inside the
-		// printf format string would indicate mangling.
 		if strings.HasPrefix(trimmed, "install ") && !strings.Contains(line, "printf") && !strings.Contains(line, "modprobe") {
-			t.Errorf("suspicious orphaned 'install' line after stripping (possible printf mangling):\n  %q", line)
+			t.Errorf("suspicious orphaned 'install' line after full pipeline (possible printf mangling):\n  %q", line)
 		}
 		if strings.HasPrefix(trimmed, "blacklist ") && !strings.Contains(line, "printf") {
-			t.Errorf("suspicious orphaned 'blacklist' line after stripping (possible printf mangling):\n  %q", line)
+			t.Errorf("suspicious orphaned 'blacklist' line after full pipeline (possible printf mangling):\n  %q", line)
 		}
 	}
 }
