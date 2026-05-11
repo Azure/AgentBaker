@@ -89,6 +89,11 @@ if isMarinerOrAzureLinux "$OS"; then
     echo "Install FIPS for Mariner SKU"
     installFIPS
   fi
+elif isACL "$OS" "$OS_VARIANT"; then
+  if [ "${ENABLE_FIPS,,}" = "true" ]; then
+    echo "Install FIPS for AzureContainerLinux SKU"
+    installFIPS
+  fi
 else
   # Enable ESM only for 20.04, and FIPS
   if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then

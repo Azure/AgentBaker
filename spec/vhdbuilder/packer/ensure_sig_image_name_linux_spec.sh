@@ -556,4 +556,28 @@ Describe 'ensure_sig_image_name_linux function'
 	  The output should be present
     End
   End
+
+  Describe 'ACL FIPS scenarios'
+    It 'should use ACL FIPS TL Gen2 SKU name as SIG image name'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="aclgen2fipsTL"
+      OS_SKU="AzureContainerLinux"
+      ENABLE_CGROUPV2="True"
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "aclgen2fipsTL"
+	  The output should be present
+    End
+
+    It 'should use ACL ARM64 FIPS TL Gen2 SKU name as SIG image name'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="aclgen2arm64fipsTL"
+      OS_SKU="AzureContainerLinux"
+      ENABLE_CGROUPV2="True"
+      When call ensure_sig_image_name_linux
+      The status should be success
+      The variable SIG_IMAGE_NAME should eq "aclgen2arm64fipsTL"
+	  The output should be present
+    End
+  End
 End

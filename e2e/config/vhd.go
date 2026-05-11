@@ -238,6 +238,32 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
+	VHDACLGen2FIPSTL = &Image{
+		Name:                "aclgen2fipsTL",
+		OS:                  OSACL,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSACLGen2FIPSTL,
+		Gallery:             imageGalleryLinux,
+		Flatcar:             true,
+		OSDiskSizeGB:        60,
+		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+	}
+
+	VHDACLArm64Gen2FIPSTL = &Image{
+		Name:                "aclgen2arm64fipsTL",
+		OS:                  OSACL,
+		Arch:                "arm64",
+		Distro:              datamodel.AKSACLArm64Gen2FIPSTL,
+		Gallery:             imageGalleryLinux,
+		Flatcar:             true,
+		OSDiskSizeGB:        60,
+		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+	}
+
 	VHDWindows2022Containerd = &Image{
 		Name:            "windows-2022-containerd",
 		OS:              "windows",

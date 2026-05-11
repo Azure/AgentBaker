@@ -1253,6 +1253,20 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "ACL FIPS distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLGen2FIPSTL,
+			},
+			expected: true,
+		},
+		{
+			name: "ACL ARM64 FIPS distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLArm64Gen2FIPSTL,
+			},
+			expected: true,
+		},
+		{
 			name: "Flatcar distro is not ACL",
 			ap: AgentPoolProfile{
 				Distro: AKSFlatcarGen2,
@@ -1406,6 +1420,44 @@ func TestNodeBootstrappingConfigurationIsACL(t *testing.T) {
 				},
 				AgentPoolProfile: &AgentPoolProfile{
 					Distro: AKSACLGen2TL,
+				},
+				OSSKU: "",
+			},
+			expected: true,
+		},
+		{
+			name: "ACL FIPS distro without OSSKU",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSACLGen2FIPSTL,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSACLGen2FIPSTL,
+				},
+				OSSKU: "",
+			},
+			expected: true,
+		},
+		{
+			name: "ACL ARM64 FIPS distro without OSSKU",
+			nbc: NodeBootstrappingConfiguration{
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						AgentPoolProfiles: []*AgentPoolProfile{
+							{
+								Distro: AKSACLArm64Gen2FIPSTL,
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSACLArm64Gen2FIPSTL,
 				},
 				OSSKU: "",
 			},
