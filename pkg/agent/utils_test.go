@@ -1022,23 +1022,12 @@ func cseRoundTrip(t *testing.T, path string) []byte {
 }
 
 // cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors
-// introduced by comment stripping. Skips scripts with Go template directives or
-// known removeComments limitations.
+// introduced by comment stripping. Skips scripts with Go template directives.
 func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 	t.Helper()
 
 	if strings.Contains(string(decoded), "{{") {
 		t.Logf("skipping bash -n for %s (contains Go template directives)", script)
-		return
-	}
-
-	// Known limitation: removeComments mangles scripts where '# ' appears
-	// inside string literals or heredocs (e.g. variable="# comment").
-	knownStripBroken := map[string]bool{
-		"aks-localdns-hosts-setup.sh": true,
-	}
-	if knownStripBroken[filepath.Base(script)] {
-		t.Logf("skipping bash -n for %s (known removeComments limitation)", script)
 		return
 	}
 
