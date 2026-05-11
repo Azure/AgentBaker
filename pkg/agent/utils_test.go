@@ -960,29 +960,51 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 // The comment stripping happens BEFORE template execution, so the stripped output must
 // still be syntactically valid bash — a node cannot provision if any CSE script has a
 // syntax error after stripping.
+//
+// The script list is derived from the constants passed to getBase64EncodedGzippedCustomScript()
+// in pkg/agent/variables.go. Only these scripts flow through removeComments in production.
 func TestCSEScriptRoundTrip(t *testing.T) {
+	// Scripts that flow through removeComments via getBase64EncodedGzippedCustomScript()
+	// in pkg/agent/variables.go. Sourced from const.go path constants.
+	cseScripts := []string{
+		"cse_start.sh",
+		"cse_main.sh",
+		"cse_helpers.sh",
+		"ubuntu/cse_helpers_ubuntu.sh",
+		"mariner/cse_helpers_mariner.sh",
+		"azlosguard/cse_helpers_osguard.sh",
+		"flatcar/cse_helpers_flatcar.sh",
+		"acl/cse_helpers_acl.sh",
+		"cse_install.sh",
+		"ubuntu/cse_install_ubuntu.sh",
+		"mariner/cse_install_mariner.sh",
+		"azlosguard/cse_install_osguard.sh",
+		"flatcar/cse_install_flatcar.sh",
+		"acl/cse_install_acl.sh",
+		"cse_config.sh",
+		"cse_cmd.sh",
+		"setup-custom-search-domains.sh",
+		"enable-dhcpv6.sh",
+		"bind-mount.sh",
+		"mig-partition.sh",
+		"ensure_imds_restriction.sh",
+		"ensure-no-dup.sh",
+		"reconcile-private-hosts.sh",
+		"ubuntu/ubuntu-snapshot-update.sh",
+		"mariner/mariner-package-update.sh",
+		"validate-kubelet-credentials.sh",
+		"cloud-init-status-check.sh",
+		"measure-tls-bootstrapping-latency.sh",
+		"configure-azure-network.sh",
+		"init-aks-custom-cloud.sh",
+		"init-aks-custom-cloud-mariner.sh",
+		"init-aks-custom-cloud-operation-requests.sh",
+		"init-aks-custom-cloud-operation-requests-mariner.sh",
+	}
+
 	artifactsDir := filepath.Join(repoRoot(), "parts", "linux", "cloud-init", "artifacts")
 
-	// Dynamically discover all shell scripts — covers main artifacts dir and subdirs
-	var scripts []string
-	err := filepath.WalkDir(artifactsDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() && strings.HasSuffix(d.Name(), ".sh") {
-			rel, _ := filepath.Rel(artifactsDir, path)
-			scripts = append(scripts, rel)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("failed to walk artifacts dir: %v", err)
-	}
-	if len(scripts) == 0 {
-		t.Fatal("no .sh files found in artifacts dir")
-	}
-
-	for _, script := range scripts {
+	for _, script := range cseScripts {
 		t.Run(script, func(t *testing.T) {
 			decoded := cseRoundTrip(t, filepath.Join(artifactsDir, script))
 			cseValidateBashSyntax(t, script, decoded)
