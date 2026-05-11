@@ -5,6 +5,10 @@ package agent
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -837,3 +841,285 @@ var _ = Describe("Test removeComments", func() {
 	})
 
 })
+
+// repoRoot returns the path to the AgentBaker repository root by walking up from the
+// current test file until we find go.mod. This avoids hard-coding absolute paths.
+func repoRoot() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("unable to determine test file path")
+	}
+	dir := filepath.Dir(filename)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			panic("could not find repo root (go.mod)")
+		}
+		dir = parent
+	}
+}
+
+// TestRemoveComments_ShellPatterns tests removeComments against realistic shell script
+// patterns that have historically caused issues, particularly patterns where '#' appears
+// inside string literals or in non-comment contexts.
+//
+// Background: PR #8475 added a printf that included '# %s\n' to write a comment into a
+// modprobe config file. The removeComments function stripped this line because it started
+// with '# ' after trimming, breaking the kernel module blacklist mitigation (DirtyFrag CVE).
+// PR #8486 fixed the immediate issue, but this test ensures we catch similar regressions.
+func TestRemoveComments_ShellPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "pure comment lines are removed",
+			input: strings.Join([]string{
+				"#!/bin/bash",
+				"# This is a comment",
+				"echo hello",
+				"## Another comment",
+				"echo world",
+			}, "\n"),
+			expected: strings.Join([]string{
+				"#!/bin/bash",
+				"echo hello",
+				"echo world",
+			}, "\n"),
+		},
+		{
+			name: "disableVulnerableKernelModule function body survives stripping",
+			input: strings.Join([]string{
+				`disableVulnerableKernelModule() {`,
+				`    local mod="$1"`,
+				`    local desc="$2"`,
+				``,
+				`    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"`,
+				``,
+				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
+				`        if modprobe -r "$mod" 2>/dev/null; then`,
+				`            echo "${desc}: successfully unloaded ${mod}"`,
+				`        else`,
+				`            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"`,
+				`        fi`,
+				`    fi`,
+				`}`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`disableVulnerableKernelModule() {`,
+				`    local mod="$1"`,
+				`    local desc="$2"`,
+				``,
+				`    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"`,
+				``,
+				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
+				`        if modprobe -r "$mod" 2>/dev/null; then`,
+				`            echo "${desc}: successfully unloaded ${mod}"`,
+				`        else`,
+				`            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"`,
+				`        fi`,
+				`    fi`,
+				`}`,
+			}, "\n"),
+		},
+		{
+			name: "disableVulnerableKernelModule call sites survive stripping",
+			input: strings.Join([]string{
+				`    if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then`,
+				`        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"`,
+				`        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"`,
+				`        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"`,
+				`        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"`,
+				`    fi`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then`,
+				`        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"`,
+				`        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"`,
+				`        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"`,
+				`        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"`,
+				`    fi`,
+			}, "\n"),
+		},
+		{
+			name: "grep with hash pattern is not a comment",
+			input: strings.Join([]string{
+				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
+				`        modprobe -r "$mod"`,
+				`    fi`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
+				`        modprobe -r "$mod"`,
+				`    fi`,
+			}, "\n"),
+		},
+		{
+			name: "trailing comments are trimmed but code is preserved",
+			input: strings.Join([]string{
+				`    local mod="$1" # module name`,
+				`    modprobe -r "$mod" # try to unload`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    local mod="$1" `,
+				`    modprobe -r "$mod" `,
+			}, "\n"),
+		},
+		{
+			name: "shebang line is preserved",
+			input:    "#!/bin/bash\nset -euo pipefail",
+			expected: "#!/bin/bash\nset -euo pipefail",
+		},
+		{
+			name: "hash in variable expansion is not a comment",
+			input: strings.Join([]string{
+				`    local count=${#array[@]}`,
+				`    echo "${str#prefix}"`,
+				`    echo "${str##*/}"`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    local count=${#array[@]}`,
+				`    echo "${str#prefix}"`,
+				`    echo "${str##*/}"`,
+			}, "\n"),
+		},
+		{
+			// This test documents the known limitation of removeComments:
+			// Lines where '#' appears as the first non-whitespace character followed by a space
+			// WILL be stripped, even if the '#' is inside a string literal.
+			// This was the root cause of the DirtyFrag DOA bug (PR #8475).
+			//
+			// The original printf was:
+			//   printf '# %s\ninstall %s /bin/false\nblacklist %s\n' "$mod" "$mod" "$mod"
+			//
+			// After CSE assembly, the multi-line printf expansion would have produced a line
+			// starting with "# " which removeComments would strip. PR #8486 fixed this by
+			// removing the "# %s\n" from the printf format string.
+			//
+			// WARNING: If you change removeComments to be smarter about string literals,
+			// update this test to reflect the new behavior.
+			name: "known limitation: comment-like line inside printf is stripped (documents DirtyFrag DOA root cause)",
+			input: strings.Join([]string{
+				`disableVulnerableKernelModule() {`,
+				`    local mod="$1"`,
+				`    local desc="$2"`,
+				// This line starts with '# ' after trimming — removeComments will strip it.
+				// This documents the bug class: scripts MUST NOT produce lines starting with '# '
+				// that are functionally significant.
+				`    # CVE-2026-31431 (Copy Fail)`,
+				`    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"`,
+				`}`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`disableVulnerableKernelModule() {`,
+				`    local mod="$1"`,
+				`    local desc="$2"`,
+				// The comment line IS removed — this is expected behavior.
+				`    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"`,
+				`}`,
+			}, "\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeComments([]byte(tt.input))
+			if diff := cmp.Diff(tt.expected, string(result)); diff != "" {
+				t.Errorf("removeComments() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestRemoveComments_CSEMainShIntegrity reads the actual cse_main.sh file and validates
+// that removeComments preserves the critical disableVulnerableKernelModule function and
+// its call sites. This is an integration-style test that catches regressions where new
+// script content is accidentally mangled by the comment stripping heuristic.
+func TestRemoveComments_CSEMainShIntegrity(t *testing.T) {
+	cseMainPath := filepath.Join(repoRoot(), "parts", "linux", "cloud-init", "artifacts", "cse_main.sh")
+	raw, err := os.ReadFile(cseMainPath)
+	if err != nil {
+		t.Fatalf("failed to read cse_main.sh: %v", err)
+	}
+
+	stripped := string(removeComments(raw))
+
+	// Verify the disableVulnerableKernelModule function body is intact after stripping.
+	// These are the critical lines that must survive — if any are missing, the kernel
+	// module blacklist mitigation will be broken on provisioned nodes.
+	criticalPatterns := []struct {
+		pattern     string
+		description string
+	}{
+		{
+			pattern:     "disableVulnerableKernelModule() {",
+			description: "function declaration",
+		},
+		{
+			pattern:     `local mod="$1"`,
+			description: "module name parameter",
+		},
+		{
+			pattern:     `local desc="$2"`,
+			description: "description parameter",
+		},
+		{
+			pattern:     `printf 'install %s /bin/false`,
+			description: "printf that writes modprobe install rule",
+		},
+		{
+			pattern:     `blacklist %s`,
+			description: "printf that writes modprobe blacklist rule",
+		},
+		{
+			pattern:     `/etc/modprobe.d/disable-`,
+			description: "modprobe.d config file path",
+		},
+		{
+			pattern:     `modprobe -r "$mod"`,
+			description: "module unload command",
+		},
+		{
+			pattern:     `grep -q "^${mod} " /proc/modules`,
+			description: "module loaded check (grep with hash in pattern)",
+		},
+	}
+
+	for _, cp := range criticalPatterns {
+		if !strings.Contains(stripped, cp.pattern) {
+			t.Errorf("critical pattern missing after removeComments: %s\n  expected to find: %q", cp.description, cp.pattern)
+		}
+	}
+
+	// Verify all disableVulnerableKernelModule call sites survive stripping.
+	callSites := []string{
+		`disableVulnerableKernelModule "algif_aead"`,
+		`disableVulnerableKernelModule "esp4"`,
+		`disableVulnerableKernelModule "esp6"`,
+		`disableVulnerableKernelModule "rxrpc"`,
+	}
+	for _, call := range callSites {
+		if !strings.Contains(stripped, call) {
+			t.Errorf("disableVulnerableKernelModule call site missing after removeComments: %q", call)
+		}
+	}
+
+	// Verify that no orphaned 'install' or 'blacklist' keywords appear at the start
+	// of a line outside of the printf context. This would indicate the printf format
+	// string got split across lines by the stripping.
+	for _, line := range strings.Split(stripped, "\n") {
+		trimmed := strings.TrimSpace(line)
+		// Lines starting with bare 'install ' or 'blacklist ' that are NOT inside the
+		// printf format string would indicate mangling.
+		if strings.HasPrefix(trimmed, "install ") && !strings.Contains(line, "printf") && !strings.Contains(line, "modprobe") {
+			t.Errorf("suspicious orphaned 'install' line after stripping (possible printf mangling):\n  %q", line)
+		}
+		if strings.HasPrefix(trimmed, "blacklist ") && !strings.Contains(line, "printf") {
+			t.Errorf("suspicious orphaned 'blacklist' line after stripping (possible printf mangling):\n  %q", line)
+		}
+	}
+}
