@@ -40,7 +40,7 @@ if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
     echo "AzureLinux 4.0: SELinux mode is $(getenforce)"
     setenforce 0 2>/dev/null || true
     if [ -f /etc/selinux/config ]; then
-      sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+      sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
     fi
   fi
 
