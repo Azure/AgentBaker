@@ -249,7 +249,7 @@ func Test_ACLGen2FIPSTL(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2FIPSTL,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// LocalDNS isn't currently supported on FIPS-enabled VHDs; mirror Test_AzureLinux3OSGuard.
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
