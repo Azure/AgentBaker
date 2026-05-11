@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -980,55 +982,82 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 // still be syntactically valid bash — a node cannot provision if any CSE script has a
 // syntax error after stripping.
 //
-// The script list is derived from the constants passed to getBase64EncodedGzippedCustomScript()
-// in pkg/agent/variables.go. Only these scripts flow through removeComments in production.
+// The script list is dynamically derived by parsing variables.go and const.go source
+// to find all .sh files passed to getBase64EncodedGzippedCustomScript(). If a new script
+// is added to the CSE pipeline, it is automatically covered by this test.
 func TestCSEScriptRoundTrip(t *testing.T) {
-	// Scripts that flow through removeComments via getBase64EncodedGzippedCustomScript()
-	// in pkg/agent/variables.go. Sourced from const.go path constants.
-	cseScripts := []string{
-		"cse_start.sh",
-		"cse_main.sh",
-		"cse_helpers.sh",
-		"ubuntu/cse_helpers_ubuntu.sh",
-		"mariner/cse_helpers_mariner.sh",
-		"azlosguard/cse_helpers_osguard.sh",
-		"flatcar/cse_helpers_flatcar.sh",
-		"acl/cse_helpers_acl.sh",
-		"cse_install.sh",
-		"ubuntu/cse_install_ubuntu.sh",
-		"mariner/cse_install_mariner.sh",
-		"azlosguard/cse_install_osguard.sh",
-		"flatcar/cse_install_flatcar.sh",
-		"acl/cse_install_acl.sh",
-		"cse_config.sh",
-		"cse_cmd.sh",
-		"setup-custom-search-domains.sh",
-		"enable-dhcpv6.sh",
-		"bind-mount.sh",
-		"mig-partition.sh",
-		"ensure_imds_restriction.sh",
-		"ensure-no-dup.sh",
-		"reconcile-private-hosts.sh",
-		"ubuntu/ubuntu-snapshot-update.sh",
-		"mariner/mariner-package-update.sh",
-		"validate-kubelet-credentials.sh",
-		"cloud-init-status-check.sh",
-		"measure-tls-bootstrapping-latency.sh",
-		"configure-azure-network.sh",
-		"init-aks-custom-cloud.sh",
-		"init-aks-custom-cloud-mariner.sh",
-		"init-aks-custom-cloud-operation-requests.sh",
-		"init-aks-custom-cloud-operation-requests-mariner.sh",
+	cseScripts := discoverCSEScripts(t)
+	if len(cseScripts) == 0 {
+		t.Fatal("no CSE scripts discovered — check variables.go and const.go parsing")
 	}
+	t.Logf("discovered %d CSE shell scripts", len(cseScripts))
 
-	artifactsDir := filepath.Join(repoRoot(), "parts", "linux", "cloud-init", "artifacts")
+	artifactsDir := filepath.Join(repoRoot(), "parts")
 
 	for _, script := range cseScripts {
-		t.Run(script, func(t *testing.T) {
+		t.Run(filepath.Base(script), func(t *testing.T) {
 			decoded := cseRoundTrip(t, filepath.Join(artifactsDir, script))
 			cseValidateBashSyntax(t, script, decoded)
 		})
 	}
+}
+
+// discoverCSEScripts parses variables.go to find all constant names passed to
+// getBase64EncodedGzippedCustomScript(), then resolves those constants to file
+// paths from const.go, filtering to .sh files only.
+func discoverCSEScripts(t *testing.T) []string {
+	t.Helper()
+	root := repoRoot()
+
+	// Step 1: Read variables.go and extract constant names from getBase64EncodedGzippedCustomScript() calls
+	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
+	variablesBytes, err := os.ReadFile(variablesPath)
+	if err != nil {
+		t.Fatalf("failed to read variables.go: %v", err)
+	}
+
+	// Match: getBase64EncodedGzippedCustomScript(constantName, config)
+	callRe := regexp.MustCompile(`getBase64EncodedGzippedCustomScript\((\w+),`)
+	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
+	constNames := make(map[string]bool)
+	for _, m := range matches {
+		constNames[m[1]] = true
+	}
+
+	// Step 2: Read const.go and resolve constant names to file paths
+	constPath := filepath.Join(root, "pkg", "agent", "const.go")
+	constBytes, err := os.ReadFile(constPath)
+	if err != nil {
+		t.Fatalf("failed to read const.go: %v", err)
+	}
+
+	// Match: constantName = "linux/cloud-init/artifacts/..."
+	constRe := regexp.MustCompile(`(\w+)\s*=\s*"([^"]+)"`)
+	constMatches := constRe.FindAllStringSubmatch(string(constBytes), -1)
+	constMap := make(map[string]string)
+	for _, m := range constMatches {
+		constMap[m[1]] = m[2]
+	}
+
+	// Step 3: Resolve and filter to .sh files
+	var scripts []string
+	seen := make(map[string]bool)
+	for name := range constNames {
+		path, ok := constMap[name]
+		if !ok {
+			continue
+		}
+		if !strings.HasSuffix(path, ".sh") {
+			continue
+		}
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		scripts = append(scripts, path)
+	}
+	sort.Strings(scripts)
+	return scripts
 }
 
 // cseRoundTrip reads a shell script, runs it through the production CSE pipeline
