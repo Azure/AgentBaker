@@ -898,12 +898,12 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 		{
 			name: "hash inside quoted grep pattern is preserved",
 			input: strings.Join([]string{
-				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
+				`    if grep -q "^#${mod} " /proc/modules 2>/dev/null; then`,
 				`        modprobe -r "$mod"`,
 				`    fi`,
 			}, "\n"),
 			expected: strings.Join([]string{
-				`    if grep -q "^${mod} " /proc/modules 2>/dev/null; then`,
+				`    if grep -q "^#${mod} " /proc/modules 2>/dev/null; then`,
 				`        modprobe -r "$mod"`,
 				`    fi`,
 			}, "\n"),
@@ -935,6 +935,25 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 				`    local count=${#array[@]}`,
 				`    echo "${str#prefix}"`,
 				`    echo "${str##*/}"`,
+			}, "\n"),
+		},
+		{
+			// Documents the DOA regression from PR #8475: a line starting with "# "
+			// inside a multi-line printf format string gets stripped by removeComments,
+			// breaking the script. The fix (PR #8486) was to not emit "# " lines from
+			// code. This test asserts the current (known-limitation) behavior.
+			name: "line starting with hash-space is stripped even inside string context",
+			input: strings.Join([]string{
+				`myFunc() {`,
+				`    local desc="$1"`,
+				`    printf '# %s\ninstall %s /bin/false\n' "$desc" "$mod"`,
+				`}`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`myFunc() {`,
+				`    local desc="$1"`,
+				`    printf '`,
+				`}`,
 			}, "\n"),
 		},
 	}
