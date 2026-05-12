@@ -199,6 +199,9 @@ function basePrep {
     fi
     setupCNIDirs
 
+    # pre-warm containerd by checking its version.
+    nohup /bin/sh -c '/usr/bin/containerd --version >/dev/null 2>&1' >/dev/null 2>&1 &
+
     # Network plugin already installed on Azure Linux OS Guard
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
