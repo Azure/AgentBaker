@@ -38,10 +38,6 @@ fi
 if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
   if command -v getenforce &>/dev/null; then
     echo "AzureLinux 4.0: SELinux mode is $(getenforce)"
-    setenforce 0 2>/dev/null || true
-    if [ -f /etc/selinux/config ]; then
-      sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
-    fi
   fi
 
   # AzL4 (Fedora 43) ships firewalld enabled by default. Its nftables rules
