@@ -547,9 +547,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description:      "Tests that MIG works on H100 without requiring a node reboot (Hopper supports dynamic MIG mode changes)",
-		Location:         "uaenorth",
-		K8sSystemPoolSKU: "",
+		Description: "Tests that MIG works on H100 without requiring a node reboot (Hopper supports dynamic MIG mode changes)",
+		// Run in southcentralus to avoid H100 quota contention with Test_Ubuntu2404_GPU_H100 (uaenorth).
+		Location: "southcentralus",
 		Tags: Tags{
 			GPU: true,
 		},
