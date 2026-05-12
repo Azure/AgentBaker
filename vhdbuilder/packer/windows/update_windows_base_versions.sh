@@ -17,7 +17,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTINGS_FILE="${SCRIPT_DIR}/windows_settings.json"
 DEFAULT_PUBLISHER="MicrosoftWindowsServer"
-DEFAULT_OFFER="MicrosoftWindowsServer"
+DEFAULT_OFFER="WindowsServer"
 DRY_RUN=false
 
 if [ "${1:-}" = "--dry-run" ]; then
