@@ -27,13 +27,13 @@ function Install-VnetPlugins {
         # and Windows single-tenancy variants such as azure-vnet-cni-singletenancy (including suffixed forms).
         $packageInfo = Get-PackageNameAndVersionFromCniUrl -Url $VNetCNIPluginsURL
         if (-not $packageInfo) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE -ErrorMessage "Failed to extract containerd version tag from URL: $VNetCNIPluginsURL"
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE -ErrorMessage "Failed to extract Azure VNet CNI package version tag from URL: $VNetCNIPluginsURL"
         }
-        $containerdVersionTag = $packageInfo.Version
+        $cniPackageVersionTag = $packageInfo.Version
         $orasPackageName = $packageInfo.PackageName
 
-        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAzureVnetCniWithOras" -TaskMessage "Start to download Azure VNet CNI with oras. ContainerdVersionTag: $containerdVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
-        $orasReference = "$global:BootstrapProfileContainerRegistryServer/aks/packages/azure/${orasPackageName}:${containerdVersionTag}"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAzureVnetCniWithOras" -TaskMessage "Start to download Azure VNet CNI with oras. CniPackageVersionTag: $cniPackageVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+        $orasReference = "$global:BootstrapProfileContainerRegistryServer/aks/packages/azure/${orasPackageName}:${cniPackageVersionTag}"
         $cachedFileName = Get-FileNameFromUrl -Url $VNetCNIPluginsURL
         try {
             Retry-Command -Command "DownloadFileWithOras" -Args @{Reference = $orasReference; DestinationPath = $zipfile; CachedFile = $cachedFileName } -Retries 5 -RetryDelaySeconds 10
