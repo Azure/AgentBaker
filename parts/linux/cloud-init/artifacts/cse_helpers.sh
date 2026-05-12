@@ -158,6 +158,8 @@ ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, r
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
+ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
@@ -1280,7 +1282,8 @@ oras_login_with_kubelet_identity() {
     fi
 
     set +x
-    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
+    local arm_endpoint="${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}"
+    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${arm_endpoint}&client_id=$client_id"
     raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
     ret_code=$?
     if [ "$ret_code" -ne 0 ]; then

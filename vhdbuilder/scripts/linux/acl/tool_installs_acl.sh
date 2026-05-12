@@ -28,3 +28,20 @@ disableNtpAndTimesyncdInstallChrony() {
 
     systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
+installFIPS() {
+    echo "Installing FIPS..."
+
+    local fips_addon_src="/boot/acl/uki-addons/fips.addon.efi"
+    local fips_addon_dst="/boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi"
+
+    if [ ! -f "${fips_addon_src}" ]; then
+        echo "FIPS addon not found at ${fips_addon_src}" >&2
+        exit 1
+    fi
+
+    install -D -m 0644 "${fips_addon_src}" "${fips_addon_dst}"
+
+    touch /etc/system-fips
+    chmod 644 /etc/system-fips
+}

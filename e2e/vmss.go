@@ -355,7 +355,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly {
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
 			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
@@ -773,7 +773,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
-		"localdns.log":                     "sudo journalctl -u localdns",
+		"containerd.log":                   "sudo journalctl -u containerd",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"waagent.log":                      "sudo cat /var/log/waagent.log",
@@ -867,6 +867,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		s.T.Logf("no VMSS instances found")
 		return
 	}
+
 	instanceID := *page.Value[0].InstanceID
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
@@ -918,11 +919,17 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+	if err != nil {
+		s.T.Logf("failed to initiate run command on VMSS instance %s: %s", instanceID, err)
+		return
+	}
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+	if err != nil {
+		s.T.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
+		return
+	}
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)

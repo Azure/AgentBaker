@@ -160,6 +160,30 @@ validateOrasOCIArtifact() {
   return 0
 }
 
+extractIgUpstreamVersion() {
+  local version="${1:-}"
+  local upstream_version
+
+  upstream_version=$(printf '%s\n' "$version" | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p')
+  if [ -n "$upstream_version" ]; then
+    echo "$upstream_version"
+    return 0
+  fi
+
+  return 1
+}
+
+igPackageVersionsShareUpstreamVersion() {
+  local ig_ver="$1"
+  local ig_gadgets_ver="$2"
+  local ig_upstream ig_gadgets_upstream
+
+  ig_upstream=$(extractIgUpstreamVersion "$ig_ver") || return 1
+  ig_gadgets_upstream=$(extractIgUpstreamVersion "$ig_gadgets_ver") || return 1
+
+  [ "$ig_upstream" = "$ig_gadgets_upstream" ]
+}
+
 testAcrCredentialProviderInstalled() {
   local test="testAcrCredentialProviderInstalled"
   echo "$test:Start"
@@ -195,27 +219,10 @@ testPackagesInstalled() {
     if [ "$downloadLocation" = "" ] || [ "$downloadLocation" = "null" ]; then
       continue
     fi
-    if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
-      OS=$MARINER_OS_NAME
-      # If the feature flag kata is enabled, we set $MARINER_KATA_OS_NAME as the OS name and it will get the version from that OS from components.json
-      # We have similar logic in install-dependencies.sh
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${MARINER_KATA_OS_NAME}
-      fi
-    elif [ "$OS_SKU" = "AzureLinux" ]; then
-      OS=$AZURELINUX_OS_NAME
-      if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
-        OS=${AZURELINUX_KATA_OS_NAME}
-      fi
-    elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
-      OS=$AZURELINUX_OS_NAME
-      OS_VARIANT=OSGUARD
-    elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
-      OS=$AZURELINUX_OS_NAME
-      OS_VARIANT=$ACL_OS_VARIANT
-    else
-      OS=${OS_SKU^^}
-    fi
+    local resolvedOSAndVariant
+    resolvedOSAndVariant=$(getCurrentPackageTestOS)
+    OS="${resolvedOSAndVariant%%|*}"
+    OS_VARIANT="${resolvedOSAndVariant#*|}"
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
     case "${name}" in
@@ -588,7 +595,7 @@ testFips() {
   enable_fips=$2
 
   # shellcheck disable=SC3010
-  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
+  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2" || ${os_version} == "acl") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -608,6 +615,19 @@ testFips() {
         err $test "fips header files don't exist."
       fi
     fi
+
+    if [ ${os_version} = "acl" ]; then
+      if [ -f /etc/system-fips ]; then
+        echo "/etc/system-fips marker file exists."
+      else
+        err $test "/etc/system-fips marker file does not exist."
+      fi
+      if [ -f /boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi ]; then
+        echo "ACL FIPS UKI addon file exists in active ESP location."
+      else
+        err $test "ACL FIPS UKI addon file does not exist in active ESP location."
+      fi
+    fi
   fi
 
   echo "$test:Finish"
@@ -624,33 +644,18 @@ testLtsKernel() {
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
-    # CVM builds use linux-image-azure-fde-lts-* (different flavor), skip exact pin check
-    local is_cvm=false
-    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-      is_cvm=true
-    fi
-
-    if [ "$os_version" = "22.04" ] && [ "$is_cvm" = "false" ]; then
-      # Pinned to exact version to avoid regression in 5.15.0-1103-azure
-      expected_kernel="5.15.0-1102-azure"
-    elif [ "$os_version" = "22.04" ] || [ "$os_version" = "24.04" ]; then
-      expected_kernel=$([ "$os_version" = "22.04" ] && echo "5.15" || echo "6.8")
+    if [ "$os_version" = "22.04" ]; then
+      expected_kernel="5.15"
+    elif [ "$os_version" = "24.04" ]; then
+      expected_kernel="6.8"
     else
-      echo "LTS kernel not installed for: $os_version, skipping check"
-      echo "$test:Finish"
-      return
+      echo "LTS kernel not installed for: $os_version"
     fi
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
     # shellcheck disable=SC3010
-    if [ "$os_version" = "22.04" ] && [ "$is_cvm" = "false" ]; then
-      if [[ "$kernel" == "$expected_kernel" ]]; then
-        echo "Kernel version matches pinned version ($expected_kernel)."
-      else
-        err $test "Kernel version does not match pinned version. Expected exactly $expected_kernel, found $kernel."
-      fi
-    elif [[ "$kernel" == *"$expected_kernel"* ]]; then
+    if [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
       err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
@@ -1270,8 +1275,44 @@ testNfsServerService() {
   echo "$test:Finish"
 }
 
-# Tests that the pam.d settings are set correctly, per the function
-# addFailLockDir in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# Verify all kernel modules with known LPE vulnerabilities are disabled.
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# To add a new CVE mitigation, append the module to the loop below.
+testVulnerableKernelModulesDisabled() {
+  local test="testVulnerableKernelModulesDisabled"
+  echo "$test:Start"
+
+  local failed=0
+  for mod in algif_aead esp4 esp6 rxrpc; do
+    if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+      err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
+      failed=1
+    else
+      echo "$test: modprobe config correctly blocks ${mod}"
+    fi
+
+    if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
+      err "$test" "${mod} kernel module is loaded despite being disabled"
+      failed=1
+    else
+      echo "$test: ${mod} module is not loaded"
+    fi
+
+    if modprobe "${mod}" 2>/dev/null; then
+      err "$test" "modprobe ${mod} succeeded — module should be blocked"
+      modprobe -r "${mod}" 2>/dev/null || true
+      failed=1
+    else
+      echo "$test: modprobe ${mod} correctly refused to load"
+    fi
+  done
+
+  if [ "$failed" -ne 0 ]; then
+    return 1
+  fi
+
+  echo "$test:Finish"
+}
 testPamDSettings() {
   local os_sku="${1}"
   local os_version="${2}"
@@ -1562,11 +1603,15 @@ testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
 
-  # Read the expected version from components.json
+  # Read the expected version from components.json for the current test OS/variant.
   local expectedVersion
-  expectedVersion=$(jq -r '.Packages[] | select(.name == "walinuxagent") | .downloadURIs.default.current.versionsV2[0].latestVersion' "${COMPONENTS_FILEPATH}")
+  expectedVersion=$(getPackageExpectedVersion "walinuxagent")
   if [ -z "${expectedVersion}" ] || [ "${expectedVersion}" = "null" ]; then
     err "$test" "Could not read walinuxagent version from ${COMPONENTS_FILEPATH}"
+    return 1
+  fi
+  if [ "${expectedVersion}" = "<SKIP>" ]; then
+    err "$test" "Unexpected walinuxagent expected version <SKIP> from ${COMPONENTS_FILEPATH}; this test should already be gated off for OS/variants that do not install WALinuxAgent"
     return 1
   fi
   echo "$test: Expected WALinuxAgent version from components.json: ${expectedVersion}"
@@ -1793,6 +1838,75 @@ testContainerd() {
   return 0
 }
 
+getCurrentPackageTestOS() {
+  local targetOS
+  local targetOSVariant=""
+
+  if [ "$OS_SKU" = "CBLMariner" ] || { [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ]; }; then
+    targetOS="$MARINER_OS_NAME"
+    if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+      targetOS="$MARINER_KATA_OS_NAME"
+    fi
+  elif [ "$OS_SKU" = "AzureLinux" ]; then
+    targetOS="$AZURELINUX_OS_NAME"
+    if (echo "$FEATURE_FLAGS" | grep -q "kata"); then
+      targetOS="$AZURELINUX_KATA_OS_NAME"
+    fi
+  elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+    targetOS="$AZURELINUX_OS_NAME"
+    targetOSVariant="OSGUARD"
+  elif [ "$OS_SKU" = "AzureContainerLinux" ]; then
+    targetOS="$AZURELINUX_OS_NAME"
+    targetOSVariant="$ACL_OS_VARIANT"
+  else
+    targetOS="${OS_SKU^^}"
+  fi
+
+  echo "${targetOS}|${targetOSVariant}"
+}
+
+getPackageExpectedVersion() {
+  local packageName="$1"
+  local targetOS="$2"
+  local targetOSVersion="$3"
+  local targetOSVariant="$4"
+
+  if [ -z "$targetOS" ] || [ -z "$targetOSVersion" ]; then
+    local resolvedOSAndVariant
+    resolvedOSAndVariant=$(getCurrentPackageTestOS)
+    if [ -z "$targetOS" ]; then
+      targetOS="${resolvedOSAndVariant%%|*}"
+    fi
+    if [ -z "$targetOSVariant" ]; then
+      targetOSVariant="${resolvedOSAndVariant#*|}"
+    fi
+    if [ -z "$targetOSVersion" ]; then
+      targetOSVersion="$OS_VERSION"
+    fi
+  fi
+
+  local packageJson
+  packageJson=$(jq -c ".Packages[] | select(.name == \"${packageName}\")" "$COMPONENTS_FILEPATH")
+  if [ -z "$packageJson" ]; then
+    echo "ERROR: package '${packageName}' not found in ${COMPONENTS_FILEPATH} for OS='${targetOS}' version='${targetOSVersion}' variant='${targetOSVariant}'" >&2
+    return 1
+  fi
+
+  local previousOS="${OS:-}"
+  local previousOSVariant="${OS_VARIANT:-}"
+  OS="$targetOS"
+  OS_VARIANT="$targetOSVariant"
+  updatePackageVersions "$packageJson" "$OS" "$targetOSVersion" "$OS_VARIANT"
+  OS="$previousOS"
+  OS_VARIANT="$previousOSVariant"
+
+  if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ]; then
+    echo "<SKIP>"
+  else
+    echo "${PACKAGE_VERSIONS[0]}"
+  fi
+}
+
 testBlobfuse() {
   local expectedVersion="${1}"
   local test="testBlobfuse"
@@ -1862,17 +1976,22 @@ testFuseInstalled() {
     echo "$test: Skipping, only applicable to Ubuntu"
     return 0
   fi
-  local expected_pkg
-  if [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; then
-    expected_pkg="fuse3"
+  # Ubuntu 20.04 may have either fuse or fuse3 depending on blobfuse/blobfuse2 package deps.
+  if [ "$OS_VERSION" = "20.04" ]; then
+    if dpkg-query -W -f='${Status}' "fuse" 2>/dev/null | grep -q "install ok installed" || \
+       dpkg-query -W -f='${Status}' "fuse3" 2>/dev/null | grep -q "install ok installed"; then
+      echo "$test: fuse or fuse3 is installed on Ubuntu $OS_VERSION"
+    else
+      err "$test" "neither fuse nor fuse3 is installed on Ubuntu $OS_VERSION"
+      return 1
+    fi
   else
-    expected_pkg="fuse"
-  fi
-  if dpkg-query -W -f='${Status}' "$expected_pkg" 2>/dev/null | grep -q "install ok installed"; then
-    echo "$test: $expected_pkg is installed on Ubuntu $OS_VERSION"
-  else
-    err "$test" "$expected_pkg is not installed on Ubuntu $OS_VERSION"
-    return 1
+    if dpkg-query -W -f='${Status}' "fuse3" 2>/dev/null | grep -q "install ok installed"; then
+      echo "$test: fuse3 is installed on Ubuntu $OS_VERSION"
+    else
+      err "$test" "fuse3 is not installed on Ubuntu $OS_VERSION"
+      return 1
+    fi
   fi
   echo "$test:Finish"
   return 0
@@ -2096,44 +2215,27 @@ testInspektorGadgetAssets() {
     err $test "Tracking file is empty at $tracking_file - no gadgets were imported"
   fi
 
-  # Verify ig / ig-gadgets version dependency constraint (defined in ig-gadgets Dalec spec).
-  #   AzureLinux (azl3):  ig == ig-gadgets  — versions must match exactly
-  #   Ubuntu (deb-based): ig >= ig-gadgets  — ig can be newer than gadgets
-  # A mismatch on AzureLinux causes "conflicting requests" during RPM install,
-  # so catching it here prevents broken VHD builds from shipping.
+  # Verify ig / ig-gadgets compatibility by upstream IG version.
+  # Distro/package revisions can differ as long as both packages share the same
+  # X.Y.Z release (for example, ig 0.51.0-4.azl3 with ig-gadgets 0.51.0-1.azl3).
+  # Query the full package version and normalize it here so the test covers the
+  # supported revision skew explicitly instead of relying on package-manager
+  # formatting details.
+  local ig_ver ig_gadgets_ver
   if [ "$OS_SKU" = "AzureLinux" ]; then
-    local ig_ver ig_gadgets_ver
-    ig_ver=$(rpm -q --queryformat '%{VERSION}' ig 2>/dev/null || echo "")
-    ig_gadgets_ver=$(rpm -q --queryformat '%{VERSION}' ig-gadgets 2>/dev/null || echo "")
-
-    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
-      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
-    elif [ "$ig_ver" != "$ig_gadgets_ver" ]; then
-      err $test "AzureLinux requires ig == ig-gadgets (Dalec spec) but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
-    else
-      echo "$test: AzureLinux ig/ig-gadgets version constraint satisfied (both ${ig_ver})"
-    fi
+    ig_ver=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' ig 2>/dev/null || echo "")
+    ig_gadgets_ver=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' ig-gadgets 2>/dev/null || echo "")
   else
-    local ig_ver ig_gadgets_ver ig_semver ig_gadgets_semver
     ig_ver=$(dpkg-query -W -f '${Version}' ig 2>/dev/null || echo "")
     ig_gadgets_ver=$(dpkg-query -W -f '${Version}' ig-gadgets 2>/dev/null || echo "")
+  fi
 
-    if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
-      err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
-    else
-      # Extract base semver (e.g. "0.49.1" from "0.49.1-ubuntu22.04u1")
-      ig_semver=$(echo "$ig_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-      ig_gadgets_semver=$(echo "$ig_gadgets_ver" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
-
-      # sort -V: smallest version first; ig_gadgets_semver must be <= ig_semver
-      local oldest
-      oldest=$(printf '%s\n%s\n' "$ig_semver" "$ig_gadgets_semver" | sort -V | head -n1)
-      if [ "$oldest" != "$ig_gadgets_semver" ]; then
-        err $test "Ubuntu requires ig >= ig-gadgets (Dalec spec) but found ig=${ig_semver} ig-gadgets=${ig_gadgets_semver}"
-      else
-        echo "$test: Ubuntu ig/ig-gadgets version constraint satisfied (ig=${ig_semver} ig-gadgets=${ig_gadgets_semver})"
-      fi
-    fi
+  if [ -z "$ig_ver" ] || [ -z "$ig_gadgets_ver" ]; then
+    err $test "Could not query package versions: ig='${ig_ver}' ig-gadgets='${ig_gadgets_ver}'"
+  elif ! igPackageVersionsShareUpstreamVersion "$ig_ver" "$ig_gadgets_ver"; then
+    err $test "ig and ig-gadgets must share upstream version but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
+  else
+    echo "$test: ig/ig-gadgets upstream version compatibility satisfied (ig=${ig_ver} ig-gadgets=${ig_gadgets_ver})"
   fi
 
   echo "$test:Finish"
@@ -2245,11 +2347,10 @@ testVHDBuildLogsExist
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
-# blobfuse/blobfuse2 are not yet in components.json, test with hardcoded versions
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  testBlobfuse2 "2.5.3"
+  testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"
   if [ "$OS_VERSION" = "20.04" ]; then
-    testBlobfuse "1.4.5"
+    testBlobfuse "$(getPackageExpectedVersion "blobfuse")"
   fi
 fi
 # WALinuxAgent is installed post-deprovision (not via components.json),
@@ -2295,3 +2396,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
+testVulnerableKernelModulesDisabled

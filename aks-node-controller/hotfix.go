@@ -9,8 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 const (
@@ -23,58 +24,54 @@ const (
 	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
 	// hotfixBinaryPath is where the hotfix binary is placed alongside the VHD-baked binary.
 	// The wrapper script checks for this path and prefers it over the VHD-baked binary.
-	// This avoids overwriting a running binary, which is not possible on Windows.
 	hotfixBinaryPath = "/opt/azure/containers/aks-node-controller-hotfix"
 	// pkgBinaryPath is where apt/dnf package installs the binary.
 	pkgBinaryPath = "/usr/bin/aks-node-controller"
 )
 
-// selfUpdate checks for a hotfix version and installs it from PMC if needed.
-// It is called before command dispatch for provision and provision-wait commands.
-// On successful install, it re-execs the process with the new binary and never returns.
-// On any failure, it logs a warning so the VHD-baked binary proceeds.
-func (a *App) selfUpdate(ctx context.Context) {
+// downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
+// The wrapper script decides which binary to execute after this command returns.
+func (a *App) downloadHotfix(ctx context.Context) error {
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
 	hotfixVersion, err := readHotfixVersion(hotfixPath)
 	if err != nil {
-		slog.Error("failed to read hotfix version, proceeding with VHD-baked version",
-			"path", hotfixPath, "error", err)
-		return
+		return fmt.Errorf("read hotfix version from %s: %w", hotfixPath, err)
 	}
 
 	if hotfixVersion == "" {
-		return
-	}
-	if Version == hotfixVersion {
-		slog.Info("ANC already at hotfix version, skipping self-update", "version", Version)
-		return
+		slog.Info("hotfix config does not request a version, skipping download", "path", hotfixPath)
+		return nil
 	}
 
-	slog.Info("ANC self-update triggered", "current", Version, "target", hotfixVersion)
-
-	installErr := a.installFromPMC(ctx, hotfixVersion)
-	if installErr != nil {
-		slog.Error("failed to install hotfix, proceeding with VHD-baked version",
-			"target", hotfixVersion, "error", installErr)
-		return
+	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
+	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
+	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
+	if err != nil {
+		slog.Warn("failed to compare versions, skipping hotfix download",
+			"current", Version, "hotfix", hotfixVersion, "error", err)
+		return nil
+	}
+	if !shouldUpgrade {
+		slog.Info("ANC version not targeted by hotfix, skipping download",
+			"current", Version, "hotfix", hotfixVersion)
+		return nil
 	}
 
-	// Copy the hotfix binary alongside the VHD-baked binary rather than overwriting it.
-	// This avoids replacing a running binary (which is not possible on Windows) and lets
-	// the wrapper script choose the hotfix on subsequent restarts.
+	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
+
+	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
+		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
+	}
+
 	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
-		slog.Error("failed to copy hotfix binary alongside VHD binary, proceeding with current binary",
-			"error", err)
-		return
+		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
 
-	if err := a.reExec(); err != nil {
-		slog.Error("failed to re-exec after hotfix install, proceeding with current binary",
-			"error", err)
-	}
+	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
+	return nil
 }
 
 // hotfixConfig is the JSON structure of the hotfix configuration file.
@@ -293,13 +290,25 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 	return nil
 }
 
-// reExec replaces the current process with the updated hotfix binary.
-// On Linux this uses syscall.Exec which atomically replaces the process in-place.
-// TODO(windows): syscall.Exec is not available on Windows. When Windows hotfix support
-// is added, this will need a platform-specific implementation (e.g., spawn the hotfix
-// binary as a child process and exit, or defer to the wrapper script for restart).
-func (a *App) reExec() error {
-	args := append([]string{hotfixBinaryPath}, os.Args[1:]...)
-	slog.Info("re-executing with hotfix binary", "path", hotfixBinaryPath, "args", args)
-	return syscall.Exec(hotfixBinaryPath, args, os.Environ())
+// shouldUpgradeToHotfix returns true when the current ANC version should be upgraded
+// to the hotfix version. This is true only when both versions share the same YYYYMM.DD
+// base and the hotfix has a strictly higher PATCH number (patch-only matching).
+//
+// ANC versions use the format YYYYMM.DD.PATCH which is valid semver (Major.Minor.Patch).
+//
+// This ensures the hotfix only targets the specific VHD it was built for:
+//   - Older VHDs (different base) are skipped — remediated via VHD republish
+//   - Newer VHDs (different base) are skipped — fix is already baked in
+//   - Same version is skipped — already at hotfix
+//   - Unparseable versions (e.g. "dev") return an error — caller should skip
+func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
+	cv, err := semver.NewVersion(strings.TrimSpace(current))
+	if err != nil {
+		return false, fmt.Errorf("parsing current version %q: %w", current, err)
+	}
+	hv, err := semver.NewVersion(strings.TrimSpace(hotfix))
+	if err != nil {
+		return false, fmt.Errorf("parsing hotfix version %q: %w", hotfix, err)
+	}
+	return cv.Major() == hv.Major() && cv.Minor() == hv.Minor() && hv.Patch() > cv.Patch(), nil
 }

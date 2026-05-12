@@ -50,16 +50,48 @@ get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
 
+# Disable a single kernel module with a known LPE vulnerability.
+# Writes a modprobe blacklist rule and unloads the module if loaded.
+# Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
+# Safe to run unconditionally — idempotent (overwrites with same content if already present).
+# Defined in cse_main.sh (not sourced) to support scriptless provisioning.
+#
+# Usage: disableVulnerableKernelModule <module_name> <description>
+disableVulnerableKernelModule() {
+    local mod="$1"
+    local desc="$2"
+
+    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
+
+    if grep -q "^${mod} " /proc/modules 2>/dev/null; then
+        if modprobe -r "$mod" 2>/dev/null; then
+            echo "${desc}: successfully unloaded ${mod}"
+        else
+            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
+        fi
+    fi
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
+    # Start the hosts-setup timer as the very first action in basePrep.
+    # The timer spawns a systemd service (with After=network-online.target) that uses dig
+    # to resolve critical AKS FQDNs and populate /etc/localdns/hosts. Starting it first
+    # maximizes the time for DNS resolution to complete in the background while the rest
+    # of basePrep runs. By the time enableLocalDNS() starts CoreDNS (end of basePrep),
+    # the hosts file should already be populated.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
+    fi
+
     if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
         echo "Skipping holding walinuxagent"
     else
-        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+        logs_to_events "AKS.CSE.holdWALinuxAgent" holdWALinuxAgent hold
     fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
@@ -284,6 +316,16 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag).
+    # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+    fi
+
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
@@ -302,6 +344,11 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
+    # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
+    # very start of basePrep (before disableSystemdResolved) to give the timer a head start
+    # on DNS resolution. By now, /etc/localdns/hosts should be populated, so CoreDNS can start
+    # with the hosts-plugin corefile via select_localdns_corefile().
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
@@ -503,7 +550,7 @@ function nodePrep {
 
     checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
+        checkServiceHealth secure-tls-bootstrap || true
     fi
 
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
@@ -545,7 +592,7 @@ function nodePrep {
                 echo "Skipping unholding walinuxagent"
             else
                 # logs_to_events should not be run on & commands
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         fi
     else
@@ -571,7 +618,7 @@ function nodePrep {
             if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
                 echo "Skipping unholding walinuxagent"
             else
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then

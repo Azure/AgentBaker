@@ -47,6 +47,7 @@ $Location="{{ GetVariable "location" }}"
 $UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
 {{ end }}
 $TargetEnvironment="{{ GetTargetEnvironment }}"
+$ArmResourceEndpoint="{{ GetArmResourceEndpoint }}"
 $AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
 $NetworkAPIVersion="2018-08-01"
 
@@ -180,10 +181,16 @@ $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Secure TLS Bootstrap settings
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}");
-$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}";
 $global:SecureTLSBootstrappingAADResource = "{{GetSecureTLSBootstrappingAADResource}}";
 $global:SecureTLSBootstrappingUserAssignedIdentityID = "{{GetSecureTLSBootstrappingUserAssignedIdentityID}}";
 $global:CustomSecureTLSBootstrappingClientDownloadURL = "{{GetCustomSecureTLSBootstrappingClientDownloadURL}}";
+$global:SecureTLSBootstrappingValidateKubeconfigTimeout = "{{GetSecureTLSBootstrappingValidateKubeconfigTimeout}}";
+$global:SecureTLSBootstrappingGetAccessTokenTimeout = "{{GetSecureTLSBootstrappingGetAccessTokenTimeout}}";
+$global:SecureTLSBootstrappingGetInstanceDataTimeout = "{{GetSecureTLSBootstrappingGetInstanceDataTimeout}}";
+$global:SecureTLSBootstrappingGetNonceTimeout = "{{GetSecureTLSBootstrappingGetNonceTimeout}}";
+$global:SecureTLSBootstrappingGetAttestedDataTimeout = "{{GetSecureTLSBootstrappingGetAttestedDataTimeout}}";
+$global:SecureTLSBootstrappingGetCredentialTimeout = "{{GetSecureTLSBootstrappingGetCredentialTimeout}}";
+$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}";
 
 # uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
 # this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
@@ -311,7 +318,12 @@ if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
 . c:\AzureData\windows\kubeletfunc.ps1
 . c:\AzureData\windows\kubernetesfunc.ps1
 . c:\AzureData\windows\nvidiagpudriverfunc.ps1
-. c:\AzureData\windows\securetlsbootstrapfunc.ps1
+
+if (Test-Path -Path 'c:\AzureData\windows\securetlsbootstrapfunc.ps1') {
+    . c:\AzureData\windows\securetlsbootstrapfunc.ps1
+} else {
+    Write-Log "Windows Secure TLS Bootstrap function script not found, skipping dot-source"
+}
 
 if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
     . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1

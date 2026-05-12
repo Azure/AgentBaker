@@ -4,31 +4,56 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+blobfuseFallbackPackages() {
+    local OSVERSION="${1}"
+    # blobfuse/blobfuse2 started to be centralized in components.json around April 2026.
+    # These legacy fallback versions are only for older VHDs that:
+    # - do not have blobfuse/blobfuse2 in components.json yet, and
+    # - did not cache blobfuse/blobfuse2 packages in the VHD.
+    # This combination is unlikely, so this fallback can be removed
+    # 6 months after the April 2026 release.
+    local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
+    local HAS_BLOBFUSE_COMPONENT="false"
+    local HAS_BLOBFUSE2_COMPONENT="false"
+
+    if [ -n "${COMPONENTS_FILEPATH:-}" ] && [ -f "${COMPONENTS_FILEPATH}" ]; then
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE_COMPONENT="true"
+        fi
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse2"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE2_COMPONENT="true"
+        fi
+    fi
+
+    # blobfuse2 declares Depends: fuse3 (since 2.3.0), so apt pulls it automatically.
+    # blobfuse declares Depends: fuse, so apt pulls it automatically.
+    # No need to explicitly install fuse3 or fuse here.
+    if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
+        echo "blobfuse2=${LEGACY_FALLBACK_BLOBFUSE2_VERSION}"
+    fi
+
+    if [ "${OSVERSION}" = "20.04" ]; then
+        if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
+            echo "blobfuse=${LEGACY_FALLBACK_BLOBFUSE_VERSION}"
+        fi
+    fi
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
-    aptmarkWALinuxAgent hold
+    holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
-    local OSVERSION
-    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    BLOBFUSE_VERSION="1.4.5"
-    # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.3"  # TODO (djsly) this should be centralized and moved to components.json!
-
-    # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
-    # for 22.04, fuse3 is installed. for all others, fuse is installed
-    # for all others except 22.04, installed blobfuse1.4.5
-    pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=(fuse3)
-    else
-        pkg_list+=("blobfuse=${BLOBFUSE_VERSION}" fuse)
-    fi
+    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    while IFS= read -r fallback_pkg; do
+        [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
+    done < <(blobfuseFallbackPackages "${OSVERSION}")
 
     if [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(irqbalance)
@@ -38,12 +63,27 @@ installDeps() {
         pkg_list+=("aznfs=3.0.14")
     fi
 
-    for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-            journalctl --no-pager -u $apt_package
-            exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-    done
+    # Batch install all packages in a single apt_get_install call instead of
+    # looping one-by-one. On failure, fall back to individual installs for
+    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
@@ -430,12 +470,15 @@ installContainerdWithAptGet() {
     local containerdMajorMinorPatchVersion="${1}"
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    # Query installed version via dpkg metadata instead of running the containerd
+    # binary. `containerd -version` takes ~5.7s to load the full runtime just to
+    # print a version string; dpkg-query is instant.
+    # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
+    # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
     currentVersion=""
-    if command -v containerd &> /dev/null; then
-        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
+        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
-    # v1.4.1 is our lowest supported version of containerd
 
     if [ -z "$currentVersion" ]; then
         currentVersion="0.0.0"
@@ -472,8 +515,9 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    UBUNTU_RELEASE=$(lsb_release -r -s)
-    UBUNTU_CODENAME=$(lsb_release -c -s)
+    # UBUNTU_RELEASE is already set at script load time from cse_install.sh.
+    # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
+    UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
