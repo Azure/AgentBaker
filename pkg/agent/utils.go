@@ -44,6 +44,9 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--cluster-domain":                    true,
 	"--max-pods":                          true,
 	"--eviction-hard":                     true,
+	"--eviction-soft":                     true,
+	"--eviction-soft-grace-period":        true,
+	"--eviction-max-pod-grace-period":     true,
 	"--node-status-update-frequency":      true,
 	"--node-status-report-frequency":      true,
 	"--image-gc-high-threshold":           true,
@@ -51,6 +54,8 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--event-qps":                         true,
 	"--pod-max-pids":                      true,
 	"--enforce-node-allocatable":          true,
+	"--kube-reserved-cgroup":              true,
+	"--system-reserved-cgroup":            true,
 	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
 	"--rotate-server-certificates":        true,
@@ -500,6 +505,8 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
 		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
+		KubeReservedCgroup:             kc["--kube-reserved-cgroup"],
+		SystemReservedCgroup:           kc["--system-reserved-cgroup"],
 		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
 		ServerTLSBootstrap:             strToBool(kc["--rotate-server-certificates"]),
@@ -593,6 +600,21 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
 		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+	}
+
+	// EvictionSoft (e.g. "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%").
+	if es, ok := kc["--eviction-soft"]; ok && es != "" {
+		kubeletConfig.EvictionSoft = strKeyValToMap(es, ",", "<")
+	}
+
+	// EvictionSoftGracePeriod (e.g. "memory.available=30s,nodefs.available=2m,imagefs.available=2m").
+	if esg, ok := kc["--eviction-soft-grace-period"]; ok && esg != "" {
+		kubeletConfig.EvictionSoftGracePeriod = strKeyValToMap(esg, ",", "=")
+	}
+
+	// EvictionMaxPodGracePeriod (integer seconds, e.g. "60").
+	if v, ok := kc["--eviction-max-pod-grace-period"]; ok && v != "" {
+		kubeletConfig.EvictionMaxPodGracePeriod = strToInt32(v)
 	}
 
 	// feature gates.

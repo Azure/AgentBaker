@@ -1452,4 +1452,58 @@ function get_sandbox_image_from_containerd_config() {
 
     echo "$sandbox_image"
 }
+
+# ensureKubeletCgroupHierarchy creates the systemd slices used by kubelet for the
+# kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
+# It MUST be called before kubelet starts so that /kubelet.slice and /system.slice
+# exist and are managed by systemd before the first kubelet enforcement pass.
+#
+# The function:
+#   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
+#     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
+#   - Drops a /etc/systemd/system/kubelet.slice unit (system.slice ships with systemd).
+#   - Triggers `systemctl daemon-reload` and `systemctl start kubelet.slice` so the
+#     cgroup is materialised at /sys/fs/cgroup/kubelet.slice prior to kubelet boot.
+#
+# Inputs (env, all optional — the function is a no-op if the RP did not opt in):
+#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubelet.slice"
+#   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
+ensureKubeletCgroupHierarchy() {
+    if [ -z "${KUBE_RESERVED_CGROUP:-}" ] && [ -z "${SYSTEM_RESERVED_CGROUP:-}" ]; then
+        return 0
+    fi
+
+    # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
+    # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
+    if [ ! -f /sys/fs/cgroup/cgroup.controllers ]; then
+        echo "ensureKubeletCgroupHierarchy: cgroupv2 unified hierarchy not detected; node memory hardening cgroup enforcement requires cgroupv2"
+        return 1
+    fi
+
+    # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
+        local kubelet_slice_unit=/etc/systemd/system/kubelet.slice
+        if [ ! -f "${kubelet_slice_unit}" ]; then
+            mkdir -p "$(dirname "${kubelet_slice_unit}")"
+            tee "${kubelet_slice_unit}" > /dev/null <<'EOF'
+[Unit]
+Description=Slice for kubelet kube-reserved enforcement (AKS Node Memory Hardening)
+Before=slices.target
+DefaultDependencies=no
+
+[Slice]
+EOF
+            chmod 0644 "${kubelet_slice_unit}"
+            systemctl daemon-reload
+        fi
+
+        # Materialise the cgroup tree at /sys/fs/cgroup/kubelet.slice before kubelet starts.
+        if ! systemctl start kubelet.slice; then
+            echo "ensureKubeletCgroupHierarchy: failed to start kubelet.slice"
+            return 1
+        fi
+    fi
+
+    return 0
+}
 #HELPERSEOF
