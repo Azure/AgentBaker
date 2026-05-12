@@ -21,19 +21,19 @@ DEFAULT_OFFER="MicrosoftWindowsServer"
 DRY_RUN=false
 
 if [ "${1:-}" = "--dry-run" ]; then
-    DRY_RUN=true
+	DRY_RUN=true
 fi
 
 if [ ! -f "${SETTINGS_FILE}" ]; then
-    echo "ERROR: ${SETTINGS_FILE} not found"
-    exit 1
+	echo "ERROR: ${SETTINGS_FILE} not found"
+	exit 1
 fi
 
 for cmd in az jq; do
-    if ! command -v "${cmd}" &>/dev/null; then
-        echo "ERROR: ${cmd} is required but not installed"
-        exit 1
-    fi
+	if ! command -v "${cmd}" &>/dev/null; then
+		echo "ERROR: ${cmd} is required but not installed"
+		exit 1
+	fi
 done
 
 # Build a list of unique (publisher, sku) pairs to query.
@@ -46,57 +46,55 @@ updated=0
 errors=0
 
 for key in "${sku_keys[@]}"; do
-    sku=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_sku" "${SETTINGS_FILE}")
-    offer=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_offer // \"${DEFAULT_OFFER}\"" "${SETTINGS_FILE}")
-    publisher=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_publisher // \"${DEFAULT_PUBLISHER}\"" "${SETTINGS_FILE}")
-    current_version=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_version" "${SETTINGS_FILE}")
+	sku=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_sku" "${SETTINGS_FILE}")
+	offer=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_offer // \"${DEFAULT_OFFER}\"" "${SETTINGS_FILE}")
+	publisher=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_publisher // \"${DEFAULT_PUBLISHER}\"" "${SETTINGS_FILE}")
+	current_version=$(jq -r ".WindowsBaseVersions.\"${key}\".base_image_version" "${SETTINGS_FILE}")
 
-    echo "Querying latest version for ${key} (publisher=${publisher}, offer=${offer}, sku=${sku})..."
+	echo ""
+	echo "Querying latest version for ${key} (publisher=${publisher}, offer=${offer}, sku=${sku})..."
+	command="az vm image list -p \"${publisher}\" -f \"${offer}\" -s \"${sku}\" --all --query [].version -o tsv"
+	echo "  ${command}"
 
-    latest_version=$(
-        az vm image list \
-            -p "${publisher}" \
-            -f "${offer}" \
-            -s "${sku}" \
-            --all \
-            --query "[].version" \
-            -o tsv 2>/dev/null |
-            sort -uV |
-            tail -n 1
-    ) || true
+	latest_version=$(eval "${command}" 2>/dev/null | sort -uV | tail -n 1) || true
+	status=$? # Capture the exit status immediately
+	if [ $status -ne 0 ]; then
+		echo "  ERROR: Command to get latest versions failed with exit code $status"
+		errors=$((errors + 1))
+		continue
+	fi
 
-    if [ -z "${latest_version}" ]; then
-        echo "  WARNING: no versions found for sku=${sku}, skipping"
-        errors=$((errors + 1))
-        continue
-    fi
+	if [ -z "${latest_version}" ]; then
+		echo "  ERROR: no versions found for sku=${sku}, skipping"
+		errors=$((errors + 1))
+		continue
+	fi
 
-    if [ "${current_version}" = "${latest_version}" ]; then
-        echo "  ${key}: already up to date (${current_version})"
-        continue
-    fi
+	if [ "${current_version}" = "${latest_version}" ]; then
+		echo "  INFO: ${key}: already up to date (${current_version})"
+		continue
+	fi
 
-    echo "  ${key}: ${current_version} -> ${latest_version}"
+	echo "  INFO: ${key}: ${current_version} -> ${latest_version}"
 
-    if [ "${DRY_RUN}" = "false" ]; then
-        tmp=$(mktemp)
-        jq ".WindowsBaseVersions.\"${key}\".base_image_version = \"${latest_version}\"" \
-            "${SETTINGS_FILE}" >"${tmp}" &&
-            mv "${tmp}" "${SETTINGS_FILE}"
-        updated=$((updated + 1))
-    else
-        updated=$((updated + 1))
-    fi
+	if [ "${DRY_RUN}" = "false" ]; then
+		tmp=$(mktemp)
+		jq ".WindowsBaseVersions.\"${key}\".base_image_version = \"${latest_version}\"" \
+			"${SETTINGS_FILE}" >"${tmp}" &&
+			mv "${tmp}" "${SETTINGS_FILE}"
+		updated=$((updated + 1))
+	else
+		updated=$((updated + 1))
+	fi
 done
 
 echo ""
 if [ "${DRY_RUN}" = "true" ]; then
-    echo "Dry run complete. ${updated} version(s) would be updated, ${errors} error(s)."
+	echo "Dry run complete. ${updated} version(s) would be updated, ${errors} error(s)."
 else
-    echo "Done. ${updated} version(s) updated, ${errors} error(s)."
+	echo "Done. ${updated} version(s) updated, ${errors} error(s)."
 fi
 
 if [ "${errors}" -gt 0 ]; then
-    exit 1
+	exit 1
 fi
-
