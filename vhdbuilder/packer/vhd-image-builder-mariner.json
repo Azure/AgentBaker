@@ -792,8 +792,7 @@
     {
       "type": "shell",
       "inline": [
-        "echo '=== SELinux AVC denial summary from VHD build ==='; sudo ausearch -m avc --raw 2>/dev/null | sudo audit2allow 2>/dev/null | sudo tee /opt/azure/selinux-audit-summary.txt || true; echo '--- Total AVC denials ---'; sudo ausearch -m avc 2>/dev/null | grep -c 'type=AVC' || echo '0'; echo '--- Unique denied operations ---'; sudo ausearch -m avc --raw 2>/dev/null | sudo audit2allow -a 2>/dev/null | head -100 || true; sudo cp /var/log/audit/audit.log /opt/azure/selinux-audit-full.log 2>/dev/null || true; sudo chmod 644 /opt/azure/selinux-audit-summary.txt /opt/azure/selinux-audit-full.log 2>/dev/null || true; echo '=== SELinux audit collection done ==='",
-        "if command -v fixfiles >/dev/null 2>&1 && [ \"$(getenforce 2>/dev/null)\" != \"Disabled\" ]; then echo 'Relabeling filesystem for SELinux...'; sudo fixfiles -f relabel 2>&1 | tail -5; sudo touch /.autorelabel; echo 'SELinux relabel complete + .autorelabel set for first boot'; fi"
+        "echo '=== SELinux AVC denial summary from VHD build ==='; sudo ausearch -m avc --raw 2>/dev/null | sudo audit2allow 2>/dev/null | sudo tee /opt/azure/selinux-audit-summary.txt || true; echo '--- Total AVC denials ---'; sudo ausearch -m avc 2>/dev/null | grep -c 'type=AVC' || echo '0'; echo '--- Unique denied operations ---'; sudo ausearch -m avc --raw 2>/dev/null | sudo audit2allow -a 2>/dev/null | head -100 || true; sudo cp /var/log/audit/audit.log /opt/azure/selinux-audit-full.log 2>/dev/null || true; sudo chmod 644 /opt/azure/selinux-audit-summary.txt /opt/azure/selinux-audit-full.log 2>/dev/null || true; echo '=== SELinux audit collection done ==='"
       ]
     },
     {

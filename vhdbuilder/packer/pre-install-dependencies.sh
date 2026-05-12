@@ -32,12 +32,37 @@ if isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT"; then
 fi
 
 # AzureLinux 4.0 ships with SELinux in enforcing mode.
-# The Packer template (vhd-image-builder-mariner.json) handles the initial SELinux
-# disable + pam_selinux removal + sshd restart before this script runs.
-# This block is a safety net for the current session.
+# SELinux stays enforcing throughout the build — no mode changes needed.
+# The lsm= GRUB fix (removing AzL4 from configureLsmWithBpf) resolved the
+# dbus.socket labeling issue that previously required disabling SELinux.
 if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
-  if command -v getenforce &>/dev/null; then
-    echo "AzureLinux 4.0: SELinux mode is $(getenforce)"
+  echo "AzureLinux 4.0: SELinux mode is $(getenforce 2>/dev/null || echo 'unknown')"
+
+  # Azure GuestConfig agent creates files under /var/lib/GuestConfig/ with the
+  # default var_lib_t label. az vmss run-command uses sshd which runs as sshd_t
+  # and gets AVC denials accessing these files. Install a small policy module to
+  # allow sshd_t to read/append var_lib_t files.
+  if command -v semodule &>/dev/null; then
+    cat > /tmp/sshd_guestconfig.te <<'POLICYEOF'
+module sshd_guestconfig 1.0;
+require {
+    type sshd_t;
+    type var_lib_t;
+    class file { read open getattr append };
+}
+allow sshd_t var_lib_t:file { read open getattr append };
+POLICYEOF
+    if command -v checkmodule &>/dev/null && command -v semodule_package &>/dev/null; then
+      checkmodule -M -m -o /tmp/sshd_guestconfig.mod /tmp/sshd_guestconfig.te 2>/dev/null && \
+      semodule_package -o /tmp/sshd_guestconfig.pp -m /tmp/sshd_guestconfig.mod 2>/dev/null && \
+      semodule -i /tmp/sshd_guestconfig.pp 2>/dev/null && \
+      echo "AzureLinux 4.0: installed sshd_guestconfig SELinux policy module" || \
+      echo "Warning: failed to install sshd_guestconfig SELinux policy module"
+      rm -f /tmp/sshd_guestconfig.{te,mod,pp}
+    else
+      echo "Warning: checkmodule/semodule_package not available, skipping GuestConfig policy"
+      rm -f /tmp/sshd_guestconfig.te
+    fi
   fi
 
   # AzL4 (Fedora 43) ships firewalld enabled by default. Its nftables rules
