@@ -66,7 +66,7 @@ for key in "${sku_keys[@]}"; do
 	printf '%q ' "${az_image_list_cmd[@]}"
 	echo ""
 
-	latest_version=$(eval "${az_image_list_cmd[@]}" 2>/dev/null | sort -uV | tail -n 1) || true
+	latest_version=$("${az_image_list_cmd[@]}" 2>/dev/null | sort -uV | tail -n 1) || true
 	status=$? # Capture the exit status immediately
 	if [ $status -ne 0 ]; then
 		echo "  ERROR: Command to get latest versions failed with exit code $status"
