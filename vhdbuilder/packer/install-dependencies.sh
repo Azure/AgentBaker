@@ -1030,7 +1030,7 @@ configureLsmWithBpf() {
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
       fi
-    elif isMarinerOrAzureLinux "$OS" && { [ "$OS_VERSION" = "3.0" ] || [ "$OS_VERSION" = "4.0" ]; }; then
+    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
       if [ -f /etc/default/grub ]; then
         if grep -q "lsm=" /etc/default/grub; then
           sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
