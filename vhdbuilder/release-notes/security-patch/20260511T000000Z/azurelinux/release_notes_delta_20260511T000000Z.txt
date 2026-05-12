@@ -1,0 +1,40 @@
+Release notes for security patch 20260511T000000Z timestamp
+Package difference between 20260421T000000Z and 20260511T000000Z
+
+Reboot required (kernel update)
+
+=== New Packages ===
+kernel  6.6.137.1-2.azl3  azurelinux-official-base
+
+=== Package Updates ===
+xz-libs  5.4.4-3.azl3  azurelinux-official-base
+xz  5.4.4-3.azl3  azurelinux-official-base
+util-linux-libs  2.40.2-4.azl3  azurelinux-official-base
+util-linux  2.40.2-4.azl3  azurelinux-official-base
+systemd-networkd  255-27.azl3  azurelinux-official-base
+systemd-resolved  255-27.azl3  azurelinux-official-base
+systemd-udev  255-27.azl3  azurelinux-official-base
+systemd-rpm-macros  255-27.azl3  azurelinux-official-base
+systemd-pam  255-27.azl3  azurelinux-official-base
+systemd-libs  255-27.azl3  azurelinux-official-base
+systemd  255-27.azl3  azurelinux-official-base
+sqlite-libs  3.44.0-3.azl3  azurelinux-official-base
+sed  4.9-2.azl3  azurelinux-official-base
+node-exporter-kubernetes  1.11.1-1.azl3  azurelinux-official-cloud-native
+libssh2  1.11.1-2.azl3  azurelinux-official-base
+libgcrypt  1.10.3-2.azl3  azurelinux-official-base
+libcap  2.69-14.azl3  azurelinux-official-base
+libarchive  3.7.7-6.azl3  azurelinux-official-base
+jq  1.7.1-5.azl3  azurelinux-official-base
+irqbalance  1.9.5-1.azl3  azurelinux-official-base
+ig-gadgets  0.52.0-1.azl3  azurelinux-official-cloud-native
+ig  0.52.0-1.azl3  azurelinux-official-cloud-native
+hyperv-daemons-license  6.6.137.1-1.azl3  azurelinux-official-base
+hypervvssd  6.6.137.1-1.azl3  azurelinux-official-base
+hypervkvpd  6.6.137.1-1.azl3  azurelinux-official-base
+hypervfcopyd  6.6.137.1-1.azl3  azurelinux-official-base
+hyperv-daemons  6.6.137.1-1.azl3  azurelinux-official-base
+expat-libs  2.6.4-6.azl3  azurelinux-official-base
+expat  2.6.4-6.azl3  azurelinux-official-base
+containerd2  2.1.6-2.azl3  azurelinux-official-base
+azurelinux-release  3.0-42.azl3  azurelinux-official-base
