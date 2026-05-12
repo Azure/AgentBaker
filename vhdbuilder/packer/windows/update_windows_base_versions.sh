@@ -53,10 +53,20 @@ for key in "${sku_keys[@]}"; do
 
 	echo ""
 	echo "Querying latest version for ${key} (publisher=${publisher}, offer=${offer}, sku=${sku})..."
-	azimagelistcommand="az vm image list -p \"${publisher}\" -f \"${offer}\" -s \"${sku}\" --all --query [].version -o tsv"
-	echo "  ${azimagelistcommand}"
+	az_image_list_cmd=(
+		az vm image list
+		-p "${publisher}"
+		-f "${offer}"
+		-s "${sku}"
+		--all
+		--query "[].version"
+		-o tsv
+	)
+	printf "  "
+	printf '%q ' "${az_image_list_cmd[@]}"
+	echo ""
 
-	latest_version=$(eval "${azimagelistcommand}" 2>/dev/null | sort -uV | tail -n 1) || true
+	latest_version=$(eval "${az_image_list_cmd[@]}" 2>/dev/null | sort -uV | tail -n 1) || true
 	status=$? # Capture the exit status immediately
 	if [ $status -ne 0 ]; then
 		echo "  ERROR: Command to get latest versions failed with exit code $status"
