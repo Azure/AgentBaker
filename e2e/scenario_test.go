@@ -515,6 +515,19 @@ func Test_AzureLinuxV3(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3CVM(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV3 CVM node can be properly bootstrapped with AppArmor enabled",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3CVMGen2,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateAppArmorBasic(ctx, s)
+			},
+		},
+	})
+}
+
 // Returns config for the 'base' E2E scenario
 
 func Test_Ubuntu2204_Scriptless(t *testing.T) {
