@@ -548,6 +548,10 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 		Description: "Tests that MIG works on H100 without requiring a node reboot (Hopper supports dynamic MIG mode changes)",
 		// Run in southcentralus to avoid H100 quota contention with Test_Ubuntu2404_GPU_H100 (uaenorth).
 		Location: "southcentralus",
+		// Use Standard_D2s_v3 for the system pool — the default Standard_D2ds_v5 hits
+		// AllocationFailed in southcentralus for this subscription. This also reuses the
+		// cached cluster from Test_Ubuntu2404_GPU_A100 (same Location + system pool SKU).
+		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
 		},
