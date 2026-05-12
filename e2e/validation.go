@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
@@ -269,6 +270,22 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 // validateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
 // Wireserver must never be reachable from pods — any successful connection is a
 // security issue, not a transient condition to retry through.
+//
+// We accept two curl exit codes as evidence of a working block:
+//
+//	28 = operation timeout   (FORWARD DROP — packets silently dropped)
+//	 7 = couldn't connect    (FORWARD REJECT — RST / ICMP unreachable)
+//
+// Any other exit code is suspicious and fails the test with full diagnostics:
+//
+//	  0  = wireserver reachable (security regression)
+//	127  = curl missing from debug image (test would otherwise silently bypass)
+//	2/3  = invalid curl args
+//	  6  = DNS resolution issue (wireserver IP is literal — should not happen)
+//
+// We do retry transient kube-apiserver exec hiccups, but never on the curl
+// result itself — a single observation of an unexpected exit code is enough
+// to fail loudly.
 func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
 
@@ -291,23 +308,37 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 		},
 	}
 
+	allowedExitCodes := map[string]bool{"28": true, "7": true}
+
 	for _, check := range checks {
-		execResult, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
-		require.NoError(s.T, execErr, "failed to exec wireserver check %q on debug pod", check.desc)
-		if execResult.exitCode == "0" {
-			iptablesFwd := execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String()
-			iptablesKubeFwd := execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L KUBE-FORWARD -v -n --line-numbers 2>/dev/null || echo 'chain not found'").String()
-			iptablesSave := execScriptOnVMForScenario(ctx, s, "sudo iptables-save -t filter 2>/dev/null | head -80").String()
-			conntrack := execScriptOnVMForScenario(ctx, s, "sudo conntrack -L -d 168.63.129.16 2>/dev/null || echo 'conntrack not available'").String()
-			s.T.Fatalf("wireserver must not be reachable from pods: curl to %s succeeded (exit code 0)\n"+
-				"stdout=%q, stderr=%q\n"+
-				"FORWARD chain:\n%s\n"+
-				"KUBE-FORWARD chain:\n%s\n"+
-				"iptables-save filter:\n%s\n"+
-				"conntrack:\n%s",
-				check.desc, execResult.stdout, execResult.stderr,
-				iptablesFwd, iptablesKubeFwd, iptablesSave, conntrack)
+		var execResult *podExecResult
+		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+			r, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+			if execErr != nil {
+				s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				return false, nil
+			}
+			execResult = r
+			return true, nil
+		})
+		require.NoErrorf(s.T, pollErr, "wireserver check %q: exec failed after retries", check.desc)
+
+		if allowedExitCodes[execResult.exitCode] {
+			continue
 		}
+
+		iptablesFwd := execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String()
+		iptablesKubeFwd := execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L KUBE-FORWARD -v -n --line-numbers 2>/dev/null || echo 'chain not found'").String()
+		iptablesSave := execScriptOnVMForScenario(ctx, s, "sudo iptables-save -t filter 2>/dev/null | head -80").String()
+		conntrack := execScriptOnVMForScenario(ctx, s, "sudo conntrack -L -d 168.63.129.16 2>/dev/null || echo 'conntrack not available'").String()
+		s.T.Fatalf("wireserver check %q: unexpected curl exit code %q (want 28 timeout or 7 refused)\n"+
+			"stdout=%q, stderr=%q\n"+
+			"FORWARD chain:\n%s\n"+
+			"KUBE-FORWARD chain:\n%s\n"+
+			"iptables-save filter:\n%s\n"+
+			"conntrack:\n%s",
+			check.desc, execResult.exitCode, execResult.stdout, execResult.stderr,
+			iptablesFwd, iptablesKubeFwd, iptablesSave, conntrack)
 	}
 }
 
