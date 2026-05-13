@@ -1,6 +1,9 @@
 name: validate-image-version
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   validate-image-version:
     runs-on: ubuntu-24.04
