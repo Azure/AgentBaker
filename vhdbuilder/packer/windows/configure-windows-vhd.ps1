@@ -832,11 +832,11 @@ function Install-WindowsExporterOnVHD
         throw "windows-exporter health script not staged at $exporterHealthSrc"
     }
 
-    # Drop the sentinel last so partial installs don't appear complete to CSE.
+    # Create the sentinel last so partial installs don't appear complete to CSE.
     New-Item -ItemType File -Path $exporterSentinel -Force | Out-Null
 
     LogFilesInDirectory $exporterInstallDir
-    Write-Log "windows-exporter staged on VHD; sentinel $exporterSentinel dropped"
+    Write-Log "windows-exporter staged on VHD; sentinel $exporterSentinel created"
 }
 
 function Set-WinRmServiceDelayedStart
