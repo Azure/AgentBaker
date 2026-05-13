@@ -14,7 +14,7 @@
 
     Coordination with aks-vm-extension:
     - When C:\k\skip_vhd_windows_exporter exists, the extension's entrypoint.ps1
-      short-circuits. The sentinel is dropped by the Windows VHD build once the binary
+            short-circuits. The sentinel is created by the Windows VHD build once the binary
       and config are staged.
 #>
 
@@ -24,56 +24,10 @@ $global:WindowsExporterConfig         = Join-Path $global:WindowsExporterInstall
 $global:WindowsExporterHealthScript   = Join-Path $global:WindowsExporterInstallDir "windows-exporter-health.ps1"
 $global:WindowsExporterSkipFile       = "C:\k\skip_vhd_windows_exporter"
 $global:WindowsExporterServiceName    = "aks-windows-exporter"
-$global:WindowsExporterLegacyService  = "windows-exporter"
 $global:WindowsExporterPort           = 19182
 $global:WindowsExporterStdoutLog      = "C:\k\windows-exporter.log"
 $global:WindowsExporterStderrLog      = "C:\k\windows-exporter.err.log"
 $global:WindowsExporterNssm           = "C:\k\nssm.exe"
-
-function Test-WindowsExporterPortInUse {
-    param([Parameter(Mandatory=$true)][int]$Port)
-    try {
-        $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-        return ($null -ne $listener)
-    }
-    catch {
-        $netstat = netstat -an | Select-String ":$Port\s+.*LISTENING"
-        return ($null -ne $netstat)
-    }
-}
-
-function Remove-WindowsExporterService {
-    param([Parameter(Mandatory=$true)][string]$ServiceName)
-
-    $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
-    if (-not $svc) {
-        return
-    }
-    Write-Log "Removing existing service $ServiceName"
-    try {
-        & $global:WindowsExporterNssm stop $ServiceName 2>&1 | Out-Null
-        Stop-Service $ServiceName -Force -ErrorAction SilentlyContinue
-        & $global:WindowsExporterNssm remove $ServiceName confirm 2>&1 | Out-Null
-    }
-    catch {
-        Write-Log "Warning: failed to fully remove $ServiceName (best-effort): $_"
-    }
-}
-
-function Remove-LegacyWindowsExporterService {
-    # Old extension versions registered a service literally named "windows-exporter" on port 19182.
-    # Only remove it if it is using the exporter port, so we don't interfere with unrelated tooling.
-    $legacy = Get-Service $global:WindowsExporterLegacyService -ErrorAction SilentlyContinue
-    if (-not $legacy) {
-        return
-    }
-    if (Test-WindowsExporterPortInUse -Port $global:WindowsExporterPort) {
-        Write-Log "Legacy service $($global:WindowsExporterLegacyService) using port $($global:WindowsExporterPort) - removing"
-        Remove-WindowsExporterService -ServiceName $global:WindowsExporterLegacyService
-    } else {
-        Write-Log "Legacy service $($global:WindowsExporterLegacyService) present but not on port $($global:WindowsExporterPort) - leaving it alone"
-    }
-}
 
 function Test-WindowsExporterHealth {
     param(
@@ -150,19 +104,18 @@ function Install-WindowsExporter {
         return
     }
 
-    Write-Log "Installing $($global:WindowsExporterServiceName)"
-
-    # Always drop any prior registration before re-installing (handles VHD re-provisioning and upgrades).
-    Remove-WindowsExporterService -ServiceName $global:WindowsExporterServiceName
-
-    # Clean up stale service from older extension versions, if any.
-    Remove-LegacyWindowsExporterService
+    Write-Log "Ensuring $($global:WindowsExporterServiceName) is installed and running"
 
     $appParameters = "--config.file=`"$($global:WindowsExporterConfig)`""
 
     # NSSM settings mirror aks-vm-extension/aks-windows-node-vm-extension/entrypoint.ps1 Install-SystemService
     # to preserve service behavior (logs, rotation, restart policy) that customers rely on.
-    & $global:WindowsExporterNssm install $global:WindowsExporterServiceName $global:WindowsExporterBinary | Out-Null
+    $existingService = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
+    if (-not $existingService) {
+        & $global:WindowsExporterNssm install $global:WindowsExporterServiceName $global:WindowsExporterBinary | Out-Null
+    } else {
+        Write-Log "$($global:WindowsExporterServiceName) is already registered; ensuring settings and running state"
+    }
     & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppDirectory                 $global:WindowsExporterInstallDir | Out-Null
     & $global:WindowsExporterNssm set $global:WindowsExporterServiceName AppParameters                $appParameters                    | Out-Null
     & $global:WindowsExporterNssm set $global:WindowsExporterServiceName DisplayName                  $global:WindowsExporterServiceName | Out-Null
@@ -188,5 +141,5 @@ function Install-WindowsExporter {
         return
     }
 
-    Write-Log "Installed and started $($global:WindowsExporterServiceName)"
+    Write-Log "Ensured $($global:WindowsExporterServiceName) is installed and running"
 }
