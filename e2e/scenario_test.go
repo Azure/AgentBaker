@@ -268,6 +268,28 @@ func Test_ACLGen2FIPSTL(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Azure Linux V3 Gen2 FIPS VHD can be properly bootstrapped and FIPS is active at runtime",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2FIPS,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// LocalDNS isn't currently supported on FIPS-enabled VHDs.
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
+					EnableFips1403Encryption: to.Ptr(true),
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_ACL_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using ACL and the self-contained installer can be properly bootstrapped",

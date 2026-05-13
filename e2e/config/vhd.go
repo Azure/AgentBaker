@@ -127,6 +127,16 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 	}
+	VHDAzureLinuxV3Gen2FIPS = &Image{
+		Name:                "AzureLinuxV3gen2fips",
+		OS:                  OSAzureLinux,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSAzureLinuxV3Gen2FIPS,
+		Gallery:             imageGalleryLinux,
+		UnsupportedLocalDns: true,
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
+		UnsupportedSecureTLSBootstrapping: true,
+	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{

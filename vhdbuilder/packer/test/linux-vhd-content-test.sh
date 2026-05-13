@@ -595,8 +595,7 @@ testFips() {
   enable_fips=$2
 
   # shellcheck disable=SC3010
-  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2" || ${os_version} == "acl") && ${enable_fips,,} == "true" ]]; then
-    kernel=$(uname -r)
+  if [[ ${enable_fips,,} == "true" ]]; then
     if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
       if [ "${fips_enabled}" = "1" ]; then
@@ -609,6 +608,7 @@ testFips() {
     fi
 
     if [ ${os_version} = "20.04" ]; then
+      kernel=$(uname -r)
       if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
         echo "fips header files exist."
       else
@@ -627,6 +627,26 @@ testFips() {
       else
         err $test "ACL FIPS UKI addon file does not exist in active ESP location."
       fi
+    fi
+
+    # Verify OpenSSL has a FIPS or SymCrypt provider loaded and active.
+    # This caught the AzureLinux V3 FIPS regression (ICM 51000001009688) where
+    # the kernel FIPS flag was set but the OpenSSL provider was missing,
+    # causing /opt/cni/bin/portmap to panic at runtime.
+    providers_output=$(openssl list -providers 2>&1)
+    echo "openssl list -providers output:"
+    echo "${providers_output}"
+    # shellcheck disable=SC3010
+    if [[ "${providers_output}" =~ (fips|symcrypt) ]]; then
+      echo "openssl FIPS/SymCrypt provider is registered."
+    else
+      err $test "openssl does not have a fips or symcrypt provider registered."
+    fi
+    # shellcheck disable=SC3010
+    if [[ "${providers_output}" =~ status:[[:space:]]+active ]]; then
+      echo "openssl FIPS/SymCrypt provider has status: active."
+    else
+      err $test "openssl FIPS/SymCrypt provider is not active."
     fi
   fi
 
