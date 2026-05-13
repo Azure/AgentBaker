@@ -576,9 +576,24 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
+			// This scenario is focused on H100 MIG no-reboot behavior. The default Linux
+			// validators (ValidateCommonLinux) include broad host-health checks such as
+			// iptables eBPF compatibility and kernel-log scanning, which are already covered
+			// by other Ubuntu 2404 GPU scenarios and have shown transient failures on this
+			// slow-booting H100 SKU (e.g. ephemeral DHCP iptables rule, early-boot coredns
+			// cgroup OOM during MIG mode init). The focused GPU/no-reboot validators below
+			// remain plus the cheap, scenario-relevant safety checks (leaked secrets,
+			// scriptless CSE/NBC) that the /default and /scriptless_nbc subtests should still
+			// cover.
+			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) {
 				os := "ubuntu"
 				osVersion := "r2404"
+
+				// Cheap, scenario-relevant safety checks normally covered by ValidateCommonLinux.
+				ValidateLeakedSecrets(ctx, s)
+				ValidateScriptlessCSECmd(ctx, s)
+				ValidateScriptlessNBCCSECmd(ctx, s)
 
 				// Validate that the node did NOT reboot - H100 (Hopper) supports
 				// dynamic MIG mode changes without requiring a reboot.
