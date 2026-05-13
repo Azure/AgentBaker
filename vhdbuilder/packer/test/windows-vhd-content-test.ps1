@@ -25,19 +25,16 @@ $env:WindowsSKU = $windowsSKU
 
 . c:\k\windows-vhd-configuration.ps1
 
-filter Timestamp
-{
+filter Timestamp {
     "$( Get-Date -Format o ): $_"
 }
 
-function Write-ErrorWithTimestamp($Message)
-{
+function Write-ErrorWithTimestamp($Message) {
     $msg = $message | Timestamp
     Write-Error $msg
 }
 
-function Write-OutputWithTimestamp($Message)
-{
+function Write-OutputWithTimestamp($Message) {
     $msg = $message | Timestamp
     Write-Output $msg
 }
@@ -49,8 +46,7 @@ function Write-OutputWithTimestamp($Message)
 $testVMPublicIPAddress = $( curl.exe -s -4 icanhazip.com )
 Write-OutputWithTimestamp "Public IP address of the Test VM is $testVMPublicIPAddress"
 
-function Start-Job-To-Expected-State
-{
+function Start-Job-To-Expected-State {
     [CmdletBinding()]
     Param(
         [Parameter(Position = 0, Mandatory = $true)]
@@ -77,12 +73,10 @@ function Start-Job-To-Expected-State
         Write-OutputWithTimestamp "Starting Job $JobName"
         Start-Job -Name $JobName -ScriptBlock $ScriptBlock
 
-        do
-        {
+        do {
             Start-Sleep $DelaySecond
             $job = (Get-Job -Name $JobName)
-            if ($job -and ($job.State -Match $ExpectedState))
-            {
+            if ($job -and ($job.State -Match $ExpectedState)) {
                 return
             }
             $cnt++
@@ -93,16 +87,12 @@ function Start-Job-To-Expected-State
     }
 }
 
-function Log-VHDFreeSize
-{
+function Log-VHDFreeSize {
     Write-Log "Get Disk info"
     $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
-    foreach ($disk in $disksInfo)
-    {
-        if ($disk.DeviceID -eq "C:")
-        {
-            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
-            {
+    foreach ($disk in $disksInfo) {
+        if ($disk.DeviceID -eq "C:") {
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
                 Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
             }
             break
@@ -113,8 +103,7 @@ function Log-VHDFreeSize
     }
 }
 
-function DownloadFileWithRetry
-{
+function DownloadFileWithRetry {
     param (
         $URL,
         $Dest,
@@ -124,11 +113,9 @@ function DownloadFileWithRetry
     )
     Write-OutputWithTimestamp "Downloading file $URL"
     curl.exe -s -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE)
-    {
+    if ($LASTEXITCODE) {
         $logURL = $URL
-        if ($redactUrl)
-        {
+        if ($redactUrl) {
             $logURL = $logURL.Split("?")[0]
         }
         Log-VHDFreeSize
@@ -140,31 +127,25 @@ function DownloadFileWithRetry
     }
 }
 
-function Test-FilesToCacheOnVHD
-{
+function Test-FilesToCacheOnVHD {
     $invalidFiles = @()
     $missingPaths = @()
-    foreach ($dir in $map.Keys)
-    {
+    foreach ($dir in $map.Keys) {
         $fakeDir = $dir
-        if ( $dir.StartsWith("c:\akse-cache\win-k8s"))
-        {
+        if ( $dir.StartsWith("c:\akse-cache\win-k8s")) {
             $dir = "c:\akse-cache\win-k8s\"
         }
-        if (!(Test-Path $dir))
-        {
+        if (!(Test-Path $dir)) {
             Write-ErrorWithTimestamp "Directory $dir does not exit"
             $missingPaths = $missingPaths + $dir
             continue
         }
 
-        foreach ($URL in $map[$fakeDir])
-        {
+        foreach ($URL in $map[$fakeDir]) {
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            if (![System.IO.File]::Exists($dest))
-            {
+            if (![System.IO.File]::Exists($dest)) {
                 Write-ErrorWithTimestamp "File $dest does not exist"
                 $invalidFiles = $invalidFiles + $dest
                 continue
@@ -179,46 +160,36 @@ function Test-FilesToCacheOnVHD
 
             # We have to ignore them since sizes on disk are same but the sizes are different. We are investigating this issue
             $excludeHashComparisionListInGlobal = @()
-            if ($localFileHash -ne $remoteFileHash)
-            {
+            if ($localFileHash -ne $remoteFileHash) {
                 $isIgnore = $False
-                foreach ($excludePackage in $excludeHashComparisionListInGlobal)
-                {
-                    if ( $URL.Contains($excludePackage))
-                    {
+                foreach ($excludePackage in $excludeHashComparisionListInGlobal) {
+                    if ( $URL.Contains($excludePackage)) {
                         $isIgnore = $true
                         break
                     }
                 }
-                if (-not $isIgnore)
-                {
-                    Write-ErrorWithTimestamp "$dest : Local file hash is $localFileHash but remote file hash in global is $remoteFileHash"
+                if (-not $isIgnore) {
+                    Write-ErrorWithTimestamp "$dest : Local file ($dest) hash is $localFileHash but remote file ($tmpDest) hash in global is $remoteFileHash"
                     $invalidFiles = $invalidFiles + $dest
                     continue
                 }
             }
 
-            if ( $URL.StartsWith("https://acs-mirror.azureedge.net/"))
-            {
+            if ( $URL.StartsWith("https://acs-mirror.azureedge.net/")) {
                 $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
-                try
-                {
+                try {
                     # It's too slow to download the file from the China Cloud. So we only compare the file size.
                     $localFileSize = (Get-Item $dest).length
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
-                    if ($localFileSize -ne $remoteFileSize)
-                    {
+                    if ($localFileSize -ne $remoteFileSize) {
                         $isIgnore = $False
-                        foreach ($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud)
-                        {
-                            if ( $mcURL.Contains($excludePackage))
-                            {
+                        foreach ($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
+                            if ( $mcURL.Contains($excludePackage)) {
                                 $isIgnore = $true
                                 break
                             }
                         }
-                        if ($isIgnore)
-                        {
+                        if ($isIgnore) {
                             continue
                         }
 
@@ -227,8 +198,7 @@ function Test-FilesToCacheOnVHD
                         continue
                     }
                 }
-                catch
-                {
+                catch {
                     Write-ErrorWithTimestamp "$mcURL is invalid"
                     $invalidFiles = $mcURL
                     continue
@@ -236,81 +206,66 @@ function Test-FilesToCacheOnVHD
             }
         }
     }
-    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0)
-    {
+    if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0) {
         Write-ErrorWithTimestamp "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
         exit 1
     }
 
     $dir = "c:\akse-cache\private-packages"
-    if (Test-Path $dir)
-    {
+    if (Test-Path $dir) {
         $mappingFile = "c:\akse-cache\private-packages\mapping.json"
-        if (Test-Path $mappingFile)
-        {
+        if (Test-Path $mappingFile) {
             $urls = @{ }
             (ConvertFrom-Json ((Get-Content $mappingFile -ErrorAction Stop) | Out-String)).psobject.properties | Foreach { $urls[$_.Value] = $False }
             $privatePackages = Get-ChildItem -Path $dir -File -Filter "*.zip"
-            foreach ($privatePackage in $privatePackages)
-            {
+            foreach ($privatePackage in $privatePackages) {
                 $isFound = $False
-                foreach ($url in $urls.Keys)
-                {
-                    if ( $url.Contains($privatePackage.Name))
-                    {
+                foreach ($url in $urls.Keys) {
+                    if ( $url.Contains($privatePackage.Name)) {
                         $urls[$url] = $True
                         $isFound = $True
                         break
                     }
                 }
 
-                if (-not $isFound)
-                {
+                if (-not $isFound) {
                     Write-ErrorWithTimestamp "URL for $( $privatePackage.Name ) is not found in $mappingFile"
                     exit 1
                 }
             }
 
-            foreach ($url in $urls.Keys)
-            {
-                if (-not $urls[$url])
-                {
+            foreach ($url in $urls.Keys) {
+                if (-not $urls[$url]) {
                     Write-ErrorWithTimestamp "URL for $url is not cached in $dir"
                     exit 1
                 }
             }
         }
-        else
-        {
+        else {
             Write-ErrorWithTimestamp "File $mappingFile does not exist but $dir exists"
             exit 1
         }
     }
 }
 
-function Test-PatchInstalled
-{
+function Test-PatchInstalled {
     $hotfix = Get-HotFix
     $currenHotfixes = @()
-    foreach ($hotfixID in $hotfix.HotFixID)
-    {
+    foreach ($hotfixID in $hotfix.HotFixID) {
         $currenHotfixes += $hotfixID
     }
 
     $lostPatched = @($patchIDs | Where-Object { $currenHotfixes -notcontains $_ })
-    if ($lostPatched.count -ne 0)
-    {
+    if ($lostPatched.count -ne 0) {
         Write-ErrorWithTimestamp "$lostPatched is(are) not installed"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "$lostPatched is(are) installed"
     }
 }
 
-function Test-ImagesPulled
-{
+function Test-ImagesPulled {
     Write-Output "Test-ImagesPulled."
     $targetImagesToPull = $imagesToPull
 
@@ -326,8 +281,7 @@ function Test-ImagesPulled
     # Example logic of setting the value of $validatecontainerBaseImageFromUrl:
     # caller fucntion vhdbuilder/packer/test/run-test.sh get the value from env set from pipeline
     # .pipelines/templates/.builder-release-template-windows.yaml and pass it to this function.
-    if ($validatecontainerBaseImageFromUrl -eq $true)
-    {
+    if ($validatecontainerBaseImageFromUrl -eq $true) {
         Write-OutputWithTimestamp "validate container base image cached to be sync with the images from URLs"
         # Find items to remove
         $targetImagesToPull = $targetImagesToPull | Where-Object {
@@ -336,44 +290,41 @@ function Test-ImagesPulled
         # Find items to add
         switch -Wildcard ($windowsSKU.ToLower()) {
             "*2019*" {
-               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:1809"
-               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2019"
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:1809"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2019"
             }
             "*2022*" {
-               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
-               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
             }
             "*23h2*" {
-               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
-               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
             }
             "*2025*" {
-               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
-               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
-               $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2025"
-               $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2025"
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2025"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2025"
             }
             default {
-               Write-OutputWithTimestamp "No additional images to pull for SKU: $windowsSKU"
-               exit 1
+                Write-OutputWithTimestamp "No additional images to pull for SKU: $windowsSKU"
+                exit 1
             }
         }
     }
 
     $result = (Compare-Object $targetImagesToPull $pulledImages)
-    if ($result)
-    {
+    if ($result) {
         Write-ErrorWithTimestamp "images to pull do not equal images cached $( ($result).InputObject ) ."
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "images to pull do equal images cached."
     }
 }
 
-function Validate-WindowsFixInFeatureManagement
-{
+function Validate-WindowsFixInFeatureManagement {
     Param(
         [Parameter(Mandatory = $true)][string]
         $Name,
@@ -382,19 +333,16 @@ function Validate-WindowsFixInFeatureManagement
     )
 
     $result = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name $Name)
-    if ($result.$Name -ne $Value)
-    {
+    if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in FeatureManagement\Overrides is not added"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The registry for $Name in FeatureManagement\Overrides was added"
     }
 }
 
-function Validate-WindowsFixInHnsState
-{
+function Validate-WindowsFixInHnsState {
     Param(
         [Parameter(Mandatory = $true)][string]
         $Name,
@@ -403,19 +351,16 @@ function Validate-WindowsFixInHnsState
     )
 
     $result = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name $Name)
-    if ($result.$Name -ne $Value)
-    {
+    if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in hns\State is not added"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The registry for $Name in hns\State was added"
     }
 }
 
-function Validate-WindowsFixInVfpExtParameters
-{
+function Validate-WindowsFixInVfpExtParameters {
     Param(
         [Parameter(Mandatory = $true)][string]
         $Name,
@@ -424,19 +369,16 @@ function Validate-WindowsFixInVfpExtParameters
     )
 
     $result = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name $Name)
-    if ($result.$Name -ne $Value)
-    {
+    if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in VfpExt\Parameters is not added"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The registry for $Name in VfpExt\Parameters was added"
     }
 }
 
-function Validate-WindowsFixInPath
-{
+function Validate-WindowsFixInPath {
     Param(
         [Parameter(Mandatory = $true)][string]
         $Path,
@@ -447,37 +389,30 @@ function Validate-WindowsFixInPath
     )
 
     $result = (Get-ItemProperty -Path $Path -Name $Name)
-    if ($result.$Name -ne $Value)
-    {
+    if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in $Path is not added"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The registry for $Name in $Path was added"
     }
 }
 
-function Test-RegistryAdded
-{
-    if ($skipValidateReofferUpdate -eq $true)
-    {
+function Test-RegistryAdded {
+    if ($skipValidateReofferUpdate -eq $true) {
         Write-OutputWithTimestamp "Skip validating ReofferUpdate"
     }
-    else
-    {
+    else {
         # Check whether the registry ReofferUpdate is added. ReofferUpdate indicates that the OS is not updated to the latest version.
         $result = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate -ErrorAction Ignore)
-        if ($result -and $result.ReofferUpdate -eq 1)
-        {
+        if ($result -and $result.ReofferUpdate -eq 1) {
             Write-ErrorWithTimestamp "The registry ReofferUpdate is added. The value is 1."
             exit 1
         }
         Write-OutputWithTimestamp "The registry for ReofferUpdate is \"$result\" ."
     }
 
-    foreach ($key in $global:keysToSet)
-    {
+    foreach ($key in $global:keysToSet) {
         $keyPath = $key.Path
         $keyName = $key.Name
         $keyValue = $key.Value
@@ -485,36 +420,29 @@ function Test-RegistryAdded
         $keyComment = $key.Comment
         $keyOperation = $key.Operation
 
-        if ($keyOperation -eq "bor")
-        {
+        if ($keyOperation -eq "bor") {
             $result = Get-ItemProperty -Path $keyPath -Name $keyName
             $actual = ($result.$keyName -band $keyValue)
-            if ( $actual -ne $keyValue)
-            {
+            if ( $actual -ne $keyValue) {
                 Write-ErrorWithTimestamp "The registry for $keyName was incorrect. Actual: $result expected: $keyvalue after band: $actual"
                 exit 1
             }
-            else
-            {
+            else {
                 Write-OutputWithTimestamp "The registry for the two HNS fixes was added"
             }
         }
-        else
-        {
+        else {
             Validate-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue
         }
     }
 
-    if ($env:WindowsSKU -Like '2019*')
-    {
+    if ($env:WindowsSKU -Like '2019*') {
         $result = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
-        if (($result.HNSControlFlag -band 0x10) -ne 0x10)
-        {
+        if (($result.HNSControlFlag -band 0x10) -ne 0x10) {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
         }
-        else
-        {
+        else {
             Write-OutputWithTimestamp "The registry for the two HNS fixes was added"
         }
 
@@ -546,8 +474,7 @@ function Test-RegistryAdded
     # values from the config file are all being set as per pre-use of the config file.
     Validate-WindowsFixInHnsState -Name EnableCompartmentNamespace
 
-    if ($env:WindowsSKU -Like '2022*')
-    {
+    if ($env:WindowsSKU -Like '2022*') {
         Validate-WindowsFixInFeatureManagement -Name 2629306509
         Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
         Validate-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
@@ -615,8 +542,7 @@ function Test-RegistryAdded
         Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
-    if ($env:WindowsSKU -Like '23H2*')
-    {
+    if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0
 
         Validate-WindowsFixInFeatureManagement -Name 1800977551
@@ -628,138 +554,113 @@ function Test-RegistryAdded
     }
 }
 
-function Test-DefenderSignature
-{
+function Test-DefenderSignature {
     $mpPreference = Get-MpPreference
-    if (-not ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources)))
-    {
+    if (-not ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources))) {
         Write-ErrorWithTimestamp "The Windows Defender has wrong Signature. SignatureFallbackOrder: $( $mpPreference.SignatureFallbackOrder ). SignatureDefinitionUpdateFileSharesSources: $( $mpPreference.SignatureDefinitionUpdateFileSharesSources )"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The Windows Defender has correct Signature"
     }
 }
 
-function Test-ExcludeUDPSourcePort
-{
+function Test-ExcludeUDPSourcePort {
     # Checking whether the UDP source port 65330 is excluded
     $result = $( netsh int ipv4 show excludedportrange udp | findstr.exe 65330 )
-    if (-not $result)
-    {
+    if (-not $result) {
         Write-ErrorWithTimestamp "The UDP source port 65330 is not excluded."
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The UDP source port 65330 is excluded."
     }
 }
 
-function Test-WindowsDefenderPlatformUpdate
-{
+function Test-WindowsDefenderPlatformUpdate {
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
     $doc = New-Object xml
     $doc.Load("$global:defenderUpdateInfoUrl")
     $latestDefenderProductVersion = $doc.versions.platform
 
-    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion)
-    {
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "Defender update succeeded."
     }
 }
 
-function Test-ToolsToCacheOnVHD
-{
+function Test-ToolsToCacheOnVHD {
     $toolsDir = "c:\aks-tools"
     $toolsList = @("DU\du.exe", "DU\du64.exe", "DU\du64a.exe")
 
-    foreach ($tool in $toolsList)
-    {
+    foreach ($tool in $toolsList) {
         $toolPath = Join-Path -Path $toolsDir -ChildPath $tool
-        if (!(Test-Path -Path $toolPath))
-        {
+        if (!(Test-Path -Path $toolPath)) {
             Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
             exit 1
         }
-        else
-        {
+        else {
             Write-OutputWithTimestamp "Got tool: $toolPath"
         }
     }
 }
 
-function Test-ExpandVolumeTask
-{
+function Test-ExpandVolumeTask {
     $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
     $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
     $osDiskSize = $osDisk.Size
     $osDiskAllocatedSize = $osDisk.AllocatedSize
-    if ($osDiskSize -ne $osDiskAllocatedSize)
-    {
+    if ($osDiskSize -ne $osDiskAllocatedSize) {
         Write-ErrorWithTimestamp "The OS disk size $osDiskSize is not equal to the allocated size $osDiskAllocatedSize"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "The OS disk size $osDiskSize is equal to the allocated size"
     }
 }
 
-function Test-SSHDConfig
-{
+function Test-SSHDConfig {
     # user must be the name in `TEST_VM_ADMIN_USERNAME="azureuser"` in vhdbuilder/packer/test/run-test.sh
     $result = $( sshd -T -C user=azureuser )
-    if ($result -Match 'chacha20-poly1305@openssh.com')
-    {
+    if ($result -Match 'chacha20-poly1305@openssh.com') {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "C:\programdata\ssh\sshd_config is updated for CVE-2023-48795"
     }
 
-    if ($result -Match '.*-etm@openssh.com')
-    {
+    if ($result -Match '.*-etm@openssh.com') {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "C:\programdata\ssh\sshd_config is updated for CVE-2023-48795"
     }
 
     $ConfigPath = "C:\programdata\ssh\sshd_config"
     $sshdConfig = Get-Content $ConfigPath
-    if ($sshdConfig.Contains("#LoginGraceTime") -or (-not $sshdConfig.Contains("LoginGraceTime 0")))
-    {
+    if ($sshdConfig.Contains("#LoginGraceTime") -or (-not $sshdConfig.Contains("LoginGraceTime 0"))) {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2006-5051"
         exit 1
     }
-    else
-    {
+    else {
         Write-OutputWithTimestamp "C:\programdata\ssh\sshd_config is updated for CVE-2006-5051"
     }
 }
 
 
 # Verify .NET is not installed at all on the VHD (dotnet command should not be available)
-function Test-DotnetNotInstalled
-{
+function Test-DotnetNotInstalled {
     if ($windowsSKU -like "*23H2*") {
         Write-OutputWithTimestamp "Skipping Test-DotnetNotInstalled for deprecated SKU: $windowsSKU"
         return
     }
     $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
-    if ($dotnetCmd)
-    {
+    if ($dotnetCmd) {
         Write-ErrorWithTimestamp ".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD"
         exit 1
     }
@@ -769,10 +670,10 @@ function Test-DotnetNotInstalled
 # Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
 function Test-ValidateImageBinarySignature {
     # imageBinaryNotSigned is used to record binaries in image that are not signed
-    $imageBinaryNotSigned=@{}
+    $imageBinaryNotSigned = @{}
 
     # We skip the signature validation of following images so far to unblock the test.
-    $skipImageMapForSignature=@(
+    $skipImageMapForSignature = @(
         "containernetworking/azure-cns", # azure-cns.exe
         "containernetworking/azure-npm", # npm.exe
         "containernetworking/azure-cni" # dropgz.exe or dropgz
@@ -806,22 +707,23 @@ function Test-ValidateImageBinarySignature {
             $snapshotPathsWithFiles = $snapshotPaths | ForEach-Object { "$_\\Files" }
             # normally the binary files under C:\, but we can treat them differently if there are exceptions
             $snapshotPathsWithFiles | ForEach-Object {
-                $notSignedList=@()
-                Get-ChildItem -Path $_ -Filter "*.exe"| ForEach-object {
-                        $attributes = $_.Attributes
-                        # Skip processing for reparse points, which could be symlinks or junctions
-                        if ($attributes -band [System.IO.FileAttributes]::ReparsePoint) {
-                            Write-Host "Skipping reparse point: $_"
-                            continue
-                        }
-                        $notSignedList += Get-AuthenticodeSignature $_.FullName | Where-Object {$_.status -ne "Valid"}
+                $notSignedList = @()
+                Get-ChildItem -Path $_ -Filter "*.exe" | ForEach-object {
+                    $attributes = $_.Attributes
+                    # Skip processing for reparse points, which could be symlinks or junctions
+                    if ($attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+                        Write-Host "Skipping reparse point: $_"
+                        continue
+                    }
+                    $notSignedList += Get-AuthenticodeSignature $_.FullName | Where-Object { $_.status -ne "Valid" }
                 }
                 if ($notSignedList.Count -ne 0) {
                     $fileNameNotSignedList = $notSignedList | ForEach-Object { [IO.Path]::GetFileName($_.Path) }
-                    $imageBinaryNotSigned[$imageTag]=$fileNameNotSignedList
+                    $imageBinaryNotSigned[$imageTag] = $fileNameNotSignedList
                 }
             }
-        } else {
+        }
+        else {
             Write-Output "Failed to extract snapshot mount path from the container created from $imageTag"
         }
         # remove the container
