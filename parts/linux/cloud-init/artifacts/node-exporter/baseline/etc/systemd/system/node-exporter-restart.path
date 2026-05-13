@@ -1,0 +1,9 @@
+[Path]
+# Watch server cert paths - one will exist depending on whether kubelet serving cert rotation is enabled
+# Rotation enabled: kubelet-server-current.pem (symlink updated on rotation)
+# Rotation disabled: kubeletserver.crt (static cert)
+PathModified=/var/lib/kubelet/pki/kubelet-server-current.pem
+PathModified=/etc/kubernetes/certs/kubeletserver.crt
+
+[Install]
+WantedBy=multi-user.target

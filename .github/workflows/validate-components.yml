@@ -16,7 +16,7 @@ jobs:
           GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
           export PATH="$PATH:$GOPATH/bin"
           pushd /tmp
-          GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
+          GO111MODULE=on go install cuelang.org/go/cmd/cue@v0.15.4
           popd
 
       - name: Validate components.json conforms to cue schema
@@ -52,4 +52,18 @@ jobs:
       run: |
         set -ex
         go test -v -run ^Test_Version_Consistency_GPU_Managed_Components$ .
+
+  dcgm-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: e2e/go.mod
+        cache-dependency-path: e2e/go.sum
+    - name: Verify DCGM Exporter package compatibility
+      working-directory: ./e2e
+      run: |
+        set -ex
+        go test -v -run ^TestDCGMExporterCompatibility$ ./components/
 

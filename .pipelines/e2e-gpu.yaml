@@ -3,10 +3,29 @@ variables:
   TAGS_TO_RUN: "gpu=true"
   TAGS_TO_SKIP: "os=windows"
   SKIP_E2E_TESTS: false
+<<<<<<< HEAD
+=======
+  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
+  E2E_GO_TEST_TIMEOUT: "75m"
+schedules:
+  - cron: "0 9 * * *"
+    displayName: Daily 1am PST
+    branches:
+      include:
+        - main
+    always: true
+>>>>>>> origin/main
 trigger:
   branches:
     include:
       - main
+<<<<<<< HEAD
+=======
+  paths:
+    include:
+      - e2e/**
+      - '**/*.go'
+>>>>>>> origin/main
 pr:
   branches:
     include:
@@ -15,6 +34,7 @@ pr:
       - main
   paths:
     include:
+<<<<<<< HEAD
       - .pipelines/e2e.yaml
       - .pipelines/templates/e2e-template.yaml
       - .pipelines/scripts/e2e_run.sh
@@ -32,6 +52,10 @@ pr:
       - /**/*.md
       - e2e/scenario_win_test.go
 
+=======
+      - e2e/**
+      - '**/*.go'
+>>>>>>> origin/main
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:

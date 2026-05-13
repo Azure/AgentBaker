@@ -26,7 +26,7 @@ type Tags struct {
 	ImageName              string
 	OS                     string
 	Arch                   string
-	Airgap                 bool
+	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
@@ -35,6 +35,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	VMSeriesCoverageTest   bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -133,11 +134,13 @@ type Scenario struct {
 }
 
 type ScenarioRuntime struct {
-	NBC           *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig *aksnodeconfigv1.Configuration
-	Cluster       *Cluster
-	VM            *ScenarioVM
-	VMSSName      string
+	NBC                       *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig             *aksnodeconfigv1.Configuration
+	Cluster                   *Cluster
+	VM                        *ScenarioVM
+	VMSSName                  string
+	EnableScriptlessNBCCSECmd bool
+	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
 }
 
 type ScenarioVM struct {
@@ -146,6 +149,14 @@ type ScenarioVM struct {
 	VM        *armcompute.VirtualMachineScaleSetVM
 	PrivateIP string
 	SSHClient *ssh.Client
+}
+
+// CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
+type CustomDataWriteFile struct {
+	Path        string
+	Permissions string
+	Owner       string
+	Content     string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -157,13 +168,17 @@ type Config struct {
 	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
-	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
+	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
-	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
+	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
+
+	// CustomDataWriteFiles injects additional cloud-init write_files entries into rendered customData.
+	// This is for e2e-only validation scenarios.
+	CustomDataWriteFiles []CustomDataWriteFile
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario)
@@ -185,8 +200,23 @@ type Config struct {
 	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
 	VHDCaching bool
 
-	// ReturnErrorOnVMSSCreation indicates whether to return error on VMSS creation failure or fail the test immediately.
-	ReturnErrorOnVMSSCreation bool
+	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
+	// The assertion is performed inside the scenario's subtest.
+	ExpectedError string
+
+	// UseNVMe indicates whether to use NVMe-based disk placement/controller. This is required for certain VM sizes (e.g., v6 and v7 series) which only support NVMe disk controllers.
+	UseNVMe bool
+
+	// SkipScriptlessNBC when true prevents the automatic scriptless_nbc sub-test from being generated.
+	// Use this for scenarios that depend on CSE script execution (e.g., CSE timing validation)
+	// which is not available in scriptless mode.
+	SkipScriptlessNBC bool
+
+	// EagerCSETimingExtraction when true causes CSE timing events to be extracted
+	// immediately after SSH is established, before other validators run.
+	// This prevents the Guest Agent from sweeping events before they can be read.
+	// Only set this on CSE performance test scenarios.
+	EagerCSETimingExtraction bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -217,6 +247,14 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 		ID: to.Ptr(string(resourceID)),
+	}
+
+	// Override OS disk size if the VHD requires a non-default size.
+	if s.VHD.OSDiskSizeGB > 0 {
+		osDisk := vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+		if osDisk != nil {
+			osDisk.DiskSizeGB = to.Ptr(s.VHD.OSDiskSizeGB)
+		}
 	}
 
 	s.updateTags(ctx, vmss)
@@ -371,4 +409,41 @@ func (s *Scenario) IsWindows() bool {
 
 func (s *Scenario) IsLinux() bool {
 	return !s.IsWindows()
+}
+
+// IsHostsPluginEnabled returns true if the hosts plugin is explicitly enabled
+// via either NBC (traditional) or AKSNodeConfig (scriptless) paths.
+func (s *Scenario) IsHostsPluginEnabled() bool {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		return s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableLocalDns &&
+			s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+	}
+	return false
+}
+
+// GetDefaultFQDNsForValidation returns the public cloud FQDNs to validate in hosts file checks.
+// AgentBaker e2e only runs in public cloud, so sovereign cloud branches are unnecessary.
+func (s *Scenario) GetDefaultFQDNsForValidation() []string {
+	return []string{
+		"mcr.microsoft.com",
+		"login.microsoftonline.com",
+		"packages.aks.azure.com",
+	}
+}
+
+// GetContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the cluster's location. Uses Runtime.Cluster.Model.Location so it works
+// for both legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
+func (s *Scenario) GetContainerRegistryFQDN() string {
+	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
 }

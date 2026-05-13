@@ -122,8 +122,8 @@ sequenceDiagram
     ARM->>VM: Deploy config.json<br/>(CustomData)
     note over VM: cloud-init handles<br/>config.json deployment
 
-    note over VM: cloud-init completes processing
-    note over VM: Start aks-node-controller.service (systemd service)<br/>after cloud-init
+    note over VM: cloud-boothook writes config.json early
+    note over VM: cloud-boothook starts aks-node-controller.service<br/>once config is on disk
     VM->>VM: Run aks-node-controller<br/>(Go binary) in provision mode<br/>using config.json
 
     ARM->>VM: Initiate aks-node-controller (Go binary)<br/>in provision-wait mode via CSE
@@ -137,7 +137,7 @@ sequenceDiagram
 
 Key components:
 
-1. `aks-node-controller.service`: systemd unit that is triggered once cloud-init is complete (guaranteeing that config is present on disk) and then kickstarts bootstrapping.
+1. `aks-node-controller.service`: systemd unit that can be started directly by cloud-boothook as soon as the config file is written, while remaining enabled on the VHD as a fallback boot hook.
 2. `aks-node-controller` go binary with two modes:
 
 - **provision**: Parses the node configuration and starts the bootstrap sequence.

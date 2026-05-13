@@ -58,5 +58,29 @@ message BootstrappingConfig {
   // Only used when secure TLS bootstrapping is enabled. This is the bootstrapping deadline used to perform secure TLS bootstrapping.
   // If the deadline is hit, the TLS bootstrap token will be used as a fall-back.
   // This field will be deprecated once TLS bootstrap tokens are no longer used.
-  optional string secure_tls_bootstrapping_deadline = 9;
+  optional string secure_tls_bootstrapping_deadline = 9 [deprecated = true];
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
+  // This is the amount of time given to the bootstrap client to perform kubeconfig validation against the cluster's API server.
+  optional string secure_tls_bootstrapping_validate_kubeconfig_timeout = 10;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
+  // This is the amount of time given to the bootstrap client to retrieve an access token from IMDS/Entra ID.
+  optional string secure_tls_bootstrapping_get_access_token_timeout = 11;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
+  // This is the amount of time given to the bootstrap client to retrieve VM instance data from IMDS.
+  optional string secure_tls_bootstrapping_get_instance_data_timeout = 12;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
+  // This is the amount of time given to the bootstrap client to retrieve a unique nonce from the bootstrap server.
+  optional string secure_tls_bootstrapping_get_nonce_timeout = 13;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
+  // This is the amount of time given to the bootstrap client to retrieve VM attested data from IMDS.
+  optional string secure_tls_bootstrapping_get_attested_data_timeout = 14;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
+  // This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
+  optional string secure_tls_bootstrapping_get_credential_timeout = 15;
 }

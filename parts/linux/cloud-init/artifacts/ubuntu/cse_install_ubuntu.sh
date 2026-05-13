@@ -4,46 +4,86 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+blobfuseFallbackPackages() {
+    local OSVERSION="${1}"
+    # blobfuse/blobfuse2 started to be centralized in components.json around April 2026.
+    # These legacy fallback versions are only for older VHDs that:
+    # - do not have blobfuse/blobfuse2 in components.json yet, and
+    # - did not cache blobfuse/blobfuse2 packages in the VHD.
+    # This combination is unlikely, so this fallback can be removed
+    # 6 months after the April 2026 release.
+    local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
+    local HAS_BLOBFUSE_COMPONENT="false"
+    local HAS_BLOBFUSE2_COMPONENT="false"
+
+    if [ -n "${COMPONENTS_FILEPATH:-}" ] && [ -f "${COMPONENTS_FILEPATH}" ]; then
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE_COMPONENT="true"
+        fi
+        if grep -q '"name"[[:space:]]*:[[:space:]]*"blobfuse2"' "${COMPONENTS_FILEPATH}"; then
+            HAS_BLOBFUSE2_COMPONENT="true"
+        fi
+    fi
+
+    # blobfuse2 declares Depends: fuse3 (since 2.3.0), so apt pulls it automatically.
+    # blobfuse declares Depends: fuse, so apt pulls it automatically.
+    # No need to explicitly install fuse3 or fuse here.
+    if [ "${HAS_BLOBFUSE2_COMPONENT}" = "false" ] && ! dpkg -s blobfuse2 >/dev/null 2>&1; then
+        echo "blobfuse2=${LEGACY_FALLBACK_BLOBFUSE2_VERSION}"
+    fi
+
+    if [ "${OSVERSION}" = "20.04" ]; then
+        if [ "${HAS_BLOBFUSE_COMPONENT}" = "false" ] && ! dpkg -s blobfuse >/dev/null 2>&1; then
+            echo "blobfuse=${LEGACY_FALLBACK_BLOBFUSE_VERSION}"
+        fi
+    fi
+}
+
 installDeps() {
     wait_for_apt_locks
-    retrycmd_silent 120 5 90 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
-    aptmarkWALinuxAgent hold
+    holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
-    local OSVERSION
-    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    BLOBFUSE_VERSION="1.4.5"
-    # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.5.0"
-
-    # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
-    # for 22.04, fuse3 is installed. for all others, fuse is installed
-    # for all others except 22.04, installed blobfuse1.4.5
-    pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=(fuse3)
-    else
-        pkg_list+=("blobfuse=${BLOBFUSE_VERSION}" fuse)
-    fi
+    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    while IFS= read -r fallback_pkg; do
+        [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
+    done < <(blobfuseFallbackPackages "${OSVERSION}")
 
     if [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(irqbalance)
     fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
-        pkg_list+=("aznfs=3.0.10")
+        pkg_list+=("aznfs=3.0.14")
     fi
 
-    for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-            journalctl --no-pager -u $apt_package
-            exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-    done
+    # Batch install all packages in a single apt_get_install call instead of
+    # looping one-by-one. On failure, fall back to individual installs for
+    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
@@ -53,25 +93,41 @@ installDeps() {
 }
 
 updateAptWithMicrosoftPkg() {
-    retrycmd_silent 120 5 90 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_silent 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
 
     echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
 
-    retrycmd_silent 120 5 90 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
 updatePMCRepository() {
     packageVersion="${1}"
-    local opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod.list -o Dir::Etc::sourceparts=-"
+
+    # Detect apt source file format: currently custom clouds use DEB822 (.sources), public cloud uses legacy (.list)
+    local microsoft_prod_file="/etc/apt/sources.list.d/microsoft-prod.list"
+    if [ ! -f "${microsoft_prod_file}" ] && [ -f /etc/apt/sources.list.d/microsoft-prod.sources ]; then
+        microsoft_prod_file="/etc/apt/sources.list.d/microsoft-prod.sources"
+    fi
+    if [ ! -f "${microsoft_prod_file}" ]; then
+        echo "ERROR: neither microsoft-prod.list nor microsoft-prod.sources found in /etc/apt/sources.list.d/"
+        exit $ERR_APT_UPDATE_TIMEOUT
+    fi
+    local opts="-o Dir::Etc::sourcelist=${microsoft_prod_file} -o Dir::Etc::sourceparts=-"
     apt_get_update_with_opts "${opts}" || exit $ERR_APT_UPDATE_TIMEOUT
 
     # if the package version contains a tilde (~), indicating pre-release version, updating test repo
-    if [ -f /etc/apt/sources.list.d/microsoft-prod-testing.list ] && echo "$packageVersion" | grep -q '~'; then
-        local testing_opts="-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/microsoft-prod-testing.list -o Dir::Etc::sourceparts=-"
-        apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+    if echo "$packageVersion" | grep -q '~'; then
+        local microsoft_prod_testing_file="/etc/apt/sources.list.d/microsoft-prod-testing.list"
+        if [ ! -f "${microsoft_prod_testing_file}" ] && [ -f /etc/apt/sources.list.d/microsoft-prod-testing.sources ]; then
+            microsoft_prod_testing_file="/etc/apt/sources.list.d/microsoft-prod-testing.sources"
+        fi
+        if [ -f "${microsoft_prod_testing_file}" ]; then
+            local testing_opts="-o Dir::Etc::sourcelist=${microsoft_prod_testing_file} -o Dir::Etc::sourceparts=-"
+            apt_get_update_with_opts "${testing_opts}" || exit $ERR_APT_UPDATE_TIMEOUT
+        fi
     fi
 }
 
@@ -109,7 +165,7 @@ updateAptWithNvidiaPkg() {
     local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
 
     # Download and add the GPG key for the NVIDIA repository
-    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -186,7 +242,7 @@ installCriCtlPackage() {
     apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then
@@ -196,19 +252,19 @@ installCredentialProviderFromPMC() {
         os_version="${UBUNTU_RELEASE}"
     fi
     PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
     echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
-    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    ln -snf /usr/bin/azure-acr-credential-provider "$CREDENTIAL_PROVIDER_BIN_DIR/acr-credential-provider"
+    installPkgWithAptGet "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || exit "$ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 }
 
-installKubeletKubectlPkgFromPMC() {
-    k8sVersion="${1}"
-    installPkgWithAptGet "kubelet" "${k8sVersion}" || exit $ERR_KUBELET_INSTALL_FAIL
-    installPkgWithAptGet "kubectl" "${k8sVersion}" || exit $ERR_KUBECTL_INSTALL_FAIL
+installKubeletKubectlFromPkg() {
+    local k8sVersion="${1}"
+
+    installPkgWithAptGet "kubelet" "${k8sVersion}" "/opt/bin/kubelet" || exit "$ERR_KUBELET_INSTALL_FAIL"
+    installPkgWithAptGet "kubectl" "${k8sVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
 }
 
 installToolFromLocalRepo() {
@@ -249,7 +305,7 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
         os_version="${UBUNTU_RELEASE}"
     fi
     PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
     if [ -z "$packageVersion" ]; then
         packageVersion=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
@@ -273,43 +329,102 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     fi
 }
 
+extractDebBinaryFromFile() {
+    local debFile="${1}"
+    local packageName="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local extractDir
+
+    extractDir=$(mktemp -d) || return 1
+    if ! dpkg-deb -x "${debFile}" "${extractDir}"; then
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    local sourceBinary="${extractDir}/usr/bin/${packageName}"
+    if [ ! -f "${sourceBinary}" ]; then
+        echo "Failed to locate usr/bin/${packageName} in ${debFile}"
+        rm -rf "${extractDir}"
+        return 1
+    fi
+
+    mkdir -p "$(dirname "${targetPath}")"
+
+    mv "${sourceBinary}" "${targetPath}"
+    chown root:root "${targetPath}"
+    chmod 0755 "${targetPath}"
+
+    rm -rf "${extractDir}"
+}
+
 installPkgWithAptGet() {
-    packageName="${1:-}"
-    packageVersion="${2}"
-    downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}_${packageVersion}-*"
+    local packageName="${1:-}"
+    local packageVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local debFile=""
+    local fullPackageVersion=""
 
-    # if no deb file with desired version found then try fetching from packages.microsoft repo
-    debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
+    if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
+
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
-        if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}"; then
-            echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
-            rm -rf ${downloadDir}
-            return 0
-        fi
 
-        # update pmc repo to get latest package versions
-        updatePMCRepository ${packageVersion}
+        # update pmc repo to get latest versions
+        updatePMCRepository "${packageVersion}"
         # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list ${packageName} --all-versions | grep ${packageVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
         fi
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
-        logs_to_events "AKS.CSE.install${packageName}PkgFromPMC.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
-        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || debFile=""
+        logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
+
+        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
         return 1
     fi
 
-    logs_to_events "AKS.CSE.install${packageName}.installDebPackageFromFile" "installDebPackageFromFile ${debFile}" || exit $ERR_APT_INSTALL_TIMEOUT
+    debFile="${downloadDir}/${debFile}"
+    logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
 
-    mkdir -p /opt/bin
-    ln -snf "/usr/bin/${packageName}" "/opt/bin/${packageName}"
-    rm -rf ${downloadDir}
+    rm -rf "${downloadDir}"
+}
+
+installPackageFromCache() {
+    local packageName="${1:-}"
+    local packageVersion="${2}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local debFile=""
+    local fullPackageVersion=""
+    if fallbackToKubeBinaryInstall "${packageName}" "${packageVersion}" "${targetPath}"; then
+        echo "Successfully installed ${packageName} version ${packageVersion} from binary fallback"
+        rm -rf "${downloadDir}"
+        return 0
+    fi
+
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    if [ -z "${debFile}" ]; then
+        echo "Failed to find cached deb file for ${packageName} version ${packageVersion}"
+        return 1
+    fi
+    if [ -z "${debFile}" ]; then
+        echo "Failed to locate ${packageName} deb"
+        return 1
+    fi
+
+    debFile="${downloadDir}/${debFile}"
+    logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
+
+    rm -rf "${downloadDir}"
 }
 
 downloadPkgFromVersion() {
@@ -355,12 +470,15 @@ installContainerdWithAptGet() {
     local containerdMajorMinorPatchVersion="${1}"
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    # Query installed version via dpkg metadata instead of running the containerd
+    # binary. `containerd -version` takes ~5.7s to load the full runtime just to
+    # print a version string; dpkg-query is instant.
+    # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
+    # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
     currentVersion=""
-    if command -v containerd &> /dev/null; then
-        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
+        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
-    # v1.4.1 is our lowest supported version of containerd
 
     if [ -z "$currentVersion" ]; then
         currentVersion="0.0.0"
@@ -397,8 +515,9 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    UBUNTU_RELEASE=$(lsb_release -r -s)
-    UBUNTU_CODENAME=$(lsb_release -c -s)
+    # UBUNTU_RELEASE is already set at script load time from cse_install.sh.
+    # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
+    UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
@@ -433,7 +552,7 @@ downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$(update_base_url $CONTAINERD_DOWNLOAD_URL)
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} 300 || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
@@ -446,7 +565,7 @@ ensureRunc() {
         mkdir -p $RUNC_DOWNLOADS_DIR
         RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
         RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
-        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} 300 || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
         installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT

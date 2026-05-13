@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Route the route specifics.
+// Route defines the route specifics.
 type Route struct {
 	Name        string
 	Method      string

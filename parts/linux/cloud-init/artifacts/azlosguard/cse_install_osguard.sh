@@ -4,16 +4,20 @@ stub() {
     echo "${FUNCNAME[1]} stub"
 }
 
-installKubeletKubectlPkgFromPMC() {
+installKubeletKubectlFromPkg() {
     local desiredVersion="${1}"
-	installRPMPackageFromFile "kubelet" $desiredVersion || exit $ERR_KUBELET_INSTALL_FAIL
-    installRPMPackageFromFile "kubectl" $desiredVersion || exit $ERR_KUBECTL_INSTALL_FAIL
+
+    installRPMPackageFromFile "kubelet" "${desiredVersion}" "/opt/bin/kubelet" || exit "$ERR_KUBELET_INSTALL_FAIL"
+    installRPMPackageFromFile "kubectl" "${desiredVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
 }
 
 installRPMPackageFromFile() {
     local packageName="${1}"
     local desiredVersion="${2}"
-    local targetBinDir="${3:-"/opt/bin"}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
+    local downloadDir="/opt/${packageName}/downloads"
+    local rpmFile=""
+    local fullPackageVersion=""
 
     echo "installing ${packageName} version ${desiredVersion} by manually unpacking the RPM"
     if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ] && [ "${packageName}" != "azure-acr-credential-provider" ]; then
@@ -21,41 +25,35 @@ installRPMPackageFromFile() {
         exit 1
     fi
     echo "installing ${packageName} version ${desiredVersion}"
-    downloadDir="/opt/${packageName}/downloads"
-    packagePrefix="${packageName}-${desiredVersion}-*"
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ] && { [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; } && fallbackToKubeBinaryInstall "${packageName}" "${desiredVersion}"; then
         echo "Successfully installed ${packageName} version ${desiredVersion} from binary fallback"
-        rm -rf ${downloadDir}
+        rm -rf "${downloadDir}"
         return 0
     fi
     if [ -z "${rpmFile}" ]; then
-        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        # query all package versions and get the latest version for matching k8s version
+        fullPackageVersion=$(tdnf list ${packageName} | grep ${desiredVersion} | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             return 1
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
-        downloadPkgFromVersion "${packageName}" ${fullPackageVersion} "${downloadDir}"
-        rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packagePrefix}" -print -quit 2>/dev/null) || rpmFile=""
+        downloadPkgFromVersion "${packageName}" "${fullPackageVersion}" "${downloadDir}"
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
         return 1
     fi
 
-    local rpmBinaryName="${packageName}"
-    local targetBinaryName="${packageName}"
-    if [ "${packageName}" = "azure-acr-credential-provider" ]; then
-        targetBinaryName="acr-credential-provider"
-    fi
-
-    echo "Unpacking usr/bin/${rpmBinaryName} from ${downloadDir}/${packageName}-${desiredVersion}*"
-    mkdir -p "${targetBinDir}"
+    rpmFile="${downloadDir}/${rpmFile}"
+    echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
+    mkdir -p "$(dirname "${targetPath}")"
     # This assumes that the binary will either be in /usr/bin or /usr/local/bin, but not both.
-    rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${rpmBinaryName}" "./usr/local/bin/${rpmBinaryName}" | install -m0755 /dev/stdin "${targetBinDir}/${targetBinaryName}"
-	rm -rf ${downloadDir}
+    rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${packageName}" "./usr/local/bin/${packageName}" | install -m0755 /dev/stdin "${targetPath}"
+	rm -rf "${downloadDir}"
 }
 
 downloadPkgFromVersion() {
@@ -67,7 +65,7 @@ downloadPkgFromVersion() {
     echo "Succeeded to download ${packageName} version ${packageVersion}"
 }
 
-installCredentialProviderFromPMC() {
+installCredentialProviderFromPkg() {
     k8sVersion="${1:-}"
     os=${AZURELINUX_OS_NAME}
     if [ -z "$OS_VERSION" ]; then
@@ -77,12 +75,12 @@ installCredentialProviderFromPMC() {
         os_version="${OS_VERSION}"
     fi
    	PACKAGE_VERSION=""
-    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version"
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "azure-acr-credential-provider-pmc" "$os" "$os_version" "${OS_VARIANT}"
     packageVersion=$(echo $PACKAGE_VERSION | cut -d "-" -f 1)
 	echo "installing azure-acr-credential-provider package version: $packageVersion"
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
-    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    installRPMPackageFromFile "azure-acr-credential-provider" "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider" || exit "$ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 }
 
 installDeps() {
@@ -92,6 +90,7 @@ installDeps() {
 installCriCtlPackage() {
     stub
 }
+
 
 installStandaloneContainerd() {
     stub

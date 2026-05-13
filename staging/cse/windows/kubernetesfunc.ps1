@@ -126,10 +126,16 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled                = $global:EnableSecureTLSBootstrapping;
-                Deadline               = $global:SecureTLSBootstrappingDeadline;
-                AADResource            = $global:SecureTLSBootstrappingAADResource;
-                UserAssignedIdentityID = $global:SecureTLSBootstrappingUserAssignedIdentityID
+                Enabled                   = $global:EnableSecureTLSBootstrapping;
+                AADResource               = $global:SecureTLSBootstrappingAADResource;
+                UserAssignedIdentityID    = $global:SecureTLSBootstrappingUserAssignedIdentityID;
+                ValidateKubeconfigTimeout = $global:SecureTLSBootstrappingValidateKubeconfigTimeout;
+                GetAccessTokenTimeout     = $global:SecureTLSBootstrappingGetAccessTokenTimeout;
+                GetInstanceDataTimeout    = $global:SecureTLSBootstrappingGetInstanceDataTimeout;
+                GetNonceTimeout           = $global:SecureTLSBootstrappingGetNonceTimeout;
+                GetAttestedDataTimeout    = $global:SecureTLSBootstrappingGetAttestedDataTimeout;
+                GetCredentialTimeout      = $global:SecureTLSBootstrappingGetCredentialTimeout;
+                Deadline                  = $global:SecureTLSBootstrappingDeadline
             };
         };
         Kubeproxy    = @{
@@ -149,7 +155,17 @@ function Update-DefenderPreferences {
     Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateDefenderPreferences" -TaskMessage "Start to update defender preferences"
 
     Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
+    Add-MpPreference -ExclusionPath "C:\k\kubelet.err.log"
+    Add-MpPreference -ExclusionPath "C:\k\kubelet.log"
+
     Add-MpPreference -ExclusionProcess "c:\k\kube-proxy.exe"
+    Add-MpPreference -ExclusionPath "C:\k\kubeproxy.err.log"
+    Add-MpPreference -ExclusionPath "C:\k\kubeproxy.log"
+
+    Add-MpPreference -ExclusionPath "C:\k\azure-vnet.log"
+    Add-MpPreference -ExclusionPath "C:\k\containerd.err.log"
+    Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.err.log"
+    Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.log"
 
     # Azure CNI
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-cns.exe"
@@ -157,16 +173,26 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-ipamv6.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet-telemetry.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet.exe"
-    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\AzureNetworkContainer.exe"
-    Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\CnsWrapperService.exe"
-    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-endpoints.json"
+    Add-MpPreference -ExclusionPath "C:\k\azurecni\netconf\10-azure.conflist"
     Add-MpPreference -ExclusionPath "C:\k\azure-vnet.log"
+    Add-MpPreference -ExclusionPath "C:\k\azure-vnet-telemetry.log"
+    Add-MpPreference -ExclusionProcess "C:\k\cni\win-bridge.exe"
 
     if ($global:EnableCsiProxy) {
         Add-MpPreference -ExclusionProcess "c:\k\csi-proxy.exe"
-    }
+        Add-MpPreference -ExclusionPath "C:\k\csi-proxy.err.log"
+        Add-MpPreference -ExclusionPath "C:\k\csi-proxy.log"
+   }
 
+     # Azure CNS
+    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-endpoints.json"
+    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-cns.json"
+    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-cns.log"
+
+    # Containerd
     Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd.exe"
+    Add-MpPreference -ExclusionProcess "c:\program files\containerd\containerd-shim-runhcs-v1.exe"
+    Add-MpPreference -ExclusionPath "C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\snapshots"
 }
 
 function Check-APIServerConnectivity {
@@ -182,6 +208,7 @@ function Check-APIServerConnectivity {
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Start to check API server connectivity."
     $retryCount=0
+    $lastExceptionMessage=$null
 
     do {
         $retryString="${retryCount}/${MaxRetryCount}"
@@ -201,9 +228,11 @@ function Check-APIServerConnectivity {
             }
             $tcpClient.Close()
         } catch [System.AggregateException] {
-            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
+            Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
+            $lastExceptionMessage = $_.Exception.ToString()
         } catch {
-            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
+            $lastExceptionMessage = "$_"
         }
 
         $retryCount++
@@ -211,7 +240,10 @@ function Check-APIServerConnectivity {
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries"
+    # Normalize any CR/LF in the exception message to spaces to keep ErrorMessage single-line.
+    $lastExceptionMessage = $lastExceptionMessage -replace "(`r|`n)+", " "
+
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
 
 function Get-CACertificates {

@@ -1,0 +1,38 @@
+Release notes for security patch 20260218T000000Z timestamp
+Package difference between 20260201T000000Z and 20260218T000000Z
+
+Reboot required (kernel update)
+
+
+=== Package Updates ===
+python3-curses  3.12.9-8.azl3  azurelinux-official-base
+python3-libs  3.12.9-8.azl3  azurelinux-official-base
+python3  3.12.9-8.azl3  azurelinux-official-base
+openssl-libs  3.3.5-3.azl3  azurelinux-official-base
+openssl  3.3.5-3.azl3  azurelinux-official-base
+nmap-ncat  7.95-3.azl3  azurelinux-official-base
+libtasn1  4.19.0-3.azl3  azurelinux-official-base
+libcap  2.69-12.azl3  azurelinux-official-base
+libarchive  3.7.7-4.azl3  azurelinux-official-base
+krb5  1.21.3-3.azl3  azurelinux-official-base
+hyperv-daemons-license  6.6.121.1-1.azl3  azurelinux-official-base
+hypervvssd  6.6.121.1-1.azl3  azurelinux-official-base
+hypervkvpd  6.6.121.1-1.azl3  azurelinux-official-base
+hypervfcopyd  6.6.121.1-1.azl3  azurelinux-official-base
+hyperv-daemons  6.6.121.1-1.azl3  azurelinux-official-base
+gnutls  3.8.3-8.azl3  azurelinux-official-base
+gnupg2  2.4.9-2.azl3  azurelinux-official-base
+glibc  2.38-18.azl3  azurelinux-official-base
+glib  2.78.6-7.azl3  azurelinux-official-base
+expat-libs  2.6.4-4.azl3  azurelinux-official-base
+expat  2.6.4-4.azl3  azurelinux-official-base
+curl-libs  8.11.1-5.azl3  azurelinux-official-base
+curl  8.11.1-5.azl3  azurelinux-official-base
+containerd2  2.0.0-17.azl3  azurelinux-official-base
+bind-utils  9.20.18-1.azl3  azurelinux-official-base
+bind-license  9.20.18-1.azl3  azurelinux-official-base
+bind-libs  9.20.18-1.azl3  azurelinux-official-base
+azurelinux-release  3.0-39.azl3  azurelinux-official-base
+
+=== Removed Packages ===
+kernel  6.6.112.1-2.azl3  @System

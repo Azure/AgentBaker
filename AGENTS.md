@@ -109,6 +109,7 @@ Analyze PRs for these compatibility scenarios:
     - Only allowed runtime downloads: packages.aks.azure.com or other explicitly allowed sources in CSE
   - **Function signature changes**: Parameters, return values, exit codes that break callers
   - **Missing test coverage**: Changes to provisioning logic without corresponding e2e tests
+  - **ANC hotfix entry removal**: If a PR removes or modifies the `anc-hotfix: auto-generated` block in `parts/linux/cloud-init/nodecustomdata.yml` or resets `hotfix/anc-hotfix-version.json` to `{}`, **always confirm with the PR owner** that all affected VHDs have been republished with the fix baked in or are out of the 6-month support window. Premature removal means nodes provisioned via scale-up on the old buggy VHD will no longer receive the hotfix.
 
 **2. Windows Bidirectional Compatibility**
 - **Context**: Windows VHD and CSE scripts release on different cadences with no guaranteed order
@@ -135,6 +136,90 @@ Analyze PRs for these compatibility scenarios:
   - Missing conditional logic for OS-specific behaviors
   - Package manager assumptions (apt vs dnf/tdnf)
   - Systemd differences between distributions
+
+**5. Package/Dependency Update PRs (Renovate)**
+- **Context**: Renovate bot automatically creates PRs to update component versions in `parts/common/components.json`. These components are cached on VHDs during build and directly affect node stability, GPU workloads, networking, and security. Updated packages are downloaded from `packages.aks.azure.com` or upstream registries during VHD build.
+- **What to check**: Every version bump—even patch versions—can introduce regressions that affect production nodes.
+- **Analysis steps for every package update PR**:
+  1. **Identify the component and version change**: Parse the diff in `parts/common/components.json` to extract exact old → new versions for each OS/release entry.
+  2. **Determine the update type**: Classify as major, minor, or patch using semver. Major and minor updates carry higher risk than patch updates.
+  3. **Research upstream changelog**: Look up the project's release notes, changelog, or GitHub releases to understand what changed between the old and new versions. Summarize:
+     - New features introduced
+     - Bug fixes included
+     - Breaking changes or deprecations
+     - Security fixes (CVEs patched)
+  4. **Assess OS coverage**: Check if the update covers all OS variants where the component is used (Ubuntu 22.04, 24.04, Azure Linux 3.0, etc.). Flag if some OS entries are updated but others are not — partial updates can cause inconsistency across node pools.
+  5. **Evaluate VHD size impact**: For components downloaded as binaries or packages, consider whether the new version significantly increases VHD size. Large size increases can affect VHD build time and storage costs.
+  6. **Check for configuration or API changes**: If the component exposes configuration files, CLI flags, systemd units, or APIs consumed by CSE scripts, verify that the update doesn't change defaults or remove options that provisioning scripts depend on.
+  7. **Verify download URL validity**: Confirm that the `downloadLocation` and `downloadURIs` structure in components.json remains valid for the new version. New versions sometimes change the artifact naming convention or repository layout.
+
+- **Risk assessment for package updates**:
+  - 🔴 **High Risk**: Major version bumps, components critical to node boot (kubelet, containerd, runc), GPU drivers (nvidia-driver, dcgm-exporter), or networking (azure-cni, cilium). Also high risk if upstream changelog mentions breaking changes or behavioral changes.
+  - 🟡 **Medium Risk**: Minor version bumps of non-critical components, updates that only affect specific OS variants, or updates where upstream changelog shows feature additions that could subtly change behavior.
+  - 🟢 **Low Risk**: Patch version bumps with only bug fixes or security patches, no breaking changes in upstream changelog, and full OS coverage.
+
+- **Review output for package update PRs must include a detailed version diff analysis**:
+
+  **Header:**
+  ```
+  ## Package Update Analysis: <component-name>
+  **Version change**: X.Y.Z → A.B.C (<major|minor|patch> update)
+  **OS variants affected**: Ubuntu 22.04, Ubuntu 24.04, Azure Linux 3.0 (list all)
+  **OS variants NOT updated**: <list any missing, or "None — full coverage">
+  ```
+
+  **Detailed changelog between versions:**
+  Use web search, GitHub releases, or upstream project documentation to find the exact differences between the old and new version. Present each change as a line item with its own risk tag:
+
+  ```
+  ### Changes between X.Y.Z and A.B.C
+
+  | Change | Description | Risk |
+  |--------|-------------|------|
+  | Feature | <brief description of new feature> | 🟢 Low / 🟡 Medium / 🔴 High |
+  | Bug fix | <brief description of bug fixed> | 🟢 Low / 🟡 Medium / 🔴 High |
+  | Breaking | <description of breaking change> | 🔴 High |
+  | Security | CVE-YYYY-XXXXX: <description> | 🟢 Low / 🟡 Medium / 🔴 High |
+  | Deprecation | <what was deprecated and migration path> | 🟡 Medium / 🔴 High |
+  | Config change | <default value changed or option removed> | 🟡 Medium / 🔴 High |
+  | Performance | <perf improvement or regression> | 🟢 Low / 🟡 Medium |
+  ```
+
+  For each individual change, assess risk by considering:
+  - Does it alter runtime behavior on AKS nodes?
+  - Does it change CLI flags, config file formats, or systemd unit behavior that CSE scripts depend on?
+  - Does it affect GPU workloads, networking, container runtime, or kubelet interaction?
+  - Could it increase binary size significantly (VHD bloat)?
+  - Does it introduce new system dependencies or kernel requirements?
+
+  **If upstream changelog is unavailable**, explicitly state: _"Upstream changelog not found for this version range. Manual testing recommended before merge."_
+
+  **Overall risk assessment:**
+  ```
+  ### Overall Risk: 🟢 Low / 🟡 Medium / 🔴 High
+  **Justification**: <1-2 sentence summary of why this risk level was chosen>
+  **Recommendation**: Approve / Request more info / Flag for manual testing
+  ```
+
+  **Example** (for a PR like dcgm-exporter 4.7.1 → 4.8.0):
+  ```
+  ## Package Update Analysis: dcgm-exporter
+  **Version change**: 4.7.1 → 4.8.0 (minor update)
+  **OS variants affected**: Ubuntu 22.04, Ubuntu 24.04
+  **OS variants NOT updated**: Azure Linux 3.0 (still on 4.7.1-1.azl3) — flag for follow-up
+
+  ### Changes between 4.7.1 and 4.8.0
+  | Change | Description | Risk |
+  |--------|-------------|------|
+  | Feature | Added support for new DCGM field IDs for Blackwell GPUs | 🟢 Low |
+  | Feature | New metrics endpoint configuration options | 🟡 Medium |
+  | Bug fix | Fixed memory leak in long-running metric collection | 🟢 Low |
+  | Deprecation | Removed legacy CSV export format | 🟡 Medium |
+
+  ### Overall Risk: 🟡 Medium
+  **Justification**: Minor version bump of GPU monitoring component. No breaking changes to core metrics pipeline, but Azure Linux 3.0 is not updated which creates version skew across OS variants.
+  **Recommendation**: Approve, but file follow-up issue for Azure Linux 3.0 alignment.
+  ```
 
 ### Analysis Approach
 
@@ -169,8 +254,22 @@ Provide targeted inline comments on specific lines where you detect issues:
 - Include actionable next steps (e.g., "Verify this function is not used by checking references in `vhdbuilder/packer/`")
 
 **Risk indicators to include:**
-- Severity: 🔴 High Risk | 🟡 Medium Risk | 🟢 Low Risk
-- Category: Script Logic | Cross-OS | External Dependency | Test Coverage | etc.
+
+- **Severity** (pick one):
+  - 🔴 **High Risk** — Could break production VM provisioning, cause node failures, or introduce security vulnerabilities
+  - 🟡 **Medium Risk** — Could cause issues in specific configurations, edge cases, or degrade performance
+  - 🟢 **Low Risk** — Unlikely to cause issues but worth noting for awareness
+
+- **Category** (pick one):
+  - 🔧 **Script Logic** — Syntax errors, incorrect commands, broken control flow, wrong exit codes
+  - 🖥️ **Cross-OS** — Incompatibility between Ubuntu, Azure Linux/Mariner, or Windows
+  - 🌐 **External Dependency** — Unauthorized downloads, missing components.json entries, broken URLs
+  - 🧪 **Test Coverage** — Missing or insufficient test coverage for changed behavior
+  - 📦 **Package Update** — Component version changes, upstream regressions, VHD size impact
+  - 🔄 **Backward Compatibility** — Breaking changes affecting VHDs in production (6-month window)
+  - 🔒 **Security** — Credential exposure, privilege escalation, insecure defaults
+  - ⚡ **Performance** — VHD build time regression, node provisioning latency increase
+  - 🏗️ **Architecture** — Structural changes affecting multiple components or deployment modes
 
 **Only comment when you have substantive findings** - avoid noise on trivial or obviously safe changes.
 

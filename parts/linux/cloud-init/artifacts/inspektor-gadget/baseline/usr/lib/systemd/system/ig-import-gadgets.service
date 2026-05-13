@@ -1,0 +1,13 @@
+[Unit]
+Description=Import Inspektor Gadget baseline gadget images
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/share/inspektor-gadget/import_gadgets.sh
+ExecStop=/usr/share/inspektor-gadget/remove_gadgets.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

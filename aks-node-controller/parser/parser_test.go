@@ -130,6 +130,7 @@ oom_score = -999
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_ENVIRONMENT"])
 				assert.Equal(t, "AzureChinaCloud", vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
+				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
 			},
 		},
 		{
@@ -144,6 +145,40 @@ oom_score = -999
 				assert.Equal(t, helpers.AksCustomCloudName, vars["TARGET_ENVIRONMENT"])
 				assert.Equal(t, helpers.AzureStackCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "true", vars["IS_CUSTOM_CLOUD"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with cloud provider config overrides",
+			folder:     "AKSUbuntu2204+CloudProviderOverrides",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.ClusterConfig.CloudProviderConfig = &aksnodeconfigv1.CloudProviderConfig{
+					Backoff:              to.Ptr(false),
+					BackoffMode:          "v1",
+					BackoffRetries:       to.Ptr[int32](9),
+					BackoffExponent:      to.Ptr(1.5),
+					BackoffDuration:      to.Ptr[int32](12),
+					BackoffJitter:        to.Ptr(0.5),
+					RateLimit:            to.Ptr(false),
+					RateLimitQps:         to.Ptr(3.2),
+					RateLimitQpsWrite:    to.Ptr(4.2),
+					RateLimitBucket:      to.Ptr[int32](42),
+					RateLimitBucketWrite: to.Ptr[int32](43),
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "false", vars["CLOUDPROVIDER_BACKOFF"])
+				assert.Equal(t, "v1", vars["CLOUDPROVIDER_BACKOFF_MODE"])
+				assert.Equal(t, "9", vars["CLOUDPROVIDER_BACKOFF_RETRIES"])
+				assert.Equal(t, "1.5", vars["CLOUDPROVIDER_BACKOFF_EXPONENT"])
+				assert.Equal(t, "12", vars["CLOUDPROVIDER_BACKOFF_DURATION"])
+				assert.Equal(t, "0.5", vars["CLOUDPROVIDER_BACKOFF_JITTER"])
+				assert.Equal(t, "false", vars["CLOUDPROVIDER_RATELIMIT"])
+				assert.Equal(t, "3.2", vars["CLOUDPROVIDER_RATELIMIT_QPS"])
+				assert.Equal(t, "4.2", vars["CLOUDPROVIDER_RATELIMIT_QPS_WRITE"])
+				assert.Equal(t, "42", vars["CLOUDPROVIDER_RATELIMIT_BUCKET"])
+				assert.Equal(t, "43", vars["CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE"])
 			},
 		},
 		{
@@ -193,6 +228,38 @@ oom_score = -999
 				assert.Equal(t, "true", vars["IS_KATA"])
 				assert.Equal(t, "true", vars["ENABLE_UNATTENDED_UPGRADES"])
 				assert.Equal(t, "true", vars["NEEDS_CGROUPV2"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with LocalDNS and hosts plugin enabled",
+			folder:     "AKSUbuntu2204+LocalDNS+HostsPlugin",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true,
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 with LocalDNS enabled but hosts plugin disabled",
+			folder:     "AKSUbuntu2204+LocalDNS",
+			k8sVersion: "1.24.2",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false,
+				}
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["SHOULD_ENABLE_LOCALDNS"])
+				assert.Equal(t, "false", vars["SHOULD_ENABLE_HOSTS_PLUGIN"])
 			},
 		},
 	}
@@ -369,38 +436,45 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Contains(t, sysctlContent, fmt.Sprintf("net.ipv4.neigh.default.gc_thresh1=%v", 4096))
 				assert.Contains(t, sysctlContent, fmt.Sprintf("net.ipv4.neigh.default.gc_thresh2=%v", 8192))
 				assert.Contains(t, sysctlContent, fmt.Sprintf("net.ipv4.neigh.default.gc_thresh3=%v", 16384))
-				assert.Equal(t, "false", vars["IS_KATA"])
-				assert.Equal(t, "false", vars["ENABLE_UNATTENDED_UPGRADES"])
-				assert.Equal(t, "false", vars["NEEDS_CGROUPV2"])
-				assert.Equal(t, "azureuser", vars["ADMINUSER"])
-				assert.Equal(t, "0", vars["SWAP_FILE_SIZE_MB"])
-				assert.Equal(t, "false", vars["SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE"])
-				assert.Equal(t, "", vars["THP_ENABLED"])
-				assert.Equal(t, "", vars["THP_DEFRAG"])
-				assert.Equal(t, "false", vars["DISABLE_SSH"])
-				assert.Equal(t, "true", vars["IS_VHD"])
-				assert.Equal(t, "", vars["MOBY_VERSION"])
-				assert.Equal(t, "", vars["LOAD_BALANCER_SKU"])
-				assert.Equal(t, "", vars["NETWORK_POLICY"])
-				assert.Equal(t, "", vars["NETWORK_PLUGIN"])
-				assert.Equal(t, "", vars["VNET_CNI_PLUGINS_URL"])
-				assert.Equal(t, "false", vars["GPU_NODE"])
-				assert.Equal(t, "", vars["GPU_INSTANCE_PROFILE"])
-				assert.Equal(t, "0", vars["CUSTOM_CA_TRUST_COUNT"])
-				assert.Equal(t, "false", vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"])
-				assert.Equal(t, "", vars["KUBELET_FLAGS"])
-				assert.Equal(t, "", vars["KUBELET_NODE_LABELS"])
-				assert.Equal(t, "", vars["HTTP_PROXY"])
-				assert.Equal(t, "", vars["HTTPS_PROXY"])
-				assert.Equal(t, "", vars["NO_PROXY"])
-				assert.Equal(t, "", vars["PROXY_TRUSTED_CA"])
-				assert.Equal(t, helpers.DefaultCloudName, vars["TARGET_ENVIRONMENT"])
-				assert.Equal(t, "", vars["TLS_BOOTSTRAP_TOKEN"])
-				assert.Equal(t, "false", vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"])
-				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_DEADLINE"])
-				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE"])
-				assert.Equal(t, "", vars["SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"])
-				assert.Equal(t, "", vars["CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_URL"])
+				assertHasKeyWithValue(t, vars, "IS_KATA", "false")
+				assertHasKeyWithValue(t, vars, "ENABLE_UNATTENDED_UPGRADES", "false")
+				assertHasKeyWithValue(t, vars, "NEEDS_CGROUPV2", "false")
+				assertHasKeyWithValue(t, vars, "ADMINUSER", "azureuser")
+				assertHasKeyWithValue(t, vars, "SWAP_FILE_SIZE_MB", "0")
+				assertHasKeyWithValue(t, vars, "SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE", "false")
+				assertHasKeyWithValue(t, vars, "THP_ENABLED", "")
+				assertHasKeyWithValue(t, vars, "THP_DEFRAG", "")
+				assertHasKeyWithValue(t, vars, "DISABLE_SSH", "false")
+				assertHasKeyWithValue(t, vars, "IS_VHD", "true")
+				assertHasKeyWithValue(t, vars, "MOBY_VERSION", "")
+				assertHasKeyWithValue(t, vars, "LOAD_BALANCER_SKU", "")
+				assertHasKeyWithValue(t, vars, "NETWORK_POLICY", "")
+				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
+				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
+				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
+				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
+				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
+				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
+				assertHasKeyWithValue(t, vars, "KUBELET_FLAGS", "")
+				assertHasKeyWithValue(t, vars, "KUBELET_NODE_LABELS", "")
+				assertHasKeyWithValue(t, vars, "HTTP_PROXY_URLS", "")
+				assertHasKeyWithValue(t, vars, "HTTPS_PROXY_URLS", "")
+				assertHasKeyWithValue(t, vars, "NO_PROXY_URLS", "")
+				assertHasKeyWithValue(t, vars, "HTTP_PROXY_TRUSTED_CA", "")
+				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
+				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
+				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
+				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID", "")
+				assertHasKeyWithValue(t, vars, "CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_DEADLINE", "")
 			},
 		},
 	}
@@ -497,4 +571,9 @@ func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
 		err := os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cmd.String()), 0644)
 		assert.NoError(t, err)
 	}
+}
+
+func assertHasKeyWithValue[K comparable, V any](t *testing.T, m map[K]V, key K, value V) {
+	assert.Contains(t, m, key, "expected map to contain key: %v", key)
+	assert.Equal(t, value, m[key], "expected map to have key-value pair %s=%v", key, value)
 }

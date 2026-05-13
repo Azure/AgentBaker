@@ -1,7 +1,11 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
 
+source /home/packer/packer_source.sh
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -15,15 +19,17 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-MAX_BLOCK_COUNT=30298176 # 30 GB
-if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  # Increase the MAX_BLOCK_COUNT to 60 GB for GB200 images
-  MAX_BLOCK_COUNT=60596352 # 60 GB
+if [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "$OS_VARIANT"; then
+  MAX_BLOCK_COUNT=60397977 # 60 GB
+  DISK_SIZE_GB=60
+else
+  MAX_BLOCK_COUNT=30298176 # 30 GB
+  DISK_SIZE_GB=30
 fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for GB200.
+  # We do not purge extra kernels from the Ubuntu 24.04 ARM image, since that image must dual-boot for GB200.
   if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
@@ -32,11 +38,6 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     else
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
-    fi
-  else
-    # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or GB200.
-    if [ $(dpkg --get-selections | grep -c "linux-image") -lt 2 ]; then
-      echo "ERROR: Ubuntu 24.04 ARM image is missing either the -azure or -azure-nvidia kernel, cannot continue!" && exit 1
     fi
   fi
 
@@ -47,6 +48,11 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
+
+  # Re-apply custom login banners after all apt operations.
+  # apt_get_dist_upgrade uses --force-confnew which overwrites /etc/issue and /etc/issue.net
+  # with the default content from the base-files package whenever it is upgraded.
+  reapplyBanners
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
   # Final step, FIPS, log ua status, detach UA and clean up
@@ -63,7 +69,7 @@ echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /opt/bin/kube* >> ${VHD_LOGS_FILEPATH}
 
 # shellcheck disable=SC2010
-ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
+ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} || true
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 
@@ -75,13 +81,8 @@ os_device=$(readlink -f /dev/disk/azure/root)
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
-if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 60GB cap!" && exit 1
-  [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 60GB cap!"
-else
-  [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-  [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
-fi
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the ${DISK_SIZE_GB}GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the ${DISK_SIZE_GB}GB cap!"
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}

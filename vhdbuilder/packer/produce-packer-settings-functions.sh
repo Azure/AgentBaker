@@ -57,8 +57,11 @@ function ensure_sig_image_name_linux() {
 			else
 				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
-		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ]; then
-			# for Azure Linux 3.0, only use AzureLinux prefix
+		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ] && [ "${OS_SKU,,}" != "azurecontainerlinux" ]; then
+			# for Azure Linux 3.0, only use AzureLinux prefix.
+			# AzureContainerLinux (ACL) shares the azure-linux-3 marketplace offer but its destination
+			# SIG image definitions (e.g. aclgen2TL, aclgen2arm64TL) intentionally have no AzureLinux prefix,
+			# so it falls through to the no-prefix branch below.
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		elif [ "${OS_SKU,,}" = "azurelinuxosguard" ]; then
 			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
@@ -73,31 +76,31 @@ function ensure_sig_image_name_linux() {
 
 function download_windows_json_artifact() {
 	filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
-	echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
+	echo "Downloading $filename from wcct storage account using Azure CLI auth"
 
 	# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
 	# For details on the expected format and how to manually retrieve the JSON blob,
 	# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
-	if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
+
+	# Parse storage account, container, and blob path from the URL
+	# URL format: https://<account>.blob.core.windows.net/<container>/<blob_path>
+	local storage_account container blob_path
+	storage_account=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://\([^.]*\)\.blob\.core\.windows\.net/.*|\1|p')
+	container=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://[^/]*/\([^/]*\)/.*|\1|p')
+	blob_path=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://[^/]*/[^/]*/\(.*\)|\1|p')
+
+	echo "Storage account: $storage_account, Container: $container, Blob: $blob_path"
+
+	if az storage blob download \
+		--account-name "$storage_account" \
+		--container-name "$container" \
+		--name "$blob_path" \
+		--file "${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename" \
+		--auth-mode login; then
 		echo "Successfully downloaded the latest artifact: $filename"
 	else
-		# loop through azcopy log files
-		for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-			echo "Azcopy log file: $f"
-			# upload the log file as an attachment to vso
-			set +x
-			echo "##vso[build.uploadlog]$f"
-			set -x
-			# check if the log file contains any errors
-			if grep -q '"level":"Error"' "$f"; then
-				echo "log file $f contains errors"
-				set +x
-				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-				set -x
-				# print the log file
-				cat "$f"
-			fi
-		done
+		echo "##vso[task.logissue type=error]Failed to download $filename from storage account $storage_account"
+		echo "Error: az storage blob download failed for ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	fi
 
 	# Parse the json artifact to get the image urls
@@ -163,7 +166,8 @@ function create_windows_storage_account() {
 			--sku "Standard_RAGRS" \
 			--tags "now=${CREATE_TIME}" \
 			--allow-shared-key-access false \
-			--location ""${AZURE_LOCATION}""
+			--min-tls-version TLS1_2 \
+			--location "${AZURE_LOCATION}"
 		echo "creating new container system"
 		az storage container create --name system "--account-name=${STORAGE_ACCOUNT_NAME}" --auth-mode login
 	else
@@ -268,6 +272,20 @@ function prepare_windows_vhd() {
 	WINDOWS_IMAGE_VERSION=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" <$CDIR/windows/windows_settings.json)
 	WINDOWS_IMAGE_NAME=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" <$CDIR/windows/windows_settings.json)
 	OS_DISK_SIZE=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" <$CDIR/windows/windows_settings.json)
+
+	local sku_publisher
+	if sku_publisher=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_publisher" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sku_publisher}" ] && [ "${sku_publisher}" != "null" ]; then
+			WINDOWS_IMAGE_PUBLISHER="${sku_publisher}"
+		fi
+	fi
+	local sku_offer
+	if sku_offer=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_offer" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sku_offer}" ] && [ "${sku_offer}" != "null" ]; then
+			WINDOWS_IMAGE_OFFER="${sku_offer}"
+		fi
+	fi
+
 	if [ "null" != "${OS_DISK_SIZE}" ]; then
 		echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
 		os_disk_size_gb=${OS_DISK_SIZE}
@@ -278,6 +296,8 @@ function prepare_windows_vhd() {
 	imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
 
 	echo "Got base image data: "
+	echo "  WINDOWS_IMAGE_PUBLISHER: ${WINDOWS_IMAGE_PUBLISHER}"
+	echo "  WINDOWS_IMAGE_OFFER: ${WINDOWS_IMAGE_OFFER}"
 	echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
 	echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
 	echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
@@ -433,24 +453,59 @@ function ensure_sig_vhd_exists() {
 		# The following conditionals do not require NVMe tagging on disk controller type
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
-			TARGET_COMMAND_STRING=""
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				TARGET_COMMAND_STRING+="--architecture Arm64 --features DiskControllerTypes=SCSI,NVMe"
+				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				else
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe"
+				fi
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
-				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--os-state Specialized \
+					--features "SecurityType=ConfidentialVM"
+			else
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION}
 			fi
-
-			az sig image-definition create \
-				--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-				--gallery-name ${SIG_GALLERY_NAME} \
-				--gallery-image-definition ${SIG_IMAGE_NAME} \
-				--publisher microsoft-aks \
-				--offer ${SIG_GALLERY_NAME} \
-				--sku ${SIG_IMAGE_NAME} \
-				--os-type ${OS_TYPE} \
-				--hyper-v-generation ${HYPERV_GENERATION} \
-				--location ${AZURE_LOCATION} \
-				${TARGET_COMMAND_STRING}
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
 			if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then

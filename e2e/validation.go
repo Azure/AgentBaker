@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
@@ -43,6 +44,12 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateDiskQueueService(ctx, s)
 	ValidateLeakedSecrets(ctx, s)
 	ValidateIPTablesCompatibleWithCiliumEBPF(ctx, s)
+	ValidateRxBufferDefault(ctx, s)
+	ValidateKernelLogs(ctx, s)
+	ValidateWaagentLog(ctx, s)
+	ValidateScriptlessCSECmd(ctx, s)
+	ValidateScriptlessNBCCSECmd(ctx, s)
+	ValidateNodeExporter(ctx, s)
 
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
@@ -66,30 +73,50 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		ValidateKubeletNodeIP(ctx, s)
 	}
 
-	// localdns is not supported on scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
-	if !s.VHD.UnsupportedLocalDns {
+	// localdns validation is skipped for VHDs with UnsupportedLocalDns=true:
+	// FIPS VHDs, older pinned VHDs (privatekube, network-isolated-k8s-not-cached), and AzureLinux OSGuard.
+	// See e2e/config/vhd.go for the full list.
+	if !s.VHD.UnsupportedLocalDns && !config.Config.TestPreProvision && !s.VHDCaching {
 		ValidateLocalDNSService(ctx, s, "enabled")
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
+		ValidateLocalDNSExporterMetrics(ctx, s)
+
+		// Validate hosts plugin validators only if hosts plugin is explicitly enabled
+		if s.IsHostsPluginEnabled() {
+			// Guard: skip hosts plugin validation if the VHD doesn't have the required artifacts.
+			// The Agentbaker E2E pipeline uses VHDs from main, which may not yet include
+			// aks-localdns-hosts-setup artifacts until the PR merges. This mirrors the pattern
+			// used by PR #7917 for the localdns-exporter feature.
+			if !vhdHasHostsPluginArtifacts(ctx, s) {
+				s.T.Logf("WARNING: VHD does not have aks-localdns-hosts-setup.service — skipping hosts plugin validation")
+			} else {
+				// Validate hosts file contains resolved IPs for critical FQDNs (IPs resolved dynamically).
+				// CSE sets up the hosts file and enables the aks-localdns-hosts-setup timer, but population
+				// is performed asynchronously by the timer/service rather than synchronously during provisioning.
+				ValidateLocalDNSHostsFile(ctx, s, s.GetDefaultFQDNsForValidation())
+				// Validate aks-localdns-hosts-setup service ran successfully and timer is active
+				ValidateAKSLocalDNSHostsSetupService(ctx, s)
+				// No restart needed: select_localdns_corefile() uses feature flag to select WITH_HOSTS corefile,
+				// and CoreDNS's reload 5s hot-reloads the hosts file when it gets populated.
+				// Validate hosts plugin serves responses with IPs matching /etc/localdns/hosts
+				ValidateLocalDNSHostsPluginBypass(ctx, s)
+				// Validate IPv6 entries in hosts file are served correctly by CoreDNS (skips if no IPv6 present)
+				ValidateLocalDNSHostsPluginIPv6(ctx, s)
+				// Validate localdns cold start with empty hosts file: restart → fallthrough → populate → reload
+				ValidateLocalDNSHostsPluginColdStart(ctx, s)
+			}
+		}
 	}
+
+	ValidateInspektorGadget(ctx, s)
 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
 	require.NotContains(s.T, execResult.stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
 	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
-	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
-	if !assert.Equal(s.T, "28", execResult.exitCode, "curl to wireserver expected to fail, but it didn't") {
-		// Log debug information. This validator seems to be flaky, hard to catch
-		s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
-		s.T.FailNow()
-	}
-
-	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
-	if !assert.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 expected to fail, but it didn't") {
-		// Log debug information. This validator seems to be flaky, hard to catch
-		s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
-		s.T.FailNow()
-	}
+	validateWireServerBlocked(ctx, s)
+	ValidateVulnerableKernelModulesDisabled(ctx, s)
 
 	// base NBC templates define a mock service principal profile that we can still use to test
 	// the correct bootstrapping logic: https://github.com/Azure/AgentBaker/blob/master/e2e/node_config.go#L438-L441
@@ -117,14 +144,14 @@ func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error
 	start := time.Now()
 
 	s.T.Logf("creating pod %q", pod.Name)
-	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, v1.CreateOptions{})
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create pod %q: %v", pod.Name, err)
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, v1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
@@ -239,4 +266,68 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 	}
 
 	return tablePatterns, globalPatterns
+}
+
+// validateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
+// The iptables FORWARD DROP rules blocking pod→WireServer traffic can be transiently
+// absent when kube-proxy or CNI flush/recreate iptables chains during node setup.
+// We resolve the debug pod once up front (outside the retry budget) so that pod
+// scheduling latency doesn't eat into the iptables-check timeout.
+func validateWireServerBlocked(ctx context.Context, s *Scenario) {
+	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
+
+	// Resolve the unprivileged debug pod once — this can take 25-30s on cold nodes.
+	// Using the parent context so it has the full scenario timeout, not the short poll timeout.
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	require.NoError(s.T, err, "failed to get non host debug pod for wireserver validation")
+
+	type wireServerCheck struct {
+		cmd  string
+		desc string
+	}
+
+	checks := []wireServerCheck{
+		{
+			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			desc: "wireserver port 80 goalstate",
+		},
+		{
+			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			desc: "wireserver port 32526 vmSettings",
+		},
+	}
+
+	for _, check := range checks {
+		var lastResult *podExecResult
+		err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+			execResult, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+			if execErr != nil {
+				s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				return false, nil
+			}
+			lastResult = execResult
+			if lastResult.exitCode == "28" {
+				return true, nil
+			}
+			s.T.Logf("wireserver check %q: expected exit code 28, got %s (retrying)", check.desc, lastResult.exitCode)
+			return false, nil
+		})
+		if err != nil {
+			s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
+			if lastResult == nil {
+				require.NoErrorf(s.T, err, "curl to %s did not complete before polling stopped", check.desc)
+			}
+			s.T.Logf("last curl result for %s: %s", check.desc, lastResult.String())
+			assert.Equal(s.T, "28", lastResult.exitCode, "curl to %s expected to fail with timeout, but it didn't after retries", check.desc)
+			s.T.FailNow()
+		}
+	}
+}
+
+// vhdHasHostsPluginArtifacts checks if the VHD has aks-localdns-hosts-setup.service installed
+// by running a file existence check on the VM. Returns false if the service file is absent,
+// meaning the VHD predates the hosts plugin feature and validators should be skipped.
+func vhdHasHostsPluginArtifacts(ctx context.Context, s *Scenario) bool {
+	result := execScriptOnVMForScenario(ctx, s, "test -f /etc/systemd/system/aks-localdns-hosts-setup.service")
+	return result.exitCode == "0"
 }

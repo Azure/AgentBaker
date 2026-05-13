@@ -253,9 +253,9 @@ convert_specialized_sig_version_to_managed_image() {
 
 create_temp_storage() {
     storage_account_name="${VHD_NAME//./}"
-    if [ -z "$(az storage account show --account-name "${storage_account_name}" | jq -r '.name')" ]; then
+    if ! az storage account show --account-name "${storage_account_name}" >/dev/null 2>&1; then
         echo "creating temporary storage account ${storage_account_name} in resource group ${IMAGE_BUILDER_RG_NAME} in location ${LOCATION}"
-        az storage account create -n "${storage_account_name}" -g "${IMAGE_BUILDER_RG_NAME}" --sku "Standard_RAGRS" --allow-shared-key-access false --location "${LOCATION}" || return $?
+        az storage account create -n "${storage_account_name}" -g "${IMAGE_BUILDER_RG_NAME}" --sku "Standard_RAGRS" --allow-shared-key-access false --min-tls-version TLS1_2 --location "${LOCATION}" || return $?
     fi
     storage_container_name="vhd"
     if [ "$(az storage container exists -n "${storage_container_name}" --account-name "${storage_account_name}" --auth-mode login | jq -r '.exists')" = "false" ]; then

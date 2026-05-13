@@ -112,17 +112,17 @@ We enabled auto-updating `minor` versions as default configuration for now we ca
 
 p.s. To allow disable `minor` update but enable `patch` update, at root level `separateMinorPatch` needs to be `true`, though it's no harm to turn it on even we are also updating `minor`.
 
-### Assigning specific component to specific person
+### Assigning specific component to specific person/team
 We can use `matchPackageNames` to achieve this purpose.
 For example,
 ```
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["team:aks-node-lifecycle"],
+      "reviewers": ["team:aks-node-lifecycle"]
     },
 ```
-In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs. The values in `reviewers` are the same group of people to allow them to self-approve the PR. Unfortunately JSON doesn't support variable in value so we have to provide the value strings twice for both `assignees` and `reviewers`
+In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to the configured owner. The values in `reviewers` are the same owner group as `assignees`.
 
 ### Additional string operation to specific component
 ```
@@ -402,6 +402,8 @@ where
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
 
+systemd system extensions (sysexts) are also hosted as MAR OCI artifacts, but they use a slightly different `extractVersion` rule and `downloadURL`. The distribution (e.g. `azlinux3`) is included in the version to allow different distributions within groups of artifacts. `${SYSTEMD_ARCH}` rather than `${CPU_ARCH}` is used in the URL, as systemd has different architecture names in some cases.
+
 ## `REVISION` in Dalec built container images
 Dalec-built container images use static tags in the form `vMAJOR.MINOR.PATCH-REVISION` (see the Dalec FAQ https://github.com/Azure/dalec-build-defs/blob/main/faq.md#how-do-floating-vs-static-tags-work for details). For clarity and deterministic caching we represent these container images in Agent Baker's `components.json` using the exact static tag `vMAJOR.MINOR.PATCH-REVISION`.
 
@@ -426,8 +428,8 @@ This is a common scenario where we want the PR to be merged automatically when a
       ],
       "automerge": true,
       "enabled": true,
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"],
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "lilypan26", "djsly", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["team:aks-node-lifecycle"],
+      "reviewers": ["team:aks-node-lifecycle"]
     },
 ```
 The config includes:
@@ -435,7 +437,7 @@ The config includes:
 - `matchUpdateTypes`: The type of version updates (`patch`) to which this rule applies.
 - `automerge`: Set to `true` to automatically merge PRs created by this rule. Default is `false`.
 - `enabled`: Set to `true` to enable this rule.
-- `assignees` and `reviewers`: The same group of GitHub IDs who will be assigned to and can review and approve the automatically created PRs.
+- `assignees` and `reviewers`: The same owner group (users or a team handle like `team:aks-node-lifecycle`) who will be assigned to and can review and approve the automatically created PRs.
 
 ## Why are some components' `minor version update` disabled?
 For many components which have defined multiple versions cached in the components.json, we have disabled the `minor version update`.

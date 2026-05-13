@@ -1,11 +1,22 @@
 #!/bin/bash
 
+# Helper functions for tests
+check_file_permissions() {
+    # Use printf to ensure leading zero (0644 format)
+    printf "0%s" "$(stat -c "%a" "$LOCALDNS_ENV_FILE")"
+}
+
+check_cloud_env_permissions() {
+    printf "0%s" "$(stat -c "%a" "$AKS_CLOUD_ENV_FILE")"
+}
+
+check_hosts_file_permissions() {
+    stat -c '%a' "$AKS_LOCALDNS_HOSTS_FILE"
+}
+
 Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
-    Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
-    Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
-    Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
 
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
@@ -790,69 +801,116 @@ providers:
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            KUBELET_NODE_LABELS=""
+            LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
+            LOCALDNS_COREFILE_WITH_HOSTS=$(echo -n "localdns corefile with hosts" | base64)
+            LOCALDNS_COREFILE_BASE=$(echo -n "localdns corefile" | base64)
+            LOCALDNS_MEMORY_LIMIT="128M"
+            LOCALDNS_CPU_LIMIT="200.0%"
+            # Create mock localdns assets that would be present on VHD
+            mkdir -p /etc/systemd/system
+            mkdir -p /opt/azure/containers/localdns
+            touch /etc/systemd/system/localdns.service
+            touch /opt/azure/containers/localdns/localdns.sh
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 0
             }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+            addKubeletNodeLabel() {
+                echo "addKubeletNodeLabel $1"
+                if [[ -z "$KUBELET_NODE_LABELS" ]]; then
+                    KUBELET_NODE_LABELS="$1"
+                else
+                    KUBELET_NODE_LABELS="$KUBELET_NODE_LABELS,$1"
+                fi
+            }
         }
         cleanup() {
             rm -rf "$TMP_DIR"
+            # Clean up mock VHD assets
+            rm -f /etc/systemd/system/localdns.service
+            rm -f /opt/azure/containers/localdns/localdns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        It 'should enable localdns successfully'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
-            When call enableLocalDNS
+        It 'should enable localdns successfully when VHD has required assets'
+            When run enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+            # Note: exporter socket setup is now in configureLocalDNSExporterSocket (called separately in cse_main.sh)
+            The output should not include "localdns-exporter"
         End
 
-        It 'should skip enabling localdns if corefile is not created'
-            rm -rf "$LOCALDNS_CORE_FILE"
-            When call enableLocalDNS
+        It 'should skip localdns when localdns.service is missing on old VHD'
+            rm -f /etc/systemd/system/localdns.service
+            When run enableLocalDNS
             The status should be success
-            The output should include "localdns should not be enabled."
+            The output should include "Warning: localdns.service not found on this VHD, skipping localdns setup"
+            The output should not include "localdns should be enabled."
+        End
+
+        It 'should skip localdns when localdns.sh is missing on old VHD'
+            rm -f /opt/azure/containers/localdns/localdns.sh
+            When run enableLocalDNS
+            The status should be success
+            The output should include "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+            The output should not include "localdns should be enabled."
         End
 
         It 'should return error when systemctl fails to start localdns'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 1
             }
-            When call enableLocalDNS
+            When run enableLocalDNS
             The status should equal 216
             The output should include "localdns should be enabled."
-            The output should include "Enable localdns failed."
         End
     End
 
-    Describe 'shouldEnableLocalDns'
+    Describe 'enableLocalDNSForScriptless'
         setup() {
             TMP_DIR=$(mktemp -d)
-            LOCALDNS_COREFILE="$TMP_DIR/localdns.corefile"
-            LOCALDNS_SLICEFILE="$TMP_DIR/localdns.slice"
-            LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
+            LOCALDNS_COREFILE_BASE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
+            LOCALDNS_COREFILE_WITH_HOSTS=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
             LOCALDNS_CPU_LIMIT="250%"
+            # Create mock localdns assets that would be present on VHD
+            mkdir -p /etc/systemd/system
+            mkdir -p /opt/azure/containers/localdns
+            touch /etc/systemd/system/localdns.service
+            touch /opt/azure/containers/localdns/localdns.sh
 
             systemctlEnableAndStart() {
                 echo "systemctlEnableAndStart $@"
                 return 0
             }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
         }
         cleanup() {
             rm -rf "$TMP_DIR"
+            # Clean up mock VHD assets
+            rm -f /etc/systemd/system/localdns.service
+            rm -f /opt/azure/containers/localdns/localdns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
         # Success case.
         It 'should enable localdns successfully'
-            When call enableLocalDNSForScriptless
+            When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
@@ -860,41 +918,255 @@ providers:
 
         # Corefile file creation.
         It 'should create localdns.corefile with correct data'
-            When call enableLocalDNSForScriptless
+            When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
-            The path "$LOCALDNS_COREFILE" should be file
-            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The path "$LOCALDNS_CORE_FILE" should be file
+            The contents of file "$LOCALDNS_CORE_FILE" should include "localdns corefile"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
         End
 
         # Corefile already exists (idempotency).
         It 'should overwrite existing localdns.corefile'
-            echo "wrong data" > "$LOCALDNS_COREFILE"
-            When call enableLocalDNSForScriptless
+            echo "wrong data" > "$LOCALDNS_CORE_FILE"
+            When call enableLocalDNS
             The status should be success
-            The path "$LOCALDNS_COREFILE" should be file
-            The contents of file "$LOCALDNS_COREFILE" should include "localdns corefile"
+            The path "$LOCALDNS_CORE_FILE" should be file
+            The contents of file "$LOCALDNS_CORE_FILE" should include "localdns corefile"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
         End
 
         # Slice file creation.
         It 'should create localdns.slice with correct CPU and Memory limits'
-            When call enableLocalDNSForScriptless
+            When call enableLocalDNS
             The status should be success
             The output should include "localdns should be enabled."
-            The path "$LOCALDNS_SLICEFILE" should be file
-            The contents of file "$LOCALDNS_SLICEFILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
-            The contents of file "$LOCALDNS_SLICEFILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
+            The path "$LOCALDNS_SLICE_FILE" should be file
+            The contents of file "$LOCALDNS_SLICE_FILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
+            The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
+        End
+
+        # Environment file creation with both corefile variants.
+        It 'should create environment file with all corefile variants for dynamic selection'
+            # Set up both corefile variants
+            LOCALDNS_COREFILE_WITH_HOSTS=$(echo -n "corefile with hosts plugin" | base64)
+            LOCALDNS_COREFILE_BASE=$(echo -n "corefile without hosts plugin" | base64)
+            SHOULD_ENABLE_HOSTS_PLUGIN="true"
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "enableLocalDNS called, generating corefile..."
+            The stdout should include "localdns should be enabled."
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS}"
+            The contents of file "$LOCALDNS_ENV_FILE" should include "SHOULD_ENABLE_HOSTS_PLUGIN=true"
+        End
+
+        # Old CSE + new VHD backward compatibility.
+        # An old AgentBaker service only sets LOCALDNS_GENERATED_COREFILE (not LOCALDNS_COREFILE_BASE).
+        # The new VHD's generateLocalDNSFiles must fall back to the legacy variable.
+        It 'should fall back to LOCALDNS_GENERATED_COREFILE when LOCALDNS_COREFILE_BASE is unset (old CSE + new VHD)'
+            unset LOCALDNS_COREFILE_BASE
+            LOCALDNS_GENERATED_COREFILE=$(echo -n "legacy corefile from old CSE" | base64)
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+
+            When call enableLocalDNS
+            The status should be success
+            The stdout should include "localdns should be enabled."
+            The stdout should include "Enable localdns succeeded."
+            The path "$LOCALDNS_CORE_FILE" should be file
+            The contents of file "$LOCALDNS_CORE_FILE" should include "legacy corefile from old CSE"
+            The path "$LOCALDNS_ENV_FILE" should be file
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_BASE64_ENCODED_COREFILE="
+            The contents of file "$LOCALDNS_ENV_FILE" should include "LOCALDNS_COREFILE_BASE="
+        End
+
+        # Environment file permissions.
+        It 'should set correct permissions on environment file'
+            LOCALDNS_ENV_FILE="$TMP_DIR/environment"
+            When call enableLocalDNS
+            The status should be success
+            The path "$LOCALDNS_ENV_FILE" should be file
+            # Check permissions are 0644 (owner read/write, group read, others read)
+            The result of function check_file_permissions should equal "0644"
+        End
+    End
+
+    Describe 'enableAKSLocalDNSHostsSetup'
+        setup() {
+            # Create temporary test directories and files
+            TEST_TEMP_DIR=$(mktemp -d)
+            AKS_LOCALDNS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
+            AKS_LOCALDNS_HOSTS_SETUP_SCRIPT="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.sh"
+            AKS_LOCALDNS_HOSTS_SETUP_SERVICE="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.service"
+            AKS_LOCALDNS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.timer"
+            AKS_CLOUD_ENV_FILE="${TEST_TEMP_DIR}/cloud-env"
+
+            # Create fake script that simulates successful hosts file creation
+            cat > "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT" << 'SETUP_EOF'
+#!/bin/bash
+echo "# test hosts file" > "${AKS_LOCALDNS_HOSTS_FILE}"
+SETUP_EOF
+            chmod +x "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT"
+
+            # Create dummy service and timer files
+            touch "$AKS_LOCALDNS_HOSTS_SETUP_SERVICE"
+            touch "$AKS_LOCALDNS_HOSTS_SETUP_TIMER"
+
+            # Set up test environment
+            TARGET_CLOUD="AzurePublicCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com"
+
+            # Mock systemctl function
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+
+            # Export variables so the real function can use them
+            export AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
+            export AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+        }
+
+        cleanup() {
+            rm -rf "$TEST_TEMP_DIR"
+            unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_SCRIPT AKS_LOCALDNS_HOSTS_SETUP_SERVICE
+            unset AKS_LOCALDNS_HOSTS_SETUP_TIMER AKS_CLOUD_ENV_FILE TARGET_CLOUD LOCALDNS_CRITICAL_FQDNS
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should enable aks-localdns-hosts-setup timer successfully'
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-localdns-hosts-setup timer..."
+            The output should include "systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30"
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+        End
+
+        It 'should call systemctlEnableAndStartNoBlock with correct parameters'
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30"
+        End
+
+        It 'should skip when setup script is missing'
+            rm -f "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-localdns-hosts-setup"
+        End
+
+        It 'should skip when timer unit is missing'
+            rm -f "$AKS_LOCALDNS_HOSTS_SETUP_TIMER"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-localdns-hosts-setup"
+        End
+
+        It 'should print warning when systemctlEnableAndStartNoBlock fails'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-localdns-hosts-setup timer..."
+            The output should include "Warning: Failed to enable aks-localdns-hosts-setup timer"
+            The output should not include "aks-localdns-hosts-setup timer enabled successfully."
+        End
+
+        It 'should skip when service unit is missing'
+            rm -f "$AKS_LOCALDNS_HOSTS_SETUP_SERVICE"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "not found on this VHD, skipping aks-localdns-hosts-setup"
+        End
+
+        It 'should skip when setup script is not executable'
+            chmod -x "$AKS_LOCALDNS_HOSTS_SETUP_SCRIPT"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "is not executable, skipping aks-localdns-hosts-setup"
+        End
+
+        It 'should create empty hosts file with correct permissions'
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+            The file "$AKS_LOCALDNS_HOSTS_FILE" should be exist
+        End
+
+        It 'should succeed with China FQDNs from RP'
+            TARGET_CLOUD="AzureChinaCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+        End
+
+        It 'should succeed with US Gov FQDNs from RP'
+            TARGET_CLOUD="AzureUSGovernmentCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+        End
+
+        It 'should create hosts file with correct permissions'
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+            The file "$AKS_LOCALDNS_HOSTS_FILE" should be exist
+            The result of function check_hosts_file_permissions should equal "644"
+        End
+
+        It 'should skip when LOCALDNS_CRITICAL_FQDNS is unset'
+            unset LOCALDNS_CRITICAL_FQDNS
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "WARNING: LOCALDNS_CRITICAL_FQDNS is not set"
+            The output should include "Skipping aks-localdns-hosts-setup"
+        End
+
+        It 'should skip when LOCALDNS_CRITICAL_FQDNS is empty string'
+            LOCALDNS_CRITICAL_FQDNS=""
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "WARNING: LOCALDNS_CRITICAL_FQDNS is not set"
+            The output should include "Skipping aks-localdns-hosts-setup"
+        End
+
+        It 'should work with any cloud as long as FQDNs are provided'
+            TARGET_CLOUD="USNatCloud"
+            LOCALDNS_CRITICAL_FQDNS="mcr.microsoft.com,login.microsoftonline.com"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
+        End
+
+        It 'should succeed and enable timer when LOCALDNS_CRITICAL_FQDNS is set'
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Enabling aks-localdns-hosts-setup timer..."
+            The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
     End
 
     Describe 'configureAndStartSecureTLSBootstrapping'
-        SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR="secure-tls-bootstrap.service.d"
+        SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
+        SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR="default"
+        SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR}/secure-tls-bootstrap"
         API_SERVER_NAME="fqdn"
         AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 
@@ -903,7 +1175,8 @@ providers:
         }
 
         cleanup() {
-            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN"
+            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
+            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR"
         }
 
         AfterEach 'cleanup'
@@ -914,13 +1187,28 @@ providers:
             }
             When call configureAndStartSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+            The output should include "chmod 0600 default/secure-tls-bootstrap"
             The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=2m0s --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "EnvironmentFile=default/secure-tls-bootstrap"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
+            The contents of file "default/secure-tls-bootstrap" should not include 'AZURE_ENVIRONMENT_FILEPATH'
+            The status should be success
+        End
+
+        It 'should include AZURE_ENVIRONMENT_FILEPATH in the default file when set'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            AZURE_ENVIRONMENT_FILEPATH="/etc/kubernetes/akscustom.json"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
+            The contents of file "default/secure-tls-bootstrap" should include 'AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/akscustom.json'
             The status should be success
         End
 
@@ -928,18 +1216,26 @@ providers:
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
             }
+            SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT="custom-validate-kubeconfig-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT="custom-get-access-token-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT="custom-get-instance-data-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT="custom-get-nonce-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT="custom-get-attested-data-timeout"
+            SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT="custom-get-credential-timeout"
             SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
             When call configureAndStartSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+            The output should include "chmod 0600 default/secure-tls-bootstrap"
             The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=custom-deadline --aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id"'
+            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "EnvironmentFile=default/secure-tls-bootstrap"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline'
             The status should be success
         End
     End
@@ -961,8 +1257,8 @@ providers:
         }
 
         # Set default values for common variables
-        BeforeEach() {
-            OS="UBUNTU"
+        BeforeEach 'setup'
+        setup() {
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL=""
             PRIVATE_KUBE_BINARY_DOWNLOAD_URL=""
@@ -971,219 +1267,248 @@ providers:
             KUBERNETES_VERSION=""
         }
 
-        # Test cases for URL installation (first condition)
-        It 'should install from URL if CUSTOM_KUBE_BINARY_DOWNLOAD_URL is set'
-            CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        It 'should install from URL if PRIVATE_KUBE_BINARY_DOWNLOAD_URL is set'
-            PRIVATE_KUBE_BINARY_DOWNLOAD_URL="https://private-kube-url.com/kube.tar.gz"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        It 'should not install from PMC if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        # Test cases for version-based logic (second condition)
-        It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is not true and k8s version < 1.34'
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-            KUBERNETES_VERSION="1.33.5"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s version < 1.34'
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
-            KUBERNETES_VERSION="1.33.5"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        # Test cases for PMC installation with OS-specific logic
-        It 'should install from PMC if k8s version >= 1.34 and OS is Ubuntu'
-            installKubeletKubectlPkgFromPMC() {
-                echo "installKubeletKubectlPkgFromPMC $1"
-            }
-
+        Describe 'on Ubuntu'
             OS="UBUNTU"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
-            The output should not include "installKubeletKubectlFromURL"
+            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+            # Test cases for URL installation (first condition)
+            It 'should install from URL if CUSTOM_KUBE_BINARY_DOWNLOAD_URL is set'
+                CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should install from URL if PRIVATE_KUBE_BINARY_DOWNLOAD_URL is set'
+                PRIVATE_KUBE_BINARY_DOWNLOAD_URL="https://private-kube-url.com/kube.tar.gz"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should not install from PMC if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            # Test cases for version-based logic (second condition)
+            It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is not true and k8s version < 1.34'
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+                KUBERNETES_VERSION="1.33.5"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s version < 1.34'
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+                KUBERNETES_VERSION="1.33.5"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should install from PMC if k8s version >= 1.34'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s version < 1.34'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+                KUBERNETES_VERSION="1.32.5"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            # Test edge cases
+            It 'should prioritize custom URL over version-based logic'
+                CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should handle version exactly at boundary (1.34.0)'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                KUBERNETES_VERSION="1.34.0"
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
+            It 'should call installKubeletKubectlFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+                KUBERNETES_VERSION="1.33.5"
+                When call configureKubeletAndKubectl
+                The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
+                The output should include "installKubeletKubectlFromURL"
+            End
+
+            It 'should call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s < 1.34.0 and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+                KUBERNETES_VERSION="1.33.5"
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
+                The output should not include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should not call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0 and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
+                KUBERNETES_VERSION="1.33.5"
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
+                When call configureKubeletAndKubectl
+                The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
+                The output should include "installKubeletKubectlFromURL"
+            End
+
+            It 'should fallback to kube binary install when version uncached'
+                ls() {
+                    echo ""
+                }
+                fallbackToKubeBinaryInstall() {
+                    echo "fallbackToKubeBinaryInstall $1 $2"
+                }
+                updatePMCRepository() {
+                    echo "updatePMCRepository"
+                }
+
+                KUBERNETES_VERSION="1.34.0"
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+                When call configureKubeletAndKubectl
+                The output should include "fallbackToKubeBinaryInstall"
+                The output should not include "updatePMCRepository"
+            End
         End
 
-        It 'should install from PMC if k8s version >= 1.34 and OS is CBLMariner with OS_VERSION != 2.0'
-            installKubeletKubectlPkgFromPMC() {
-                echo "installKubeletKubectlPkgFromPMC $1"
+        Describe 'on Flatcar'
+            OS="FLATCAR"
+            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh"
+            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
+
+            installKubeletKubectlFromPkg() {
+                echo "installKubeletKubectlFromPkg $@"
             }
 
+            It 'should install from MAR if k8s version >= 1.34'
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+        End
+
+        Describe 'on Mariner'
             OS="MARINER"
-            OS_VERSION="3.0"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
-            The output should not include "installKubeletKubectlFromURL"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
+            It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                OS_VERSION="3.0"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS_VERSION != 2.0'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+                OS_VERSION="3.0"
+                KUBERNETES_VERSION="1.32.5"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS_VERSION = 2.0'
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+                OS_VERSION="2.0"
+                KUBERNETES_VERSION="1.32.5"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
         End
 
-        It 'should install from PMC if k8s version >= 1.34 and OS is AzureLinux with OS_VERSION != 2.0'
-            installKubeletKubectlPkgFromPMC() {
-                echo "installKubeletKubectlPkgFromPMC $1"
-            }
-
+        Describe 'on Azure Linux'
             OS="AZURELINUX"
-            OS_VERSION="3.0"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
-            The output should not include "installKubeletKubectlFromURL"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
+            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
+            It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+
+                OS_VERSION="3.0"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromPkg"
+                The output should not include "installKubeletKubectlFromURL"
+            End
+
+            It 'should install from URL if OS_VERSION = 2.0'
+                OS_VERSION="2.0"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
         End
 
-        It 'should install from URL if OS is CBLMariner/AzureLinux with OS_VERSION = 2.0'
-            OS="AZURELINUX"
-            OS_VERSION="2.0"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        # Test cases for enforce PMC install flag
-        It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s version < 1.34'
-            installKubeletKubectlPkgFromPMC() {
-                echo "installKubeletKubectlPkgFromPMC $1"
-            }
-
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            OS="UBUNTU"
-            KUBERNETES_VERSION="1.32.5"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
-            The output should not include "installKubeletKubectlFromURL"
-        End
-
-        It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS is CBLMariner with OS_VERSION != 2.0'
-            installKubeletKubectlPkgFromPMC() {
-                echo "installKubeletKubectlPkgFromPMC $1"
-            }
-
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            OS="MARINER"
-            OS_VERSION="3.0"
-            KUBERNETES_VERSION="1.32.5"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
-            The output should not include "installKubeletKubectlFromURL"
-        End
-
-        It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true but OS is CBLMariner/AzureLinux with OS_VERSION = 2.0'
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            OS="MARINER"
-            OS_VERSION="2.0"
-            KUBERNETES_VERSION="1.32.5"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        # Test edge cases
-        It 'should prioritize custom URL over version-based logic'
-            CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            KUBERNETES_VERSION="1.34.0"
-            OS="UBUNTU"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        It 'should handle version exactly at boundary (1.34.0)'
-            installKubeletKubectlPkgFromPMC() {
-                echo "installKubeletKubectlPkgFromPMC $1"
-            }
-
-            OS="UBUNTU"
-            KUBERNETES_VERSION="1.34.0"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlPkgFromPMC"
-            The output should not include "installKubeletKubectlFromURL"
-        End
-
-        # Test unsupported OS scenarios (should fallback to no action)
-        It 'should not call any install function for unsupported OS'
+        Describe 'on Windows'
             OS="Windows"  # Unsupported OS
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should not include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
 
-        # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
-        It 'should call installKubeletKubectlFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-            KUBERNETES_VERSION="1.34.0"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
-            The output should not include "installKubeletKubectlFromURL"
-        End
+            It 'should not call any install function for unsupported OS'
+                exit() {
+                    echo "mock exit $1"
+                }
 
-        It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-            KUBERNETES_VERSION="1.33.5"
-            When call configureKubeletAndKubectl
-            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
-            The output should include "installKubeletKubectlFromURL"
-        End
-
-        It 'should call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-            KUBERNETES_VERSION="1.33.5"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            When call configureKubeletAndKubectl
-            The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
-            The output should not include "installKubeletKubectlFromURL"
-            The output should not include "installKubeletKubectlPkgFromPMC"
-        End
-
-        It 'should not call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0' and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-            KUBERNETES_VERSION="1.33.5"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
-            When call configureKubeletAndKubectl
-            The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
-            The output should include "installKubeletKubectlFromURL"
-        End
-
-        It 'should fallback to kube binary install when version uncached'
-            find() {
-                return 1
-            }
-            fallbackToKubeBinaryInstall() {
-                echo "fallbackToKubeBinaryInstall $1 $2"
-            }
-            updatePMCRepository() {
-                echo "updatePMCRepository"
-            }
-
-            OS="UBUNTU"
-            KUBERNETES_VERSION="1.34.0"
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-            When call configureKubeletAndKubectl
-            The output should include "fallbackToKubeBinaryInstall"
-            The output should not include "updatePMCRepository"
+                KUBERNETES_VERSION="1.34.0"
+                When call configureKubeletAndKubectl
+                The output should not include "installKubeletKubectlFromURL"
+                The output should include "installKubeletKubectlFromPkg is not defined"
+            End
         End
     End
 
@@ -1218,9 +1543,19 @@ providers:
             fi
         }
 
-        BeforeEach() {
-            KUBELET_NODE_LABELS=""
+        mkdir() {
+            echo "mkdir $@"
         }
+
+        touch() {
+            echo "touch $@"
+        }
+
+        rm() {
+            echo "rm $@"
+        }
+
+        BeforeEach 'KUBELET_NODE_LABELS=""'
 
         It 'should not enable managed GPU experience if not GPU node'
             GPU_NODE="false"
@@ -1230,6 +1565,8 @@ providers:
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should not enable managed GPU experience when skip_nvidia_driver_install is true'
@@ -1242,6 +1579,8 @@ providers:
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should not enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is unspecified'
@@ -1254,6 +1593,7 @@ providers:
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
@@ -1267,6 +1607,8 @@ providers:
             The output should include "startNvidiaManagedExpServices called"
             The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
@@ -1280,6 +1622,7 @@ providers:
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
     End
 End

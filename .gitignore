@@ -3,6 +3,7 @@ _output/
 _input/
 .vscode
 .DS_Store
+.gitconfig
 test/user.env
 user.env
 .editorconfig

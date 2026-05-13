@@ -199,8 +199,6 @@ collectToZip collect/du_inodes.txt df -ail
 collectToZip collect/diskinfo.txt lsblk
 collectToZip collect/lscpu.txt lscpu
 collectToZip collect/lscpu.json lscpu -J
-collectToZip collect/lshw.txt lshw
-collectToZip collect/lshw.json lshw -json
 collectToZip collect/lsipc.txt lsipc
 collectToZip collect/lsns.json lsns -J --output-all
 collectToZip collect/lspci.txt lspci -vkPP
@@ -213,6 +211,10 @@ collectToZip collect/systemctl-status.txt systemctl status --all -fr
 collectToZip collect/journalctl_nvidia-dcgm.txt journalctl -u nvidia-dcgm --no-pager
 collectToZip collect/journalctl_nvidia-dcgm-exporter.txt journalctl -u nvidia-dcgm-exporter --no-pager
 collectToZip collect/journalctl_nvidia-device-plugin.txt journalctl -u nvidia-device-plugin --no-pager
+
+# Collect logs of LocalDNS and hosts-setup services if present
+collectToZip collect/journalctl_localdns.txt journalctl -u localdns.service --no-pager
+collectToZip collect/journalctl_aks-localdns-hosts-setup.txt journalctl -u aks-localdns-hosts-setup.service --no-pager
 
 # Collect container runtime information
 collectToZip collect/crictl_version.txt crictl version

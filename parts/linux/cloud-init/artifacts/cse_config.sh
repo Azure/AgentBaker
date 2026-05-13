@@ -135,6 +135,10 @@ configureHTTPProxyCA() {
     elif isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
+    elif isACL "$OS" "$OS_VARIANT"; then
+        # ACL is Flatcar-based but uses Azure Linux internals for CA trust.
+        cert_dest="/etc/pki/ca-trust/source/anchors"
+        update_cmd="update-ca-trust"
     elif isFlatcar "$OS"; then
         cert_dest="/etc/ssl/certs"
         update_cmd="update-ca-certificates"
@@ -160,20 +164,16 @@ configureCustomCaCertificate() {
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
-    systemctl restart containerd
 }
 
 configureContainerdUlimits() {
   CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  mkdir -p "$(dirname "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}")"
   touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
   chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
   tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
 $(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
 EOF
-
-  systemctl daemon-reload
-  systemctl restart containerd
 }
 
 # file paths defined outside so configureAzureJson can be unit tested
@@ -297,9 +297,10 @@ EOF
 }
 
 configureCNI() {
-    # needed for the iptables rules to work on bridges
-    retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
+    # needed for bridge iptables rules and customer-configured conntrack sysctls
+    retrycmd_if_failure 120 5 25 modprobe -a br_netfilter nf_conntrack || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
+    echo -n "nf_conntrack" > /etc/modules-load.d/nf_conntrack.conf
     configureCNIIPTables
 }
 
@@ -323,20 +324,24 @@ disableSystemdResolved() {
     if [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
-        [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        [ -f /run/systemd/resolve/resolv.conf ] && ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
         cat /etc/resolv.conf
     fi
 }
 
 ensureContainerd() {
-  if [ "${TELEPORT_ENABLED}" = "true" ]; then
-    ensureTeleportd
-  fi
   mkdir -p "/etc/systemd/system/containerd.service.d"
+  # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+  # On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+  # (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+  # On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+  # Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+  # to avoid compatibility issues between new VHDs and old CSE scripts.
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
@@ -375,7 +380,7 @@ net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
@@ -417,13 +422,10 @@ ensureNoDupOnPromiscuBridge() {
     systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-ensureTeleportd() {
-    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureArtifactStreaming() {
-  retrycmd_if_failure 120 5 25 time systemctl --quiet enable --now  acr-mirror overlaybd-tcmu overlaybd-snapshotter
-  time /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
+  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  /opt/acr/bin/acr-config --enable-containerd 'azurecr.io'
 }
 
 ensureDHCPv6() {
@@ -513,12 +515,42 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
-# drop-in path defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+# file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
 configureAndStartSecureTLSBootstrapping() {
-    BOOTSTRAP_CLIENT_FLAGS="--deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE:-"2m0s"} --aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
+    BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --validate-kubeconfig-timeout=${SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-access-token-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-instance-data-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-nonce-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-attested-data-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-credential-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_DEADLINE}" ]; then
+        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
+    fi
+
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    echo "BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}" > "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
@@ -528,7 +560,7 @@ configureAndStartSecureTLSBootstrapping() {
 [Unit]
 Before=kubelet.service
 [Service]
-Environment="BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}"
+EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 [Install]
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
@@ -541,33 +573,30 @@ EOF
 }
 
 configureKubeletAndKubectl() {
-    # Install kubelet and kubectl binaries from URL for Custom Kube binary and Private Kube binary
-    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ]; then
+    # Install kubelet and kubectl binaries from URL:
+    # 1. For Custom Kube binary or Private Kube binary.
+    # 2. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+    # 3. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+    if [ -n "${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}" ] || [ -n "${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}" ] ||
+       { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+       { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+    then
         logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-    # only install kube pkgs from pmc if k8s version >= 1.34.0 or skip_bypass_k8s_version_check is true
-    elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; then
-        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
+    elif [ "$(type -t installKubeletKubectlFromPkg)" = function ]; then
+        logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromPkg" "installKubeletKubectlFromPkg ${KUBERNETES_VERSION}"
     else
-        if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromBootstrapProfileRegistry" "installKubeletKubectlFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}"
-        elif isMarinerOrAzureLinux "$OS"; then
-            if [ "$OS_VERSION" = "2.0" ]; then
-                # we do not publish packages to PMC for azurelinux V2
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-            else
-                logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-            fi
-        elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlPkgFromPMC" "installKubeletKubectlPkgFromPMC ${KUBERNETES_VERSION}"
-        elif [ "${OS}" = "${FLATCAR_OS_NAME}" ]; then
-            logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL" installKubeletKubectlFromURL
-        fi
+        echo "installKubeletKubectlFromPkg is not defined for this OS"
+        exit $ERR_K8S_INSTALL_ERR
     fi
 }
 
 ensurePodInfraContainerImage() {
     POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
     POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
+
+    waitForContainerdReady || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
 
     pod_infra_container_image=$(get_sandbox_image)
 
@@ -794,23 +823,21 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        if { [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] && ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.34.0"; }; then
+        # Install credential provider from URL:
+        # 1. If k8s version < 1.34.0, skip_bypass_k8s_version_check != true, and not Flatcar (which falls back to URL later).
+        # 2. For Azure Linux v2 due to lack of PMC packages (if not network isolated).
+        if { ! isFlatcar && ! isACL && [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != true ] && ! semverCompare "${KUBERNETES_VERSION:-0.0.0}" 1.34.0; } ||
+           { isMarinerOrAzureLinux && [ "${OS_VERSION}" = 2.0 ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; }
+        then
             logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
+        elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+            # For network isolated clusters, try distro packages first and fallback to binary installation
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
+        elif [ "$(type -t installCredentialProviderFromPkg)" = function ]; then
+            logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPkg" "installCredentialProviderFromPkg ${KUBERNETES_VERSION}"
         else
-            if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] ; then
-                # For network isolated clusters, try distro packages first and fallback to binary installation
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromBootstrapProfileRegistry" installCredentialProviderPackageFromBootstrapProfileRegistry ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ${KUBERNETES_VERSION}
-            elif isMarinerOrAzureLinux "$OS"; then
-                if [ "$OS_VERSION" = "2.0" ]; then # PMC package installation not supported for AzureLinux V2, only V3
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-                else
-                    logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-                fi
-            elif isFlatcar "$OS"; then # Flatcar cannot use PMC. It will use sysext soon.
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromUrl" installCredentialProviderFromUrl
-            else
-                logs_to_events "AKS.CSE.ensureKubelet.installCredentialProviderFromPMC" "installCredentialProviderFromPMC ${KUBERNETES_VERSION}"
-            fi
+            echo "installCredentialProviderFromPkg is not defined for this OS"
+            exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
         fi
     fi
 
@@ -819,16 +846,21 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.ensurePodInfraContainerImage" ensurePodInfraContainerImage
     fi
 
-    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
-    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
-        echo "failed to start measure-tls-bootstrapping-latency.service"
-    fi
+    local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
+    date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
+        rm -f "${tls_bootstrapping_start_time_filepath}"
         journalctl -u kubelet.service --no-pager || true
         exit $ERR_KUBELET_START_FAIL
+    fi
+
+    # start measure-tls-bootstrapping-latency.service without waiting for the main process to start, while ignoring any failures
+    if ! systemctlEnableAndStartNoBlock measure-tls-bootstrapping-latency 30; then
+        rm -f "${tls_bootstrapping_start_time_filepath}"
+        echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 }
 
@@ -850,6 +882,25 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+configureNodeExporter() {
+    echo "Configuring Node Exporter"
+    # Check for skip file to determine if node-exporter was installed on this VHD
+    if [ ! -f /etc/node-exporter.d/skip_vhd_node_exporter ]; then
+        echo "Node Exporter assets not found on this VHD (missing /etc/node-exporter.d/skip_vhd_node_exporter); skipping configuration."
+        return 0
+    fi
+
+    if ! systemctlEnableAndStart node-exporter 30; then
+        echo "Failed to start node-exporter service"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    if ! systemctlEnableAndStart node-exporter-restart.path 30; then
+        echo "Failed to start node-exporter-restart.path"
+        return $ERR_NODE_EXPORTER_START_FAIL
+    fi
+    echo "Node Exporter started successfully"
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
@@ -857,6 +908,18 @@ ensureSysctl() {
     chmod 0644 "${SYSCTL_CONFIG_FILE}"
     echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
+}
+
+ensureAzureNetworkConfig() {
+    # Reload udev rules to pick up the new azure-network rules
+    udevadm control --reload-rules
+
+    # Trigger udev to detect and populate network interfaces
+    echo "Triggering udev for network devices..."
+    udevadm trigger --subsystem-match=net --action=add
+
+    # Give udev time to process and trigger the systemd service
+    udevadm settle --timeout=10
 }
 
 ensureK8sControlPlane() {
@@ -935,6 +998,7 @@ configAzurePolicyAddon() {
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
         ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
@@ -948,21 +1012,30 @@ configGPUDrivers() {
         downloadGPUDrivers
         installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
+    elif isACL "$OS" "$OS_VARIANT"; then
+        installNvidiaContainerToolkitSysext
+        installGPUDriverSysext
+        enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 30 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
-    # Fix the NVIDIA /dev/char link issue
+    # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
 
-    retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+    # GRID vGPU licensing: start nvidia-gridd service to ensure license configuration
+    if (isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT") && [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then
+        systemctlEnableAndStart nvidia-gridd 300 || exit $ERR_SYSTEMCTL_START_FAIL
+    fi
+
+    systemctlEnableAndStart containerd 30 || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 
     # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
     # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
@@ -978,9 +1051,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 30 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then
@@ -1010,6 +1083,71 @@ ensureGPUDrivers() {
     fi
 }
 
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+dnf_install_amd_ama_core() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        # RPM_FRONTEND env variable needed to disable license agreement prompt
+        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+            dnf_makecache
+        fi
+    done
+    echo Executed dnf install AMD AMA core package $i times;
+}
+
+# Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
+setupAmdAma() {
+    if [ "$(isARM64)" -eq 1 ]; then
+        return
+    fi
+
+    if isMarinerOrAzureLinux "$OS"; then
+        # Install driver - currently version 1.3.0 is supported
+        if ! dnf_install 30 1 600 azurelinux-repos-amd; then
+          echo "Unable to install Azure Linux AMD package repo, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
+          echo "Unable to install AMD AMA driver package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install core package
+        if ! dnf_install 30 1 600 azurelinux-repos-extended libzip; then
+          echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        if ! dnf_install_amd_ama_core 30 1 600; then
+          echo "Unable to install AMD AMA core package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install AKS device plugin
+        if ! dnf_install 30 1 600 amdama-device-plugin.x86_64; then
+          echo "Unable to install AMD AMA AKS device plugin package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+        # Configure huge pages
+        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
+        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        if [ "$(systemctl is-active kubelet)" = "active" ]; then
+            systemctl restart kubelet
+        fi
+    fi
+}
+
 disableSSH() {
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
@@ -1033,7 +1171,7 @@ configureSSHPubkeyAuth() {
 
   # AAD SSH extension will append following section to the end of sshd_config,
   # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
-  # Match User *@*,????????-????-????-????-????????????    # Added by aadsshlogin installer
+  # Match User *@*,????????-????-????-????-???????????? # Added by aadsshlogin installer
   # AuthenticationMethods publickey
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
@@ -1052,14 +1190,14 @@ configureSSHPubkeyAuth() {
   ' "$SSHD_CONFIG" > "$TMP"
 
   # Validate the candidate config
-  sudo sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
+  sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 644, owned by root)
-  sudo install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd
-  sudo systemctl reload sshd || sudo systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+  systemctl reload sshd || systemctl restart sshd || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
 }
 
 # Internal function that writes credential provider config to a specified path
@@ -1175,40 +1313,13 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-# localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-# This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by checking for existence of corefile.
-# It returns 0 if localdns is enabled successfully or if it should not be enabled.
-# It returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
-enableLocalDNS() {
-    # Check if the localdns corefile exists and is not empty.
-    # If the corefile exists and is not empty, localdns should be enabled.
-    # If the corefile does not exist or is empty, localdns should not be enabled.
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "localdns should not be enabled."
-        return 0
-    fi
-
-    # If the corefile exists and is not empty, attempt to enable localdns.
-    echo "localdns should be enabled."
-
-    if ! systemctlEnableAndStart localdns 30; then
-      echo "Enable localdns failed."
-      return $ERR_LOCALDNS_FAIL
-    fi
-
-    # Enabling localdns succeeded.
-    echo "Enable localdns succeeded."
-}
-
 # localdns corefile used by localdns systemd unit.
-LOCALDNS_COREFILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # localdns slice file used by localdns systemd unit.
-LOCALDNS_SLICEFILE="/etc/systemd/system/localdns.slice"
+LOCALDNS_SLICE_FILE="/etc/systemd/system/localdns.slice"
 # This function is called from cse_main.sh.
 # It creates the localdns corefile and slicefile, then enables and starts localdns.
+<<<<<<< HEAD
 # In this function, generated base64 encoded localdns corefile is decoded and written to the corefile path.
 # This function also creates the localdns slice file with memory and cpu limits, that will be used by localdns systemd unit.
 enableLocalDNSForScriptless() {
@@ -1230,6 +1341,67 @@ EOF
     touch "${LOCALDNS_SLICEFILE}"
     chmod 0644 "${LOCALDNS_SLICEFILE}"
     cat > "${LOCALDNS_SLICEFILE}" <<EOF
+=======
+# Both corefile variants are read from globals set in cse_cmd.sh:
+#   LOCALDNS_COREFILE_BASE         — standard corefile without hosts plugin
+#   LOCALDNS_COREFILE_WITH_HOSTS — corefile with hosts plugin
+# The base variant is written as the initial active corefile.
+# Both variants are saved to /etc/localdns/environment so localdns.sh
+# can dynamically switch between them on restart.
+generateLocalDNSFiles() {
+    mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
+    touch "${LOCALDNS_CORE_FILE}"
+    chmod 0644 "${LOCALDNS_CORE_FILE}"
+
+    # Determine the base corefile to use as the initial active corefile.
+    # LOCALDNS_COREFILE_BASE is set by new CSE; fall back to LOCALDNS_GENERATED_COREFILE
+    # for backward compatibility when this VHD runs with an older CSE that only sets
+    # LOCALDNS_GENERATED_COREFILE.
+    local corefile_base="${LOCALDNS_COREFILE_BASE:-${LOCALDNS_GENERATED_COREFILE:-}}"
+    if [ -z "${corefile_base}" ]; then
+        echo "Error: neither LOCALDNS_COREFILE_BASE nor LOCALDNS_GENERATED_COREFILE is set"
+        exit $ERR_LOCALDNS_FAIL
+    fi
+
+    # Start with the base corefile as the initial active corefile.
+    # localdns.sh will select the appropriate variant (BASE or WITH_HOSTS)
+    # based on the SHOULD_ENABLE_HOSTS_PLUGIN feature flag on service start.
+    base64 -d <<< "${corefile_base}" > "${LOCALDNS_CORE_FILE}" || exit $ERR_LOCALDNS_FAIL
+
+    # Log whether the initial corefile includes hosts plugin.
+    # This is the BASE corefile; localdns.sh may select the WITH_HOSTS variant at service start.
+    if grep -q "hosts /etc/localdns/hosts" "${LOCALDNS_CORE_FILE}"; then
+        echo "Initial corefile at ${LOCALDNS_CORE_FILE} INCLUDES hosts plugin"
+    else
+        echo "Initial corefile at ${LOCALDNS_CORE_FILE} DOES NOT include hosts plugin (localdns.sh selects variant at runtime)"
+    fi
+
+    # Create environment file for corefile regeneration.
+    # This file will be referenced by localdns.service using EnvironmentFile directive.
+    # Save BOTH corefile variants so localdns can dynamically choose on each restart.
+    # All corefile values are base64-encoded; localdns.sh decodes them at runtime.
+    # LOCALDNS_BASE64_ENCODED_COREFILE is the legacy key for old VHDs.
+    # LOCALDNS_COREFILE_BASE is the new name ("BASE" = base variant without hosts plugin, not base64).
+    # LOCALDNS_COREFILE_WITH_HOSTS is the variant WITH hosts plugin.
+    LOCALDNS_ENV_FILE="/etc/localdns/environment"
+    mkdir -p "$(dirname "${LOCALDNS_ENV_FILE}")"
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] && [ -z "${LOCALDNS_COREFILE_WITH_HOSTS:-}" ]; then
+        echo "WARNING: SHOULD_ENABLE_HOSTS_PLUGIN=true but LOCALDNS_COREFILE_WITH_HOSTS is empty. Hosts plugin will fall back to BASE corefile at runtime."
+    fi
+    cat > "${LOCALDNS_ENV_FILE}" <<EOF
+LOCALDNS_BASE64_ENCODED_COREFILE=${corefile_base}
+LOCALDNS_COREFILE_BASE=${corefile_base}
+LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS:-}
+SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
+LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
+EOF
+    chmod 0644 "${LOCALDNS_ENV_FILE}"
+
+	mkdir -p "$(dirname "${LOCALDNS_SLICE_FILE}")"
+    touch "${LOCALDNS_SLICE_FILE}"
+    chmod 0644 "${LOCALDNS_SLICE_FILE}"
+    cat > "${LOCALDNS_SLICE_FILE}" <<EOF
+>>>>>>> origin/main
 [Unit]
 Description=localdns Slice
 DefaultDependencies=no
@@ -1240,10 +1412,206 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+}
+
+# enableLocalDNS creates localdns files and starts the service.
+# Both corefile variants (with/without hosts plugin) are read from globals
+# set in cse_cmd.sh. No parameters needed.
+enableLocalDNS() {
+    # Guard: Check if this VHD has localdns assets installed.
+    # Older VHDs may not have localdns.service or the execution script.
+    # This ensures backward compatibility when new CSE runs on old VHDs.
+    if [ ! -f /etc/systemd/system/localdns.service ]; then
+        echo "Warning: localdns.service not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+    if [ ! -f /opt/azure/containers/localdns/localdns.sh ]; then
+        echo "Warning: localdns.sh not found on this VHD, skipping localdns setup"
+        return 0
+    fi
+
+    echo "enableLocalDNS called, generating corefile..."
+    generateLocalDNSFiles
+    # Log corefile variant after it's been successfully written
+    echo "Generated corefile: $(grep -q 'hosts /etc/localdns/hosts' "${LOCALDNS_CORE_FILE}" 2>/dev/null && echo 'WITH hosts plugin' || echo 'WITHOUT hosts plugin')"
+
+    # Disable hosts plugin cleanup path: if the hosts plugin was previously enabled but is now
+    # disabled (e.g. rollback), clean up the timer and hosts file. The enable path is handled
+    # separately — enableAKSLocalDNSHostsSetup() is called earlier in basePrep() to give the
+    # timer a head start on DNS resolution before enableLocalDNS() starts CoreDNS.
+    if [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" != "true" ]; then
+        logs_to_events "AKS.CSE.enableLocalDNS.disableAKSLocalDNSHostsSetup" disableAKSLocalDNSHostsSetup
+    fi
 
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
+    # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
+    # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
+}
+
+# Configures the localdns metrics exporter socket to listen on the node IP.
+# Runs after ensureKubelet (the kubelet node label is added separately before ensureKubelet).
+# The VHD default binds to 0.0.0.0 which already works for vmagent scraping.
+# The drop-in narrows binding to the node IP for tighter scoping when available.
+configureLocalDNSExporterSocket() {
+    # Guard: skip everything if the socket unit doesn't exist (old VHD without exporter files).
+    # This is a backward compatibility check for VHDs built before the exporter was added.
+    # Without this guard, we'd create an orphaned drop-in directory and
+    # systemctlEnableAndStartNoBlock would hit its retry loop (~100 retries × 5s) for a missing unit.
+    if ! systemctl cat localdns-exporter.socket &>/dev/null; then
+        echo "localdns-exporter: socket unit not found on this VHD, skipping"
+        return 0
+    fi
+
+    # Create drop-in to narrow socket binding from 0.0.0.0 to the node IP.
+    local node_ip
+    node_ip=$(get_primary_nic_ip)
+    if [ -n "${node_ip}" ]; then
+        echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353"
+        mkdir -p /etc/systemd/system/localdns-exporter.socket.d
+        tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+[Socket]
+ListenStream=
+ListenStream=${node_ip}:9353
+EOF
+        systemctl daemon-reload
+    else
+        echo "localdns-exporter: get_primary_nic_ip returned empty, using VHD default (0.0.0.0:9353)"
+    fi
+
+    # Enable localdns metrics exporter socket for Prometheus scraping.
+    # This is optional observability — don't block provisioning if it fails.
+    # Note: the kubelet node label is added separately in cse_main.sh before ensureKubelet.
+    echo "Enabling localdns-exporter.socket for metrics collection."
+    if systemctlEnableAndStartNoBlock localdns-exporter.socket 30; then
+        echo "Enable localdns-exporter.socket succeeded."
+    else
+        echo "WARNING: Failed to enable localdns-exporter.socket. Metrics will not be available but continuing provisioning."
+    fi
+}
+
+# This function enables and starts the aks-localdns-hosts-setup timer.
+# The timer periodically resolves critical AKS FQDN DNS records and populates /etc/localdns/hosts.
+# Called from basePrep() early in the boot sequence, before enableLocalDNS().
+# This allows DNS resolution to begin while the rest of basePrep installs packages and configures the node.
+# The timer's systemd service reads LOCALDNS_CRITICAL_FQDNS from /etc/localdns/environment,
+# so this function writes a minimal environment file before starting the timer.
+# generateLocalDNSFiles() (called later by enableLocalDNS) overwrites it with the full content.
+enableAKSLocalDNSHostsSetup() {
+    # Best-effort setup: log errors but never fail.
+    # The corefile will fall back to the no-hosts variant if hosts file is empty.
+    # Allow overriding paths for testing (via environment variables)
+    local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_script="${AKS_LOCALDNS_HOSTS_SETUP_SCRIPT:-/opt/azure/containers/aks-localdns-hosts-setup.sh}"
+    local hosts_setup_service="${AKS_LOCALDNS_HOSTS_SETUP_SERVICE:-/etc/systemd/system/aks-localdns-hosts-setup.service}"
+    local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
+
+    # Guard: verify required artifacts exist on this VHD.
+    # Older VHDs (or certain build modes) may not include them.
+    if [ ! -f "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} not found on this VHD, skipping aks-localdns-hosts-setup"
+        return 0
+    fi
+    if [ ! -x "${hosts_setup_script}" ]; then
+        echo "Warning: ${hosts_setup_script} is not executable, skipping aks-localdns-hosts-setup"
+        return 0
+    fi
+    if [ ! -f "${hosts_setup_service}" ]; then
+        echo "Warning: ${hosts_setup_service} not found on this VHD, skipping aks-localdns-hosts-setup"
+        return 0
+    fi
+    if [ ! -f "${hosts_setup_timer}" ]; then
+        echo "Warning: ${hosts_setup_timer} not found on this VHD, skipping aks-localdns-hosts-setup"
+        return 0
+    fi
+
+    # Verify LOCALDNS_CRITICAL_FQDNS is set before proceeding; if not, skip hosts setup.
+    if [ -z "${LOCALDNS_CRITICAL_FQDNS:-}" ]; then
+        echo "WARNING: LOCALDNS_CRITICAL_FQDNS is not set. RP did not pass critical FQDNs."
+        echo "Skipping aks-localdns-hosts-setup. Corefile will fall back to version without hosts plugin."
+        return 0
+    fi
+
+    # Write a minimal environment file so the systemd service (which reads from
+    # /etc/localdns/environment via EnvironmentFile=) has LOCALDNS_CRITICAL_FQDNS available.
+    # generateLocalDNSFiles() overwrites this later with the full content including corefiles.
+    local env_file="/etc/localdns/environment"
+    mkdir -p "$(dirname "${env_file}")"
+    cat > "${env_file}" <<EOF
+LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS}
+EOF
+    chmod 0644 "${env_file}"
+
+    # Create an empty hosts file so the localdns hosts plugin can start watching it
+    # immediately. The file will be populated by aks-localdns-hosts-setup timer asynchronously.
+    mkdir -p "$(dirname "${hosts_file}")"
+    touch "${hosts_file}"
+    chmod 0644 "${hosts_file}"
+
+    # Enable the timer for periodic refresh (every 15 minutes)
+    # This will update the hosts file with fresh IPs from live DNS
+    echo "Enabling aks-localdns-hosts-setup timer..."
+    if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
+        echo "aks-localdns-hosts-setup timer enabled successfully."
+    else
+        echo "Warning: Failed to enable aks-localdns-hosts-setup timer"
+    fi
+}
+
+# disableAKSLocalDNSHostsSetup disables the hosts plugin on a node where it was previously enabled.
+# Called from enableLocalDNS() when SHOULD_ENABLE_HOSTS_PLUGIN is not true.
+# This handles the production rollback case where a customer disables the hosts plugin
+# on an existing agentpool and AKS-RP re-runs CSE with SHOULD_ENABLE_HOSTS_PLUGIN=false.
+# All operations are idempotent — safe to call when hosts plugin was never enabled.
+disableAKSLocalDNSHostsSetup() {
+    local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+    local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
+
+    echo "disableAKSLocalDNSHostsSetup called, cleaning up hosts plugin state..."
+
+    # Stop and disable the hosts-setup timer if it exists and is active.
+    # This prevents further updates to the hosts file.
+    if [ -f "${hosts_setup_timer}" ]; then
+        systemctl disable --now aks-localdns-hosts-setup.timer 2>/dev/null || true
+        echo "Disabled and stopped aks-localdns-hosts-setup.timer"
+    else
+        echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
+    fi
+
+    # Remove the hosts file to clean up stale data.
+    # select_localdns_corefile() selects based on SHOULD_ENABLE_HOSTS_PLUGIN,
+    # so removing the file isn't strictly needed for corefile selection, but
+    # it prevents CoreDNS from serving stale host entries if the feature is re-enabled later.
+    if [ -f "${hosts_file}" ]; then
+        rm -f "${hosts_file}"
+        echo "Removed ${hosts_file}"
+    else
+        echo "${hosts_file} does not exist, skipping"
+    fi
+
+    echo "disableAKSLocalDNSHostsSetup complete"
+}
+
+configureManagedGPUExperience() {
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        return
+    fi
+    local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+        addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        mkdir -p "$(dirname "${managed_gpu_marker}")"
+        touch "${managed_gpu_marker}"
+    else
+        # EnableManagedGPUExperience is mutable, so services may have been
+        # installed on a previous CSE run. Stop them if they exist.
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
+        logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        rm -f "${managed_gpu_marker}"
+    fi
 }
 
 configureManagedGPUExperience() {
@@ -1329,6 +1697,21 @@ EOF
 
     # Start the nvidia-dcgm-exporter service.
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+}
+
+get_compute_sku() {
+    # Retrieves the VM SKU (size) from the cached IMDS instance metadata.
+    local vm_sku=""
+    if [ ! -f "$IMDS_INSTANCE_METADATA_CACHE_FILE" ]; then
+        echo "IMDS cache file not found: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return 1
+    fi
+    vm_sku=$(jq -r '.compute.vmSize // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    if [ -z "$vm_sku" ]; then
+        echo "Failed to retrieve VM SKU from IMDS cache" >&2
+        return 1
+    fi
+    echo "$vm_sku"
 }
 
 #EOF

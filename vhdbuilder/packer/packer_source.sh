@@ -141,6 +141,10 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
+  POST_DEPROVISION_WALINUXAGENT_SRC=/home/packer/post-deprovision-walinuxagent.sh
+  POST_DEPROVISION_WALINUXAGENT_DEST=/opt/azure/containers/post-deprovision-walinuxagent.sh
+  INSTALL_WALINUXAGENT_PY_SRC=/home/packer/install_walinuxagent.py
+  INSTALL_WALINUXAGENT_PY_DEST=/opt/azure/containers/install_walinuxagent.py
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -229,10 +233,6 @@ copyPackerFiles() {
   NO_DUP_SVC_DEST=/etc/systemd/system/ensure-no-dup.service
   cpAndMode $NO_DUP_SVC_SRC $NO_DUP_SVC_DEST 600
 
-  TELED_SRC=/home/packer/teleportd.service
-  TELED_DEST=/etc/systemd/system/teleportd.service
-  cpAndMode $TELED_SRC $TELED_DEST 600
-
   SETUP_SEARCH_SRC=/home/packer/setup-custom-search-domains.sh
   SETUP_SEARCH_DEST=/opt/azure/containers/setup-custom-search-domains.sh
   cpAndMode $SETUP_SEARCH_SRC $SETUP_SEARCH_DEST 0744
@@ -264,6 +264,10 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_SRC=/home/packer/provision_source_distro.sh
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
+
+  IMAGE_FETCHER_SRC=/home/packer/image-fetcher
+  IMAGE_FETCHER_DEST=/opt/azure/containers/image-fetcher
+  cpAndMode $IMAGE_FETCHER_SRC $IMAGE_FETCHER_DEST 755
 
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
@@ -309,6 +313,85 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
+
+  # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
+  if ! isFlatcar "$OS"; then
+    LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh
+    LOCALDNS_EXPORTER_SCRIPT_DEST=/opt/azure/containers/localdns/localdns_exporter.sh
+    cpAndMode $LOCALDNS_EXPORTER_SCRIPT_SRC $LOCALDNS_EXPORTER_SCRIPT_DEST 0755
+
+    LOCALDNS_EXPORTER_SOCKET_SRC=/home/packer/localdns-exporter.socket
+    LOCALDNS_EXPORTER_SOCKET_DEST=/etc/systemd/system/localdns-exporter.socket
+    cpAndMode $LOCALDNS_EXPORTER_SOCKET_SRC $LOCALDNS_EXPORTER_SOCKET_DEST 0644
+
+    LOCALDNS_EXPORTER_SERVICE_SRC=/home/packer/localdns-exporter@.service
+    LOCALDNS_EXPORTER_SERVICE_DEST=/etc/systemd/system/localdns-exporter@.service
+    cpAndMode $LOCALDNS_EXPORTER_SERVICE_SRC $LOCALDNS_EXPORTER_SERVICE_DEST 0644
+  fi
+
+  # Skip aks-localdns-hosts-setup for Flatcar (EOL June 2026, no new features)
+  if ! isFlatcar "$OS"; then
+    AKS_LOCALDNS_HOSTS_SETUP_SH_SRC=/home/packer/aks-localdns-hosts-setup.sh
+    AKS_LOCALDNS_HOSTS_SETUP_SH_DEST=/opt/azure/containers/aks-localdns-hosts-setup.sh
+    cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_SH_SRC $AKS_LOCALDNS_HOSTS_SETUP_SH_DEST 0755
+
+    AKS_LOCALDNS_HOSTS_SETUP_SVC_SRC=/home/packer/aks-localdns-hosts-setup.service
+    AKS_LOCALDNS_HOSTS_SETUP_SVC_DEST=/etc/systemd/system/aks-localdns-hosts-setup.service
+    cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_SVC_SRC $AKS_LOCALDNS_HOSTS_SETUP_SVC_DEST 0644
+
+    AKS_LOCALDNS_HOSTS_SETUP_TIMER_SRC=/home/packer/aks-localdns-hosts-setup.timer
+    AKS_LOCALDNS_HOSTS_SETUP_TIMER_DEST=/etc/systemd/system/aks-localdns-hosts-setup.timer
+    cpAndMode $AKS_LOCALDNS_HOSTS_SETUP_TIMER_SRC $AKS_LOCALDNS_HOSTS_SETUP_TIMER_DEST 0644
+  fi
+# ---------------------------------------------------------------------------------------
+
+# ------------------------- Files related to azure-network ------------------------------
+  CONFIGURE_AZURE_NETWORK_SRC=/home/packer/configure-azure-network.sh
+  CONFIGURE_AZURE_NETWORK_DEST=/opt/azure-network/configure-azure-network.sh
+  cpAndMode $CONFIGURE_AZURE_NETWORK_SRC $CONFIGURE_AZURE_NETWORK_DEST 0755
+
+  AZURE_NETWORK_UDEV_RULE_SRC=/home/packer/99-azure-network.rules
+  AZURE_NETWORK_UDEV_RULE_DEST=/etc/udev/rules.d/99-azure-network.rules
+  cpAndMode $AZURE_NETWORK_UDEV_RULE_SRC $AZURE_NETWORK_UDEV_RULE_DEST 0644
+# ---------------------------------------------------------------------------------------
+
+# ------------------------- Files related to inspektor-gadget ---------------------------
+  IG_IMPORT_SCRIPT_SRC=/home/packer/ig-import-gadgets.sh
+  IG_IMPORT_SCRIPT_DEST=/usr/share/inspektor-gadget/import_gadgets.sh
+  IG_REMOVE_SCRIPT_SRC=/home/packer/ig-remove-gadgets.sh
+  IG_REMOVE_SCRIPT_DEST=/usr/share/inspektor-gadget/remove_gadgets.sh
+  IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
+  IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
+
+  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+    cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
+    cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
+    cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
+  fi
+# ---------------------------------------------------------------------------------------
+
+# ------------------------- Files related to node-exporter ------------------------------
+  NODE_EXPORTER_STARTUP_SRC=/home/packer/node-exporter-startup.sh
+  NODE_EXPORTER_STARTUP_DEST=/opt/bin/node-exporter-startup.sh
+  NODE_EXPORTER_SERVICE_SRC=/home/packer/node-exporter.service
+  NODE_EXPORTER_SERVICE_DEST=/etc/systemd/system/node-exporter.service
+  NODE_EXPORTER_RESTART_SERVICE_SRC=/home/packer/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_SERVICE_DEST=/etc/systemd/system/node-exporter-restart.service
+  NODE_EXPORTER_RESTART_PATH_SRC=/home/packer/node-exporter-restart.path
+  NODE_EXPORTER_RESTART_PATH_DEST=/etc/systemd/system/node-exporter-restart.path
+  NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
+  NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
+
+  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+    cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
+    cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
+    cpAndMode $NODE_EXPORTER_RESTART_PATH_SRC $NODE_EXPORTER_RESTART_PATH_DEST 644
+    cpAndMode $NODE_EXPORTER_WEB_CONFIG_SRC $NODE_EXPORTER_WEB_CONFIG_DEST 644
+    # Symlink to /opt/bin is created by installNodeExporter in install-node-exporter.sh
+  fi
 # ---------------------------------------------------------------------------------------
 
   # Install AKS diagnostic
@@ -389,6 +472,14 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+  elif isACL "$OS" "$OS_VARIANT"; then
+    # ACL cannot share the isMarinerOrAzureLinux block because:
+    # - containerd.service: ACL provides containerd via sysext.
+    # - mariner-package-update.sh: Mariner-only package update script, not applicable to ACL.
+    # ACL uses system-auth/system-password (like Mariner/AzureLinux),
+    # not Debian-style common-auth/common-password.
+    cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+    cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
@@ -410,7 +501,7 @@ copyPackerFiles() {
   fi
 
   # Handle the NOTICE file
-  if isFlatcar "$OS"; then
+  if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # Append Flatcar specific license notices
     DIR=$(dirname "$NOTICE_DEST") && mkdir -p "${DIR}" && cp "$NOTICE_SRC" "$NOTICE_DEST"
     NOTICE_FLATCAR_SRC=/home/packer/NOTICE_FLATCAR.txt
@@ -464,6 +555,13 @@ copyPackerFiles() {
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 
+  # Copy the post-deprovision WALinuxAgent install script and its Python helper
+  # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
+  if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
+    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 755
+    cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
+  fi
+
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
 }
@@ -473,4 +571,17 @@ cpAndMode() {
   dest=$2
   mode=$3
   DIR=$(dirname "$dest") && mkdir -p ${DIR} && cp $src $dest && chmod $mode $dest || exit $ERR_PACKER_COPY_FILE
+}
+
+# Re-apply custom login banners to /etc/issue and /etc/issue.net.
+# apt_get_dist_upgrade uses --force-confnew which overwrites these files
+# with default content from the base-files package whenever it is upgraded.
+# Call this after any apt operations that may trigger conffile replacement.
+reapplyBanners() {
+  local etc_issue_src=/home/packer/etc-issue
+  local etc_issue_dest=/etc/issue
+  local etc_issue_net_src=/home/packer/etc-issue.net
+  local etc_issue_net_dest=/etc/issue.net
+  cpAndMode "$etc_issue_src" "$etc_issue_dest" 644
+  cpAndMode "$etc_issue_net_src" "$etc_issue_net_dest" 644
 }

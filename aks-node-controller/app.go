@@ -5,25 +5,36 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/fsnotify/fsnotify"
+	"github.com/urfave/cli/v3"
 )
 
 type App struct {
-	// cmdRunner is a function that runs the given command.
+	// cmdRun is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	cmdRunner func(cmd *exec.Cmd) error
+	cmdRun      func(cmd *exec.Cmd) error
+	eventLogger *helpers.EventLogger
+
+	// hotfixVersionPath overrides the default hotfix version file location for testing.
+	hotfixVersionPath string
+	// aptSourcesDir overrides the default APT sources directory for testing.
+	aptSourcesDir string
+	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
+	nodeCustomDataPath string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -44,6 +55,7 @@ func cmdRunnerDryRun(cmd *exec.Cmd) error {
 
 type ProvisionFlags struct {
 	ProvisionConfig string
+	NBCCmd          string
 }
 
 type ProvisionStatusFiles struct {
@@ -52,46 +64,126 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	slog.Info("aks-node-controller started", "args", args)
-	err := a.run(ctx, args)
-	exitCode := errToExitCode(err)
-	if exitCode == 0 {
-		slog.Info("aks-node-controller finished successfully.")
-	} else {
-		slog.Error("aks-node-controller failed", "error", err)
+	cmd := &cli.Command{
+		Name:    "aks-node-controller",
+		Usage:   "Parse contract and run csecmd",
+		Version: Version,
+		ExitErrHandler: func(context.Context, *cli.Command, error) {
+			// Return errors to the caller so exit codes are derived consistently in one place.
+		},
+		Action: func(context.Context, *cli.Command) error {
+			if len(args) > 1 {
+				return fmt.Errorf("unknown command: %s", args[1])
+			}
+			return errors.New("missing command argument")
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "provision",
+				Usage: "Run node provisioning",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provision-config", Usage: "path to the provision config file"},
+					&cli.StringFlag{Name: "nbc-cmd", Usage: "path to the NBC command file"},
+					&cli.BoolFlag{Name: "dry-run", Usage: "print the command that would be run without executing it"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					return a.runProvisionCommand(ctx, ProvisionFlags{
+						ProvisionConfig: cmd.String("provision-config"),
+						NBCCmd:          cmd.String("nbc-cmd"),
+					}, cmd.Bool("dry-run"))
+				},
+			},
+			{
+				Name:  "provision-wait",
+				Usage: "Wait for provisioning to complete",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					provisionStatusFiles := ProvisionStatusFiles{
+						ProvisionJSONFile:     provisionJSONFilePath,
+						ProvisionCompleteFile: provisionCompleteFilePath,
+					}
+					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
+					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
+					return err
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "Print the version",
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					_, _ = fmt.Fprintln(cmd.Root().Writer, Version)
+					return nil
+				},
+			},
+			{
+				Name:  "download-hotfix",
+				Usage: "Download the requested hotfix binary",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected download-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runDownloadHotfixCommand(ctx)
+				},
+			},
+		},
 	}
-	return exitCode
+
+	err := cmd.Run(ctx, args)
+	return errToExitCode(err)
 }
 
-func (a *App) run(ctx context.Context, args []string) error {
-	if len(args) < 2 {
-		return errors.New("missing command argument")
-	}
-	switch args[1] {
-	case "provision":
-		provisionResult, err := a.runProvision(ctx, args[2:])
-		// Always notify after provisioning attempt (success is a no-op inside notifier)
-		a.writeCompleteFileOnError(provisionResult, err)
-		return err
-	case "provision-wait":
-		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
-		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
-		//nolint:forbidigo // stdout is part of the interface
-		fmt.Println(provisionOutput)
-		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
-		return err
-	default:
-		return fmt.Errorf("unknown command: %s", args[1])
-	}
-}
+func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dryRun bool) error {
+	slog.Info("aks-node-controller started", "task", "Provision")
 
-func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
-	provisionResult := &ProvisionResult{}
-	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
+	startTime := time.Now()
+	a.eventLogger.LogEvent("Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
+	provisionResult, err := a.runProvision(ctx, flags, dryRun)
+	a.writeCompleteFileOnError(provisionResult, err)
+	endTime := time.Now()
 	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("open provision file %s: %v", flags.ProvisionConfig, err)
-		return provisionResult, errors.New(provisionResult.Error)
+		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+		a.eventLogger.LogEvent("Provision", message, helpers.EventLevelError, startTime, endTime)
+		slog.Error("aks-node-controller failed", "error", err)
+	} else {
+		a.eventLogger.LogEvent("Provision", "Completed", helpers.EventLevelInformational, startTime, endTime)
+		slog.Info("aks-node-controller finished successfully.")
+	}
+	return err
+}
+
+func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles ProvisionStatusFiles) (string, error) {
+	slog.Info("aks-node-controller started", "task", "ProvisionWait")
+
+	startTime := time.Now()
+	a.eventLogger.LogEvent("ProvisionWait", "Starting", helpers.EventLevelInformational, startTime, startTime)
+	provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+	endTime := time.Now()
+	if err != nil {
+		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
+		a.eventLogger.LogEvent("ProvisionWait", message, helpers.EventLevelError, startTime, endTime)
+		slog.Error("aks-node-controller failed", "error", err)
+	} else {
+		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
+		slog.Info("aks-node-controller finished successfully.")
+	}
+	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	return provisionOutput, err
+}
+
+func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
+	slog.Info("aks-node-controller hotfix download started")
+	err := a.downloadHotfix(ctx)
+	if err != nil {
+		slog.Error("aks-node-controller hotfix download failed", "error", err)
+		return err
+	}
+	slog.Info("aks-node-controller hotfix download finished")
+	return nil
+}
+
+func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {
+	inputJSON, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("open provision file %s: %w", path, err)
 	}
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
@@ -111,25 +203,288 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
 	if config.Version != "v0" && config.Version != "v1" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("unsupported version: %s", config.Version)
-		return provisionResult, errors.New(provisionResult.Error)
+		return nil, fmt.Errorf("unsupported version: %s", config.Version)
 	}
 
 	if config.Version == "v0" {
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
-	cmd, err := parser.BuildCSECmd(ctx, config)
+	return parser.BuildCSECmd(ctx, config)
+}
+
+func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
+	fileInfo, err := os.Stat(path)
 	if err != nil {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("build CSE command: %v", err)
-		return provisionResult, errors.New(provisionResult.Error)
+		return nil, fmt.Errorf("read NBC command file %s: %w", path, err)
 	}
+	if !fileInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("NBC command file %s must be a regular file", path)
+	}
+
+	scriptPath := filepath.Clean(path)
+	slog.Info("Using NBC command for scriptless phase 2", "NBCCmdFile", scriptPath)
+
+	// #nosec G204 -- scriptPath is validated as a file path and passed after "--" so bash treats it as a script, not an option or shell input.
+	cmd := exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)
+	cmd.Env = os.Environ()
+	return cmd, nil
+}
+
+func (a *App) getNodeCustomDataPath() string {
+	if a.nodeCustomDataPath != "" {
+		return a.nodeCustomDataPath
+	}
+	return defaultNodeCustomDataPath
+}
+
+// compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
+// It logs variables that are only in one environment or that have different values between the two.
+// A summary of all differences is also emitted as a guest agent event for Kusto querying.
+// This function is best-effort: any error is logged and returned from,
+// so it never blocks provisioning.
+func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers.EventLogger) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("compareEnvs panicked", "panic", r)
+		}
+	}()
+
+	provisionConfigCmd, err := buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+	if err != nil {
+		slog.Error("compareEnvs: failed to build cmd from provision config", "error", err)
+		return
+	}
+
+	// Extract CSE-specific env vars from provision config by filtering out unmodified OS env vars.
+	osEnv := envSliceToMap(os.Environ())
+	pcAllEnv := envSliceToMap(provisionConfigCmd.Env)
+	pcEnv := make(map[string]string, len(pcAllEnv))
+	for k, v := range pcAllEnv {
+		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
+			pcEnv[k] = v
+		}
+	}
+
+	// Parse env vars directly from the NBC command file content.
+	nbcCmdContent, err := os.ReadFile(flags.NBCCmd)
+	if err != nil {
+		slog.Error("compareEnvs: failed to read nbc-cmd file", "error", err)
+		return
+	}
+	nbcEnv := parseEnvVarsFromNBCCmdContent(string(nbcCmdContent))
+
+	// Collect all keys from both environments.
+	allKeys := make(map[string]struct{})
+	for k := range pcEnv {
+		allKeys[k] = struct{}{}
+	}
+	for k := range nbcEnv {
+		allKeys[k] = struct{}{}
+	}
+
+	sortedKeys := make([]string, 0, len(allKeys))
+	for k := range allKeys {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	var diffs []string
+	for _, key := range sortedKeys {
+		pcVal, inPC := pcEnv[key]
+		nbcVal, inNBC := nbcEnv[key]
+		switch {
+		case inPC && !inNBC:
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
+		case !inPC && inNBC:
+			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
+		case pcVal != nbcVal:
+			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+		}
+	}
+
+	now := time.Now()
+	if len(diffs) == 0 {
+		slog.Info("env compare: no differences found between provision-config and nbc-cmd env vars")
+		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
+	} else {
+		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
+		slog.Info(message)
+		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
+	}
+}
+
+// parseEnvVarsFromNBCCmdContent extracts environment variable assignments from an NBC command string.
+// The command is a bash one-liner with KEY=VALUE pairs (quoted or unquoted) interspersed with shell commands.
+// Only variables with uppercase/underscore names are extracted.
+func parseEnvVarsFromNBCCmdContent(content string) map[string]string {
+	result := make(map[string]string)
+	n := len(content)
+	i := 0
+
+	for i < n {
+		// Skip whitespace and semicolons.
+		for i < n && isDelimiter(content[i]) {
+			i++
+		}
+		if i >= n {
+			break
+		}
+
+		// Try to read an uppercase variable name.
+		keyStart := i
+		if !isEnvKeyStart(content[i]) {
+			i = skipToken(content, i)
+			continue
+		}
+		for i < n && isEnvKeyChar(content[i]) {
+			i++
+		}
+
+		// Must be followed by '='.
+		if i >= n || content[i] != '=' {
+			i = skipToken(content, i)
+			continue
+		}
+
+		key := content[keyStart:i]
+		i++ // skip '='
+
+		var value string
+		value, i = parseEnvValue(content, i)
+		result[key] = value
+	}
+
+	return result
+}
+
+// parseEnvValue parses the value portion of a KEY=VALUE assignment starting at position i.
+// It handles concatenated quoted and unquoted segments. Returns the parsed value and the new position.
+func parseEnvValue(content string, i int) (string, int) {
+	n := len(content)
+	var value strings.Builder
+	for i < n {
+		switch {
+		case content[i] == '"':
+			// Quoted section: read until closing quote.
+			i++ // skip opening quote
+			for i < n && content[i] != '"' {
+				value.WriteByte(content[i])
+				i++
+			}
+			if i < n {
+				i++ // skip closing quote
+			}
+		case isDelimiter(content[i]):
+			return value.String(), i
+		default:
+			// Before consuming, check if this looks like a new KEY= (handles missing spaces between assignments).
+			if looksLikeEnvAssignment(content, i) {
+				return value.String(), i
+			}
+			value.WriteByte(content[i])
+			i++
+		}
+	}
+	return value.String(), i
+}
+
+func isDelimiter(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == ';'
+}
+
+func isEnvKeyStart(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+func isEnvKeyChar(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+// skipToken advances past the current non-whitespace token, respecting double-quoted sections.
+func skipToken(content string, i int) int {
+	n := len(content)
+	for i < n && content[i] != ' ' && content[i] != '\t' && content[i] != '\n' && content[i] != ';' {
+		if content[i] == '"' {
+			i++
+			for i < n && content[i] != '"' {
+				i++
+			}
+			if i < n {
+				i++
+			}
+		} else {
+			i++
+		}
+	}
+	return i
+}
+
+// looksLikeEnvAssignment checks if position i starts a KEY= pattern (at least 2-char uppercase key followed by '=').
+func looksLikeEnvAssignment(content string, i int) bool {
+	n := len(content)
+	if i >= n || !isEnvKeyStart(content[i]) {
+		return false
+	}
+	j := i + 1
+	for j < n && isEnvKeyChar(content[j]) {
+		j++
+	}
+	return j < n && content[j] == '=' && j-i >= 1
+}
+
+// envSliceToMap converts a slice of "KEY=VALUE" strings into a map.
+// For duplicate keys the last value wins, matching exec.Cmd behavior.
+func envSliceToMap(env []string) map[string]string {
+	m := make(map[string]string, len(env))
+	for _, entry := range env {
+		k, v, _ := strings.Cut(entry, "=")
+		m[k] = v
+	}
+	return m
+}
+
+func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
+	provisionResult := &ProvisionResult{}
+
+	// If both flags are provided, compare environments before proceeding.
+	// This is best-effort and should not block provisioning.
+	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
+		compareEnvs(ctx, flags, a.eventLogger)
+	}
+
+	var cmd *exec.Cmd
+	if flags.NBCCmd != "" {
+		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+
+		var err error
+		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+	}
+
+	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
+	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
+		var err error
+		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+	}
+
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err = a.cmdRunner(cmd)
+	err := a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -142,10 +497,10 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
-// runProvision encapsulates argument parsing and execution for the "provision" subcommand.
+// runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult, error) {
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
 	// Handle panics gracefully to ensure we always return a valid result
 	provisionResult := &ProvisionResult{}
 	var err error
@@ -160,23 +515,15 @@ func (a *App) runProvision(ctx context.Context, args []string) (*ProvisionResult
 		}
 	}()
 
-	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
-	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
-	dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
-	if parseErr := fs.Parse(args); parseErr != nil {
+	if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = fmt.Sprintf("parse args: %v", parseErr)
+		provisionResult.Error = "--provision-config or --nbc-cmd is required"
 		return provisionResult, errors.New(provisionResult.Error)
 	}
-	if *provisionConfig == "" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = "--provision-config is required"
-		return provisionResult, errors.New(provisionResult.Error)
+	if dryRun {
+		a.cmdRun = cmdRunnerDryRun
 	}
-	if *dryRun {
-		a.cmdRunner = cmdRunnerDryRun
-	}
-	return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+	return a.Provision(ctx, flags)
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,

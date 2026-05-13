@@ -161,7 +161,11 @@ function ProcessAndWriteContainerdConfig {
 
   # Set up registry mirrors
   Set-ContainerdRegistryConfig -Registry "docker.io" -RegistryHost "registry-1.docker.io"
-  Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+  if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and -not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    Set-BootstrapProfileRegistryContainerdHost
+  } else {
+    Set-ContainerdRegistryConfig -Registry "mcr.azk8s.cn" -RegistryHost "mcr.azure.cn"
+  }
 
   if (([version]$ContainerdVersion).CompareTo([version]"1.7.9") -lt 0) {
     # Remove annotations placeholders for older containerd versions
@@ -230,6 +234,46 @@ server = "https://$Registry"
   Write-Log "Wrote containerd hosts config for registry '$Registry' to '$hostsTomlPath'"
 }
 
+function Set-BootstrapProfileRegistryContainerdHost {
+  $mcrRegistry = if ((Test-Path variable:global:MCRRepositoryBase) -and
+      -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
+    [string]$global:MCRRepositoryBase
+  }
+  else {
+    "mcr.microsoft.com"
+  }
+  $rootRegistryPath = "C:\ProgramData\containerd\certs.d"
+  $mcrRegistryPath = Join-Path $rootRegistryPath $mcrRegistry
+  $hostsTomlPath = Join-Path $mcrRegistryPath "hosts.toml"
+
+  $registryHost = [string]$global:BootstrapProfileContainerRegistryServer
+  $registryHost = ($registryHost -replace '^https?://', '').TrimEnd('/')
+
+  $registryHostParts = $registryHost.Split('/', 2)
+  $registryHostName = $registryHostParts[0]
+  $registryRepoPrefix = if ($registryHostParts.Length -gt 1) { $registryHostParts[1].Trim('/') } else { "" }
+
+  $registryHost = if ([string]::IsNullOrEmpty($registryRepoPrefix)) {
+    "$registryHostName/v2"
+  }
+  else {
+    "$registryHostName/v2/$registryRepoPrefix"
+  }
+
+  Create-Directory -FullPath $mcrRegistryPath -DirectoryUsage "storing containerd registry hosts config"
+
+  $content = @"
+server = "https://$mcrRegistry"
+
+[host."https://$registryHost"]
+  capabilities = ["pull", "resolve"]
+  override_path = true
+"@
+
+  $content | Out-File -FilePath $hostsTomlPath -Encoding ascii
+  Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
+}
+
 function Install-Containerd {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -252,7 +296,38 @@ function Install-Containerd {
   # Extract the package
   # upstream containerd package is a tar
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
-  DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+
+  if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    # default path
+    # download containerd binaries via http if BootstrapProfileContainerRegistryServer is not set
+    DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+  } else {
+    # ni path
+    # download containerd binaries via oras if BootstrapProfileContainerRegistryServer is set
+    if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "DownloadFileWithOras function is not available. networkisolatedclusterfunc.ps1 may not be sourced."
+    }
+
+    # Extract containerd version tag from URL for ORAS reference
+    # URL format: https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz
+    if ($ContainerdUrl -match "containerd-(v[\d.]+)-azure\.\d+-windows-amd64\.tar\.gz") {
+        $containerdVersionTag = $matches[1]
+    } else {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Failed to extract containerd version tag from URL: $ContainerdUrl"
+    }
+
+    # Sanitize the registry server value: strip scheme and trailing slash, preserve any repo prefix
+    $sanitizedRegistry = ($global:BootstrapProfileContainerRegistryServer -replace '^https?://', '').TrimEnd('/')
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadContainerdWithOras" -TaskMessage "Start to download containerd with oras. ContainerdVersionTag: $containerdVersionTag, BootstrapProfileContainerRegistryServer: $global:BootstrapProfileContainerRegistryServer"
+    $orasReference = "$sanitizedRegistry/aks/packages/containerd/containerd:$containerdVersionTag"
+    $cachedFileName = Get-FileNameFromUrl -Url $ContainerdUrl
+    try {
+        Retry-Command -Command "DownloadFileWithOras" -Args @{Reference=$orasReference; DestinationPath=$tarfile; CachedFile=$cachedFileName} -Retries 5 -RetryDelaySeconds 10
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_CONTAINERD -ErrorMessage "Exhausted retries for oras pull $orasReference. Error: $_"
+    }
+  }
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
   tar -xzf $tarfile -C $global:ContainerdInstallLocation
   if ($LASTEXITCODE -ne 0) {
@@ -265,7 +340,7 @@ function Install-Containerd {
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
 
-  $containerdVersion =""
+  $containerdVersion ="0.0.0"
   try {
     # Check containerd version to determine if it supports annotations
     Push-Location $global:ContainerdInstallLocation
@@ -286,5 +361,13 @@ function Install-Containerd {
     -CNIConfDir $CNIConfDir
 
   RegisterContainerDService -KubeDir $KubeDir
+  if (-not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+    if (Get-Command -Name Set-PodInfraContainerImage -ErrorAction SilentlyContinue) {
+      Set-PodInfraContainerImage
+    }
+    else {
+      Write-Log "Set-PodInfraContainerImage command not found; skipping pod infra container image configuration."
+    }
+  }
   Enable-Logging
 }

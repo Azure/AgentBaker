@@ -391,8 +391,27 @@ function GetAllCachedThings {
     $ociArtifacts = GetOCIArtifactsFromComponentsJson $componentsJsonContent
     $regKeys = GetRegKeysToApply $windowsSettingsContent
     $baseVersion =  GetWindowsBaseVersion -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku"
 
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
+    if ($baseVersionBlock -ne $null) {
+        $items += "Windows ${windowsSku} base image sku: $($baseVersionBlock.base_image_sku)"
+        $items += "Windows ${windowsSku} os disk size: $($baseVersionBlock.os_disk_size)"
+
+        if (-not [string]::IsNullOrEmpty($baseVersionBlock.base_image_publisher)) {
+            $items += "Windows ${windowsSku} base image publisher: $($baseVersionBlock.base_image_publisher)"
+        }
+        if (-not [string]::IsNullOrEmpty($baseVersionBlock.base_image_offer)) {
+            $items += "Windows ${windowsSku} base image offer: $($baseVersionBlock.base_image_offer)"
+        }
+    }
+
+    $patchInfo = GetPatchInfo -windowsSku $windowsSku -windowsSettingsContent $windowsSettingsContent
+    if ($patchInfo -ne $null -and $patchInfo.Count -gt 0) {
+        foreach ($patch in $patchInfo) {
+            $items += "Windows ${windowsSku} patch: $($patch.id) $($patch.url)"
+        }
+    }
 
     foreach ($packageName in $packages.keys) {
         foreach ($package in $packages[$packageName]) {

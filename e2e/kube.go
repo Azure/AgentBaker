@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/require"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -19,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -37,9 +37,13 @@ type Kubeclient struct {
 const (
 	hostNetworkDebugAppLabel = "debug-mariner-tolerated"
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
+	proxyAppLabel            = "e2e-proxy"
+	proxyPort                = 8888
 )
 
-func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
+func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
+	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+	clusterName := *cluster.Name
 	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
@@ -73,6 +77,7 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 }
 
 func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace string, labelSelector string, fieldSelector string, maxRetries int) (*corev1.Pod, error) {
+	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
 
 	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -144,59 +149,50 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
-	startTime := time.Now()
-	t.Logf("waiting for node %s to be ready in k8s API", vmssName)
-	defer func() {
-		t.Logf("waited for node %s to be ready in k8s API for %s", vmssName, time.Since(startTime))
-	}()
+	defer toolkit.LogStepf(t, "waiting for node %s to be ready", vmssName)()
+	var lastNode *corev1.Node
 
-	var node *corev1.Node = nil
-	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
-	require.NoError(t, err, "failed to start watching nodes")
-	defer watcher.Stop()
-
-	for event := range watcher.ResultChan() {
-		if event.Type != watch.Added && event.Type != watch.Modified {
-			continue
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			t.Logf("error listing nodes: %v", err)
+			return false, nil
 		}
 
-		var nodeFromEvent *corev1.Node
-		switch v := event.Object.(type) {
-		case *corev1.Node:
-			nodeFromEvent = v
-
-		default:
-			t.Logf("skipping object type %T", event.Object)
-			continue
-		}
-
-		if !strings.HasPrefix(nodeFromEvent.Name, vmssName) {
-			continue
-		}
-
-		// found the right node. Use it!
-		node = nodeFromEvent
-		nodeTaints, _ := json.Marshal(node.Spec.Taints)
-		nodeConditions, _ := json.Marshal(node.Status.Conditions)
-
-		for _, cond := range node.Status.Conditions {
-			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-				return node.Name
+		for i := range nodes.Items {
+			node := &nodes.Items[i]
+			if !strings.HasPrefix(node.Name, vmssName) {
+				continue
 			}
+
+			lastNode = node
+			nodeTaints, _ := json.Marshal(node.Spec.Taints)
+			nodeConditions, _ := json.Marshal(node.Status.Conditions)
+
+			for _, cond := range node.Status.Conditions {
+				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+					t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+					return true, nil
+				}
+			}
+
+			t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 		}
 
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-	}
+		return false, nil
+	})
 
-	if node == nil {
-		t.Fatalf("%q haven't appeared in k8s API server", vmssName)
+	if err != nil {
+		if lastNode == nil {
+			t.Fatalf("%q haven't appeared in k8s API server: %v", vmssName, err)
+			return ""
+		}
+		nodeString, _ := json.Marshal(lastNode)
+		t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, lastNode.Name, lastNode.Status, string(nodeString))
 		return ""
 	}
 
-	nodeString, _ := json.Marshal(node)
-	t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, node.Name, node.Status, string(nodeString))
-	return node.Name
+	return lastNode.Name
 }
 
 // GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
@@ -277,9 +273,9 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
 		Logs:       string(logs),
 	}, "", "  ")
 	if err != nil {
-		logf(ctx, "couldn't debug info: %s", info)
+		toolkit.Logf(ctx, "couldn't debug info: %s", info)
 	}
-	logf(ctx, string(info))
+	toolkit.Log(ctx, string(info))
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
@@ -296,17 +292,28 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isAirgap bool, privateACRName string) error {
-	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isNetworkIsolated bool, privateACRName string) error {
+	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isNetworkIsolated)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
+	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isNetworkIsolated)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
+	}
+
+	// proxy is not available on network-isolated clusters
+	if !isNetworkIsolated {
+		if err := k.ensureProxyConfigMap(ctx); err != nil {
+			return err
+		}
+		proxyDS := daemonsetProxy(ctx)
+		if err := k.CreateDaemonset(ctx, proxyDS); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -315,7 +322,8 @@ func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isAirgap bool, p
 func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) error {
 	desired := ds.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, ds, func() error {
-		ds = desired
+		ds.Spec = desired.Spec
+		ds.Labels = desired.Labels
 		return nil
 	})
 	if err != nil {
@@ -325,11 +333,10 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 }
 
 func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secretName, registryName, username, password string) error {
-	logf(ctx, "Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+	defer toolkit.LogStepCtxf(ctx, "creating kubernetes secret %s in namespace %s for registry %s", secretName, namespace, registryName)()
 	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
 	if err != nil {
-		logf(ctx, "failed to create Kubernetes client: %v", err)
-		return err
+		return fmt.Errorf("create Kubernetes client: %w", err)
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
@@ -356,22 +363,20 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secr
 	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if !errorsk8s.IsAlreadyExists(err) {
-			logf(ctx, "failed to create Kubernetes secret: %v", err)
-			return err
+			return fmt.Errorf("create Kubernetes secret: %w", err)
 		}
 	}
-	logf(ctx, "Kubernetes secret %s created", secretName)
 	return nil
 }
 
-func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isNetworkIsolated bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
-	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
+	if isNetworkIsolated {
+		image = fmt.Sprintf("%s.azurecr.io/aks-managed-repository/cbl-mariner/base/core:2.0", privateACRName)
 		secretName = config.Config.ACRSecretName
 	}
-	logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
+	toolkit.Logf(ctx, "Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -454,7 +459,183 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 	}
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
+func (k *Kubeclient) ensureProxyConfigMap(ctx context.Context) error {
+	// Minimal HTTP forward proxy in Python. Handles both:
+	// - CONNECT tunneling for HTTPS (curl uses this when HTTPS_PROXY is set)
+	// - Plain HTTP forwarding (curl uses this when http_proxy is set)
+	proxyScript := `import socket,threading,select,sys,re
+
+def relay(client, remote):
+    sockets = [client, remote]
+    try:
+        while True:
+            readable, _, errored = select.select(sockets, [], sockets, 60)
+            if errored or not readable:
+                break
+            for s in readable:
+                data = s.recv(65536)
+                if not data:
+                    return
+                (remote if s is client else client).sendall(data)
+    finally:
+        remote.close()
+
+def handle_connect(client, host, port):
+    try:
+        remote = socket.create_connection((host, int(port)), timeout=30)
+    except Exception as e:
+        client.sendall(f"HTTP/1.1 502 Bad Gateway\r\n\r\n{e}".encode())
+        return
+    client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+    relay(client, remote)
+
+def handle_http(client, data, host, port):
+    try:
+        remote = socket.create_connection((host, int(port)), timeout=30)
+    except Exception as e:
+        client.sendall(f"HTTP/1.1 502 Bad Gateway\r\n\r\n{e}".encode())
+        return
+    # rewrite absolute URL to relative for the origin server
+    lines = data.split(b"\r\n")
+    parts = lines[0].split(b" ", 2)
+    if len(parts) == 3:
+        url = parts[1].decode()
+        m = re.match(r"https?://[^/]+(/.*)$", url)
+        if m:
+            parts[1] = m.group(1).encode()
+            lines[0] = b" ".join(parts)
+            data = b"\r\n".join(lines)
+    remote.sendall(data)
+    relay(client, remote)
+
+def handle(client):
+    try:
+        data = client.recv(65536)
+        if not data:
+            return
+        line = data.split(b"\r\n")[0]
+        parts = line.split(b" ", 2)
+        if len(parts) < 2:
+            return
+        method, target = parts[0], parts[1]
+        if method == b"CONNECT":
+            hp = target.decode().split(":")
+            handle_connect(client, hp[0], hp[1] if len(hp) > 1 else "443")
+        else:
+            # plain HTTP proxy: target is absolute URL like http://host:port/path
+            url = target.decode()
+            m = re.match(r"https?://([^/:]+)(?::(\d+))?", url)
+            if m:
+                handle_http(client, data, m.group(1), m.group(2) or "80")
+            else:
+                client.sendall(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+    finally:
+        client.close()
+
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(("0.0.0.0", ` + fmt.Sprintf("%d", proxyPort) + `))
+srv.listen(128)
+sys.stdout.write("proxy listening on port ` + fmt.Sprintf("%d", proxyPort) + `\n")
+sys.stdout.flush()
+while True:
+    c, _ = srv.accept()
+    threading.Thread(target=handle, args=(c,), daemon=True).start()
+`
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "e2e-proxy-config", Namespace: "default"},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, cm, func() error {
+		cm.Data = map[string]string{"proxy.py": proxyScript}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("ensuring proxy configmap: %w", err)
+	}
+	return nil
+}
+
+func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
+	image := "mcr.microsoft.com/cbl-mariner/base/python:3"
+	toolkit.Logf(ctx, "Creating proxy daemonset %s with image %s", proxyAppLabel, image)
+
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      proxyAppLabel,
+			Namespace: "default",
+			Labels:    map[string]string{"app": proxyAppLabel},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": proxyAppLabel},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": proxyAppLabel}},
+				Spec: corev1.PodSpec{
+					HostNetwork: true,
+					NodeSelector: map[string]string{
+						"kubernetes.azure.com/agentpool": "nodepool1",
+					},
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+					Containers: []corev1.Container{{
+						Name:    "proxy",
+						Image:   image,
+						Command: []string{"python3", "/opt/proxy/proxy.py"},
+						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
+						VolumeMounts: []corev1.VolumeMount{
+							{Name: "proxy-script", MountPath: "/opt/proxy", ReadOnly: true},
+						},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "proxy-script",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "e2e-proxy-config"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+// GetProxyURL returns the proxy URL after verifying the proxy pod is ready
+// on at least one system pool node.
+func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
+	var proxyURL string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+			LabelSelector: "app=" + proxyAppLabel,
+		})
+		if err != nil {
+			return false, fmt.Errorf("listing proxy pods: %w", err)
+		}
+		if len(pods.Items) == 0 {
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			for _, c := range pod.Status.Conditions {
+				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue && pod.Status.HostIP != "" {
+					proxyURL = fmt.Sprintf("http://%s:%d", pod.Status.HostIP, proxyPort)
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
+	}
+	return proxyURL, nil
+}
+
+func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
+	mcResourceGroupName := *cluster.Properties.NodeResourceGroup
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)

@@ -65,7 +65,7 @@ jobs:
         # Delete previous lint failure comments if linting succeeded.
       - name: Delete previous lint failure comments
         if: steps.lint-pr-title.outcome == 'success'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
@@ -96,7 +96,7 @@ jobs:
         # Add a comment to the PR to provide guidance if the linting failed.
       - name: Leave guidance comment
         if: steps.lint-pr-title.outcome == 'failure'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const prNumber = context.payload.pull_request.number;

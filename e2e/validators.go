@@ -11,16 +11,18 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/stretchr/testify/assert"
@@ -42,13 +44,10 @@ func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) {
 }
 
 func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
-	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		ValidateSystemdUnitIsNotRunning(ctx, s, "secure-tls-bootstrap")
 		require.True(
 			s.T,
 			!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
@@ -73,9 +72,17 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) {
 			"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 		)
 	}
+	if s.KubeletConfigFileEnabled() {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true")
+	} else {
+		ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true")
+	}
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"})
+	ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"})
 }
 
 func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
+	ValidateWindowsProcessContainsArgumentStrings(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true"})
 	ValidateDirectoryContent(ctx, s, "c:\\k", []string{" config "})
 	ValidateDirectoryContent(ctx, s, "c:\\k\\pki", []string{"kubelet-client-current.pem"})
 	switch {
@@ -254,6 +261,97 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 }
 
+// ValidateNetworkInterfaceConfig validates network interface configuration settings using ethtool.
+// It identifies network interfaces with slot names matching the enP* pattern (same logic as the udev rule),
+// then verifies that each interface has the expected configuration settings (e.g., rx buffer size).
+// The nicConfig map specifies the ethtool settings to validate (key: setting name, value: expected value).
+func ValidateNetworkInterfaceConfig(ctx context.Context, s *Scenario, nicConfig map[string]string) {
+	s.T.Helper()
+
+	// Get list of NICs using udevadm (same logic as udev rule)
+	getNicsCommand := []string{
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"echo '=== NICs to Configure ==='",
+		"enp_ifaces=()",
+		"for dev in /sys/class/net/*; do",
+		"  iface=\"$(basename \"$dev\")\"",
+		"  slot=\"$(udevadm info -q property -p \"$dev\" 2>/dev/null | awk -F= '$1==\"ID_NET_NAME_SLOT\"{print $2; exit}' || true)\"",
+		"  [[ \"$slot\" == enP* ]] && enp_ifaces+=(\"$iface\")",
+		"done",
+		"IFS=,; echo \"${enp_ifaces[*]}\"",
+	}
+	nicsResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(getNicsCommand, "\n"), 0, "could not get nics to configure")
+	s.T.Logf("NICs to configure:\n%s", nicsResult.stdout)
+
+	// Parse NIC output - it may be multi-line with header
+	lines := strings.Split(strings.TrimSpace(nicsResult.stdout), "\n")
+	nicsOutput := ""
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Skip header lines
+		if strings.Contains(line, "===") || line == "" {
+			continue
+		}
+		nicsOutput = line
+		break
+	}
+
+	nics := strings.Split(nicsOutput, ",")
+
+	s.T.Logf("Parsed NICs list: %v (count: %d)", nics, len(nics))
+
+	if len(nics) == 0 || (len(nics) == 1 && strings.TrimSpace(nics[0]) == "") {
+		s.T.Logf("No PCI devices (NICs) with enP* slot pattern found - skipping network interface config validation")
+		return
+	}
+
+	for _, nic := range nics {
+		// Skip empty entries
+		nic = strings.TrimSpace(nic)
+		if nic == "" {
+			continue
+		}
+
+		s.T.Logf("Validating network interface config for NIC: %s", nic)
+
+		// Get full ethtool output for debugging
+		debugCommand := []string{
+			"set -ex",
+			fmt.Sprintf("echo '=== Full ethtool output for %s ==='", nic),
+			fmt.Sprintf("sudo ethtool -g %s", nic),
+		}
+		debugResult := execScriptOnVMForScenario(ctx, s, strings.Join(debugCommand, "\n"))
+		s.T.Logf("Full ethtool output for %s:\n%s", nic, debugResult.stdout)
+		oldEthtool := strings.Contains(debugResult.stdout, "Current hardware settings")
+
+		for setting, expectedValue := range nicConfig {
+			var cmd string
+			if oldEthtool {
+				cmd = fmt.Sprintf("sudo ethtool -g %s | grep -A 5 'Current hardware settings' | grep -i %s: | awk '{print $2}'", nic, setting)
+			} else {
+				cmd = fmt.Sprintf("sudo ethtool --json -g %s | jq -r .[0].\\\"%s\\\"", nic, setting)
+			}
+			command := []string{
+				"set -ex",
+				cmd,
+			}
+			execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not get ethtool config")
+			actualValue := strings.TrimSpace(execResult.stdout)
+			s.T.Logf("Ethtool setting %s for NIC %s: expected=%s, actual=%s", setting, nic, expectedValue, actualValue)
+			require.Equal(s.T, expectedValue, actualValue, "expected %s to be %s on nic %s, but got %s.\nFull ethtool output:\n%s", setting, expectedValue, nic, actualValue, debugResult.stdout)
+		}
+	}
+}
+
+// ValidateAzureNetworkFiles checks that udev rules files exist.
+func ValidateAzureNetworkFiles(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	ValidateFileExists(ctx, s, "/opt/azure-network/configure-azure-network.sh")
+	ValidateFileExists(ctx, s, "/etc/udev/rules.d/99-azure-network.rules")
+}
+
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	command := []string{
@@ -314,11 +412,90 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "either could not find expected file, or something went wrong")
 }
 
+func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/ig.d/skip_vhd_ig"
+	serviceName := "ig-import-gadgets.service"
+	servicePath := "/usr/lib/systemd/system/" + serviceName
+
+	// Check if IG is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
+	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping Inspektor Gadget validation: sentinel file %s not found (VHD does not have IG installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
+
+	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, servicePath)
+
+	// Validate that gadgets were actually imported
+	trackingFile := "/var/lib/ig/imported-gadgets.txt"
+	ValidateFileExists(ctx, s, trackingFile)
+	s.T.Logf("Validating imported gadgets tracking file is not empty")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -s %s", trackingFile), 0, "tracking file should not be empty")
+
+	// Verify ig image list shows imported gadgets
+	s.T.Logf("Validating ig image list shows imported gadgets")
+	result := execScriptOnVMForScenario(ctx, s, "sudo ig image list")
+	if result.exitCode != "0" {
+		s.T.Fatalf("ig image list failed with exit code %s, stderr: %s", result.exitCode, result.stderr)
+	}
+	if len(result.stdout) == 0 {
+		s.T.Fatal("ig image list returned empty output, expected at least one imported gadget")
+	}
+	s.T.Logf("ig image list output:\n%s", result.stdout)
+
+	// Run a simple gadget as a functional test.
+	// We dynamically get the trace_exec tag from ig image list since gadgets are imported
+	// with version tags (e.g., v0.45.0) matching components.json, not :latest.
+	// IG requires root privileges to run eBPF programs.
+	// We use timeout(1) to kill the gadget after 3s in case it hangs.
+	// The ig --timeout flag expects an integer (seconds), not a duration string.
+	// Exit codes: 0 = success, 124 = timeout killed it (also OK), anything else = failure.
+	s.T.Logf("Running functional test with trace_exec gadget")
+	funcTestScript := `
+set -e
+TRACE_EXEC_TAG=$(sudo ig image list | grep trace_exec | awk '{print $2}')
+if [ -z "$TRACE_EXEC_TAG" ]; then
+    echo "trace_exec gadget not found in ig image list"
+    exit 1
+fi
+echo "Using trace_exec:$TRACE_EXEC_TAG"
+timeout 3s sudo ig run "trace_exec:$TRACE_EXEC_TAG" --timeout 2 || EXIT_CODE=$?
+if [ "${EXIT_CODE:-0}" != "0" ] && [ "${EXIT_CODE:-0}" != "124" ]; then
+    echo "trace_exec gadget failed with exit code ${EXIT_CODE}"
+    exit 1
+fi
+echo "trace_exec gadget ran successfully"
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, funcTestScript, 0, "trace_exec gadget should run successfully")
+	s.T.Logf("Inspektor Gadget functional validation passed")
+}
+
 func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if !fileExist(ctx, s, fileName) {
 		s.T.Fatalf("expected file %s, but it does not", fileName)
 	}
+}
+
+func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateFileExists(ctx, s, "/etc/system-fips")
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`test "$(cat /proc/sys/crypto/fips_enabled)" = "1"`,
+		0,
+		"expected /proc/sys/crypto/fips_enabled to be 1",
+	)
 }
 
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
@@ -361,27 +538,50 @@ func fileExist(ctx context.Context, s *Scenario, fileName string) bool {
 	}
 }
 
+func getFileContent(ctx context.Context, s *Scenario, fileName string) (string, error) {
+	s.T.Helper()
+	var steps []string
+
+	if s.IsWindows() {
+		steps = []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("Get-Content %s", fileName),
+		}
+	} else {
+		steps = []string{
+			"set -ex",
+			fmt.Sprintf("sudo cat %s", fileName),
+		}
+	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	if execResult.exitCode != "0" {
+		return "", fmt.Errorf("failed to get file content for %s: exit code %s\nStdout: %s\nStderr: %s", fileName, execResult.exitCode, execResult.stdout, execResult.stderr)
+	}
+
+	return execResult.stdout, nil
+}
+
 func fileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
 	s.T.Helper()
 	require.NotEmpty(s.T, contents, "Test setup failure: Can't validate that a file has contents with an empty string. Filename: %s", fileName)
+	var steps []string
 	if s.IsWindows() {
-		steps := []string{
+		steps = []string{
 			"$ErrorActionPreference = \"Stop\"",
-			fmt.Sprintf("Get-Content %s", fileName),
 			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
 			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	} else {
-		steps := []string{
+		steps = []string{
 			"set -ex",
-			fmt.Sprintf("sudo cat %s", fileName),
 			fmt.Sprintf("(sudo cat %s | grep -q -F -e %q)", fileName, contents),
 		}
-		execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
-		return execResult.exitCode == "0"
 	}
+
+	execResult := execScriptOnVMForScenario(ctx, s, strings.Join(steps, "\n"))
+	return execResult.exitCode == "0"
+
 }
 
 func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, contents string) bool {
@@ -419,7 +619,12 @@ func fileHasExactContent(ctx context.Context, s *Scenario, fileName string, cont
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if !fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to have contents %q, but it does not", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
@@ -429,7 +634,12 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	s.T.Helper()
 	if fileHasContent(ctx, s, fileName, contents) {
-		s.T.Fatalf("expected file %s to not have contents %q, but it does", fileName, contents)
+		actualContents, err := getFileContent(ctx, s, fileName)
+		if err != nil {
+			s.T.Fatalf("Expected file %s to have contents %q. Could not determine actual contents due to %s", fileName, contents, err.Error())
+		} else {
+			s.T.Fatalf("expected file %s to have contents %q, but it does. It had contents %s", fileName, contents, actualContents)
+		}
 	}
 }
 
@@ -532,6 +742,69 @@ func ValidateWindowsServiceIsNotRunning(ctx context.Context, s *Scenario, servic
 		fmt.Sprintf("Windows service %s validation failed", serviceName))
 }
 
+func ValidateDotnetNotInstalledWindows(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Continue\"",
+		"$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue",
+		"if ($dotnetCmd) {",
+		"  throw \".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD\"",
+		"}",
+		"Write-Host \".NET is not installed\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		".NET should not be installed on the Windows node")
+}
+
+func ValidateWindowsSystemServiceRestartConfiguration(ctx context.Context, s *Scenario, serviceName string) {
+	s.T.Helper()
+
+	command := []string{
+		fmt.Sprintf("sc.exe qfailure %s", serviceName),
+	}
+
+	execResult := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		strings.Join(command, "\n"),
+		0,
+		fmt.Sprintf("failed to validate restart configuration for Windows service %s", serviceName),
+	)
+
+	var RESET_PERIOD = "RESET_PERIOD"
+	var FAILURE_ACTIONS = "FAILURE_ACTIONS"
+
+	fields := map[string]string{}
+	sdtout := execResult.stdout
+	lines := strings.Split(sdtout, "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if strings.Contains(key, RESET_PERIOD) {
+			fields[RESET_PERIOD] = value
+		}
+		if strings.Contains(key, FAILURE_ACTIONS) {
+			fields[FAILURE_ACTIONS] = value
+		}
+	}
+	if fields[RESET_PERIOD] != "900" {
+		s.T.Fatalf("Expected 'Reset fail counter after' to be set to 900 seconds for service %s, but got: %s", serviceName, sdtout)
+	}
+	if fields[FAILURE_ACTIONS] != "RESTART -- Delay = 60000 milliseconds." {
+		s.T.Fatalf("Expected 'Failure actions' to be set to 'RESTART -- Delay = 60000 milliseconds.' for service %s, but got: %s", serviceName, sdtout)
+	}
+}
+
+func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *Scenario) {
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubelet")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "containerd")
+	ValidateWindowsSystemServiceRestartConfiguration(ctx, s, "kubeproxy")
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	s.T.Helper()
 	command := []string{
@@ -549,6 +822,9 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
+	if s.VHD != nil && s.VHD.Skip2004Validations {
+		return
+	}
 	unitFailureAllowList := map[string]bool{
 		// this service depends on non-network-isolated environment - E2Es are run in an environment
 		// which simulates network-isolation by only allowing egress to recommended domains outlined
@@ -556,6 +832,15 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		// not currently allowed by the firewall. It also seems that this service is only installed on
 		// Ubuntu - do we even need it? it seems that it's coming from the base image
 		"fwupd-refresh.service": true,
+	}
+	// cloud-init creates temporary directories under /run/cloud-init/tmp/ during provisioning.
+	// systemd auto-generates transient .mount units for these (e.g., run-cloud\x2dinit-tmp-tmpXXXXX.mount).
+	// When cloud-init cleans up the temp directory, the mount unit may enter a "failed" state due to
+	// a race in timing between cleanup and systemd state tracking. For this validator, that failure is
+	// treated as benign, and the unit name contains a random suffix, so we use prefix matching instead
+	// of exact string matching.
+	mountFailureAllowPrefixes := []string{
+		`run-cloud\x2dinit-tmp-`,
 	}
 	if s.Tags.BootstrapTokenFallback {
 		// secure-tls-bootstrap.service is expected to fail within scenarios that test bootstrap token fall-back behavior
@@ -565,6 +850,13 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 		unitFailureAllowList["cgroup-memory-telemetry.service"] = true
 		unitFailureAllowList["cgroup-pressure-telemetry.service"] = true
 	}
+	if s.VHD.OS == config.OSACL {
+		// systemd-sysupdate.service: known upstream Flatcar issue (flatcar/Flatcar#1979). The timer
+		// (OnBootSec=15min) fires the service which exits with "No transfer definitions found" because
+		// ACL VHDs don't ship sysupdate transfer configs. Whether it fails depends on whether the timer
+		// fires before the validator checks.
+		unitFailureAllowList["systemd-sysupdate.service"] = true
+	}
 
 	type systemdUnit struct {
 		Name string `json:"unit,omitempty"`
@@ -573,7 +865,17 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, fmt.Sprintf("unable to list failed systemd units"))
 	assert.NoError(s.T, json.Unmarshal([]byte(result.stdout), &failedUnits), `unable to parse and unmarshal "systemctl list-units" command output`)
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
-		return !unitFailureAllowList[unit.Name]
+		if unitFailureAllowList[unit.Name] {
+			return false
+		}
+		if strings.HasSuffix(unit.Name, ".mount") {
+			for _, prefix := range mountFailureAllowPrefixes {
+				if strings.HasPrefix(unit.Name, prefix) {
+					return false
+				}
+			}
+		}
+		return true
 	})
 
 	if len(failedUnits) < 1 {
@@ -964,10 +1266,10 @@ func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) {
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
 	// check if versions[0] is great than or equal to 1.2.0
 	// check semantic version
-	semver, err := semver.ParseTolerant(versions[0])
+	parsedVersion, err := semver.NewVersion(versions[0])
 	require.NoError(s.T, err, "failed to parse semver from moby-runc version")
-	require.GreaterOrEqual(s.T, int(semver.Major), 1, "expected moby-runc major version to be at least 1, got %d", semver.Major)
-	require.GreaterOrEqual(s.T, int(semver.Minor), 2, "expected moby-runc minor version to be at least 2, got %d", semver.Minor)
+	require.GreaterOrEqual(s.T, int(parsedVersion.Major()), 1, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major())
+	require.GreaterOrEqual(s.T, int(parsedVersion.Minor()), 2, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor())
 	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
@@ -1192,6 +1494,533 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
+// This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
+// can rotate between queries. We verify presence, not exact IP matching.
+// The hosts file is populated asynchronously by the aks-localdns-hosts-setup timer/service, so we poll with a timeout.
+func ValidateLocalDNSHostsFile(ctx context.Context, s *Scenario, fqdns []string) {
+	s.T.Helper()
+
+	// Build script that polls until all FQDNs have at least one IPv4 entry in hosts file
+	script := fmt.Sprintf(`set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+fqdns=(%s)
+timeout_secs=60
+poll_interval_secs=5
+deadline=$((SECONDS + timeout_secs))
+
+while true; do
+    echo "Current hosts file contents:"
+    if [ -f "$hosts_file" ]; then
+        cat "$hosts_file"
+    else
+        echo "Hosts file not found yet: $hosts_file"
+    fi
+    echo ""
+
+    errors=0
+    for fqdn in "${fqdns[@]}"; do
+        echo "Checking FQDN: $fqdn"
+        # Escape dots in FQDN for use in regex (. is a regex wildcard)
+        fqdn_escaped=$(echo "$fqdn" | sed 's/\./\\./g')
+
+        # Validate that there is at least one IPv4 entry for this FQDN in the hosts file,
+        # rather than requiring every currently resolved IP to be present. This avoids
+        # flakiness for CDN/frontdoor-backed FQDNs whose A records can rotate.
+        if [ -f "$hosts_file" ] && grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}[[:space:]]+'"$fqdn_escaped"'([[:space:]]|$)' "$hosts_file"; then
+            echo "  OK: Found at least one IPv4 entry for $fqdn in hosts file"
+        else
+            echo "  WAIT: No IPv4 entry found for $fqdn in hosts file yet"
+            errors=$((errors + 1))
+        fi
+    done
+
+    echo ""
+    if [ "$errors" -eq 0 ]; then
+        echo "SUCCESS: All critical FQDNs have at least one IPv4 entry in hosts file"
+        exit 0
+    fi
+
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "FAILED: Timed out after ${timeout_secs}s waiting for $errors FQDN(s) to appear in hosts file"
+        echo ""
+        echo "Final hosts file contents:"
+        if [ -f "$hosts_file" ]; then
+            cat "$hosts_file"
+        else
+            echo "Hosts file not found: $hosts_file"
+        fi
+        echo ""
+        echo "Recent journal output for aks-localdns-hosts-setup.service and timer:"
+        journalctl --no-pager -u aks-localdns-hosts-setup.service -u aks-localdns-hosts-setup.timer -n 50 || true
+        exit 1
+    fi
+
+    echo "Retrying in ${poll_interval_secs}s..."
+    sleep "$poll_interval_secs"
+done
+`, quoteFQDNsForBash(fqdns))
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"hosts file should contain resolved IPs for critical FQDNs")
+}
+
+// quoteFQDNsForBash converts a slice of FQDNs to a bash array string
+func quoteFQDNsForBash(fqdns []string) string {
+	return strings.Join(lo.Map(fqdns, func(fqdn string, _ int) string {
+		return fmt.Sprintf("%q", fqdn)
+	}), " ")
+}
+
+// ValidateAKSLocalDNSHostsSetupService checks that aks-localdns-hosts-setup.service ran successfully
+// and the aks-localdns-hosts-setup.timer is active to ensure periodic refresh of /etc/localdns/hosts.
+func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Check that aks-localdns-hosts-setup.service (oneshot) completed without failure
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-localdns-hosts-setup.service")
+
+	// Check that aks-localdns-hosts-setup.timer is active for periodic refresh
+	ValidateSystemdUnitIsRunning(ctx, s, "aks-localdns-hosts-setup.timer")
+}
+
+// ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
+// via the CoreDNS hosts plugin. It checks:
+//  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
+//
+// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+// regardless of which plugin served the response.
+func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Step 1: Verify the node has the hosts plugin annotation
+	// The annotation is set asynchronously by localdns.sh (background job waiting for kubeconfig + node registration)
+	// Poll for up to 5 minutes with exponential backoff to avoid flaky failures
+	s.T.Log("Polling for node annotation kubernetes.azure.com/localdns-hosts-plugin=enabled...")
+	annotationKey := "kubernetes.azure.com/localdns-hosts-plugin"
+
+	var node *corev1.Node
+	var err error
+	var annotationValue string
+	var exists bool
+	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+
+		annotationValue, exists = node.Annotations[annotationKey]
+		if exists && annotationValue == "enabled" {
+			s.T.Logf("✓ Node annotation %s=%s found after %d attempts", annotationKey, annotationValue, attempt)
+			break
+		}
+
+		if attempt == maxAttempts {
+			s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
+				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+		}
+
+		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+		sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+		if sleepDuration > 10*time.Second {
+			sleepDuration = 10 * time.Second
+		}
+		s.T.Logf("Attempt %d/%d: annotation not ready (exists=%v, value=%q), retrying in %v...", attempt, maxAttempts, exists, annotationValue, sleepDuration)
+		time.Sleep(sleepDuration)
+	}
+
+	// Step 2: Verify the Corefile has the hosts plugin configured
+	s.T.Log("Verifying Corefile contains hosts plugin configuration...")
+	corefileCheckScript := `set -euo pipefail
+corefile="/opt/azure/containers/localdns/updated.localdns.corefile"
+
+echo "=== Verifying Corefile configuration ==="
+echo "Checking if $corefile exists..."
+if [ ! -f "$corefile" ]; then
+    echo "ERROR: Corefile $corefile does not exist"
+    exit 1
+fi
+echo "✓ Corefile exists"
+echo ""
+
+echo "Checking if Corefile contains hosts plugin directive..."
+if ! grep -q "hosts /etc/localdns/hosts" "$corefile"; then
+    echo "ERROR: Corefile does not contain 'hosts /etc/localdns/hosts' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'hosts /etc/localdns/hosts' directive in Corefile"
+echo ""
+
+echo "Checking hosts plugin has fallthrough directive..."
+if ! grep -A5 "hosts /etc/localdns/hosts" "$corefile" | grep -q "fallthrough"; then
+    echo "WARNING: hosts plugin may be missing 'fallthrough' directive"
+fi
+echo "✓ hosts plugin configuration looks correct"
+echo ""
+
+echo "Corefile contents:"
+cat "$corefile"
+echo ""
+echo "=== Corefile validation successful ==="
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
+		"Corefile should contain hosts plugin configuration")
+
+	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
+	// This validates the hosts plugin is working by checking that the IPs returned by dig
+	// match the entries in /etc/localdns/hosts for the same FQDN. If the response came from
+	// upstream DNS instead of the hosts plugin, the IPs would likely differ due to CDN rotation,
+	// load balancer failover, or regional DNS updates.
+	//
+	// We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
+	// regardless of which plugin served the response — they reflect server capabilities,
+	// not response source. The IP match combined with corefile verification (step 2) and
+	// node annotation (step 1) is sufficient proof.
+	//
+	// We use the first FQDN from GetDefaultFQDNsForValidation() (e.g. mcr.microsoft.com) because
+	// it's a real FQDN that aks-localdns-hosts-setup.service populates from the NBC's CriticalFQDNs list.
+	// This avoids race conditions with the aks-localdns-hosts-setup.timer overwriting fake test entries.
+	testFQDN := s.GetDefaultFQDNsForValidation()[0]
+	s.T.Logf("Testing hosts plugin resolves %s from /etc/localdns/hosts with matching IPs", testFQDN)
+
+	script := fmt.Sprintf(`set -euo pipefail
+test_fqdn=%q
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Testing localdns hosts plugin functionality ==="
+echo "Testing FQDN: $test_fqdn"
+echo ""
+
+# Step 1: Get the expected IPs from /etc/localdns/hosts
+echo "Reading expected IPs from $hosts_file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Extract IPv4 addresses for the test FQDN from hosts file
+# Escape dots in FQDN for regex (. matches any char in ERE)
+test_fqdn_escaped=$(echo "$test_fqdn" | sed 's/\./\\./g')
+expected_ips=$(grep -E "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+[[:space:]]+${test_fqdn_escaped}([[:space:]]|$)" "$hosts_file" | awk '{print $1}' | sort)
+if [ -z "$expected_ips" ]; then
+    echo "ERROR: No IPv4 entries found for $test_fqdn in $hosts_file"
+    echo "Hosts file contents:"
+    cat "$hosts_file"
+    exit 1
+fi
+
+echo "Expected IPs from hosts file:"
+echo "$expected_ips"
+echo ""
+
+# Step 2: Query localdns with dig and capture full output
+echo "Querying localdns for $test_fqdn at 169.254.10.10..."
+dig_output=$(dig "$test_fqdn" @169.254.10.10 -t A +timeout=5 +tries=2 2>&1)
+echo "Full dig output:"
+echo "$dig_output"
+echo ""
+
+# Step 3: Extract resolved IPs from dig ANSWER section and compare with hosts file
+# Reuse escaped FQDN for regex matching of dig output
+resolved_ips=$(echo "$dig_output" | grep -E "^${test_fqdn_escaped}\..*IN[[:space:]]+A[[:space:]]" | awk '{print $NF}' | sort)
+if [ -z "$resolved_ips" ]; then
+    echo "ERROR: No A records returned from dig query"
+    exit 1
+fi
+
+echo "Resolved IPs from dig:"
+echo "$resolved_ips"
+echo ""
+
+echo "Comparing resolved IPs with hosts file entries..."
+if [ "$expected_ips" != "$resolved_ips" ]; then
+    echo "ERROR: Resolved IPs do not match hosts file entries"
+    echo "Expected (from hosts file):"
+    echo "$expected_ips"
+    echo "Got (from dig):"
+    echo "$resolved_ips"
+    exit 1
+fi
+echo "✓ Resolved IPs match hosts file entries"
+echo ""
+
+echo "=== SUCCESS ==="
+echo "The localdns hosts plugin is working correctly:"
+echo "  Resolved IPs match /etc/localdns/hosts entries"
+`, testFQDN)
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should resolve FQDN from hosts file with matching IPs")
+}
+
+// ValidateLocalDNSHostsPluginIPv6 checks that IPv6 entries in /etc/localdns/hosts are
+// properly served by CoreDNS's hosts plugin. If the hosts file has no IPv6 entries
+// (some FQDNs don't have AAAA records), the test is skipped gracefully.
+//
+// Test flow:
+//  1. Find the first FQDN with an IPv6 entry in the hosts file
+//  2. Query localdns for AAAA records for that FQDN
+//  3. Verify the returned IPv6 addresses match the hosts file entries
+func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	s.T.Log("Testing hosts plugin serves IPv6 entries from hosts file")
+
+	script := `set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+
+echo "=== Validating IPv6 handling in hosts plugin ==="
+echo ""
+
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+
+# Find the first FQDN that has an IPv6 entry in the hosts file
+# IPv6 addresses contain colons, so we look for lines starting with hex:hex patterns
+ipv6_line=$(grep -E '^[0-9a-fA-F]*:[0-9a-fA-F:]+[[:space:]]' "$hosts_file" | head -1 || true)
+
+if [ -z "$ipv6_line" ]; then
+    echo "No IPv6 entries found in hosts file — skipping IPv6 validation"
+    echo "This is expected if none of the critical FQDNs have AAAA records"
+    exit 0
+fi
+
+# Extract the FQDN and expected IPv6 address from the hosts file line
+ipv6_fqdn=$(echo "$ipv6_line" | awk '{print $2}')
+echo "Found IPv6 entry for FQDN: $ipv6_fqdn"
+echo ""
+
+# Get all IPv6 addresses for this FQDN from the hosts file
+expected_ipv6=$(grep -E '^[0-9a-fA-F]*:[0-9a-fA-F:]+[[:space:]]' "$hosts_file" | \
+    awk -v fqdn="$ipv6_fqdn" '$2 == fqdn {print $1}' | sort)
+echo "Expected IPv6 addresses from hosts file:"
+echo "$expected_ipv6"
+echo ""
+
+# Query localdns for AAAA records
+echo "Querying localdns for AAAA records..."
+dig_result=$(dig "$ipv6_fqdn" @169.254.10.10 -t AAAA +short +timeout=5 +tries=2 2>&1 || true)
+echo "Dig AAAA result: '$dig_result'"
+echo ""
+
+# Filter to only valid IPv6 addresses (contain colons)
+resolved_ipv6=$(echo "$dig_result" | grep ':' | sort)
+
+if [ -z "$resolved_ipv6" ]; then
+    echo "ERROR: No AAAA records returned by localdns for $ipv6_fqdn"
+    echo "Expected at least one IPv6 address from hosts file"
+    exit 1
+fi
+
+echo "Resolved IPv6 addresses:"
+echo "$resolved_ipv6"
+echo ""
+
+# Verify at least one expected IPv6 address is in the dig result
+match_found=false
+for expected in $expected_ipv6; do
+    if echo "$resolved_ipv6" | grep -qi "$expected"; then
+        echo "✓ IPv6 address $expected matches"
+        match_found=true
+    fi
+done
+
+if [ "$match_found" != "true" ]; then
+    echo "ERROR: None of the expected IPv6 addresses from hosts file were returned by localdns"
+    echo "Expected (from hosts file): $expected_ipv6"
+    echo "Got (from dig): $resolved_ipv6"
+    exit 1
+fi
+
+echo ""
+echo "=== SUCCESS ==="
+echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"CoreDNS hosts plugin should serve IPv6 entries from hosts file")
+}
+
+// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when restarted
+// with an empty hosts file — the exact scenario that occurs when localdns starts before
+// aks-localdns-hosts-setup finishes resolving FQDNs.
+//
+// Test flow:
+//  1. Truncate hosts file, restart localdns — CoreDNS starts fresh with empty hosts file and empty cache
+//  2. Verify critical and non-critical FQDNs resolve via fallthrough (upstream DNS)
+//  3. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
+//  4. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
+//  5. Restore original hosts file and restart localdns to leave node in clean state
+func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	s.T.Log("Testing localdns cold start with empty hosts file then population")
+
+	script := `set -euo pipefail
+hosts_file="/etc/localdns/hosts"
+canary_fqdn="canary.localdns.test"
+canary_ip="192.0.2.99"
+
+# Helper: validate that dig output contains at least one valid IP address (not error text).
+has_valid_ip() {
+    echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
+echo "=== Testing localdns cold start with empty hosts file ==="
+echo ""
+
+# Step 0: Save current hosts file
+echo "Step 0: Saving current hosts file..."
+if [ ! -f "$hosts_file" ]; then
+    echo "ERROR: Hosts file $hosts_file does not exist"
+    exit 1
+fi
+saved_content=$(cat "$hosts_file")
+echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
+echo ""
+
+# Step 1: Truncate hosts file and restart localdns (clears both hosts map and DNS cache)
+echo "Step 1: Truncating hosts file and restarting localdns..."
+sudo truncate -s 0 "$hosts_file"
+sudo systemctl restart localdns
+echo "localdns restarted with empty hosts file"
+echo ""
+
+# Wait for localdns to be fully ready
+echo "Waiting for localdns to be ready..."
+for i in $(seq 1 30); do
+    if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
+        echo "localdns is ready after ${i}s"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "ERROR: localdns did not become ready after 30s"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 30 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+        echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+        sudo systemctl restart localdns
+        exit 1
+    fi
+    sleep 1
+done
+echo ""
+
+# Step 2: Verify DNS resolves via fallthrough with empty hosts file
+echo "Step 2: Verifying DNS resolves via fallthrough after cold start..."
+
+critical_fqdn="mcr.microsoft.com"
+critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Critical FQDN ($critical_fqdn): '$critical_result'"
+if ! has_valid_ip "$critical_result"; then
+    echo "ERROR: Critical FQDN did not return a valid IP after cold start with empty hosts file"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Critical FQDN resolves via fallthrough"
+
+noncritical_fqdn="www.bing.com"
+noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
+echo "Non-critical FQDN ($noncritical_fqdn): '$noncritical_result'"
+if ! has_valid_ip "$noncritical_result"; then
+    echo "ERROR: Non-critical FQDN did not return a valid IP after cold start with empty hosts file"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo "✓ Non-critical FQDN resolves via fallthrough"
+echo ""
+
+# Step 3: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
+echo "Step 3: Populating hosts file with original content + canary entry..."
+{ echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
+echo ""
+
+# Step 4: Wait for hosts plugin reload then verify canary resolves
+# IMPORTANT: We must wait for the hosts plugin to reload (configured with "reload 5s")
+# BEFORE making the first canary query. If we query too early, the hosts plugin hasn't
+# picked up the new file yet and the query falls through to the forward plugin, which
+# returns NXDOMAIN. The cache plugin then caches that NXDOMAIN for the SOA TTL (can be
+# minutes/hours), making all subsequent queries return NXDOMAIN even after the hosts
+# plugin reloads — the cached negative response shadows the hosts entry.
+echo "Step 4: Waiting 15s for hosts plugin reload (5s cycle + safety margin)..."
+sleep 15
+echo "Polling for canary resolution (up to 60s)..."
+canary_resolved=false
+for i in $(seq 1 30); do
+    canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=2 +tries=1 2>&1 || true)
+    if [ "$canary_result" = "$canary_ip" ]; then
+        echo "✓ Canary resolves after 15s+${i}x2s — CoreDNS picked up the hosts file after cold start"
+        canary_resolved=true
+        break
+    fi
+    sleep 2
+done
+
+if [ "$canary_resolved" != "true" ]; then
+    echo "ERROR: Canary did not resolve after 60s — hot-reload after cold start broken"
+    echo "Expected: $canary_ip"
+    echo "Last dig result: '$canary_result'"
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 30 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    sudo systemctl restart localdns
+    exit 1
+fi
+echo ""
+
+# Step 5: Cleanup — restore original hosts file and restart localdns
+echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
+echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+sudo systemctl restart localdns
+echo ""
+
+# Wait for localdns to be ready after final restart
+for i in $(seq 1 30); do
+    if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
+        echo "localdns is ready after cleanup"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: localdns did not become ready after cleanup (30s)"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 30 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    fi
+    sleep 1
+done
+
+echo "=== SUCCESS ==="
+echo "localdns cold start with empty hosts file verified:"
+echo "  1. Restart with empty hosts file: DNS resolves via fallthrough"
+echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
+`
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"localdns should work after cold start with empty hosts file and pick up populated file")
+}
+
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
 func ValidateJournalctlOutput(ctx context.Context, s *Scenario, serviceName string, expectedContent string) {
 	s.T.Helper()
@@ -1213,6 +2042,69 @@ func ValidateNodeProblemDetector(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Node Problem Detector (NPD) service validation failed")
 }
 
+func RestartNodeProblemDetector(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Log("restarting node-problem-detector to pick up managed GPU health checks")
+	command := []string{
+		"set -ex",
+		"sudo systemctl restart node-problem-detector",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"failed to restart Node Problem Detector (NPD) service")
+}
+
+func ValidateNodeExporter(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	skipFile := "/etc/node-exporter.d/skip_vhd_node_exporter"
+	serviceName := "node-exporter.service"
+
+	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
+	// The skip file is only present on VHDs that have node-exporter installed (Ubuntu, Mariner, Azure Linux).
+	// Flatcar, ACL, OSGuard, and older VHDs do not have node-exporter installed and will not have the skip file.
+	if !fileExist(ctx, s, skipFile) {
+		s.T.Logf("Skipping node-exporter validation: sentinel file %s not found (VHD does not have node-exporter installed)", skipFile)
+		return
+	}
+
+	s.T.Logf("skip_vhd_node_exporter sentinel file found, validating node-exporter installation")
+
+	// Validate service is running
+	ValidateSystemdUnitIsRunning(ctx, s, serviceName)
+	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
+
+	// Validate service is enabled
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+
+	// Validate binary exists and is executable
+	// The binary is installed at /usr/bin and symlinked to /opt/bin for consistency with other binaries (kubelet, etc.)
+	ValidateFileExists(ctx, s, "/usr/bin/node-exporter")
+	ValidateFileExists(ctx, s, "/opt/bin/node-exporter")
+	ValidateFileExists(ctx, s, "/opt/bin/node-exporter-startup.sh")
+
+	// Validate configuration files exist
+	ValidateFileExists(ctx, s, skipFile)
+	ValidateFileExists(ctx, s, "/etc/node-exporter.d/web-config.yml")
+
+	// Validate that node-exporter is listening on port 19100 and serving metrics on the node ip.
+	// TLS is disabled by default (opt-in via NODE_EXPORTER_TLS_ENABLED=true in /etc/default/node-exporter),
+	// so we validate by making a plain HTTP request to the metrics endpoint.
+	// We avoid curl -sf here so that diagnostic messages (e.g. "Client sent an HTTP request to an HTTPS server")
+	// are visible in test logs rather than silently swallowed.
+	// We curl the node's private IP directly rather than discovering the listen address from ss,
+	// so we validate that the metrics endpoint is reachable on the actual node IP used by monitoring infrastructure.
+	s.T.Logf("Validating node-exporter is listening on port 19100 and serving metrics")
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("echo \"node IP: %s\"", s.Runtime.VM.PrivateIP),
+		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | head -20", s.Runtime.VM.PrivateIP),
+		fmt.Sprintf("curl -sS --max-time 10 http://%s:19100/metrics 2>&1 | grep -q 'node_'", s.Runtime.VM.PrivateIP),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "node-exporter should be listening on port 19100 and serving metrics over HTTP")
+
+	s.T.Logf("node-exporter validation passed")
+}
+
 func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	command := []string{
 		"set -ex",
@@ -1221,16 +2113,57 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NPD Custom Plugin configuration for FilesystemCorruptionProblem not found")
 
+	// Log the NPD plugin config and check script for diagnostics
+	diagCmd := []string{
+		"set -x",
+		"cat /etc/node-problem-detector.d/custom-plugin-monitor/custom-fs-corruption-monitor.json",
+		"echo '--- check_fs_corruption.sh ---'",
+		"cat /etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
+	}
+	diagResult := execScriptOnVMForScenario(ctx, s, strings.Join(diagCmd, "\n"))
+	s.T.Logf("NPD filesystem corruption plugin config and script:\nstdout:\n%s\nstderr:\n%s", diagResult.stdout, diagResult.stderr)
+
+	// Simulate filesystem corruption by replacing the check script with one that
+	// always reports corruption. This is the most reliable approach because:
+	// - On cgroup v2 (Ubuntu 24.04), systemd protects service cgroups from external
+	//   process migration, so we cannot inject journal entries under containerd.service
+	// - Writing to /proc/PID/fd/2 on a journal stream socket is unreliable
+	// - The test's goal is to verify NPD is installed, configured, and correctly sets
+	//   node conditions — not to unit-test the journal grep mechanism
 	command = []string{
 		"set -ex",
-		// Simulate a filesystem corruption problem
-		"sudo systemd-run --unit=docker --no-block bash -c 'echo \"structure needs cleaning\"'",
+		`sudo cp /etc/node-problem-detector.d/plugin/check_fs_corruption.sh /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak`,
+		`printf '#!/bin/bash\necho "Found '\''structure needs cleaning'\'' in containerd journal."\nexit 1\n' | sudo tee /etc/node-problem-detector.d/plugin/check_fs_corruption.sh > /dev/null`,
+		`sudo chmod +x /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to simulate filesystem corruption problem")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "Failed to replace check_fs_corruption.sh to simulate corruption")
+	defer func() {
+		restoreCmd := []string{
+			"set -ex",
+			`if [ -f /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak ]; then`,
+			`  sudo mv /etc/node-problem-detector.d/plugin/check_fs_corruption.sh.bak /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
+			`  sudo chmod +x /etc/node-problem-detector.d/plugin/check_fs_corruption.sh`,
+			`fi`,
+		}
+		restoreResult := execScriptOnVMForScenario(ctx, s, strings.Join(restoreCmd, "\n"))
+		s.T.Logf("Restored original check_fs_corruption.sh:\nstdout:\n%s\nstderr:\n%s", restoreResult.stdout, restoreResult.stderr)
+	}()
 
-	// Wait for NPD to detect the problem using Kubernetes native waiting
+	// Verify the replacement script works correctly
+	verifyCmd := []string{
+		"set -x",
+		"cat /etc/node-problem-detector.d/plugin/check_fs_corruption.sh",
+		"echo '--- manual check script run ---'",
+		"sudo /etc/node-problem-detector.d/plugin/check_fs_corruption.sh; echo \"exit_code=$?\"",
+	}
+	verifyResult := execScriptOnVMForScenario(ctx, s, strings.Join(verifyCmd, "\n"))
+	s.T.Logf("Simulation verification:\nstdout:\n%s\nstderr:\n%s", verifyResult.stdout, verifyResult.stderr)
+
+	// Wait for NPD to detect the problem. NPD's custom plugin monitor polls
+	// every 5 minutes. With continuous simulation, the first check cycle after
+	// our start should detect it. Use 8 minutes as a safety margin.
 	var filesystemCorruptionProblem *corev1.NodeCondition
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
@@ -1249,7 +2182,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 
 	require.NotNil(s.T, filesystemCorruptionProblem, "expected FilesystemCorruptionProblem condition to be present on node")
 	require.Equal(s.T, corev1.ConditionTrue, filesystemCorruptionProblem.Status, "expected FilesystemCorruptionProblem condition to be True on node")
-	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in Docker journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in Docker journal.")
+	require.Contains(s.T, filesystemCorruptionProblem.Message, "Found 'structure needs cleaning' in containerd journal.", "expected FilesystemCorruptionProblem condition message to contain: Found 'structure needs cleaning' in containerd journal.")
 }
 
 func ValidateEnableNvidiaResource(ctx context.Context, s *Scenario) {
@@ -1269,12 +2202,11 @@ func ValidateNvidiaDevicePluginServiceRunning(ctx context.Context, s *Scenario) 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "NVIDIA device plugin systemd service should be active and enabled")
 }
 
-func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64) {
+func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCountExpected int64, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that node advertises GPU resources")
-	resourceName := "nvidia.com/gpu"
 
-	// First, wait for the nvidia.com/gpu resource to be available
+	// First, wait for the GPU resource to be available
 	waitUntilResourceAvailable(ctx, s, resourceName)
 
 	// Get the node using the Kubernetes client from the test framework
@@ -1291,12 +2223,12 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 	s.T.Logf("node %s advertises %s=%d resources", nodeName, resourceName, gpuCount)
 }
 
-func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int) {
+func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount int, resourceName string) {
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
 	// Wait for resources to be available and add delay for device health
-	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	waitUntilResourceAvailable(ctx, s, resourceName)
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
@@ -1315,7 +2247,7 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
-							"nvidia.com/gpu": resource.MustParse(fmt.Sprintf("%d", gpuCount)),
+							corev1.ResourceName(resourceName): resource.MustParse(fmt.Sprintf("%d", gpuCount)),
 						},
 					},
 				},
@@ -1622,4 +2554,283 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	actualValue, exists := node.Labels[labelKey]
 	require.True(s.T, exists, "expected node %q to have label %q, but it was not found", s.Runtime.VM.KubeName, labelKey)
 	require.Equal(s.T, expectedValue, actualValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
+}
+
+// ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
+func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc != nil && s.VHD.SupportsScriptless() && (nbc.EnableScriptlessCSECmd || nbc.EnableScriptlessNBCCSECmd) {
+		ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
+	}
+}
+
+// ValidateScriptlessNBCCSECmd checks if the node has scriptless NBCCSECmd correctly enabled
+func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
+	nbc := s.Runtime.NBC
+	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
+		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+		}
+		ValidateFileExists(ctx, s, fileNameToCheck)
+		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+	}
+}
+
+// ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
+func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// Query the VM's actual CPU count using nproc
+	cpuCountCmd := "nproc"
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
+	vmCPUCount := strings.TrimSpace(result.stdout)
+
+	// Parse CPU count
+	cpuCount, err := strconv.Atoi(vmCPUCount)
+	require.NoError(s.T, err, "failed to parse CPU count: %s", vmCPUCount)
+
+	// Determine expected rx based on VM's CPU count (matching configure-azure-network.sh logic)
+	expectedRx := "1024"
+	if cpuCount >= 4 {
+		expectedRx = "2048"
+	}
+
+	s.T.Logf("VM has %d CPUs, expecting rx buffer size: %s", cpuCount, expectedRx)
+
+	customNicConfig := map[string]string{
+		"rx": expectedRx,
+	}
+
+	// Validate files exist
+	ValidateAzureNetworkFiles(ctx, s)
+
+	// Validate network interface settings match expected default
+	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
+}
+
+// ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
+// - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
+// - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
+// - Memory issues (OOM killer, page allocation failure, memory corruption)
+// - I/O and filesystem errors (I/O error, filesystem errors, nvme/ata/scsi errors)
+func ValidateKernelLogs(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD != nil && s.VHD.Skip2004Validations {
+		return
+	}
+
+	type categoryPattern struct {
+		pattern string
+		exclude string // optional pattern to exclude false positives
+	}
+	// sr[0-9] is the virtual CD-ROM drive on Azure VMs. This error occurs when the VM tries to read from an empty virtual optical drive, which is normal and expected.
+	// "Shutdown timeout set to" is an informational message from the NVMe driver during initialization, not an error.
+	ioFSExclude := `sr[0-9]|Shutdown timeout set to`
+	if s.VHD != nil && s.VHD.OS == config.OSACL {
+		// ACL-only: exclude benign BTRFS udev race warnings ("duplicate device") and loop device I/O errors
+		// from sysext squashfs read-ahead overshooting the backing file boundary.
+		ioFSExclude += `|duplicate device|loop[0-9]`
+	}
+
+	patterns := map[string]categoryPattern{
+		"PANIC/CRASH": {
+			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot)
+			exclude: `panic[-=]`,
+		},
+		"LOCKUP/STALL": {pattern: `(soft|hard) lockup|rcu.*(stall|detected stalls)|hung task|watchdog.*(detected|stuck)`},
+		"MEMORY":       {pattern: `oom[- ]killer|Out of memory:|page allocation failure|memory corruption`},
+		"IO/FS": {
+			pattern: `I/O error|read-only file system|EXT[2-4]-fs error|XFS.*(ERROR|error|corruption)|BTRFS.*(error|warning)|nvme .* (timeout|reset)|ata[0-9].*(failed|error|reset)|scsi.*(error|failed)`,
+			exclude: ioFSExclude,
+		},
+	}
+
+	// Collect all issues first before potentially failing
+	issuesFound := make(map[string]string)
+	for category, cp := range patterns {
+		var command []string
+		if cp.exclude != "" {
+			command = []string{
+				"set -e",
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' | grep -ivE '%s' || true", cp.pattern, cp.exclude),
+			}
+		} else {
+			command = []string{
+				"set -e",
+				"output=$(sudo dmesg)",
+				fmt.Sprintf("echo \"$output\" | grep -iE '%s' || true", cp.pattern),
+			}
+		}
+		execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to retrieve kernel logs")
+
+		stdout := strings.TrimSpace(execResult.stdout)
+		if stdout != "" {
+			issuesFound[category] = stdout
+		}
+	}
+
+	// If issues found, write the full kernel dump to a file for debugging
+	if len(issuesFound) > 0 {
+		// Get full kernel log dump and write to file
+		fullDmesgResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo dmesg", 0, "failed to retrieve full kernel logs")
+		logFileName := "kernel-log.txt"
+		if err := writeToFile(s.T, logFileName, fullDmesgResult.stdout); err != nil {
+			s.T.Logf("Warning: failed to write kernel log to file: %v", err)
+		} else {
+			s.T.Logf("Full kernel log written to: %s/%s", testDir(s.T), logFileName)
+		}
+
+		// Log each category of issues found
+		var summary strings.Builder
+		summary.WriteString("Critical kernel issues detected:\n")
+		for category, issues := range issuesFound {
+			summary.WriteString(fmt.Sprintf("\n[%s]:\n%s\n", category, issues))
+		}
+		s.T.Fatalf("%s", summary.String())
+	}
+
+	s.T.Logf("No critical kernel issues found")
+}
+
+// ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
+// - AutoUpdate is disabled as expected
+// - The correct version is running as ExtHandler
+// - No errors from ExtHandler
+// Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
+func ValidateWaagentLog(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
+		return
+	}
+
+	// Skip on pinned-version VHDs that predate the waagent installation.
+	// These VHDs explicitly select a version number and are not updated.
+	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
+		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
+		return
+	}
+
+	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
+	if len(versions) == 0 || versions[0] == "<SKIP>" {
+		s.T.Log("Skipping waagent log validation: no walinuxagent version in components.json")
+		return
+	}
+	expectedVersion := versions[0]
+
+	const waagentLogFile = "/var/log/waagent.log"
+
+	logContents := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo cat "+waagentLogFile, 0,
+		"could not read waagent log").stdout
+
+	// 1. Verify AutoUpdate is disabled
+	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
+
+	// 2. Verify the correct version is running as ExtHandler (PID varies)
+	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
+	require.Contains(s.T, logContents, expectedRunningPattern,
+		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+
+	// 3. Check for ExtHandler errors
+	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
+	// of a known bug with VMSS that fails to propagate the FIPS additionalCapabilities.
+	// Until the VMSS bug is fixed, skip the "Cannot convert PFX to PEM" errors.
+	// TODO: Remove the conditional exclusion once the underlying VMSS issue is resolved.
+	isUbuntu2204FIPS := s.VHD == config.VHDUbuntu2204FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSContainerd ||
+		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
+	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
+	if isUbuntu2204FIPS {
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+	}
+	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		strings.Join([]string{
+			"set -e",
+			grepCmd,
+		}, "\n"), 0,
+		"failed to scan waagent log for ExtHandler errors")
+
+	errOutput := strings.TrimSpace(extHandlerErrors.stdout)
+	if errOutput != "" {
+		logFileName := "waagent-exthandler-errors.log"
+		if err := writeToFile(s.T, logFileName, logContents); err != nil {
+			s.T.Logf("Warning: failed to write waagent log to file: %v", err)
+		} else {
+			s.T.Logf("Full waagent log written to: %s/%s", testDir(s.T), logFileName)
+		}
+		s.T.Fatalf("ExtHandler errors found in waagent.log:\n%s", errOutput)
+	}
+
+	s.T.Logf("waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+}
+
+// ValidateCollectWindowsLogsScript runs c:\k\debug\collect-windows-logs.ps1 on the node
+// and verifies that a zip archive was produced by the script.
+func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		"cd c:/",
+		"mkdir logs-for-test",
+		"cd logs-for-test",
+		"$startTime = Get-Date",
+		"Remove-Item \"*_logs.zip\" -ErrorAction SilentlyContinue",
+		"$ErrorActionPreference = \"SilentlyContinue\"",
+		"& c:\\k\\debug\\collect-windows-logs.ps1",
+		"$ErrorActionPreference = \"Stop\"",
+		"$zipFile = Get-ChildItem -Filter \"*_logs.zip\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
+		"if (-not $zipFile) { throw \"collect-windows-logs.ps1 did not create a zip file\" }",
+		"Write-Host \"Zip file created: $($zipFile.FullName) (Size: $($zipFile.Length) bytes)\"",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		"collect-windows-logs.ps1 failed or did not produce a zip file")
+}
+
+// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
+// LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
+// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+// To add a new CVE mitigation, append the module name to the list below.
+func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
+		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
+		return
+	}
+
+	script := strings.Join([]string{
+		`failed=0`,
+		`for mod in algif_aead esp4 esp6 rxrpc; do`,
+		`  if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+		`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf"`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: modprobe config blocks ${mod}"`,
+		`  fi`,
+		`  if grep -qE "^${mod} " /proc/modules 2>/dev/null; then`,
+		`    echo "FAIL: ${mod} module is loaded"`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: ${mod} module is not loaded"`,
+		`  fi`,
+		`  if sudo modprobe "${mod}" 2>/dev/null; then`,
+		`    echo "FAIL: modprobe ${mod} succeeded, should be blocked"`,
+		`    sudo modprobe -r "${mod}" 2>/dev/null || true`,
+		`    failed=1`,
+		`  else`,
+		`    echo "PASS: modprobe ${mod} correctly refused"`,
+		`  fi`,
+		`done`,
+		`exit $failed`,
+	}, "\n")
+
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
 }

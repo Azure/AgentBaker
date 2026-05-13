@@ -4,6 +4,7 @@ mkdir -p /root/AzureCACertificates
 
 IS_FLATCAR=0
 IS_UBUNTU=0
+IS_ACL=0
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -12,6 +13,8 @@ if [[ -f /etc/os-release ]]; then
         IS_UBUNTU=1
     elif [[ $ID == *"flatcar"* ]]; then
         IS_FLATCAR=1
+    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
+        IS_ACL=1
     else
         echo "Unknown Linux distribution"
         exit 1
@@ -113,7 +116,10 @@ process_cert_operations "operationrequestsroot"
 # Process intermediate certificates
 process_cert_operations "operationrequestsintermediate"
 
-if [ "${IS_FLATCAR}" -eq 0 ]; then
+if [ "$IS_ACL" -eq 1 ]; then
+    cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
+    update-ca-trust
+elif [ "${IS_FLATCAR}" -eq 0 ]; then
     # Copy all certificate files to the system certificate directory
     cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
 
@@ -279,7 +285,19 @@ function init_ubuntu_pmc_repo_depot {
 }
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
-    (crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
+    scriptPath=$0
+    # Determine an absolute, canonical path to this script for use in cron.
+    if command -v readlink >/dev/null 2>&1; then
+        # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
+        scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+    fi
+
+    if ! crontab -l 2>/dev/null | grep -q "\"$scriptPath\" ca-refresh"; then
+        # Quote the script path in the cron entry to avoid issues with spaces or special characters.
+        if ! (crontab -l 2>/dev/null ; printf '%s\n' "0 19 * * * \"$scriptPath\" ca-refresh") | crontab -; then
+            echo "Failed to install ca-refresh cron job via crontab" >&2
+        fi
+    fi
 
     cloud-init status --wait
     rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
@@ -292,7 +310,7 @@ if [ "$IS_UBUNTU" -eq 1 ]; then
     # update apt list
     echo "Running apt-get update"
     aptget_update
-elif [ "$IS_FLATCAR" -eq 1 ]; then
+elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
     script_path="$(readlink -f "$0")"
     svc="/etc/systemd/system/azure-ca-refresh.service"
     tmr="/etc/systemd/system/azure-ca-refresh.timer"

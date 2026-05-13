@@ -25,12 +25,21 @@ Describe 'localdns.sh'
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
-            echo ".:5353 {" >> "$LOCALDNS_CORE_FILE"
-            echo "    forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
-            echo "}" >> "$LOCALDNS_CORE_FILE"
-            echo ".:5353 {" >> "$UPDATED_LOCALDNS_CORE_FILE"
-            echo "    forward . 168.63.129.16" >> "$UPDATED_LOCALDNS_CORE_FILE"
-            echo "}" >> "$UPDATED_LOCALDNS_CORE_FILE"
+            # Use production-realistic corefile format with brace syntax
+            cat > "$LOCALDNS_CORE_FILE" <<'EOF'
+.:5353 {
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:5353 {
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -66,34 +75,38 @@ EOF
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------ regenerate_localdns_corefile ---------------------------------------------
-        It 'should regenerate corefile successfully when LOCALDNS_BASE64_ENCODED_COREFILE is set'
+        It 'should regenerate corefile successfully when LOCALDNS_COREFILE_BASE is set'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_BASE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run regenerate_localdns_corefile
             The status should be success
             The stdout should include "Regenerating localdns corefile at $LOCALDNS_CORE_FILE"
             The stdout should include "Successfully regenerated localdns corefile."
+            The stderr should include "Using LOCALDNS_COREFILE_BASE"
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
-        It 'should fail to regenerate when LOCALDNS_BASE64_ENCODED_COREFILE is not set'
+        It 'should fail to regenerate when no corefile variants are available'
             rm -f "$LOCALDNS_CORE_FILE"
-            unset LOCALDNS_BASE64_ENCODED_COREFILE
+            unset LOCALDNS_COREFILE_BASE
+            unset LOCALDNS_COREFILE_WITH_HOSTS
             When run regenerate_localdns_corefile
             The status should be failure
-            The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+            The stdout should include "No corefile selected. Cannot regenerate corefile."
+            The stderr should include "No corefile variants available in environment."
         End
 
         It 'should set correct permissions on regenerated corefile'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_BASE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run regenerate_localdns_corefile
             The status should be success
             The stdout should include "Successfully regenerated localdns corefile."
+            The stderr should include "Using LOCALDNS_COREFILE_BASE"
             The path "$LOCALDNS_CORE_FILE" should be file
         End
 
@@ -111,24 +124,28 @@ EOF
             The status should be success
         End
 
-        It 'should regenerate and succeed if corefile is missing and LOCALDNS_BASE64_ENCODED_COREFILE is set'
+        It 'should regenerate and succeed if corefile is missing and LOCALDNS_COREFILE_BASE is set'
             rm -f "$LOCALDNS_CORE_FILE"
-            LOCALDNS_BASE64_ENCODED_COREFILE=$(echo ".:5353 {
+            LOCALDNS_COREFILE_BASE=$(echo ".:5353 {
     forward . 168.63.129.16
 }" | base64)
             When run verify_localdns_corefile
             The status should be success
             The stdout should include "Attempting to regenerate localdns corefile..."
             The stdout should include "Localdns corefile regenerated successfully."
+            The stderr should include "Using LOCALDNS_COREFILE_BASE"
         End
 
         It 'should return failure if localdns corefile does not exist and regeneration fails'
-            rm -r "$LOCALDNS_CORE_FILE"
+            rm -f "$LOCALDNS_CORE_FILE"
+            unset LOCALDNS_COREFILE_BASE
+            unset LOCALDNS_COREFILE_WITH_HOSTS
             When run verify_localdns_corefile
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
-            The stdout should include "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+            The stdout should include "No corefile selected. Cannot regenerate corefile."
+            The stderr should include "No corefile variants available in environment."
         End
 
         It 'should return failure if localdns corefile is empty and regeneration fails'
@@ -137,6 +154,7 @@ EOF
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE."
             The stdout should include "Attempting to regenerate localdns corefile..."
+            The stderr should include "No corefile variants available in environment."
         End
 
         It 'should return failure if LOCALDNS_CORE_FILE is unset'
@@ -211,6 +229,174 @@ EOF
             The stdout should include "Found upstream VNET DNS servers: 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Replacing Azure DNS IP 168.63.129.16 with upstream VNET DNS servers 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
             The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            # Ensure brace is NOT captured as an IP in the prom file
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+        End
+
+        It 'should create forward_ips.prom file when corefile is updated'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+            # Ensure brace is NOT captured as an IP in the prom file
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+        End
+
+        It 'should export VnetDNS forward IP to prom file with correct format'
+            # Setup corefile with health-check block + VnetDNS block (matches production layout).
+            # The health-check block has bind 169.254.10.10/11 but no forward directive —
+            # the parser must not produce false positives from it.
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
+            # Verify complete metric format with both IP and status labels
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export KubeDNS forward IP to prom file with correct format'
+            # Setup corefile with health-check + VnetDNS + KubeDNS blocks (matches production layout)
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+.:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_vnetdns_forward_info"
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include "localdns_kubedns_forward_info"
+            # Verify complete metric format with both IP and status labels
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export multiple VnetDNS forward IPs to prom file'
+            # Setup corefile with health-check + VnetDNS block with multiple forward IPs
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify all 4 IPs are exported as separate metric lines
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.2",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.3",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.4",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export multiple KubeDNS forward IPs to prom file'
+            # Setup corefile with health-check + VnetDNS + KubeDNS blocks with multiple forward IPs
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+.:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        except health-check.localdns.local
+    }
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify all 4 IPs are exported for both VnetDNS and KubeDNS
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.2",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.3",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="10.0.0.4",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.1",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.2",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.3",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.4",block=".:53",status="ok"} 1'
+            # Ensure brace is NOT captured as an IP
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should not include 'ip="{"'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should export missing status when no forward IPs are configured'
+            # Setup corefile with health-check block but no forward directive in VnetDNS/KubeDNS blocks
+            cat > "$LOCALDNS_CORE_FILE" <<EOF
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    bind 169.254.10.10
+    # No forward directive here
+}
+.:53 {
+    bind 169.254.10.11
+    # No forward directive here
+}
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be exist
+            # Verify status="missing" when no forward IPs are found
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+        End
+
+        It 'should set correct permissions on forward_ips.prom file'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The path "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" should be file
+            The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+            Assert check_file_permissions "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" "644"
         End
 
         It 'should fail if resolv.conf not found'
@@ -1106,8 +1292,671 @@ EOF
             WATCHDOG_USEC=""
             COREDNS_PID="12345"
             wait() { return 0; }
+            export_resource_metrics() { return 0; }
             When call start_localdns_watchdog
             The status should be success
+        End
+    End
+
+
+# This section tests - wait_for_localdns_removed_from_resolv_conf
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'wait_for_localdns_removed_from_resolv_conf'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest-$$"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            mkdir -p "$(dirname "$RESOLV_CONF")"
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        #------------------------- wait_for_localdns_removed_from_resolv_conf ------------------------------------------
+        It 'should return success immediately if localdns IP is absent'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 5
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
+        End
+
+        It 'should timeout if localdns IP is still present'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed from resolv.conf after 2 seconds"
+            The stdout should include "Current DNS:"
+        End
+
+        It 'should return success if resolv.conf is empty'
+            > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 5
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should use default timeout of 5 seconds when not specified'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should handle resolv.conf not existing gracefully'
+            rm -f "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should not match partial IP addresses'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.100
+EOF
+            # 169.254.10.100 should NOT match 169.254.10.10
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should detect localdns IP among multiple nameservers'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 169.254.10.10
+nameserver 10.0.0.2
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should succeed when localdns IP is removed during wait (async removal)'
+            # Start with localdns IP present
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            # Create background process that removes localdns IP after 2 seconds
+            (sleep 2 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
+            When run wait_for_localdns_removed_from_resolv_conf 5
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should ignore commented lines in resolv.conf'
+            cat > "$RESOLV_CONF" <<EOF
+# nameserver 169.254.10.10
+nameserver 10.0.0.1
+# This is a comment
+nameserver 10.0.0.2
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should timeout when only localdns IP is present'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 169.254.10.10
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should handle IPv6 nameservers mixed with IPv4'
+            cat > "$RESOLV_CONF" <<EOF
+nameserver 10.0.0.1
+nameserver 2001:4860:4860::8888
+nameserver 10.0.0.2
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+
+        It 'should handle resolv.conf with search and options directives'
+            cat > "$RESOLV_CONF" <<EOF
+search example.com local
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+options timeout:2 attempts:3
+EOF
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should include "Current DNS: 10.0.0.1 10.0.0.2"
+        End
+
+        It 'should handle whitespace variations in resolv.conf'
+            # Use tabs and extra spaces
+            printf "nameserver\t10.0.0.1\nnameserver   10.0.0.2\n" > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 2
+            The status should be success
+            The stdout should include "DNS configuration refreshed successfully"
+        End
+    End
+
+    Describe 'export_resource_metrics'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
+            mkdir -p "$LOCALDNS_SCRIPT_PATH"
+
+            # Create fake cgroup v2 directory with controllable values
+            LOCALDNS_CGROUP_DIR="${TEST_DIR}/sys/fs/cgroup/localdns.slice/localdns.service"
+            mkdir -p "$LOCALDNS_CGROUP_DIR"
+            printf "usage_usec 1500000\nuser_usec 1000000\nsystem_usec 500000\n" > "$LOCALDNS_CGROUP_DIR/cpu.stat"
+            printf "8388608" > "$LOCALDNS_CGROUP_DIR/memory.current"
+        }
+        cleanup() {
+            rm -rf "/tmp/localdnstest"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should write active status when COREDNS_PID is alive'
+            COREDNS_PID=$$
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="active"} 1'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_cpu_usage_seconds_total 1.500000000'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_memory_usage_bytes 8388608'
+        End
+
+        It 'should write inactive status when COREDNS_PID is empty'
+            COREDNS_PID=""
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_service_status{status="inactive"} 0'
+        End
+
+        It 'should default to zero when cgroup files are missing'
+            rm -rf "$LOCALDNS_CGROUP_DIR"
+            COREDNS_PID=$$
+            When run export_resource_metrics
+            The status should be success
+            The file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should be exist
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_cpu_usage_seconds_total 0.000000000'
+            The contents of file "${LOCALDNS_SCRIPT_PATH}/resources.prom" should include 'localdns_memory_usage_bytes 0'
+        End
+    End
+
+# This section tests - annotate_node_with_hosts_plugin_status
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'annotate_node_with_hosts_plugin_status'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest-$$"
+            KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
+            UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/opt/azure/containers/localdns/updated.localdns.corefile"
+            LOCALDNS_HOSTS_FILE="${TEST_DIR}/etc/localdns/hosts"
+            LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER="${TEST_DIR}/opt/azure/containers/localdns-hosts-plugin-annotation.present"
+
+            # Create test directories
+            mkdir -p "$(dirname "$KUBECONFIG")"
+            mkdir -p "$(dirname "$UPDATED_LOCALDNS_CORE_FILE")"
+            mkdir -p "$(dirname "$LOCALDNS_HOSTS_FILE")"
+            mkdir -p "$(dirname "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER")"
+
+            # Mock hostname command
+            hostname() {
+                echo "TestNode123"
+            }
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+            # Clean up mock kubectl symlink to prevent state leaking across specs
+            rm -f /opt/bin/kubectl
+            # Remove /opt/bin if it's empty and we created it
+            if [ -d /opt/bin ] && [ -z "$(ls -A /opt/bin 2>/dev/null)" ]; then
+                rmdir /opt/bin 2>/dev/null || true
+            fi
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        #------------------------- annotate_node_with_hosts_plugin_status ----------------------------------------------
+        It 'should skip annotation if corefile does not exist'
+            rm -f "$UPDATED_LOCALDNS_CORE_FILE"
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns corefile not found"
+            The stdout should include "skipping annotation."
+        End
+
+        It 'should attempt to remove annotation if corefile does not contain hosts plugin block'
+            # Create corefile without hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns corefile does not contain hosts plugin block."
+        End
+
+        It 'should skip annotation if hosts file does not exist'
+            # Create corefile with hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            rm -f "$LOCALDNS_HOSTS_FILE"
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
+        End
+
+        It 'should skip annotation if hosts file has no IP mappings'
+            # Create corefile with hosts plugin
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            # Create empty hosts file
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# Empty hosts file
+EOF
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
+        End
+
+        It 'should skip annotation if kubectl binary is not found'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 packages.aks.azure.com
+EOF
+
+            command() {
+                if [[ "$1" == "-v" && "$2" == "/opt/bin/kubectl" ]]; then
+                    return 1
+                fi
+            }
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
+        End
+
+        It 'should timeout and skip annotation if kubeconfig does not exist after waiting'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+
+            # Create mock kubectl binary that is executable
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+echo "mock kubectl"
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            rm -f "$KUBECONFIG"
+            # Use short timeout for testing (2 attempts = 6 seconds)
+            KUBECONFIG_WAIT_ATTEMPTS=2
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for TLS bootstrapping to complete"
+            The stdout should include "Timeout waiting for kubeconfig"
+        End
+
+        It 'should set annotation successfully when using corefile with hosts plugin'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# AKS critical FQDN addresses
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 packages.aks.azure.com
+10.0.0.3 management.azure.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl in /opt/bin (must exist in container filesystem)
+            # First verify we can write to /opt
+            if [ ! -d /opt ]; then
+                Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
+            fi
+
+            mkdir -p /opt/bin || Skip "Cannot create /opt/bin directory"
+
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" && "$4" == "--overwrite" && "$5" == "node" ]]; then
+    echo "node/testnode123 annotated"
+    exit 0
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl || Skip "Cannot make /opt/bin/kubectl executable"
+
+            # Verify the mock was created
+            [ -x /opt/bin/kubectl ] || Skip "Mock kubectl was not created successfully"
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns is using hosts plugin and hosts file has 3 entries."
+            The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
+            The stdout should include "Successfully set hosts plugin annotation."
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should be file
+        End
+
+        It 'should count entries with digit-starting hostnames correctly'
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+# AKS critical FQDN addresses
+10.0.0.1 1password.com
+10.0.0.2 mcr.microsoft.com
+2001:db8::1 3scale.example.com
+EOF
+            # No kubectl available — function will count entries then skip at kubectl check
+            rm -f /opt/bin/kubectl 2>/dev/null || true
+            When run annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "hosts file has 3 entries"
+            The stdout should include "kubectl binary not found"
+        End
+
+        It 'should handle kubectl annotation failure gracefully (non-fatal)'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that fails annotation
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" ]]; then
+    echo "Error: failed to annotate node" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Setting annotation to indicate hosts plugin is in use for node testnode123."
+            The stdout should include "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+            The stderr should include "Error: failed to annotate node"
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should not be exist
+        End
+
+        It 'should convert hostname to lowercase for node name'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that verifies lowercase node name
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" && "$4" == "--overwrite" && "$5" == "node" && "$6" == "testnode123" ]]; then
+    echo "node/testnode123 annotated (lowercase verified)"
+    exit 0
+else
+    echo "Error: Expected lowercase node name 'testnode123' but got '$6'" >&2
+    exit 1
+fi
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Successfully set hosts plugin annotation."
+        End
+
+        It 'should wait for node to be registered before annotating'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl binary that simulates node not registered initially
+            # Create a counter file to track attempts
+            ATTEMPT_FILE="${TEST_DIR}/attempt_count"
+            echo "0" > "$ATTEMPT_FILE"
+
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<KUBECTL_EOF
+#!/bin/bash
+ATTEMPT_FILE="${ATTEMPT_FILE}"
+count=\$(cat "\$ATTEMPT_FILE")
+count=\$((count + 1))
+echo "\$count" > "\$ATTEMPT_FILE"
+
+# Simulate node not ready for first 2 attempts
+if [[ "\$1" == "--kubeconfig" && "\$3" == "get" && "\$4" == "node" && \$count -le 2 ]]; then
+    echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
+    exit 1
+elif [[ "\$1" == "--kubeconfig" && "\$3" == "get" && "\$4" == "node" ]]; then
+    # Node is now registered
+    exit 0
+elif [[ "\$1" == "--kubeconfig" && "\$3" == "annotate" ]]; then
+    echo "node/testnode123 annotated"
+    exit 0
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            # Use short timeout for testing
+            NODE_REGISTRATION_WAIT_ATTEMPTS=5
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for node testnode123 to be registered in the cluster"
+            The stdout should include "Node testnode123 is registered in the cluster"
+            The stdout should include "Successfully set hosts plugin annotation"
+        End
+
+        It 'should remove stale annotation on rollback when corefile has no hosts plugin block'
+            # Create corefile WITHOUT hosts plugin block (simulates rollback to BASE corefile)
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
+            touch "$KUBECONFIG"
+            # Simulate prior annotation by creating marker
+            touch "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER"
+
+            if [ ! -d /opt ]; then
+                Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
+            fi
+
+            # Create mock kubectl binary that verifies the annotation removal (- suffix)
+            mkdir -p /opt/bin || Skip "Cannot create /opt/bin directory"
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" && "$4" == "--overwrite" && "$5" == "node" ]]; then
+    # Verify the annotation key ends with - (removal)
+    if [[ "$7" == "kubernetes.azure.com/localdns-hosts-plugin-" ]]; then
+        echo "node/testnode123 annotated"
+        exit 0
+    else
+        echo "Error: Expected annotation removal key ending with -, got: $7" >&2
+        exit 1
+    fi
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Localdns corefile does not contain hosts plugin block."
+            The stdout should include "Removing hosts plugin annotation for node testnode123 (hosts plugin not active)."
+            The stdout should include "Successfully removed hosts plugin annotation."
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should not be exist
+        End
+
+        It 'should handle annotation removal failure gracefully (non-fatal)'
+            # Create corefile WITHOUT hosts plugin block (rollback scenario)
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    forward . 168.63.129.16
+}
+EOF
+            touch "$KUBECONFIG"
+            # Simulate prior annotation by creating marker
+            touch "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER"
+
+            if [ ! -d /opt ]; then
+                Skip "Cannot create /opt/bin/kubectl - /opt directory does not exist or is not writable"
+            fi
+
+            # Create mock kubectl binary that fails the removal
+            mkdir -p /opt/bin || Skip "Cannot create /opt/bin directory"
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    exit 0
+elif [[ "$1" == "--kubeconfig" && "$3" == "annotate" ]]; then
+    echo "Error: failed to remove annotation" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Removing hosts plugin annotation for node testnode123 (hosts plugin not active)."
+            The stdout should include "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
+            The stderr should include "Error: failed to remove annotation"
+            # Marker should be kept so the next restart retries removal
+            The path "$LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER" should be file
+        End
+
+        It 'should timeout and skip annotation if node never registers'
+            # Create valid corefile and hosts file
+            cat > "$UPDATED_LOCALDNS_CORE_FILE" <<'EOF'
+.:53 {
+    hosts /etc/localdns/hosts {
+        fallthrough
+    }
+    forward . 168.63.129.16
+}
+EOF
+            cat > "$LOCALDNS_HOSTS_FILE" <<'EOF'
+10.0.0.1 mcr.microsoft.com
+EOF
+            touch "$KUBECONFIG"
+
+            # Create mock kubectl that always fails to find node
+            mkdir -p /opt/bin
+            cat > /opt/bin/kubectl <<'KUBECTL_EOF'
+#!/bin/bash
+if [[ "$1" == "--kubeconfig" && "$3" == "get" && "$4" == "node" ]]; then
+    echo "Error from server (NotFound): nodes \"testnode123\" not found" >&2
+    exit 1
+fi
+exit 1
+KUBECTL_EOF
+            chmod +x /opt/bin/kubectl
+
+            # Use very short timeout for testing
+            NODE_REGISTRATION_WAIT_ATTEMPTS=2
+
+            When call annotate_node_with_hosts_plugin_status
+            The status should be success
+            The stdout should include "Waiting for node registration"
+            The stdout should include "Timeout waiting for node testnode123 to be registered"
         End
     End
 End

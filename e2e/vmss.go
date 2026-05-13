@@ -1,13 +1,12 @@
 package e2e
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
-
 	crand "crypto/rand"
-
 	"encoding/base64"
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -40,7 +40,7 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	}
 	uniqueSuffix := randomLowercaseString(6)
 	blobPath := fmt.Sprintf("%s/aks-node-controller-%s", time.Now().UTC().Format("2006-01-02-15-04-05"), uniqueSuffix)
-	logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
+	toolkit.Logf(ctx, "uploading aks-node-controller binary to blob path %s", blobPath)
 	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobPath, binary)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload aks-node-controller binary: %w", err)
@@ -62,7 +62,7 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 		"GOOS=linux",
 		"GOARCH="+arch,
 	)
-	logf(ctx, "compiling aks-node-controller: %q", cmd.String())
+	toolkit.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
@@ -81,32 +81,67 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	return vm, err
 }
 
-// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary
+// CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary.
 // Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
-// check aks-node-controller.service for details
-// a new binary is downloaded from the given URL and run with provision command
+// (check aks-node-controller.service for details).
+//
+// Uses a cloud-boothook to write the config file and create a systemd service unit early in boot (during cloud-init init).
+// The systemd service waits for network-online.target before downloading the binary and running provisioning,
+// avoiding the race condition where runcmd or boothook scripts execute before networking is available.
+// Flatcar cannot use boothooks (coreos-cloudinit doesn't support MIME multipart), so it uses cloud-config
+// with a coreos.units block to define and start the service instead.
 func CustomDataWithHack(s *Scenario, binaryURL string) (string, error) {
-	cloudConfigTemplate := `#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s
-runcmd:
- - mkdir -p /opt/azure/bin
- - curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
- - chmod +x /opt/azure/bin/aks-node-controller-hack
- - /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json &
+	cloudConfigTemplate := `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+mkdir -p /opt/azure/containers /opt/azure/bin
+
+cat <<'EOF' | base64 -d > %[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
+
+cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
+#!/bin/bash
+set -euo pipefail
+mkdir -p /opt/azure/bin
+curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
+chmod +x /opt/azure/bin/aks-node-controller-hack
+
+/opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
+
+SCRIPT
+chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
+
+cat <<'UNIT' > /etc/systemd/system/aks-node-controller-hack.service
+[Unit]
+Description=Downloads and runs the AKS node controller hack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+
+[Install]
+WantedBy=basic.target
+UNIT
+
+systemctl daemon-reload
+systemctl start --no-block aks-node-controller-hack.service
 `
 	if s.VHD.Flatcar {
+		// Flatcar uses coreos-cloudinit which only supports a subset of cloud-config features
+		// and does not handle MIME multipart or boothooks. Use coreos.units to define the service instead.
+		// https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 		cloudConfigTemplate = `#cloud-config
 write_files:
-- path: /opt/azure/containers/aks-node-controller-config-hack.json
-  permissions: "0755"
+- path: %[1]s
+  permissions: "0600"
   owner: root
   content: !!binary |
-   %s
+   %[2]s
 - path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
   owner: root
@@ -114,9 +149,9 @@ write_files:
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL "%s" -o /opt/azure/bin/aks-node-controller-hack
+    curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json
+    /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 coreos:
   units:
@@ -140,7 +175,150 @@ coreos:
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON, binaryURL)
+	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
+
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, configPath, encodedAksNodeConfigJSON, binaryURL)
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+}
+
+// CustomDataWithNBCCmdHack is similar to baker.boothooktemplate, but it uses a hack to run new aks-node-controller binary.
+// Original aks-node-controller isn't run because it fails systemd check validating aks-node-controller-config.json exists
+// (check aks-node-controller.service for details).
+// with a coreos.units block to define and start the service instead.
+func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(s.T, err)
+
+	customData = strings.Replace(string(decoded), "aks-node-controller-nbc-cmd.sh", "aks-node-controller-nbc-cmd-hack.sh", -1)
+
+	if s.VHD.Flatcar {
+		// For Flatcar, customData is an ignition JSON config from baker.go's flatcarTemplate.
+		// Ignition's "enabled: true" only creates enable symlinks but does NOT start services,
+		// so we can't use ignition JSON to start the hack service reliably.
+		// Instead, convert to #cloud-config format with coreos.units "command: start",
+		// which coreos-cloudinit processes and explicitly starts the service.
+		var ignitionConfig map[string]interface{}
+		if err := json.Unmarshal([]byte(customData), &ignitionConfig); err != nil {
+			return "", fmt.Errorf("failed to parse ignition config: %w", err)
+		}
+
+		// Extract the nbc-cmd-hack.sh content from the ignition storage.files
+		var nbcCmdContent string
+		if storage, ok := ignitionConfig["storage"].(map[string]interface{}); ok {
+			if files, ok := storage["files"].([]interface{}); ok {
+				for _, f := range files {
+					file, _ := f.(map[string]interface{})
+					if file["path"] == "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh" {
+						if contents, ok := file["contents"].(map[string]interface{}); ok {
+							source, _ := contents["source"].(string)
+							// source is "data:;base64,<base64data>"
+							nbcCmdContent, _ = strings.CutPrefix(source, "data:;base64,")
+							// As of PR #8357, baker.go's flatcarTemplate marks the file with
+							// `compression: gzip`, so the base64 payload decodes to gzip bytes
+							// rather than plaintext shell. Ignition would normally gunzip it,
+							// but here we re-emit via cloud-config `!!binary`, which only
+							// base64-decodes. We must gunzip ourselves and re-base64 the
+							// plaintext, otherwise the resulting nbc-cmd-hack.sh contains raw
+							// gzip bytes and CSE exec fails with "cannot execute binary file"
+							// (exit 126).
+							if compression, _ := contents["compression"].(string); compression == "gzip" {
+								gzBytes, err := base64.StdEncoding.DecodeString(nbcCmdContent)
+								if err != nil {
+									return "", fmt.Errorf("failed to base64-decode gzipped nbc-cmd source: %w", err)
+								}
+								gzReader, err := gzip.NewReader(bytes.NewReader(gzBytes))
+								if err != nil {
+									return "", fmt.Errorf("failed to create gzip reader for nbc-cmd source: %w", err)
+								}
+								plain, err := io.ReadAll(gzReader)
+								_ = gzReader.Close()
+								if err != nil {
+									return "", fmt.Errorf("failed to gunzip nbc-cmd source: %w", err)
+								}
+								nbcCmdContent = base64.StdEncoding.EncodeToString(plain)
+							}
+						}
+					}
+				}
+			}
+		}
+		if nbcCmdContent == "" {
+			return "", fmt.Errorf("failed to extract nbc-cmd-hack.sh content from ignition config")
+		}
+
+		// Build a #cloud-config that writes both the nbc-cmd script and hack runner,
+		// then starts the hack service via coreos.units command: start
+		cloudConfig := fmt.Sprintf(`#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+  permissions: "0600"
+  owner: root
+  content: !!binary |
+   %[1]s
+- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /opt/azure/bin
+    curl -fSL --retry 10 --retry-delay 2 "%[2]s" -o /opt/azure/bin/aks-node-controller-hack
+    chmod +x /opt/azure/bin/aks-node-controller-hack
+    /opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+coreos:
+  units:
+    - name: aks-node-controller-hack.service
+      command: start
+      content: |
+        [Unit]
+        Description=Downloads and runs the AKS node controller hack
+        After=network-online.target
+        Wants=network-online.target
+        [Service]
+        Type=oneshot
+        ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+        [Install]
+        WantedBy=multi-user.target
+`, nbcCmdContent, binaryURL)
+
+		return base64.StdEncoding.EncodeToString([]byte(cloudConfig)), nil
+	}
+
+	cloudConfigTemplate := `%s
+
+mkdir -p /opt/azure/bin
+
+cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
+#!/bin/bash
+set -euo pipefail
+mkdir -p /opt/azure/bin
+curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+chmod +x /opt/azure/bin/aks-node-controller-hack
+
+/opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+
+SCRIPT
+chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
+
+cat <<'UNIT' > /etc/systemd/system/aks-node-controller-hack.service
+[Unit]
+Description=Downloads and runs the AKS node controller hack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
+
+[Install]
+WantedBy=basic.target
+UNIT
+
+systemctl daemon-reload
+systemctl start --no-block aks-node-controller-hack.service
+`
+
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, binaryURL)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
@@ -150,11 +328,18 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	var cse, customData string
+
 	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
-				data, err := nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				var data string
+				var err error
+				if s.VHD.Flatcar {
+					data, err = nodeconfigutils.CustomDataFlatcar(s.Runtime.AKSNodeConfig)
+				} else {
+					data, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+				}
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}
@@ -164,14 +349,34 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
-		s.T.Logf("creating VMSS %q with AKSNodeConfigMutator in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 
 	} else {
-		s.T.Logf("creating VMSS %q with BootstrapConfigMutator/NBC in resource group %s", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
+		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly {
+			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
+			require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+		}
+		if len(s.Config.CustomDataWriteFiles) > 0 {
+			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
+			require.NoError(s.T, err, "failed to inject customData write_files entries")
+		}
+		if s.Runtime.NBC.EnableScriptlessCSECmd && !s.Runtime.NBC.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
+			// Validate that the custom data doesn't contain any script content,
+			// which indicates that the scriptless CSE is working as intended
+			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
+			require.NoError(s.T, err, "failed to decode custom data")
+			reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
+			require.NoError(s.T, err, "failed to create gzip reader")
+			result, err := io.ReadAll(reader)
+			require.NoError(s.T, err, "failed to read gzip data")
+			reader.Close()
+			require.Contains(s.T, string(result), "/opt/azure/containers/scriptless-cse-overrides.txt", "custom data contains other script content, but scriptless CSE CMD is enabled")
+		}
 	}
 
 	// These two links are really for local development
@@ -210,6 +415,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
+
+	if s.Config.UseNVMe {
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	}
 	return model
 }
 
@@ -217,9 +426,22 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
+		// only retry on Azure API errors with specific error codes
+		if !errors.As(err, &respErr) {
+			return false
+		}
 		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
 		// It's not a quota issue
-		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+		if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+			return true
+		}
+		// GalleryImageNotFound can happen transiently after image replication completes
+		// due to Azure eventual consistency - the gallery API reports success but the
+		// compute fabric in the target region hasn't fully propagated the image yet
+		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
+			return true
+		}
+		return false
 	}
 
 	maxAttempts := 10
@@ -229,7 +451,6 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		attempt++
 		vm, err := CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 		if err == nil {
-			logf(ctx, "created VMSS %s in resource group %s", s.Runtime.VMSSName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
 			return vm, nil
 		}
 
@@ -242,7 +463,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
 
-		logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		toolkit.Logf(ctx, "failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
 			return vm, err
@@ -252,6 +473,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 }
 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
+	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
@@ -338,11 +560,11 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 					if status.Code != nil && strings.HasPrefix(*status.Code, "PowerState/") {
 						powerState := strings.TrimPrefix(*status.Code, "PowerState/")
 						if powerState == "running" {
-							logf(ctxTimeout, "VM reached running state")
+							toolkit.Logf(ctxTimeout, "VM reached running state")
 							*vmssVM = vm.VirtualMachineScaleSetVM
 							return nil
 						}
-						logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
+						toolkit.Logf(ctxTimeout, "VM is in power state: %s, waiting for running state...", powerState)
 					}
 				}
 			}
@@ -365,9 +587,6 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 
 // waitForVMSSVM polls until a VMSS VM instance appears with network profile or the timeout elapses.
 func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachineScaleSetVM, error) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
 	ticker := time.NewTicker(config.Config.DefaultPollInterval)
 	defer ticker.Stop()
 
@@ -378,7 +597,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		})
 
 		if pager.More() {
-			page, err := pager.NextPage(ctxTimeout)
+			page, err := pager.NextPage(ctx)
 			if err == nil && len(page.Value) > 0 {
 				vmssVM := page.Value[0]
 				// Verify it has network profile
@@ -392,7 +611,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 		}
 
 		select {
-		case <-ctxTimeout.Done():
+		case <-ctx.Done():
 			if lastErr != nil {
 				return nil, fmt.Errorf("timeout waiting for VMSS VM: %w", lastErr)
 			}
@@ -439,13 +658,22 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 }
 
 func skipTestIfSKUNotAvailableErr(t testing.TB, err error) {
-	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if !config.Config.SkipTestsWithSKUCapacityIssue {
+		return
+	}
 	var respErr *azcore.ResponseError
-	if config.Config.SkipTestsWithSKUCapacityIssue &&
-		errors.As(err, &respErr) &&
-		respErr.StatusCode == 409 &&
-		respErr.ErrorCode == "SkuNotAvailable" {
+	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
+		return
+	}
+	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if respErr.ErrorCode == "SkuNotAvailable" {
 		t.Skip("skipping scenario SKU not available", t.Name(), err)
+	}
+	// sometimes the SKU quota is exceeded and we can't do anything. Skip the test in this case.
+	if respErr.ErrorCode == "OperationNotAllowed" &&
+		strings.Contains(respErr.Error(), "exceeding approved") &&
+		strings.Contains(respErr.Error(), "quota") {
+		t.Skip("skipping scenario SKU quota exceeded", t.Name(), err)
 	}
 }
 
@@ -545,8 +773,10 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
 		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
+		"containerd.log":                   "sudo journalctl -u containerd",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
+		"waagent.log":                      "sudo cat /var/log/waagent.log",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 		"aks-node-controller-config.json":  "sudo cat /opt/azure/containers/aks-node-controller-config.json", // Only available in Scriptless.
 
@@ -555,9 +785,6 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 		"syslog":                               "sudo cat /var/log/" + syslogHandle,
 		"journalctl":                           "sudo journalctl --boot=0 --no-pager",
 		"azure.json":                           "sudo cat /etc/kubernetes/azure.json",
-	}
-	if s.SecureTLSBootstrappingEnabled() {
-		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
 	}
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
@@ -640,6 +867,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		s.T.Logf("no VMSS instances found")
 		return
 	}
+
 	instanceID := *page.Value[0].InstanceID
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
@@ -691,11 +919,17 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		},
 		nil,
 	)
-	require.NoError(s.T, err, "failed to initiate run command on VMSS instance %s", instanceID)
+	if err != nil {
+		s.T.Logf("failed to initiate run command on VMSS instance %s: %s", instanceID, err)
+		return
+	}
 
 	// Poll the result until the operation is completed
 	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	require.NoError(s.T, err, "failed to poll run command on VMSS instance %s", instanceID)
+	if err != nil {
+		s.T.Logf("failed to poll run command on VMSS instance %s: %s", instanceID, err)
+		return
+	}
 
 	respJSON, _ := json.MarshalIndent(runCommandResp, "", "  ")
 	s.T.Logf("run command executed successfully:\n%s", respJSON)
@@ -808,6 +1042,81 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
+func injectWriteFilesEntriesToCustomData(customData string, entries []CustomDataWriteFile) (string, error) {
+	if len(entries) == 0 {
+		return customData, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode customData: %w", err)
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(decoded))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer reader.Close()
+	yamlBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read gzip data: %w", err)
+	}
+
+	const writeFilesMarker = "write_files:"
+	yamlStr := string(yamlBytes)
+	idx := strings.Index(yamlStr, writeFilesMarker)
+	if idx == -1 {
+		return "", fmt.Errorf("cloud-init customData missing %q section", writeFilesMarker)
+	}
+
+	var entryBuilder strings.Builder
+	for _, entry := range entries {
+		if entry.Path == "" {
+			return "", fmt.Errorf("cloud-init write_files entry path cannot be empty")
+		}
+
+		permissions := entry.Permissions
+		if permissions == "" {
+			permissions = "0644"
+		}
+
+		owner := entry.Owner
+		if owner == "" {
+			owner = "root"
+		}
+
+		indentedContent := indentYAMLBlock(entry.Content, "    ")
+		entryBuilder.WriteString(fmt.Sprintf("\n- path: %s\n  permissions: %q\n  owner: %s\n  content: |\n%s\n", entry.Path, permissions, owner, indentedContent))
+	}
+
+	insertPos := idx + len(writeFilesMarker)
+	yamlStr = yamlStr[:insertPos] + entryBuilder.String() + yamlStr[insertPos:]
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err = gw.Write([]byte(yamlStr))
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip customData: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return encoded, nil
+}
+
+func indentYAMLBlock(content, indent string) string {
+	if content == "" {
+		return indent
+	}
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = indent + line
+	}
+	return strings.Join(lines, "\n")
+}
+
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
@@ -848,7 +1157,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
 						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
 						DiffDiskSettings: &armcompute.DiffDiskSettings{
-							Option: to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Option:    to.Ptr(armcompute.DiffDiskOptionsLocal),
+							Placement: to.Ptr(armcompute.DiffDiskPlacementResourceDisk),
 						},
 					},
 				},
@@ -898,7 +1208,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),
-						TypeHandlerVersion:      to.Ptr("2.0"),
+						TypeHandlerVersion:      to.Ptr("2.1"),
 						AutoUpgradeMinorVersion: to.Ptr(true),
 						Settings:                map[string]interface{}{},
 						ProtectedSettings: map[string]interface{}{

@@ -52,6 +52,8 @@ ERR_GPU_DEVICE_PLUGIN_START_FAIL=86 # nvidia device plugin could not be started 
 ERR_GPU_INFO_ROM_CORRUPTED=87 # info ROM corrupted error when executing nvidia-smi
 ERR_SGX_DRIVERS_INSTALL_TIMEOUT=90 # Timeout waiting for SGX prereqs to download
 ERR_SGX_DRIVERS_START_FAIL=91 # Failed to execute SGX driver binary
+ERR_AMDAMA_DRIVER_NOT_FOUND=95 # AMD AMA driver package not found for current kernel version
+ERR_AMDAMA_INSTALL_FAIL=96 # Unable to install AMD AMA package
 ERR_APT_DAILY_TIMEOUT=98 # Timeout waiting for apt daily updates
 ERR_APT_UPDATE_TIMEOUT=99 # Timeout waiting for apt-get update to complete
 ERR_CSE_PROVISION_SCRIPT_NOT_READY_TIMEOUT=100 # Timeout waiting for cloud-init to place this script on the vm
@@ -76,11 +78,11 @@ ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
+ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter service
+
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
-ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
-ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
@@ -121,7 +123,7 @@ ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
-ERR_IMDS_FETCH_FAILED=231 # Error fetching or caching IMDS instance metadata
+ERR_IMDS_FETCH_FAILED=234 # Error fetching or caching IMDS instance metadata
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
@@ -145,11 +147,23 @@ ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install shoul
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_NVIDIA_DCGM_INSTALL=235 # Error installing Managed NVIDIA GPU experience packages from cache
 ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
 ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
-ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_PULL_POD_INFRA_CONTAINER_IMAGE=233 # Error pulling pause image
+ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
+ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, required for sysext tag resolution
+
+# ----------------------- AKS Node Controller----------------------------------
+ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
+ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
+# -----------------------------------------------------------------------------
+
+# This probably wasn't launched via a login shell, so ensure the PATH is correct.
+[ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
@@ -162,7 +176,7 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
     OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
 else
@@ -176,6 +190,8 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -208,10 +224,10 @@ AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 # Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context.
 check_cse_timeout() {
     shouldLog="${1:-true}"
-    maxDurationSeconds=780 # 780 seconds = 13 minutes
+    maxDurationSeconds=${CSE_MAX_DURATION_SECONDS:-780}
     if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
         if [ "$shouldLog" = "true" ]; then
-            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set." >&2
         fi
         # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
         return 0
@@ -240,15 +256,42 @@ _retrycmd_internal() {
     local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
-        timeout "$timeoutVal" "${@}"
+        # Only apply CSE timeout guards when CSE_STARTTIME_SECONDS is set (i.e. in a real CSE run).
+        # Skipping the guard during VHD build or other non-CSE callers avoids noisy
+        # "CSE_STARTTIME_SECONDS is not set" warnings in those contexts.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            # Check CSE timeout BEFORE starting each attempt. This prevents launching a new long-running
+            # operation (e.g. a 300-600s GPU install) when we are already near the global provisioning
+            # timeout, which would push total CSE execution past the 16-minute client window.
+            if ! check_cse_timeout "$shouldLog"; then
+                echo "CSE timeout approaching, exiting early." >&2
+                return 2
+            fi
+        fi
+
+        # Cap per-attempt timeout to remaining CSE budget so a single attempt cannot overrun
+        # the global provisioning window even when per-attempt timeouts are large.
+        local effectiveTimeout="$timeoutVal"
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            local remainingCseTime=$(( ${CSE_MAX_DURATION_SECONDS:-780} - ( $(date +%s) - CSE_STARTTIME_SECONDS ) ))
+            if [ "$remainingCseTime" -lt 1 ]; then
+                echo "No CSE time remaining, exiting early." >&2
+                return 2
+            fi
+            if [ "$effectiveTimeout" -gt "$remainingCseTime" ]; then
+                effectiveTimeout="$remainingCseTime"
+            fi
+        fi
+
+        timeout "$effectiveTimeout" "${@}"
         exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
             break
         fi
 
-        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
-        if ! check_cse_timeout "$shouldLog"; then
+        # Check again after failure, before sleeping, to exit as early as possible.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
@@ -301,39 +344,117 @@ retrycmd_nslookup() {
 
 _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
-    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
+    # maxBudget (4th arg): if > 0, the total wall-clock seconds this operation is allowed to spend across all retries.
+    # A value of 0 disables the per-operation budget (falls back to the global CSE timeout guard only).
+    local retries=$1 waitSleep=$2 timeout=$3 maxBudget=${4:-0} filePath=$5 url=$6
+    local checksToRun=( "${@:7}" )
+    local opStartTime i
+    opStartTime=$(date +%s)
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do
-        # Use eval to execute the checksToRun string as a command
-        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
-            return 1
+        # Check if the result is already valid (from a previous attempt or pre-existing file)
+        ( eval "$checksToRun" ) && break
+        # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window.
+        # Also cap the per-attempt timeout to the remaining budget so a single curl can't overrun it.
+        local effectiveTimeout=$timeout
+        if [ "${maxBudget}" -gt 0 ]; then
+            local opElapsed
+            opElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$opElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${opElapsed}s, exiting early." >&2
+                return 2
+            fi
+            local remainingBudget=$(( maxBudget - opElapsed ))
+            if [ "$effectiveTimeout" -gt "$remainingBudget" ]; then
+                effectiveTimeout=$remainingBudget
+            fi
         fi
-        # check if global cse timeout is approaching
-        if ! check_cse_timeout; then
+        # check if global cse timeout is approaching (only in real CSE runs)
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
-        else
-            if [ "$i" -gt 1 ]; then
-                sleep $waitSleep
+        fi
+
+        if [ "$i" -gt 1 ]; then
+            local sleepDuration=$waitSleep
+            if [ "${maxBudget}" -gt 0 ]; then
+                local preSleepElapsed
+                preSleepElapsed=$(( $(date +%s) - opStartTime ))
+                local preSleepRemaining=$(( maxBudget - preSleepElapsed ))
+                if [ "$preSleepRemaining" -le 0 ]; then
+                    echo "Operation budget of ${maxBudget}s exceeded after ${preSleepElapsed}s, exiting early." >&2
+                    return 2
+                fi
+                if [ "$sleepDuration" -gt "$preSleepRemaining" ]; then
+                    sleepDuration=$preSleepRemaining
+                fi
             fi
-            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $CURL_OUTPUT
+            sleep $sleepDuration
+        fi
+
+        # Re-check budget after sleep and cap timeout accordingly
+        if [ "${maxBudget}" -gt 0 ]; then
+            local postSleepElapsed
+            postSleepElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$postSleepElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${postSleepElapsed}s, exiting early." >&2
+                return 2
+            fi
+            local postSleepRemaining=$(( maxBudget - postSleepElapsed ))
+            if [ "$effectiveTimeout" -gt "$postSleepRemaining" ]; then
+                effectiveTimeout=$postSleepRemaining
+            fi
+        fi
+
+        timeout $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+        if [ "$?" -ne 0 ]; then
+            cat $CURL_OUTPUT
+        fi
+
+        # On the last attempt, do a final check so every retry gets a curl attempt
+        if [ "$i" -eq "$retries" ]; then
+            if ! ( eval "$checksToRun" ); then
+                return 1
             fi
         fi
     done
 }
 
+# Usage: retrycmd_get_tarball <retries> <wait_sleep> <timeout_seconds> <tarball> <url> [max_budget_s=0]
+# Backward-compatible with old 4-arg callers: <retries> <wait_sleep> <tarball> <url>
+# When the 3rd arg is non-numeric (i.e. a file path), the old signature is assumed and timeout defaults to 60s.
+# timeout_seconds: integer seconds only (do not use duration suffixes like 60s or 5m)
+# max_budget_s: optional per-operation budget in seconds (0 = no cap). Ignored when CSE_STARTTIME_SECONDS is unset.
 retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
-    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+    local tar_retries=$1; local wait_sleep=$2
+    case "$3" in
+        ''|*[!0-9]*)
+            # Non-numeric 3rd arg: old 4-arg signature <retries> <wait_sleep> <tarball> <url>
+            local timeout=60; local tarball=$3; local url=$4; local max_budget=0
+            ;;
+        *)
+            # Numeric 3rd arg: new 5-arg signature <retries> <wait_sleep> <timeout> <tarball> <url> [max_budget]
+            local timeout=$3; local tarball=$4; local url=$5; local max_budget=${6:-0}
+            ;;
+    esac
+    # Only apply a per-operation budget during real CSE runs; during VHD build (CSE_STARTTIME_SECONDS unset) use no cap.
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        max_budget=0
+    fi
+    local check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" "$timeout" "$max_budget" "$tarball" "$url" "$check_tarball_valid"
 }
 
+# Usage: retrycmd_curl_file <retries> <wait_sleep> <timeout> <filepath> <url> [max_budget_s=0]
+# max_budget_s: optional per-operation budget in seconds (0 = no cap). Ignored when CSE_STARTTIME_SECONDS is unset.
 retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    check_file_exists="[ -f \"$filepath\" ]"
-    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
+    local curl_retries=$1 wait_sleep=$2 timeout=$3 filepath=$4 url=$5 max_budget=${6:-0}
+    # Only apply a per-operation budget during real CSE runs; during VHD build (CSE_STARTTIME_SECONDS unset) use no cap.
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        max_budget=0
+    fi
+    local check_file_exists="[ -f \"$filepath\" ]"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$max_budget" "$filepath" "$url" "$check_file_exists"
 }
 
 retrycmd_pull_from_registry_with_oras() {
@@ -501,19 +622,20 @@ systemctlEnableAndStart() {
     service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
-    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be started"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
         echo "$service could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+    service=$1; timeout=$2
 
     systemctl_restart_no_block 100 5 $timeout $service
     RESTART_STATUS=$?
@@ -528,21 +650,36 @@ systemctlEnableAndStartNoBlock() {
         systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
+}
 
-    # wait for the specified delay seconds before checking the service status to make sure
-    # it hasn't gone into a failed state
-    sleep $status_check_delay_seconds
+checkServiceHealth() {
+    local service=$1
+    local state=$(systemctl show -p ActiveState --value "$service")
 
-    if systemctl is-failed $service; then
-        echo "$service is in a failed state"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
-        return 1
+    if [ "$state" = "active" ]; then
+       return 0
     fi
 
-    # systemctl status only exits with code 0 iff the service is "active",
-    # thus we handle the "activating" case by checking for a non-zero exit code
-    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+    systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
+
+    if [ "$state" = "failed" ]; then
+        echo "$service is in a failed state"
+        return 1
+    elif [ "$state" = "activating" ]; then
         echo "$service is still activating, continuing anyway..."
+    fi
+}
+
+waitForContainerdReady() {
+    local ret=0
+
+    echo "Waiting for containerd to become ready..."
+    retrycmd_if_failure 240 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+        echo "containerd did not become ready"
+        systemctl status containerd --no-pager -l > /var/log/azure/containerd-status.log || true
+        return 1
     fi
 }
 
@@ -565,32 +702,6 @@ semverCompare() {
     return 1
 }
 
-
-
-apt_get_download() {
-  retries=$1; wait_sleep=$2; shift && shift;
-  local ret=0
-  pushd $APT_CACHE_DIR || return 1
-  for i in $(seq 1 "$retries"); do
-    dpkg --configure -a --force-confdef
-    wait_for_apt_locks
-
-    # Pull the first quoted URL from --print-uris
-    url="$(apt-get --print-uris -o Dpkg::Options::=--force-confold download -y -- "$@" \
-           | awk -F"'" 'NR==1 && $2 {print $2}')"
-    if [ -n "$url" ]; then
-      # This avoids issues with the naming in the package. `apt-get download`
-      # encodes the package names with special characters and does not decode
-      # them when saving to disk, but `curl -J` handles the names correctly.
-      if curl -fLJO -- "$url"; then ret=0; break; fi
-    fi
-
-    if [ "$i" -eq "$retries" ]; then ret=1; else sleep "$wait_sleep"; fi
-  done
-  popd || return 1
-  return "$ret"
-}
-
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -599,6 +710,14 @@ getCPUArch() {
     else
         echo "amd64"
     fi
+}
+
+getSystemdArch() {
+    local seArch=$(getCPUArch)
+    case ${seArch} in
+        amd64) echo x86-64 ;;
+        *) echo "${seArch}" ;;
+    esac
 }
 
 isARM64() {
@@ -734,6 +853,13 @@ get_imds_vm_tag_value() {
     echo "${tag_value,,}"
 }
 
+isAmdAmaEnabledNode() {
+    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+        return 0
+    fi
+    return 1
+}
+
 should_skip_nvidia_drivers() {
     set -x
     # Case-insensitive match for both tag name and value
@@ -777,22 +903,13 @@ should_enable_managed_gpu_experience() {
     echo "$should_enforce"
 }
 
-should_e2e_mock_azure_china_cloud() {
-    set -x
-    local should_enforce
-    should_enforce=$(get_imds_vm_tag_value "E2EMockAzureChinaCloud")
-    echo "$should_enforce"
-}
-
-should_enable_managed_gpu_experience() {
-    set -x
-    local should_enforce
-    should_enforce=$(get_imds_vm_tag_value "EnableManagedGPUExperience")
-    echo "$should_enforce"
-}
-
 isMarinerOrAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -800,8 +917,8 @@ isMarinerOrAzureLinux() {
 }
 
 isAzureLinuxOSGuard() {
-    local os=$1
-    local os_variant=$2
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$AZURELINUX_OSGUARD_OS_VARIANT" ]; then
         return 0
     fi
@@ -809,7 +926,7 @@ isAzureLinuxOSGuard() {
 }
 
 isMariner() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -817,7 +934,12 @@ isMariner() {
 }
 
 isAzureLinux() {
-    local os=$1
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -825,8 +947,29 @@ isAzureLinux() {
 }
 
 isFlatcar() {
-    local os=$1
+    local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isACL() {
+    local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    # Also match when OS is AZURELINUX with VARIANT_ID=AZURECONTAINERLINUX (new os-release format)
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$ACL_OS_VARIANT" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isUbuntu() {
+    local os=${1-$OS}
+    if [ "$os" = "$UBUNTU_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -849,139 +992,71 @@ installJq() {
         return 0
     fi
     if isMarinerOrAzureLinux "$OS"; then
-        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+        tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
         apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
 }
 
-# sets RELEASE to proper release metadata for the package based on the os and osVersion
-# e.g., For os UBUNTU 20.04, if there is a release "r2004" defined in components.json, then set RELEASE to "r2004".
-# Otherwise set RELEASE to "current"
-updateRelease() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    #For UBUNTU, if $osVersion is 20.04 and "r2004" is also defined in components.json, then $release is set to "r2004"
-    #Similarly for 22.04 and 24.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
+# Returns the JSON for the given package on the given OS and OS version.
+getPackageJSON() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    local osVariant=${4:-DEFAULT}
+    local osLowerCase=${os,,}
+
+    # By default, use the first match from these:
+    # .downloadURIs.${osLowerCase}.${osVariant}/current
+    # .downloadURIs.${osLowerCase}.current
+    # .downloadURIs.default.current
+    local search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.default.current"
+
+    # For AZURELINUX, check the OS version (e.g. 3.0) prefixed with "v" before "current" (e.g. v3.0).
     if isMarinerOrAzureLinux "${os}"; then
-        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
-            RELEASE="\"v${osVersion}\""
-        fi
-        return 0
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/v${osVersion}\" // .downloadURIs.${osLowerCase}.\"v${osVersion}\" // ${search}"
+    # For UBUNTU, check the OS version (e.g. 20.04) with no dots and prefixed with "r" before "current" (e.g. r2004).
+    elif isUbuntu "${os}"; then
+        search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
-    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
-        RELEASE="\"r${osVersionWithoutDot}\""
+
+    # ACL is Flatcar-based; use flatcar download entries.
+    if isACL "${os}" "${osVariant}"; then
+        search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
+
+    jq -r -c "${search}" <<< "${package}"
 }
 
 # sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
 updatePackageVersions() {
-    local package="$1"
-    local os="$2"
-    local osVersion="$3"
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
-
-    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
-    # Otherwise get the versions from .downloadURIs.${osLowerCase
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
-        osLowerCase="default"
-    fi
-
-    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
-    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
-        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
-        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-        for version in "${latestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        for version in "${previousLatestVersions[@]}"; do
-            PACKAGE_VERSIONS+=("${version}")
-        done
-        return 0
-    fi
-
-    # Fallback to versions if versionsV2 is null
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
-        return 0
-    fi
-    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
-    for version in "${versions[@]}"; do
-        PACKAGE_VERSIONS+=("${version}")
-    done
-    return 0
+    readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
+    return
 }
 
 # sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
 updateMultiArchVersions() {
-  local imageToBePulled="$1"
-
-  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2 // [] | select(. != null and . != [])')" ]; then
-    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
-    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-    for version in "${latestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    for version in "${previousLatestVersions[@]}"; do
-      MULTI_ARCH_VERSIONS+=("${version}")
-    done
-    return
-  fi
-
-  # check if multiArchVersions not exists
-  if [ "$(echo "${imageToBePulled}" | jq -r '.multiArchVersions | if . == null then "null" else empty end')" = "null" ]; then
     MULTI_ARCH_VERSIONS=()
+    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
     return
-  fi
-
-  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
-  for version in "${versions[@]}"; do
-    MULTI_ARCH_VERSIONS+=("${version}")
-  done
 }
 
+# sets PACKAGE_DOWNLOAD_URL to the URL of the package based on the os and osVersion
 updatePackageDownloadURL() {
-    local package=$1
-    local os=$2
-    local osVersion=$3
-    RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
-    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-
-    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default
-    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
-        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-        return
-    fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
-    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    PACKAGE_DOWNLOAD_URL=$(jq -r ".downloadURL | values" <<< "$(getPackageJSON "$@")")
     return
 }
 
-# Function to get latestVersion for a given k8sVersion from components.json
+# Get latestVersion for a given k8sVersion from components.json based on the os and osVersion
 getLatestPkgVersionFromK8sVersion() {
     local k8sVersion="$1"
     local componentName="$2"
-    local os="$3"
-    local os_version="$4"
 
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
-    PACKAGE_VERSIONS=()
-    updatePackageVersions "${package}" "${os}" "${os_version}"
+    updatePackageVersions "${package}" "${@:3}"
 
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
@@ -1008,14 +1083,16 @@ getLatestPkgVersionFromK8sVersion() {
 fallbackToKubeBinaryInstall() {
     packageName="${1:-}"
     packageVersion="${2:-}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
     if [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; then
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
             echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
             return 1
         elif [ -f "/opt/bin/${packageName}-${packageVersion}" ]; then
-            mv "/opt/bin/${packageName}-${packageVersion}" "/opt/bin/${packageName}"
-            chmod a+x /opt/bin/${packageName}
-            rm -rf /opt/bin/${packageName}-* &
+            mv "/opt/bin/${packageName}-${packageVersion}" "${targetPath}"
+            chown root:root "${targetPath}"
+            chmod 0755 "${targetPath}"
+            rm -rf "/opt/bin/${packageName}-*" &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
@@ -1212,7 +1289,8 @@ oras_login_with_kubelet_identity() {
     fi
 
     set +x
-    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
+    local arm_endpoint="${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}"
+    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${arm_endpoint}&client_id=$client_id"
     raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
     ret_code=$?
     if [ "$ret_code" -ne 0 ]; then
@@ -1316,10 +1394,10 @@ extract_tarball() {
     # Use tar options if provided, otherwise default to -xzf
     case "$tarball" in
         *.tar.gz|*.tgz)
-            sudo tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvzf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
         *)
-            sudo tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
+            tar -xvf "$tarball" -C "$dest" --no-same-owner "$@"
             ;;
     esac
 }

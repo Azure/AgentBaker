@@ -46,11 +46,11 @@ installBcc() {
     mkdir bcc/build; cd bcc/build
 
     git checkout v0.29.0
-    
+
     cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
     sudo make install || exit 1
-    cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding 
+    cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding
     pushd src/python/
     make
     sudo make install || exit 1
@@ -120,7 +120,7 @@ disableNtpAndTimesyncdInstallChrony() {
         systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
         systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
     fi
-    
+
     # Disable ntp if present
     status=$(systemctl show -p SubState --value ntp)
     if [ "$status" = 'dead' ]; then
@@ -222,12 +222,13 @@ attachUA() {
     retrycmd_silent 5 10 1000 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+    retrycmd_if_failure 5 10 300 ua disable livepatch || exit $ERR_UA_DISABLE_LIVEPATCH
 }
 
 detachAndCleanUpUA() {
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
+    echo "disabling ua services individually to preserve FIPS kernel and grub config..."
+    retrycmd_if_failure 5 10 300 ua disable esm-apps || exit $ERR_UA_DETACH
+    retrycmd_if_failure 5 10 300 ua disable esm-infra || exit $ERR_UA_DETACH
 
     # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
@@ -237,6 +238,7 @@ detachAndCleanUpUA() {
     rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
     rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
     rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
+    rm -f /etc/apt/sources.list.d/ubuntu-fips-preview.list
     rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }

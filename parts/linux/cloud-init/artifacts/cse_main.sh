@@ -50,21 +50,64 @@ get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
 
+# Disable a single kernel module with a known LPE vulnerability.
+# Writes a modprobe blacklist rule and unloads the module if loaded.
+# Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
+# Safe to run unconditionally — idempotent (overwrites with same content if already present).
+# Defined in cse_main.sh (not sourced) to support scriptless provisioning.
+#
+# Usage: disableVulnerableKernelModule <module_name> <description>
+disableVulnerableKernelModule() {
+    local mod="$1"
+    local desc="$2"
+
+    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
+
+    if grep -q "^${mod} " /proc/modules 2>/dev/null; then
+        if modprobe -r "$mod" 2>/dev/null; then
+            echo "${desc}: successfully unloaded ${mod}"
+        else
+            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
+        fi
+    fi
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
-    aptmarkWALinuxAgent hold &
+    # Start the hosts-setup timer as the very first action in basePrep.
+    # The timer spawns a systemd service (with After=network-online.target) that uses dig
+    # to resolve critical AKS FQDNs and populate /etc/localdns/hosts. Starting it first
+    # maximizes the time for DNS resolution to complete in the background while the rest
+    # of basePrep runs. By the time enableLocalDNS() starts CoreDNS (end of basePrep),
+    # the hosts file should already be populated.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
+    fi
+
+    if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+        echo "Skipping holding walinuxagent"
+    else
+        logs_to_events "AKS.CSE.holdWALinuxAgent" holdWALinuxAgent hold
+    fi
+
+    logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
     UBUNTU_RELEASE=$(get_ubuntu_release)
     if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
-        sudo apt-get -y autoremove chrony
+        apt-get -y autoremove chrony
         echo $?
-        sudo systemctl restart systemd-timesyncd
+        systemctl restart systemd-timesyncd
+    fi
+
+    # pre-warm coredns by checking its version.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        nohup /bin/sh -c '/opt/azure/containers/localdns/binary/coredns --version >/dev/null 2>&1' >/dev/null 2>&1 &
     fi
 
     # Eval proxy vars to ensure curl commands use proxy if configured.
@@ -148,15 +191,18 @@ function basePrep {
         echo "Golden image; skipping dependencies installation"
     fi
 
-    # Container runtime already installed on Azure Linux OS Guard
-    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    # Container runtime already installed on Azure Linux OS Guard; an explicit containerd override can bypass FULL_INSTALL_REQUIRED for other Linux distros
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        echo "Skipping installContainerRuntime because containerd is already available"
+    elif [ "$FULL_INSTALL_REQUIRED" = "true" ] || [ -n "${CONTAINERD_PACKAGE_URL}" ]; then
         logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+    else
+        echo "Skipping installContainerRuntime because containerd is already available"
     fi
-    if [ "${TELEPORT_ENABLED}" = "true" ]; then
-        logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
-    fi
-
     setupCNIDirs
+
+    # pre-warm containerd by checking its version.
+    nohup /bin/sh -c '/usr/bin/containerd --version >/dev/null 2>&1' >/dev/null 2>&1 &
 
     # Network plugin already installed on Azure Linux OS Guard
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
@@ -169,6 +215,9 @@ function basePrep {
     export -f should_enforce_kube_pmc_install
     SHOULD_ENFORCE_KUBE_PMC_INSTALL=$(should_enforce_kube_pmc_install)
     logs_to_events "AKS.CSE.configureKubeletAndKubectl" configureKubeletAndKubectl
+
+    # pre-warm kubelet by checking its version.
+    nohup /bin/sh -c '/opt/bin/kubelet --version >/dev/null 2>&1' >/dev/null 2>&1 &
 
     createKubeManifestDir
 
@@ -192,6 +241,10 @@ function basePrep {
     # configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
     if isMarinerOrAzureLinux "$OS"; then
         logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
+    fi
+
+    if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
+      logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
     fi
 
     # containerd should not be configured until cni has been configured first
@@ -268,12 +321,14 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    if [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
-      logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
-    fi
-
-    if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
-        logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag).
+    # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS"; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
     fi
 
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
@@ -294,12 +349,13 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
-    # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-    logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
-
-    # This is to enable localdns using scriptless.
+    # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
+    # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
+    # very start of basePrep (before disableSystemdResolved) to give the timer a head start
+    # on DNS resolution. By now, /etc/localdns/hosts should be populated, so CoreDNS can start
+    # with the hosts-plugin corefile via select_localdns_corefile().
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
-        logs_to_events "AKS.CSE.enableLocalDNSForScriptless" enableLocalDNSForScriptless || exit $ERR_LOCALDNS_FAIL
+        logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
 
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
@@ -340,6 +396,9 @@ function nodePrep {
         touch /opt/azure/outbound-check-skipped
     fi
 
+    # Configure Azure network settings (udev rules for NIC configuration)
+    logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(should_skip_nvidia_drivers)
@@ -351,11 +410,6 @@ function nodePrep {
 
     # By default, never reboot new nodes.
     REBOOTREQUIRED=false
-
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
 
     # Install and configure GPU drivers if this is a GPU node
     if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
@@ -375,9 +429,23 @@ function nodePrep {
             # while it fails to install on NC24.
             if isMarinerOrAzureLinux "$OS"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+            elif isACL "$OS" "$OS_VARIANT"; then
+                logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
             # Start fabric manager service
             logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        else
+            # Disable fabric manager service if it's not needed
+            # The NVIDIA driver installation may automatically enable this service,
+            # but it will fail on single-GPU systems, so we explicitly disable it
+            # Check if the unit file exists using --no-legend and grep for reliable detection
+            if systemctl list-unit-files --no-pager --no-legend nvidia-fabricmanager.service 2>/dev/null | grep -q "nvidia-fabricmanager.service"; then
+                # Use systemctl helper wrappers for consistent retry/timeout behavior
+                systemctl_stop 20 5 25 nvidia-fabricmanager || true
+                systemctl_disable 20 5 25 nvidia-fabricmanager || true
+                # Reset any failed state so it doesn't show up in 'systemctl list-units --failed'
+                systemctl reset-failed nvidia-fabricmanager 2>/dev/null || true
+            fi
         fi
 
         # Configure MIG partitions if needed
@@ -414,6 +482,11 @@ function nodePrep {
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
+    fi
+
+    # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
+    if isAmdAmaEnabledNode; then
+        logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
     VALIDATION_ERR=0
@@ -466,14 +539,52 @@ function nodePrep {
         exit $VALIDATION_ERR
     fi
 
+    checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
+        checkServiceHealth secure-tls-bootstrap || true
+    fi
+
+    # Add localdns-exporter kubelet node label before ensureKubelet so it's
+    # included in --node-labels at kubelet startup (~0ms, just a variable append).
+    # Only add the label if the exporter socket unit exists on this VHD — otherwise
+    # the node would advertise exporter=enabled but have no exporter to scrape.
+    # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Configure localdns metrics exporter socket after ensureKubelet.
+    # This is optional observability — don't block provisioning if it fails.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket || true
+    fi
+
+    if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
+        logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+    fi
+
+    logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
+
+
+    # Clean up GPU drivers if not a GPU node or if skipping driver install
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
+    fi
+
+    checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-            # logs_to_events should not be run on & commands
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                # logs_to_events should not be run on & commands
+                holdWALinuxAgent unhold &
+            fi
         fi
     else
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -495,7 +606,11 @@ function nodePrep {
                 systemctl restart --no-block apt-daily.service
 
             fi
-            aptmarkWALinuxAgent unhold &
+            if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
+                echo "Skipping unholding walinuxagent"
+            else
+                holdWALinuxAgent unhold &
+            fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
                 if [ "${IS_KATA}" = "true" ]; then

@@ -13,6 +13,7 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+<<<<<<< HEAD
   - name: buildMarinerV2gen1
     displayName: Build MarinerV2 Gen1
     type: boolean
@@ -21,10 +22,13 @@ parameters:
     displayName: Build AzureLinuxV2 Gen1
     type: boolean
     default: false
+=======
+>>>>>>> origin/main
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
     default: true
+<<<<<<< HEAD
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
@@ -33,10 +37,13 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
     default: false
+=======
+>>>>>>> origin/main
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
     default: true
+<<<<<<< HEAD
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
@@ -45,10 +52,13 @@ parameters:
     displayName: Build AzureLinuxV2 Gen1 FIPS
     type: boolean
     default: false
+=======
+>>>>>>> origin/main
   - name: buildAzureLinuxV3gen1fips
     displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
     default: true
+<<<<<<< HEAD
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
@@ -57,22 +67,17 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
     default: false
+=======
+>>>>>>> origin/main
   - name: buildAzureLinuxV3gen2fips
     displayName: Build AzureLinuxV3 Gen2 FIPS
     type: boolean
     default: true
-  - name: buildMarinerV2gen2kata
-    displayName: Build MarinerV2 Gen2 Kata
-    type: boolean
-    default: false
-  - name: buildAzureLinuxV2gen2kata
-    displayName: Build AzureLinuxV2 Gen2 Kata
-    type: boolean
-    default: false
   - name: buildAzureLinuxV3gen2kata
     displayName: Build AzureLinuxV3 Gen2 Kata
     type: boolean
     default: true
+<<<<<<< HEAD
   - name: buildMarinerV2ARM64
     displayName: Build MarinerV2 Gen2 - ARM64
     type: boolean
@@ -81,6 +86,8 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
     default: false
+=======
+>>>>>>> origin/main
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
@@ -89,6 +96,7 @@ parameters:
     displayName: Build AzureLinuxV3 Gen2 - FIPS+ARM64
     type: boolean
     default: true
+<<<<<<< HEAD
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
@@ -97,6 +105,8 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
     type: boolean
     default: false
+=======
+>>>>>>> origin/main
   - name: buildAzureLinuxV3gen2TrustedLaunch
     displayName: Build AzureLinuxV3 Gen2 - Trusted Launch
     type: boolean
@@ -105,14 +115,6 @@ parameters:
     displayName: Build AzureLinuxV3 CVM Gen2
     type: boolean
     default: true
-  - name: buildMarinerV2gen2kataTrustedLaunch
-    displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
-    type: boolean
-    default: false
-  - name: buildAzureLinuxV2gen2kataTrustedLaunch
-    displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
-    type: boolean
-    default: false
   - name: buildAzureLinuxOSGuardV3gen2fipsTL
     displayName: Build AzureLinuxOSGuardV3 Gen2 FIPS - Trusted Launch
     type: boolean
@@ -133,6 +135,13 @@ parameters:
     displayName: Build 2204 FIPS Gen2 containerd
     type: boolean
     default: true
+<<<<<<< HEAD
+=======
+  - name: build2204fipstlgen2containerd
+    displayName: Build 2204 FIPS Gen2 containerd - Trusted Launch
+    type: boolean
+    default: true
+>>>>>>> origin/main
   - name: build2204arm64gen2containerd
     displayName: Build 2204 ARM64 Gen2 containerd
     type: boolean
@@ -144,7 +153,7 @@ parameters:
   - name: build2404arm64gb200gen2containerd
     displayName: Build 2404 ARM64 GB200 Gen2 Containerd
     type: boolean
-    default: true
+    default: false
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean
@@ -193,6 +202,22 @@ parameters:
     displayName: Build Flatcar Gen2 ARM64
     type: boolean
     default: true
+  - name: buildacltlgen2
+    displayName: Build Azure Container Linux TL Gen2
+    type: boolean
+    default: true
+  - name: buildaclarm64tlgen2
+    displayName: Build Azure Container Linux ARM64 TL Gen2
+    type: boolean
+    default: true
+  - name: buildaclfipstlgen2
+    displayName: Build Azure Container Linux FIPS TL Gen2
+    type: boolean
+    default: true
+  - name: buildaclarm64fipstlgen2
+    displayName: Build Azure Container Linux ARM64 FIPS TL Gen2
+    type: boolean
+    default: true
 
 variables:
   - name: MODE
@@ -205,6 +230,7 @@ variables:
 stages:
   - stage: build
     jobs:
+<<<<<<< HEAD
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
         dependsOn: [ ]
@@ -255,6 +281,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3gen1
         condition: eq('${{ parameters.buildAzureLinuxV3gen1 }}', true)
         dependsOn: [ ]
@@ -278,6 +306,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen1
+<<<<<<< HEAD
       - job: buildMarinerV2gen2
         condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
         dependsOn: [ ]
@@ -328,6 +357,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3gen2
         condition: eq('${{ parameters.buildAzureLinuxV3gen2 }}', true)
         dependsOn: [ ]
@@ -351,6 +382,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2
+<<<<<<< HEAD
       - job: buildMarinerV2gen1fips
         condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
         dependsOn: [ ]
@@ -401,6 +433,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1-fips
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV3gen1fips }}', true)
         dependsOn: [ ]
@@ -424,6 +458,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen1-fips
+<<<<<<< HEAD
       - job: buildMarinerV2gen2fips
         condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
         dependsOn: [ ]
@@ -474,6 +509,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-fips
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV3gen2fips }}', true)
         dependsOn: [ ]
@@ -497,6 +534,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2-fips
+<<<<<<< HEAD
       - job: buildMarinerV2ARM64
         condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
         dependsOn: [ ]
@@ -547,6 +585,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-arm64
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3ARM64
         condition: eq('${{ parameters.buildAzureLinuxV3ARM64 }}', true)
         dependsOn: [ ]
@@ -593,6 +633,7 @@ stages:
           - template: ./templates/.builder-release-template.yaml
             parameters:
               artifactName: azurelinuxv3-gen2-arm64-fips
+<<<<<<< HEAD
       - job: buildMarinerV2gen2kata
         condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
         dependsOn: [ ]
@@ -643,6 +684,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3gen2kata
         condition: eq('${{ parameters.buildAzureLinuxV3gen2kata }}', true)
         dependsOn: [ ]
@@ -668,6 +711,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-gen2-kata
+<<<<<<< HEAD
       - job: buildMarinerV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
         dependsOn: [ ]
@@ -718,6 +762,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-trustedlaunch
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxV3gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV3gen2TrustedLaunch }}', true)
         dependsOn: [ ]
@@ -768,6 +814,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-cvm-gen2
+<<<<<<< HEAD
       - job: buildMarinerV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
         dependsOn: [ ]
@@ -818,6 +865,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
+=======
+>>>>>>> origin/main
       - job: buildAzureLinuxOSGuardV3gen2fipsTL
         condition: eq('${{ parameters.buildAzureLinuxOSGuardV3gen2fipsTL }}', true)
         dependsOn: [ ]
@@ -944,6 +993,31 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-gen2-containerd
+      - job: build2204fipstlgen2containerd
+        condition: eq('${{ parameters.build2204fipstlgen2containerd }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+              echo '##vso[task.setvariable variable=OS_VERSION]22.04'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
+              echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: 2204-fips-tl-gen2-containerd
       - job: build2204arm64gen2containerd
         condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
         dependsOn: [ ]
@@ -1281,6 +1355,106 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: flatcar-gen2-arm64
+      - job: buildacltlgen2
+        condition: eq('${{ parameters.buildacltlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260506.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-tl-gen2
+      - job: buildaclarm64tlgen2
+        condition: eq('${{ parameters.buildaclarm64tlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260506.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-arm64-tl-gen2
+      - job: buildaclfipstlgen2
+        condition: eq('${{ parameters.buildaclfipstlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260506.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-fips-tl-gen2
+      - job: buildaclarm64fipstlgen2
+        condition: eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260506.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-arm64-fips-tl-gen2
       - job: build2404arm64gb200gen2containerd
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         dependsOn: [ ]

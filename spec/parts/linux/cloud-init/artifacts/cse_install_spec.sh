@@ -242,7 +242,7 @@ Describe 'cse_install.sh'
             ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
             When call installSecureTLSBootstrapClient
             The output should include "installing aks-secure-tls-bootstrap-client from: https://packages/custom-client-binary-url.tar.gz"
-            The output should include "retrycmd_get_tarball 120 5 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz"
+            The output should include "retrycmd_get_tarball 120 5 60 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz 300"
             The output should include "tar -xvzf downloads/custom-client-binary-url.tar.gz -C downloads/"
             The output should include "mv downloads/aks-secure-tls-bootstrap-client bin"
             The output should include "chmod 755 bin/aks-secure-tls-bootstrap-client"
@@ -270,7 +270,8 @@ Describe 'cse_install.sh'
             echo "installKubeletKubectlFromURL"
         }
 
-        BeforeEach() {
+        BeforeEach 'setup'
+        setup() {
             SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"

@@ -7,9 +7,10 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Masterminds/semver"
+	"github.com/Masterminds/semver/v3"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -21,9 +22,8 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{
 		EnableKubeletConfigFile: true,
 		KubeletFlags: map[string]string{
-			"--cloud-provider":            "external",
-			"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
-			"--pod-infra-container-image": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
+			"--cloud-provider": "external",
+			"--kubeconfig":     "/var/lib/kubelet/kubeconfig",
 		},
 		KubeletNodeLabels: map[string]string{
 			"agentpool":                               "nodepool2",
@@ -124,14 +124,14 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	// we assume that all E2E clusters are created with a user-assigned managed identity for the kubelet (not a service principal)
 	nbc.UserAssignedIdentityClientID = *cluster.KubeletIdentity.ClientID
 
-	// pass in the bootstrap token and enable secure TLS bootstrapping by default on compatible VHDs
+	// pass in the bootstrap token and enable secure TLS bootstrapping according to E2E config
 	// this allows us to test the following bootstrapping modes:
 	// 1. secure TLS bootstrapping
 	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: !vhd.UnsupportedSecureTLSBootstrapping,
+		Enabled: config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
 	}
 
 	nbc.TenantID = *cluster.Model.Identity.TenantID
@@ -162,7 +162,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	return &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
-		DisableCustomData:   nbc.AgentPoolProfile.IsFlatcar(),
+		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -175,6 +175,19 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
 				Subnet:            cs.Properties.GetSubnetName(),
 				RouteTable:        cs.Properties.GetRouteTableName(),
+			},
+			CloudProviderConfig: &aksnodeconfigv1.CloudProviderConfig{
+				Backoff:              cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoff,
+				BackoffMode:          cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffMode,
+				BackoffRetries:       to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffRetries)),
+				BackoffExponent:      to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffExponent),
+				BackoffDuration:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffDuration)),
+				BackoffJitter:        to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffJitter),
+				RateLimit:            cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimit,
+				RateLimitQps:         to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS),
+				RateLimitQpsWrite:    to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite),
+				RateLimitBucket:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)),
+				RateLimitBucketWrite: to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)),
 			},
 			PrimaryScaleSet: nbc.PrimaryScaleSetName,
 		},
@@ -280,6 +293,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 					ServeStale:                  "Immediate",
 				},
 			},
+			CriticalFqdns: []string{
+				"mcr.microsoft.com",
+				"login.microsoftonline.com",
+				"packages.aks.azure.com",
+			},
 		},
 		NeedsCgroupv2: to.Ptr(true),
 		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
@@ -294,6 +312,14 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
 func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+	customKubeProxyImage := fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion)
+	customKubeBinaryURL := fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch)
+	is134OrAbove, pErr := toolkit.CheckK8sConstraint(k8sVersion, ">=1.34.0")
+	require.NoError(t, pErr, "failed to parse Kubernetes version")
+	if is134OrAbove {
+		customKubeProxyImage = ""
+		customKubeBinaryURL = ""
+	}
 	config := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -324,8 +350,8 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						UserAssignedID:                    "",
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
-						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
-						CustomKubeBinaryURL:               fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
+						CustomKubeProxyImage:              customKubeProxyImage,
+						CustomKubeBinaryURL:               customKubeBinaryURL,
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -515,6 +541,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 									ServeStale:                  "Immediate",
 								},
 							},
+							CriticalFQDNs: []string{
+								"mcr.microsoft.com",
+								"login.microsoftonline.com",
+								"packages.aks.azure.com",
+							},
 						},
 					},
 				},
@@ -664,6 +695,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						ServeStale:                  "Immediate",
 					},
 				},
+				CriticalFQDNs: []string{
+					"mcr.microsoft.com",
+					"login.microsoftonline.com",
+					"packages.aks.azure.com",
+				},
 			},
 		},
 		ConfigGPUDriverIfNeeded: true,
@@ -703,7 +739,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--max-pods":                          "110",
 			"--network-plugin":                    "kubenet",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",
@@ -921,7 +956,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kube-reserved":                   "cpu=100m,memory=3891Mi",
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
-			"--pod-infra-container-image":       "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
 			"--resolv-conf":                     "\"\"\"\"",
 			"--cluster-dns":                     "10.0.0.10",
 			"--cluster-domain":                  "cluster.local",

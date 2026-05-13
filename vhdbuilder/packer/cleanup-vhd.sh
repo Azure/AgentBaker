@@ -1,5 +1,8 @@
 #!/bin/bash -eux
 
+systemctl daemon-reload
+systemctl disable --now containerd
+
 # Cleanup packer SSH key and machine ID generated for this boot
 rm -f /root/.ssh/authorized_keys
 rm -f /home/packer/.ssh/authorized_keys
@@ -9,7 +12,14 @@ rm -rf /var/log/stunnel4/ /etc/logrotate.d/stunnel4
 rm -f /etc/machine-id
 touch /etc/machine-id
 chmod 644 /etc/machine-id
+# Restore the UKI firstboot addon consumed by ignition-quench during this build
+# Without this, VMs created from this VHD won't get flatcar.first_boot=detected on the kernel cmdline
+if [ -f /boot/acl/uki-addons/firstboot.addon.efi ] && [ ! -f /boot/EFI/Linux/acl.efi.extra.d/firstboot.addon.efi ]; then
+  install -D -m 0644 /boot/acl/uki-addons/firstboot.addon.efi /boot/EFI/Linux/acl.efi.extra.d/firstboot.addon.efi
+fi
 # Cleanup disk usage diagnostics file (created by generate-disk-usage.sh)
 rm -f /opt/azure/disk-usage.txt
+# remove image-fetcher binary from the image since it's only needed during build and is not expected to be present on the final image
+rm -f /opt/azure/containers/image-fetcher
 # Cleanup IMDS instance metadata cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json
