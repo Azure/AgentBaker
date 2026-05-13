@@ -95,6 +95,12 @@ exec $real_dnf "\${@//--downloaddir=/--destdir=}"
 DNFWRAP
     chmod +x /usr/local/bin/dnf
     echo "AzureLinux 4.0: installed dnf wrapper for --downloaddir compatibility"
+
+    # dnf5 uses libcurl which verifies proxy TLS certs separately from server certs.
+    # Point proxy_sslcacert to the system CA bundle so that when CSE installs a
+    # proxy CA via update-ca-trust, dnf5 picks it up for HTTPS proxy connections.
+    echo 'proxy_sslcacert=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem' >> /etc/dnf/dnf.conf
+    echo "AzureLinux 4.0: configured dnf5 proxy_sslcacert for HTTPS proxy support"
   fi
 
   # AzL4 containerd doesn't auto-start. Enable it so it starts on boot
