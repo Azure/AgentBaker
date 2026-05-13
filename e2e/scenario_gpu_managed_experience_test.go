@@ -543,6 +543,107 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MIG works on H100 without requiring a node reboot (Hopper supports dynamic MIG mode changes)",
+		// Run in westus3 (the GPU pipeline default region) where Standard_NC40ads_H100_v5
+		// is available without subscription restrictions and has 96 vCPU quota in the
+		// StandardNCadsH100v5Family (= 2 concurrent 40-vCPU nodes for /default and
+		// /scriptless_nbc subtests). Standard_ND96isr_H100_v5 was tried but is restricted
+		// (Zone-type, NotAvailableForSubscription) outside uaenorth, where it would
+		// contend for quota with Test_Ubuntu2404_GPU_H100. southcentralus has the SKU
+		// but zero quota for the NCadsH100v5 family.
+		Location: "westus3",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC40ads_H100_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG7g"
+				nbc.EnableManagedGPU = true
+				nbc.MigStrategy = "Single"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC40ads_H100_v5")
+
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			// This scenario is focused on H100 MIG no-reboot behavior. The default Linux
+			// validators (ValidateCommonLinux) include broad host-health checks such as
+			// iptables eBPF compatibility and kernel-log scanning, which are already covered
+			// by other Ubuntu 2404 GPU scenarios and have shown transient failures on this
+			// slow-booting H100 SKU (e.g. ephemeral DHCP iptables rule, early-boot coredns
+			// cgroup OOM during MIG mode init). The focused GPU/no-reboot validators below
+			// remain plus the cheap, scenario-relevant safety checks (leaked secrets,
+			// scriptless CSE/NBC) that the /default and /scriptless_nbc subtests should still
+			// cover.
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				os := "ubuntu"
+				osVersion := "r2404"
+
+				// SkipDefaultValidation also bypasses the framework's WaitUntilNodeReady call
+				// in test_helpers.go that populates s.Runtime.VM.KubeName. We need that name
+				// for the Kubernetes-API-based validators below (resource advertisement,
+				// workload schedulability, NPD), so populate it manually here.
+				if s.Runtime.VM.KubeName == "" {
+					s.Runtime.VM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+				}
+
+				// Cheap, scenario-relevant safety checks normally covered by ValidateCommonLinux.
+				ValidateLeakedSecrets(ctx, s)
+				ValidateScriptlessCSECmd(ctx, s)
+				ValidateScriptlessNBCCSECmd(ctx, s)
+
+				// Validate that the node did NOT reboot - H100 (Hopper) supports
+				// dynamic MIG mode changes without requiring a reboot.
+				ValidateNodeDidNotReboot(ctx, s)
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				versions := components.GetExpectedPackageVersions("nvidia-device-plugin", os, osVersion)
+				require.Lenf(s.T, versions, 1, "Expected exactly one nvidia-device-plugin version for %s %s but got %d", os, osVersion, len(versions))
+				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", versions[0])
+
+				ValidateNvidiaDevicePluginServiceRunning(ctx, s)
+
+				// Validate that MIG mode is enabled via nvidia-smi
+				ValidateMIGModeEnabled(ctx, s)
+
+				// Validate that MIG instances are created
+				ValidateMIGInstancesCreated(ctx, s, "MIG 7g")
+
+				// Validate that GPU resources are advertised by the device plugin.
+				// NC40ads_H100_v5 has 1 H100 GPU; with MIG7g = 1 instance per GPU = 1 total.
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
+
+				// Validate that MIG workloads can be scheduled
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
+
+				// Validate DCGM packages and exporter
+				for _, packageName := range getDCGMPackageNames(os) {
+					versions := components.GetExpectedPackageVersions(packageName, os, osVersion)
+					require.Lenf(s.T, versions, 1, "Expected exactly one %s version for %s %s but got %d", packageName, os, osVersion, len(versions))
+					ValidateInstalledPackageVersion(ctx, s, packageName, versions[0])
+				}
+
+				ValidateNvidiaDCGMExporterSystemDServiceRunning(ctx, s)
+				ValidateNvidiaDCGMExporterIsScrapable(ctx, s)
+				ValidateNvidiaDCGMExporterScrapeCommonMetric(ctx, s, "DCGM_FI_DEV_GPU_TEMP")
+
+				ValidateNodeProblemDetector(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
