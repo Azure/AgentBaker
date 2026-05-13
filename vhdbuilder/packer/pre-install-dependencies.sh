@@ -36,7 +36,13 @@ fi
 # The lsm= GRUB fix (removing AzL4 from configureLsmWithBpf) resolved the
 # dbus.socket labeling issue that previously required disabling SELinux.
 if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
-  echo "AzureLinux 4.0: SELinux mode is $(getenforce 2>/dev/null || echo 'unknown')"
+  if command -v getenforce &>/dev/null; then
+    echo "AzureLinux 4.0: SELinux mode is $(getenforce)"
+    setenforce 0 2>/dev/null || true
+    if [ -f /etc/selinux/config ]; then
+      sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+    fi
+  fi
 
   # Azure GuestConfig agent creates files under /var/lib/GuestConfig/ with the
   # default var_lib_t label. az vmss run-command uses sshd which runs as sshd_t

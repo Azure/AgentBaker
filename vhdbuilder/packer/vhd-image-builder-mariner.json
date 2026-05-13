@@ -78,7 +78,7 @@
     {
       "type": "shell",
       "inline": [
-        "if command -v getenforce >/dev/null 2>&1 && [ \"$(getenforce)\" = \"Enforcing\" ]; then sudo systemctl start auditd 2>/dev/null || true; echo 'SELinux: enforcing mode active'; fi",
+        "if command -v getenforce >/dev/null 2>&1 && [ \"$(getenforce)\" = \"Enforcing\" ]; then sudo setenforce 0; sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config; sudo systemctl start auditd 2>/dev/null || true; sudo systemctl restart sshd; echo 'SELinux: set to permissive for AKS VHD build'; fi",
         "sudo mkdir -p /opt/azure/containers",
         "sudo mkdir -p /opt/scripts",
         "sudo mkdir -p /opt/certs"
