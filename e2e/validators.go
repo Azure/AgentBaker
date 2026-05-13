@@ -2436,18 +2436,25 @@ func ValidateMIGInstancesCreated(ctx context.Context, s *Scenario, migProfile st
 }
 
 // ValidateNodeDidNotReboot checks that the node has not rebooted since initial boot.
-// It verifies this by ensuring journald reports exactly one boot entry via
-// `journalctl --list-boots`, which indicates that no reboot occurred after
-// the initial provisioning boot.
+// It verifies this by ensuring journald reports exactly one boot entry. We use the
+// JSON output mode of `journalctl --list-boots` because it emits one record per boot
+// with no header line, making the count robust across systemd versions (older
+// versions of systemd print no header for the plain-text list, while systemd >= 254
+// adds an "IDX BOOT ID FIRST ENTRY LAST ENTRY" header that breaks `wc -l`-based
+// counting). The raw plain-text list is also dumped to test logs for diagnostics.
 func ValidateNodeDidNotReboot(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	s.T.Logf("validating that node did not reboot after provisioning")
 
 	command := []string{
 		"set -exo pipefail",
-		// Check that there's exactly one boot recorded by journald,
-		// which means no reboot happened after the initial boot.
-		"boot_count=$(sudo journalctl --list-boots --no-pager | wc -l)",
+		// Diagnostics: dump the raw boot list so failures show what was counted.
+		"echo '=== journalctl --list-boots ==='",
+		"sudo journalctl --list-boots --no-pager || true",
+		"echo '=== uptime ==='",
+		"uptime || true",
+		// Count actual boot records via JSON output: one JSON object per boot, no header.
+		"boot_count=$(sudo journalctl --list-boots --no-pager --output=json | wc -l)",
 		"echo \"boot count: $boot_count\"",
 		"[ \"$boot_count\" -eq 1 ]",
 	}
