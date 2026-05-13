@@ -149,8 +149,8 @@ function Test-FilesToCacheOnVHD {
             $fileName = [IO.Path]::GetFileName($URL.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
             DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
-            $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
-            $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash
+            $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash.Trim()
+            $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash.Trim()
             Remove-Item -Path $tmpDest
 
             # We have to ignore them since sizes on disk are same but the sizes are different. We are investigating this issue
@@ -164,7 +164,7 @@ function Test-FilesToCacheOnVHD {
                     }
                 }
                 if (-not $isIgnore) {
-                    $logURL = $URL.Split("?")[0]
+                    $logURL = $URL.Split("?")[0].Trim()
                     Write-ErrorWithTimestamp "$dest <--> $tmpDest : Local file hash is $localFileHash but remote file hash from $logURL is $remoteFileHash"
                     $invalidFiles = $invalidFiles + $dest
                     continue
