@@ -85,69 +85,6 @@ POLICYEOF
   # AzL4 uses DNF5 which renamed --downloaddir to --destdir.
   # AKS CSE scripts (rendered by RP from main branch) still use --downloaddir.
 
-  # AKS-RP CSE overwrites containerd config.toml with enable_selinux=false.
-  # Install a systemd service that runs after CSE, sets enable_selinux=true,
-  # and restarts containerd so containers get proper SELinux labels.
-  cat > /opt/azure/containers/setup-selinux-containerd.sh <<'SELINUXSCRIPT'
-#!/bin/bash
-set -euo pipefail
-CONFIG="/etc/containerd/config.toml"
-LOG="/var/log/azure/setup-selinux-containerd.log"
-
-exec >> "$LOG" 2>&1
-echo "$(date): Starting SELinux containerd config fix"
-
-# Wait for CSE to finish writing config.toml (look for sandbox_image as marker)
-for i in $(seq 1 60); do
-  if [ -f "$CONFIG" ] && grep -q 'sandbox_image' "$CONFIG"; then
-    break
-  fi
-  sleep 5
-done
-
-if [ ! -f "$CONFIG" ]; then
-  echo "$(date): config.toml not found after timeout, skipping"
-  exit 0
-fi
-
-if grep -q 'enable_selinux = true' "$CONFIG"; then
-  echo "$(date): enable_selinux already true, nothing to do"
-  exit 0
-fi
-
-echo "$(date): Adding enable_selinux = true to $CONFIG"
-if grep -q 'enable_selinux = false' "$CONFIG"; then
-  # Replace existing false with true
-  sed -i 's/enable_selinux = false/enable_selinux = true/' "$CONFIG"
-else
-  # Not present at all — add it under the CRI plugin section
-  sed -i '/\[plugins."io.containerd.grpc.v1.cri"\]$/a\  enable_selinux = true' "$CONFIG"
-fi
-
-echo "$(date): Restarting containerd"
-systemctl restart containerd
-
-echo "$(date): Done."
-SELINUXSCRIPT
-  chmod +x /opt/azure/containers/setup-selinux-containerd.sh
-
-  cat > /etc/systemd/system/set-selinux-containerd.service <<'UNITEOF'
-[Unit]
-Description=Enable SELinux labeling in containerd after AKS CSE
-After=kubelet.service
-Wants=kubelet.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/azure/containers/setup-selinux-containerd.sh
-RemainAfterExit=false
-
-[Install]
-WantedBy=multi-user.target
-UNITEOF
-  systemctl daemon-reload
-  systemctl enable set-selinux-containerd.service
-  echo "AzureLinux 4.0: installed set-selinux-containerd.service"
   # Create a wrapper that translates the flag so CSE works without RP changes.
   if command -v dnf &>/dev/null; then
     real_dnf=$(command -v dnf)
