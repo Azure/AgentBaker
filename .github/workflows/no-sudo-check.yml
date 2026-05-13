@@ -1,6 +1,9 @@
 name: Check for sudo in CSE scripts
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   no-sudo:
     runs-on: ubuntu-latest
