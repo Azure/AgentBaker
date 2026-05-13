@@ -26,7 +26,9 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
@@ -2698,7 +2700,9 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				if vmss.Tags == nil {

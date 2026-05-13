@@ -653,6 +653,32 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 	}
 }
 
+// ValidateFIPSProvider verifies that FIPS is properly configured on the node:
+//  1. Kernel FIPS mode is enabled (/proc/sys/crypto/fips_enabled == 1).
+//  2. OpenSSL has an active FIPS or SymCrypt provider loaded.
+//  3. /opt/cni/bin/portmap runs without panicking (regression guard for ICM 51000001009688
+//     where the OpenSSL FIPS provider was not loaded on AzureLinux V3 FIPS nodes).
+func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// 1. Kernel FIPS mode.
+	fipsEnabled := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
+	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
+
+	// 2. OpenSSL provider must include an active fips or symcrypt provider.
+	providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+	require.Regexp(s.T, `(?s)(fips|symcrypt).*?status:\s*active`, providers.stdout,
+		"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+
+	// 3. portmap must not panic. We exec it with no stdin/args; it will exit non-zero,
+	// but the output must not contain a Go panic stack trace.
+	portmap := execScriptOnVMForScenarioValidateExitCode(ctx, s, "/opt/cni/bin/portmap < /dev/null 2>&1 || true", 0, "could not run portmap")
+	combined := portmap.stdout + portmap.stderr
+	require.NotContains(s.T, combined, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\n%s", combined)
+
+	s.T.Logf("FIPS provider validation passed")
+}
+
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
 	s.T.Helper()
 	steps := []string{
