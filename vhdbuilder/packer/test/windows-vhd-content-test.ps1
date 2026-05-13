@@ -130,7 +130,7 @@ function Test-FilesToCacheOnVHD {
             $dir = "c:\akse-cache\win-k8s\"
         }
         if (!(Test-Path $dir)) {
-            Write-ErrorWithTimestamp "Directory $dir does not exit"
+            Write-ErrorWithTimestamp "Directory $dir does not exist"
             $missingPaths = $missingPaths + $dir
             continue
         }
