@@ -793,6 +793,7 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -840,6 +841,7 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -869,6 +871,7 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})

@@ -655,7 +655,9 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 
 // ValidateFIPSProvider verifies that FIPS is properly configured on the node:
 //  1. Kernel FIPS mode is enabled (/proc/sys/crypto/fips_enabled == 1).
-//  2. OpenSSL has an active FIPS or SymCrypt provider loaded.
+//  2. OpenSSL (3.x) has an active FIPS or SymCrypt provider loaded. The check is
+//     skipped on hosts shipping OpenSSL 1.1.x (e.g. Ubuntu 20.04 FIPS), which use
+//     the legacy FIPS module rather than the providers interface.
 //  3. /opt/cni/bin/portmap runs without panicking (regression guard for ICM 51000001009688
 //     where the OpenSSL FIPS provider was not loaded on AzureLinux V3 FIPS nodes).
 func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
@@ -665,18 +667,57 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	fipsEnabled := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
 	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
 
-	// 2. OpenSSL provider must include an active fips or symcrypt provider.
-	providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
-	require.Regexp(s.T, `(?s)(fips|symcrypt).*?status:\s*active`, providers.stdout,
-		"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
+	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version", 0, "could not run openssl version")
+	versionFields := strings.Fields(opensslVersion.stdout)
+	if len(versionFields) >= 2 && strings.HasPrefix(versionFields[1], "3.") {
+		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
+			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+	} else {
+		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
+	}
 
-	// 3. portmap must not panic. We exec it with no stdin/args; it will exit non-zero,
-	// but the output must not contain a Go panic stack trace.
-	portmap := execScriptOnVMForScenarioValidateExitCode(ctx, s, "/opt/cni/bin/portmap < /dev/null 2>&1 || true", 0, "could not run portmap")
+	// 3. portmap must exist, be executable, and not panic when invoked. We assert the binary
+	// is present first so that a missing/non-executable portmap cannot silently pass the test,
+	// then exec it allowing the expected non-zero "usage" exit while checking for a panic trace.
+	portmapBin := "/opt/cni/bin/portmap"
+	portmapExists := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -x %s", portmapBin), 0,
+		fmt.Sprintf("expected %s to exist and be executable", portmapBin))
+	_ = portmapExists
+	portmapCmd := fmt.Sprintf("%s < /dev/null 2>&1; ec=$?; echo PORTMAP_EXIT=$ec; exit 0", portmapBin)
+	portmap := execScriptOnVMForScenarioValidateExitCode(ctx, s, portmapCmd, 0, "could not run portmap")
 	combined := portmap.stdout + portmap.stderr
 	require.NotContains(s.T, combined, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\n%s", combined)
 
 	s.T.Logf("FIPS provider validation passed")
+}
+
+// opensslProviderActive parses the output of `openssl list -providers` and returns true if
+// any of the named providers is reported with `status: active`. The status line is scoped
+// to its enclosing provider block so an active default provider cannot mask an inactive
+// fips/symcrypt provider.
+func opensslProviderActive(output string, providerNames ...string) bool {
+	providerHeader := regexp.MustCompile(`^  (\S+)\s*$`)
+	statusLine := regexp.MustCompile(`^\s+status:\s*(\S+)`)
+	wanted := make(map[string]bool, len(providerNames))
+	for _, n := range providerNames {
+		wanted[n] = true
+	}
+	var current string
+	for _, line := range strings.Split(output, "\n") {
+		if m := providerHeader.FindStringSubmatch(line); m != nil {
+			current = m[1]
+			continue
+		}
+		if current == "" || !wanted[current] {
+			continue
+		}
+		if m := statusLine.FindStringSubmatch(line); m != nil && m[1] == "active" {
+			return true
+		}
+	}
+	return false
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {

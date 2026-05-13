@@ -642,17 +642,29 @@ testFips() {
       providers_output=$(openssl list -providers 2>&1)
       echo "openssl list -providers output:"
       echo "${providers_output}"
-      # shellcheck disable=SC3010
-      if [[ "${providers_output}" =~ (fips|symcrypt) ]]; then
-        echo "openssl FIPS/SymCrypt provider is registered."
+      # Walk each provider block and record the status of fips/symcrypt providers.
+      # This ensures `status: active` is tied to the fips/symcrypt block specifically
+      # and cannot be satisfied by another active provider (e.g. default).
+      fips_active=""
+      current_provider=""
+      while IFS= read -r line; do
+        # Provider header: exactly two leading spaces followed by the provider name.
+        # shellcheck disable=SC3010
+        if [[ "${line}" =~ ^[[:space:]]{2}([^[:space:]]+)[[:space:]]*$ ]]; then
+          current_provider="${BASH_REMATCH[1]}"
+          continue
+        fi
+        # shellcheck disable=SC3010
+        if [[ "${current_provider}" == "fips" || "${current_provider}" == "symcrypt" ]] \
+          && [[ "${line}" =~ status:[[:space:]]+active ]]; then
+          fips_active="${current_provider}"
+          break
+        fi
+      done <<< "${providers_output}"
+      if [ -n "${fips_active}" ]; then
+        echo "openssl provider '${fips_active}' is registered and active."
       else
-        err $test "openssl does not have a fips or symcrypt provider registered."
-      fi
-      # shellcheck disable=SC3010
-      if [[ "${providers_output}" =~ status:[[:space:]]+active ]]; then
-        echo "openssl FIPS/SymCrypt provider has status: active."
-      else
-        err $test "openssl FIPS/SymCrypt provider is not active."
+        err $test "openssl does not have an active fips or symcrypt provider."
       fi
     else
       echo "openssl providers check skipped: ${os_version} ships OpenSSL 1.1.x (legacy FIPS module)."
