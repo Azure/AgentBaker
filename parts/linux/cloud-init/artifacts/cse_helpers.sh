@@ -1480,6 +1480,25 @@ ensureKubeletCgroupHierarchy() {
         return 1
     fi
 
+    # Validate supported values: only /kubelet.slice (or bare kubelet.slice) is
+    # supported for KUBE_RESERVED_CGROUP, and only /system.slice for
+    # SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
+    # explicitly so kubelet doesn't fail later with an opaque enforcement error.
+    case "${KUBE_RESERVED_CGROUP:-}" in
+        ""|"/kubelet.slice"|"kubelet.slice") ;;
+        *)
+            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kubelet.slice is supported"
+            return 1
+            ;;
+    esac
+    case "${SYSTEM_RESERVED_CGROUP:-}" in
+        ""|"/system.slice"|"system.slice") ;;
+        *)
+            echo "ensureKubeletCgroupHierarchy: unsupported SYSTEM_RESERVED_CGROUP=${SYSTEM_RESERVED_CGROUP}; only /system.slice is supported"
+            return 1
+            ;;
+    esac
+
     # /system.slice is a built-in systemd slice; we only need to create kubelet.slice.
     if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubelet.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubelet.slice" ]; then
         local kubelet_slice_unit=/etc/systemd/system/kubelet.slice

@@ -812,9 +812,22 @@ EOF
     # Node Memory Hardening (F2/F5): if the RP rendered --kube-reserved-cgroup or
     # --system-reserved-cgroup, ensure the corresponding systemd slices exist before
     # kubelet starts so its NodeAllocatable enforcement loop can find them. The
-    # helper is a no-op when neither flag is present (back-compat with non-hardened pools).
-    KUBE_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "kube-reserved-cgroup")
-    SYSTEM_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "system-reserved-cgroup")
+    # helper is a no-op when neither value is present (back-compat with non-hardened pools).
+    #
+    # When kubelet config-file mode is enabled, --kube-reserved-cgroup /
+    # --system-reserved-cgroup are filtered out of KUBELET_FLAGS by the RP
+    # (TranslatedKubeletConfigFlags) and rendered into kubeletconfig.json instead, so
+    # we must source the cgroup names from the JSON in that mode and only fall back to
+    # parsing KUBELET_FLAGS when config-file mode is off.
+    KUBE_RESERVED_CGROUP=""
+    SYSTEM_RESERVED_CGROUP=""
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" = "true" ] && [ -n "${KUBELET_CONFIG_FILE_CONTENT:-}" ]; then
+        KUBE_RESERVED_CGROUP=$(echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d | jq -r '.kubeReservedCgroup // ""')
+        SYSTEM_RESERVED_CGROUP=$(echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d | jq -r '.systemReservedCgroup // ""')
+    else
+        KUBE_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "kube-reserved-cgroup")
+        SYSTEM_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "$KUBELET_FLAGS" "system-reserved-cgroup")
+    fi
     export KUBE_RESERVED_CGROUP SYSTEM_RESERVED_CGROUP
     if [ -n "${KUBE_RESERVED_CGROUP}" ] || [ -n "${SYSTEM_RESERVED_CGROUP}" ]; then
         if ! logs_to_events "AKS.CSE.ensureKubelet.ensureKubeletCgroupHierarchy" ensureKubeletCgroupHierarchy; then
