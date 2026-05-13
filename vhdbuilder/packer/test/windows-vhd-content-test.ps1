@@ -164,7 +164,8 @@ function Test-FilesToCacheOnVHD {
                     }
                 }
                 if (-not $isIgnore) {
-                    Write-ErrorWithTimestamp "$dest <--> $tmpDest : Local file hash is $localFileHash but remote file hash from $URL is $remoteFileHash"
+                    $logURL = $URL.Split("?")[0]
+                    Write-ErrorWithTimestamp "$dest <--> $tmpDest : Local file hash is $localFileHash but remote file hash from $logURL is $remoteFileHash"
                     $invalidFiles = $invalidFiles + $dest
                     continue
                 }
