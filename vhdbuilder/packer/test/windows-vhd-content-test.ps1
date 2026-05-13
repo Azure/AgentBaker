@@ -169,7 +169,7 @@ function Test-FilesToCacheOnVHD {
                     }
                 }
                 if (-not $isIgnore) {
-                    Write-ErrorWithTimestamp "$dest : Local file ($dest) hash is $localFileHash but remote file ($tmpDest -- $URL) hash in global is $remoteFileHash"
+                    Write-ErrorWithTimestamp "$dest <--> $tmpDest : Local file hash is $localFileHash but remote file hash from $URL is $remoteFileHash"
                     $invalidFiles = $invalidFiles + $dest
                     continue
                 }
