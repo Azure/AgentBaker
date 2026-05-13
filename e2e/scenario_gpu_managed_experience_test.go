@@ -546,16 +546,14 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that MIG works on H100 without requiring a node reboot (Hopper supports dynamic MIG mode changes)",
-		// Run in southcentralus where Standard_NC40ads_H100_v5 is available without
-		// subscription restrictions. Standard_ND96isr_H100_v5 is restricted in this
-		// region (NotAvailableForSubscription, Zone-type), and the only region with
-		// quota for it (uaenorth) is shared with Test_Ubuntu2404_GPU_H100 (192 vCPU
-		// quota = exactly 2 ND96isr nodes, causing concurrent quota contention).
-		Location: "southcentralus",
-		// Use Standard_D2s_v3 for the system pool — the default Standard_D2ds_v5 hits
-		// AllocationFailed in southcentralus for this subscription. This also reuses the
-		// cached cluster from Test_Ubuntu2404_GPU_A100 (same Location + system pool SKU).
-		K8sSystemPoolSKU: "Standard_D2s_v3",
+		// Run in westus3 (the GPU pipeline default region) where Standard_NC40ads_H100_v5
+		// is available without subscription restrictions and has 96 vCPU quota in the
+		// StandardNCadsH100v5Family (= 2 concurrent 40-vCPU nodes for /default and
+		// /scriptless_nbc subtests). Standard_ND96isr_H100_v5 was tried but is restricted
+		// (Zone-type, NotAvailableForSubscription) outside uaenorth, where it would
+		// contend for quota with Test_Ubuntu2404_GPU_H100. southcentralus has the SKU
+		// but zero quota for the NCadsH100v5 family.
+		Location: "westus3",
 		Tags: Tags{
 			GPU: true,
 		},
