@@ -23,10 +23,6 @@ $env:WindowsSKU = $windowsSKU
 
 . c:\k\windows-vhd-configuration.ps1
 
-filter Timestamp {
-    "$( Get-Date -Format o ): $_"
-}
-
 function Write-ErrorWithTimestamp($Message) {
     $msg = $message | Timestamp
     Write-Error $msg
