@@ -633,20 +633,29 @@ testFips() {
     # This caught the AzureLinux V3 FIPS regression (ICM 51000001009688) where
     # the kernel FIPS flag was set but the OpenSSL provider was missing,
     # causing /opt/cni/bin/portmap to panic at runtime.
-    providers_output=$(openssl list -providers 2>&1)
-    echo "openssl list -providers output:"
-    echo "${providers_output}"
+    #
+    # Only run on OS variants that ship OpenSSL 3.x (the providers concept
+    # doesn't exist in OpenSSL 1.1.x). Ubuntu 20.04 and AzureLinux V2 ship
+    # OpenSSL 1.1.x and use the legacy FIPS module model.
     # shellcheck disable=SC3010
-    if [[ "${providers_output}" =~ (fips|symcrypt) ]]; then
-      echo "openssl FIPS/SymCrypt provider is registered."
+    if [[ ${os_version} == "22.04" || ${os_version} == "24.04" || ${os_version} == "V3" || ${os_version} == "OSGuardV3" || ${os_version} == "acl" ]]; then
+      providers_output=$(openssl list -providers 2>&1)
+      echo "openssl list -providers output:"
+      echo "${providers_output}"
+      # shellcheck disable=SC3010
+      if [[ "${providers_output}" =~ (fips|symcrypt) ]]; then
+        echo "openssl FIPS/SymCrypt provider is registered."
+      else
+        err $test "openssl does not have a fips or symcrypt provider registered."
+      fi
+      # shellcheck disable=SC3010
+      if [[ "${providers_output}" =~ status:[[:space:]]+active ]]; then
+        echo "openssl FIPS/SymCrypt provider has status: active."
+      else
+        err $test "openssl FIPS/SymCrypt provider is not active."
+      fi
     else
-      err $test "openssl does not have a fips or symcrypt provider registered."
-    fi
-    # shellcheck disable=SC3010
-    if [[ "${providers_output}" =~ status:[[:space:]]+active ]]; then
-      echo "openssl FIPS/SymCrypt provider has status: active."
-    else
-      err $test "openssl FIPS/SymCrypt provider is not active."
+      echo "openssl providers check skipped: ${os_version} ships OpenSSL 1.1.x (legacy FIPS module)."
     fi
   fi
 
