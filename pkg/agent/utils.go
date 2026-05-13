@@ -599,17 +599,17 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// EvictionHard.
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+		kubeletConfig.EvictionHard = strKeyValToMap(eh, "<")
 	}
 
 	// EvictionSoft (e.g. "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%").
 	if es, ok := kc["--eviction-soft"]; ok && es != "" {
-		kubeletConfig.EvictionSoft = strKeyValToMap(es, ",", "<")
+		kubeletConfig.EvictionSoft = strKeyValToMap(es, "<")
 	}
 
 	// EvictionSoftGracePeriod (e.g. "memory.available=30s,nodefs.available=2m,imagefs.available=2m").
 	if esg, ok := kc["--eviction-soft-grace-period"]; ok && esg != "" {
-		kubeletConfig.EvictionSoftGracePeriod = strKeyValToMap(esg, ",", "=")
+		kubeletConfig.EvictionSoftGracePeriod = strKeyValToMap(esg, "=")
 	}
 
 	// EvictionMaxPodGracePeriod (integer seconds, e.g. "60").
@@ -623,8 +623,8 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 
 	// system reserve and kube reserve.
 	// looks like "cpu=100m,memory=1638Mi".
-	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
-	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], "=")
 
 	// Settings from customKubeletConfig, only take if it's set.
 	setCustomKubeletConfig(customKc, kubeletConfig)
@@ -675,9 +675,9 @@ func strToInt64Ptr(str string) *int64 {
 	return &i
 }
 
-func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
+func strKeyValToMap(str string, pairDelim string) map[string]string {
 	m := make(map[string]string)
-	pairs := strings.Split(str, strDelim)
+	pairs := strings.Split(str, ",")
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
