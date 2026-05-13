@@ -546,7 +546,11 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that MIG works on H100 without requiring a node reboot (Hopper supports dynamic MIG mode changes)",
-		// Run in southcentralus to avoid H100 quota contention with Test_Ubuntu2404_GPU_H100 (uaenorth).
+		// Run in southcentralus where Standard_NC40ads_H100_v5 is available without
+		// subscription restrictions. Standard_ND96isr_H100_v5 is restricted in this
+		// region (NotAvailableForSubscription, Zone-type), and the only region with
+		// quota for it (uaenorth) is shared with Test_Ubuntu2404_GPU_H100 (192 vCPU
+		// quota = exactly 2 ND96isr nodes, causing concurrent quota contention).
 		Location: "southcentralus",
 		// Use Standard_D2s_v3 for the system pool — the default Standard_D2ds_v5 hits
 		// AllocationFailed in southcentralus for this subscription. This also reuses the
@@ -559,7 +563,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_ND96isr_H100_v5"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC40ads_H100_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
@@ -568,7 +572,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 				nbc.MigStrategy = "Single"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_ND96isr_H100_v5")
+				vmss.SKU.Name = to.Ptr("Standard_NC40ads_H100_v5")
 
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
@@ -595,12 +599,12 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 				// Validate that MIG instances are created
 				ValidateMIGInstancesCreated(ctx, s, "MIG 7g")
 
-				// Validate that GPU resources are advertised by the device plugin
-				// ND96isr_H100_v5 has 8 H100 GPUs, MIG7g = 1 instance per GPU = 8 total
-				ValidateNodeAdvertisesGPUResources(ctx, s, 8, "nvidia.com/gpu")
+				// Validate that GPU resources are advertised by the device plugin.
+				// NC40ads_H100_v5 has 1 H100 GPU; with MIG7g = 1 instance per GPU = 1 total.
+				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate that MIG workloads can be scheduled
-				ValidateGPUWorkloadSchedulable(ctx, s, 8, "nvidia.com/gpu")
+				ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu")
 
 				// Validate DCGM packages and exporter
 				for _, packageName := range getDCGMPackageNames(os) {
