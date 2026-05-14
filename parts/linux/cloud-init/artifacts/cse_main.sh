@@ -495,15 +495,12 @@ function nodePrep {
     # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
     # high timeout to address high latency for private dns server to forward request to Azure DNS
     # dns check will be done only if we use FQDN for API_SERVER_NAME
-    API_SERVER_CONN_RETRIES=50
-    # shellcheck disable=SC3010
-    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-        API_SERVER_CONN_RETRIES=100
-    fi
     # shellcheck disable=SC3010
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        API_SERVER_CONN_RETRIES=50
         API_SERVER_DNS_RETRY_TIMEOUT=300
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+            API_SERVER_CONN_RETRIES=100
            API_SERVER_DNS_RETRY_TIMEOUT=600
         fi
         if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
