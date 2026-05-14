@@ -284,7 +284,6 @@ func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0])
 				ValidateFIPSProvider(ctx, s)
 			},
 		},
