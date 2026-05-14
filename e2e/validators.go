@@ -846,12 +846,23 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
 		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
 		// Hit the metrics endpoint and require a windows-exporter-specific metric.
 		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
-		"if ($resp.StatusCode -ne 200) { throw \"metrics endpoint returned $($resp.StatusCode)\" }",
-		"if ($resp.Content -notmatch 'windows_os_info') { throw 'windows_os_info metric missing from /metrics response' }",
-		"if ($resp.Content -notmatch 'windows_cpu_time_total') { throw 'windows_cpu_time_total metric missing from /metrics response' }",
+		"$failureReasons = @()",
+		"if ($resp.StatusCode -ne 200) { $failureReasons += \"metrics endpoint returned $($resp.StatusCode)\" }",
+		"if ($resp.Content -notmatch 'windows_os_info') { $failureReasons += 'windows_os_info metric missing from /metrics response' }",
+		"if ($resp.Content -notmatch 'windows_cpu_time_total') { $failureReasons += 'windows_cpu_time_total metric missing from /metrics response' }",
+		"if ($failureReasons.Count -gt 0) {",
+		"  Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($resp.Content.Length) bytes\"",
+		"  Write-Output ('metrics validation failures: ' + ($failureReasons -join '; '))",
+		"  Write-Output '--- begin /metrics response ---'",
+		"  Write-Output $resp.Content",
+		"  Write-Output '--- end /metrics response ---'",
+		"  throw ($failureReasons -join '; ')",
+		"}",
+		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($resp.Content.Length) bytes\"",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	validationResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+	s.T.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s contains windows_os_info and windows_cpu_time_total\n%s", s.Runtime.VM.PrivateIP, metricsURL, strings.TrimSpace(validationResult.stdout))
 }
 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
