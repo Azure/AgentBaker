@@ -487,15 +487,14 @@ function nodePrep {
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
-    VALIDATION_ERR=0
-
-    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
 
     # Edge case scenarios:
     # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
     # high timeout to address high latency for private dns server to forward request to Azure DNS
     # dns check will be done only if we use FQDN for API_SERVER_NAME
+    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
     # shellcheck disable=SC3010
+    VALIDATION_ERR=0
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         API_SERVER_CONN_RETRIES=50
         API_SERVER_DNS_RETRY_TIMEOUT=300
@@ -528,7 +527,6 @@ function nodePrep {
         API_SERVER_CONN_RETRIES=300
         logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
-
     echo "API server connection check code: $VALIDATION_ERR"
     if [ "$VALIDATION_ERR" -ne 0 ]; then
         exit $VALIDATION_ERR
