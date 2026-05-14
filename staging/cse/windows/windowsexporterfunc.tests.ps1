@@ -70,5 +70,17 @@ function Get-Version {
 
             Test-WindowsExporterHealth -RetryCount 0 -RetryInterval 0 | Should -Be $true
         }
+
+        It 'uses a native PowerShell endpoint probe when the baked health script is absent' {
+            $global:WindowsExporterHealthScript = Join-Path $TestDrive 'missing-health.ps1'
+
+            Mock Invoke-WebRequest -MockWith {
+                return @{ Content = 'ok' }
+            }
+
+            Test-WindowsExporterHealth -RetryCount 0 -RetryInterval 0 | Should -Be $true
+
+            Assert-MockCalled Invoke-WebRequest -Exactly -Times 1
+        }
     }
 }
