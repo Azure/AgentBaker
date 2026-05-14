@@ -30,7 +30,7 @@
     "datacenter-gpu-manager-4-proprietary-cuda13": "1:4.4.1-1",
     "datacenter-gpu-manager-4-multinode": "1:4.4.1-1",
     "datacenter-gpu-manager-4-multinode-cuda13": "1:4.4.1-1",
-    "libcap2-bin": "1:2.66-5ubuntu2.2",
+    "libcap2-bin": "1:2.66-5ubuntu2.4",
     "k8s-device-plugin": "0.17.3-ubuntu24.04u5",
     "nvidia-imex": "580.105.08-1",
     "librdmacm-dev": "2507mlnx58-1.2507097.0214",
