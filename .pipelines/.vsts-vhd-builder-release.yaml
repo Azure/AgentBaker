@@ -966,8 +966,6 @@ stages:
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 360
-  - stage: build_vhd_2404_arm64_gb200
-    condition: eq('${{ parameters.build2404arm64gb200 }}', true)
   - stage: build_vhd_2404_arm64_gb200_gen2_containerd
     condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
     dependsOn: []
