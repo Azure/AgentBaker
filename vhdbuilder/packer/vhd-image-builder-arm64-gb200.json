@@ -89,6 +89,11 @@
     },
     {
       "type": "file",
+      "source": "image-fetcher/bin/image-fetcher-linux-arm64",
+      "destination": "/home/packer/image-fetcher"
+    },
+    {
+      "type": "file",
       "source": "aks-node-controller/bin/aks-node-controller-linux-arm64",
       "destination": "/home/packer/aks-node-controller"
     },
@@ -131,6 +136,16 @@
       "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/post-deprovision-walinuxagent.sh",
+      "destination": "/home/packer/post-deprovision-walinuxagent.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install_walinuxagent.py",
+      "destination": "/home/packer/install_walinuxagent.py"
     },
     {
       "type": "file",
@@ -334,8 +349,58 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-ig.sh",
+      "destination": "/home/packer/install-ig.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/import_gadgets.sh",
+      "destination": "/home/packer/ig-import-gadgets.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/remove_gadgets.sh",
+      "destination": "/home/packer/ig-remove-gadgets.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/lib/systemd/system/ig-import-gadgets.service",
+      "destination": "/home/packer/ig-import-gadgets.service"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-node-exporter.sh",
+      "destination": "/home/packer/install-node-exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh",
+      "destination": "/home/packer/node-exporter-startup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter.service",
+      "destination": "/home/packer/node-exporter.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.service",
+      "destination": "/home/packer/node-exporter-restart.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/systemd/system/node-exporter-restart.path",
+      "destination": "/home/packer/node-exporter-restart.path"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/node-exporter/baseline/etc/node-exporter.d/web-config.yml",
+      "destination": "/home/packer/node-exporter-web-config.yml"
     },
     {
       "type": "file",
@@ -651,6 +716,46 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns_exporter.sh",
+      "destination": "/home/packer/localdns_exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter.socket",
+      "destination": "/home/packer/localdns-exporter.socket"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter@.service",
+      "destination": "/home/packer/localdns-exporter@.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh",
+      "destination": "/home/packer/aks-localdns-hosts-setup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.service",
+      "destination": "/home/packer/aks-localdns-hosts-setup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.timer",
+      "destination": "/home/packer/aks-localdns-hosts-setup.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/configure-azure-network.sh",
+      "destination": "/home/packer/configure-azure-network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/99-azure-network.rules",
+      "destination": "/home/packer/99-azure-network.rules"
     },
     {
       "type": "file",
