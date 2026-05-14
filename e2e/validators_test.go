@@ -67,6 +67,23 @@ func TestOpensslProviderActive(t *testing.T) {
 			want:     false,
 		},
 		{
+			// Regression guard for the "status scoped to enclosing block" guarantee:
+			// an inactive symcrypt block followed by an active default block must NOT
+			// be treated as symcrypt being active just because an "active" line appears
+			// later in the output. This is the most likely real-world misparse.
+			name: "interleaved: inactive symcrypt then active default does not satisfy",
+			output: `Providers:
+  symcrypt
+    name: SymCrypt Provider
+    status: inactive
+  default
+    name: OpenSSL Default Provider
+    status: active
+`,
+			prefixes: []string{"fips", "symcrypt"},
+			want:     false,
+		},
+		{
 			name: "no fips or symcrypt provider listed",
 			output: `Providers:
   default
