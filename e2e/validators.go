@@ -840,7 +840,7 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
 		"$ErrorActionPreference = \"Stop\"",
 		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing binary: %s' }", binary, binary),
 		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing config: %s' }", configFile, configFile),
-		fmt.Sprintf("$svc = Get-Service -Name %s", serviceName),
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", serviceName),
 		"Write-Output $svc",
 		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
 		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
