@@ -284,6 +284,7 @@ func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFIPSProvider(ctx, s)
 			},
 		},
@@ -813,6 +814,7 @@ func Test_Ubuntu2004FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
