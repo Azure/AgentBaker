@@ -672,6 +672,9 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	versionFields := strings.Fields(opensslVersion.stdout)
 	if len(versionFields) >= 2 && strings.HasPrefix(versionFields[1], "3.") {
 		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+		// Accept any provider whose name starts with "fips" or "symcrypt" so we match
+		// "fips", "symcrypt", and "symcryptprovider" (the latter is what AzureLinux V3 /
+		// ACL FIPS images expose). See ICM 51000001009688.
 		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
 			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
 	} else {
@@ -681,28 +684,35 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	// 3. portmap must exist, be executable, and not panic when invoked. We assert the binary
 	// is present first so that a missing/non-executable portmap cannot silently pass the test,
 	// then exec it allowing the expected non-zero "usage" exit while checking for a panic trace.
+	// A Go runtime panic writes to stderr and exits non-zero; we capture both streams separately
+	// (without merging) and preserve the real exit code so a panic remains observable here.
 	portmapBin := "/opt/cni/bin/portmap"
-	portmapExists := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -x %s", portmapBin), 0,
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -x %s", portmapBin), 0,
 		fmt.Sprintf("expected %s to exist and be executable", portmapBin))
-	_ = portmapExists
-	portmapCmd := fmt.Sprintf("%s < /dev/null 2>&1; ec=$?; echo PORTMAP_EXIT=$ec; exit 0", portmapBin)
-	portmap := execScriptOnVMForScenarioValidateExitCode(ctx, s, portmapCmd, 0, "could not run portmap")
-	combined := portmap.stdout + portmap.stderr
-	require.NotContains(s.T, combined, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\n%s", combined)
+	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
+	require.NotContains(s.T, portmap.stderr, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", portmap.stdout, portmap.stderr)
+	require.NotContains(s.T, portmap.stdout, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", portmap.stdout, portmap.stderr)
 
 	s.T.Logf("FIPS provider validation passed")
 }
 
 // opensslProviderActive parses the output of `openssl list -providers` and returns true if
-// any of the named providers is reported with `status: active`. The status line is scoped
-// to its enclosing provider block so an active default provider cannot mask an inactive
-// fips/symcrypt provider.
-func opensslProviderActive(output string, providerNames ...string) bool {
-	providerHeader := regexp.MustCompile(`^  (\S+)\s*$`)
+// any provider whose name has one of the given prefixes is reported with `status: active`.
+// Prefix matching lets a single call cover related provider names (e.g. "symcrypt" matches
+// both "symcrypt" and "symcryptprovider"). The status line is scoped to its enclosing
+// provider block so an active default provider cannot mask an inactive fips/symcrypt provider.
+func opensslProviderActive(output string, providerPrefixes ...string) bool {
+	// Provider headers are indented (typically two spaces, but tolerate tabs / extra padding)
+	// and have no key/value separator. Status lines are more deeply indented and contain ':'.
+	providerHeader := regexp.MustCompile(`^[ \t]+(\S+)\s*$`)
 	statusLine := regexp.MustCompile(`^\s+status:\s*(\S+)`)
-	wanted := make(map[string]bool, len(providerNames))
-	for _, n := range providerNames {
-		wanted[n] = true
+	matches := func(name string) bool {
+		for _, p := range providerPrefixes {
+			if strings.HasPrefix(name, p) {
+				return true
+			}
+		}
+		return false
 	}
 	var current string
 	for _, line := range strings.Split(output, "\n") {
@@ -710,7 +720,7 @@ func opensslProviderActive(output string, providerNames ...string) bool {
 			current = m[1]
 			continue
 		}
-		if current == "" || !wanted[current] {
+		if current == "" || !matches(current) {
 			continue
 		}
 		if m := statusLine.FindStringSubmatch(line); m != nil && m[1] == "active" {

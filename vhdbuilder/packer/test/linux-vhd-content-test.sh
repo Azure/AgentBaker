@@ -634,28 +634,33 @@ testFips() {
     # the kernel FIPS flag was set but the OpenSSL provider was missing,
     # causing /opt/cni/bin/portmap to panic at runtime.
     #
-    # Only run on OS variants that ship OpenSSL 3.x (the providers concept
-    # doesn't exist in OpenSSL 1.1.x). Ubuntu 20.04 and AzureLinux V2 ship
-    # OpenSSL 1.1.x and use the legacy FIPS module model.
+    # Only run on OpenSSL 3.x (the providers concept doesn't exist in 1.1.x).
+    # Derive this from `openssl version` directly so the check stays in sync with the
+    # Go validator (e2e/validators.go) and doesn't need an OS allowlist.
+    openssl_version_raw=$(openssl version 2>/dev/null || true)
+    openssl_major=$(echo "${openssl_version_raw}" | awk '{print $2}' | cut -d. -f1)
     # shellcheck disable=SC3010
-    if [[ ${os_version} == "22.04" || ${os_version} == "24.04" || ${os_version} == "V3" || ${os_version} == "OSGuardV3" || ${os_version} == "acl" ]]; then
+    if [[ "${openssl_major}" == "3" ]]; then
       providers_output=$(openssl list -providers 2>&1)
       echo "openssl list -providers output:"
       echo "${providers_output}"
       # Walk each provider block and record the status of fips/symcrypt providers.
       # This ensures `status: active` is tied to the fips/symcrypt block specifically
       # and cannot be satisfied by another active provider (e.g. default).
+      # Match by prefix so "symcrypt" covers both "symcrypt" and "symcryptprovider"
+      # (the latter is what AzureLinux V3 / ACL FIPS images expose).
       fips_active=""
       current_provider=""
       while IFS= read -r line; do
-        # Provider header: exactly two leading spaces followed by the provider name.
+        # Provider header: leading whitespace (spaces or tabs) followed by the provider name
+        # with no ':' (status/version lines are key:value). Tolerate variable indentation.
         # shellcheck disable=SC3010
-        if [[ "${line}" =~ ^[[:space:]]{2}([^[:space:]]+)[[:space:]]*$ ]]; then
+        if [[ "${line}" =~ ^[[:space:]]+([^[:space:]:]+)[[:space:]]*$ ]]; then
           current_provider="${BASH_REMATCH[1]}"
           continue
         fi
         # shellcheck disable=SC3010
-        if [[ "${current_provider}" == "fips" || "${current_provider}" == "symcrypt" ]] \
+        if [[ "${current_provider}" == fips* || "${current_provider}" == symcrypt* ]] \
           && [[ "${line}" =~ status:[[:space:]]+active ]]; then
           fips_active="${current_provider}"
           break
@@ -667,7 +672,7 @@ testFips() {
         err $test "openssl does not have an active fips or symcrypt provider."
       fi
     else
-      echo "openssl providers check skipped: ${os_version} ships OpenSSL 1.1.x (legacy FIPS module)."
+      echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
     fi
   fi
 
