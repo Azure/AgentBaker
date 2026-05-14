@@ -652,17 +652,20 @@ testFips() {
     # the kernel FIPS flag was set but the OpenSSL provider was missing,
     # causing /opt/cni/bin/portmap to panic at runtime.
     #
-    # Only run on OpenSSL 3.x (the providers concept doesn't exist in 1.1.x).
-    # Derive this from `openssl version` directly so the check stays in sync with the
-    # Go validator (e2e/validators.go) and doesn't need an OS allowlist.
+    # Only run the providers check on OpenSSL 3.x (the providers concept doesn't exist
+    # in 1.1.x). Skip on 1.1.x (legacy FIPS module). Any other version is unexpected on
+    # a FIPS VHD and must be a hard failure so new images don't silently lose coverage.
+    # Keep this in sync with the Go validator in e2e/validators.go.
     if ! command -v openssl >/dev/null 2>&1; then
       err $test "openssl binary not found on a FIPS-enabled VHD."
     else
       openssl_version_raw=$(openssl version 2>&1)
-      openssl_major=$(echo "${openssl_version_raw}" | awk '{print $2}' | cut -d. -f1)
-      if [ -z "${openssl_major}" ]; then
-        err $test "could not parse openssl version (raw output: '${openssl_version_raw}')."
-      elif [ "${openssl_major}" = "3" ]; then
+      openssl_version=$(echo "${openssl_version_raw}" | awk '{print $2}')
+      case "${openssl_version}" in
+        "")
+          err $test "could not parse openssl version (raw output: '${openssl_version_raw}')."
+          ;;
+        3.*)
       providers_output=$(openssl list -providers 2>&1)
       echo "openssl list -providers output:"
       echo "${providers_output}"
@@ -693,9 +696,14 @@ testFips() {
       else
         err $test "openssl does not have an active fips or symcrypt provider."
       fi
-      else
-        echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
-      fi
+          ;;
+        1.1.*)
+          echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
+          ;;
+        *)
+          err $test "unexpected openssl version '${openssl_version_raw}': FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported."
+          ;;
+      esac
     fi
   fi
 

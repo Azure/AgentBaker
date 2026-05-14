@@ -673,21 +673,27 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
 
 	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
-	// Treat malformed `openssl version` output as a hard failure rather than silently
-	// skipping the check — FIPS VHDs are expected to ship a functioning OpenSSL.
+	// Treat malformed or unrecognized `openssl version` output as a hard failure rather
+	// than silently skipping the check. FIPS VHDs are expected to ship OpenSSL 3.x except
+	// Ubuntu 20.04 which ships 1.1.x (legacy FIPS module, no providers concept). Any other
+	// version is unexpected and must fail loudly so we don't lose coverage on a future image.
 	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version", 0, "could not run openssl version")
 	versionFields := strings.Fields(opensslVersion.stdout)
 	require.GreaterOrEqual(s.T, len(versionFields), 2,
 		"could not parse openssl version output: %q", opensslVersion.stdout)
-	if strings.HasPrefix(versionFields[1], "3.") {
+	version := versionFields[1]
+	switch {
+	case strings.HasPrefix(version, "3."):
 		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
 		// Accept any provider whose name starts with "fips" or "symcrypt" so we match
 		// "fips", "symcrypt", and "symcryptprovider" (the latter is what AzureLinux V3 /
 		// ACL FIPS images expose). See ICM 51000001009688.
 		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
 			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
-	} else {
+	case strings.HasPrefix(version, "1.1."):
 		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
+	default:
+		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported", strings.TrimSpace(opensslVersion.stdout))
 	}
 
 	// 3. portmap must exist, be executable, and not panic when invoked. We assert the binary
