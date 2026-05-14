@@ -383,6 +383,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia_azurelinux",
+      "destination": "/home/packer/10_azure_nvidia_azurelinux"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia-azurelinux.cfg",
+      "destination": "/home/packer/51-azure-nvidia-azurelinux.cfg"
+    },
+    {
+      "type": "file",
       "source": "parts/common/components.json",
       "destination": "/home/packer/components.json"
     },

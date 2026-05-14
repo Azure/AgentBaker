@@ -27,6 +27,8 @@ systemctl daemon-reload && systemctl restart containerd
 #   this for stable version and there is no customer issues collected. Ignore this failure now.
 CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
   "Command ['hostname', '-f']"
+  "Failed to resize filesystem"
+  "Running module resizefs"
 )
 
 err() {

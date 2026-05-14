@@ -130,6 +130,20 @@ if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 
+# Install kernel-hwe alongside standard kernel for AzureLinux ARM64 dual-boot
+# This enables GRUB SMBIOS-based kernel selection for NVIDIA Grace (GB200/GB300) VMs
+if isMarinerOrAzureLinux "$OS" && [[ "${CPU_ARCH}" == "arm64" ]]; then
+  if dnf list available kernel-hwe &>/dev/null; then
+    echo "ARM64 AzureLinux: installing kernel-hwe alongside standard kernel for dual-boot"
+    dnf_install 30 1 600 kernel-hwe
+    echo "After dual kernel install:"
+    rpm -qa | grep -E "^kernel" | sort
+  else
+    echo "ARM64 AzureLinux: kernel-hwe not available, skipping dual kernel install"
+  fi
+fi
+capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
+
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
