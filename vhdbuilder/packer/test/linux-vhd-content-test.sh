@@ -594,6 +594,20 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
+  # Known FIPS-capable os_version values. Adding a new distro that ships with
+  # FIPS enabled MUST be added here, otherwise the test silently no-ops and the
+  # OpenSSL provider regression that motivated this check (ICM 51000001009688)
+  # could slip through on the new image.
+  case "${os_version}" in
+    20.04|22.04|24.04|V3|OSGuardV3|acl) ;;
+    *)
+      # shellcheck disable=SC3010
+      if [[ ${enable_fips,,} == "true" ]]; then
+        err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
+      fi
+      ;;
+  esac
+
   # shellcheck disable=SC3010
   if [[ ${enable_fips,,} == "true" ]]; then
     if [ -f /proc/sys/crypto/fips_enabled ]; then
