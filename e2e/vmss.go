@@ -789,9 +789,6 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario, vm *ScenarioVM) er
 	if s.SecureTLSBootstrappingEnabled() {
 		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
 	}
-	if s.SecureTLSBootstrappingEnabled() {
-		commandList["secure-tls-bootstrap.log"] = "sudo cat /var/log/azure/aks/secure-tls-bootstrap.log"
-	}
 
 	isAzureCNI, err := s.Runtime.Cluster.IsAzureCNI()
 	if err == nil && isAzureCNI {
