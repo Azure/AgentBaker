@@ -56,7 +56,14 @@ function Test-WindowsExporterHealth {
 
     Write-Log "windows-exporter health script not found at $($global:WindowsExporterHealthScript); falling back to direct health endpoint probe"
     for ($i = 0; $i -le $RetryCount; $i++) {
-        $result = (& "curl.exe" --silent "http://localhost:$($global:WindowsExporterPort)/health" 2>$null) -join "`n"
+        $result = ""
+        try {
+            $response = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$($global:WindowsExporterPort)/health" -TimeoutSec 10 -ErrorAction Stop
+            $result = [string]$response.Content
+        }
+        catch {
+            $result = ""
+        }
         if ($null -ne $result -and $result.Contains("ok")) {
             Write-Log "aks-windows-exporter health check passed: $result"
             return $true
