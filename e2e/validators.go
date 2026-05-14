@@ -487,12 +487,20 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 }
 
 // ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node.
-// The kernel-FIPS flag check (/proc/sys/crypto/fips_enabled == 1) is intentionally
-// not duplicated here: callers in FIPS scenarios pair this with ValidateFIPSProvider,
-// which already asserts that.
+// The kernel-FIPS check is intentionally kept here so callers using only this helper
+// still get coverage. Callers that also invoke ValidateFIPSProvider will end up
+// asserting `/proc/sys/crypto/fips_enabled == 1` twice; the cost is one extra SSH
+// round-trip and is preferred over a fragile cross-helper contract.
 func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateFileExists(ctx, s, "/etc/system-fips")
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`test "$(cat /proc/sys/crypto/fips_enabled)" = "1"`,
+		0,
+		"expected /proc/sys/crypto/fips_enabled to be 1",
+	)
 }
 
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
@@ -665,9 +673,13 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
 
 	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
+	// Treat malformed `openssl version` output as a hard failure rather than silently
+	// skipping the check — FIPS VHDs are expected to ship a functioning OpenSSL.
 	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version", 0, "could not run openssl version")
 	versionFields := strings.Fields(opensslVersion.stdout)
-	if len(versionFields) >= 2 && strings.HasPrefix(versionFields[1], "3.") {
+	require.GreaterOrEqual(s.T, len(versionFields), 2,
+		"could not parse openssl version output: %q", opensslVersion.stdout)
+	if strings.HasPrefix(versionFields[1], "3.") {
 		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
 		// Accept any provider whose name starts with "fips" or "symcrypt" so we match
 		// "fips", "symcrypt", and "symcryptprovider" (the latter is what AzureLinux V3 /
@@ -683,15 +695,30 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	// then exec it allowing the expected non-zero "usage" exit while checking for a panic trace.
 	// A Go runtime panic writes to stderr and exits non-zero; we capture both streams separately
 	// (without merging) and preserve the real exit code so a panic remains observable here.
+	// Match a broader set of Go runtime failure markers ("panic:", "fatal error:", "runtime error:")
+	// so closely related FIPS-misconfiguration failure modes are caught alongside vanilla panics.
 	portmapBin := "/opt/cni/bin/portmap"
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -x %s", portmapBin), 0,
 		fmt.Sprintf("expected %s to exist and be executable", portmapBin))
 	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
-	require.NotContains(s.T, portmap.stderr, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", portmap.stdout, portmap.stderr)
-	require.NotContains(s.T, portmap.stdout, "panic:", "portmap panicked, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", portmap.stdout, portmap.stderr)
+	for _, marker := range []string{"panic:", "fatal error:", "runtime error:"} {
+		require.NotContains(s.T, portmap.stderr, marker,
+			"portmap %s detected, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", marker, portmap.stdout, portmap.stderr)
+		require.NotContains(s.T, portmap.stdout, marker,
+			"portmap %s detected, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", marker, portmap.stdout, portmap.stderr)
+	}
 
 	s.T.Logf("FIPS provider validation passed")
 }
+
+// Package-level regex compiled once at init so a bad pattern fails fast at startup
+// rather than on first call.
+var (
+	// Provider headers are indented (typically two spaces, but tolerate tabs / extra padding)
+	// and have no key/value separator. Status lines are more deeply indented and contain ':'.
+	opensslProviderHeaderRE = regexp.MustCompile(`^[ \t]+(\S+)\s*$`)
+	opensslStatusLineRE     = regexp.MustCompile(`^\s+status:\s*(\S+)`)
+)
 
 // opensslProviderActive parses the output of `openssl list -providers` and returns true if
 // any provider whose name has one of the given prefixes is reported with `status: active`.
@@ -699,10 +726,6 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 // both "symcrypt" and "symcryptprovider"). The status line is scoped to its enclosing
 // provider block so an active default provider cannot mask an inactive fips/symcrypt provider.
 func opensslProviderActive(output string, providerPrefixes ...string) bool {
-	// Provider headers are indented (typically two spaces, but tolerate tabs / extra padding)
-	// and have no key/value separator. Status lines are more deeply indented and contain ':'.
-	providerHeader := regexp.MustCompile(`^[ \t]+(\S+)\s*$`)
-	statusLine := regexp.MustCompile(`^\s+status:\s*(\S+)`)
 	matches := func(name string) bool {
 		for _, p := range providerPrefixes {
 			if strings.HasPrefix(name, p) {
@@ -713,14 +736,14 @@ func opensslProviderActive(output string, providerPrefixes ...string) bool {
 	}
 	var current string
 	for _, line := range strings.Split(output, "\n") {
-		if m := providerHeader.FindStringSubmatch(line); m != nil {
+		if m := opensslProviderHeaderRE.FindStringSubmatch(line); m != nil {
 			current = m[1]
 			continue
 		}
 		if current == "" || !matches(current) {
 			continue
 		}
-		if m := statusLine.FindStringSubmatch(line); m != nil && m[1] == "active" {
+		if m := opensslStatusLineRE.FindStringSubmatch(line); m != nil && m[1] == "active" {
 			return true
 		}
 	}
