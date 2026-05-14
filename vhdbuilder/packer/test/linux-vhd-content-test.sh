@@ -595,18 +595,22 @@ testFips() {
   enable_fips=$2
 
   # Known FIPS-capable os_version values. Adding a new distro that ships with
-  # FIPS enabled MUST be added here, otherwise the test silently no-ops and the
-  # OpenSSL provider regression that motivated this check (ICM 51000001009688)
-  # could slip through on the new image.
-  case "${os_version}" in
-    20.04|22.04|24.04|V3|OSGuardV3|acl) ;;
-    *)
-      # shellcheck disable=SC3010
-      if [[ ${enable_fips,,} == "true" ]]; then
+  # FIPS enabled MUST be added here, otherwise the test fails loudly instead of
+  # silently no-op'ing (which is what motivated this guard — ICM 51000001009688).
+  # NOTE: `err` reports to stderr (the runner greps stderr for failures) but does
+  # not exit, so we explicitly `return` to avoid running the FIPS body afterwards
+  # with an unsupported os_version.
+  # shellcheck disable=SC3010
+  if [[ ${enable_fips,,} == "true" ]]; then
+    case "${os_version}" in
+      20.04|22.04|24.04|V2|V3|OSGuardV3|acl) ;;
+      *)
         err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
-      fi
-      ;;
-  esac
+        echo "$test:Finish"
+        return
+        ;;
+    esac
+  fi
 
   # shellcheck disable=SC3010
   if [[ ${enable_fips,,} == "true" ]]; then
@@ -651,10 +655,14 @@ testFips() {
     # Only run on OpenSSL 3.x (the providers concept doesn't exist in 1.1.x).
     # Derive this from `openssl version` directly so the check stays in sync with the
     # Go validator (e2e/validators.go) and doesn't need an OS allowlist.
-    openssl_version_raw=$(openssl version 2>/dev/null || true)
-    openssl_major=$(echo "${openssl_version_raw}" | awk '{print $2}' | cut -d. -f1)
-    # shellcheck disable=SC3010
-    if [[ "${openssl_major}" == "3" ]]; then
+    if ! command -v openssl >/dev/null 2>&1; then
+      err $test "openssl binary not found on a FIPS-enabled VHD."
+    else
+      openssl_version_raw=$(openssl version 2>&1)
+      openssl_major=$(echo "${openssl_version_raw}" | awk '{print $2}' | cut -d. -f1)
+      if [ -z "${openssl_major}" ]; then
+        err $test "could not parse openssl version (raw output: '${openssl_version_raw}')."
+      elif [ "${openssl_major}" = "3" ]; then
       providers_output=$(openssl list -providers 2>&1)
       echo "openssl list -providers output:"
       echo "${providers_output}"
@@ -685,8 +693,9 @@ testFips() {
       else
         err $test "openssl does not have an active fips or symcrypt provider."
       fi
-    else
-      echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
+      else
+        echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
+      fi
     fi
   fi
 

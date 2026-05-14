@@ -54,6 +54,19 @@ func TestOpensslProviderActive(t *testing.T) {
 			want:     false,
 		},
 		{
+			name: "multiple active providers but no fips/symcrypt header at all",
+			output: `Providers:
+  default
+    name: OpenSSL Default Provider
+    status: active
+  legacy
+    name: OpenSSL Legacy Provider
+    status: active
+`,
+			prefixes: []string{"fips", "symcrypt"},
+			want:     false,
+		},
+		{
 			name: "no fips or symcrypt provider listed",
 			output: `Providers:
   default
