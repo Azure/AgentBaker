@@ -486,16 +486,13 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	}
 }
 
+// ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node.
+// The kernel-FIPS flag check (/proc/sys/crypto/fips_enabled == 1) is intentionally
+// not duplicated here: callers in FIPS scenarios pair this with ValidateFIPSProvider,
+// which already asserts that.
 func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateFileExists(ctx, s, "/etc/system-fips")
-	execScriptOnVMForScenarioValidateExitCode(
-		ctx,
-		s,
-		`test "$(cat /proc/sys/crypto/fips_enabled)" = "1"`,
-		0,
-		"expected /proc/sys/crypto/fips_enabled to be 1",
-	)
 }
 
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
