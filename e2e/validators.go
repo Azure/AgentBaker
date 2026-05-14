@@ -1212,13 +1212,27 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
 		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
 		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
-		"if ($resp.StatusCode -ne 200) { throw \"metrics endpoint returned $($resp.StatusCode)\" }",
-		"if ($resp.Content -notmatch 'windows_os_info') { throw 'windows_os_info metric missing from /metrics response' }",
-		"if ($resp.Content -notmatch 'windows_cpu_time_total') { throw 'windows_cpu_time_total metric missing from /metrics response' }",
+		"$failureReasons = @()",
+		"if ($resp.StatusCode -ne 200) { $failureReasons += \"metrics endpoint returned $($resp.StatusCode)\" }",
+		"if ($resp.Content -notmatch 'windows_os_info') { $failureReasons += 'windows_os_info metric missing from /metrics response' }",
+		"if ($resp.Content -notmatch 'windows_cpu_time_total') { $failureReasons += 'windows_cpu_time_total metric missing from /metrics response' }",
+		"if ($failureReasons.Count -gt 0) {",
+		"  Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($resp.Content.Length) bytes\"",
+		"  Write-Output ('metrics validation failures: ' + ($failureReasons -join '; '))",
+		"  Write-Output '--- begin /metrics response ---'",
+		"  Write-Output $resp.Content",
+		"  Write-Output '--- end /metrics response ---'",
+		"  throw ($failureReasons -join '; ')",
+		"}",
+		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($resp.Content.Length) bytes\"",
 	}
-	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+	validationResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
-	return err
+	if err != nil {
+		return err
+	}
+	s.Logger.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s contains windows_os_info and windows_cpu_time_total\n%s", s.Runtime.VM.PrivateIP, metricsURL, strings.TrimSpace(validationResult.stdout))
+	return nil
 }
 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) error {
