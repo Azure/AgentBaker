@@ -68,6 +68,7 @@ func Test_Windows2022_AzureNetwork(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -91,6 +92,7 @@ func Test_Windows2022AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -115,6 +117,7 @@ func Test_Windows2022Gen2AzureNetwork(t *testing.T) {
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -139,6 +142,7 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -161,6 +165,7 @@ func Test_Windows23H2AzureNetwork(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -184,6 +189,7 @@ func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -207,6 +213,7 @@ func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -231,6 +238,7 @@ func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -294,6 +302,7 @@ func Test_Windows2025(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -319,6 +328,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -378,6 +388,7 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -434,6 +445,7 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -460,6 +472,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 				ValidateCiliumIsNotRunningWindows(ctx, s)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -483,6 +496,7 @@ func Test_Windows23H2_Cilium2(t *testing.T) {
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsRunningWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -506,6 +520,7 @@ func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsCiliumIsRunning(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -534,6 +549,7 @@ func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 					`https://mcr.azk8s.cn`)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
 			},
 		},
@@ -570,6 +586,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
 					`https://mcr.azk8s.cn`)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 			},
 		},
 	})
@@ -616,6 +633,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`)
 				ValidateDotnetNotInstalledWindows(ctx, s)
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateWindowsExporter(ctx, s)
 			},
 		},
 	})
