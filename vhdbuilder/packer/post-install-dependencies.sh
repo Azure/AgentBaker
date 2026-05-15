@@ -19,7 +19,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-if [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "$OS_VARIANT"; then
+if [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "$OS_VARIANT" || grep -q "GB200" <<< "$FEATURE_FLAGS"; then
   MAX_BLOCK_COUNT=60397977 # 60 GB
   DISK_SIZE_GB=60
 else
