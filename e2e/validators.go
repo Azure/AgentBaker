@@ -690,18 +690,27 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported", strings.TrimSpace(opensslVersion.stdout))
 	}
 
-	// 3. portmap must exist, be executable, and not panic when invoked. We assert the binary
-	// is present first so that a missing/non-executable portmap cannot silently pass the test,
-	// then exec it allowing the expected non-zero "usage" exit while checking for a panic trace.
-	// A Go runtime panic writes to stderr and exits non-zero; we capture both streams separately
-	// (without merging) and preserve the real exit code so a panic remains observable here.
-	// Match specific Go runtime failure markers — `panic:`, `fatal error:`, and the more
-	// distinctive `goroutine N [running]:` / `runtime.gopanic` traces — rather than the bare
-	// substring `runtime error:` which can appear in unrelated CNI plugin usage/help text and
-	// cause false failures.
+	// 3. portmap panic check (best-effort). The original FIPS regression manifested as
+	// /opt/cni/bin/portmap panicking when the OpenSSL FIPS provider was missing. Where
+	// portmap is present at the standard CNI path, exec it and assert no Go runtime
+	// panic markers in its output. On VHDs that don't deploy portmap there (e.g. ACL,
+	// which ships the cni-plugins tarball staged under /opt/cni/downloads/ and only
+	// promotes binaries to /opt/cni/bin/ via installCNILegacy when bridge/host-local/
+	// loopback are absent), skip this corroborating step — checks 1 and 2 above are
+	// already authoritative for FIPS posture. A Go runtime panic writes to stderr and
+	// exits non-zero; we capture both streams separately (without merging) and preserve
+	// the real exit code so a panic remains observable here. Match specific Go runtime
+	// failure markers — `panic:`, `fatal error:`, and the more distinctive
+	// `goroutine N [running]:` / `runtime.gopanic` traces — rather than the bare
+	// substring `runtime error:` which can appear in unrelated CNI plugin usage/help
+	// text and cause false failures.
 	portmapBin := "/opt/cni/bin/portmap"
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -x %s", portmapBin), 0,
-		fmt.Sprintf("expected %s to exist and be executable", portmapBin))
+	portmapPresent := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("test -x %s", portmapBin))
+	if portmapPresent.exitCode != "0" {
+		s.T.Logf("portmap panic check skipped: %s not present or not executable on this VHD", portmapBin)
+		s.T.Logf("FIPS provider validation passed")
+		return
+	}
 	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
 	panicMarkers := []*regexp.Regexp{
 		regexp.MustCompile(`(?m)^panic:`),
