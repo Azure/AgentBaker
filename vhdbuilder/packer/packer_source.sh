@@ -156,6 +156,10 @@ copyPackerFiles() {
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
 
+  REPORT_READY_SRC=/home/packer/report_ready.py
+  REPORT_READY_DEST=/opt/azure/containers/report_ready.py
+  cpAndMode $REPORT_READY_SRC $REPORT_READY_DEST 0744
+
   INIT_CUSTOM_CLOUD_SRC=/home/packer/init-aks-custom-cloud.sh
   INIT_CUSTOM_CLOUD_DEST=/opt/azure/containers/init-aks-custom-cloud.sh
   cpAndMode $INIT_CUSTOM_CLOUD_SRC $INIT_CUSTOM_CLOUD_DEST 0744
