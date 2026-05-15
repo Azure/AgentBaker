@@ -1,0 +1,50 @@
+# /etc/containerd/config.toml installed by install.sh during VHD build.
+#
+# The patched containerd2 RPM ships no config.toml; without one, containerd
+# falls back to built-in defaults that use overlayfs and skip the erofs
+# differ entirely (which is where the dm-verity referrer-fetch + layer-sig
+# verification happens).
+#
+# This config is sufficient for the VHD-build pre-pull to exercise the full
+# notary --dm-verity flow end-to-end:
+#   crictl pull -> CRI image_pull.go -> AppendSignatureHandlerWrapper
+#                                       (fetches OCI referrer of type
+#                                        application/vnd.cncf.notary.dmverity.v1)
+#               -> erofs differ Apply() (mkfs.erofs + veritysetup format
+#                                        + writes <layer>.dmverity sig file)
+#               -> erofs snapshotter Mount() (verity.Open w/ signature_file
+#                                             -> kernel dm-verity verify)
+#
+# Plugin paths and config keys come from the patched containerd:
+#   plugins/snapshots/erofs/plugin/plugin.go  (DmverityMode)
+#   plugins/diff/erofs/plugin/plugin.go       (RequireSignatures)
+#
+# NOTE: cse_config.sh on real AKS nodes overwrites /etc/containerd/config.toml
+# at provisioning time, so this prototype only verifies the path during VHD
+# build itself, not on a customer-provisioned node. Productizing requires
+# wiring the erofs/dmverity settings into the apiserver-generated CSE
+# template -- out of scope for Tier 1.
+
+version = 3
+
+# ---- Snapshotter selection (CRI) ---------------------------------------
+# Tell the CRI plugin to use the erofs snapshotter for runtime workloads.
+# Without this the default overlayfs snapshotter is used and the erofs
+# differ never runs.
+[plugins."io.containerd.cri.v1.runtime"]
+  snapshotter = "erofs"
+
+# ---- erofs snapshotter -------------------------------------------------
+# "auto" applies dm-verity only when a .dmverity sig file is present beside
+# the layer blob (written by the erofs differ when the OCI referrer carried
+# a layer signature). Use "on" to refuse to mount layers without dm-verity.
+# For the prototype we keep "auto" so the build's other pre-pulled images
+# (which are unsigned) still work.
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  dmverity_mode = "auto"
+
+# ---- erofs differ ------------------------------------------------------
+# When true, Apply() rejects layers without a dm-verity signature
+# annotation. Off for the prototype so unsigned images keep working.
+[plugins."io.containerd.differ.v1.erofs"]
+  require_signatures = false

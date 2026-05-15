@@ -463,6 +463,18 @@ while IFS= read -r p; do
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      # dm-verity prototype: optionally swap in a patched containerd RPM + drop
+      # an erofs+dm-verity config + install the kernel-keyring loader. No-op
+      # when DMVERITY_RPM_URL is empty in dmverity-prototype.env. Runs only
+      # on AzureLinux/Mariner builds (uses tdnf). MUST run before the image
+      # pre-pull loop so the patched containerd handles those pulls.
+      if isMarinerOrAzureLinux "$OS"; then
+        DMVERITY_PROTOTYPE_INSTALLER="$(dirname "${BASH_SOURCE[0]}")/dmverity-prototype/install.sh"
+        if [ -x "${DMVERITY_PROTOTYPE_INSTALLER}" ]; then
+          echo "running dmverity prototype installer: ${DMVERITY_PROTOTYPE_INSTALLER}"
+          "${DMVERITY_PROTOTYPE_INSTALLER}" || exit $?
+        fi
+      fi
       ;;
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do

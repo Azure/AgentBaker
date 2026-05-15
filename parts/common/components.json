@@ -844,6 +844,18 @@
         }
       ],
       "windowsVersions": []
+    },
+    {
+      "_comment": "dm-verity prototype test image. Anonymously-pullable image with a notary --dm-verity referrer attached. Pulled at VHD build time so the patched containerd's referrer-fetch + erofs differ exercise the full PKCS#7 layer-signature flow during the build itself. Tag is the digest of the manifest the referrer is attached to.",
+      "downloadURL": "notarycontainerregistry.azurecr.io/notary-demo@*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "sha256:1f2972bc2f1e4f7e3c2bef9cb382859a0cdd5458465a72c0c9568083b8007f3c"
+        }
+      ],
+      "windowsVersions": []
     }
   ],
   "GPUContainerImages": [

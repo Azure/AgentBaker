@@ -1,0 +1,6 @@
+# The pipeline drops downloaded artifacts here at build time. Never commit them.
+cache/
+*.bin
+*.der
+*.pem
+*.crt

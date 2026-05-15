@@ -48,6 +48,11 @@ chmod 755 /opt/certs
 # Use AKS Log Collector instead of WALA log collections
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf
 
+### dm-verity prototype (no-op when not enabled via dmverity-prototype.env) ###
+# MUST run before containerd is started below so that the patched containerd
+# binary handles all subsequent image pulls during VHD build.
+/home/packer/dmverity-prototype/install.sh
+
 ### install-dependencies ###
 # Start containerd to allow container precaching
 containerd &
@@ -77,6 +82,7 @@ rm /home/packer/lister
 rm /home/packer/list-images.sh
 rm /home/packer/cis.sh
 rm /home/packer/install-ig.sh
+rm -rf /home/packer/dmverity-prototype
 rm /home/packer
 
 chage -I -1 -M -1 root

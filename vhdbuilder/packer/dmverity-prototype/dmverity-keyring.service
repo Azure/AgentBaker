@@ -1,0 +1,17 @@
+[Unit]
+Description=Load OS Guard signer CA into kernel keyring for dm-verity verification
+DefaultDependencies=no
+After=local-fs.target systemd-modules-load.service
+Before=containerd.service kubelet.service
+ConditionPathExists=/etc/aks/dmverity/osguard-signer-ca.pem
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/azure/containers/dmverity-keyring-load.sh
+
+# Run with full root capability so keyctl can target .machine.
+User=root
+
+[Install]
+WantedBy=multi-user.target

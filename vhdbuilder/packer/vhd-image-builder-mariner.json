@@ -360,6 +360,31 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/dmverity-prototype/install.sh",
+      "destination": "/home/packer/dmverity-prototype/install.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/dmverity-prototype/dmverity-prototype.env",
+      "destination": "/home/packer/dmverity-prototype/dmverity-prototype.env"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/dmverity-prototype/containerd-dmverity.toml",
+      "destination": "/home/packer/dmverity-prototype/containerd-dmverity.toml"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/dmverity-prototype/dmverity-keyring-load.sh",
+      "destination": "/home/packer/dmverity-prototype/dmverity-keyring-load.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/dmverity-prototype/dmverity-keyring.service",
+      "destination": "/home/packer/dmverity-prototype/dmverity-keyring.service"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-node-exporter.sh",
       "destination": "/home/packer/install-node-exporter.sh"
     },

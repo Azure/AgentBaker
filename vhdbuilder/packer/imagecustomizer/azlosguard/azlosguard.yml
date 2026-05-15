@@ -321,6 +321,26 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/99-azure-network.rules
       destination: /etc/udev/rules.d/99-azure-network.rules
       permissions: 644
+    # dm-verity prototype (no-op when dmverity-prototype.env URLs are empty;
+    # see vhdbuilder/packer/dmverity-prototype/README.md)
+    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/install.sh
+      destination: /home/packer/dmverity-prototype/install.sh
+      permissions: 755
+    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/dmverity-prototype.env
+      destination: /home/packer/dmverity-prototype/dmverity-prototype.env
+      permissions: 644
+    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/dmverity-keyring-load.sh
+      destination: /home/packer/dmverity-prototype/dmverity-keyring-load.sh
+      permissions: 755
+    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/dmverity-keyring.service
+      destination: /home/packer/dmverity-prototype/dmverity-keyring.service
+      permissions: 644
+    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/containerd-dmverity.toml
+      destination: /home/packer/dmverity-prototype/containerd-dmverity.toml
+      permissions: 644
+    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/dmverity-finalize.sh
+      destination: /home/packer/dmverity-prototype/dmverity-finalize.sh
+      permissions: 755
 
   services:
     enable:
