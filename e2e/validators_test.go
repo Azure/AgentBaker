@@ -98,6 +98,27 @@ func TestOpensslProviderActive(t *testing.T) {
 			prefixes: []string{"fips", "symcrypt"},
 			want:     true,
 		},
+		{
+			// Lock in: the literal "Providers:" header line should match neither the
+			// header regex (no leading whitespace) nor the status regex; an output with
+			// only that line and no providers below must return false.
+			name:     "providers header alone with no entries",
+			output:   "Providers:\n",
+			prefixes: []string{"fips", "symcrypt"},
+			want:     false,
+		},
+		{
+			// Defensive: a `status: active` line at the same indent as the provider
+			// header must NOT satisfy the check — status lines are required to be
+			// strictly more indented than their enclosing block.
+			name: "status at same indent as header is not attributed",
+			output: `Providers:
+  symcrypt
+  status: active
+`,
+			prefixes: []string{"fips", "symcrypt"},
+			want:     false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

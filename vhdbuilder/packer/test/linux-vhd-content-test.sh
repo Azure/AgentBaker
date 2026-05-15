@@ -600,101 +600,114 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
+  # shellcheck disable=SC3010
+  if [[ ${enable_fips,,} != "true" ]]; then
+    echo "$test:Finish"
+    return
+  fi
+
   # Known FIPS-capable os_version values. Adding a new distro that ships with
   # FIPS enabled MUST be added here, otherwise the test fails loudly instead of
   # silently no-op'ing (which is what motivated this guard — ICM 51000001009688).
   # NOTE: `err` reports to stderr (the runner greps stderr for failures) but does
   # not exit, so we explicitly `return` to avoid running the FIPS body afterwards
   # with an unsupported os_version.
-  # shellcheck disable=SC3010
-  if [[ ${enable_fips,,} == "true" ]]; then
-    case "${os_version}" in
-      20.04|22.04|24.04|2.0|3.0) ;;
-      *)
-        err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
-        echo "$test:Finish"
-        return
-        ;;
-    esac
+  case "${os_version}" in
+    20.04|22.04|24.04|2.0|3.0) ;;
+    *)
+      err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
+      echo "$test:Finish"
+      return
+      ;;
+  esac
+
+  if [ -f /proc/sys/crypto/fips_enabled ]; then
+    fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
+    if [ "${fips_enabled}" = "1" ]; then
+      echo "FIPS is enabled."
+    else
+      err $test "content of /proc/sys/crypto/fips_enabled is not 1."
+    fi
+  else
+    err $test "FIPS is not enabled."
   fi
 
-  # shellcheck disable=SC3010
-  if [[ ${enable_fips,,} == "true" ]]; then
-    if [ -f /proc/sys/crypto/fips_enabled ]; then
-      fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
-      if [ "${fips_enabled}" = "1" ]; then
-        echo "FIPS is enabled."
-      else
-        err $test "content of /proc/sys/crypto/fips_enabled is not 1."
-      fi
+  if [ "${os_version}" = "20.04" ]; then
+    kernel=$(uname -r)
+    if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
+      echo "fips header files exist."
     else
-      err $test "FIPS is not enabled."
+      err $test "fips header files don't exist."
     fi
+  fi
 
-    if [ ${os_version} = "20.04" ]; then
-      kernel=$(uname -r)
-      if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
-        echo "fips header files exist."
-      else
-        err $test "fips header files don't exist."
-      fi
-    fi
-
-    if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
-      if [ -f /etc/system-fips ]; then
-        echo "/etc/system-fips marker file exists."
-      else
-        err $test "/etc/system-fips marker file does not exist."
-      fi
-      if [ -f /boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi ]; then
-        echo "ACL FIPS UKI addon file exists in active ESP location."
-      else
-        err $test "ACL FIPS UKI addon file does not exist in active ESP location."
-      fi
-    fi
-
-    # Verify OpenSSL has a FIPS or SymCrypt provider loaded and active.
-    # This caught the AzureLinux V3 FIPS regression (ICM 51000001009688) where
-    # the kernel FIPS flag was set but the OpenSSL provider was missing,
-    # causing /opt/cni/bin/portmap to panic at runtime.
-    #
-    # Only run the providers check on OpenSSL 3.x (the providers concept doesn't exist
-    # in 1.1.x). Skip on 1.1.x (legacy FIPS module). Any other version is unexpected on
-    # a FIPS VHD and must be a hard failure so new images don't silently lose coverage.
-    # Keep this in sync with the Go validator in e2e/validators.go.
-    if ! command -v openssl >/dev/null 2>&1; then
-      err $test "openssl binary not found on a FIPS-enabled VHD."
+  if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
+    if [ -f /etc/system-fips ]; then
+      echo "/etc/system-fips marker file exists."
     else
-      openssl_version_raw=$(openssl version 2>&1)
-      openssl_version=$(echo "${openssl_version_raw}" | awk '{print $2}')
-      case "${openssl_version}" in
-        "")
-          err $test "could not parse openssl version (raw output: '${openssl_version_raw}')."
-          ;;
-        3.*)
+      err $test "/etc/system-fips marker file does not exist."
+    fi
+    if [ -f /boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi ]; then
+      echo "ACL FIPS UKI addon file exists in active ESP location."
+    else
+      err $test "ACL FIPS UKI addon file does not exist in active ESP location."
+    fi
+  fi
+
+  # Verify OpenSSL has a FIPS or SymCrypt provider loaded and active.
+  # This caught the AzureLinux V3 FIPS regression (ICM 51000001009688) where
+  # the kernel FIPS flag was set but the OpenSSL provider was missing,
+  # causing /opt/cni/bin/portmap to panic at runtime.
+  #
+  # Only run the providers check on OpenSSL 3.x (the providers concept doesn't exist
+  # in 1.1.x). Skip on 1.1.x (legacy FIPS module). Any other version is unexpected on
+  # a FIPS VHD and must be a hard failure so new images don't silently lose coverage.
+  # Keep this in sync with the Go validator in e2e/validators.go.
+  if ! command -v openssl >/dev/null 2>&1; then
+    err $test "openssl binary not found on a FIPS-enabled VHD."
+    echo "$test:Finish"
+    return
+  fi
+  openssl_version_raw=$(openssl version 2>&1)
+  openssl_version=$(echo "${openssl_version_raw}" | awk '{print $2}')
+  case "${openssl_version}" in
+    "")
+      err $test "could not parse openssl version (raw output: '${openssl_version_raw}')."
+      ;;
+    3.*)
       providers_output=$(openssl list -providers 2>&1)
       echo "openssl list -providers output:"
       echo "${providers_output}"
       # Walk each provider block and record the status of fips/symcrypt providers.
       # This ensures `status: active` is tied to the fips/symcrypt block specifically
-      # and cannot be satisfied by another active provider (e.g. default).
+      # and cannot be satisfied by another active provider (e.g. default). The status
+      # line must be strictly more indented than its enclosing header.
       # Match by prefix so "symcrypt" covers both "symcrypt" and "symcryptprovider"
       # (the latter is what AzureLinux V3 / ACL FIPS images expose).
+      # Use `[ \t]` (matching the Go validator) rather than `[[:space:]]` so a trailing
+      # CR on CRLF-terminated remote output cannot break the header match; we also strip
+      # \r explicitly for defense in depth.
       fips_active=""
       current_provider=""
+      header_indent=0
       while IFS= read -r line; do
-        # Provider header: leading whitespace (spaces or tabs) followed by the provider name
+        line="${line%$'\r'}"
+        # Provider header: leading spaces/tabs followed by the provider name
         # with no ':' (status/version lines are key:value). Tolerate variable indentation.
         # shellcheck disable=SC3010
-        if [[ "${line}" =~ ^[[:space:]]+([^[:space:]:]+)[[:space:]]*$ ]]; then
-          current_provider="${BASH_REMATCH[1]}"
+        if [[ "${line}" =~ ^([\ $'\t']+)([^[:space:]:]+)[\ $'\t']*$ ]]; then
+          header_indent=${#BASH_REMATCH[1]}
+          current_provider="${BASH_REMATCH[2]}"
           continue
         fi
         # shellcheck disable=SC3010
         if [[ "${current_provider}" == fips* || "${current_provider}" == symcrypt* ]] \
-          && [[ "${line}" =~ status:[[:space:]]+active ]]; then
-          fips_active="${current_provider}"
-          break
+          && [[ "${line}" =~ ^([\ $'\t']+)status:[\ $'\t']+active ]]; then
+          # Require the status line to be strictly more indented than its header.
+          if [ ${#BASH_REMATCH[1]} -gt ${header_indent} ]; then
+            fips_active="${current_provider}"
+            break
+          fi
         fi
       done <<< "${providers_output}"
       if [ -n "${fips_active}" ]; then
@@ -702,16 +715,14 @@ testFips() {
       else
         err $test "openssl does not have an active fips or symcrypt provider."
       fi
-          ;;
-        1.1.*)
-          echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
-          ;;
-        *)
-          err $test "unexpected openssl version '${openssl_version_raw}': FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported."
-          ;;
-      esac
-    fi
-  fi
+      ;;
+    1.1.*)
+      echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
+      ;;
+    *)
+      err $test "unexpected openssl version '${openssl_version_raw}': FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported."
+      ;;
+  esac
 
   echo "$test:Finish"
 }
