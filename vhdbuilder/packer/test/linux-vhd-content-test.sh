@@ -591,13 +591,9 @@ testChrony() {
 testFips() {
   local test="testFips"
   echo "$test:Start"
-  # NOTE: although the pipeline passes pipeline-style OS_VERSION values such as
-  # "V2"/"V3"/"OSGuardV3"/"acl" via $1, by the time this function runs the
-  # global OS_VERSION has been overwritten by sourcing cse_helpers.sh, which
-  # sets it from /etc/os-release VERSION_ID (e.g. "2.0", "3.0", "3.0.20260506"
-  # on ACL, "20.04"). The call site `testFips $OS_VERSION ...` therefore passes
-  # the sourced value, not the pipeline value, so the allowlist below uses
-  # /etc/os-release values.
+  # Sourcing cse_helpers.sh overwrites the global OS_VERSION from /etc/os-release
+  # VERSION_ID (e.g. "2.0", "3.0", "3.0.20260506" on ACL, "20.04"), so the value
+  # passed in as $1 is the /etc/os-release one, not the pipeline-style OS_VERSION.
   os_version=$1
   enable_fips=$2
 
@@ -607,14 +603,10 @@ testFips() {
     return
   fi
 
-  # Known FIPS-capable os_version values. Adding a new distro that ships with
-  # FIPS enabled MUST be added here, otherwise the test fails loudly instead of
-  # silently no-op'ing (which is what motivated this guard — ICM 51000001009688).
-  # NOTE: `err` reports to stderr (the runner greps stderr for failures) but does
-  # not exit, so we explicitly `return` to avoid running the FIPS body afterwards
-  # with an unsupported os_version.
-  # ACL ships VERSION_ID with a date suffix (e.g. "3.0.20260506"), so allow
-  # "3.0" and "3.0.*"; same for "2.0" defensively.
+  # Known FIPS-capable VERSION_ID values. New FIPS-enabled distros MUST be added
+  # here; otherwise the test fails loudly instead of silently no-op'ing (ICM
+  # 51000001009688). ACL VERSION_ID carries a date suffix (e.g. "3.0.20260506"),
+  # hence the "3.0.*" entry. `err` writes to stderr only, so we `return` after.
   case "${os_version}" in
     20.04|22.04|24.04|2.0|2.0.*|3.0|3.0.*) ;;
     *)
@@ -657,15 +649,10 @@ testFips() {
     fi
   fi
 
-  # Verify OpenSSL has a FIPS or SymCrypt provider loaded and active.
-  # This caught the AzureLinux V3 FIPS regression (ICM 51000001009688) where
-  # the kernel FIPS flag was set but the OpenSSL provider was missing,
-  # causing /opt/cni/bin/portmap to panic at runtime.
-  #
-  # Only run the providers check on OpenSSL 3.x (the providers concept doesn't exist
-  # in 1.1.x). Skip on 1.1.x (legacy FIPS module). Any other version is unexpected on
-  # a FIPS VHD and must be a hard failure so new images don't silently lose coverage.
-  # Keep this in sync with the Go validator in e2e/validators.go.
+  # OpenSSL must have an active FIPS or SymCrypt provider on 3.x (ICM 51000001009688
+  # was caused by kernel FIPS on with no provider, causing portmap to panic). Ubuntu
+  # 20.04 ships 1.1.x and uses the legacy FIPS module — skip there. Keep in sync with
+  # the Go validator in e2e/validators.go.
   if ! command -v openssl >/dev/null 2>&1; then
     err $test "openssl binary not found on a FIPS-enabled VHD."
     echo "$test:Finish"
@@ -681,22 +668,15 @@ testFips() {
       providers_output=$(openssl list -providers 2>&1)
       echo "openssl list -providers output:"
       echo "${providers_output}"
-      # Walk each provider block and record the status of fips/symcrypt providers.
-      # This ensures `status: active` is tied to the fips/symcrypt block specifically
-      # and cannot be satisfied by another active provider (e.g. default). The status
-      # line must be strictly more indented than its enclosing header.
-      # Match by prefix so "symcrypt" covers both "symcrypt" and "symcryptprovider"
-      # (the latter is what AzureLinux V3 / ACL FIPS images expose).
-      # Use `[ \t]` (matching the Go validator) rather than `[[:space:]]` so a trailing
-      # CR on CRLF-terminated remote output cannot break the header match; we also strip
-      # \r explicitly for defense in depth.
+      # Walk each provider block, scoping `status: active` to its enclosing header.
+      # Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider".
+      # Use `[ \t]` (not `[[:space:]]`) so a trailing CR can't break header detection;
+      # also strip \r explicitly.
       fips_active=""
       current_provider=""
       header_indent=0
       while IFS= read -r line; do
         line="${line%$'\r'}"
-        # Provider header: leading spaces/tabs followed by the provider name
-        # with no ':' (status/version lines are key:value). Tolerate variable indentation.
         # shellcheck disable=SC3010
         if [[ "${line}" =~ ^([\ $'\t']+)([^[:space:]:]+)[\ $'\t']*$ ]]; then
           header_indent=${#BASH_REMATCH[1]}
@@ -706,7 +686,6 @@ testFips() {
         # shellcheck disable=SC3010
         if [[ "${current_provider}" == fips* || "${current_provider}" == symcrypt* ]] \
           && [[ "${line}" =~ ^([\ $'\t']+)status:[\ $'\t']+active ]]; then
-          # Require the status line to be strictly more indented than its header.
           if [ ${#BASH_REMATCH[1]} -gt ${header_indent} ]; then
             fips_active="${current_provider}"
             break
@@ -723,7 +702,7 @@ testFips() {
       echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
       ;;
     *)
-      err $test "unexpected openssl version '${openssl_version_raw}': FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported."
+      err $test "unexpected openssl version '${openssl_version_raw}': FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x."
       ;;
   esac
 

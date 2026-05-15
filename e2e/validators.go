@@ -665,12 +665,8 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
 
 	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
-	// Treat malformed or unrecognized `openssl version` output as a hard failure rather
-	// than silently skipping the check. FIPS VHDs are expected to ship OpenSSL 3.x except
-	// Ubuntu 20.04 which ships 1.1.x (legacy FIPS module, no providers concept). Any other
-	// version is unexpected and must fail loudly so we don't lose coverage on a future image.
-	// Merge stderr into stdout (`2>&1`) so we don't get an empty `stdout` and an unhelpful
-	// parse error if a future build of openssl prints its version banner to stderr.
+	// 1.1.x (Ubuntu 20.04 FIPS) uses the legacy FIPS module and is skipped. Merge stderr
+	// (`2>&1`) so a version banner written to stderr still parses.
 	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
 	versionFields := strings.Fields(opensslVersion.stdout)
 	require.GreaterOrEqual(s.T, len(versionFields), 2,
@@ -679,31 +675,20 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	switch {
 	case strings.HasPrefix(version, "3."):
 		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
-		// Accept any provider whose name starts with "fips" or "symcrypt" so we match
-		// "fips", "symcrypt", and "symcryptprovider" (the latter is what AzureLinux V3 /
-		// ACL FIPS images expose). See ICM 51000001009688.
+		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
 		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
 			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
 	case strings.HasPrefix(version, "1.1."):
 		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
 	default:
-		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x; add explicit handling if a new branch is supported", strings.TrimSpace(opensslVersion.stdout))
+		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x", strings.TrimSpace(opensslVersion.stdout))
 	}
 
 	// 3. portmap panic check (best-effort). The original FIPS regression manifested as
-	// /opt/cni/bin/portmap panicking when the OpenSSL FIPS provider was missing. Where
-	// portmap is present at the standard CNI path, exec it and assert no Go runtime
-	// panic markers in its output. On VHDs that don't deploy portmap there (e.g. ACL,
-	// which ships the cni-plugins tarball staged under /opt/cni/downloads/ and only
-	// promotes binaries to /opt/cni/bin/ via installCNILegacy when bridge/host-local/
-	// loopback are absent), skip this corroborating step — checks 1 and 2 above are
-	// already authoritative for FIPS posture. A Go runtime panic writes to stderr and
-	// exits non-zero; we capture both streams separately (without merging) and preserve
-	// the real exit code so a panic remains observable here. Match specific Go runtime
-	// failure markers — `panic:`, `fatal error:`, and the more distinctive
-	// `goroutine N [running]:` / `runtime.gopanic` traces — rather than the bare
-	// substring `runtime error:` which can appear in unrelated CNI plugin usage/help
-	// text and cause false failures.
+	// /opt/cni/bin/portmap panicking when the OpenSSL FIPS provider was missing. Skip if
+	// the binary isn't at the standard CNI path (e.g. ACL stages it under /opt/cni/downloads/);
+	// checks 1 and 2 are already authoritative. Match specific Go runtime panic markers
+	// rather than the bare substring `runtime error:` which appears in CNI usage text.
 	portmapBin := "/opt/cni/bin/portmap"
 	portmapPresent := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("test -x %s", portmapBin))
 	if portmapPresent.exitCode != "0" {
@@ -728,24 +713,18 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	s.T.Logf("FIPS provider validation passed")
 }
 
-// Package-level regex compiled once at init so a bad pattern fails fast at startup
-// rather than on first call.
+// Package-level regex compiled once at init.
 var (
-	// Provider headers are indented (typically two spaces, but tolerate tabs / extra padding)
-	// and have no key/value separator. Capture group 1 is the leading indent, group 2 is the
-	// provider name; we keep the indent so status lines below can be required to be strictly
-	// more indented than their enclosing header (matching the parser's "scoped to enclosing
-	// block" guarantee — same-indent `status:` would otherwise be mis-attributed).
+	// Provider header: indented (spaces or tabs) name with no key/value separator.
+	// Group 1 = indent (used to scope status lines to their block), group 2 = name.
 	opensslProviderHeaderRE = regexp.MustCompile(`^([ \t]+)(\S+)\s*$`)
 	opensslStatusLineRE     = regexp.MustCompile(`^[ \t]+status:\s*(\S+)`)
 )
 
-// opensslProviderActive parses the output of `openssl list -providers` and returns true if
-// any provider whose name has one of the given prefixes is reported with `status: active`.
-// Prefix matching lets a single call cover related provider names (e.g. "symcrypt" matches
-// both "symcrypt" and "symcryptprovider"). The status line is scoped to its enclosing
-// provider block so an active default provider cannot mask an inactive fips/symcrypt provider.
-// Status lines must be strictly more indented than the header that opened the block.
+// opensslProviderActive parses `openssl list -providers` output and returns true if any
+// provider whose name has one of the given prefixes is reported as `status: active`.
+// The status line is scoped to its enclosing provider block (strictly more indented than
+// the header) so an active default provider cannot mask an inactive fips/symcrypt one.
 func opensslProviderActive(output string, providerPrefixes ...string) bool {
 	matches := func(name string) bool {
 		for _, p := range providerPrefixes {
@@ -758,8 +737,6 @@ func opensslProviderActive(output string, providerPrefixes ...string) bool {
 	var current string
 	var headerIndent int
 	for _, line := range strings.Split(output, "\n") {
-		// Strip a trailing CR so CRLF-terminated remote output still matches the
-		// `\s*$` anchor in the header regex.
 		line = strings.TrimRight(line, "\r")
 		if m := opensslProviderHeaderRE.FindStringSubmatch(line); m != nil {
 			headerIndent = len(m[1])
@@ -770,7 +747,6 @@ func opensslProviderActive(output string, providerPrefixes ...string) bool {
 			continue
 		}
 		if m := opensslStatusLineRE.FindStringSubmatch(line); m != nil && m[1] == "active" {
-			// Require the status line to be strictly more indented than the header.
 			leading := len(line) - len(strings.TrimLeft(line, " \t"))
 			if leading > headerIndent {
 				return true
