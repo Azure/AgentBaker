@@ -591,6 +591,12 @@ testChrony() {
 testFips() {
   local test="testFips"
   echo "$test:Start"
+  # NOTE: although the pipeline passes pipeline-style OS_VERSION values such as
+  # "V2"/"V3"/"OSGuardV3"/"acl" via $1, by the time this function runs the
+  # global OS_VERSION has been overwritten by sourcing cse_helpers.sh, which
+  # sets it from /etc/os-release VERSION_ID (e.g. "2.0", "3.0", "20.04"). The
+  # call site `testFips $OS_VERSION ...` therefore passes the sourced value,
+  # not the pipeline value, so the allowlist below uses /etc/os-release values.
   os_version=$1
   enable_fips=$2
 
@@ -603,7 +609,7 @@ testFips() {
   # shellcheck disable=SC3010
   if [[ ${enable_fips,,} == "true" ]]; then
     case "${os_version}" in
-      20.04|22.04|24.04|V2|V3|OSGuardV3|acl) ;;
+      20.04|22.04|24.04|2.0|3.0) ;;
       *)
         err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
         echo "$test:Finish"
@@ -634,7 +640,7 @@ testFips() {
       fi
     fi
 
-    if [ ${os_version} = "acl" ]; then
+    if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
       if [ -f /etc/system-fips ]; then
         echo "/etc/system-fips marker file exists."
       else
