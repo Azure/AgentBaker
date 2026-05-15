@@ -706,4 +706,151 @@ EOF
             The output should equal "unknown"
         End
     End
+
+    Describe 'resolveKubeletReservedCgroups'
+        It 'is a no-op when neither config-file mode nor flags carry the cgroup names'
+            KUBELET_CONFIG_FILE_ENABLED="false"
+            KUBELET_CONFIG_FILE_CONTENT=""
+            KUBELET_FLAGS="--node-ip=10.0.0.1 --rotate-certificates=true"
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal ""
+            The variable SYSTEM_RESERVED_CGROUP should equal ""
+            The status should be success
+        End
+
+        It 'extracts cgroup names from KUBELET_FLAGS in flag mode'
+            KUBELET_CONFIG_FILE_ENABLED="false"
+            KUBELET_CONFIG_FILE_CONTENT=""
+            KUBELET_FLAGS="--kube-reserved-cgroup=/kubelet.slice --system-reserved-cgroup=/system.slice --node-ip=10.0.0.1"
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal "/kubelet.slice"
+            The variable SYSTEM_RESERVED_CGROUP should equal "/system.slice"
+            The status should be success
+        End
+
+        It 'extracts cgroup names from KUBELET_CONFIG_FILE_CONTENT in config-file mode'
+            KUBELET_CONFIG_FILE_ENABLED="true"
+            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/node_hardening_enabled.json | base64 -w 0)
+            # Even though flags carry the values, config-file mode must win.
+            KUBELET_FLAGS="--kube-reserved-cgroup=/wrong.slice --system-reserved-cgroup=/wrong.slice"
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal "/kubelet.slice"
+            The variable SYSTEM_RESERVED_CGROUP should equal "/system.slice"
+            The status should be success
+        End
+
+        It 'returns empty strings in config-file mode when the JSON does not opt into hardening'
+            KUBELET_CONFIG_FILE_ENABLED="true"
+            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/server_tls_bootstrap_enabled.json | base64 -w 0)
+            KUBELET_FLAGS=""
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal ""
+            The variable SYSTEM_RESERVED_CGROUP should equal ""
+            The status should be success
+        End
+    End
+
+    Describe 'ensureKubeletCgroupHierarchy'
+        # Use a per-test temp directory and point the function's path overrides at
+        # it so the slice unit file and drop-in are created in a sandbox rather
+        # than under /etc/systemd. The cgroupv2 marker is similarly redirected to
+        # a temp file so we can toggle its presence without touching the host.
+        setup_paths() {
+            ENSURE_CGROUP_TMPDIR=$(mktemp -d)
+            export CGROUPV2_MARKER_PATH="${ENSURE_CGROUP_TMPDIR}/cgroup.controllers"
+            export KUBELET_SLICE_UNIT_PATH="${ENSURE_CGROUP_TMPDIR}/kubelet.slice"
+            export KUBELET_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/kubelet.service.d"
+            : > "${CGROUPV2_MARKER_PATH}" # cgroupv2 present by default
+        }
+        cleanup_paths() {
+            [ -n "${ENSURE_CGROUP_TMPDIR:-}" ] && rm -rf "${ENSURE_CGROUP_TMPDIR}"
+        }
+
+        It 'is a no-op when neither cgroup is configured'
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            The status should be success
+            The output should equal ""
+        End
+
+        It 'rejects unsupported KUBE_RESERVED_CGROUP values'
+            setup_paths
+            KUBE_RESERVED_CGROUP="/custom.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "unsupported KUBE_RESERVED_CGROUP=/custom.slice"
+        End
+
+        It 'rejects unsupported SYSTEM_RESERVED_CGROUP values'
+            setup_paths
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP="/custom.slice"
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "unsupported SYSTEM_RESERVED_CGROUP=/custom.slice"
+        End
+
+        It 'fails when the cgroupv2 unified hierarchy is not detected'
+            setup_paths
+            rm -f "${CGROUPV2_MARKER_PATH}"
+            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "cgroupv2 unified hierarchy not detected"
+        End
+
+        It 'creates kubelet.slice and the kubelet.service drop-in for /kubelet.slice'
+            setup_paths
+            systemctl() { return 0; }
+            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            SYSTEM_RESERVED_CGROUP="/system.slice"
+            When call ensureKubeletCgroupHierarchy
+            slice_contents=$(cat "${KUBELET_SLICE_UNIT_PATH}" 2>/dev/null)
+            dropin_contents=$(cat "${KUBELET_SERVICE_DROPIN_DIR}/10-kubelet-slice.conf" 2>/dev/null)
+            cleanup_paths
+            The status should be success
+            The variable slice_contents should include "Description=Slice for kubelet kube-reserved enforcement"
+            The variable slice_contents should include "WantedBy=slices.target"
+            The variable dropin_contents should include "Wants=kubelet.slice"
+            The variable dropin_contents should include "After=kubelet.slice"
+        End
+
+        It 'returns failure when systemctl enable kubelet.slice fails'
+            setup_paths
+            systemctl() {
+                if [ "$1" = "enable" ]; then
+                    return 1
+                fi
+                return 0
+            }
+            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "failed to enable kubelet.slice"
+        End
+
+        It 'returns failure when systemctl start kubelet.slice fails'
+            setup_paths
+            systemctl() {
+                if [ "$1" = "start" ]; then
+                    return 1
+                fi
+                return 0
+            }
+            KUBE_RESERVED_CGROUP="/kubelet.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "failed to start kubelet.slice"
+        End
+    End
 End
