@@ -677,7 +677,9 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	// than silently skipping the check. FIPS VHDs are expected to ship OpenSSL 3.x except
 	// Ubuntu 20.04 which ships 1.1.x (legacy FIPS module, no providers concept). Any other
 	// version is unexpected and must fail loudly so we don't lose coverage on a future image.
-	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version", 0, "could not run openssl version")
+	// Merge stderr into stdout (`2>&1`) so we don't get an empty `stdout` and an unhelpful
+	// parse error if a future build of openssl prints its version banner to stderr.
+	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
 	versionFields := strings.Fields(opensslVersion.stdout)
 	require.GreaterOrEqual(s.T, len(versionFields), 2,
 		"could not parse openssl version output: %q", opensslVersion.stdout)
@@ -701,17 +703,25 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 	// then exec it allowing the expected non-zero "usage" exit while checking for a panic trace.
 	// A Go runtime panic writes to stderr and exits non-zero; we capture both streams separately
 	// (without merging) and preserve the real exit code so a panic remains observable here.
-	// Match a broader set of Go runtime failure markers ("panic:", "fatal error:", "runtime error:")
-	// so closely related FIPS-misconfiguration failure modes are caught alongside vanilla panics.
+	// Match specific Go runtime failure markers — `panic:`, `fatal error:`, and the more
+	// distinctive `goroutine N [running]:` / `runtime.gopanic` traces — rather than the bare
+	// substring `runtime error:` which can appear in unrelated CNI plugin usage/help text and
+	// cause false failures.
 	portmapBin := "/opt/cni/bin/portmap"
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("test -x %s", portmapBin), 0,
 		fmt.Sprintf("expected %s to exist and be executable", portmapBin))
 	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
-	for _, marker := range []string{"panic:", "fatal error:", "runtime error:"} {
-		require.NotContains(s.T, portmap.stderr, marker,
-			"portmap %s detected, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", marker, portmap.stdout, portmap.stderr)
-		require.NotContains(s.T, portmap.stdout, marker,
-			"portmap %s detected, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", marker, portmap.stdout, portmap.stderr)
+	panicMarkers := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^panic:`),
+		regexp.MustCompile(`(?m)^fatal error:`),
+		regexp.MustCompile(`runtime\.gopanic`),
+		regexp.MustCompile(`goroutine \d+ \[running\]`),
+	}
+	for _, re := range panicMarkers {
+		require.False(s.T, re.MatchString(portmap.stderr),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+		require.False(s.T, re.MatchString(portmap.stdout),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
 	}
 
 	s.T.Logf("FIPS provider validation passed")
@@ -721,9 +731,12 @@ func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
 // rather than on first call.
 var (
 	// Provider headers are indented (typically two spaces, but tolerate tabs / extra padding)
-	// and have no key/value separator. Status lines are more deeply indented and contain ':'.
-	opensslProviderHeaderRE = regexp.MustCompile(`^[ \t]+(\S+)\s*$`)
-	opensslStatusLineRE     = regexp.MustCompile(`^\s+status:\s*(\S+)`)
+	// and have no key/value separator. Capture group 1 is the leading indent, group 2 is the
+	// provider name; we keep the indent so status lines below can be required to be strictly
+	// more indented than their enclosing header (matching the parser's "scoped to enclosing
+	// block" guarantee — same-indent `status:` would otherwise be mis-attributed).
+	opensslProviderHeaderRE = regexp.MustCompile(`^([ \t]+)(\S+)\s*$`)
+	opensslStatusLineRE     = regexp.MustCompile(`^[ \t]+status:\s*(\S+)`)
 )
 
 // opensslProviderActive parses the output of `openssl list -providers` and returns true if
@@ -731,6 +744,7 @@ var (
 // Prefix matching lets a single call cover related provider names (e.g. "symcrypt" matches
 // both "symcrypt" and "symcryptprovider"). The status line is scoped to its enclosing
 // provider block so an active default provider cannot mask an inactive fips/symcrypt provider.
+// Status lines must be strictly more indented than the header that opened the block.
 func opensslProviderActive(output string, providerPrefixes ...string) bool {
 	matches := func(name string) bool {
 		for _, p := range providerPrefixes {
@@ -741,16 +755,25 @@ func opensslProviderActive(output string, providerPrefixes ...string) bool {
 		return false
 	}
 	var current string
+	var headerIndent int
 	for _, line := range strings.Split(output, "\n") {
+		// Strip a trailing CR so CRLF-terminated remote output still matches the
+		// `\s*$` anchor in the header regex.
+		line = strings.TrimRight(line, "\r")
 		if m := opensslProviderHeaderRE.FindStringSubmatch(line); m != nil {
-			current = m[1]
+			headerIndent = len(m[1])
+			current = m[2]
 			continue
 		}
 		if current == "" || !matches(current) {
 			continue
 		}
 		if m := opensslStatusLineRE.FindStringSubmatch(line); m != nil && m[1] == "active" {
-			return true
+			// Require the status line to be strictly more indented than the header.
+			leading := len(line) - len(strings.TrimLeft(line, " \t"))
+			if leading > headerIndent {
+				return true
+			}
 		}
 	}
 	return false
