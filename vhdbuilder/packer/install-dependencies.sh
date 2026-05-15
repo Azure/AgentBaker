@@ -721,15 +721,11 @@ EOF
 fi
 
 if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-  # The GB200 feature flag should only be set for arm64 and Ubuntu 24.04, but validate
-  if [ ${UBUNTU_RELEASE} = "24.04" ]; then
-    # Need to replicate all functionality from github.com/azure/aks-gpu/install.sh.
+  # GB200 setup is only supported on arm64 Ubuntu 24.04.
+  if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+    # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
     # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
     # to have all drivers installed at VHD build time.
-    #
-    # TODO(abenn135): move all GPU installation logic back into the AgentBaker repo, and
-    # invoke it where we need it, either at VHD build time or at node boot time (for example
-    # if we do not know at VHD build time whether we will want GPU drivers installed or not).
 
     # 1. Blacklist nouveau driver
     cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
@@ -775,10 +771,6 @@ EOF
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
     systemctl enable openibd
-
-    # One additional request from MAI: Disable the AKS node problem detector. When this file is present, the Azure AKS VM Extension assumes the NPD has been installed on the VHD and skips installing it at provision time.
-    mkdir -p /etc/node-problem-detector.d/
-    touch /etc/node-problem-detector.d/skip_vhd_npd
   fi
 fi
 
