@@ -594,9 +594,10 @@ testFips() {
   # NOTE: although the pipeline passes pipeline-style OS_VERSION values such as
   # "V2"/"V3"/"OSGuardV3"/"acl" via $1, by the time this function runs the
   # global OS_VERSION has been overwritten by sourcing cse_helpers.sh, which
-  # sets it from /etc/os-release VERSION_ID (e.g. "2.0", "3.0", "20.04"). The
-  # call site `testFips $OS_VERSION ...` therefore passes the sourced value,
-  # not the pipeline value, so the allowlist below uses /etc/os-release values.
+  # sets it from /etc/os-release VERSION_ID (e.g. "2.0", "3.0", "3.0.20260506"
+  # on ACL, "20.04"). The call site `testFips $OS_VERSION ...` therefore passes
+  # the sourced value, not the pipeline value, so the allowlist below uses
+  # /etc/os-release values.
   os_version=$1
   enable_fips=$2
 
@@ -612,8 +613,10 @@ testFips() {
   # NOTE: `err` reports to stderr (the runner greps stderr for failures) but does
   # not exit, so we explicitly `return` to avoid running the FIPS body afterwards
   # with an unsupported os_version.
+  # ACL ships VERSION_ID with a date suffix (e.g. "3.0.20260506"), so allow
+  # "3.0" and "3.0.*"; same for "2.0" defensively.
   case "${os_version}" in
-    20.04|22.04|24.04|2.0|3.0) ;;
+    20.04|22.04|24.04|2.0|2.0.*|3.0|3.0.*) ;;
     *)
       err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
       echo "$test:Finish"
