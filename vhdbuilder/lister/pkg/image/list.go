@@ -68,6 +68,19 @@ func ListImages(sku, version string) (*List, error) {
 	}, nil
 }
 
+// isID reports whether imageName is the bare "sha256:<hex>" content-addressable
+// identifier that containerd creates alongside every image, as opposed to a
+// human-readable reference. References by digest take the form
+// "registry/name@sha256:<hex>" and must NOT be treated as IDs — otherwise an
+// image pulled by digest produces two SetID calls with different values
+// (the @-reference and the actual sha256:<hex> ID) for the same Target.Digest,
+// which then trips the "found multiple IDs for the same container image"
+// guard.
 func isID(imageName string) bool {
-	return strings.Contains(imageName, "sha256")
+	const prefix = "sha256:"
+	if !strings.HasPrefix(imageName, prefix) {
+		return false
+	}
+	// A bare ID has no further separators after the algorithm prefix.
+	return !strings.ContainsAny(imageName[len(prefix):], "/@:")
 }
