@@ -470,9 +470,14 @@ while IFS= read -r p; do
       # pre-pull loop so the patched containerd handles those pulls.
       if isMarinerOrAzureLinux "$OS"; then
         DMVERITY_PROTOTYPE_INSTALLER="$(dirname "${BASH_SOURCE[0]}")/dmverity-prototype/install.sh"
-        if [ -x "${DMVERITY_PROTOTYPE_INSTALLER}" ]; then
+        # Use [ -f ] (not [ -x ]) because Packer's `file` provisioner does not
+        # preserve the source file's executable bit when uploading. Invoke
+        # explicitly with bash so the script runs regardless of mode bits.
+        if [ -f "${DMVERITY_PROTOTYPE_INSTALLER}" ]; then
           echo "running dmverity prototype installer: ${DMVERITY_PROTOTYPE_INSTALLER}"
-          "${DMVERITY_PROTOTYPE_INSTALLER}" || exit $?
+          bash "${DMVERITY_PROTOTYPE_INSTALLER}" || exit $?
+        else
+          echo "dmverity prototype installer not present at ${DMVERITY_PROTOTYPE_INSTALLER}; skipping"
         fi
       fi
       ;;

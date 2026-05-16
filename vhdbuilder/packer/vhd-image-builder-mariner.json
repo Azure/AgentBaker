@@ -80,7 +80,8 @@
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo mkdir -p /opt/scripts",
-        "sudo mkdir -p /opt/certs"
+        "sudo mkdir -p /opt/certs",
+        "mkdir -p /home/packer/dmverity-prototype"
       ]
     },
     {
