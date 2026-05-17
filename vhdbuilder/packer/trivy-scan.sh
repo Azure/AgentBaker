@@ -23,7 +23,7 @@ TRIVY_RPM_VERSION="0.68.2-7.azl3"
 # Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
 # This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
 # renovate: datasource=github-releases depName=aquasecurity/trivy
-TRIVY_GITHUB_VERSION="0.69.2"
+TRIVY_GITHUB_VERSION="0.69.3"
 
 MODULE_NAME="vuln-to-kusto-vhd"
 
