@@ -70,6 +70,177 @@ Describe 'GetBroadestRangesForEachAddress' {
     }
 }
 
+Describe 'Get-PackageNameAndVersionFromCniUrl' {
+    It 'Should parse package name and version for azure-vnet-cni URL' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni'
+        $result.Version | Should -Be 'v1.6.20'
+    }
+
+    It 'Should parse package name and version for azure-vnet-cni-swift URL' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-swift-windows-amd64-v1.6.20.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni-swift'
+        $result.Version | Should -Be 'v1.6.20'
+    }
+
+    It 'Should parse package name and hotfix version suffix from URL' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.1-hotfix20241024ApipaGW/binaries/azure-vnet-cni-windows-amd64-v1.6.1-hotfix20241024ApipaGW.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni'
+        $result.Version | Should -Be 'v1.6.1-hotfix20241024ApipaGW'
+    }
+
+    It 'Should return null for invalid URL format' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-linux-amd64-v1.6.20.tar.gz'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Be $null
+    }
+}
+
+Describe 'Install-VnetPlugins ORAS path' {
+    BeforeAll {
+        # Stub functions from networkisolatedclusterfunc.ps1 that are not sourced in tests
+        if (-not (Get-Command 'Get-FileNameFromUrl' -ErrorAction SilentlyContinue)) {
+            function global:Get-FileNameFromUrl { param($Url) return "azure-vnet-cni-windows-amd64-v1.6.20.zip" }
+        }
+        if (-not (Get-Command 'DownloadFileWithOras' -ErrorAction SilentlyContinue)) {
+            function global:DownloadFileWithOras {
+                param(
+                    [string]$Reference,
+                    [string]$DestinationPath,
+                    [string]$Platform = "windows/amd64",
+                    [string]$CachedFile = ""
+                )
+            }
+        }
+    }
+
+    BeforeEach {
+        Mock Set-ExitCode -MockWith {
+            param($ExitCode, $ErrorMessage)
+            throw $ErrorMessage
+        } -Verifiable
+        Mock Logs-To-Event -MockWith { } -Verifiable
+        Mock Create-Directory -MockWith { } -Verifiable
+        Mock AKS-Expand-Archive -MockWith { } -Verifiable
+        Mock Get-FileNameFromUrl -MockWith { return "azure-vnet-cni-windows-amd64-v1.6.20.zip" } -Verifiable
+        Mock DownloadFileWithOras -MockWith { } -Verifiable
+        Mock Start-Sleep -MockWith { } -Verifiable
+
+        # Suppress move and del which operate on files that don't exist in test
+        Mock Move-Item -MockWith { } -Verifiable
+        Mock Remove-Item -MockWith { } -Verifiable
+
+        $global:AzureCNIDir = $TestDrive
+    }
+
+    AfterEach {
+        $global:BootstrapProfileContainerRegistryServer = $null
+    }
+
+    Context 'ORAS reference construction' {
+        It 'Should call DownloadFileWithOras with correct reference for azure-vnet-cni' {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
+
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni:v1.6.20"
+            }
+        }
+
+        It 'Should call DownloadFileWithOras with correct reference for azure-vnet-cni-overlay' {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-overlay-windows-amd64-v1.6.20.zip"
+
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni-overlay:v1.6.20"
+            }
+        }
+
+        It 'Should call DownloadFileWithOras with correct reference for azure-vnet-cni-swift' {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-swift-windows-amd64-v1.6.20.zip"
+
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni-swift:v1.6.20"
+            }
+        }
+
+        It 'Should pass correct destination path to DownloadFileWithOras' {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
+
+            $expectedZipPath = [Io.path]::Combine("$global:AzureCNIDir", "azure-vnet.zip")
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $DestinationPath -eq $expectedZipPath
+            }
+        }
+    }
+
+    Context 'URL parse failure' {
+        It 'Should set exit code when URL format is invalid' {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+
+            { Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/invalid-linux-amd64-v1.6.20.tar.gz" } | Should -Throw "*Failed to extract*"
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+            }
+        }
+    }
+
+    Context 'ORAS pull failure' {
+        It 'Should set exit code on pull failure' {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+
+            Mock DownloadFileWithOras -MockWith { throw "oras pull failed" }
+            Mock Start-Sleep -MockWith { }
+
+            { Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip" } | Should -Throw "*Exhausted retries*"
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+            }
+        }
+    }
+
+    Context 'HTTP download path' {
+        It 'Should use DownloadFileOverHttp when BootstrapProfileContainerRegistryServer is not set' {
+            $global:BootstrapProfileContainerRegistryServer = $null
+
+            Mock DownloadFileOverHttp -MockWith { } -Verifiable
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
+
+            Assert-MockCalled -CommandName "DownloadFileOverHttp" -Exactly -Times 1
+        }
+    }
+}
+
 Describe 'Set-AzureCNIConfig' {
     BeforeEach {
         $azureCNIConfDir = "$PSScriptRoot\azurecnifunc.tests.suites"
