@@ -720,6 +720,65 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 EOF
 fi
 
+if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  # GB200 setup is only supported on arm64 Ubuntu 24.04.
+  if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+    # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
+    # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
+    # to have all drivers installed at VHD build time.
+
+    # 1. Blacklist nouveau driver
+    cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    update-initramfs -u
+
+    # 2. install drivers
+    BOM_PATH="gb200-mai-bom.json"
+
+    # Install a custom repository if a doca-custom-repo is specified
+    DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
+    if [ -n "$DOCA_CUSTOM_REPO" ]; then
+      mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
+      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
+      apt-get update
+    fi
+
+    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
+    # Therefore we install the GPU driver and its dependencies first, then install all downstream reverse-dependencies (CUDA, DCGM, and so forth) second.
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+
+    # 3. Add char device symlinks for NVIDIA devices
+    mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
+    cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    # Create systemd drop-in to override nvidia-device-plugin dependencies
+    mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
+    cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
+[Unit]
+After=kubelet.service
+
+[Service]
+ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
+EOF
+
+    # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
+    systemctl enable nvidia-dcgm
+    systemctl enable nvidia-dcgm-exporter
+    systemctl enable nvidia-device-plugin
+    systemctl enable openibd
+
+    # One additional request from MAI: signal that NPD is pre-installed on the VHD.
+    # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
+    mkdir -p /etc/node-problem-detector.d/
+    touch /etc/node-problem-detector.d/skip_vhd_npd
+  fi
+fi
+
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi
