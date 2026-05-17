@@ -101,10 +101,27 @@ func RunScenario(t *testing.T, s *Scenario) {
 			require.NoError(t, err)
 		})
 	}
+
+	if supportsScriptlessAKSNodeConfig(s) {
+		t.Run("scriptless_anc", func(t *testing.T) {
+			t.Parallel()
+			sCopy := copyScenario(s)
+			if sCopy.Runtime == nil {
+				sCopy.Runtime = &ScenarioRuntime{}
+			}
+			sCopy.Runtime.EnableScriptlessANC = true
+			err := runScenario(t, sCopy)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+	return !s.Tags.Scriptless && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+}
+
+func supportsScriptlessAKSNodeConfig(s *Scenario) bool {
+	return s.AKSNodeConfigMutator != nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -275,14 +292,15 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(s.Runtime.Cluster, nbc)
 	}
-	if s.AKSNodeConfigMutator != nil {
+	if s.AKSNodeConfigMutator != nil && (s.Runtime.EnableScriptlessANC || s.Tags.Scriptless) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
-		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
-		s.Runtime.NBC = nil
+		// NBC is kept for comparison mode (compareEnvs) where both configs are needed,
+		// but disable scriptless flags so validators don't fire incorrectly.
+		nbc.EnableScriptlessCSECmd = false
+		nbc.EnableScriptlessNBCCSECmd = false
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -352,9 +370,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	s.Tags.VHDCaching = s.VHDCaching
-	if s.AKSNodeConfigMutator != nil {
-		s.Tags.Scriptless = true
-	}
 
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
