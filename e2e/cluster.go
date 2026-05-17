@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +44,7 @@ type Cluster struct {
 	SubnetID        string
 	ClusterParams   *ClusterParams
 	Bastion         *Bastion
+	ProxyURL        string
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -107,7 +110,21 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
-	dag.Run1(g, kube, ensureDebugDaemonsets(cluster, isNetworkIsolated), append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)...)
+	debugDeps := append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)
+	proxyURL := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (string, error) {
+		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
+			return "", err
+		}
+		if isNetworkIsolated {
+			return "", nil
+		}
+		return k.GetProxyURL(ctx)
+	}, debugDeps...)
+	if !isNetworkIsolated {
+		dag.Run(g, func(ctx context.Context) error {
+			return setupPrivateDNSForAPIServer(ctx, cluster)
+		})
+	}
 	extract := dag.Go1(g, kube, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
@@ -120,6 +137,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		SubnetID:        subnet.MustGet(),
 		ClusterParams:   extract.MustGet(),
 		Bastion:         bastion.MustGet(),
+		ProxyURL:        proxyURL.MustGet(),
 	}, nil
 }
 
@@ -129,12 +147,6 @@ func addACR(cluster *armcontainerservice.ManagedCluster, needACR, isNonAnonymous
 			return nil
 		}
 		return addPrivateAzureContainerRegistry(ctx, cluster, k, id, isNonAnonymousPull)
-	}
-}
-
-func ensureDebugDaemonsets(cluster *armcontainerservice.ManagedCluster, isNetworkIsolated bool) func(context.Context, *Kubeclient) error {
-	return func(ctx context.Context, k *Kubeclient) error {
-		return k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
 	}
 }
 
@@ -405,25 +417,35 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 			return createdCluster, nil
 		}
 
-		// Check if the error is a 409 Conflict
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+		if isRetryableClusterError(err) {
 			lastErr = err
-			toolkit.Logf(ctx, "Attempt %d failed with 409 Conflict: %v. Retrying in %v...", attempt+1, err, retryInterval)
+			toolkit.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, retryInterval)
 
 			select {
 			case <-time.After(retryInterval):
-				// Continue to next iteration
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context canceled while retrying cluster creation: %w", ctx.Err())
 			}
 		} else {
-			// If it's not a 409 error, return immediately
 			return nil, fmt.Errorf("failed to create cluster: %w", err)
 		}
 	}
 
-	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("failed to create cluster after %d attempts: %w", maxRetries, lastErr)
+}
+
+// isRetryableClusterError returns true for transient cluster creation errors
+// that can be resolved by retrying, such as 409 Conflict (concurrent operations)
+// and NotFound during managed identity reconciliation (stale references after cluster deletion).
+func isRetryableClusterError(err error) bool {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	if respErr.StatusCode == 409 {
+		return true
+	}
+	return respErr.ErrorCode == "NotFound" && strings.Contains(err.Error(), "Reconcile managed identity credential failed")
 }
 
 func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
@@ -804,4 +826,51 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 		return armresources.ResourceGroup{}, fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
 	}
 	return rg.ResourceGroup, nil
+}
+
+// setupPrivateDNSForAPIServer creates a private DNS zone for the API server FQDN
+// linked to the cluster VNet with an A record pointing to the current public IP.
+// Simulates a customer environment with minimal private DNS entries.
+func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	defer toolkit.LogStepCtx(ctx, "setting up private DNS for API server")()
+
+	fqdn := *cluster.Properties.Fqdn
+	nodeRG := *cluster.Properties.NodeResourceGroup
+
+	ips, err := net.LookupHost(fqdn)
+	if err != nil {
+		return fmt.Errorf("resolving API server FQDN %q: %w", fqdn, err)
+	}
+
+	var aRecords []*armprivatedns.ARecord
+	for _, ip := range ips {
+		if parsed := net.ParseIP(ip); parsed != nil && parsed.To4() != nil {
+			aRecords = append(aRecords, &armprivatedns.ARecord{IPv4Address: to.Ptr(ip)})
+		}
+	}
+	if len(aRecords) == 0 {
+		return fmt.Errorf("no IPv4 addresses for %q", fqdn)
+	}
+
+	// createPrivateZone and createPrivateDNSLink handle 409 conflicts internally
+	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
+	}
+
+	vnet, err := getClusterVNet(ctx, nodeRG)
+	if err != nil {
+		return fmt.Errorf("getting cluster VNet: %w", err)
+	}
+	if err := createPrivateDNSLink(ctx, vnet, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("linking private zone to VNet: %w", err)
+	}
+
+	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@",
+		armprivatedns.RecordSet{Properties: &armprivatedns.RecordSetProperties{TTL: to.Ptr[int64](300), ARecords: aRecords}}, nil)
+	if err != nil {
+		return fmt.Errorf("creating A record in zone %q: %w", fqdn, err)
+	}
+
+	toolkit.Logf(ctx, "private DNS zone %q → %v", fqdn, ips)
+	return nil
 }

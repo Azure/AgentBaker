@@ -32,7 +32,7 @@ installDeps() {
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
+    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -235,6 +235,48 @@ installKubeletKubectlFromPkg() {
 
 	  installRPMPackageFromFile "kubelet" "${desiredVersion}" "/opt/bin/kubelet" || exit "$ERR_KUBELET_INSTALL_FAIL"
     installRPMPackageFromFile "kubectl" "${desiredVersion}" "/opt/bin/kubectl" || exit "$ERR_KUBECTL_INSTALL_FAIL"
+}
+
+findAznfsRpm() {
+  local dir="$1"
+  find "${dir}" -name "aznfs-*.rpm" -type f 2>/dev/null | sort -V | tail -1
+}
+
+installAznfsPackage() {
+  if [ "$OS_VERSION" != "3.0" ]; then
+    echo "aznfs package install is only supported on Azure Linux 3.0"
+    return
+  fi
+
+  # The aznfs RPM is pre-downloaded to /opt/aznfs/downloads during VHD build
+  # (via components.json). It must be present; fail immediately if not found.
+  local aznfs_download_dir="/opt/aznfs/downloads"
+  local aznfs_rpm_file
+  aznfs_rpm_file=$(findAznfsRpm "${aznfs_download_dir}")
+  if [ -z "${aznfs_rpm_file}" ]; then
+    echo "Error: aznfs RPM not found in ${aznfs_download_dir}. It should have been pre-downloaded during VHD build."
+    return $ERR_AZNFS_INSTALL_FAIL
+  fi
+
+  echo "Installing aznfs from pre-downloaded RPM: ${aznfs_rpm_file}"
+  if ! AZNFS_NONINTERACTIVE_INSTALL=1 dnf_install 30 1 600 "${aznfs_rpm_file}"; then
+    return $ERR_AZNFS_INSTALL_FAIL
+  fi
+
+  # Disable aznfs auto-upgrade to respect operator OS update settings and AKS SDP
+  local aznfs_config="/opt/microsoft/aznfs/data/config"
+  if [ -f "${aznfs_config}" ]; then
+    sed -i 's/AUTOUPDATE=.*/AUTOUPDATE=false/' "${aznfs_config}"
+    echo "Disabled aznfs auto-upgrade in ${aznfs_config}"
+  fi
+
+  # Restart aznfswatchdogv4 to pick up the updated config
+  systemctl restart aznfswatchdogv4
+
+  # Disable aznfswatchdog since aznfs install enables both aznfswatchdog and aznfswatchdogv4
+  # services at the same time while we only need aznfswatchdogv4
+  systemctl disable aznfswatchdog
+  systemctl stop aznfswatchdog
 }
 
 installToolFromLocalRepo() {

@@ -10,7 +10,7 @@ dnfversionlockWALinuxAgent() {
     stub
 }
 
-aptmarkWALinuxAgent() {
+holdWALinuxAgent() {
     stub
 }
 

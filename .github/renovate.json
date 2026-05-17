@@ -7,9 +7,9 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 2,
+  "prHourlyLimit": 1,
   "branchConcurrentLimit": 0,
-  "commitHourlyLimit": 2,
+  "commitHourlyLimit": 1,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
@@ -87,6 +87,16 @@
       ],
       "automerge": false,
       "enabled": true
+    },
+    {
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd",
+        "containerd2",
+        "aks/aks-node-ca-watcher",
+        "Azure/WALinuxAgent"
+      ],
+      "allowedVersions": "!/~(alpha|beta|rc)/"
     },
     {
       "matchPackageNames": [
@@ -208,8 +218,10 @@
     },
     {
       "matchPackageNames": [
+        "azure-cni",
         "containernetworking/azure-cni"
       ],
+      "groupName": "azure-cni",
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -270,6 +282,16 @@
         "zanejohnson-azure",
         "joby-thomas"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "enabled": true
     },
     {
       "matchPackageNames": [
@@ -353,6 +375,18 @@
         "azure-acr-credential-provider"
       ],
       "groupName": "acr-credential-provider",
+      "assignees": [
+        "nilo19"
+      ],
+      "reviewers": [
+        "nilo19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "azure-acr-credential-provider-sysext"
+      ],
+      "groupName": "acr-credential-provider-sysext",
       "assignees": [
         "nilo19"
       ],
@@ -476,7 +510,7 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/azure-cloud-node-manager"
+        "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [

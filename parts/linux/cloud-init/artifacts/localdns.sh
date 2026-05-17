@@ -129,15 +129,18 @@ verify_localdns_binary() {
 # Regenerate the localdns corefile from base64 encoded content.
 # This is used when the corefile goes missing.
 regenerate_localdns_corefile() {
-    if [ -z "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
-        echo "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+    local corefile_to_use
+    corefile_to_use=$(select_localdns_corefile) || true
+    if [ -z "${corefile_to_use}" ]; then
+        echo "No corefile selected. Cannot regenerate corefile."
         return 1
     fi
+
     echo "Regenerating localdns corefile at ${LOCALDNS_CORE_FILE}"
 
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     # Decode base64 corefile content and write to corefile.
-    if ! echo "${LOCALDNS_BASE64_ENCODED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
+    if ! echo "${corefile_to_use}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
         echo "Failed to decode and write corefile."
         return 1
     fi
@@ -281,6 +284,19 @@ replace_azurednsip_in_corefile() {
     else
         echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
     fi
+
+    # Persist the upstream DNS server(s) so aks-localdns-hosts-setup.sh can resolve against them
+    # directly, bypassing localdns. Without this, the timer's dig queries would go through
+    # localdns (169.254.10.10) → hosts plugin → stale answers from /etc/localdns/hosts,
+    # creating a self-referential loop where IPs can never refresh.
+    local upstream_dns_file="/etc/localdns/upstream-dns"
+    mkdir -p "$(dirname "${upstream_dns_file}")" 2>/dev/null || true
+    echo "${UPSTREAM_VNET_DNS_SERVERS}" > "${upstream_dns_file}" || {
+        echo "WARNING: Failed to write upstream DNS to ${upstream_dns_file}"
+        # Non-fatal: if this file is missing or empty, aks-localdns-hosts-setup.sh falls back to the system resolver.
+    }
+    chmod 0644 "${upstream_dns_file}" 2>/dev/null || true
+    echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     return 0
 }
@@ -446,6 +462,119 @@ wait_for_localdns_ready() {
     return 0
 }
 
+# Sentinel file: presence means "this node may already have the hosts-plugin annotation,
+# so reconcile it on startup." Created after a successful annotation set, removed after
+# a successful annotation removal. Avoids unnecessary kubeconfig waits on nodes that
+# never used the feature.
+LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER="${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER:-/opt/azure/containers/localdns-hosts-plugin-annotation.present}"
+
+# Set node annotation to indicate hosts plugin is in use if the hosts file has contents.
+annotate_node_with_hosts_plugin_status() {
+    # Check if the running localdns corefile actually contains the hosts plugin block.
+    # This is the ground truth - we check the actual corefile being used by the service,
+    # not just what was selected during CSE, in case the file was modified or regenerated.
+    local corefile_path="${UPDATED_LOCALDNS_CORE_FILE:-/opt/azure/containers/localdns/updated.localdns.corefile}"
+    local should_annotate=false
+
+    if [ ! -f "${corefile_path}" ]; then
+        echo "Localdns corefile not found at ${corefile_path}, skipping annotation."
+        return 0
+    fi
+
+    # Determine whether hosts plugin is active based on corefile and hosts file state
+    if grep -q "hosts /etc/localdns/hosts" "${corefile_path}"; then
+        # Additionally verify that the hosts file exists and has content
+        local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+        if [ -f "${hosts_file}" ] && grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[[:alnum:]]' "${hosts_file}"; then
+            echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[[:alnum:]]' "${hosts_file}" 2>/dev/null || echo 0) entries."
+            should_annotate=true
+        else
+            echo "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
+            return 0
+        fi
+    else
+        echo "Localdns corefile does not contain hosts plugin block."
+    fi
+
+    # Only proceed if we have the necessary kubectl binary and configuration
+    if [ ! -x /opt/bin/kubectl ]; then
+        echo "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
+        return 0
+    fi
+
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    # Wait for kubelet to finish TLS bootstrapping and create the kubeconfig file
+    # This is necessary because localdns starts in basePrep(), before kubelet starts in nodePrep()
+    local wait_count=0
+    local max_wait="${KUBECONFIG_WAIT_ATTEMPTS:-60}"  # Default: wait up to 3 minutes (60 * 3 seconds), but configurable for testing
+    while [ ! -f "${kubeconfig}" ]; do
+        if [ $wait_count -ge $max_wait ]; then
+            echo "Timeout waiting for kubeconfig at ${kubeconfig} after ${max_wait} attempts, skipping annotation."
+            return 0
+        fi
+        echo "Waiting for TLS bootstrapping to complete (attempt $((wait_count + 1))/${max_wait})..."
+        sleep 3
+        wait_count=$((wait_count + 1))
+    done
+    echo "Kubeconfig found at ${kubeconfig}"
+
+    # Get node name
+    local node_name
+    node_name=$(hostname)
+    if [ -z "${node_name}" ]; then
+        echo "Cannot get node name, skipping annotation."
+        return 0
+    fi
+
+    # Azure cloud provider assigns node name as the lower case of the hostname
+    node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
+    # Wait for node to be registered in the cluster
+    # The kubeconfig exists but the node might not be registered yet
+    echo "Waiting for node ${node_name} to be registered in the cluster..."
+    local node_wait_count=0
+    local max_node_wait="${NODE_REGISTRATION_WAIT_ATTEMPTS:-30}"  # Default: wait up to 90 seconds (30 * 3 seconds)
+    while [ $node_wait_count -lt $max_node_wait ]; do
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" >/dev/null 2>&1; then
+            echo "Node ${node_name} is registered in the cluster."
+            break
+        fi
+        echo "Waiting for node registration (attempt $((node_wait_count + 1))/${max_node_wait})..."
+        sleep 3
+        node_wait_count=$((node_wait_count + 1))
+    done
+
+    # Check if we timed out waiting for node registration
+    if [ $node_wait_count -ge $max_node_wait ]; then
+        echo "Timeout waiting for node ${node_name} to be registered after ${max_node_wait} attempts, skipping annotation."
+        return 0
+    fi
+
+    # Set or remove annotation based on hosts plugin state
+    if [ "${should_annotate}" = "true" ]; then
+        echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
+            echo "Successfully set hosts plugin annotation."
+            touch "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}"
+        else
+            echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+        fi
+    else
+        # Remove stale annotation after rollback to avoid advertising hosts plugin as enabled
+        # when it's no longer in use. The - suffix tells kubectl to remove the annotation.
+        echo "Removing hosts plugin annotation for node ${node_name} (hosts plugin not active)."
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin-; then
+            echo "Successfully removed hosts plugin annotation."
+            rm -f "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}"
+        else
+            # Keep marker so the next restart retries removal
+            echo "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
+        fi
+    fi
+
+    return 0
+}
+
 # Add iptables rules to skip conntrack for DNS traffic to localdns.
 add_iptable_rules_to_skip_conntrack_from_pods(){
     # Check if the localdns interface already exists and delete it.
@@ -596,6 +725,12 @@ cleanup_iptables_and_dns() {
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
+
+    # Kill orphaned background annotation process if still running.
+    if [ -n "${ANNOTATION_PID:-}" ] && kill -0 "${ANNOTATION_PID}" 2>/dev/null; then
+        echo "Killing background annotation process (PID: ${ANNOTATION_PID})"
+        kill "${ANNOTATION_PID}" 2>/dev/null || true
+    fi
 
     # Remove iptables rules and revert DNS configuration
     cleanup_iptables_and_dns || return 1
@@ -788,9 +923,81 @@ start_localdns_watchdog() {
     fi
 }
 
+# Selects the appropriate corefile variant based on feature flags.
+# Reads globals from the localdns environment file:
+#   LOCALDNS_COREFILE_BASE         — base corefile (no hosts plugin)
+#   LOCALDNS_COREFILE_WITH_HOSTS   — corefile with hosts plugin
+#   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
+#
+# Selection logic:
+#   1. If both BASE and WITH_HOSTS are available, select based on SHOULD_ENABLE_HOSTS_PLUGIN.
+#      The WITH_HOSTS corefile includes `hosts /etc/localdns/hosts { reload 5s; fallthrough }`,
+#      so CoreDNS will start immediately and hot-reload the hosts file when it's populated
+#      by aks-localdns-hosts-setup (no need to poll/wait here).
+#   2. If only BASE is available, use it (no dynamic selection).
+#   3. If nothing is available, return failure (caller handles error).
+#
+# Echoes the selected base64-encoded corefile to stdout.
+# All diagnostic messages go to stderr.
+select_localdns_corefile() {
+    # Case 1: Both corefile variants available — feature-flag-based selection
+    if [ -n "${LOCALDNS_COREFILE_WITH_HOSTS:-}" ] && \
+       [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
+        echo "Both corefile variants available, selecting based on feature flag..." >&2
+        echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}" >&2
+
+        if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-}" = "true" ]; then
+            # Defensive guard: if the hosts file doesn't exist on disk,
+            # enableAKSLocalDNSHostsSetup may have bailed early (e.g. LOCALDNS_CRITICAL_FQDNS
+            # was empty, or touch failed) without creating the file, while generateLocalDNSFiles
+            # still wrote SHOULD_ENABLE_HOSTS_PLUGIN=true to the env file. Fall back to BASE
+            # corefile to avoid CoreDNS referencing a missing hosts file.
+            local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+            if [ ! -f "${hosts_file}" ]; then
+                echo "SHOULD_ENABLE_HOSTS_PLUGIN=true but ${hosts_file} is missing — falling back to BASE corefile" >&2
+                echo "${LOCALDNS_COREFILE_BASE}"
+                return 0
+            fi
+            echo "Hosts plugin is enabled, using corefile with hosts plugin (reload will pick up hosts file when populated)" >&2
+            echo "${LOCALDNS_COREFILE_WITH_HOSTS}"
+            return 0
+        else
+            echo "Hosts plugin is not enabled, using corefile without hosts plugin" >&2
+            echo "${LOCALDNS_COREFILE_BASE}"
+            return 0
+        fi
+    fi
+
+    # Case 2: Only BASE available — no dynamic selection
+    if [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
+        echo "Using LOCALDNS_COREFILE_BASE (no dynamic selection)" >&2
+        echo "${LOCALDNS_COREFILE_BASE}"
+        return 0
+    fi
+
+    # Case 2.5: Legacy fallback — support older CSE versions that only set
+    # LOCALDNS_BASE64_ENCODED_COREFILE (new VHD + old CSE compatibility).
+    if [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
+        echo "Using legacy LOCALDNS_BASE64_ENCODED_COREFILE" >&2
+        echo "${LOCALDNS_BASE64_ENCODED_COREFILE}"
+        return 0
+    fi
+
+    # Case 3: Nothing available — signal failure so callers don't proceed with empty corefile
+    echo "No corefile variants available in environment." >&2
+    return 1
+}
+
 ${__SOURCED__:+return}
 
 # --------------------------------------- Main Execution starts here --------------------------------------------------
+
+# Regenerate corefile on every startup to enable dynamic variant selection.
+# ---------------------------------------------------------------------------------------------------------------------
+# This allows switching between WITH_HOSTS and BASE corefile variants based on feature flags.
+# When the hosts plugin is enabled, the WITH_HOSTS corefile uses `reload 5s` so CoreDNS
+# will hot-reload the hosts file when aks-localdns-hosts-setup populates it — no polling needed.
+regenerate_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 
 # Verify localdns required files exists.
 # ---------------------------------------------------------------------------------------------------------------------
@@ -871,6 +1078,18 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Export initial resource metrics so the exporter has data before the first watchdog tick.
 export_resource_metrics
+
+# Set node annotation to indicate hosts plugin is in use (if applicable).
+# --------------------------------------------------------------------------------------------------------------------
+# Only run when hosts plugin is currently enabled or was previously enabled (marker exists).
+# The marker avoids unnecessary kubeconfig waits on nodes that never used the feature.
+if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] || [ -f "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}" ]; then
+    annotate_node_with_hosts_plugin_status &
+    ANNOTATION_PID=$!
+    echo "Started hosts plugin annotation in background (PID: ${ANNOTATION_PID})"
+else
+    echo "Hosts plugin not enabled and no prior annotation marker found, skipping annotation."
+fi
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------

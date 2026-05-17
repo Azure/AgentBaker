@@ -273,22 +273,51 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
-		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
-			// Expect an error from GenerateLocalDNSCoreFile if template is invalid.
-			It("returns an error when template parsing fails", func() {
-				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					EnableLocalDNS:       true,
-					CPULimitInMilliCores: to.Int32Ptr(2008),
-					MemoryLimitInMB:      to.Int32Ptr(128),
-					VnetDNSOverrides:     nil,
-					KubeDNSOverrides:     nil,
-				}
-				invalidTemplate := "{{.InvalidField}}"
-				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, invalidTemplate)
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("failed to execute localdns corefile template"))
+		Describe("GetLocalDNSCriticalFQDNs template func", func() {
+			It("returns empty string when LocalDNSProfile is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal(""))
 			})
+			It("returns empty string when CriticalFQDNs is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					CriticalFQDNs:  nil,
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal(""))
+			})
+			It("returns comma-separated FQDNs", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					CriticalFQDNs: []string{
+						"mcr.microsoft.com",
+						"packages.microsoft.com",
+						"login.microsoftonline.com",
+					},
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal("mcr.microsoft.com,packages.microsoft.com,login.microsoftonline.com"))
+			})
+			It("returns single FQDN without trailing comma", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					CriticalFQDNs:  []string{"mcr.microsoft.com"},
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSCriticalFQDNs"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal("mcr.microsoft.com"))
+			})
+		})
 
+		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
@@ -298,7 +327,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     nil,
 					KubeDNSOverrides:     nil,
 				}
-				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, true)
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
@@ -313,7 +342,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 					KubeDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 				}
-				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, true)
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefileWithoutOverrides))
@@ -370,7 +399,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						},
 					},
 				}
-				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, true)
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
@@ -387,6 +416,12 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
     forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
@@ -450,6 +485,12 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
     forward . 10.0.0.10 {
         policy sequential
         max_concurrent 2000
@@ -548,7 +589,7 @@ testdomain456.com:53 {
 						},
 					},
 				}
-				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, true)
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
@@ -565,6 +606,12 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
     forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
@@ -628,6 +675,12 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
     forward . 10.0.0.10 {
         policy sequential
         max_concurrent 1000
@@ -690,9 +743,133 @@ testdomain567.com:53 {
 `
 				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
 			})
+
+			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
+			// This is the fallback corefile used when enableAKSLocalDNSHostsSetup fails at provisioning time.
+			It("generates a valid localdnsCorefile without hosts plugin when includeHostsPlugin is false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					EnableHostsPlugin:    true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Immediate",
+						},
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(2000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(72000),
+							ServeStale:                  "Verify",
+						},
+					},
+				}
+				// Generate with includeHostsPlugin=false (the no-hosts fallback)
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(BeEmpty())
+
+				// The no-hosts corefile must NOT contain hosts plugin blocks
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("hosts /etc/localdns/hosts"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("# Check /etc/localdns/hosts"))
+
+				// But it should still contain the standard corefile structure
+				Expect(localDNSCoreFile).To(ContainSubstring("health-check.localdns.local:53"))
+				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.10"))
+				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.11"))
+				Expect(localDNSCoreFile).To(ContainSubstring("forward . 168.63.129.16"))
+				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns"))
+				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns-pod"))
+			})
+
+			// Verify that includeHostsPlugin=true produces hosts blocks and includeHostsPlugin=false does not,
+			// when using the same LocalDNSProfile configuration.
+			It("produces different output for includeHostsPlugin true vs false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					EnableHostsPlugin:    true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Immediate",
+						},
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+					},
+				}
+				withHosts, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, true)
+				Expect(err).To(BeNil())
+				withoutHosts, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+
+				// With hosts should have the hosts plugin block
+				Expect(withHosts).To(ContainSubstring("hosts /etc/localdns/hosts"))
+				// Without hosts should NOT have it
+				Expect(withoutHosts).ToNot(ContainSubstring("hosts /etc/localdns/hosts"))
+				// Both should still be valid corefiles
+				Expect(withHosts).To(ContainSubstring("health-check.localdns.local:53"))
+				Expect(withoutHosts).To(ContainSubstring("health-check.localdns.local:53"))
+			})
 		})
 	})
 })
+
+func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
+	cseRegex := regexp.MustCompile(cseRegexString)
+	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
+	vars := make(map[string]string)
+
+	for _, cseVar := range cseVariableList {
+		if len(cseVar) < 3 {
+			return nil, fmt.Errorf("expected 3 results (match, key, value) from regex, found %d, result %q", len(cseVar), cseVar)
+		}
+
+		key := cseVar[1]
+		val := getValueWithoutQuotes(cseVar[2])
+
+		vars[key] = val
+	}
+
+	return vars, nil
+}
+
+func getValueWithoutQuotes(value string) string {
+	if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
+		return value[1 : len(value)-1]
+	}
+	return value
+}
 
 type tarEntry struct {
 	path string
@@ -727,32 +904,6 @@ func decodeTarFiles(data []byte) ([]tarEntry, error) {
 		})
 	}
 	return files, nil
-}
-
-func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
-	cseRegex := regexp.MustCompile(cseRegexString)
-	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
-	vars := make(map[string]string)
-
-	for _, cseVar := range cseVariableList {
-		if len(cseVar) < 3 {
-			return nil, fmt.Errorf("expected 3 results (match, key, value) from regex, found %d, result %q", len(cseVar), cseVar)
-		}
-
-		key := cseVar[1]
-		val := getValueWithoutQuotes(cseVar[2])
-
-		vars[key] = val
-	}
-
-	return vars, nil
-}
-
-func getValueWithoutQuotes(value string) string {
-	if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
-		return value[1 : len(value)-1]
-	}
-	return value
 }
 
 var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
@@ -1286,7 +1437,157 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 })
 
 var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		agentPoolProfile := &datamodel.AgentPoolProfile{
+			Name:   "nodepool1",
+			OSType: datamodel.Linux,
+			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+		}
+
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
+				},
+			},
+			AgentPoolProfile:          agentPoolProfile,
+			CloudSpecConfig:           datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:             &datamodel.K8sComponents{},
+			KubeletConfig:             map[string]string{},
+			EnableScriptlessNBCCSECmd: true,
+			PreProvisionOnly:          preProvisionOnly,
+		}
+	}
+
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
+		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+	})
+
+	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom",
+		}
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
+		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
+	})
+
+	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with AzureLinux", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom",
+		}
+		config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV2
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
+		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
+	})
+
+	It("should render initAKSCustomCloud file in scriptless custom data for USSecCloud with Ubuntu", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom",
+		}
+		config.ContainerService.Location = "usseceast"
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
+		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
+	})
+
+	It("should render initAKSCustomCloud file in scriptless custom data for USSecCloud with AzureLinux", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom",
+		}
+		config.ContainerService.Location = "usseceast"
+		config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV2
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
+		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
+	})
+
+	It("should not render initAKSCustomCloud file in scriptless custom data for non-custom cloud", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		renderConfig := *config
+		renderConfig.EnableScriptlessCSECmd = true
+		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+
+		Expect(nodeCustomData).NotTo(ContainSubstring(initAKSCustomCloudFilepath))
+	})
+
+	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(true)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
+		Expect(err).NotTo(HaveOccurred())
+
+		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+
+		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nbcCmdFilePath))
+	})
+})
+
+var _ = Describe("getNodeBootstrappingCmd", func() {
+	It("should use the regular linux CSE command when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		agentPoolProfile := &datamodel.AgentPoolProfile{
 			Name:   "nodepool1",
@@ -1315,20 +1616,11 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 			K8sComponents:             &datamodel.K8sComponents{},
 			KubeletConfig:             map[string]string{},
 			EnableScriptlessNBCCSECmd: true,
+			PreProvisionOnly:          true,
 		}
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
-		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
-		Expect(err).NotTo(HaveOccurred())
-
-		renderConfig := *config
-		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
-		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-
-		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
-		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
-		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 })
 
@@ -1342,7 +1634,7 @@ var _ = Describe("cloudInitToButane", func() {
 
 	It("should convert bootcmds to a systemd unit and shell script", func() {
 		var config = cloudInit{BootCommands: []string{"echo hello world", "ls 'some dir'"}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
@@ -1385,7 +1677,7 @@ var _ = Describe("cloudInitToButane", func() {
 				Content:     string(gzipped),
 			},
 		}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
 		tarball, err := decodeButaneResource(file.Contents)
@@ -1414,7 +1706,7 @@ var _ = Describe("cloudInitToButane", func() {
 				Content:     encoded,
 			},
 		}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		Expect(butane.Storage.Files).To(HaveLen(1))
 		var file = butane.Storage.Files[0]
 		tarball, err := decodeButaneResource(file.Contents)
@@ -1434,7 +1726,7 @@ var _ = Describe("cloudInitToButane", func() {
 
 	It("should create a system unit but not a shell script with no bootcmds", func() {
 		var config = cloudInit{BootCommands: []string{}}
-		var butane = cloudInitToButane(config)
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
 		checkForUnit(butane)
 		Expect(butane.Storage.Files).To(BeEmpty())
 		Expect(butane.Systemd.Units).NotTo(BeEmpty())
@@ -1448,6 +1740,24 @@ var _ = Describe("cloudInitToButane", func() {
 			}
 		}
 		Expect(found).To(BeTrue())
+	})
+
+	It("should include storage links for ACL butane config", func() {
+		var config = cloudInit{BootCommands: []string{"echo hello"}}
+		var butane = cloudInitToButane(config, kubernetesACLNodeCustomDataYaml)
+		checkForUnit(butane)
+		Expect(butane.Storage.Links).To(HaveLen(2))
+		Expect(butane.Storage.Links[0].Path).To(Equal("/etc/systemd/system/sysinit.target.wants/ignition-bootcmds.service"))
+		Expect(*butane.Storage.Links[0].Target).To(Equal("/etc/systemd/system/ignition-bootcmds.service"))
+		Expect(butane.Storage.Links[1].Path).To(Equal("/etc/systemd/system/sysinit.target.wants/ignition-file-extract.service"))
+		Expect(*butane.Storage.Links[1].Target).To(Equal("/etc/systemd/system/ignition-file-extract.service"))
+	})
+
+	It("should not include storage links for Flatcar butane config", func() {
+		var config = cloudInit{BootCommands: []string{"echo hello"}}
+		var butane = cloudInitToButane(config, kubernetesFlatcarNodeCustomDataYaml)
+		checkForUnit(butane)
+		Expect(butane.Storage.Links).To(BeEmpty())
 	})
 })
 

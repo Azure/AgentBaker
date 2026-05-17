@@ -45,7 +45,7 @@ installDeps() {
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
-    aptmarkWALinuxAgent hold
+    holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
@@ -63,13 +63,27 @@ installDeps() {
         pkg_list+=("aznfs=3.0.14")
     fi
 
-    for apt_package in ${pkg_list[*]}; do
-        if ! apt_get_install 30 1 600 $apt_package; then
-            tail -n 200 /var/log/apt/term.log || true
-            tail -n 200 /var/log/dpkg.log || true
-            exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-    done
+    # Batch install all packages in a single apt_get_install call instead of
+    # looping one-by-one. On failure, fall back to individual installs for
+    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
@@ -456,12 +470,15 @@ installContainerdWithAptGet() {
     local containerdMajorMinorPatchVersion="${1}"
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    # Query installed version via dpkg metadata instead of running the containerd
+    # binary. `containerd -version` takes ~5.7s to load the full runtime just to
+    # print a version string; dpkg-query is instant.
+    # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
+    # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
     currentVersion=""
-    if command -v containerd &> /dev/null; then
-        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
+        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
-    # v1.4.1 is our lowest supported version of containerd
 
     if [ -z "$currentVersion" ]; then
         currentVersion="0.0.0"
@@ -498,8 +515,9 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    UBUNTU_RELEASE=$(lsb_release -r -s)
-    UBUNTU_CODENAME=$(lsb_release -c -s)
+    # UBUNTU_RELEASE is already set at script load time from cse_install.sh.
+    # Read UBUNTU_CODENAME from /etc/os-release instead of lsb_release (avoids Python spawn).
+    UBUNTU_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
     CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
