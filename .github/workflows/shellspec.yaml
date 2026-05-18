@@ -1,6 +1,9 @@
 name: Shell/Bash Script Unit Tests
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   shellspec:
     runs-on: ubuntu-latest
