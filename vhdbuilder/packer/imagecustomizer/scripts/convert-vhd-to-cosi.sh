@@ -2,13 +2,16 @@
 set -euo pipefail
 
 # Converts an ACL VHD from blob storage to COSI format using ImageCustomizer,
-# then uploads the COSI file back to blob storage.
+# then uploads the COSI file to PMC Storage via AFD endpoint.
 
 required_env_vars=(
     "DESTINATION_STORAGE_CONTAINER"
     "CAPTURED_SIG_VERSION"
     "IMG_CUSTOMIZER_CONTAINER"
     "IMG_CUSTOMIZER_VERSION"
+    "AFD_UPLOAD_ENDPOINT"
+    "COSI_CONTAINER"
+    "IMG_CUSTOMIZER_CONFIG"
 )
 
 for v in "${required_env_vars[@]}"
@@ -30,7 +33,8 @@ trap cleanup EXIT
 
 VHD_BLOB_URL="${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 LOCAL_VHD="$WORK_DIR/${CAPTURED_SIG_VERSION}.vhd"
-LOCAL_COSI="$WORK_DIR/out/${CAPTURED_SIG_VERSION}.cosi"
+COSI_BLOB_NAME="${IMG_CUSTOMIZER_CONFIG}-${CAPTURED_SIG_VERSION}.cosi"
+LOCAL_COSI="$WORK_DIR/out/${COSI_BLOB_NAME}"
 
 echo "Setting azcopy environment variables"
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
@@ -71,7 +75,7 @@ docker run \
         --log-level "debug" \
         --build-dir /convert/build \
         --image-file "/convert/${CAPTURED_SIG_VERSION}.vhd" \
-        --output-image-file "/convert/out/${CAPTURED_SIG_VERSION}.cosi" \
+        --output-image-file "/convert/out/${COSI_BLOB_NAME}" \
         --output-image-format cosi
 
 if [ ! -f "$LOCAL_COSI" ]; then
@@ -79,8 +83,8 @@ if [ ! -f "$LOCAL_COSI" ]; then
     exit 1
 fi
 
-echo "Uploading COSI to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi"
-if ! azcopy copy "$LOCAL_COSI" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi" --recursive=true; then
+echo "Uploading COSI to ${AFD_UPLOAD_ENDPOINT}/${COSI_CONTAINER}/${COSI_BLOB_NAME}"
+if ! azcopy copy "$LOCAL_COSI" "${AFD_UPLOAD_ENDPOINT}/${COSI_CONTAINER}/${COSI_BLOB_NAME}" --recursive=true; then
     azExitCode=$?
     shopt -s nullglob
     for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
@@ -97,4 +101,4 @@ if ! azcopy copy "$LOCAL_COSI" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_
     exit $azExitCode
 fi
 
-echo "Successfully converted and uploaded COSI: ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi"
+echo "Successfully converted and uploaded COSI: ${AFD_UPLOAD_ENDPOINT}/${COSI_CONTAINER}/${COSI_BLOB_NAME}"

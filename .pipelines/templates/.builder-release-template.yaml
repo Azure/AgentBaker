@@ -409,6 +409,9 @@ steps:
     displayName: Convert ACL VHD to COSI
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+      COSI_CONTAINER: $(COSI_CONTAINER)
+      IMG_CUSTOMIZER_CONFIG: $(IMG_CUSTOMIZER_CONFIG)
 
   - task: AzureCLI@2
     inputs:
@@ -421,12 +424,6 @@ steps:
         export AZCOPY_CONCURRENCY_VALUE="AUTO"
         az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
         echo "Successfully copied VHD to immutable container"
-        if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
-          echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi to immutable storage container"
-          az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.cosi" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi" --auth-mode login || exit 1
-          echo "Successfully copied COSI to immutable container"
-          azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi" --recursive=true
-        fi
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     condition: |
