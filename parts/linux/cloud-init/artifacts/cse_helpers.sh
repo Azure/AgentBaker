@@ -1085,7 +1085,7 @@ fallbackToKubeBinaryInstall() {
             mv "/opt/bin/${packageName}-${packageVersion}" "${targetPath}"
             chown root:root "${targetPath}"
             chmod 0755 "${targetPath}"
-            rm -rf "/opt/bin/${packageName}-*" &
+            rm -rf /opt/bin/"${packageName}"-* &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
