@@ -39,7 +39,7 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     else
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     fi
-  else
+  elif grep -q "GB200" <<< "$FEATURE_FLAGS"; then
     # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or GB200.
     if [ $(dpkg --get-selections | grep -c "linux-image") -lt 2 ]; then
       echo "ERROR: Ubuntu 24.04 ARM image is missing either the -azure or -azure-nvidia kernel, cannot continue!" && exit 1
