@@ -95,7 +95,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk run-packer
-    condition: ne(variables['BUILDER'], 'imagecustomizer')
+    condition: and(ne(variables['BUILDER'], 'imagecustomizer'), ne(variables['BUILDER'], 'cosi'))
     displayName: Build VHD
     retryCountOnTaskFailure: 3
     env:
@@ -116,6 +116,24 @@ steps:
         make -f packer.mk run-imagecustomizer
     condition: eq(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD - Image Customizer
+    retryCountOnTaskFailure: 3
+    env:
+      OS_TYPE: Linux
+      GIT_VERSION: $(Build.SourceVersion)
+      BRANCH: $(Build.SourceBranch)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        make -f packer.mk run-cosi
+    condition: eq(variables['BUILDER'], 'cosi')
+    displayName: Build COSI Artifact
     retryCountOnTaskFailure: 3
     env:
       OS_TYPE: Linux
@@ -255,6 +273,31 @@ steps:
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
 
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        make -f packer.mk cosi-register
+    condition: eq(variables['BUILDER'], 'cosi')
+    displayName: Publish COSI to Storage & Nebraska
+    retryCountOnTaskFailure: 3
+    env:
+      NEBRASKA_PUBLISHER_ENDPOINT: $(NEBRASKA_PUBLISHER_ENDPOINT)
+      NEBRASKA_APP_ID: $(NEBRASKA_APP_ID)
+      AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+      AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
+      COSI_CONTAINER: $(COSI_CONTAINER)
+
+  - task: PublishPipelineArtifact@0
+    condition: eq(variables['BUILDER'], 'cosi')
+    displayName: Publish COSI Publishing Info
+    inputs:
+      artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'cosi-publishing-info.json' 
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -262,7 +305,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk replicate-captured-sig-image-version
-    condition: ne(variables['REPLICATIONS'], '')
+    condition: and(ne(variables['REPLICATIONS'], ''), ne(variables['BUILDER'], 'cosi'))
     displayName: Replicate captured SIG image version
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
@@ -328,7 +371,7 @@ steps:
       targetPath: 'bcc-tools-installation.log'
 
   - task: PublishPipelineArtifact@0
-    condition: ne(variables.BUILDER, 'imagecustomizer')
+    condition: and(ne(variables.BUILDER, 'imagecustomizer'), ne(variables.BUILDER, 'cosi'))
     continueOnError: true
     displayName: Publish Disk Usage Report
     inputs:
@@ -384,6 +427,7 @@ steps:
         succeeded(),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         ne(variables.BUILDER, 'imagecustomizer'),
+        ne(variables.BUILDER, 'cosi'),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
@@ -469,7 +513,7 @@ steps:
       inlineScript: |
         make -f packer.mk generate-publishing-info
     displayName: Generate Publishing Info
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables.BUILDER, 'cosi'))
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)

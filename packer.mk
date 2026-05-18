@@ -88,6 +88,24 @@ endif
 build-imagecustomizer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
+build-cosi: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+	@./vhdbuilder/packer/imagecustomizer/scripts/build-cosi-image.sh
+
+publish-cosi:
+	@./vhdbuilder/packer/imagecustomizer/scripts/publish-cosi-image.sh
+
+build-cosi-extension:
+	@echo "Building cosi-extension binary"
+	@bash -c "pushd cmd/cosi-extension && \\
+	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=$$(GOARCH) go build -o ../../bin/cosi-extension . && \\
+	popd"
+
+run-cosi: az-login
+	@($(MAKE) -f packer.mk build-cosi | tee packer-output)
+
+cosi-register: build-cosi-extension
+	@./vhdbuilder/packer/imagecustomizer/scripts/publish-cosi-image.sh
+
 az-login:
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}

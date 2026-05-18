@@ -149,6 +149,10 @@ parameters:
     displayName: Build Azure Container Linux ARM64 FIPS TL Gen2
     type: boolean
     default: true
+  - name: buildCOSIacltlgen2
+    displayName: Build COSI Azure Container Linux TL Gen2
+    type: boolean
+    default: false
 
 variables:
   - name: MODE
@@ -962,6 +966,33 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-fips-tl-gen2
+      - job: buildCOSIacltlgen2
+        condition: eq('${{ parameters.buildCOSIacltlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=BUILDER]cosi'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]0.17.0'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONFIG]cosi-acl'
+              echo '##vso[task.setvariable variable=BASE_IMG]mcr.microsoft.com/azurelinux/3.0/image/osguard'
+              echo '##vso[task.setvariable variable=BASE_IMG_VERSION]3.0.20260107'
+              echo '##vso[task.setvariable variable=IMG_SKU]acl-tl-gen2'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: cosi-acl-tl-gen2
       - job: build2404arm64gb200gen2containerd
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         dependsOn: [ ]
