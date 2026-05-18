@@ -518,6 +518,8 @@ installRPMPackageFromFile() {
     rpmFile="${downloadDir}/${rpmFile}"
     logs_to_events "AKS.CSE.install${packageName}.extractBinaryFromRPM" "extractBinaryFromRPM ${rpmFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     rm -rf "${downloadDir}"
+    # Clean up stale cached binaries that were not used
+    rm -f /opt/bin/"${packageName}"-* &
 }
 
 installPackageFromCache() {
