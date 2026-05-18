@@ -393,11 +393,11 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 		}
 	}
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, k[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, " ")
 }
 
 func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
@@ -418,11 +418,11 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 		}
 	}
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, config[key]))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, config[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, " ")
 }
 
 func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {

@@ -102,7 +102,7 @@ func CustomDataWithHack(s *Scenario, nbcCmdScript, binaryURL string) (string, er
 	}
 	if nbcCmdScript != "" {
 		flags = append(flags, "--nbc-cmd="+nbcCmdPath)
-		encodedNBCCSECmd = base64.StdEncoding.EncodeToString([]byte(nbcCmdScript))
+		encodedNBCCSECmd = gzipAndBase64Encode([]byte(nbcCmdScript))
 	}
 	provisionFlags := strings.Join(flags, " ")
 
@@ -113,7 +113,7 @@ func CustomDataWithHack(s *Scenario, nbcCmdScript, binaryURL string) (string, er
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 		}
-		encodedAksNodeConfigJSON = base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+		encodedAksNodeConfigJSON = gzipAndBase64Encode(aksNodeConfigJSON)
 	}
 
 	var customData string
@@ -135,11 +135,11 @@ mkdir -p /opt/azure/containers /opt/azure/bin
 
 `)
 	if encodedConfig != "" {
-		fmt.Fprintf(&sb, "cat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0600 %s\n",
+		fmt.Fprintf(&sb, "cat <<'EOF' | base64 -d | gzip -d > %s\n%s\nEOF\nchmod 0600 %s\n",
 			configPath, encodedConfig, configPath)
 	}
 	if encodedNBCCmd != "" {
-		fmt.Fprintf(&sb, "\ncat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0755 %s\n",
+		fmt.Fprintf(&sb, "\ncat <<'EOF' | base64 -d | gzip -d > %s\n%s\nEOF\nchmod 0755 %s\n",
 			nbcCmdPath, encodedNBCCmd, nbcCmdPath)
 	}
 	fmt.Fprintf(&sb, `
@@ -182,20 +182,28 @@ func buildFlatcarCloudConfig(encodedConfig, configPath, encodedNBCCmd, nbcCmdPat
 	var sb strings.Builder
 	sb.WriteString("#cloud-config\nwrite_files:\n")
 	if encodedConfig != "" {
-		fmt.Fprintf(&sb, `- path: %s
+		fmt.Fprintf(&sb, `- path: %s.gz.b64
   permissions: "0600"
   owner: root
-  content: !!binary |
-   %s
+  content: |
+    %s
 `, configPath, encodedConfig)
 	}
 	if encodedNBCCmd != "" {
-		fmt.Fprintf(&sb, `- path: %s
-  permissions: "0755"
+		fmt.Fprintf(&sb, `- path: %s.gz.b64
+  permissions: "0644"
   owner: root
-  content: !!binary |
-   %s
+  content: |
+    %s
 `, nbcCmdPath, encodedNBCCmd)
+	}
+	// Build a decode script that decompresses the gzipped+base64 files before running ANC.
+	var decodeSteps strings.Builder
+	if encodedConfig != "" {
+		fmt.Fprintf(&decodeSteps, "    base64 -d %s.gz.b64 | gzip -d > %s && chmod 0600 %s\n", configPath, configPath, configPath)
+	}
+	if encodedNBCCmd != "" {
+		fmt.Fprintf(&decodeSteps, "    base64 -d %s.gz.b64 | gzip -d > %s && chmod 0755 %s\n", nbcCmdPath, nbcCmdPath, nbcCmdPath)
 	}
 	fmt.Fprintf(&sb, `- path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
@@ -204,7 +212,7 @@ func buildFlatcarCloudConfig(encodedConfig, configPath, encodedNBCCmd, nbcCmdPat
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+%s    curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
     /opt/azure/bin/aks-node-controller-hack provision %s
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
@@ -222,8 +230,19 @@ coreos:
         ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
         [Install]
         WantedBy=multi-user.target
-`, binaryURL, provisionFlags)
+`, decodeSteps.String(), binaryURL, provisionFlags)
 	return sb.String()
+}
+
+// gzipAndBase64Encode compresses data with gzip then base64-encodes it.
+// This matches the production baker.go approach (getBase64EncodedGzippedCustomScriptFromStr)
+// to keep custom data within the Azure 65535-byte limit.
+func gzipAndBase64Encode(data []byte) string {
+	var buf bytes.Buffer
+	w := gzip.NewWriter(&buf)
+	w.Write(data)
+	w.Close()
+	return base64.StdEncoding.EncodeToString(buf.Bytes())
 }
 
 // CustomDataWithNBCCmdHack is similar to baker.boothooktemplate, but it uses a hack to run new aks-node-controller binary.
@@ -375,9 +394,6 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	var cse, customData string
 
 	if s.Runtime.NBC != nil {
-		if s.Runtime.EnableScriptlessANC {
-			s.Runtime.NBC.EnableKubeletConfigFile = true
-		}
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(s.T, err)
 	}

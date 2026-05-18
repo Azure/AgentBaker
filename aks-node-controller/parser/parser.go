@@ -33,7 +33,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
-		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision.log",
+		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"MOBY_VERSION":                                         "",
 		"CLOUDPROVIDER_BACKOFF":                                fmt.Sprintf("%v", cloudProviderSettings.backoff),
 		"CLOUDPROVIDER_BACKOFF_MODE":                           cloudProviderSettings.backoffMode,
@@ -47,7 +47,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CLOUDPROVIDER_RATELIMIT_BUCKET":                       fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucket),
 		"CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE":                 fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucketWrite),
 		"CLI_TOOL":                                             "ctr",
-		"NETWORK_MODE":                                         "transparent",
+		"NETWORK_MODE":                                         "",
 		"ADMINUSER":                                            getLinuxAdminUsername(config.GetLinuxAdminUsername()),
 		"TENANT_ID":                                            config.GetAuthConfig().GetTenantId(),
 		"KUBERNETES_VERSION":                                   config.GetKubernetesVersion(),
@@ -188,13 +188,13 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"LOCALDNS_GENERATED_COREFILE":                  getLocalDnsCorefileBase64WithHostsPlugin(config, false),
 		"LOCALDNS_COREFILE_BASE":                       getLocalDnsCorefileBase64WithHostsPlugin(config, false),
 		"LOCALDNS_COREFILE_WITH_HOSTS":                 getLocalDnsCorefileBase64WithHostsPlugin(config, true),
-		"DISABLE_PUBKEY_AUTH":                          fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
 		"SERVICE_ACCOUNT_IMAGE_PULL_ENABLED":           fmt.Sprintf("%v", config.GetServiceAccountImagePullProfile().GetEnabled()),
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID": config.GetServiceAccountImagePullProfile().GetDefaultClientId(),
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID": config.GetServiceAccountImagePullProfile().GetDefaultTenantId(),
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":        config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
 		"CSE_TIMEOUT":                                  getCSETimeout(config),
-		"SKIP_WAAGENT_HOLD":                            "true",
+		"SKIP_WAAGENT_HOLD":                            "false",
+		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 	}
 
 	for i, cert := range config.CustomCaCerts {

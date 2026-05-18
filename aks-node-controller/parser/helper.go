@@ -471,24 +471,18 @@ func getPortRangeEndValue(portRange string) int {
 
 // createSortedKeyValuePairs creates a string with key=value pairs, sorted by key, with custom delimiter.
 func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
-	keys := []string{}
+	keys := make([]string, 0, len(m))
 	for key := range m {
 		keys = append(keys, key)
 	}
 
 	// we are sorting the keys for deterministic output for readability and testing.
 	sort.Strings(keys)
-	var buf bytes.Buffer
-	i := 0
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		i++
-		// set the last delimiter to empty string
-		if i == len(keys) {
-			delimiter = ""
-		}
-		buf.WriteString(fmt.Sprintf("%s=%v%s", key, m[key], delimiter))
+		pairs = append(pairs, fmt.Sprintf("%s=%v", key, m[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, delimiter)
 }
 
 func getExcludeMasterFromStandardLB(lb *aksnodeconfigv1.LoadBalancerConfig) bool {
@@ -652,7 +646,7 @@ func marshalToJSON(v any) ([]byte, error) {
 		}
 
 		var rawMessage json.RawMessage = data
-		jsonByte, err := json.MarshalIndent(rawMessage, "", "  ")
+		jsonByte, err := json.MarshalIndent(rawMessage, "", "    ")
 		if err != nil {
 			log.Printf("error marshalling kubelet config file content: %v", err)
 			return nil, err
@@ -694,13 +688,13 @@ func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
 	proxyVars := ""
 	if proxyConfig.GetHttpProxy() != "" {
 		// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-		proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", proxyConfig.GetHttpProxy())
+		proxyVars = fmt.Sprintf("export http_proxy=%s;", proxyConfig.GetHttpProxy())
 	}
 	if proxyConfig.GetHttpsProxy() != "" {
-		proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", proxyConfig.GetHttpsProxy(), proxyVars)
+		proxyVars = fmt.Sprintf("export HTTPS_PROXY=%s; %s", proxyConfig.GetHttpsProxy(), proxyVars)
 	}
 	if proxyConfig.GetNoProxyEntries() != nil {
-		proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
+		proxyVars = fmt.Sprintf("export NO_PROXY=%s; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
 	}
 	return proxyVars
 }

@@ -1483,7 +1483,6 @@ func isMariner(osSku string) bool {
 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
 # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-net.ipv4.tcp_retries2=8
 net.core.message_burst=80
 net.core.message_cost=40
 {{- if .CustomLinuxOSConfig}}
@@ -1574,6 +1573,7 @@ net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
 net.ipv4.ip_local_reserved_ports=65330
 {{- end}}
 {{- end}}
+net.ipv4.tcp_retries2=8
 {{- if $s.NetNetfilterNfConntrackMax}}
 net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
 {{- end}}
@@ -1608,30 +1608,29 @@ vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
 {{- end}}
 `
 
-const kubenetCniTemplate = `
-{
-    "cniVersion": "0.3.1",
-    "name": "kubenet",
-    "plugins": [{
-    "type": "bridge",
-    "bridge": "cbr0",
-    "mtu": 1500,
-    "addIf": "eth0",
-    "isGateway": true,
-    "ipMasq": false,
-    "promiscMode": true,
-    "hairpinMode": false,
-    "ipam": {
-        "type": "host-local",
-        "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
-        "routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
-    }
-    },
-    {
-    "type": "portmap",
-    "capabilities": {"portMappings": true},
-    "externalSetMarkChain": "KUBE-MARK-MASQ"
-    }]
+const kubenetCniTemplate = `{
+	"cniVersion": "0.3.1",
+	"name": "kubenet",
+	"plugins": [{
+		"type": "bridge",
+		"bridge": "cbr0",
+		"mtu": 1500,
+		"addIf": "eth0",
+		"isGateway": true,
+		"ipMasq": false,
+		"promiscMode": true,
+		"hairpinMode": false,
+		"ipam": {
+			"type": "host-local",
+			"ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
+			"routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
+		}
+	},
+	{
+		"type": "portmap",
+		"capabilities": {"portMappings": true},
+		"externalSetMarkChain": "KUBE-MARK-MASQ"
+	}]
 }
 `
 
@@ -1985,8 +1984,7 @@ func GenerateLocalDNSCoreFile(
 // (mcr.microsoft.com, packages.aks.azure.com, etc.) are included in root domain server blocks.
 // When false, hosts blocks are omitted — used as a fallback when enableAKSLocalDNSHostsSetup fails at
 // provisioning time, following the same dual-config pattern used for containerd GPU/no-GPU configs.
-const localDNSCoreFileTemplateString = `
-# ***********************************************************************************
+const localDNSCoreFileTemplateString = `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)

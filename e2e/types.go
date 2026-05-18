@@ -279,7 +279,7 @@ func (s *Scenario) KubeletConfigFileEnabled() bool {
 	if s.Runtime == nil {
 		return false
 	}
-	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile && (s.Runtime.EnableScriptlessANC || s.Tags.Scriptless) {
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
 		return true
 	}
 	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||

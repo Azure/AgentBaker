@@ -23,6 +23,14 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+var deprecatedCSEVars = map[string]bool{
+	"CLOUD_INIT_STATUS_SCRIPT": true,
+	"HYPERKUBE_URL":            true,
+	"MCR_REPOSITORY_BASE":      true,
+	"BLOCK_OUTBOUND_NETWORK": true,
+	"DISABLE_PUBKEY_AUTH": true,
+}
+
 type App struct {
 	// cmdRun is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
@@ -295,11 +303,13 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
-			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s = %q", key, pcVal))
 		case !inPC && inNBC:
-			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
+			if !deprecatedCSEVars[key] {
+				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s = %q", key, nbcVal))
+			}
 		case pcVal != nbcVal:
-			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+			diffs = append(diffs, fmt.Sprintf("differs: %s pc=%q nbc=%q", key, pcVal, nbcVal))
 		}
 	}
 
