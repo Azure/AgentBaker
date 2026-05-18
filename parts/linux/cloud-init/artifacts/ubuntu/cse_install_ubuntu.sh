@@ -427,6 +427,7 @@ installPackageFromCache() {
     logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
 
     rm -rf "${downloadDir}"
+    rm -f /opt/bin/"${packageName}"-* &
 }
 
 downloadPkgFromVersion() {
