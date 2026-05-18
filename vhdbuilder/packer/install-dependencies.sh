@@ -463,23 +463,6 @@ while IFS= read -r p; do
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
-      # dm-verity prototype: optionally swap in a patched containerd RPM + drop
-      # an erofs+dm-verity config + install the kernel-keyring loader. No-op
-      # when DMVERITY_RPM_URL is empty in dmverity-prototype.env. Runs only
-      # on AzureLinux/Mariner builds (uses tdnf). MUST run before the image
-      # pre-pull loop so the patched containerd handles those pulls.
-      if isMarinerOrAzureLinux "$OS"; then
-        DMVERITY_PROTOTYPE_INSTALLER="$(dirname "${BASH_SOURCE[0]}")/dmverity-prototype/install.sh"
-        # Use [ -f ] (not [ -x ]) because Packer's `file` provisioner does not
-        # preserve the source file's executable bit when uploading. Invoke
-        # explicitly with bash so the script runs regardless of mode bits.
-        if [ -f "${DMVERITY_PROTOTYPE_INSTALLER}" ]; then
-          echo "running dmverity prototype installer: ${DMVERITY_PROTOTYPE_INSTALLER}"
-          bash "${DMVERITY_PROTOTYPE_INSTALLER}" || exit $?
-        else
-          echo "dmverity prototype installer not present at ${DMVERITY_PROTOTYPE_INSTALLER}; skipping"
-        fi
-      fi
       ;;
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
@@ -1142,6 +1125,39 @@ extractAndCacheCoreDnsBinary() {
 }
 
 extractAndCacheCoreDnsBinary
+
+# dm-verity prototype: optionally swap in a patched containerd RPM + drop
+# an erofs+dm-verity config + install the kernel-keyring loader. No-op
+# when DMVERITY_RPM_URL is empty in dmverity-prototype.env. Runs only
+# on AzureLinux/Mariner builds (uses tdnf).
+#
+# Why this runs LATE (after extractAndCacheCoreDnsBinary) rather than alongside
+# the stock containerd install:
+#   The patched containerd 2.0.1 uses a new mount-manager subsystem that is
+#   aware of erofs+dm-verity snapshots. Under the patched binary,
+#   `ctr -n k8s.io images mount <image> <dir>` fails with
+#       "mount source: /run/containerd/io.containerd.mount-manager.v1.bolt/t/N/1
+#        target: <dir>, fstype: bind, ..., err: no such device"
+#   for regular (non-dm-verity-signed) images. extractAndCacheCoreDnsBinary
+#   relies on `ctr images mount` to extract the coredns binary from the
+#   cached image, so it must run on the stock containerd. Anything that
+#   needs `ctr images mount` against non-dm-verity images during build
+#   must execute BEFORE this hook. The image pre-pull loop further up
+#   uses /opt/azure/containers/image-fetcher (containerd's content API,
+#   not the mount-manager), so it is unaffected by the snapshotter swap
+#   and works fine on either binary.
+if isMarinerOrAzureLinux "$OS"; then
+  DMVERITY_PROTOTYPE_INSTALLER="$(dirname "${BASH_SOURCE[0]}")/dmverity-prototype/install.sh"
+  # Use [ -f ] (not [ -x ]) because Packer's `file` provisioner does not
+  # preserve the source file's executable bit when uploading. Invoke
+  # explicitly with bash so the script runs regardless of mode bits.
+  if [ -f "${DMVERITY_PROTOTYPE_INSTALLER}" ]; then
+    echo "running dmverity prototype installer: ${DMVERITY_PROTOTYPE_INSTALLER}"
+    bash "${DMVERITY_PROTOTYPE_INSTALLER}" || exit $?
+  else
+    echo "dmverity prototype installer not present at ${DMVERITY_PROTOTYPE_INSTALLER}; skipping"
+  fi
+fi
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"

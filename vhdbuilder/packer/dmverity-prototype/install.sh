@@ -83,9 +83,17 @@ if [[ -n "${DMVERITY_RPM_SHA256:-}" ]]; then
 fi
 
 # Force-install (replaces stock containerd2 if a different build is already
-# present from installStandaloneContainerd).
+# present from installStandaloneContainerd). We pass --disablerepo='*' so
+# tdnf does NOT refresh any configured repo metadata as a side-effect of
+# installing this local RPM. This prototype install runs mid-build on a VM
+# that has the build's Preview Repo SAS configured, and that SAS has been
+# observed to return transient 403s; a refresh failure there would abort
+# the prototype install with `Error: Failed to synchronize cache for repo`.
+# Dependency resolution still works because tdnf consults the installed
+# rpmdb before reaching for repos, and the patched RPM's deps were just
+# satisfied by the stock containerd2 install above.
 log "installing patched containerd RPM"
-tdnf install -y --nogpgcheck "${TMP_RPM}"
+tdnf install -y --nogpgcheck --disablerepo='*' "${TMP_RPM}"
 
 INSTALLED_VER=$(containerd --version 2>/dev/null || echo 'unknown')
 log "patched containerd installed: ${INSTALLED_VER}"

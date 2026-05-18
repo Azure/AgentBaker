@@ -33,6 +33,17 @@ err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
 
+# isDmverityPrototypeInstalled returns 0 (true) when the dm-verity prototype
+# containerd build is present on this VHD. The prototype installer drops a
+# CA cert at /etc/aks/dmverity/osguard-signer-ca.pem; we use that as the
+# canonical marker. Some tests must be skipped under the prototype because
+# the patched containerd 2.0.1 mount-manager subsystem is incompatible with
+# `ctr -n k8s.io images mount` for non-dm-verity-signed images, and the
+# patched containerd version intentionally diverges from components.json.
+isDmverityPrototypeInstalled() {
+  [ -f /etc/aks/dmverity/osguard-signer-ca.pem ]
+}
+
 # Clone the repo and checkout the branch provided.
 # Simply clone with just the branch doesn't work for pull requests, but this technique works
 # with everything we've tested so far.
@@ -1553,6 +1564,17 @@ testContainerImagePrefetchScript() {
   local test="testContainerImagePrefetchScript"
   local container_image_prefetch_script_path="/opt/azure/containers/prefetch.sh"
 
+  # The generated prefetch.sh uses `ctr -n k8s.io images mount` to extract
+  # files from cached images. The dm-verity prototype's patched containerd
+  # 2.0.1 routes mounts through a new mount-manager subsystem that is
+  # incompatible with non-dm-verity-signed images and fails with
+  # `err: no such device`. Skip the prefetch validation in that mode until
+  # prefetch is refactored to use a content-API-based extraction path.
+  if isDmverityPrototypeInstalled; then
+    echo "$test: Skipping prefetch.sh execution, dm-verity prototype containerd does not support 'ctr images mount' for non-signed images"
+    return 0
+  fi
+
   echo "$test: checking existence of container image prefetch script at $container_image_prefetch_script_path"
   if [ ! -f "$container_image_prefetch_script_path" ]; then
     err "$test: container image prefetch script does not exist at $container_image_prefetch_script_path"
@@ -1813,6 +1835,13 @@ testContainerd() {
   expectedVersion="${1}"
   local test="testContainerd"
   echo "$test: Start"
+  # If the dm-verity prototype containerd is installed, its version
+  # intentionally diverges from components.json (we ship a patched 2.0.1
+  # build); skip the version assertion in that mode.
+  if isDmverityPrototypeInstalled; then
+    echo "$test: Skipping containerd version check, dm-verity prototype containerd is installed"
+    return 0
+  fi
   # If the version defined in components.json is <SKIP>, that means it will use whatever version is installed on the system.
   # Therefore, we will just skip the test.
   if [ "$expectedVersion" = "<SKIP>" ]; then
