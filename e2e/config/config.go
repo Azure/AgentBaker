@@ -184,6 +184,8 @@ func mustLoadConfig() *Configuration {
 
 func init() {
 	rcv1pSubID := strings.TrimSpace(Config.RCV1PSubscriptionID)
+	// Guard against ADO pipeline variable expressions that weren't resolved (e.g. "$(RCV1P_SUBSCRIPTION_ID)").
+	// If the value is still a literal $(...) token, treat it as unset.
 	if rcv1pSubID != "" && !strings.HasPrefix(rcv1pSubID, "$(") {
 		client, err := NewAzureClientForSubscription(rcv1pSubID)
 		if err != nil {
