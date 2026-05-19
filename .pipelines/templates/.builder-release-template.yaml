@@ -435,6 +435,31 @@ steps:
       )
     displayName: Copy COSI to Immutable Storage Container
 
+  - bash: |
+      make -f packer.mk generate-cosi-publishing-info
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables['OS_SKU'], 'AzureContainerLinux')
+      )
+    displayName: Generate COSI Publishing Info
+    env:
+      STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
+      OFFER_NAME: $(OS_SKU)
+
+  - task: PublishPipelineArtifact@1
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables['OS_SKU'], 'AzureContainerLinux')
+      )
+    displayName: Publish COSI Publishing Info
+    inputs:
+      artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'cosi-publishing-info.json'
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
