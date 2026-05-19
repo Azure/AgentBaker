@@ -49,6 +49,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateWaagentLog(ctx, s)
 	ValidateScriptlessCSECmd(ctx, s)
 	ValidateScriptlessNBCCSECmd(ctx, s)
+	ValidateScriptlessPhase3(ctx, s)
 	ValidateNodeExporter(ctx, s)
 
 	ValidateSysctlConfig(ctx, s, map[string]string{

@@ -402,7 +402,7 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["vm.vfs_cache_pressure"] = s.GetVmVfsCachePressure()
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
+	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n"))
 }
 
 func getShouldConfigContainerdUlimits(u *aksnodeconfigv1.UlimitConfig) bool {

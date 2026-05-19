@@ -2565,6 +2565,19 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	}
 }
 
+func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	if s.Runtime.NBC != nil && s.Runtime.AKSNodeConfig != nil {
+		logFile := "/var/log/azure/aks-node-controller.log"
+		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
+			// Grep for "differs" lines to show what's different
+			diffCmd := "sudo grep 'differs' " + logFile + " || true"
+			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.log")
+			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
+		}
+	}
+}
+
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()

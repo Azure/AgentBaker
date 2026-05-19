@@ -1481,9 +1481,7 @@ func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner || osSku == datamodel.OSSKUAzureLinux
 }
 
-const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
-# https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-net.core.message_burst=80
+const sysctlTemplateString = `net.core.message_burst=80
 net.core.message_cost=40
 {{- if .CustomLinuxOSConfig}}
 {{- if .CustomLinuxOSConfig.Sysctls}}
@@ -1491,11 +1489,6 @@ net.core.message_cost=40
 net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
 {{- else}}
 net.core.somaxconn=16384
-{{- end}}
-{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-{{- else}}
-net.ipv4.tcp_max_syn_backlog=16384
 {{- end}}
 {{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
 net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
@@ -1512,19 +1505,27 @@ net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDef
 {{- else}}
 net.ipv4.neigh.default.gc_thresh3=16384
 {{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+net.ipv4.tcp_retries2=8
 {{- else}}
 net.core.somaxconn=16384
-net.ipv4.tcp_max_syn_backlog=16384
 net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.tcp_retries2=8
 {{- end}}
 {{- else}}
 net.core.somaxconn=16384
-net.ipv4.tcp_max_syn_backlog=16384
 net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.tcp_retries2=8
 {{- end}}
 {{- if .CustomLinuxOSConfig}}
 {{- if .CustomLinuxOSConfig.Sysctls}}
@@ -1573,7 +1574,6 @@ net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
 net.ipv4.ip_local_reserved_ports=65330
 {{- end}}
 {{- end}}
-net.ipv4.tcp_retries2=8
 {{- if $s.NetNetfilterNfConntrackMax}}
 net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
 {{- end}}
