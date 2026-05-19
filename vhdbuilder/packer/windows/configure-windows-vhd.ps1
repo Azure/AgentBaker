@@ -780,14 +780,16 @@ function Install-WindowsExporterOnVHD
         return
     }
 
-    $exporterZip = Get-ChildItem -Path $exporterCacheDir -Filter "windows-exporter_*_amd64.zip" -File |
-                   Sort-Object -Property Name -Descending |
-                   Select-Object -First 1
+    $expectedExporterZipName = [IO.Path]::GetFileName($global:windowsExporterPackageUrl.Split('?')[0])
+
+    $exporterZips = @(Get-ChildItem -Path $exporterCacheDir -Filter "windows-exporter_*_amd64.zip" -File)
+    $exporterZip = @($exporterZips | Where-Object { $_.Name -eq $expectedExporterZipName }) | Select-Object -First 1
     if (-not $exporterZip)
     {
-        Write-Log "No windows-exporter zip found under $exporterCacheDir; skipping VHD install"
-        return
+        $foundExporterZipNames = @($exporterZips | ForEach-Object { $_.Name })
+        throw "No expected windows-exporter zip found under $exporterCacheDir. Expected: $expectedExporterZipName. Found: $($foundExporterZipNames -join ', ')"
     }
+    Write-Log "Using windows-exporter package $($exporterZip.Name) resolved from components.json"
 
     New-Item -ItemType Directory -Path $exporterInstallDir -Force | Out-Null
 

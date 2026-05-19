@@ -73,6 +73,23 @@ $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 
+function Get-WindowsExporterPackageUrl
+{
+    $windowsExporterPackages = $global:map["c:\akse-cache\windows-exporter\"]
+    $windowsExporterPackageCount = 0
+    if ($windowsExporterPackages -ne $null)
+    {
+        $windowsExporterPackageCount = $windowsExporterPackages.Count
+    }
+
+    if ($windowsExporterPackageCount -ne 1)
+    {
+        throw "Expected exactly one windows-exporter package from components.json, found $windowsExporterPackageCount"
+    }
+
+    return $windowsExporterPackages[0]
+}
+
 $validSKU = GetWindowsBaseVersions $windowsSettingsJson
 if (-not ($validSKU -contains $windowsSKU))
 {
@@ -85,6 +102,7 @@ if (-not ($validSKU -contains $windowsSKU))
 # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
 # versions synced.
 $global:defaultContainerdPackageUrl = GetDefaultContainerDFromComponentsJson $componentsJson
+$global:windowsExporterPackageUrl = Get-WindowsExporterPackageUrl
 
 # defenderUpdateUrl refers to the latest windows defender platform update
 $global:defenderUpdateUrl = GetDefenderUpdateUrl $windowsSettingsJson

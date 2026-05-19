@@ -828,7 +828,8 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
 		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", sentinel),
 		"Write-Output 'PRESENT'",
 	}
-	res := execScriptOnVMForScenario(ctx, s, strings.Join(sentinelCheck, "\n"))
+	res := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(sentinelCheck, "\n"), 0,
+		fmt.Sprintf("could not check aks-windows-exporter sentinel %s on %s", sentinel, s.Runtime.VM.PrivateIP))
 	if strings.Contains(res.stdout, "SKIP") {
 		s.T.Logf("Skipping aks-windows-exporter validation: sentinel %s not found (aks-vm-extension manages the service on this VHD)", sentinel)
 		return
@@ -846,19 +847,26 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) {
 		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
 		// Hit the metrics endpoint and require a windows-exporter-specific metric.
 		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
+		"$metricsContent = [string]$resp.Content",
 		"$failureReasons = @()",
 		"if ($resp.StatusCode -ne 200) { $failureReasons += \"metrics endpoint returned $($resp.StatusCode)\" }",
-		"if ($resp.Content -notmatch 'windows_os_info') { $failureReasons += 'windows_os_info metric missing from /metrics response' }",
-		"if ($resp.Content -notmatch 'windows_cpu_time_total') { $failureReasons += 'windows_cpu_time_total metric missing from /metrics response' }",
+		"if ($metricsContent -notmatch 'windows_os_info') { $failureReasons += 'windows_os_info metric missing from /metrics response' }",
+		"if ($metricsContent -notmatch 'windows_cpu_time_total') { $failureReasons += 'windows_cpu_time_total metric missing from /metrics response' }",
 		"if ($failureReasons.Count -gt 0) {",
-		"  Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($resp.Content.Length) bytes\"",
+		"  $metricsPreviewMaxChars = 65536",
+		"  $metricsPreview = $metricsContent",
+		"  Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
 		"  Write-Output ('metrics validation failures: ' + ($failureReasons -join '; '))",
-		"  Write-Output '--- begin /metrics response ---'",
-		"  Write-Output $resp.Content",
-		"  Write-Output '--- end /metrics response ---'",
+		"  if ($metricsPreview.Length -gt $metricsPreviewMaxChars) {",
+		"    $metricsPreview = $metricsPreview.Substring(0, $metricsPreviewMaxChars)",
+		"    Write-Output \"metrics response truncated: showing first $metricsPreviewMaxChars of $($metricsContent.Length) characters\"",
+		"  }",
+		"  Write-Output '--- begin /metrics response preview ---'",
+		"  Write-Output $metricsPreview",
+		"  Write-Output '--- end /metrics response preview ---'",
 		"  throw ($failureReasons -join '; ')",
 		"}",
-		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($resp.Content.Length) bytes\"",
+		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
 	}
 	validationResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
