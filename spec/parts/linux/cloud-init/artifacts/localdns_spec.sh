@@ -707,6 +707,23 @@ EOF
             The status should be failure
             The output should include "Timed out waiting for CoreDNS to create PID file"
         End
+
+        It 'should poll for the PID file every 0.1 seconds'
+            MOCK_SCRIPT="./mock-coredns.sh"
+        cat > "$MOCK_SCRIPT" <<EOF
+#!/bin/bash
+exit 0
+EOF
+            chmod +x "$MOCK_SCRIPT"
+            COREDNS_COMMAND="$MOCK_SCRIPT"
+            START_LOCALDNS_TIMEOUT=1
+            sleep() {
+                echo "sleep called with: $1"
+            }
+            When call start_localdns
+            The status should be failure
+            The output should include "sleep called with: 0.1"
+        End
     End
 
 
@@ -745,6 +762,18 @@ EOF
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
             The status should be failure
             The output should include "Localdns failed to come online after ${MAX_ATTEMPTS} attempts."
+        End
+
+        It 'should poll readiness every 0.1 seconds'
+            CURL_COMMAND="echo NOTOK"
+            MAX_ATTEMPTS=1
+            TIMEOUT=50
+            sleep() {
+                echo "sleep called with: $1"
+            }
+            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
+            The status should be failure
+            The output should include "sleep called with: 0.1"
         End
     End
 

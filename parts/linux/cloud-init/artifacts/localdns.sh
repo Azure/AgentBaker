@@ -61,6 +61,7 @@ CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
 START_LOCALDNS_TIMEOUT=10
+LOCALDNS_POLL_INTERVAL_SECONDS=0.1
 
 # DNS health check timeout.
 DNS_HEALTH_CHECK_TIMEOUT=2
@@ -419,11 +420,12 @@ start_localdns() {
     ${COREDNS_COMMAND} &
 
     # Wait until the PID file is created.
-    local elapsed=0
+    local elapsed_tenths=0
+    local max_elapsed_tenths=$((START_LOCALDNS_TIMEOUT * 10))
     while [ ! -f "${LOCALDNS_PID_FILE}" ]; do
-        sleep 1
-        elapsed=$((elapsed + 1))
-        if [ "$elapsed" -ge "$START_LOCALDNS_TIMEOUT" ]; then
+        sleep "${LOCALDNS_POLL_INTERVAL_SECONDS}"
+        elapsed_tenths=$((elapsed_tenths + 1))
+        if [ "$elapsed_tenths" -ge "$max_elapsed_tenths" ]; then
             echo "Timed out waiting for CoreDNS to create PID file at ${LOCALDNS_PID_FILE}."
             return 1
         fi
@@ -454,7 +456,7 @@ wait_for_localdns_ready() {
             echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
             return 1
         fi
-        sleep 1
+        sleep "${LOCALDNS_POLL_INTERVAL_SECONDS}"
         ((attempts++))
     done
     echo "Localdns is online and ready to serve traffic."
@@ -1059,7 +1061,7 @@ fi
 start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
-wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
+wait_for_localdns_ready 600 60 || exit $ERR_LOCALDNS_FAIL
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
