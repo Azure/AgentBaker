@@ -2842,7 +2842,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterAzureBootstrapProfileCache,
+			Cluster: clusterAzureNetworkIsolated,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
