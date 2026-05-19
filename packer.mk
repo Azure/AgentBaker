@@ -104,9 +104,6 @@ run-imagecustomizer: az-login
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
-generate-cosi-publishing-info:
-	@./vhdbuilder/packer/generate-cosi-publishing-info.sh
-
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 

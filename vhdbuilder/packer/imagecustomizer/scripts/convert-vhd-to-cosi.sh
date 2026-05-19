@@ -98,3 +98,38 @@ if ! azcopy copy "$LOCAL_COSI" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_
 fi
 
 echo "Successfully converted and uploaded COSI: ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi"
+
+# Generate cosi-publishing-info.json for downstream consumption
+COSI_SHA256=$(sha256sum "$LOCAL_COSI" | awk '{print $1}')
+COSI_SIZE=$(stat -c%s "$LOCAL_COSI")
+
+if [ -z "$IMAGE_VERSION" ]; then
+    IMAGE_VERSION=$(date +%Y%m.%d.0)
+    echo "IMAGE_VERSION was not set, defaulting to ${IMAGE_VERSION}"
+fi
+
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+    IMAGE_ARCH="Arm64"
+else
+    IMAGE_ARCH="x64"
+fi
+
+COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
+cosi_url="${STORAGE_ACCT_BLOB_URL}/${COSI_NAME}"
+
+cat <<EOF > cosi-publishing-info.json
+{
+    "cosi_url": "$cosi_url",
+    "sha256": "${COSI_SHA256}",
+    "size_bytes": ${COSI_SIZE},
+    "os_name": "$OS_NAME",
+    "sku_name": "$SKU_NAME",
+    "offer_name": "$OFFER_NAME",
+    "hyperv_generation": "${HYPERV_GENERATION}",
+    "image_architecture": "${IMAGE_ARCH}",
+    "image_version": "${IMAGE_VERSION}"
+}
+EOF
+
+echo "Generated cosi-publishing-info.json:"
+cat cosi-publishing-info.json
