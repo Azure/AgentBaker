@@ -2848,6 +2848,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
 				// Enable ServiceAccountImagePullProfile with test values
+				nbc.OutboundType = datamodel.OutboundTypeNone
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
