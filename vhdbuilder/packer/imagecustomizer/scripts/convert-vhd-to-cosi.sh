@@ -114,6 +114,9 @@ else
     IMAGE_ARCH="x64"
 fi
 
+# OS_NAME is always Linux for ACL COSI artifacts
+OS_NAME="Linux"
+
 COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
 cosi_url="${STORAGE_ACCT_BLOB_URL}/${COSI_NAME}"
 
