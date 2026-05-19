@@ -399,28 +399,11 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        make -f packer.mk convert-vhd-to-cosi
-    condition: |
-      and(
-        succeeded(),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-        eq(variables['OS_SKU'], 'AzureContainerLinux')
-      )
-    displayName: Convert ACL VHD to COSI
-    env:
-      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
         echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
         export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
         export AZCOPY_CONCURRENCY_VALUE="AUTO"
         az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
-        echo "Successfully copied VHD to immutable container"
+        echo "Successfully copied to immutable container"
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     condition: |
@@ -434,6 +417,23 @@ steps:
         )
       )
     displayName: Copy to Immutable Storage Container
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        make -f packer.mk convert-vhd-to-cosi
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables['OS_SKU'], 'AzureContainerLinux')
+      )
+    displayName: Convert ACL VHD to COSI
+    env:
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
   - task: AzureCLI@2
     inputs:
