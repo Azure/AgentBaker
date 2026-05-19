@@ -88,7 +88,7 @@ func validateTLSBootstrappingWindows(ctx context.Context, s *Scenario) {
 	switch {
 	case s.SecureTLSBootstrappingEnabled() && s.Tags.BootstrapTokenFallback:
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping failure with bootstrap token fallback")
-		// nothing to validate other than node readiness
+		// nothing to validate other than node rasdfasdfasdffeadiness
 	case s.SecureTLSBootstrappingEnabled():
 		s.T.Logf("will validate bootstrapping mode: secure TLS bootstrapping")
 		validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx, s)
