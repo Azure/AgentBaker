@@ -22,13 +22,19 @@ function Get-Health {
 
 function Get-Version {
     $result = Invoke-WindowsExporterRequest -Path "version"
-    if ($null -ne $result -and $result.Contains("version")) {
-        # {"version":"v0.25.1","revision":"f70fa009de541dc99ed210aa7e67c9550133ef02","branch":"HEAD","buildUser":"cloudtest@781d70d7c000002","buildDate":"20240223-08:06:57","goVersion":"go1.21.3"}
-        $version = $result -replace ".*""version"":""([^""]+)"".*", '$1'
-        return $version
-    } else {
-        return ""
+    if ($null -ne $result -and $result -ne "") {
+        try {
+            # {"version":"v0.25.1","revision":"f70fa009de541dc99ed210aa7e67c9550133ef02","branch":"HEAD","buildUser":"cloudtest@781d70d7c000002","buildDate":"20240223-08:06:57","goVersion":"go1.21.3"}
+            $versionInfo = $result | ConvertFrom-Json -ErrorAction Stop
+            if ($null -ne $versionInfo.version -and $versionInfo.version -ne "") {
+                return [string]$versionInfo.version
+            }
+        }
+        catch {
+        }
     }
+
+    return ""
 }
 
 function Get-MetricsExample {
