@@ -58,7 +58,7 @@ stages:
     jobs:
       - job: ValidateWindowsVHDConfig
         steps:
-          - bash: ./.pipelines/scripts/validate-no-windows-annual-vhd-build.sh
+          - bash: bash ./.pipelines/scripts/validate-no-windows-annual-vhd-build.sh
             displayName: Validate retired Windows Annual VHD builds are disabled
 
   - stage: Package
