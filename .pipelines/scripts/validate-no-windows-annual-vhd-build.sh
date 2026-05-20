@@ -42,6 +42,7 @@ def walk(obj, path):
 walk(components, "")
 
 pipeline_paths = [
+    repo_root / ".github/workflows/validate-windows-binary-signature.yaml",
     repo_root / ".pipelines/.vsts-vhd-builder-pr-windows.yaml",
     repo_root / ".pipelines/.vsts-vhd-builder-release-windows.yaml",
     repo_root / ".pipelines/templates/.build-and-test-windows-vhds-template.yaml",
