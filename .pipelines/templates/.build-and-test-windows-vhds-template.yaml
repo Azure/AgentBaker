@@ -53,19 +53,6 @@ parameters:
     default: $(Build.ArtifactStagingDirectory)/packages
 
 stages:
-  - stage: ValidateWindowsVHDConfig
-    displayName: Validate Windows VHD config
-    jobs:
-      - job: ValidateWindowsVHDConfig
-        steps:
-          - template: ./.template-override-components-json.yaml
-            parameters:
-              overrideBranch: ${{ parameters.overrideBranch }}
-              useOverrides: ${{ parameters.useOverrides }}
-
-          - bash: bash ./.pipelines/scripts/validate-no-windows-annual-vhd-build.sh
-            displayName: Validate retired Windows Annual VHD builds are disabled
-
   - stage: Package
     displayName: "Package Windows CSE"
     jobs:
