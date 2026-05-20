@@ -654,34 +654,10 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	return *getResp.Properties.InstanceView, nil
 }
 
-// windowsSysprepScript runs Sysprep /generalize on a CSE'd Windows VM so the e2e test can
-// capture a VHD. We pre-emptively drop any SysPrepExternal\Generalize provider entry
-// pointing at VMAgentDisabler.dll, mirroring vhdbuilder/packer/windows/sysprep.ps1 (added
-// 2020, PR #429, commit 202fef719a).
-//
-// Root cause: VMAgentDisabler.dll is a Managed C++ Sysprep provider shipped by the
-// Windows Azure Guest Agent (msazure/One/Compute-IaaS-VMAgent). The agent self-updates
-// from the Azure fabric on every VM boot, and in Jan 2026 the agent added a new feature
-// (PR 14499782) to install a WDAC catalog file containing the DLL's hash — without that
-// catalog file the OS's Code Integrity layer cannot validate the unsigned DLL and
-// LoadLibrary stalls. The feature had bugs (hotfixes 14889344 Feb 26 / 14901019 Feb 27)
-// and rolled out unevenly across Azure regions and host pools between Feb and May 2026.
-// On VMs that ended up with the agent in the "catalog-install-failed" state, Sysprep
-// /generalize stalls long enough to exhaust our 17-min TestTimeoutVMSS and fail the
-// test. Removing the registry entry first short-circuits the load entirely.
-//
-// Causal proof (May 2026): on a healthy Win2022 host where Sysprep /generalize normally
-// completes in ~10s, deliberately renaming VMAgentDisabler.dll while leaving the
-// SysPrepExternal\Generalize entry pointing at the original path makes Sysprep stall
-// long past the 14+ minutes vmssCtx allows — the same observed symptom as 14/14
-// historical first-attempt PR check-in failures. (We never observe sysprep actually
-// completing on a broken host: the vmssCtx deadline always kills the call first, so the
-// hang duration is an open lower bound, not an exact 14m value.)
-//
-// Unlike vhdbuilder/packer/windows/sysprep.ps1, we deliberately keep
-// WindowsAzureGuestAgent running: it is the channel Azure RunCommand uses to report the
-// result of this script back to the caller. Packer can stop the agent because it
-// captures the disk directly; we cannot.
+// windowsSysprepScript runs Sysprep /generalize on the test VM. It pre-emptively drops
+// any SysPrepExternal\Generalize provider entry pointing at VMAgentDisabler.dll: when
+// the DLL can't be loaded, Sysprep stalls past our vmssCtx deadline. The same workaround
+// has lived in vhdbuilder/packer/windows/sysprep.ps1 since 2020 (PR #429).
 const windowsSysprepScript = `
 $path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
 if (Test-Path $path) {
