@@ -599,43 +599,136 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 	}, nil
 }
 
-// RunCommand executes a command on the VMSS VM with instance ID "0" and returns the raw JSON response from Azure
-// Unlike default approach, it doesn't use SSH and uses Azure tooling
-// This approach is generally slower, but it works even if SSH is not available
-func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.RunCommandResult, error) {
+// RunCommand executes a script on the VMSS VM with the configured instance ID via the
+// Azure VMSS RunCommand v2 API (VirtualMachineRunCommand resource). This is the API
+// already used by production aks-rp PIS code; using it here keeps test and production
+// on the same surface and avoids the v1 RunCommand extension's failure modes
+// (e.g. the Microsoft.CPlat.Core/RunCommandWindows "Keyset does not exist" error
+// fixed by ADO PR https://msazure.visualstudio.com/CloudNativeCompute/_git/aks-rp/pullrequest/15721814).
+//
+// Unlike SSH-based exec, this works even when WinRM/SSH are unavailable (e.g. mid-sysprep).
+// It is generally slower than SSH because each call creates a VirtualMachineRunCommand
+// resource on the VM and waits for it to provision.
+func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	s.T.Helper()
 	start := time.Now()
 	defer func() {
-		elapsed := time.Since(start)
-		toolkit.Logf(ctx, "Command %q took %s", command, elapsed)
+		toolkit.Logf(ctx, "Command %q took %s", command, time.Since(start))
 	}()
 
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: func() *string {
-			if s.IsWindows() {
-				return to.Ptr("RunPowerShellScript")
-			}
-			return to.Ptr("RunShellScript")
-		}(),
-		Script: []*string{to.Ptr(command)},
-	}, nil)
-	if err != nil {
-		return armcompute.RunCommandResult{}, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	instanceID := *s.Runtime.VM.VM.InstanceID
+	// VirtualMachineRunCommand resources persist on the VM until explicitly deleted;
+	// use a unique name per call so concurrent / repeated calls don't collide.
+	runCommandName := fmt.Sprintf("e2e-runcmd-%d", time.Now().UnixNano())
+
+	runCmd := armcompute.VirtualMachineRunCommand{
+		Location: to.Ptr(s.Location),
+		Properties: &armcompute.VirtualMachineRunCommandProperties{
+			Source: &armcompute.VirtualMachineRunCommandScriptSource{
+				Script: to.Ptr(command),
+			},
+			AsyncExecution: to.Ptr(false),
+		},
 	}
 
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
+	poller, err := config.Azure.VMSSVMRunCommands.BeginCreateOrUpdate(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, runCmd, nil)
 	if err != nil {
-		return runResp.RunCommandResult, fmt.Errorf("failed to run command on Windows VM for image creation: %w", err)
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to start RunCommand on VMSS VM: %w", err)
 	}
-	return runResp.RunCommandResult, err
+	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to wait for RunCommand on VMSS VM: %w", err)
+	}
+
+	// The CreateOrUpdate response doesn't always include the InstanceView; fetch it
+	// explicitly so we get stdout/stderr/exit code.
+	getResp, err := config.Azure.VMSSVMRunCommands.Get(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{
+		Expand: to.Ptr("instanceView"),
+	})
+	if err != nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to get RunCommand instance view: %w", err)
+	}
+	if getResp.Properties == nil || getResp.Properties.InstanceView == nil {
+		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
+	}
+	return *getResp.Properties.InstanceView, nil
 }
+
+// windowsSysprepScript runs Sysprep /generalize on a CSE'd Windows VM so the e2e test can
+// capture a VHD. We pre-emptively drop any SysPrepExternal\Generalize provider entry
+// pointing at VMAgentDisabler.dll, mirroring vhdbuilder/packer/windows/sysprep.ps1 (added
+// 2020, PR #429, commit 202fef719a).
+//
+// Root cause: VMAgentDisabler.dll is a Managed C++ Sysprep provider shipped by the
+// Windows Azure Guest Agent (msazure/One/Compute-IaaS-VMAgent). The agent self-updates
+// from the Azure fabric on every VM boot, and in Jan 2026 the agent added a new feature
+// (PR 14499782) to install a WDAC catalog file containing the DLL's hash — without that
+// catalog file the OS's Code Integrity layer cannot validate the unsigned DLL and
+// LoadLibrary stalls. The feature had bugs (hotfixes 14889344 Feb 26 / 14901019 Feb 27)
+// and rolled out unevenly across Azure regions and host pools between Feb and May 2026.
+// On VMs that ended up with the agent in the "catalog-install-failed" state, Sysprep
+// /generalize stalls long enough to exhaust our 17-min TestTimeoutVMSS and fail the
+// test. Removing the registry entry first short-circuits the load entirely.
+//
+// Causal proof (May 2026): on a healthy Win2022 host where Sysprep /generalize normally
+// completes in ~10s, deliberately renaming VMAgentDisabler.dll while leaving the
+// SysPrepExternal\Generalize entry pointing at the original path makes Sysprep stall
+// long past the 14+ minutes vmssCtx allows — the same observed symptom as 14/14
+// historical first-attempt PR check-in failures. (We never observe sysprep actually
+// completing on a broken host: the vmssCtx deadline always kills the call first, so the
+// hang duration is an open lower bound, not an exact 14m value.)
+//
+// Unlike vhdbuilder/packer/windows/sysprep.ps1, we deliberately keep
+// WindowsAzureGuestAgent running: it is the channel Azure RunCommand uses to report the
+// result of this script back to the caller. Packer can stop the agent because it
+// captures the disk directly; we cannot.
+const windowsSysprepScript = `
+$path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
+if (Test-Path $path) {
+    foreach ($name in @((Get-Item -Path $path).Property)) {
+        $value = (Get-ItemProperty -Path $path -Name $name).$name
+        if ($value -and $value.Contains('VMAgentDisabler.dll')) {
+            Write-Host "Removing broken generalize provider $name -> $value"
+            Remove-ItemProperty -Path $path -Name $name
+        }
+    }
+}
+
+if (Test-Path "$env:SystemRoot\system32\Sysprep\unattend.xml") {
+    Remove-Item "$env:SystemRoot\system32\Sysprep\unattend.xml" -Force
+}
+
+& "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /quit
+Write-Host "Sysprep.exe returned exit=$LASTEXITCODE"
+
+# Sysprep /quit returns immediately; wait for the generalize step to actually finish.
+$pollStart = Get-Date
+while ($true) {
+    $imageState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+    Write-Host "ImageState=$imageState (elapsed $((Get-Date) - $pollStart))"
+    if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
+    if ((Get-Date) - $pollStart -gt [TimeSpan]::FromMinutes(10)) {
+        throw "Sysprep generalize did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within 10 min (last state: $imageState)"
+    }
+    Start-Sleep -s 10
+}
+`
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 	if s.IsWindows() {
 		s.T.Log("Running sysprep on Windows VM...")
-		res, err := RunCommand(ctx, s, `C:\Windows\System32\Sysprep\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit;`)
-		resJson, _ := json.MarshalIndent(res, "", "  ")
-		s.T.Logf("Sysprep result: %s", string(resJson))
+		res, err := RunCommand(ctx, s, windowsSysprepScript)
+		var stdout, stderr string
+		if res.Output != nil {
+			stdout = strings.TrimSpace(*res.Output)
+		}
+		if res.Error != nil {
+			stderr = strings.TrimSpace(*res.Error)
+		}
+		s.T.Logf("Sysprep stdout: %s", stdout)
+		if stderr != "" {
+			s.T.Logf("Sysprep stderr: %s", stderr)
+		}
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 

@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -2383,16 +2381,12 @@ else
     exit 1
 fi`)
 	require.NoError(s.T, err, "Failed to run command to check sshd_config")
-	respJson, err := resp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output and exit code
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
-		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled") {
+		s.T.Fatalf("PubkeyAuthentication is not properly disabled. stdout: %s", stdout)
 	}
 
 	// Part 2. Check cannot SSH with private key (expect failure)
@@ -2411,9 +2405,7 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Determine the correct SSH service name based on the distro
 # Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
 if [ -f /etc/os-release ]; then
@@ -2447,24 +2439,14 @@ if echo "$status_output" | grep -q "Active: inactive (dead)"; then
 else
     echo "FAILED: SSH service is not inactive"
     exit 1
-fi`)},
-	}, nil)
+fi`)
 	require.NoError(s.T, err, "Failed to run command to check SSH service status")
-
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to complete command to check SSH service status")
-
-	// Parse the response to check the result
-	respJson, err := runResp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal run command response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
-		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: SSH service is disabled and stopped") {
+		s.T.Fatalf("SSH service is not properly disabled and stopped. stdout: %s", stdout)
 	}
 
 	s.T.Logf("SSH service is properly disabled and stopped as expected")
