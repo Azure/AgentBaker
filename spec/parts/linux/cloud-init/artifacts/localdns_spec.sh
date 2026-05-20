@@ -733,47 +733,50 @@ EOF
     Describe 'wait_for_localdns_ready'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            DATE_SEQUENCE_FILE="/tmp/localdns-date-sequence-$$"
+            SLEEP_LOG_FILE="/tmp/localdns-sleep-log-$$"
+        }
+        cleanup() {
+            rm -f "$DATE_SEQUENCE_FILE" "${DATE_SEQUENCE_FILE}.next" "$SLEEP_LOG_FILE"
         }
         BeforeEach 'setup'
+        AfterEach 'cleanup'
     #------------------------- wait_for_localdns_ready -----------------------------------------------------------
         It 'should return success if localdns is ready'
             CURL_COMMAND="echo OK"
-            MAX_ATTEMPTS=100
             TIMEOUT=5
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
+            When call wait_for_localdns_ready $TIMEOUT
             The status should be success
             The output should include "Waiting for localdns to start and be able to serve traffic."
             The output should include "Localdns is online and ready to serve traffic."
         End
 
-        It 'should return failure if localdns is not ready, after timeout'
+        It 'should return failure if localdns is not ready after the wall-clock timeout'
             CURL_COMMAND="echo NOTOK"
-            MAX_ATTEMPTS=1000
             TIMEOUT=2
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
+            EXPECTED_SLEEP_LOG=$(printf '0.1\n0.1\n')
+            cat > "$DATE_SEQUENCE_FILE" <<EOF
+100
+100
+101
+102
+EOF
+            date() {
+                local current_time
+
+                current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
+                tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
+                mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
+
+                echo "$current_time"
+            }
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+            }
+            When call wait_for_localdns_ready $TIMEOUT
             The status should be failure
             The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
-        End
-
-        It 'should return failure if localdns is not ready, after max attempts'
-            CURL_COMMAND="echo NOTOK"
-            MAX_ATTEMPTS=2
-            TIMEOUT=50
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
-            The status should be failure
-            The output should include "Localdns failed to come online after ${MAX_ATTEMPTS} attempts."
-        End
-
-        It 'should poll readiness every 0.1 seconds'
-            CURL_COMMAND="echo NOTOK"
-            MAX_ATTEMPTS=1
-            TIMEOUT=50
-            sleep() {
-                echo "sleep called with: $1"
-            }
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
-            The status should be failure
-            The output should include "sleep called with: 0.1"
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
     End
 
