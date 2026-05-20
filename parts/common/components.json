@@ -19,19 +19,6 @@
           "windowsSkuMatch": "2022-containerd*"
         },
         {
-          "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5139",
-          "previousLatestVersion": "10.0.20348.5020",
-          "windowsSkuMatch": "23H2*"
-        },
-        {
-          "comment": "this will be cached in the previous step, we really just want to download the tag",
-          "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "ltsc2022",
-          "windowsSkuMatch": "23H2*"
-        },
-        {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "10.0.20348.5139",
@@ -72,11 +59,6 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2022",
-          "windowsSkuMatch": "23H2*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
-          "latestVersion": "ltsc2022",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -106,11 +88,6 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
           "latestVersion": "windowsservercore-ltsc2022",
           "windowsSkuMatch": "2022-containerd*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
-          "latestVersion": "windowsservercore-ltsc2022",
-          "windowsSkuMatch": "23H2*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
@@ -748,7 +725,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.144.06-20260126030228"
+        "latestVersion": "550.144.06-20260126030228"
       }
     }
   ],
@@ -2206,11 +2183,6 @@
       "registry": "mcr.microsoft.com/wcn/package:${version}-${CPU_ARCH}",
       "windowsDownloadLocation": "c:\\akse-cache\\wcn\\",
       "windowsVersions": [
-        {
-          "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "1.3.0",
-          "windowsSkuMatch": "23H2*"
-        },
         {
           "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "1.6.0",
