@@ -471,20 +471,33 @@ wait_for_localdns_ready() {
     local starttime
     local currenttime
     local elapsedtime
+    local attempts=0
+    local max_attempts
+
+    max_attempts=$(calculate_max_poll_attempts "${timeout_duration}" "${LOCALDNS_READY_POLL_INTERVAL_SECONDS}") || {
+        echo "Invalid localdns readiness poll interval configuration."
+        return 1
+    }
 
     starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
     until [ "$($CURL_COMMAND)" = "OK" ]; do
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            echo "Localdns failed to come online after ${timeout_duration} seconds (timeout)."
+            return 1
+        fi
+
         # Check for timeout based on elapsed time.
         currenttime=$(date +%s)
         elapsedtime=$((currenttime - starttime))
-        if [ $elapsedtime -ge $timeout_duration ]; then
+        if [ "$elapsedtime" -ge "$timeout_duration" ]; then
             echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
             return 1
         fi
 
         sleep "${LOCALDNS_READY_POLL_INTERVAL_SECONDS}"
+        attempts=$((attempts + 1))
     done
     echo "Localdns is online and ready to serve traffic."
     return 0

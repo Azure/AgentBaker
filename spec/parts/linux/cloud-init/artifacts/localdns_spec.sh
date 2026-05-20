@@ -778,6 +778,41 @@ EOF
             The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
             The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
+
+        It 'should return failure after derived max attempts when the clock does not advance'
+            CURL_COMMAND="echo NOTOK"
+            TIMEOUT=2
+            LOCALDNS_READY_POLL_INTERVAL_SECONDS=0.5
+            EXPECTED_SLEEP_LOG=$(printf '0.5\n0.5\n0.5\n0.5\n')
+            cat > "$DATE_SEQUENCE_FILE" <<EOF
+100
+100
+100
+100
+100
+100
+100
+100
+100
+100
+EOF
+            date() {
+                local current_time
+
+                current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
+                tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
+                mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
+
+                echo "$current_time"
+            }
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+            }
+            When call wait_for_localdns_ready $TIMEOUT
+            The status should be failure
+            The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
+        End
     End
 
 
