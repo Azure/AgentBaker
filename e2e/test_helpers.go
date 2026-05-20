@@ -121,7 +121,7 @@ func supportsScriptlessNBCCSECmd(s *Scenario) bool {
 }
 
 func supportsScriptlessAKSNodeConfig(s *Scenario) bool {
-	return s.AKSNodeConfigMutator != nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
+	return s.AKSNodeConfigMutator != nil && s.BootstrapConfigMutator != nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
