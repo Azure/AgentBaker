@@ -651,7 +651,45 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	if getResp.Properties == nil || getResp.Properties.InstanceView == nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
 	}
-	return *getResp.Properties.InstanceView, nil
+	view := *getResp.Properties.InstanceView
+	return view, runCommandScriptError(view)
+}
+
+// runCommandScriptError converts a RunCommand instance view into an error if the
+// script itself failed. The ARM CreateOrUpdate operation reports success as long as
+// the extension was able to run the script — a non-zero exit, throw, or timeout
+// inside the script lives in ExecutionState / ExitCode and is otherwise invisible
+// to callers using require.NoError. See:
+// https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command-managed
+// ("InstanceView.ExecutionState: Status of user's Run Command script. ...
+//
+//	ProvisioningState: Status of general extension provisioning end to end").
+func runCommandScriptError(view armcompute.VirtualMachineRunCommandInstanceView) error {
+	state := armcompute.ExecutionStateUnknown
+	if view.ExecutionState != nil {
+		state = *view.ExecutionState
+	}
+	exitCode := int32(0)
+	if view.ExitCode != nil {
+		exitCode = *view.ExitCode
+	}
+	if state == armcompute.ExecutionStateSucceeded && exitCode == 0 {
+		return nil
+	}
+	output := ""
+	if view.Output != nil {
+		output = strings.TrimSpace(*view.Output)
+	}
+	stderr := ""
+	if view.Error != nil {
+		stderr = strings.TrimSpace(*view.Error)
+	}
+	msg := ""
+	if view.ExecutionMessage != nil {
+		msg = strings.TrimSpace(*view.ExecutionMessage)
+	}
+	return fmt.Errorf("RunCommand script failed: executionState=%s exitCode=%d message=%q stdout=%q stderr=%q",
+		state, exitCode, msg, output, stderr)
 }
 
 // windowsSysprepScript runs Sysprep /generalize on the test VM. It pre-emptively drops
