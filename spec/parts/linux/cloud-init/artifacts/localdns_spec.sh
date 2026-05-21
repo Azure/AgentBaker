@@ -722,10 +722,12 @@ EOF
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
             LOCALDNS_PID_FILE="/tmp/localdns.pid"
+            SLEEP_LOG_FILE="/tmp/localdns-start-sleep-log-$$"
         }
         cleanup() {
             rm -f "${LOCALDNS_PID_FILE}"
             rm -f ./mock-coredns.sh
+            rm -f "${SLEEP_LOG_FILE}"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -780,15 +782,16 @@ EOF
                 return 0
             }
             COREDNS_COMMAND="mock_coredns"
+            EXPECTED_SLEEP_LOG=$(printf '0.1\n')
             sleep() {
-                echo "sleep called with: $1"
+                echo "$1" >> "$SLEEP_LOG_FILE"
                 echo "12345" > "${LOCALDNS_PID_FILE}"
             }
             When call start_localdns
             The status should be success
-            The output should include "sleep called with: 0.1"
             The output should include "Localdns PID is 12345."
             The file "${LOCALDNS_PID_FILE}" should be exist
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
     End
 
@@ -821,6 +824,11 @@ EOF
             CURL_COMMAND="echo NOTOK"
             TIMEOUT=2
             EXPECTED_SLEEP_LOG=$(printf '0.1\n0.1\n')
+            # Expected date consumption order:
+            # 1. starttime initialization -> 100
+            # 2. first loop timeout check -> 100
+            # 3. second loop timeout check -> 101
+            # 4. third loop timeout check -> 102 (triggers timeout after two sleeps)
             cat > "$DATE_SEQUENCE_FILE" <<EOF
 100
 100
