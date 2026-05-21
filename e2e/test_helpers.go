@@ -678,10 +678,15 @@ if (Test-Path "$env:SystemRoot\system32\Sysprep\unattend.xml") {
 Write-Host "Sysprep.exe returned exit=$LASTEXITCODE"
 
 # Sysprep /quit returns immediately; wait for the generalize step to actually finish.
+# Only log on state transitions to stay well under RunCommand's stdout cap.
 $pollStart = Get-Date
+$lastState = $null
 while ($true) {
     $imageState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
-    Write-Host "ImageState=$imageState (elapsed $((Get-Date) - $pollStart))"
+    if ($imageState -ne $lastState) {
+        Write-Host "ImageState=$imageState (elapsed $((Get-Date) - $pollStart))"
+        $lastState = $imageState
+    }
     if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
     if ((Get-Date) - $pollStart -gt [TimeSpan]::FromMinutes(10)) {
         throw "Sysprep generalize did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within 10 min (last state: $imageState)"
