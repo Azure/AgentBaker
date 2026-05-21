@@ -76,7 +76,11 @@ calculate_max_poll_attempts() {
 
     awk -v timeout="${timeout_duration}" -v interval="${poll_interval_seconds}" '
         BEGIN {
-            if (timeout < 0 || interval <= 0) {
+            if (timeout !~ /^[0-9]+([.][0-9]+)?$/ || interval !~ /^[0-9]+([.][0-9]+)?$/) {
+                exit 1
+            }
+
+            if (interval <= 0) {
                 exit 1
             }
 
@@ -446,7 +450,7 @@ start_localdns() {
     local attempts=0
     local max_attempts
     max_attempts=$(calculate_max_poll_attempts "${START_LOCALDNS_TIMEOUT}" "${LOCALDNS_PID_POLL_INTERVAL_SECONDS}") || {
-        echo "Invalid localdns PID poll interval configuration."
+        echo "Failed to calculate localdns PID poll attempts for timeout ${START_LOCALDNS_TIMEOUT} and interval ${LOCALDNS_PID_POLL_INTERVAL_SECONDS}."
         return 1
     }
 
@@ -475,7 +479,7 @@ wait_for_localdns_ready() {
     local max_attempts
 
     max_attempts=$(calculate_max_poll_attempts "${timeout_duration}" "${LOCALDNS_READY_POLL_INTERVAL_SECONDS}") || {
-        echo "Invalid localdns readiness poll interval configuration."
+        echo "Failed to calculate localdns readiness poll attempts for timeout ${timeout_duration} and interval ${LOCALDNS_READY_POLL_INTERVAL_SECONDS}."
         return 1
     }
 

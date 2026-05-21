@@ -697,6 +697,16 @@ EOF
             When call calculate_max_poll_attempts 1 0
             The status should be failure
         End
+
+        It 'should fail for a non-numeric timeout'
+            When call calculate_max_poll_attempts abc 0.1
+            The status should be failure
+        End
+
+        It 'should fail for a non-numeric interval'
+            When call calculate_max_poll_attempts 1 abc
+            The status should be failure
+        End
     End
 
 
@@ -833,6 +843,14 @@ EOF
             The status should be failure
             The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
             The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
+        End
+
+        It 'should fail if readiness polling attempts cannot be calculated'
+            CURL_COMMAND="echo NOTOK"
+            TIMEOUT=abc
+            When call wait_for_localdns_ready $TIMEOUT
+            The status should be failure
+            The output should include "Failed to calculate localdns readiness poll attempts for timeout ${TIMEOUT} and interval ${LOCALDNS_READY_POLL_INTERVAL_SECONDS}."
         End
 
         It 'should return failure after derived max attempts when the clock does not advance'
