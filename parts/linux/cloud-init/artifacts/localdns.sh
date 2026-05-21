@@ -484,7 +484,7 @@ wait_for_localdns_ready() {
     echo "Waiting for localdns to start and be able to serve traffic."
     until [ "$($CURL_COMMAND)" = "OK" ]; do
         if [ "$attempts" -ge "$max_attempts" ]; then
-            echo "Localdns failed to come online after ${timeout_duration} seconds (timeout)."
+            echo "Localdns failed to come online after ${max_attempts} attempts (safety limit for ${timeout_duration} seconds timeout)."
             return 1
         fi
 

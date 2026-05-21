@@ -662,6 +662,44 @@ EOF
     End
 
 
+# This section tests - calculate_max_poll_attempts
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'calculate_max_poll_attempts'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+        It 'should return the exact attempt count when timeout divides evenly by the interval'
+            When call calculate_max_poll_attempts 2 0.5
+            The status should be success
+            The output should eq "4"
+        End
+
+        It 'should round up when timeout does not divide evenly by the interval'
+            When call calculate_max_poll_attempts 1 0.3
+            The status should be success
+            The output should eq "4"
+        End
+
+        It 'should return zero attempts for a zero timeout'
+            When call calculate_max_poll_attempts 0 0.1
+            The status should be success
+            The output should eq "0"
+        End
+
+        It 'should fail for a negative timeout'
+            When call calculate_max_poll_attempts -1 0.1
+            The status should be failure
+        End
+
+        It 'should fail for a zero interval'
+            When call calculate_max_poll_attempts 1 0
+            The status should be failure
+        End
+    End
+
+
 # This section tests - start_localdns
 # This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
@@ -709,13 +747,10 @@ EOF
         End
 
         It 'should poll for the PID file every 0.1 seconds'
-            MOCK_SCRIPT="./mock-coredns.sh"
-        cat > "$MOCK_SCRIPT" <<EOF
-#!/bin/bash
-exit 0
-EOF
-            chmod +x "$MOCK_SCRIPT"
-            COREDNS_COMMAND="$MOCK_SCRIPT"
+            mock_coredns() {
+                return 0
+            }
+            COREDNS_COMMAND="mock_coredns"
             START_LOCALDNS_TIMEOUT=1
             sleep() {
                 echo "sleep called with: $1"
@@ -780,6 +815,11 @@ EOF
             date() {
                 local current_time
 
+                if [ "$#" -ne 1 ] || [ "$1" != "+%s" ]; then
+                    echo "unexpected date args: $*" >&2
+                    return 1
+                fi
+
                 current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
                 tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
                 mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
@@ -815,6 +855,11 @@ EOF
             date() {
                 local current_time
 
+                if [ "$#" -ne 1 ] || [ "$1" != "+%s" ]; then
+                    echo "unexpected date args: $*" >&2
+                    return 1
+                fi
+
                 current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
                 tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
                 mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
@@ -826,7 +871,7 @@ EOF
             }
             When call wait_for_localdns_ready $TIMEOUT
             The status should be failure
-            The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
+            The output should include "Localdns failed to come online after 4 attempts (safety limit for ${TIMEOUT} seconds timeout)."
             The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
     End
