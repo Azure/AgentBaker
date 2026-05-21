@@ -29,7 +29,9 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.LocalDnsProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
@@ -262,6 +264,51 @@ func Test_ACL_ARM64(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
+			},
+		},
+	})
+}
+
+func Test_ACLGen2FIPSTL(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the ACL FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped and FIPS is active at runtime",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2FIPSTL,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// LocalDNS isn't currently supported on FIPS-enabled VHDs; mirror Test_AzureLinux3OSGuard.
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+				ValidateACLFIPSEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Azure Linux V3 Gen2 FIPS VHD can be properly bootstrapped and FIPS is active at runtime",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2FIPS,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// LocalDNS isn't currently supported on FIPS-enabled VHDs.
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
+					EnableFips1403Encryption: to.Ptr(true),
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -789,6 +836,7 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -810,6 +858,7 @@ func Test_Ubuntu2004FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -840,6 +889,7 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -871,6 +921,7 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -2754,7 +2805,9 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				if vmss.Tags == nil {

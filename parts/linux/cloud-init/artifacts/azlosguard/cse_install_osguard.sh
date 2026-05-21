@@ -54,6 +54,8 @@ installRPMPackageFromFile() {
     # This assumes that the binary will either be in /usr/bin or /usr/local/bin, but not both.
     rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${packageName}" "./usr/local/bin/${packageName}" | install -m0755 /dev/stdin "${targetPath}"
 	rm -rf "${downloadDir}"
+    # Clean up stale cached binaries that were not used
+    rm -f /opt/bin/"${packageName}"-* &
 }
 
 downloadPkgFromVersion() {

@@ -141,6 +141,14 @@ parameters:
     displayName: Build Azure Container Linux ARM64 TL Gen2
     type: boolean
     default: true
+  - name: buildaclfipstlgen2
+    displayName: Build Azure Container Linux FIPS TL Gen2
+    type: boolean
+    default: true
+  - name: buildaclarm64fipstlgen2
+    displayName: Build Azure Container Linux ARM64 FIPS TL Gen2
+    type: boolean
+    default: true
 
 variables:
   - name: MODE
@@ -862,6 +870,10 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260510.01'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -869,9 +881,6 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]b3e01d89-bd55-414f-bbb4-cdfeb2628caa-ACL'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]3.0.20260401'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -886,6 +895,10 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260510.02'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -893,15 +906,62 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]b3e01d89-bd55-414f-bbb4-cdfeb2628caa-ACL'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-arm64'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]3.0.20260401'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-tl-gen2
+      - job: buildaclfipstlgen2
+        condition: eq('${{ parameters.buildaclfipstlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260510.01'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-fips-tl-gen2
+      - job: buildaclarm64fipstlgen2
+        condition: eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
+              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260510.02'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-arm64-fips-tl-gen2
       - job: build2404arm64gb200gen2containerd
         condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
         dependsOn: [ ]
