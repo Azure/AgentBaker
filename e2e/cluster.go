@@ -19,9 +19,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/google/uuid"
@@ -106,7 +106,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	if isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
-	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
+	//dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
