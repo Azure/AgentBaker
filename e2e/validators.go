@@ -2911,13 +2911,44 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 
 // ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
 // LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
-// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc), Fragnesia (esp4, esp6).
+//
+// AzureLinux 3.0 is excluded from the runtime apply because kernel 6.6.139.1-1.azl3
+// and later fix all three CVEs upstream. The static modprobe-CIS.conf baked into the
+// VHD still drops the install/blacklist directives, so we verify those entries are
+// present on AzureLinux 3.0 (defense-in-depth) but do not require an active modprobe
+// refusal — the kernel-level fix is the authoritative mitigation. See
+// https://github.com/Azure/AKS/issues/5753.
+//
 // To add a new CVE mitigation, append the module name to the list below.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
 		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
+		return
+	}
+
+	// On AzureLinux 3.0 the kernel fix in 6.6.139.1-1.azl3+ is the authoritative
+	// mitigation; the CSE-time runtime apply is intentionally skipped. We still
+	// validate that the baked-in modprobe-CIS.conf entries are present as
+	// defense-in-depth, but we do NOT require the module to be refused by modprobe
+	// (the kernel-level fix supersedes the module disable).
+	if s.VHD.OS == config.OSAzureLinux {
+		script := strings.Join([]string{
+			`failed=0`,
+			`for mod in algif_aead esp4 esp6 rxrpc; do`,
+			`  if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf (expected from baked-in modprobe-CIS.conf)"`,
+			`    failed=1`,
+			`  else`,
+			`    echo "PASS: modprobe config blocks ${mod} (defense-in-depth)"`,
+			`  fi`,
+			`done`,
+			`exit $failed`,
+		}, "\n")
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"AzureLinux 3.0 modprobe-CIS.conf defense-in-depth check failed (algif_aead/esp4/esp6/rxrpc)")
 		return
 	}
 

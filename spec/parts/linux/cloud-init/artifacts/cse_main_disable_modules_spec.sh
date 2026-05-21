@@ -1,6 +1,7 @@
-#!/usr/bin/env shellspec
+#!/bin/bash
 
 # Unit tests for disableVulnerableKernelModule() in cse_main.sh
+# and the OS gate that selects which OS variants get the runtime apply.
 
 Describe 'disableVulnerableKernelModule()'
     MODPROBE_DIR=""
@@ -68,5 +69,65 @@ Describe 'disableVulnerableKernelModule()'
         }
         When call not_loaded_test
         The output should not include "unloaded"
+    End
+End
+
+# Tests the OS gate that decides whether to call disableVulnerableKernelModule
+# at CSE provisioning time. AzureLinux 3.0 is excluded because the kernel fix
+# in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist. Ubuntu and Mariner
+# still receive the runtime apply because their upstream kernel is not yet patched.
+# See https://github.com/Azure/AKS/issues/5753.
+Describe 'CVE kernel module mitigation OS gate'
+    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    gate() {
+        # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
+        if isUbuntu "$OS" || isMariner "$OS"; then
+            echo "APPLY"
+        else
+            echo "SKIP"
+        fi
+    }
+
+    It 'applies the mitigation on Ubuntu'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "APPLY"
+    End
+
+    It 'applies the mitigation on AzureLinux 2.0 (Mariner)'
+        OS="${MARINER_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "APPLY"
+    End
+
+    It 'skips the runtime mitigation on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix)'
+        OS="${AZURELINUX_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
+    End
+
+    It 'skips the runtime mitigation on AzureLinux 3.0 Kata'
+        OS="${AZURELINUX_KATA_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
+    End
+
+    It 'skips on ACL (Flatcar-based)'
+        OS="${ACL_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
+    End
+
+    It 'skips on Flatcar'
+        OS="${FLATCAR_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
     End
 End
