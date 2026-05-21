@@ -363,6 +363,19 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  # dadelan/dalec - dm-verity prototype: if the containerd2 RPM (built from
+  # steamboat/local-vm-scripts/SPECS/containerd) is installed on the VHD, it
+  # stashes its dm-verity-aware config at /usr/share/containerd2/config.toml.
+  # Overlay it on top of the gtpl-rendered config we just wrote, so the RPM's
+  # config remains the single source of truth for dm-verity containerd config
+  # across both standalone steamboat VMs and AKS nodes. Without this overlay
+  # the gtpl above wins, the erofs snapshotter+differ are not enabled, and
+  # no .dmverity OCI referrers are fetched at pull time.
+  if [ -f /usr/share/containerd2/config.toml ]; then
+    echo "Overlaying containerd2 RPM-shipped dm-verity config from /usr/share/containerd2/config.toml"
+    cp /usr/share/containerd2/config.toml /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
   export -f should_e2e_mock_azure_china_cloud
   E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
