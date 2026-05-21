@@ -1353,7 +1353,8 @@ testNfsServerService() {
 
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
 # Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
-# To add a new CVE mitigation, append the module to the loop below.
+# To add a new CVE mitigation, append the module to BOTH loops below — the
+# AzureLinux 3.0 absence loop AND the default presence + load-refusal loop.
 #
 # AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
 # the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads

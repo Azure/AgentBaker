@@ -2922,7 +2922,8 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 //     no longer ship the modprobe-CIS.conf entries, and E2E runs against freshly-built
 //     VHDs. See https://github.com/Azure/AKS/issues/5753.
 //
-// To add a new CVE mitigation, append the module name to the list below.
+// To add a new CVE mitigation, append the module name to BOTH lists below —
+// the AzureLinux 3.0 absence-check list AND the default presence + load-refusal list.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
