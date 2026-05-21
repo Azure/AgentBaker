@@ -2680,6 +2680,19 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	}
 }
 
+// ValidateStaleCachedKubeBinariesRemoved validates that stale versioned kube binaries (e.g. kubelet-1.29.0, kubectl-1.29.0)
+// have been removed from /opt/bin/ after the correct version is installed.
+func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// List any remaining versioned kubelet/kubectl binaries in /opt/bin/
+	cmd := `find /opt/bin -maxdepth 1 \( -name "kubelet-*" -o -name "kubectl-*" \) -type f 2>/dev/null`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not list stale cached binaries")
+	staleFiles := strings.TrimSpace(result.stdout)
+	if staleFiles != "" {
+		s.T.Fatalf("expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
+	}
+}
+
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 	s.T.Helper()
