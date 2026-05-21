@@ -2213,7 +2213,7 @@
         },
         {
           "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "1.6.0",
+          "latestVersion": "1.7.0",
           "windowsSkuMatch": "2025*"
         }
       ]
