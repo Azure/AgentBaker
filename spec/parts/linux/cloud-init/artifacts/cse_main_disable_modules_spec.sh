@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env shellspec
 
 # Unit tests for disableVulnerableKernelModule() in cse_main.sh
 # and the OS gate that selects which OS variants get the runtime apply.
