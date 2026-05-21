@@ -724,6 +724,22 @@ EOF
             The status should be failure
             The output should include "sleep called with: 0.1"
         End
+
+        It 'should succeed after polling for the PID file every 0.1 seconds'
+            mock_coredns() {
+                return 0
+            }
+            COREDNS_COMMAND="mock_coredns"
+            sleep() {
+                echo "sleep called with: $1"
+                echo "12345" > "${LOCALDNS_PID_FILE}"
+            }
+            When call start_localdns
+            The status should be success
+            The output should include "sleep called with: 0.1"
+            The output should include "Localdns PID is 12345."
+            The file "${LOCALDNS_PID_FILE}" should be exist
+        End
     End
 
 
