@@ -33,7 +33,7 @@ CONFIG=$(curl -s -H Metadata:true --noproxy '*' 'http://169.254.169.254/metadata
   exit 0
 }
 
-COLLECT_IPTABLES=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .iptables? // false')
+COLLECT_IPTABLES=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .iptables? // false')asdfasdfasdf
 COLLECT_NFTABLES=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .nftables? // false')
 COLLECT_NETNS=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .netns? // false')
 
