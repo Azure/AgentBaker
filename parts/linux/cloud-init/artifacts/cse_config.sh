@@ -868,7 +868,7 @@ EOF
 }
 
 ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+    systemctlEnableAndStartNoBlock snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
