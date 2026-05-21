@@ -811,6 +811,23 @@
       }
     },
     {
+      "name": "windows-exporter",
+      "windowsDownloadLocation": "c:\\akse-cache\\windows-exporter\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.31.2"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/windows-exporter/${version}/windows/amd64/windows-exporter_${version}-1_amd64.zip"
+          }
+        }
+      }
+    },
+    {
       "name": "windows credential provider",
       "windowsDownloadLocation": "c:\\akse-cache\\credential-provider\\",
       "downloadURIs": {

@@ -325,6 +325,12 @@ if (Test-Path -Path 'c:\AzureData\windows\securetlsbootstrapfunc.ps1') {
     Write-Log "Windows Secure TLS Bootstrap function script not found, skipping dot-source"
 }
 
+if (Test-Path -Path 'c:\AzureData\windows\windowsexporterfunc.ps1') {
+    . c:\AzureData\windows\windowsexporterfunc.ps1
+} else {
+    Write-Log "Windows Exporter function script not found, skipping dot-source"
+}
+
 if (Test-Path -Path 'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1') {
     . c:\AzureData\windows\windowsciliumnetworkingfunc.ps1
 } else {
@@ -506,6 +512,16 @@ function BasePrep {
     Enable-FIPSMode -FipsEnabled $fipsEnabled
     if ($global:WindowsGmsaPackageUrl) {
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
+    }
+
+    # Register aks-windows-exporter when its assets are baked into the VHD.
+    # Wrapped in Get-Command guard for bidirectional compat with older VHDs that don't
+    # carry windowsexporterfunc.ps1 in the CSE script package.
+    if (Get-Command -Name Install-WindowsExporter -ErrorAction SilentlyContinue) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.InstallWindowsExporter" -TaskMessage "Install aks-windows-exporter if VHD-baked"
+        Install-WindowsExporter
+    } else {
+        Write-Log "Install-WindowsExporter not available; aks-vm-extension will manage windows-exporter"
     }
 
     Write-Log "BasePrep completed successfully"

@@ -166,6 +166,8 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionPath "C:\k\containerd.err.log"
     Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.err.log"
     Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.log"
+    Add-MpPreference -ExclusionPath "C:\k\windows-exporter.err.log"
+    Add-MpPreference -ExclusionPath "C:\k\windows-exporter.log"
 
     # Azure CNI
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-cns.exe"
