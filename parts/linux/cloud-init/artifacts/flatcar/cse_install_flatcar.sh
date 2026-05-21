@@ -81,6 +81,8 @@ installKubeletKubectlFromPkg() {
     if mergeSysexts kubelet "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubelet-sysext "$1" \
                     kubectl "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubectl-sysext "$1"; then
         ln -snf /usr/bin/{kubelet,kubectl} /opt/bin/
+        # Clean up stale cached binaries that were not used
+        rm -f /opt/bin/kubelet-* /opt/bin/kubectl-* &
     else
         installKubeletKubectlFromURL
     fi

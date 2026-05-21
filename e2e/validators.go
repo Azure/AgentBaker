@@ -486,16 +486,13 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	}
 }
 
+// ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node:
+// the /etc/system-fips marker file written by vhdbuilder/scripts/linux/acl/tool_installs_acl.sh.
+// Kernel FIPS mode (/proc/sys/crypto/fips_enabled == 1) is universal and is asserted by
+// ValidateFIPSProvider; callers should compose the two validators when both are needed.
 func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateFileExists(ctx, s, "/etc/system-fips")
-	execScriptOnVMForScenarioValidateExitCode(
-		ctx,
-		s,
-		`test "$(cat /proc/sys/crypto/fips_enabled)" = "1"`,
-		0,
-		"expected /proc/sys/crypto/fips_enabled to be 1",
-	)
 }
 
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
@@ -651,6 +648,112 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 	if fileHasExactContent(ctx, s, fileName, contents) {
 		s.T.Fatalf("expected file %s to not have exact contents %q, but it does", fileName, contents)
 	}
+}
+
+// ValidateFIPSProvider verifies that FIPS is properly configured on the node:
+//  1. Kernel FIPS mode is enabled (/proc/sys/crypto/fips_enabled == 1).
+//  2. OpenSSL (3.x) has an active FIPS or SymCrypt provider loaded. The check is
+//     skipped on hosts shipping OpenSSL 1.1.x (e.g. Ubuntu 20.04 FIPS), which use
+//     the legacy FIPS module rather than the providers interface.
+//  3. /opt/cni/bin/portmap runs without panicking (regression guard for ICM 51000001009688
+//     where the OpenSSL FIPS provider was not loaded on AzureLinux V3 FIPS nodes).
+func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// 1. Kernel FIPS mode.
+	fipsEnabled := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
+	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
+
+	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
+	// 1.1.x (Ubuntu 20.04 FIPS) uses the legacy FIPS module and is skipped. Merge stderr
+	// (`2>&1`) so a version banner written to stderr still parses.
+	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
+	versionFields := strings.Fields(opensslVersion.stdout)
+	require.GreaterOrEqual(s.T, len(versionFields), 2,
+		"could not parse openssl version output: %q", opensslVersion.stdout)
+	version := versionFields[1]
+	switch {
+	case strings.HasPrefix(version, "3."):
+		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
+		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
+			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+	case strings.HasPrefix(version, "1.1."):
+		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
+	default:
+		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x", strings.TrimSpace(opensslVersion.stdout))
+	}
+
+	// 3. portmap panic check (best-effort). The original FIPS regression manifested as
+	// /opt/cni/bin/portmap panicking when the OpenSSL FIPS provider was missing. Skip if
+	// the binary isn't at the standard CNI path (e.g. ACL stages it under /opt/cni/downloads/);
+	// checks 1 and 2 are already authoritative. Match specific Go runtime panic markers
+	// rather than the bare substring `runtime error:` which appears in CNI usage text.
+	portmapBin := "/opt/cni/bin/portmap"
+	portmapPresent := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("test -x %s", portmapBin))
+	if portmapPresent.exitCode != "0" {
+		s.T.Logf("portmap panic check skipped: %s not present or not executable on this VHD", portmapBin)
+		s.T.Logf("FIPS provider validation passed")
+		return
+	}
+	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
+	panicMarkers := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^panic:`),
+		regexp.MustCompile(`(?m)^fatal error:`),
+		regexp.MustCompile(`runtime\.gopanic`),
+		regexp.MustCompile(`goroutine \d+ \[running\]`),
+	}
+	for _, re := range panicMarkers {
+		require.False(s.T, re.MatchString(portmap.stderr),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+		require.False(s.T, re.MatchString(portmap.stdout),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+	}
+
+	s.T.Logf("FIPS provider validation passed")
+}
+
+// Package-level regex compiled once at init.
+var (
+	// Provider header: indented (spaces or tabs) name with no key/value separator.
+	// Group 1 = indent (used to scope status lines to their block), group 2 = name.
+	opensslProviderHeaderRE = regexp.MustCompile(`^([ \t]+)(\S+)\s*$`)
+	opensslStatusLineRE     = regexp.MustCompile(`^[ \t]+status:\s*(\S+)`)
+)
+
+// opensslProviderActive parses `openssl list -providers` output and returns true if any
+// provider whose name has one of the given prefixes is reported as `status: active`.
+// The status line is scoped to its enclosing provider block (strictly more indented than
+// the header) so an active default provider cannot mask an inactive fips/symcrypt one.
+func opensslProviderActive(output string, providerPrefixes ...string) bool {
+	matches := func(name string) bool {
+		for _, p := range providerPrefixes {
+			if strings.HasPrefix(name, p) {
+				return true
+			}
+		}
+		return false
+	}
+	var current string
+	var headerIndent int
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if m := opensslProviderHeaderRE.FindStringSubmatch(line); m != nil {
+			headerIndent = len(m[1])
+			current = m[2]
+			continue
+		}
+		if current == "" || !matches(current) {
+			continue
+		}
+		if m := opensslStatusLineRE.FindStringSubmatch(line); m != nil && m[1] == "active" {
+			leading := len(line) - len(strings.TrimLeft(line, " \t"))
+			if leading > headerIndent {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
@@ -2574,6 +2677,19 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+	}
+}
+
+// ValidateStaleCachedKubeBinariesRemoved validates that stale versioned kube binaries (e.g. kubelet-1.29.0, kubectl-1.29.0)
+// have been removed from /opt/bin/ after the correct version is installed.
+func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// List any remaining versioned kubelet/kubectl binaries in /opt/bin/
+	cmd := `find /opt/bin -maxdepth 1 \( -name "kubelet-*" -o -name "kubectl-*" \) -type f 2>/dev/null`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not list stale cached binaries")
+	staleFiles := strings.TrimSpace(result.stdout)
+	if staleFiles != "" {
+		s.T.Fatalf("expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
 	}
 }
 

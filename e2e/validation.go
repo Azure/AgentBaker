@@ -131,6 +131,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	// ensure that no unexpected systemd units are in a failed state
 	ValidateNoFailedSystemdUnits(ctx, s)
+	ValidateStaleCachedKubeBinariesRemoved(ctx, s)
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) {
