@@ -334,13 +334,13 @@ EOF
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
     #
-    # Mariner (AzL2) is not gated here: AKS stopped building Mariner VHDs on 2025-12-06 and the
-    # 6-month support window for the last Mariner VHD closes ~2026-06. The mitigation is already
-    # baked into modprobe-CIS.conf in every in-support Mariner VHD, so the runtime apply was
-    # purely defense-in-depth and is no longer needed.
+    # Mariner/AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
+    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
+    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
+    # See https://github.com/Azure/AKS/issues/5753.
     #
     # See https://github.com/Azure/AKS/issues/5753.
-    if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"

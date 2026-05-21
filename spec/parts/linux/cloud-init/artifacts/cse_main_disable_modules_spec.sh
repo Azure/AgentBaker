@@ -84,7 +84,7 @@ Describe 'CVE kernel module mitigation OS gate'
 
     gate() {
         # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
-        if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
             echo "APPLY"
         else
             echo "SKIP"
@@ -105,19 +105,19 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should equal "APPLY"
     End
 
-    It 'skips on Mariner (AzL2) — AKS stopped building Mariner on 2025-12-06; bake-in covers in-support VHDs'
+    It 'applies the mitigation on Mariner/AzureLinux 2.0 (AzL2) — VHDs are frozen so CSE-time apply is required'
         OS="${MARINER_OS_NAME}"
         OS_VARIANT=""
+        OS_VERSION="2.0"
         When call gate
-        The output should equal "SKIP"
-    End
+        The output should equal "APPLY"
 
-    It 'skips on Mariner Kata — same rationale as Mariner'
+    It 'applies the mitigation on Mariner Kata (AzL2) — VHDs are frozen so CSE-time apply is required'
         OS="${MARINER_KATA_OS_NAME}"
         OS_VARIANT=""
+        OS_VERSION="2.0"
         When call gate
-        The output should equal "SKIP"
-    End
+        The output should equal "APPLY"
 
     It 'skips on AzureLinux 3.0 regular (kernel 6.6.139.1-1.azl3+ has upstream fix)'
         OS="${AZURELINUX_OS_NAME}"
