@@ -583,10 +583,11 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 			NonAnonymousACR: true,
 		},
 		Config: Config{
-			Cluster: ClusterAzureBootstrapProfileCache,
+			Cluster: clusterAzureNetworkIsolated,
 			VHD:     config.VHDWindows2025Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
+				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
