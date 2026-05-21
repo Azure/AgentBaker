@@ -703,6 +703,11 @@ EOF
             The status should be failure
         End
 
+        It 'should fail for a fractional timeout'
+            When call calculate_max_poll_attempts 0.5 0.1
+            The status should be failure
+        End
+
         It 'should fail for a non-numeric interval'
             When call calculate_max_poll_attempts 1 abc
             The status should be failure

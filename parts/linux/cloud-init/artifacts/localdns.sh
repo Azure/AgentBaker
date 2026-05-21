@@ -76,7 +76,7 @@ calculate_max_poll_attempts() {
 
     awk -v timeout="${timeout_duration}" -v interval="${poll_interval_seconds}" '
         BEGIN {
-            if (timeout !~ /^[0-9]+([.][0-9]+)?$/ || interval !~ /^[0-9]+([.][0-9]+)?$/) {
+            if (timeout !~ /^[0-9]+$/ || interval !~ /^[0-9]+([.][0-9]+)?$/) {
                 exit 1
             }
 
