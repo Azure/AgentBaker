@@ -432,8 +432,8 @@ copyPackerFiles() {
   #      blocks legitimate use cases.
   # Ubuntu and Mariner (AzL2) still get the bake-in — their kernels are not patched
   # upstream yet. See https://github.com/Azure/AKS/issues/5753.
-  if isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ]; then
-    echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix)"
+  if isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the bake-in)"
   else
     cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   fi

@@ -2931,15 +2931,16 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	// AzureLinux 3.0: kernel 6.6.139.1-1.azl3+ supersedes the modprobe blacklist and
-	// the bake-in has been removed because customers need those modules. Assert the
-	// blacklist entries are NOT present on freshly-built AzL3 VHDs.
-	if s.VHD.OS == config.OSAzureLinux {
+	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
+	// blacklist and the bake-in has been removed because customers need those modules. Assert
+	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
+	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
-			`  if grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
-			`    echo "FAIL: ${mod} disable rule unexpectedly present on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"`,
+			`  if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"`,
 			`    failed=1`,
 			`  else`,
 			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0"`,
@@ -2948,7 +2949,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 			`exit $failed`,
 		}, "\n")
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed)")
+			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed; no `install` or `blacklist` directive should remain)")
 		return
 	}
 

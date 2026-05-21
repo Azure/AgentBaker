@@ -320,21 +320,20 @@ EOF
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Ubuntu-only: applies the runtime modprobe blacklist to existing Ubuntu VHDs that don't yet
-    # have the modprobe-CIS.conf fix baked in. To add a new CVE mitigation, add a
-    # disableVulnerableKernelModule call below.
+    # Applied at CSE provisioning time on Ubuntu, Mariner (AzL2), and AzureLinux OSGuard. To add a
+    # new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
-    # AKS no longer builds Mariner (AzureLinux 2.0) VHDs, so Mariner is not gated here.
-    #
-    # AzureLinux 3.0 is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy Fail / DirtyFrag /
-    # Fragnesia upstream, so neither the runtime modprobe blacklist nor the baked-in
-    # /etc/modprobe.d/CIS.conf entries are required. Newly-built AzL3 VHDs no longer ship
-    # the four module entries — customers reported the blacklist actively blocks legitimate
-    # workloads that use algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing
-    # in-support AzL3 VHDs (built before this change) still have the bake-in until they are
-    # rolled; no CSE-time active removal is performed — customers will get the unblocked
-    # configuration on their next AzL3 VHD upgrade. See https://github.com/Azure/AKS/issues/5753.
-    if isUbuntu "$OS"; then
+    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
+    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
+    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
+    # customers reported the blacklist actively blocks legitimate workloads that use
+    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
+    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
+    # removal is performed — customers will get the unblocked configuration on their next AzL3
+    # VHD upgrade. AzureLinux OSGuard is intentionally kept in scope (defense-in-depth — OSGuard
+    # is the hardened secure-boot variant and explicitly retains the mitigation).
+    # See https://github.com/Azure/AKS/issues/5753.
+    if isUbuntu "$OS" || isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"

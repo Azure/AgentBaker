@@ -1369,8 +1369,8 @@ testVulnerableKernelModulesDisabled() {
 
   if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
     for mod in algif_aead esp4 esp6 rxrpc; do
-      if grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
-        err "$test" "${mod} disable rule unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"
+      if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes; no 'install' or 'blacklist' directive should remain)"
         failed=1
       else
         echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
