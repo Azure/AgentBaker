@@ -2567,7 +2567,7 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	s.T.Helper()
-	if s.Runtime.NBC != nil && s.Runtime.AKSNodeConfig != nil {
+	if s.AKSNodeConfigMutator != nil && s.BootstrapConfigMutator != nil {
 		logFile := "/var/log/azure/aks-node-controller.log"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 			// Grep for "differs" lines to show what's different

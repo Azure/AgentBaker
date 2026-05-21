@@ -195,7 +195,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 
 	// Derive EnableUnattendedUpgrade from NBC (baker uses !DisableUnattendedUpgrades).
 	enableUnattendedUpgrade := !nbc.DisableUnattendedUpgrades
-	//config.GetClusterConfig().GetLoadBalancerConfig().GetLoadBalancerSku()
+	vnetCNIPluginURL := nbc.CloudSpecConfig.KubernetesSpecConfig.VnetCNILinuxPluginsDownloadURL
+	if nbc.IsARM64 {
+		vnetCNIPluginURL = nbc.CloudSpecConfig.KubernetesSpecConfig.VnetCNIARM64LinuxPluginsDownloadURL
+	}
+
 	cfg := &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
@@ -245,13 +249,14 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		NetworkConfig: &aksnodeconfigv1.NetworkConfig{
 			NetworkPlugin:     aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET,
 			CniPluginsUrl:     nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
-			VnetCniPluginsUrl: k8sConfig.AzureCNIURLLinux,
+			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
 			ConfigGpuDriver: true,
 			GpuDevicePlugin: false,
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
+		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
