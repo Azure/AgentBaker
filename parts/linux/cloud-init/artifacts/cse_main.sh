@@ -320,8 +320,8 @@ EOF
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applied at CSE provisioning time on Ubuntu, Mariner (AzL2), and AzureLinux OSGuard. To add a
-    # new CVE mitigation, add a disableVulnerableKernelModule call below.
+    # Applied at CSE provisioning time on Ubuntu and AzureLinux OSGuard. To add a new CVE
+    # mitigation, add a disableVulnerableKernelModule call below.
     #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
@@ -330,10 +330,17 @@ EOF
     # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
     # (built before this change) still have the bake-in until they are rolled; no CSE-time active
     # removal is performed — customers will get the unblocked configuration on their next AzL3
-    # VHD upgrade. AzureLinux OSGuard is intentionally kept in scope (defense-in-depth — OSGuard
-    # is the hardened secure-boot variant and explicitly retains the mitigation).
+    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
+    # the affected kernel modules.
+    #
+    # Mariner (AzL2) is not gated here: AKS stopped building Mariner VHDs on 2025-12-06 and the
+    # 6-month support window for the last Mariner VHD closes ~2026-06. The mitigation is already
+    # baked into modprobe-CIS.conf in every in-support Mariner VHD, so the runtime apply was
+    # purely defense-in-depth and is no longer needed.
+    #
     # See https://github.com/Azure/AKS/issues/5753.
-    if isUbuntu "$OS" || isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
