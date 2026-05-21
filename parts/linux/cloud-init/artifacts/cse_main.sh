@@ -324,10 +324,13 @@ EOF
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
     # AzureLinux 3.0 is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy Fail / DirtyFrag /
-    # Fragnesia upstream, so the runtime modprobe blacklist is no longer required there.
-    # See https://github.com/Azure/AKS/issues/5753.
-    # The static /etc/modprobe.d/modprobe-CIS.conf baked into the VHD remains in place on
-    # all OS variants as defense-in-depth for the 6-month VHD support window.
+    # Fragnesia upstream, so neither the runtime modprobe blacklist nor the baked-in
+    # /etc/modprobe.d/CIS.conf entries are required. Newly-built AzL3 VHDs no longer ship
+    # the four module entries — customers reported the blacklist actively blocks legitimate
+    # workloads that use algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing
+    # in-support AzL3 VHDs (built before this change) still have the bake-in until they are
+    # rolled; no CSE-time active removal is performed — customers will get the unblocked
+    # configuration on their next AzL3 VHD upgrade. See https://github.com/Azure/AKS/issues/5753.
     if isUbuntu "$OS" || isMariner "$OS"; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"

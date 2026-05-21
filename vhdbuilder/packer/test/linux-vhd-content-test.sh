@@ -1354,11 +1354,37 @@ testNfsServerService() {
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
 # Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
 # To add a new CVE mitigation, append the module to the loop below.
+#
+# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
+# the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
+# require those modules). On AzL3 we therefore assert the blacklist entries are
+# ABSENT. Ubuntu and Mariner (AzL2) still assert presence + load-refusal.
 testVulnerableKernelModulesDisabled() {
+  local os_sku="${1:-$OS_SKU}"
+  local os_version="${2:-$OS_VERSION}"
   local test="testVulnerableKernelModulesDisabled"
   echo "$test:Start"
 
   local failed=0
+
+  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+    for mod in algif_aead esp4 esp6 rxrpc; do
+      if grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} disable rule unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"
+        failed=1
+      else
+        echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
+      fi
+    done
+
+    if [ "$failed" -ne 0 ]; then
+      return 1
+    fi
+
+    echo "$test:Finish"
+    return 0
+  fi
+
   for mod in algif_aead esp4 esp6 rxrpc; do
     if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
       err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
@@ -2472,4 +2498,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
-testVulnerableKernelModulesDisabled
+testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION

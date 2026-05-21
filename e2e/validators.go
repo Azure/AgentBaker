@@ -2913,11 +2913,11 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 // LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
 // Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc), Fragnesia (esp4, esp6).
 //
-// AzureLinux 3.0 is excluded from the runtime apply because kernel 6.6.139.1-1.azl3
-// and later fix all three CVEs upstream. The static modprobe-CIS.conf baked into the
-// VHD still drops the install/blacklist directives, so we verify those entries are
-// present on AzureLinux 3.0 (defense-in-depth) but do not require an active modprobe
-// refusal — the kernel-level fix is the authoritative mitigation. See
+// AzureLinux 3.0 is descoped from the mitigation because kernel 6.6.139.1-1.azl3 and
+// later fix all three CVEs upstream, AND customer workloads on AzL3 require those
+// modules (the blacklist actively blocks legitimate use cases). Newly-built AzL3 VHDs
+// therefore no longer ship the modprobe-CIS.conf entries. E2E runs against freshly-built
+// VHDs, so on AzureLinux we assert the four module entries are ABSENT. See
 // https://github.com/Azure/AKS/issues/5753.
 //
 // To add a new CVE mitigation, append the module name to the list below.
@@ -2929,26 +2929,24 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		return
 	}
 
-	// On AzureLinux 3.0 the kernel fix in 6.6.139.1-1.azl3+ is the authoritative
-	// mitigation; the CSE-time runtime apply is intentionally skipped. We still
-	// validate that the baked-in modprobe-CIS.conf entries are present as
-	// defense-in-depth, but we do NOT require the module to be refused by modprobe
-	// (the kernel-level fix supersedes the module disable).
+	// AzureLinux 3.0: kernel 6.6.139.1-1.azl3+ supersedes the modprobe blacklist and
+	// the bake-in has been removed because customers need those modules. Assert the
+	// blacklist entries are NOT present on freshly-built AzL3 VHDs.
 	if s.VHD.OS == config.OSAzureLinux {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
-			`  if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
-			`    echo "FAIL: ${mod} disable rule not found in /etc/modprobe.d/*.conf (expected from baked-in modprobe-CIS.conf)"`,
+			`  if grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`    echo "FAIL: ${mod} disable rule unexpectedly present on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"`,
 			`    failed=1`,
 			`  else`,
-			`    echo "PASS: modprobe config blocks ${mod} (defense-in-depth)"`,
+			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0"`,
 			`  fi`,
 			`done`,
 			`exit $failed`,
 		}, "\n")
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"AzureLinux 3.0 modprobe-CIS.conf defense-in-depth check failed (algif_aead/esp4/esp6/rxrpc)")
+			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed)")
 		return
 	}
 

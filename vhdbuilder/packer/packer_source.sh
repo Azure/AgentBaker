@@ -423,7 +423,20 @@ copyPackerFiles() {
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
-  cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
+  # CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: bake modprobe blacklist
+  # for algif_aead / esp4 / esp6 / rxrpc into the VHD.
+  #
+  # Skipped on AzureLinux 3.0 because:
+  #   1. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+  #   2. Customer workloads on AzL3 require those kernel modules; the bake-in actively
+  #      blocks legitimate use cases.
+  # Ubuntu and Mariner (AzL2) still get the bake-in — their kernels are not patched
+  # upstream yet. See https://github.com/Azure/AKS/issues/5753.
+  if isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ]; then
+    echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix)"
+  else
+    cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
+  fi
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_PATH_SH_SRC $PROFILE_D_PATH_SH_DEST 755
