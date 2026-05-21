@@ -371,11 +371,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/dmverity-prototype/containerd-dmverity.toml",
-      "destination": "/home/packer/dmverity-prototype/containerd-dmverity.toml"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/dmverity-prototype/dmverity-keyring-load.sh",
       "destination": "/home/packer/dmverity-prototype/dmverity-keyring-load.sh"
     },

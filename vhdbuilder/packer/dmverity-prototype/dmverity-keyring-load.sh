@@ -32,6 +32,20 @@ if [[ ! -f "${CERT}" ]]; then
     exit 0
 fi
 
+# Early exit on osguard kernels: the OS Guard CA is compiled into
+# .builtin_trusted_keys at kernel build time (see azurelinux SPECS/kernel
+# osguard1 release), so dm-verity already trusts it without any userspace
+# enrollment. Re-loading via keyctl into .machine would be redundant.
+# Detection is conservative: we only short-circuit when BOTH the kernel
+# release tag and the actual keyring contents confirm. If the kernel is
+# osguard but the cert is somehow missing from the keyring (unexpected),
+# fall through to the legacy keyring-load path.
+if uname -r 2>/dev/null | grep -q osguard \
+    && keyctl list %:.builtin_trusted_keys 2>/dev/null | grep -q "OS Guard CA"; then
+    log "OS Guard CA already in .builtin_trusted_keys (kernel: $(uname -r)); nothing to do"
+    exit 0
+fi
+
 if ! command -v keyctl >/dev/null 2>&1; then
     err "keyctl not installed; cannot load CA into kernel keyring"
     exit 1

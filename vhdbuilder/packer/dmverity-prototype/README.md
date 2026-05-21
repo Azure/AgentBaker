@@ -40,15 +40,28 @@ hard no-op — the resulting VHD is identical to a stock build.
 
 When enabled it:
 
-1. `tdnf install -y` the patched containerd2 RPM, replacing the AKS-pinned
-   stock package. `containerd --version` should report 2.0.1+dmverity.
-2. Drops [`containerd-dmverity.toml`](containerd-dmverity.toml) at
-   `/etc/containerd/config.toml` (the RPM ships none, and built-in defaults
-   use overlayfs which would skip the erofs differ).
-3. Drops the OS Guard signer CA at `/etc/aks/dmverity/osguard-signer-ca.pem`.
+1. (Optional) `tdnf install` the patched kernel RPM
+   (`kernel-6.6.139.1-99.osguard1.azl3`) by file path. The kernel bakes
+   the OS Guard CA into `CONFIG_SYSTEM_TRUSTED_KEYS`, so dm-verity
+   accepts layer signatures out of `.builtin_trusted_keys` on first boot
+   with no userspace enrollment. The packer build VM stays on the stock
+   kernel for the rest of the build; the captured VHD boots the new
+   kernel on first start.
+2. `tdnf install` the patched containerd2 RPM (`>=2.0.1-3001`) by file
+   path, replacing the AKS-pinned stock package. The RPM itself ships:
+   - `/etc/containerd/config.toml` (erofs snapshotter + dm-verity)
+   - `/etc/modules-load.d/aks-dmverity.conf` (auto-load `erofs` +
+     `dm_verity` at boot via `systemd-modules-load.service`)
+   - `Requires:` `erofs-utils`, `veritysetup` (pulled from the base repo)
+3. Drops the OS Guard signer CA at
+   `/etc/aks/dmverity/osguard-signer-ca.pem` (defensive — used by
+   userspace verifiers and as the keyring fallback for non-osguard
+   kernels).
 4. Installs [`dmverity-keyring-load.sh`](dmverity-keyring-load.sh) plus
    [`aks-dmverity-keyring.service`](dmverity-keyring.service) (enabled,
-   ordered before `containerd.service`).
+   ordered before `containerd.service`). The loader short-circuits to
+   a single `keyctl list` + `grep` on osguard kernels, so it is a
+   confirmed no-op on the patched kernel path.
 5. Restarts containerd so the next stage of `install-dependencies.sh` —
    the container-image pre-pull loop — uses the patched binary + erofs
    snapshotter for every image listed in
@@ -68,8 +81,8 @@ prototype works. If any of those fail the VHD build fails loudly.
 | `dmverity-prototype.env` | (runs in build VM only; not installed) |
 | `dmverity-keyring-load.sh` | `/opt/azure/containers/dmverity-keyring-load.sh` |
 | `dmverity-keyring.service` | `/etc/systemd/system/aks-dmverity-keyring.service` (enabled) |
-| `containerd-dmverity.toml` | `/etc/containerd/config.toml` |
-| (downloaded) patched `containerd2-2.0.1-...azl3` RPM | `/usr/bin/containerd` etc. |
+| (downloaded) patched `kernel-6.6.139.1-99.osguard1.azl3` RPM | `/boot/vmlinuz-6.6.139.1-99.osguard1.azl3` etc. |
+| (downloaded) patched `containerd2-2.0.1-3001.azl3` RPM | `/usr/bin/containerd`, `/etc/containerd/config.toml`, `/etc/modules-load.d/aks-dmverity.conf` |
 | (downloaded) OS Guard CA (PEM) | `/etc/aks/dmverity/osguard-signer-ca.pem` |
 
 ## Pipeline workflow (anonymous-blob toggle)
@@ -97,7 +110,10 @@ The container `aks-rpms` is already configured with `publicAccess=blob`, so
 the account-level toggle is the only switch required. Files exposed during
 the toggle window:
 
-- `containerd2-2.0.1-3000.azl3.x86_64.rpm` — patched containerd
+- `containerd2-2.0.1-3001.azl3.x86_64.rpm` — patched containerd
+  (ships config + modules-load + Requires erofs-utils/veritysetup)
+- `kernel-6.6.139.1-99.osguard1.azl3.x86_64.rpm` — patched kernel with
+  OS Guard CA in `CONFIG_SYSTEM_TRUSTED_KEYS`
 - `osguard-signer-ca.pem` — OS Guard signer CA (public material; safe to
   expose intentionally)
 
@@ -107,25 +123,30 @@ eye on them when toggling.
 
 ## Validating on a provisioned node (optional Tier 2)
 
-The VHD build is the primary test. To additionally verify on a provisioned
-AKS node, note that `cse_config.sh` overwrites `/etc/containerd/config.toml`
-at provisioning time, so the erofs config must be re-applied:
+The VHD build is the primary test. On a provisioned AKS node booted from
+the new VHD, sanity-check that everything came up correctly:
 
 ```bash
-# Re-install our config + restart containerd.
-sudo install -m 0644 \
-    /opt/azure/containers/dmverity-prototype/containerd-dmverity.toml \
-    /etc/containerd/config.toml
-sudo systemctl restart containerd
+# Patched kernel with baked-in CA.
+uname -r                                                # 6.6.139.1-99.osguard1.azl3
+sudo keyctl list %:.builtin_trusted_keys | grep -i "OS Guard CA"
 
-# Confirm the CA is in the kernel keyring.
-sudo /opt/azure/containers/dmverity-keyring-load.sh
-sudo keyctl show %keyring:.machine | grep -i osguard
+# Patched containerd + shipped config + auto-loaded modules.
+rpm -q containerd2                                      # containerd2-2.0.1-3001.azl3
+grep -q 'dmverity_mode = "auto"' /etc/containerd/config.toml
+lsmod | grep -E '^(erofs|dm_verity)\b'
+systemctl is-active containerd
+systemctl is-active aks-dmverity-keyring                # active (exited)
 
 # Pull the test image and inspect for .dmverity sig files.
 sudo crictl pull notarycontainerregistry.azurecr.io/notary-demo@sha256:1f2972bc2f1e4f7e3c2bef9cb382859a0cdd5458465a72c0c9568083b8007f3c
 sudo find /var/lib/containerd -name '*.dmverity' -ls 2>/dev/null
 ```
+
+Note: if AKS CSE overwrites `/etc/containerd/config.toml` at provisioning
+time, re-apply the RPM-shipped config: `sudo tdnf reinstall -y containerd2`
+(or copy from `/usr/share/factory/etc/containerd/config.toml` if you've
+added a `tmpfiles.d` rule).
 
 Productizing this for customer-provisioned nodes requires wiring the erofs
 + dm-verity settings into the apiserver-generated CSE template — out of
@@ -133,7 +154,7 @@ scope for Tier 1.
 
 ## Removing the prototype from a VHD
 
-Set `DMVERITY_RPM_URL=` and `DMVERITY_CERT_URL=` empty in
+Set `DMVERITY_RPM_URL=` empty in
 [`dmverity-prototype.env`](dmverity-prototype.env). `install.sh` exits as a
 no-op and the resulting VHD is identical to a stock build.
 

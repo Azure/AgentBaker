@@ -335,12 +335,6 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/dmverity-keyring.service
       destination: /home/packer/dmverity-prototype/dmverity-keyring.service
       permissions: 644
-    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/containerd-dmverity.toml
-      destination: /home/packer/dmverity-prototype/containerd-dmverity.toml
-      permissions: 644
-    - source: /AgentBaker/vhdbuilder/packer/dmverity-prototype/dmverity-finalize.sh
-      destination: /home/packer/dmverity-prototype/dmverity-finalize.sh
-      permissions: 755
 
   services:
     enable:
