@@ -320,8 +320,11 @@ EOF
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
-    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    # Ubuntu-only: applies the runtime modprobe blacklist to existing Ubuntu VHDs that don't yet
+    # have the modprobe-CIS.conf fix baked in. To add a new CVE mitigation, add a
+    # disableVulnerableKernelModule call below.
+    #
+    # AKS no longer builds Mariner (AzureLinux 2.0) VHDs, so Mariner is not gated here.
     #
     # AzureLinux 3.0 is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy Fail / DirtyFrag /
     # Fragnesia upstream, so neither the runtime modprobe blacklist nor the baked-in
@@ -331,7 +334,7 @@ EOF
     # in-support AzL3 VHDs (built before this change) still have the bake-in until they are
     # rolled; no CSE-time active removal is performed — customers will get the unblocked
     # configuration on their next AzL3 VHD upgrade. See https://github.com/Azure/AKS/issues/5753.
-    if isUbuntu "$OS" || isMariner "$OS"; then
+    if isUbuntu "$OS"; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"

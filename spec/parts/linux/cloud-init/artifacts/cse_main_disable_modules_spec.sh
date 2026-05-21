@@ -73,16 +73,16 @@ Describe 'disableVulnerableKernelModule()'
 End
 
 # Tests the OS gate that decides whether to call disableVulnerableKernelModule
-# at CSE provisioning time. AzureLinux 3.0 is excluded because the kernel fix
-# in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist. Ubuntu and Mariner
-# still receive the runtime apply because their upstream kernel is not yet patched.
-# See https://github.com/Azure/AKS/issues/5753.
+# at CSE provisioning time. Ubuntu-only: AKS no longer builds Mariner VHDs, and
+# AzureLinux 3.0 is excluded because the kernel fix in 6.6.139.1-1.azl3+ supersedes
+# the modprobe blacklist (and customers reported the blacklist actively blocks
+# legitimate workloads on AzL3). See https://github.com/Azure/AKS/issues/5753.
 Describe 'CVE kernel module mitigation OS gate'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
     gate() {
         # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
-        if isUbuntu "$OS" || isMariner "$OS"; then
+        if isUbuntu "$OS"; then
             echo "APPLY"
         else
             echo "SKIP"
@@ -96,11 +96,11 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should equal "APPLY"
     End
 
-    It 'applies the mitigation on AzureLinux 2.0 (Mariner)'
+    It 'skips the runtime mitigation on AzureLinux 2.0 (Mariner) — no longer built'
         OS="${MARINER_OS_NAME}"
         OS_VARIANT=""
         When call gate
-        The output should equal "APPLY"
+        The output should equal "SKIP"
     End
 
     It 'skips the runtime mitigation on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix)'

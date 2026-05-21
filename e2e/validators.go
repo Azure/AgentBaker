@@ -2909,16 +2909,18 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
 
-// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
-// LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
-// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc), Fragnesia (esp4, esp6).
+// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known LPE
+// vulnerabilities (CVE-2026-31431 / DirtyFrag / Fragnesia: algif_aead, esp4, esp6, rxrpc)
+// are handled correctly per OS:
 //
-// AzureLinux 3.0 is descoped from the mitigation because kernel 6.6.139.1-1.azl3 and
-// later fix all three CVEs upstream, AND customer workloads on AzL3 require those
-// modules (the blacklist actively blocks legitimate use cases). Newly-built AzL3 VHDs
-// therefore no longer ship the modprobe-CIS.conf entries. E2E runs against freshly-built
-// VHDs, so on AzureLinux we assert the four module entries are ABSENT. See
-// https://github.com/Azure/AKS/issues/5753.
+//   - Ubuntu / Mariner: full check — modprobe config entries are present, modules are
+//     NOT loaded, and modprobe refuses to load them.
+//   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
+//     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
+//     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
+//     blacklist actively blocks legitimate use cases). Newly-built AzL3 VHDs therefore
+//     no longer ship the modprobe-CIS.conf entries, and E2E runs against freshly-built
+//     VHDs. See https://github.com/Azure/AKS/issues/5753.
 //
 // To add a new CVE mitigation, append the module name to the list below.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
