@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/hack/tools
 
-go 1.21.13
+go 1.25.10
 
 require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
