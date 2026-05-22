@@ -320,8 +320,8 @@ EOF
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
     # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
-    # Applied at CSE provisioning time on Ubuntu and AzureLinux OSGuard. To add a new CVE
-    # mitigation, add a disableVulnerableKernelModule call below.
+    # Applied at CSE provisioning time on Ubuntu, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
     #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
@@ -334,7 +334,7 @@ EOF
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
     #
-    # Mariner/AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
+    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
     # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
     # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
