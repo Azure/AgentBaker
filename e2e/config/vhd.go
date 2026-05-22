@@ -291,23 +291,6 @@ var (
 		Gallery: imageGalleryWindows,
 	}
 
-	VHDWindows23H2 = &Image{
-		Name:            "windows-23H2",
-		OS:              OSWindows,
-		Arch:            "amd64",
-		Distro:          datamodel.AKSWindows23H2,
-		Gallery:         imageGalleryWindows,
-		UnsupportedGen2: true,
-	}
-
-	VHDWindows23H2Gen2 = &Image{
-		Name:    "windows-23H2-gen2",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows23H2Gen2,
-		Gallery: imageGalleryWindows,
-	}
-
 	VHDWindows2025 = &Image{
 		Name:            "windows-2025",
 		OS:              OSWindows,
