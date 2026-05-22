@@ -135,7 +135,12 @@ capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 if isMarinerOrAzureLinux "$OS" && [[ "${CPU_ARCH}" == "arm64" ]]; then
   if dnf list available kernel-hwe &>/dev/null; then
     echo "ARM64 AzureLinux: installing kernel-hwe alongside standard kernel for dual-boot"
-    dnf_install 30 1 600 kernel-hwe
+    # Download the RPM, then install with rpm --nodeps to skip the
+    # Conflicts check. The actual dependencies (filesystem, kmod) are satisfied.
+    mkdir -p /tmp/kernel-hwe-rpms
+    tdnf install -y --downloadonly --downloaddir=/tmp/kernel-hwe-rpms kernel-hwe || exit $ERR_APT_INSTALL_TIMEOUT
+    rpm -ivh --nodeps /tmp/kernel-hwe-rpms/kernel-hwe-*.rpm || exit $ERR_APT_INSTALL_TIMEOUT
+    rm -rf /tmp/kernel-hwe-rpms
     echo "After dual kernel install:"
     rpm -qa | grep -E "^kernel" | sort
   else
