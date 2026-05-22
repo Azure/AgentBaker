@@ -135,12 +135,15 @@ capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 if isMarinerOrAzureLinux "$OS" && [[ "${CPU_ARCH}" == "arm64" ]]; then
   if dnf list available kernel-hwe &>/dev/null; then
     echo "ARM64 AzureLinux: installing kernel-hwe alongside standard kernel for dual-boot"
-    # Download the RPM, then install with rpm --nodeps to skip the
-    # Conflicts check. The actual dependencies (filesystem, kmod) are satisfied.
-    mkdir -p /tmp/kernel-hwe-rpms
-    tdnf install -y --downloadonly --downloaddir=/tmp/kernel-hwe-rpms kernel-hwe || exit $ERR_APT_INSTALL_TIMEOUT
-    rpm -ivh --nodeps /tmp/kernel-hwe-rpms/kernel-hwe-*.rpm || exit $ERR_APT_INSTALL_TIMEOUT
-    rm -rf /tmp/kernel-hwe-rpms
+    # kernel.spec declares Conflicts: kernel-hwe, but the packages have no file
+    # overlaps. tdnf hard-fails on Conflicts (--skipconflicts is check-only).
+    # Use dnf5 which resolves Conflicts via reinstall of the conflicting package.
+    rpm -q dnf5 &>/dev/null || dnf_install 30 1 600 dnf5
+    dnf5 install -y kernel-hwe || exit $ERR_APT_INSTALL_TIMEOUT
+    rpm -q dnf5 &>/dev/null && tdnf remove -y dnf5 2>/dev/null
+    for pkg in libdnf5-cli libdnf5 bash-completion-devel bash-completion; do
+      rpm -q "$pkg" &>/dev/null && rpm -q --whatrequires "$pkg" 2>&1 | grep -q "no package" && tdnf remove -y "$pkg" 2>/dev/null
+    done
     echo "After dual kernel install:"
     rpm -qa | grep -E "^kernel" | sort
   else
