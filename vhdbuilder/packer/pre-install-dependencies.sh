@@ -130,6 +130,28 @@ if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 
+# Install kernel-hwe alongside standard kernel for AzureLinux ARM64 dual-boot
+# This enables GRUB SMBIOS-based kernel selection for NVIDIA Grace (GB200/GB300) VMs
+if isMarinerOrAzureLinux "$OS" && [[ "${CPU_ARCH}" == "arm64" ]]; then
+  if dnf list available kernel-hwe &>/dev/null; then
+    echo "ARM64 AzureLinux: installing kernel-hwe alongside standard kernel for dual-boot"
+    # kernel.spec declares Conflicts: kernel-hwe, but the packages have no file
+    # overlaps. tdnf hard-fails on Conflicts (--skipconflicts is check-only).
+    # Use dnf5 which resolves Conflicts via reinstall of the conflicting package.
+    rpm -q dnf5 &>/dev/null || dnf_install 30 1 600 dnf5
+    dnf5 install -y kernel-hwe || exit $ERR_APT_INSTALL_TIMEOUT
+    rpm -q dnf5 &>/dev/null && tdnf remove -y dnf5 || true
+    for pkg in libdnf5-cli libdnf5 bash-completion-devel bash-completion fmt; do
+      rpm -q "$pkg" &>/dev/null && rpm -q --whatrequires "$pkg" 2>&1 | grep -q "no package" && tdnf remove -y "$pkg" || true
+    done
+    echo "After dual kernel install:"
+    rpm -qa | grep -E "^kernel" | sort
+  else
+    echo "ARM64 AzureLinux: kernel-hwe not available, skipping dual kernel install"
+  fi
+fi
+capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
+
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
