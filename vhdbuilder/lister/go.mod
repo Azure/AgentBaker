@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/vhdbuilder/lister
 
-go 1.24.12
+go 1.25.10
 
 require (
 	github.com/containerd/containerd v1.7.29
