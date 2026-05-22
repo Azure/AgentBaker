@@ -858,6 +858,50 @@ EOF
             The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
 
+        It 'should prefer the wall-clock timeout message when timeout and attempt cap are both reached'
+            CURL_COMMAND="echo NOTOK"
+            TIMEOUT=2
+            LOCALDNS_READY_POLL_INTERVAL_SECONDS=0.5
+            EXPECTED_SLEEP_LOG=$(printf '0.5\n0.5\n0.5\n0.5\n')
+            # Expected date consumption order:
+            # 1. starttime initialization -> 100
+            # 2. first loop timeout check -> 100
+            # 3. second loop timeout check -> 100
+            # 4. third loop timeout check -> 101
+            # 5. fourth loop timeout check -> 101
+            # 6. fifth loop timeout check -> 102 (wall-clock timeout and attempt cap both true)
+            cat > "$DATE_SEQUENCE_FILE" <<EOF
+100
+100
+100
+101
+101
+102
+EOF
+            date() {
+                local current_time
+
+                if [ "$#" -ne 1 ] || [ "$1" != "+%s" ]; then
+                    echo "unexpected date args: $*" >&2
+                    return 1
+                fi
+
+                current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
+                tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
+                mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
+
+                echo "$current_time"
+            }
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+            }
+            When call wait_for_localdns_ready $TIMEOUT
+            The status should be failure
+            The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
+            The output should not include "safety limit"
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
+        End
+
         It 'should fail if readiness polling attempts cannot be calculated'
             CURL_COMMAND="echo NOTOK"
             TIMEOUT=abc
