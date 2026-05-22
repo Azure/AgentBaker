@@ -73,12 +73,11 @@ Describe 'disableVulnerableKernelModule()'
 End
 
 # Tests the OS gate that decides whether to call disableVulnerableKernelModule
-# at CSE provisioning time. Apply on: Ubuntu, AzureLinux OSGuard (defense-in-depth —
-# hardened secure-boot variant intentionally retains the mitigation). Skip on:
+# at CSE provisioning time. Apply on: Ubuntu, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard
+# (defense-in-depth — hardened secure-boot variant intentionally retains the mitigation). Skip on:
 # AzureLinux 3.0 regular/Kata (kernel 6.6.139.1-1.azl3+ has the upstream fix and
-# customers reported the blacklist actively blocks legitimate workloads), Mariner
-# (no longer built; mitigation already baked in all in-support Mariner VHDs),
-# ACL, Flatcar. See https://github.com/Azure/AKS/issues/5753.
+# customers reported the blacklist actively blocks legitimate workloads), ACL, Flatcar.
+# See https://github.com/Azure/AKS/issues/5753.
 Describe 'CVE kernel module mitigation OS gate'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
@@ -111,14 +110,14 @@ Describe 'CVE kernel module mitigation OS gate'
         OS_VERSION="2.0"
         When call gate
         The output should equal "APPLY"
-
+    End
     It 'applies the mitigation on Mariner Kata (AzL2) — VHDs are frozen so CSE-time apply is required'
         OS="${MARINER_KATA_OS_NAME}"
         OS_VARIANT=""
         OS_VERSION="2.0"
         When call gate
         The output should equal "APPLY"
-
+    End
     It 'skips on AzureLinux 3.0 regular (kernel 6.6.139.1-1.azl3+ has upstream fix)'
         OS="${AZURELINUX_OS_NAME}"
         OS_VARIANT=""

@@ -339,7 +339,6 @@ EOF
     # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
     #
-    # See https://github.com/Azure/AKS/issues/5753.
     if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
