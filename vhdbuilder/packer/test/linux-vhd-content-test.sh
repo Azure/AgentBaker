@@ -642,10 +642,22 @@ testFips() {
     else
       err $test "/etc/system-fips marker file does not exist."
     fi
-    if [ -f /boot/EFI/Linux/acl.efi.extra.d/fips.addon.efi ]; then
-      echo "ACL FIPS UKI addon file exists in active ESP location."
+    # ACL images historically named the UKI "acl.efi"; newer (UAPI-compliant)
+    # images use "vmlinuz-<version>.efi". systemd-boot loads cmdline addons
+    # from "<UKI filename>.extra.d/", so the addon directory tracks the
+    # UKI's actual name. Probe for either layout.
+    uki_path=$(find /boot/EFI/Linux -maxdepth 1 -type f \
+      \( -name 'vmlinuz-*.efi' -o -name 'acl.efi' \) 2>/dev/null | sort | head -n1)
+    if [ -z "${uki_path}" ]; then
+      err $test "No UKI found under /boot/EFI/Linux (expected acl.efi or vmlinuz-*.efi)."
     else
-      err $test "ACL FIPS UKI addon file does not exist in active ESP location."
+      uki_name=$(basename "${uki_path}")
+      fips_addon_path="/boot/EFI/Linux/${uki_name}.extra.d/fips.addon.efi"
+      if [ -f "${fips_addon_path}" ]; then
+        echo "ACL FIPS UKI addon file exists at ${fips_addon_path}."
+      else
+        err $test "ACL FIPS UKI addon file does not exist at ${fips_addon_path}."
+      fi
     fi
   fi
 
