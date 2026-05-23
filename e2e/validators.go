@@ -2923,15 +2923,48 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
 
-// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
-// LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
-// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
-// To add a new CVE mitigation, append the module name to the list below.
+// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known LPE
+// vulnerabilities (CVE-2026-31431 / DirtyFrag / Fragnesia: algif_aead, esp4, esp6, rxrpc)
+// are handled correctly per OS:
+//
+//   - Ubuntu / Mariner: full check — modprobe config entries are present, modules are
+//     NOT loaded, and modprobe refuses to load them.
+//   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
+//     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
+//     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
+//     blacklist actively blocks legitimate use cases). Newly-built AzL3 VHDs therefore
+//     no longer ship the modprobe-CIS.conf entries, and E2E runs against freshly-built
+//     VHDs. See https://github.com/Azure/AKS/issues/5753.
+//
+// To add a new CVE mitigation, append the module name to BOTH lists below —
+// the AzureLinux 3.0 absence-check list AND the default presence + load-refusal list.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
 		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
+		return
+	}
+
+	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
+	// blacklist and the bake-in has been removed because customers need those modules. Assert
+	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
+	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
+		script := strings.Join([]string{
+			`failed=0`,
+			`for mod in algif_aead esp4 esp6 rxrpc; do`,
+			`  if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"`,
+			`    failed=1`,
+			`  else`,
+			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0"`,
+			`  fi`,
+			`done`,
+			`exit $failed`,
+		}, "\n")
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed; no `install` or `blacklist` directive should remain)")
 		return
 	}
 

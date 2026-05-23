@@ -34,8 +34,6 @@
 #WindowsBaseVersions: {
   "2022-containerd": #WindowsBaseVersion
   "2022-containerd-gen2": #WindowsBaseVersion
-  "23H2": #WindowsBaseVersion
-  "23H2-gen2": #WindowsBaseVersion
   "2025": #WindowsBaseVersion
   "2025-gen2": #WindowsBaseVersion
 }

@@ -16,8 +16,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
-func EmptyBootstrapConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {}
-func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
+func EmptyBootstrapConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+}
+func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {}
 
 func DualStackConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 	properties := configuration.ContainerService.Properties
@@ -140,117 +141,6 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
 				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2AzureNetwork(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Network",
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
-	t.Skip("Dual stack tests are not working yet")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack",
-		Config: Config{
-			Cluster:                ClusterAzureOverlayNetworkDualStack,
-			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        DualStackVMConfigMutator,
-			BootstrapConfigMutator: DualStackConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Network - hyperv gen2",
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows23H2Gen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
-	t.Skip("Dual stack tests are not working yet")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack - hyperv gen2",
-		Config: Config{
-			Cluster:                ClusterAzureOverlayNetworkDualStack,
-			VHD:                    config.VHDWindows23H2Gen2,
-			VMConfigMutator:        DualStackVMConfigMutator,
-			BootstrapConfigMutator: DualStackConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-				// Secure TLS Bootstrapping isn't supported on this CSE script package version
-				nbc.SecureTLSBootstrappingConfig.Enabled = false
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
 			},
 		},
 	})
@@ -465,53 +355,6 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 		},
 	})
 }
-func Test_Windows23H2_Cilium2(t *testing.T) {
-	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 2022 with Containerd",
-		Config: Config{
-			Cluster:         ClusterCiliumNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
-				// cilium is only supported in 1.30 or greater.
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.30.9"
-				configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane = datamodel.EbpfDataplane_cilium
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsRunningWindows(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
-				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
-					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
-				}
-				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
-				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsCiliumIsRunning(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
 func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
