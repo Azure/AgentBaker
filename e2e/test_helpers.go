@@ -611,18 +611,16 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	s.T.Helper()
-	start := time.Now()
-	label := runCommandLabel(command)
-	defer func() {
-		toolkit.Logf(ctx, "Command %s took %s", label, time.Since(start))
-	}()
-
 	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 	instanceID := *s.Runtime.VM.VM.InstanceID
 	// VirtualMachineRunCommand resources persist on the VM until explicitly deleted;
 	// use a unique name per call so concurrent / repeated calls don't collide, and
 	// best-effort delete it on the way out below.
 	runCommandName := fmt.Sprintf("e2e-runcmd-%d", time.Now().UnixNano())
+	start := time.Now()
+	defer func() {
+		toolkit.Logf(ctx, "RunCommand %s took %s", runCommandName, time.Since(start))
+	}()
 
 	runCmd := armcompute.VirtualMachineRunCommand{
 		Location: to.Ptr(s.Location),
@@ -665,23 +663,6 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	}
 	view := *getResp.Properties.InstanceView
 	return view, runCommandScriptError(view)
-}
-
-// runCommandLabel returns a short, log-safe identifier for a RunCommand script body.
-// We avoid logging the full script because callers pass multi-line content (e.g.
-// windowsSysprepScript) which floods test logs, and to reduce the chance of accidentally
-// echoing secrets if a future caller embeds them in the script.
-func runCommandLabel(command string) string {
-	const maxFirstLine = 80
-	first, _, _ := strings.Cut(command, "\n")
-	first = strings.TrimSpace(first)
-	if len(first) > maxFirstLine {
-		first = first[:maxFirstLine] + "…"
-	}
-	if first == "" {
-		first = "<empty>"
-	}
-	return fmt.Sprintf("%q (%d bytes)", first, len(command))
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the
@@ -729,35 +710,59 @@ func runCommandScriptError(view armcompute.VirtualMachineRunCommandInstanceView)
 // Pre-cleanup of C:\Windows\Panther and unattend.xml follows
 // https://learn.microsoft.com/en-us/azure/virtual-machines/generalize, which notes
 // that stale Panther logs can cause Sysprep to fail and that custom answer files
-// aren't supported in this step.
+// aren't supported in this step. The ImageState poll handles Server 2022 where
+// Sysprep /quit can return before background SetupHost.exe finishes generalizing.
 const windowsSysprepScript = `
 $ErrorActionPreference = 'Stop'
 
-# Workaround for Win2022: broken SysPrepExternal\Generalize provider entries that
-# point at VMAgentDisabler.dll cause Sysprep /generalize to hang ~14 minutes when
-# the DLL cannot be loaded. -like is case-insensitive and tolerates REG_MULTI_SZ.
-$path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
-if (Test-Path $path) {
-    foreach ($name in @((Get-Item -Path $path).Property)) {
-        $value = (Get-ItemProperty -Path $path -Name $name).$name
-        if ($value -and ($value -like '*VMAgentDisabler.dll*')) {
-            Write-Host "Removing broken generalize provider $name -> $value"
-            Remove-ItemProperty -Path $path -Name $name
+# Best-effort: drop broken SysPrepExternal\Generalize providers that point at
+# VMAgentDisabler.dll. When the DLL can't be loaded Sysprep /generalize hangs
+# ~14m. Registry cleanup failures are logged but must not abort sysprep itself.
+try {
+    $path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
+    if (Test-Path $path) {
+        foreach ($name in (Get-Item -Path $path).Property) {
+            $value = Get-ItemPropertyValue -Path $path -Name $name
+            if ($value -like '*VMAgentDisabler.dll*') {
+                Write-Host "Removing broken generalize provider $name -> $value"
+                Remove-ItemProperty -Path $path -Name $name
+            }
         }
     }
+} catch {
+    Write-Warning "Failed to clean SysPrepExternal\Generalize entries: $_"
 }
 
 # Per https://learn.microsoft.com/en-us/azure/virtual-machines/generalize:
-# stale Panther logs can cause Sysprep to fail, and custom unattend files
-# aren't supported in this step.
+# stale Panther logs can cause Sysprep to fail; custom unattend files unsupported.
 Remove-Item "$env:SystemRoot\Panther" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$env:SystemRoot\System32\Sysprep\unattend.xml" -Force -ErrorAction SilentlyContinue
 
 # /quit (not /shutdown) so RunCommand can return; deallocate happens separately.
+# $LASTEXITCODE isn't reliable after Sysprep.exe /quit — sysprep launches a
+# background SetupHost.exe and returns before generalization completes. The
+# ImageState poll below is the authoritative success signal (same as
+# vhdbuilder/packer/windows/sysprep.ps1).
 & "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /quit
-$exit = $LASTEXITCODE
-Write-Host "Sysprep.exe returned exit=$exit"
-exit $exit
+
+# On Server 2022, sysprep /quit can return before background SetupHost.exe
+# finishes generalizing. Wait for the registry state to confirm before letting
+# the caller deallocate and capture the disk. Same pattern as
+# vhdbuilder/packer/windows/sysprep.ps1 (in-tree since 2020).
+$deadline = (Get-Date).AddMinutes(10)
+$last = $null
+while ($true) {
+    $state = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+    if ($state -ne $last) {
+        Write-Host "ImageState=$state"
+        $last = $state
+    }
+    if ($state -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
+    if ((Get-Date) -gt $deadline) {
+        throw "Sysprep did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within 10 minutes (last state: $state)"
+    }
+    Start-Sleep -Seconds 10
+}
 `
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
