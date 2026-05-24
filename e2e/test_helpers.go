@@ -725,41 +725,39 @@ func runCommandScriptError(view armcompute.VirtualMachineRunCommandInstanceView)
 // any SysPrepExternal\Generalize provider entry pointing at VMAgentDisabler.dll: when
 // the DLL can't be loaded, Sysprep stalls past our vmssCtx deadline. The same workaround
 // has lived in vhdbuilder/packer/windows/sysprep.ps1 since 2020 (PR #429).
+//
+// Pre-cleanup of C:\Windows\Panther and unattend.xml follows
+// https://learn.microsoft.com/en-us/azure/virtual-machines/generalize, which notes
+// that stale Panther logs can cause Sysprep to fail and that custom answer files
+// aren't supported in this step.
 const windowsSysprepScript = `
+$ErrorActionPreference = 'Stop'
+
+# Workaround for Win2022: broken SysPrepExternal\Generalize provider entries that
+# point at VMAgentDisabler.dll cause Sysprep /generalize to hang ~14 minutes when
+# the DLL cannot be loaded. -like is case-insensitive and tolerates REG_MULTI_SZ.
 $path = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\SysPrepExternal\Generalize'
 if (Test-Path $path) {
     foreach ($name in @((Get-Item -Path $path).Property)) {
         $value = (Get-ItemProperty -Path $path -Name $name).$name
-        if ($value -and $value.Contains('VMAgentDisabler.dll')) {
+        if ($value -and ($value -like '*VMAgentDisabler.dll*')) {
             Write-Host "Removing broken generalize provider $name -> $value"
             Remove-ItemProperty -Path $path -Name $name
         }
     }
 }
 
-if (Test-Path "$env:SystemRoot\system32\Sysprep\unattend.xml") {
-    Remove-Item "$env:SystemRoot\system32\Sysprep\unattend.xml" -Force
-}
+# Per https://learn.microsoft.com/en-us/azure/virtual-machines/generalize:
+# stale Panther logs can cause Sysprep to fail, and custom unattend files
+# aren't supported in this step.
+Remove-Item "$env:SystemRoot\Panther" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:SystemRoot\System32\Sysprep\unattend.xml" -Force -ErrorAction SilentlyContinue
 
+# /quit (not /shutdown) so RunCommand can return; deallocate happens separately.
 & "$env:SystemRoot\System32\Sysprep\Sysprep.exe" /oobe /generalize /mode:vm /quiet /quit
-Write-Host "Sysprep.exe returned exit=$LASTEXITCODE"
-
-# Sysprep /quit returns immediately; wait for the generalize step to actually finish.
-# Only log on state transitions to stay well under RunCommand's stdout cap.
-$pollStart = Get-Date
-$lastState = $null
-while ($true) {
-    $imageState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
-    if ($imageState -ne $lastState) {
-        Write-Host "ImageState=$imageState (elapsed $((Get-Date) - $pollStart))"
-        $lastState = $imageState
-    }
-    if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
-    if ((Get-Date) - $pollStart -gt [TimeSpan]::FromMinutes(10)) {
-        throw "Sysprep generalize did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within 10 min (last state: $imageState)"
-    }
-    Start-Sleep -s 10
-}
+$exit = $LASTEXITCODE
+Write-Host "Sysprep.exe returned exit=$exit"
+exit $exit
 `
 
 func CreateImage(ctx context.Context, s *Scenario) *config.Image {
