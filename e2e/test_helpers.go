@@ -612,14 +612,16 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	s.T.Helper()
 	start := time.Now()
+	label := runCommandLabel(command)
 	defer func() {
-		toolkit.Logf(ctx, "Command %q took %s", command, time.Since(start))
+		toolkit.Logf(ctx, "Command %s took %s", label, time.Since(start))
 	}()
 
 	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
 	instanceID := *s.Runtime.VM.VM.InstanceID
 	// VirtualMachineRunCommand resources persist on the VM until explicitly deleted;
-	// use a unique name per call so concurrent / repeated calls don't collide.
+	// use a unique name per call so concurrent / repeated calls don't collide, and
+	// best-effort delete it on the way out below.
 	runCommandName := fmt.Sprintf("e2e-runcmd-%d", time.Now().UnixNano())
 
 	runCmd := armcompute.VirtualMachineRunCommand{
@@ -636,6 +638,16 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	if err != nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to start RunCommand on VMSS VM: %w", err)
 	}
+	defer func() {
+		// Best-effort cleanup: VirtualMachineRunCommand resources persist on the VM
+		// otherwise and can accumulate across many RunCommand calls in a single run.
+		// Use a fresh context so we still clean up if the caller's ctx is cancelled.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if _, derr := config.Azure.VMSSVMRunCommands.BeginDelete(cleanupCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, nil); derr != nil {
+			toolkit.Logf(ctx, "best-effort RunCommand %s delete failed: %v", runCommandName, derr)
+		}
+	}()
 	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to wait for RunCommand on VMSS VM: %w", err)
 	}
@@ -653,6 +665,23 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	}
 	view := *getResp.Properties.InstanceView
 	return view, runCommandScriptError(view)
+}
+
+// runCommandLabel returns a short, log-safe identifier for a RunCommand script body.
+// We avoid logging the full script because callers pass multi-line content (e.g.
+// windowsSysprepScript) which floods test logs, and to reduce the chance of accidentally
+// echoing secrets if a future caller embeds them in the script.
+func runCommandLabel(command string) string {
+	const maxFirstLine = 80
+	first, _, _ := strings.Cut(command, "\n")
+	first = strings.TrimSpace(first)
+	if len(first) > maxFirstLine {
+		first = first[:maxFirstLine] + "…"
+	}
+	if first == "" {
+		first = "<empty>"
+	}
+	return fmt.Sprintf("%q (%d bytes)", first, len(command))
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the
