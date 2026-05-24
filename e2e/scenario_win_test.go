@@ -330,6 +330,34 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 	})
 }
 
+func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "VHD Caching - Windows Server 2025 Gen2",
+		Config: Config{
+			Cluster:    ClusterAzureNetwork,
+			VHD:        config.VHDWindows2025Gen2,
+			VHDCaching: true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
+			},
+		},
+	})
+}
+
 // Test_Windows2022_VHDCaching_LegacyTLSBootstrap exercises Windows PIS /
 // VHD-cached provisioning with secure TLS bootstrap disabled, forcing kubelet
 // to use the legacy bootstrap-token path. Catches regressions in the two-stage

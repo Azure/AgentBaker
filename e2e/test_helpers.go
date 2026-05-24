@@ -650,8 +650,9 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to wait for RunCommand on VMSS VM: %w", err)
 	}
 
-	// The CreateOrUpdate response doesn't always include the InstanceView; fetch it
-	// explicitly so we get stdout/stderr/exit code.
+	// CreateOrUpdate (PUT) never includes InstanceView in the response — it's only
+	// returned by Get when $expand=instanceView is set. Fetch it explicitly so we
+	// get stdout/stderr/exit code.
 	getResp, err := config.Azure.VMSSVMRunCommands.Get(ctx, rg, s.Runtime.VMSSName, instanceID, runCommandName, &armcompute.VirtualMachineScaleSetVMRunCommandsClientGetOptions{
 		Expand: to.Ptr("instanceView"),
 	})
