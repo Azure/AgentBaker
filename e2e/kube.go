@@ -76,7 +76,7 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	}, nil
 }
 
-func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace string, labelSelector string, fieldSelector string, maxRetries int) (*corev1.Pod, error) {
+func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
 	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
 
@@ -103,22 +103,6 @@ func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace
 			}
 		}
 
-		// Check for FailedCreatePodSandBox events
-		events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
-		if err == nil {
-			for _, event := range events.Items {
-				if event.Reason == "FailedCreatePodSandBox" {
-					maxRetries--
-					sandboxErr := fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
-					if maxRetries <= 0 {
-						return false, sandboxErr
-					}
-					k.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
-					return false, nil // Keep polling
-				}
-			}
-		}
-
 		switch pod.Status.Phase {
 		case corev1.PodFailed:
 			logPodDebugInfo(ctx, k, pod)
@@ -142,10 +126,6 @@ func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace
 	})
 
 	return pod, err
-}
-
-func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
-	return k.WaitUntilPodRunningWithRetry(ctx, namespace, labelSelector, fieldSelector, 0)
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
@@ -201,7 +181,7 @@ func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeN
 	if kubeNodeName == "" {
 		return nil, fmt.Errorf("kubeNodeName must not be empty")
 	}
-	return k.WaitUntilPodRunningWithRetry(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName, 3)
+	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
 }
 
 func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
