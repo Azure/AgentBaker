@@ -330,6 +330,31 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 	})
 }
 
+// Test_Windows2022_VHDCaching_LegacyTLSBootstrap exercises Windows PIS /
+// VHD-cached provisioning with secure TLS bootstrap disabled, forcing kubelet
+// to use the legacy bootstrap-token path. Catches regressions in the two-stage
+// CSE flow that only surface when no secure-tls-bootstrap client is around to
+// overwrite the temporary kubeconfig.
+func Test_Windows2022_VHDCaching_LegacyTLSBootstrap(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "VHD Caching with secure TLS bootstrap disabled",
+		Config: Config{
+			Cluster:    ClusterAzureNetwork,
+			VHD:        config.VHDWindows2022Containerd,
+			VHDCaching: true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				if nbc.SecureTLSBootstrappingConfig == nil {
+					nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
+				}
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
+			},
+		},
+	})
+}
+
 func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
