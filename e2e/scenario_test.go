@@ -451,7 +451,7 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_ACL_ABUpdate(t *testing.T) {
+func Test_ACL_ABUpdatePrepared(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an ACL node has the A/B partition layout and Trident update service configured",
 		Tags: Tags{
