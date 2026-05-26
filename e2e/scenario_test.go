@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -484,9 +483,9 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 }
 
 func Test_ACL_ABUpdate(t *testing.T) {
-	cosiURL := os.Getenv("COSI_URL")
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-tl-gen2")
 	if cosiURL == "" {
-		t.Skip("COSI_URL not set, skipping A/B update test")
+		t.Skip("COSI artifact not available for acl-tl-gen2, skipping A/B update test")
 	}
 
 	RunScenario(t, &Scenario{
@@ -499,6 +498,94 @@ func Test_ACL_ABUpdate(t *testing.T) {
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateACLABUpdate(ctx, s, cosiURL)
+			},
+		},
+	})
+}
+
+func Test_ACL_ABUpdate_ARM64(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-arm64-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-arm64-tl-gen2, skipping A/B update test")
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests full A/B update lifecycle on ARM64: stage COSI, finalize (reboot), verify volume switch",
+		Tags: Tags{
+			ABUpdate: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLArm64Gen2TL,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
+				nbc.IsARM64 = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateACLABUpdate(ctx, s, cosiURL)
+			},
+		},
+	})
+}
+
+func Test_ACL_ABUpdate_FIPS(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-fips-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-fips-tl-gen2, skipping A/B update test")
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests full A/B update lifecycle on FIPS: stage COSI, finalize (reboot), verify volume switch",
+		Tags: Tags{
+			ABUpdate: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2FIPSTL,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateACLABUpdate(ctx, s, cosiURL)
+			},
+		},
+	})
+}
+
+func Test_ACL_ABUpdate_ARM64_FIPS(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-arm64-fips-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-arm64-fips-tl-gen2, skipping A/B update test")
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests full A/B update lifecycle on ARM64 FIPS: stage COSI, finalize (reboot), verify volume switch",
+		Tags: Tags{
+			ABUpdate: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLArm64Gen2FIPSTL,
+			UseNVMe: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
+				nbc.IsARM64 = true
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateACLABUpdate(ctx, s, cosiURL)
