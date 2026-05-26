@@ -42,8 +42,8 @@ E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
 COSI_ARTIFACTS_DIR="${COSI_ARTIFACTS_DIR:-}"
+# Default to false and normalize case (ADO booleans may arrive as True/False/TRUE)
 RUN_AB_UPDATE_TESTS="${RUN_AB_UPDATE_TESTS:-false}"
-# ADO booleans may arrive as True/False/TRUE — normalize to lowercase
 RUN_AB_UPDATE_TESTS="$(echo "$RUN_AB_UPDATE_TESTS" | tr '[:upper:]' '[:lower:]')"
 
 # When A/B update tests are requested, add the abupdate tag to TAGS_TO_RUN.
