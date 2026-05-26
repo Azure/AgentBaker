@@ -498,8 +498,18 @@ func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	)
 }
 
-func ValidateACLABPartitionLayout(ctx context.Context, s *Scenario) {
+// ValidateACLABUpdate performs a full A/B update lifecycle test:
+// 1. Verify initial partition layout and capture initial active volume
+// 2. Write host config pointing at the COSI URL
+// 3. Stage the update (trident update --allowed-operations stage)
+// 4. Finalize the update (trident update --allowed-operations finalize) — triggers reboot
+// 5. Wait for node to come back, re-establish SSH
+// 6. Validate active volume switched and servicing state is Provisioned
+func ValidateACLABUpdate(ctx context.Context, s *Scenario, cosiURL string) {
 	s.T.Helper()
+
+	// Step 1: Verify ACL identity and A/B partition layout
+	ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
 	// Verify dm-verity is active (ACL uses dm-verity for root integrity)
 	execScriptOnVMForScenarioValidateExitCode(
 		ctx,
@@ -516,20 +526,8 @@ func ValidateACLABPartitionLayout(ctx context.Context, s *Scenario) {
 		0,
 		"expected at least 2 usr partitions for A/B layout",
 	)
-}
-
-// ValidateACLABUpdate performs a full A/B update lifecycle test:
-// 1. Verify initial partition layout and capture initial active volume
-// 2. Write host config pointing at the COSI URL
-// 3. Stage the update (trident update --allowed-operations stage)
-// 4. Finalize the update (trident update --allowed-operations finalize) — triggers reboot
-// 5. Wait for node to come back, re-establish SSH
-// 6. Validate active volume switched and servicing state is Provisioned
-func ValidateACLABUpdate(ctx context.Context, s *Scenario, cosiURL string) {
-	s.T.Helper()
-
-	// Step 1: Verify initial A/B partition layout
-	ValidateACLABPartitionLayout(ctx, s)
+	// Verify Trident update service unit is present
+	ValidateFileExists(ctx, s, "/usr/lib/systemd/system/trident-update.service")
 
 	// Capture initial boot_id so we can detect reboot
 	bootIDResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,

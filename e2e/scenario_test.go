@@ -452,29 +452,6 @@ func runScenarioACLGRID(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_ACL_ABUpdatePrepared(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that an ACL node has the A/B partition layout and Trident update service configured",
-		Tags: Tags{
-			ABUpdate: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
-				// Verify dm-verity is active on the root filesystem
-				ValidateACLABPartitionLayout(ctx, s)
-				// Verify Trident update service unit is present
-				ValidateFileExists(ctx, s, "/usr/lib/systemd/system/trident-update.service")
-			},
-		},
-	})
-}
-
 func Test_ACL_ABUpdate(t *testing.T) {
 	cosiURL := os.Getenv("COSI_URL")
 	if cosiURL == "" {
