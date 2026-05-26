@@ -45,6 +45,7 @@ COSI_ARTIFACTS_DIR="${COSI_ARTIFACTS_DIR:-}"
 RUN_AB_UPDATE_TESTS="${RUN_AB_UPDATE_TESTS:-false}"
 # ADO booleans may arrive as True/False/TRUE — normalize to lowercase
 RUN_AB_UPDATE_TESTS="$(echo "$RUN_AB_UPDATE_TESTS" | tr '[:upper:]' '[:lower:]')"
+COSI_URL="${COSI_URL:-}"
 
 # When A/B update tests are requested, add the abupdate tag to TAGS_TO_RUN.
 # Otherwise, skip ab-update tests so they don't run during standard e2e.
@@ -72,6 +73,7 @@ echo "ENABLE_SECURE_TLS_BOOTSTRAPPING: ${ENABLE_SECURE_TLS_BOOTSTRAPPING}"
 echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
 echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "RUN_AB_UPDATE_TESTS: ${RUN_AB_UPDATE_TESTS}"
+echo "COSI_URL: ${COSI_URL}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
 echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "E2E_GO_TEST_TIMEOUT: ${E2E_GO_TEST_TIMEOUT}"
