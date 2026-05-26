@@ -41,6 +41,7 @@ TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+# Default to false and normalize case (ADO booleans may arrive as True/False/TRUE)
 RUN_AB_UPDATE_TESTS="${RUN_AB_UPDATE_TESTS:-false}"
 RUN_AB_UPDATE_TESTS="$(echo "$RUN_AB_UPDATE_TESTS" | tr '[:upper:]' '[:lower:]')"
 COSI_URL="${COSI_URL:-}"
