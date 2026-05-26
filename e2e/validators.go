@@ -509,6 +509,26 @@ func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	ValidateFileExists(ctx, s, "/etc/system-fips")
 }
 
+func ValidateACLABPartitionLayout(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// Verify dm-verity is active (ACL uses dm-verity for root integrity)
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`sudo dmsetup status | grep -q verity`,
+		0,
+		"expected dm-verity to be active on root filesystem",
+	)
+	// Verify two rootfs partitions exist (A/B layout)
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`lsblk -ln -o NAME,PARTLABEL | grep -c rootfs | grep -qE '^[2-9]'`,
+		0,
+		"expected at least 2 rootfs partitions for A/B layout",
+	)
+}
+
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if fileExist(ctx, s, fileName) {
