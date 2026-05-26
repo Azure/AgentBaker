@@ -10,6 +10,10 @@ parameters:
     type: string
     displayName: Variable group to use for e2e tests
     default: ab-e2e
+  - name: RunABUpdateTests
+    type: boolean
+    displayName: Run A/B update tests for ACL images
+    default: false
 
 jobs:
   - job: e2e
@@ -44,6 +48,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          RUN_AB_UPDATE_TESTS: ${{parameters.RunABUpdateTests}}
 
       - task: PublishTestResults@2
         displayName: Upload test results
