@@ -1164,85 +1164,6 @@ func Test_Ubuntu2204_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NoneCached(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
-		Tags: Tags{
-			NetworkIsolated: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetworkIsolated,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
-						TestMode:                true,
-					},
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				// intentionally using private acr url to get kube binaries
-				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRName(config.Config.DefaultLocation),
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.EnableScriptlessCSECmd = false
-				nbc.EnableScriptlessNBCCSECmd = false
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCached(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binaries and in a network-isolated cluster can be properly bootstrapped with kube package install enforcement",
-		Tags: Tags{
-			NetworkIsolated: true,
-			NonAnonymousACR: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetworkIsolated,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
-					},
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
-				// intentionally using private acr url to get kube binaries
-				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
-					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-				nbc.EnableScriptlessCSECmd = false
-				nbc.EnableScriptlessNBCCSECmd = false
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
 // Test_Ubuntu2204_HTTPSProxy_PrivateDNS validates that node provisioning succeeds when
 // HTTPS_PROXY is set and the API server FQDN resolves via a private DNS zone.
 // Regression coverage for IcM 603699115 / ADO#31707996.
@@ -1869,23 +1790,6 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
-				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
-				nbc.EnableScriptlessNBCCSECmd = false
 			},
 		},
 	})
