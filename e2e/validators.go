@@ -519,13 +519,13 @@ func ValidateACLABPartitionLayout(ctx context.Context, s *Scenario) {
 		0,
 		"expected dm-verity to be active on root filesystem",
 	)
-	// Verify two rootfs partitions exist (A/B layout)
+	// Verify two usr partitions exist (A/B layout)
 	execScriptOnVMForScenarioValidateExitCode(
 		ctx,
 		s,
-		`lsblk -ln -o NAME,PARTLABEL | grep -c rootfs | grep -qE '^[2-9]'`,
+		`lsblk -ln -o NAME,PARTLABEL | grep -c usr | grep -qE '^[2-9]'`,
 		0,
-		"expected at least 2 rootfs partitions for A/B layout",
+		"expected at least 2 usr partitions for A/B layout",
 	)
 }
 
