@@ -4,7 +4,6 @@ on: pull_request
 jobs:
   cue:
     runs-on: ubuntu-latest
-    environment: test
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
