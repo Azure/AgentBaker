@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -469,6 +470,30 @@ func Test_ACL_ABUpdatePrepared(t *testing.T) {
 				ValidateACLABPartitionLayout(ctx, s)
 				// Verify Trident update service unit is present
 				ValidateFileExists(ctx, s, "/usr/lib/systemd/system/trident-update.service")
+			},
+		},
+	})
+}
+
+func Test_ACL_ABUpdate(t *testing.T) {
+	cosiURL := os.Getenv("COSI_URL")
+	if cosiURL == "" {
+		t.Skip("COSI_URL not set, skipping A/B update test")
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests full A/B update lifecycle: stage COSI, finalize (reboot), verify volume switch",
+		Tags: Tags{
+			ABUpdate: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDACLGen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateACLABUpdate(ctx, s, cosiURL)
 			},
 		},
 	})
