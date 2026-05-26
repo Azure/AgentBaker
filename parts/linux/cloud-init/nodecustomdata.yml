@@ -25,6 +25,18 @@ write_files:
     Any overridden files will be listed here - Hotfix mode
     Example: {{GetCSEHelpersScriptFilepath}}
 
+# Dry-run beacon for the official/v20260514 ANC hotfix end-to-end validation.
+# Greppable from the node via: cat /opt/azure/containers/anc-hotfix-dryrun-beacon.txt
+# Proves the nodecustomdata change reached the node (independent of the
+# auto-injected anc-hotfix block that targets aks-node-controller-hotfix.json).
+- path: /opt/azure/containers/anc-hotfix-dryrun-beacon.txt
+  permissions: "0644"
+  owner: root
+  content: |
+    anc-hotfix-dry-run beacon
+    branch: official/v20260514
+    hotfix-tag: anc/v202605.14.1
+
 {{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"

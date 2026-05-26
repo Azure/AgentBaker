@@ -64,6 +64,14 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
+	// Dry-run beacon for the official/v20260514 ANC hotfix end-to-end validation.
+	// Greppable from the node via: journalctl | grep "ANC hotfix dry-run beacon"
+	// Proves the hotfix-installed binary (not the VHD-baked one) is executing.
+	slog.Info("ANC hotfix dry-run beacon",
+		"version", Version,
+		"branch", "official/v20260514",
+		"hotfixTag", "anc/v202605.14.1")
+
 	cmd := &cli.Command{
 		Name:    "aks-node-controller",
 		Usage:   "Parse contract and run csecmd",
