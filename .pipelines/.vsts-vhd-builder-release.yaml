@@ -1000,7 +1000,40 @@ stages:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: "os=windows"
     jobs:
+      - job: resolve_cosi_url
+        displayName: Resolve COSI URL from build artifacts
+        variables:
+          - group: ab-e2e
+        pool:
+          name: $(E2E_POOL_NAME)
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: Download COSI publishing info
+            inputs:
+              artifact: cosi-publishing-info-acl-tl-gen2
+              path: $(Pipeline.Workspace)/cosi-info
+            continueOnError: true
+          - bash: |
+              COSI_INFO="$(Pipeline.Workspace)/cosi-info/cosi-publishing-info.json"
+              if [ -f "$COSI_INFO" ]; then
+                COSI_URL=$(jq -r '.cosi_url // empty' "$COSI_INFO")
+                if [ -n "$COSI_URL" ]; then
+                  echo "Resolved COSI URL: $COSI_URL"
+                  echo "##vso[task.setvariable variable=COSI_URL;isOutput=true]$COSI_URL"
+                else
+                  echo "cosi_url field missing or null in publishing info, skipping AB update tests"
+                  echo "##vso[task.setvariable variable=COSI_URL;isOutput=true]"
+                fi
+              else
+                echo "COSI publishing info not found (ACL build may not have run), skipping AB update tests"
+                echo "##vso[task.setvariable variable=COSI_URL;isOutput=true]"
+              fi
+            name: cosi
+            displayName: Extract COSI URL
       - template: ./templates/e2e-template.yaml
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
+          RunABUpdateTests: true
+          dependsOn:
+            - resolve_cosi_url

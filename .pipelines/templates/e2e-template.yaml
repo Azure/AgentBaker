@@ -18,12 +18,22 @@ parameters:
     type: string
     displayName: COSI image URL for A/B update tests (https:// blob storage URL)
     default: ""
+  - name: dependsOn
+    type: object
+    displayName: Jobs this e2e job depends on
+    default: []
 
 jobs:
   - job: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    dependsOn: ${{parameters.dependsOn}}
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
+      - name: RESOLVED_COSI_URL
+        ${{ if ne(parameters.CosiUrl, '') }}:
+          value: ${{parameters.CosiUrl}}
+        ${{ else }}:
+          value: $[ dependencies.resolve_cosi_url.outputs['cosi.COSI_URL'] ]
     pool:
       name: $(E2E_POOL_NAME)
     timeoutInMinutes: 90
@@ -53,7 +63,7 @@ jobs:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           RUN_AB_UPDATE_TESTS: ${{parameters.RunABUpdateTests}}
-          COSI_URL: ${{parameters.CosiUrl}}
+          COSI_URL: $(RESOLVED_COSI_URL)
 
       - task: PublishTestResults@2
         displayName: Upload test results
