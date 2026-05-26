@@ -178,9 +178,10 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 
 		events := tt.eventLogger.Events()
-		assert.Len(t, events, 2)
-		assert.Contains(t, events[0].Message, "Starting")
-		assert.Contains(t, events[1].Message, "Completed")
+		assert.Len(t, events, 3)
+		assert.Contains(t, events[0].Message, "ANC hotfix dry-run beacon")
+		assert.Contains(t, events[1].Message, "Starting")
+		assert.Contains(t, events[2].Message, "Completed")
 	})
 
 	t.Run("provision command with provision-config and nbc-cmd flag", func(t *testing.T) {
@@ -190,9 +191,10 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 
 		events := tt.eventLogger.Events()
-		assert.Len(t, events, 2)
-		assert.Contains(t, events[0].Message, "Starting")
-		assert.Contains(t, events[1].Message, "Completed")
+		assert.Len(t, events, 3)
+		assert.Contains(t, events[0].Message, "ANC hotfix dry-run beacon")
+		assert.Contains(t, events[1].Message, "Starting")
+		assert.Contains(t, events[2].Message, "Completed")
 	})
 
 	t.Run("provision command with command runner error", func(t *testing.T) {
@@ -203,8 +205,8 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 666, exitCode)
 
 		events := tt.eventLogger.Events()
-		assert.Len(t, events, 2)
-		assert.Equal(t, "Error", events[1].EventLevel)
+		assert.Len(t, events, 3)
+		assert.Equal(t, "Error", events[2].EventLevel)
 	})
 }
 

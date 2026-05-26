@@ -64,14 +64,6 @@ type ProvisionStatusFiles struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	// Dry-run beacon for the official/v20260514 ANC hotfix end-to-end validation.
-	// Greppable from the node via: journalctl | grep "ANC hotfix dry-run beacon"
-	// Proves the hotfix-installed binary (not the VHD-baked one) is executing.
-	slog.Info("ANC hotfix dry-run beacon",
-		"version", Version,
-		"branch", "official/v20260514",
-		"hotfixTag", "anc/v202605.14.1")
-
 	cmd := &cli.Command{
 		Name:    "aks-node-controller",
 		Usage:   "Parse contract and run csecmd",
@@ -141,6 +133,20 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dryRun bool) error {
 	slog.Info("aks-node-controller started", "task", "Provision")
+
+	// Dry-run beacon for the official/v20260514 ANC hotfix end-to-end validation.
+	// Emitted both to slog (journalctl -u aks-node-controller.service,
+	// /var/log/azure/aks-node-controller.log) AND as a GuestAgent event so the
+	// signal surfaces in Azure telemetry / Kusto without needing SSH access.
+	// The hotfix-installed binary will emit this; the VHD-baked 202605.14.0 binary will not.
+	beaconNow := time.Now()
+	slog.Info("ANC hotfix dry-run beacon",
+		"version", Version,
+		"branch", "official/v20260514",
+		"hotfixTag", "anc/v202605.14.1")
+	a.eventLogger.LogEvent("HotfixBeacon",
+		fmt.Sprintf("ANC hotfix dry-run beacon version=%s branch=official/v20260514 hotfixTag=anc/v202605.14.1", Version),
+		helpers.EventLevelInformational, beaconNow, beaconNow)
 
 	startTime := time.Now()
 	a.eventLogger.LogEvent("Provision", "Starting", helpers.EventLevelInformational, startTime, startTime)
