@@ -2,6 +2,7 @@ package nodeconfigutils
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"fmt"
 	"mime/multipart"
@@ -132,7 +133,7 @@ func CustomDataPhase3(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (str
 		return "", fmt.Errorf("failed to finalize multipart custom data: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
+	return gzipAndBase64Encode(customData.Bytes())
 }
 
 // CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.
@@ -169,6 +170,19 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 
 	_, err = part.Write([]byte(content))
 	return err
+}
+
+func gzipAndBase64Encode(data []byte) (string, error) {
+	var gzipped bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzipped)
+	if _, err := gzipWriter.Write(data); err != nil {
+		return "", fmt.Errorf("failed to gzip custom data: %w", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize gzip custom data: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(gzipped.Bytes()), nil
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
