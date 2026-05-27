@@ -586,6 +586,12 @@ function nodePrep {
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
+    if systemctl cat aks-log-collector.timer &>/dev/null; then
+         systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
+     else
+         echo "aks-log-collector.timer not found on this VHD, skipping"
+     fi
+
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"

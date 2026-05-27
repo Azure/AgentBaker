@@ -66,9 +66,10 @@ if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
 fi
-# enable AKS log collector
+# disable AKS log collector and waagent collection
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
+systemctl disable --now aks-log-collector.service || exit 1
+systemctl disable --now aks-log-collector.timer || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer 30 || exit 1
