@@ -487,7 +487,8 @@ wait_for_localdns_ready() {
 
     echo "Waiting for localdns to start and be able to serve traffic."
     until [ "$($CURL_COMMAND)" = "OK" ]; do
-        # Check for timeout based on elapsed time.
+        # Keep both guards: elapsed time is the real wall-clock timeout, while max_attempts
+        # guarantees termination if date +%s stalls or does not advance as expected.
         currenttime=$(date +%s)
         elapsedtime=$((currenttime - starttime))
         if [ "$elapsedtime" -ge "$timeout_duration" ]; then
