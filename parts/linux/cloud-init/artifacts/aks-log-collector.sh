@@ -19,11 +19,13 @@ shopt -s nullglob nocaseglob extglob
 # JSON body:
 # {
 #   "disable": false,
+#   "waagent_full": false,
 #   "files": [ "/etc/skel/.bashrc", "/etc/skel/.bash_profile" ],
 #   "pod_log_namespaces": [ "default", "pahealy" ],
 #   "iptables": false,
 #   "nftables": false,
-#   "netns": true
+#   "netns": true,
+#   "sysinfo": false
 # }
 CONFIG=$(curl -s -H Metadata:true --noproxy '*' 'http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01' | jq '.tagsList[] | select(.name=="aks-log-collector") | .value | fromjson')
 
@@ -36,6 +38,8 @@ CONFIG=$(curl -s -H Metadata:true --noproxy '*' 'http://169.254.169.254/metadata
 COLLECT_IPTABLES=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .iptables? // false')
 COLLECT_NFTABLES=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .nftables? // false')
 COLLECT_NETNS=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .netns? // false')
+COLLECT_SYSINFO=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .sysinfo? // false')
+COLLECT_WAAGENT_FULL=$(<<<"$CONFIG" jq -esRr 'try fromjson catch null | .waagent_full? // false')
 
 ### START CONFIGURATION
 ZIP="aks_logs.zip"
@@ -75,63 +79,71 @@ GLOBS+=(/var/log/nvidia*.log)
 GLOBS+=(/var/log/azure/nvidia*.log)
 GLOBS+=(/var/log/fabricmanager*.log)
 
-# based on MANIFEST_FULL from Azure Linux Agent's log collector
-# https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
-GLOBS+=(/var/lib/waagent/provisioned)
-GLOBS+=(/etc/fstab)
-GLOBS+=(/etc/ssh/sshd_config)
-GLOBS+=(/boot/grub*/grub.c*)
-GLOBS+=(/boot/grub*/menu.lst)
+# Configuration files (small, critical for diagnosis)
 GLOBS+=(/etc/*-release)
 GLOBS+=(/etc/HOSTNAME)
 GLOBS+=(/etc/hostname)
-GLOBS+=(/etc/apt/sources.list)
-GLOBS+=(/etc/apt/sources.list.d/*)
-GLOBS+=(/etc/network/interfaces)
-GLOBS+=(/etc/network/interfaces.d/*.cfg)
-GLOBS+=(/etc/netplan/*.yaml)
-GLOBS+=(/etc/nsswitch.conf)
+GLOBS+=(/etc/waagent.conf)
 GLOBS+=(/etc/resolv.conf)
 GLOBS+=(/run/systemd/resolve/stub-resolv.conf)
-GLOBS+=(/run/resolvconf/resolv.conf)
-GLOBS+=(/etc/sysconfig/iptables)
-GLOBS+=(/etc/sysconfig/network)
-GLOBS+=(/etc/sysconfig/network/ifcfg-eth*)
-GLOBS+=(/etc/sysconfig/network/routes)
-GLOBS+=(/etc/sysconfig/network-scripts/ifcfg-eth*)
-GLOBS+=(/etc/sysconfig/network-scripts/route-eth*)
-GLOBS+=(/etc/ufw/ufw.conf)
-GLOBS+=(/etc/waagent.conf)
-GLOBS+=(/var/lib/hyperv/.kvp_pool_*)
-GLOBS+=(/var/lib/dhcp/dhclient.eth0.leases)
-GLOBS+=(/var/lib/dhclient/dhclient-eth0.leases)
-GLOBS+=(/var/lib/wicked/lease-eth0-dhcp-ipv4.xml)
+
+# Key log files
+GLOBS+=(/var/log/dmesg*)
+GLOBS+=(/var/log/syslog*)
+GLOBS+=(/var/log/messages*)
+GLOBS+=(/var/log/secure*)
+GLOBS+=(/var/log/auth*)
+GLOBS+=(/var/log/cloud-init*)
+GLOBS+=(/var/log/azure/*/*)
+GLOBS+=(/var/log/azure/*/*/*)
 GLOBS+=(/var/log/azure/custom-script/handler.log)
 GLOBS+=(/var/log/azure/run-command/handler.log)
+
+# Extension state
 GLOBS+=(/var/lib/waagent/ovf-env.xml)
+GLOBS+=(/var/lib/waagent/waagent_status.json)
 GLOBS+=(/var/lib/waagent/*/status/*.status)
 GLOBS+=(/var/lib/waagent/*/config/*.settings)
 GLOBS+=(/var/lib/waagent/*/config/HandlerState)
 GLOBS+=(/var/lib/waagent/*/config/HandlerStatus)
-GLOBS+=(/var/lib/waagent/SharedConfig.xml)
-GLOBS+=(/var/lib/waagent/ManagedIdentity-*.json)
-GLOBS+=(/var/lib/waagent/waagent_status.json)
 GLOBS+=(/var/lib/waagent/*/error.json)
-GLOBS+=(/var/log/cloud-init*)
-GLOBS+=(/var/log/azure/*/*)
-GLOBS+=(/var/log/azure/*/*/*)
-GLOBS+=(/var/log/syslog*)
-GLOBS+=(/var/log/rsyslog*)
-GLOBS+=(/var/log/messages*)
-GLOBS+=(/var/log/kern*)
-GLOBS+=(/var/log/dmesg*)
-GLOBS+=(/var/log/dpkg*)
-GLOBS+=(/var/log/yum*)
-GLOBS+=(/var/log/boot*)
-GLOBS+=(/var/log/auth*)
-GLOBS+=(/var/log/secure*)
-GLOBS+=(/var/log/journal*)
 
+# Based on MANIFEST_FULL from Azure Linux Agent's log collector
+# https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/ga/logcollector_manifests.py
+if [ "$COLLECT_WAAGENT_FULL" = "true" ]; then
+  GLOBS+=(/var/lib/waagent/provisioned)
+  GLOBS+=(/etc/fstab)
+  GLOBS+=(/etc/ssh/sshd_config)
+  GLOBS+=(/boot/grub*/grub.c*)
+  GLOBS+=(/boot/grub*/menu.lst)
+  GLOBS+=(/etc/apt/sources.list)
+  GLOBS+=(/etc/apt/sources.list.d/*)
+  GLOBS+=(/etc/network/interfaces)
+  GLOBS+=(/etc/network/interfaces.d/*.cfg)
+  GLOBS+=(/etc/netplan/*.yaml)
+  GLOBS+=(/etc/nsswitch.conf)
+  GLOBS+=(/run/resolvconf/resolv.conf)
+  GLOBS+=(/etc/sysconfig/iptables)
+  GLOBS+=(/etc/sysconfig/network)
+  GLOBS+=(/etc/sysconfig/network/ifcfg-eth*)
+  GLOBS+=(/etc/sysconfig/network/routes)
+  GLOBS+=(/etc/sysconfig/network-scripts/ifcfg-eth*)
+  GLOBS+=(/etc/sysconfig/network-scripts/route-eth*)
+  GLOBS+=(/etc/ufw/ufw.conf)
+  GLOBS+=(/var/lib/hyperv/.kvp_pool_*)
+  GLOBS+=(/var/lib/dhcp/dhclient.eth0.leases)
+  GLOBS+=(/var/lib/dhclient/dhclient-eth0.leases)
+  GLOBS+=(/var/lib/wicked/lease-eth0-dhcp-ipv4.xml)
+  GLOBS+=(/var/lib/waagent/SharedConfig.xml)
+  GLOBS+=(/var/lib/waagent/ManagedIdentity-*.json)
+  # Rotated and additional log files
+  GLOBS+=(/var/log/rsyslog*)
+  GLOBS+=(/var/log/kern*)
+  GLOBS+=(/var/log/dpkg*)
+  GLOBS+=(/var/log/yum*)
+  GLOBS+=(/var/log/boot*)
+  GLOBS+=(/var/log/journal*)
+fi
 ### END CONFIGURATION
 
 command -v zip >/dev/null || {
@@ -187,25 +199,30 @@ echo "Collecting system information..."
 mkdir collect
 
 # Collect general information and create the ZIP in the first place
-zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|meminfo|modules|mounts|slabinfo|stat|uptime|version*|vmstat) /proc/net/*
+zip -DZ deflate "${ZIP}" /proc/@(cmdline|loadavg|meminfo|mounts|uptime|version*)
 
-# Include some disk listings
-collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
+if [ "$COLLECT_SYSINFO" = "true" ]; then
+  # Extensive proc info
+  zip -gDZ deflate "${ZIP}" /proc/@(cpuinfo|filesystems|interrupts|modules|slabinfo|stat|vmstat) /proc/net/*
 
-# Collect system information
-collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
-collectToZip collect/du_bytes.txt df -al
-collectToZip collect/du_inodes.txt df -ail
-collectToZip collect/diskinfo.txt lsblk
-collectToZip collect/lscpu.txt lscpu
-collectToZip collect/lscpu.json lscpu -J
-collectToZip collect/lsipc.txt lsipc
-collectToZip collect/lsns.json lsns -J --output-all
-collectToZip collect/lspci.txt lspci -vkPP
-collectToZip collect/lsscsi.txt lsscsi -vv
-collectToZip collect/lsvmbus.txt lsvmbus -vv
-collectToZip collect/sysctl.txt sysctl -a
-collectToZip collect/systemctl-status.txt systemctl status --all -fr
+  # Include some disk listings
+  collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
+
+  # Collect system information
+  collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
+  collectToZip collect/du_bytes.txt df -al
+  collectToZip collect/du_inodes.txt df -ail
+  collectToZip collect/diskinfo.txt lsblk
+  collectToZip collect/lscpu.txt lscpu
+  collectToZip collect/lscpu.json lscpu -J
+  collectToZip collect/lsipc.txt lsipc
+  collectToZip collect/lsns.json lsns -J --output-all
+  collectToZip collect/lspci.txt lspci -vkPP
+  collectToZip collect/lsscsi.txt lsscsi -vv
+  collectToZip collect/lsvmbus.txt lsvmbus -vv
+  collectToZip collect/sysctl.txt sysctl -a
+  collectToZip collect/systemctl-status.txt systemctl status --all -fr
+fi
 
 # Collect logs of the Nvidia services if present
 collectToZip collect/journalctl_nvidia-dcgm.txt journalctl -u nvidia-dcgm --no-pager
@@ -223,12 +240,16 @@ collectToZip collect/crictl_images.json crictl images -o json
 collectToZip collect/crictl_imagefsinfo.json crictl imagefsinfo -o json
 collectToZip collect/crictl_pods.json crictl pods -o json
 collectToZip collect/crictl_ps.json crictl ps -o json
-collectToZip collect/crictl_stats.json crictl stats -o json
-collectToZip collect/crictl_statsp.json crictl statsp -o json
+if [ "$COLLECT_SYSINFO" = "true" ]; then
+  collectToZip collect/crictl_stats.json crictl stats -o json
+  collectToZip collect/crictl_statsp.json crictl statsp -o json
+fi
 
 # Collect network information
-collectToZip collect/conntrack.txt conntrack -L
-collectToZip collect/conntrack_stats.txt conntrack -S
+if [ "$COLLECT_SYSINFO" = "true" ]; then
+  collectToZip collect/conntrack.txt conntrack -L
+  collectToZip collect/conntrack_stats.txt conntrack -S
+fi
 collectToZip collect/ip_4_addr.json ip -4 -d -j addr show
 collectToZip collect/ip_4_neighbor.json ip -4 -d -j neighbor show
 collectToZip collect/ip_4_route.json ip -4 -d -j route show
@@ -251,15 +272,19 @@ if [ "${COLLECT_NFTABLES}" = "true" ]; then
   collectToZip collect/nftables.txt nft -n list ruleset 2>&1
 fi
 
-collectToZip collect/ss.txt ss -anoempiO --cgroup
-collectToZip collect/ss_stats.txt ss -s
+if [ "$COLLECT_SYSINFO" = "true" ]; then
+  collectToZip collect/ss.txt ss -anoempiO --cgroup
+  collectToZip collect/ss_stats.txt ss -s
+fi
 
 # Collect network information from network namespaces
 if [ "${COLLECT_NETNS}" = "true" ]; then
   for NETNS in $(ip -j netns list | jq -r '.[].name'); do
     mkdir -p "collect/ip_netns_${NETNS}/"
-    collectToZip collect/ip_netns_${NETNS}/conntrack.txt ip netns exec "${NETNS}" conntrack -L
-    collectToZip collect/ip_netns_${NETNS}/conntrack_stats.txt ip netns exec "${NETNS}" conntrack -S
+    if [ "$COLLECT_SYSINFO" = "true" ]; then
+      collectToZip collect/ip_netns_${NETNS}/conntrack.txt ip netns exec "${NETNS}" conntrack -L
+      collectToZip collect/ip_netns_${NETNS}/conntrack_stats.txt ip netns exec "${NETNS}" conntrack -S
+    fi
     collectToZip collect/ip_netns_${NETNS}/ip_4_addr.json ip -n "${NETNS}" -4 -d -j addr show
     collectToZip collect/ip_netns_${NETNS}/ip_4_neighbor.json ip -n "${NETNS}" -4 -d -j neighbor show
     collectToZip collect/ip_netns_${NETNS}/ip_4_route.json ip -n "${NETNS}" -4 -d -j route show
@@ -279,27 +304,42 @@ if [ "${COLLECT_NETNS}" = "true" ]; then
     if [ "${COLLECT_NFTABLES}" = "true" ]; then
       collectToZip collect/ip_netns_${NETNS}/nftables.txt nft -n list ruleset
     fi
-    collectToZip collect/ip_netns_${NETNS}/ss.txt ip netns exec "${NETNS}" ss -anoempiO --cgroup
-    collectToZip collect/ip_netns_${NETNS}/ss_stats.txt ip netns exec "${NETNS}" ss -s
+    if [ "$COLLECT_SYSINFO" = "true" ]; then
+      collectToZip collect/ip_netns_${NETNS}/ss.txt ip netns exec "${NETNS}" ss -anoempiO --cgroup
+      collectToZip collect/ip_netns_${NETNS}/ss_stats.txt ip netns exec "${NETNS}" ss -s
+    fi
   done
 fi
 
 # Add each file sequentially to the zip archive. This is slightly less efficient then adding them
 # all at once, but allows us to easily check when we've exceeded the maximum file size and stop
 # adding things to the archive.
-echo "Adding log files to zip archive..."
-for file in ${GLOBS[*]}; do
-  if test -e $file; then
-    zip -g -DZ deflate -u "${ZIP}" $file -x '*.sock'
+MAX_FILE_SIZE=$((10 * 1024 * 1024))
+echo "Adding log files to zip archive with max file size: $MAX_FILE_SIZE bytes..."
+for file in "${GLOBS[@]}"; do
+  # shellcheck disable=SC3010
+  [[ "$file" == *.gz ]] && continue
+  test -e "$file" || continue
 
-    # The API for the log bundle has a max file size (defined above, usually 100MB), so if
-    # adding this last file made the zip go over that size, remove that file and stop processing.
-    FILE_SIZE=$(stat --printf "%s" ${ZIP})
-    if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
-      echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; removing last log file and terminating adding more files."
-      zip -d "${ZIP}" $file
-      break
-    fi
+  fsize=$(stat --printf "%s" "$file")
+  if [ "$fsize" -gt "$MAX_FILE_SIZE" ]; then
+    # Preserve directory structure so zip entry has the original path
+    truncdir="${file%/*}"
+    mkdir -p ".${truncdir}"
+    mkfifo ".${file}"
+    tail -c "$MAX_FILE_SIZE" "$file" >".${file}" &
+    tail_pid=$!
+    zip -gDZ deflate --fifo "${ZIP}" ".${file}"
+    wait "$tail_pid" 2>/dev/null
+    rm -f ".${file}"
+  else
+    zip -g -DZ deflate -u "${ZIP}" "$file" -x '*.sock'
+  fi
+
+  FILE_SIZE=$(stat --printf "%s" "${ZIP}")
+  if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
+    echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; stopping."
+    break
   fi
 done
 

@@ -2,8 +2,7 @@
 Description=AKS Log Collector Timer
 
 [Timer]
-OnActiveSec=0m
-OnBootSec=5min
+OnActiveSec=10min
 OnUnitActiveSec=60m
 
 [Install]
