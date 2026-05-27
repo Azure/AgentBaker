@@ -1120,7 +1120,7 @@ configureSSHPubkeyAuth() {
   local ssh_use_pubkey_auth
 
   # Determine the desired pubkey auth setting
-if [ "${disable_pubkey_auth}" = "true" ]; then
+  if [ "${disable_pubkey_auth}" = "true" ]; then
     ssh_use_pubkey_auth="no"
   else
     ssh_use_pubkey_auth="yes"
