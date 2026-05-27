@@ -327,13 +327,13 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
-			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s = %q", key, pcVal))
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
 		case !inPC && inNBC:
 			if !isDeprecatedCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s = %q", key, nbcVal))
+				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
 			}
 		case !envValsEqual(pcVal, nbcVal):
-			diffs = append(diffs, fmt.Sprintf("differs: %s pc=%q nbc=%q", key, pcVal, nbcVal))
+			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
 		}
 	}
 	return diffs
@@ -455,7 +455,8 @@ func isEnvKeyChar(c byte) bool {
 func skipToken(content string, i int) int {
 	n := len(content)
 	for i < n && content[i] != ' ' && content[i] != '\t' && content[i] != '\n' && content[i] != ';' {
-		if content[i] == '"' {
+		switch {
+		case content[i] == '"':
 			i++
 			for i < n && content[i] != '"' {
 				i++
@@ -463,7 +464,7 @@ func skipToken(content string, i int) int {
 			if i < n {
 				i++
 			}
-		} else if content[i] == '\'' {
+		case content[i] == '\'':
 			i++
 			for i < n && content[i] != '\'' {
 				i++
@@ -471,7 +472,7 @@ func skipToken(content string, i int) int {
 			if i < n {
 				i++
 			}
-		} else {
+		default:
 			i++
 		}
 	}
