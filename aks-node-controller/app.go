@@ -28,9 +28,7 @@ func isDeprecatedCSEVar(key string) bool {
 	case "CLOUD_INIT_STATUS_SCRIPT",
 		"HYPERKUBE_URL",
 		"MCR_REPOSITORY_BASE",
-		"BLOCK_OUTBOUND_NETWORK",
-		// DISABLE_PUBKEY_AUTH is now computed in scripts, and CSE var is not used
-		"DISABLE_PUBKEY_AUTH":
+		"BLOCK_OUTBOUND_NETWORK":
 		return true
 	}
 	return false

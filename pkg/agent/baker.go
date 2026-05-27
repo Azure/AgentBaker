@@ -1732,7 +1732,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1741,7 +1740,6 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
-
 [plugins."io.containerd.cri.v1.runtime".containerd]
   {{- if IsNSeriesSKU }}
   default_runtime_name = "nvidia-container-runtime"
@@ -1772,10 +1770,8 @@ root = "{{GetDataDir}}"{{- end}}
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-
 [metrics]
   address = "0.0.0.0:10257"
-
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1804,13 +1800,11 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
-
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1819,7 +1813,6 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
-
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
@@ -1837,10 +1830,8 @@ root = "{{GetDataDir}}"{{- end}}
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-
 [metrics]
   address = "0.0.0.0:10257"
-
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]

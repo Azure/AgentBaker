@@ -188,6 +188,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"LOCALDNS_GENERATED_COREFILE":                  getLocalDnsCorefileBase64WithHostsPlugin(config, false),
 		"LOCALDNS_COREFILE_BASE":                       getLocalDnsCorefileBase64WithHostsPlugin(config, false),
 		"LOCALDNS_COREFILE_WITH_HOSTS":                 getLocalDnsCorefileBase64WithHostsPlugin(config, true),
+		"DISABLE_PUBKEY_AUTH":                          fmt.Sprintf("%v", config.GetDisablePubkeyAuth()),
 		"SERVICE_ACCOUNT_IMAGE_PULL_ENABLED":           fmt.Sprintf("%v", config.GetServiceAccountImagePullProfile().GetEnabled()),
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID": config.GetServiceAccountImagePullProfile().GetDefaultClientId(),
 		"SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID": config.GetServiceAccountImagePullProfile().GetDefaultTenantId(),
