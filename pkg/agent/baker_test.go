@@ -1060,7 +1060,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vars).To(HaveKey("KUBELET_FLAGS"))
-		Expect(vars["KUBELET_FLAGS"]).To(Equal("--image-gc-high-threshold=85 --max-pods=110 --pod-max-pids=-1 "))
+		Expect(vars["KUBELET_FLAGS"]).To(Equal("--image-gc-high-threshold=85 --max-pods=110 --pod-max-pids=-1"))
 	})
 
 	It("should handle different distros", func() {
