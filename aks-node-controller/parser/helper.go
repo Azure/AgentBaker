@@ -181,6 +181,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
+	// TODO: add containerdv2 support
 	// the containerd config template is different based on whether the node is with GPU or not.
 	_template := containerdConfigTemplate
 	if noGPU {

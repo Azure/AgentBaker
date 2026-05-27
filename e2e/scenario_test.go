@@ -850,8 +850,6 @@ func Test_Ubuntu2004FIPS(t *testing.T) {
 			VHD:     config.VHDUbuntu2004FIPSContainerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -1509,10 +1507,6 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 				nbc.EnableArtifactStreaming = true
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.EnableArtifactStreaming = true
-				config.VmSize = "Standard_D2pds_V5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
