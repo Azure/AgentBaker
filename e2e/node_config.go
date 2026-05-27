@@ -642,7 +642,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 				CNIPluginsDownloadURL:                "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
-				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-linux-amd64-v1.6.21.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",

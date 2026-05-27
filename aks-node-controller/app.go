@@ -23,12 +23,17 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-var deprecatedCSEVars = map[string]bool{
-	"CLOUD_INIT_STATUS_SCRIPT": true,
-	"HYPERKUBE_URL":            true,
-	"MCR_REPOSITORY_BASE":      true,
-	"BLOCK_OUTBOUND_NETWORK": true,
-	"DISABLE_PUBKEY_AUTH": true,
+func isDeprecatedCSEVar(key string) bool {
+	switch key {
+	case "CLOUD_INIT_STATUS_SCRIPT",
+		"HYPERKUBE_URL",
+		"MCR_REPOSITORY_BASE",
+		"BLOCK_OUTBOUND_NETWORK",
+		// DISABLE_PUBKEY_AUTH is now computed in scripts, and CSE var is not used
+		"DISABLE_PUBKEY_AUTH":
+		return true
+	}
+	return false
 }
 
 type App struct {
@@ -265,14 +270,7 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 	}
 
 	// Extract CSE-specific env vars from provision config by filtering out unmodified OS env vars.
-	osEnv := envSliceToMap(os.Environ())
-	pcAllEnv := envSliceToMap(provisionConfigCmd.Env)
-	pcEnv := make(map[string]string, len(pcAllEnv))
-	for k, v := range pcAllEnv {
-		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
-			pcEnv[k] = v
-		}
-	}
+	pcEnv := extractCSEEnvVars(provisionConfigCmd.Env)
 
 	// Parse env vars directly from the NBC command file content.
 	nbcCmdContent, err := os.ReadFile(flags.NBCCmd)
@@ -282,8 +280,36 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 	}
 	nbcEnv := parseEnvVarsFromNBCCmdContent(string(nbcCmdContent))
 
-	// Collect all keys from both environments.
-	allKeys := make(map[string]struct{})
+	diffs := diffEnvMaps(pcEnv, nbcEnv)
+
+	now := time.Now()
+	if len(diffs) == 0 {
+		slog.Info("env compare: no differences found between provision-config and nbc-cmd env vars")
+		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
+	} else {
+		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
+		slog.Info(message)
+		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
+	}
+}
+
+// extractCSEEnvVars filters a command's env slice to only CSE-specific variables
+// by removing entries that match the current OS environment.
+func extractCSEEnvVars(cmdEnv []string) map[string]string {
+	osEnv := envSliceToMap(os.Environ())
+	allEnv := envSliceToMap(cmdEnv)
+	cseEnv := make(map[string]string, len(allEnv))
+	for k, v := range allEnv {
+		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
+			cseEnv[k] = v
+		}
+	}
+	return cseEnv
+}
+
+// diffEnvMaps compares two environment variable maps and returns a sorted list of human-readable differences.
+func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
+	allKeys := make(map[string]struct{}, len(pcEnv)+len(nbcEnv))
 	for k := range pcEnv {
 		allKeys[k] = struct{}{}
 	}
@@ -305,23 +331,14 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 		case inPC && !inNBC:
 			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s = %q", key, pcVal))
 		case !inPC && inNBC:
-			if !deprecatedCSEVars[key] {
+			if !isDeprecatedCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s = %q", key, nbcVal))
 			}
 		case pcVal != nbcVal:
 			diffs = append(diffs, fmt.Sprintf("differs: %s pc=%q nbc=%q", key, pcVal, nbcVal))
 		}
 	}
-
-	now := time.Now()
-	if len(diffs) == 0 {
-		slog.Info("env compare: no differences found between provision-config and nbc-cmd env vars")
-		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
-	} else {
-		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
-		slog.Info(message)
-		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
-	}
+	return diffs
 }
 
 // parseEnvVarsFromNBCCmdContent extracts environment variable assignments from an NBC command string.
