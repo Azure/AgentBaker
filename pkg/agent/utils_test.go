@@ -581,7 +581,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s"
 		Expect(expectStr).To(Equal(actucalStr))
 	})
 
@@ -614,7 +614,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s"
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
@@ -642,7 +642,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus"
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
@@ -677,7 +677,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			},
 		}
 
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true"
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
