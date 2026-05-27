@@ -835,6 +835,7 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[str
 		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
 				toolkit.Logf(ctx, "stale K8s node %q already gone", node.Name)
+				deleted++
 				continue
 			}
 			toolkit.Logf(ctx, "warning: failed to delete stale K8s node %q: %v", node.Name, err)
