@@ -364,8 +364,10 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating", "Deleting", "Canceled", "Canceling":
+		case "Updating", "Assigned", "Creating", "Deleting", "Canceling":
 			return false, nil
+		case "Canceled":
+			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)
 		default:
 			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)
 		}
