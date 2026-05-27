@@ -2686,8 +2686,8 @@ func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) {
 	if s.Runtime.EnableScriptlessANC {
 		logFile := "/var/log/azure/aks-node-controller.log"
 		if !fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars") {
-			// Grep for "differs" lines to show what's different
-			diffCmd := "sudo grep 'differs' " + logFile + " || true"
+			// Grep for all env-compare diff markers to show what's different.
+			diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
 			result := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.log")
 			s.T.Fatalf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
 		}
