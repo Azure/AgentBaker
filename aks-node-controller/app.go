@@ -332,11 +332,26 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 			if !isDeprecatedCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s = %q", key, nbcVal))
 			}
-		case pcVal != nbcVal:
+		case !envValsEqual(pcVal, nbcVal):
 			diffs = append(diffs, fmt.Sprintf("differs: %s pc=%q nbc=%q", key, pcVal, nbcVal))
 		}
 	}
 	return diffs
+}
+
+// envValsEqual compares two environment variable values, treating them as equal
+// if they differ only in the presence of double quotes around substrings.
+// This handles cases like PROXY_VARS where the legacy path strips inner quotes
+// due to shell quoting collision while the scriptless path preserves them.
+func envValsEqual(a, b string) bool {
+	if a == b {
+		return true
+	}
+	return stripDoubleQuotes(a) == stripDoubleQuotes(b)
+}
+
+func stripDoubleQuotes(s string) string {
+	return strings.ReplaceAll(s, "\"", "")
 }
 
 // parseEnvVarsFromNBCCmdContent extracts environment variable assignments from an NBC command string.
