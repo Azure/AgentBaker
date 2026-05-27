@@ -27,8 +27,7 @@ import (
 - KEY="VALUE WITH WHITSPACE". */
 const cseRegexString = `([^=\s]+)=(\"[^\"]*\"|[^\s]*)`
 
-const expectedlocalDNSCorefileWithoutOverrides = `
-# ***********************************************************************************
+const expectedlocalDNSCorefileWithoutOverrides = `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
@@ -403,8 +402,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
-				expectedlocalDNSCorefile := `
-# ***********************************************************************************
+				expectedlocalDNSCorefile := `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
@@ -593,8 +591,7 @@ testdomain456.com:53 {
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
-				expectedlocalDNSCorefile := `
-# ***********************************************************************************
+				expectedlocalDNSCorefile := `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
