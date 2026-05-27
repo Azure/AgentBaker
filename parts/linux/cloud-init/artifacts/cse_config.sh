@@ -621,7 +621,13 @@ ensurePodInfraContainerImage() {
     retrycmd_cp_oci_layout_with_oras 10 5 "${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}" "$tag" "$image" || exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
 
     tar -cvf ${POD_INFRA_CONTAINER_IMAGE_TAR} -C ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR} .
-    if ctr -n k8s.io image import --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
+    # --digests imports anonymous (digest-only) manifests as well as the tagged image manifest.
+    # The recursive `oras cp` above copies referrer artifact manifests (notation signature,
+    # dm-verity signature) into the OCI layout without a ref.name annotation, so without
+    # --digests they would be silently discarded by `ctr image import`, leaving their blobs
+    # unreachable in containerd's content store and the EROFS differ unable to find the
+    # dm-verity signature for the layer.
+    if ctr -n k8s.io image import --digests --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
         ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
         echo "Successfully imported $pod_infra_container_image"
         labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"

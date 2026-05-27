@@ -493,7 +493,11 @@ retrycmd_cp_oci_layout_with_oras() {
             if [ "$i" -gt 1 ]; then
                 sleep $wait_sleep
             fi
-            timeout 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            # --recursive copies referrer artifacts (e.g. notation signatures, dm-verity signatures)
+            # alongside the image manifest into the OCI layout. Required for dm-verity-enforced runtimes
+            # which look up the dm-verity signature from the local content store; without --recursive
+            # the EROFS differ fails with "dm-verity signature required but not present on layer".
+            timeout 120 oras cp --recursive "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             else
