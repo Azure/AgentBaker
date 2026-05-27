@@ -89,7 +89,7 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS" && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; 
 fi
 
 # GB200 specific build location handling (if needed in future)
-if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
 	echo "GB200: Using standard ARM64 build location ${PACKER_BUILD_LOCATION}"
 	# Additional GB200-specific configuration can be added here
 fi

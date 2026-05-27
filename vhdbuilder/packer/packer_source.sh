@@ -516,7 +516,7 @@ copyPackerFiles() {
     cpAndMode $NOTICE_SRC $NOTICE_DEST 444
   fi
 
-  if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     FMT_SH_SRC=/home/packer/format-mount-nvme-root.sh
     FMT_SH_DEST=/opt/azure/containers/format-mount-nvme-root.sh
     cpAndMode $FMT_SH_SRC $FMT_SH_DEST 0544

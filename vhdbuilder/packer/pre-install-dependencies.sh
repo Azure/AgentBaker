@@ -202,7 +202,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # The Ubuntu PPA has early access to new kernels, such as the one in the GB300 CRD.
     # Uncomment if we have trouble finding the kernel package.
     # add-apt-repository ppa:canonical-kernel-team/ppa
-    if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+    if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
       add-apt-repository ppa:canonical-kernel-team/ppa
       apt-get update
       BOM_PATH="gb200-mai-bom.json"

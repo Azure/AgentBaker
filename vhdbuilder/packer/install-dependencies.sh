@@ -720,7 +720,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 EOF
 fi
 
-if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
   # GB200 setup is only supported on arm64 Ubuntu 24.04.
   if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
     # Replicate all functionality from github.com/azure/aks-gpu/install.sh.

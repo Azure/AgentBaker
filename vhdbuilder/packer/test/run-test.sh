@@ -86,7 +86,7 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 fi
 
 # GB200 specific test VM configuration (uses standard ARM64 VM for now)
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     echo "GB200: Using ARM64 VM size for testing"
     # GB200 will use standard ARM64 VM for testing until GB200 SKUs are available
     # Additional GB200-specific test parameters can be added here

@@ -98,7 +98,7 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 fi
 
 # GB200 specific VM options for scanning (uses standard ARM64 VM for now)
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     echo "GB200: Using standard ARM64 VM options for scanning"
     # Additional GB200-specific VM options can be added here when GB200 SKUs are available
 fi
