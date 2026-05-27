@@ -93,6 +93,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 func CustomDataWithHack(s *Scenario, nbcCmdScript, binaryURL string) (string, error) {
 	configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
 	nbcCmdPath := "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+	var err error
 
 	// Build provision flags conditionally based on what's provided.
 	var flags []string
@@ -102,7 +103,10 @@ func CustomDataWithHack(s *Scenario, nbcCmdScript, binaryURL string) (string, er
 	}
 	if nbcCmdScript != "" {
 		flags = append(flags, "--nbc-cmd="+nbcCmdPath)
-		encodedNBCCSECmd = gzipAndBase64Encode([]byte(nbcCmdScript))
+		encodedNBCCSECmd, err = gzipAndBase64Encode([]byte(nbcCmdScript))
+		if err != nil {
+			return "", fmt.Errorf("failed to gzip nbc cmd script: %w", err)
+		}
 	}
 	provisionFlags := strings.Join(flags, " ")
 
@@ -113,7 +117,10 @@ func CustomDataWithHack(s *Scenario, nbcCmdScript, binaryURL string) (string, er
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 		}
-		encodedAksNodeConfigJSON = gzipAndBase64Encode(aksNodeConfigJSON)
+		encodedAksNodeConfigJSON, err = gzipAndBase64Encode(aksNodeConfigJSON)
+		if err != nil {
+			return "", fmt.Errorf("failed to gzip aks node config: %w", err)
+		}
 	}
 
 	var customData string
@@ -237,12 +244,16 @@ coreos:
 // gzipAndBase64Encode compresses data with gzip then base64-encodes it.
 // This matches the production baker.go approach (getBase64EncodedGzippedCustomScriptFromStr)
 // to keep custom data within the Azure 65535-byte limit.
-func gzipAndBase64Encode(data []byte) string {
+func gzipAndBase64Encode(data []byte) (string, error) {
 	var buf bytes.Buffer
 	w := gzip.NewWriter(&buf)
-	w.Write(data)
-	w.Close()
-	return base64.StdEncoding.EncodeToString(buf.Bytes())
+	if _, err := w.Write(data); err != nil {
+		return "", fmt.Errorf("failed to gzip data: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize gzip data: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }
 
 // CustomDataWithNBCCmdHack is similar to baker.boothooktemplate, but it uses a hack to run new aks-node-controller binary.
