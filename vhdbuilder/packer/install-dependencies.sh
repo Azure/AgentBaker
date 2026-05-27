@@ -721,10 +721,10 @@ EOF
 fi
 
 if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-  # GB200 setup is only supported on arm64 Ubuntu 24.04.
+  # NVIDIA GB setup is only supported on arm64 Ubuntu 24.04.
   if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
     # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
-    # aks-gpu is designed to run at node boot/join time, whereas the GB200 VHD is set up
+    # aks-gpu is designed to run at node boot/join time, whereas the NVIDIA GB VHD is set up
     # to have all drivers installed at VHD build time.
 
     # 1. Blacklist nouveau driver
@@ -741,14 +741,16 @@ EOF
     DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
     if [ -n "$DOCA_CUSTOM_REPO" ]; then
       mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
-      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
+      echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
       apt-get update
     fi
 
+    # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
     # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
-    # Therefore we install the GPU driver and its dependencies first, then install all downstream reverse-dependencies (CUDA, DCGM, and so forth) second.
+    # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
     sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
     sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
 
     # 3. Add char device symlinks for NVIDIA devices
     mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
