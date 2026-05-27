@@ -85,11 +85,11 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
-# GB200 specific test VM configuration (uses standard ARM64 VM for now)
+# NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-    echo "GB200: Using ARM64 VM size for testing"
-    # GB200 will use standard ARM64 VM for testing until GB200 SKUs are available
-    # Additional GB200-specific test parameters can be added here
+    echo "NVIDIA GB: Using ARM64 VM size for testing"
+    # NVIDIA GB will use standard ARM64 VM for testing until GB SKUs are available
+    # Additional NVIDIA GB-specific test parameters can be added here
 fi
 
 if [ "${OS_TYPE,,}" = "linux" ]; then

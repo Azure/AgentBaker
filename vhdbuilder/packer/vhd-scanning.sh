@@ -97,10 +97,10 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
-# GB200 specific VM options for scanning (uses standard ARM64 VM for now)
+# NVIDIA GB specific VM options for scanning (uses standard ARM64 VM for now)
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-    echo "GB200: Using standard ARM64 VM options for scanning"
-    # Additional GB200-specific VM options can be added here when GB200 SKUs are available
+    echo "NVIDIA GB: Using standard ARM64 VM options for scanning"
+    # Additional NVIDIA GB-specific VM options can be added here when GB SKUs are available
 fi
 
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning${CURRENT_TIME}${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')

@@ -537,7 +537,7 @@ copyPackerFiles() {
       cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
 
       # This will only currently work if changes are applied to the subscription
-      # the node runs in. Otherwise, until the GB200 is recognized as a GPU SKU,
+      # the node runs in. Otherwise, until NVIDIA GB is recognized as a GPU SKU,
       # it'll be overwritten by a containerd configuration that doesn't support
       # running GPU workloads.
       CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml

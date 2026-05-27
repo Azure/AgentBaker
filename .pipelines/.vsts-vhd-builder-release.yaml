@@ -81,7 +81,7 @@ parameters:
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
     default: true
-  - name: build2404arm64gb200gen2containerd
+  - name: build2404arm64gbgen2containerd
     displayName: Build 2404 ARM64 NVIDIA GB Gen2 Containerd
     type: boolean
     default: false
@@ -962,8 +962,8 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-fips-tl-gen2
-      - job: build2404arm64gb200gen2containerd
-        condition: eq('${{ parameters.build2404arm64gb200gen2containerd }}', true)
+      - job: build2404arm64gbgen2containerd
+        condition: eq('${{ parameters.build2404arm64gbgen2containerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 360
         steps:
@@ -985,7 +985,7 @@ stages:
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
-              artifactName: 2404-arm64-gb200-gen2-containerd
+              artifactName: 2404-arm64-gb-gen2-containerd
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
