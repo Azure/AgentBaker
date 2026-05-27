@@ -132,7 +132,7 @@ function basePrep {
 
 
     if [ "${DISABLE_SSH}" = "true" ]; then
-        disableSSH || exit $ERR_DISABLE_SSH
+        logs_to_events "AKS.CSE.disableSSH" disableSSH || exit $ERR_DISABLE_SSH
     fi
 
     # This involves using proxy, log the config before fetching packages
@@ -141,9 +141,9 @@ function basePrep {
 
     if [ "${SHOULD_CONFIGURE_HTTP_PROXY}" = "true" ]; then
         if [ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" = "true" ]; then
-            configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
+            logs_to_events "AKS.CSE.configureHTTPProxyCA" configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
         fi
-        configureEtcEnvironment
+        logs_to_events "AKS.CSE.configureEtcEnvironment" configureEtcEnvironment
     fi
 
     if [ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" = "true" ]; then
