@@ -689,13 +689,13 @@ func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
 	proxyVars := ""
 	if proxyConfig.GetHttpProxy() != "" {
 		// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-		proxyVars = fmt.Sprintf("export http_proxy=%s;", proxyConfig.GetHttpProxy())
+		proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", proxyConfig.GetHttpProxy())
 	}
 	if proxyConfig.GetHttpsProxy() != "" {
-		proxyVars = fmt.Sprintf("export HTTPS_PROXY=%s; %s", proxyConfig.GetHttpsProxy(), proxyVars)
+		proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", proxyConfig.GetHttpsProxy(), proxyVars)
 	}
 	if proxyConfig.GetNoProxyEntries() != nil {
-		proxyVars = fmt.Sprintf("export NO_PROXY=%s; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
+		proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
 	}
 	return proxyVars
 }
