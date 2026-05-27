@@ -9,21 +9,134 @@ jobs:
   pester-test:
     name: Pester test
     runs-on: windows-latest
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
     steps:
       - name: Check out repository code
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-      - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
-        shell: powershell
-        run: |
-          Invoke-Pester parts/windows/*.tests.ps1 -Passthru
-      - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
+
+      - name: Setup
         shell: pwsh
         run: |
-          Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru
-      - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
-        shell: powershell
-        run: |
+
+          Get-Module -ListAvailable -Name Pester
+          if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
+          if (-not (Test-Path coverage)) { New-Item -ItemType Directory -Force coverage | Out-Null }
           Install-Module -Name powershell-yaml -Force
-          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
+
+      - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
+        if: (!cancelled())
+        shell: pwsh
+        run: |
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "parts/windows/"
+          $config.Run.PassThru = $true
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "coverage/parts_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = "Cobertura"
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/parts_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
+
+      - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
+        if: (!cancelled())
+        shell: pwsh
+        run: |
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "vhdbuilder/packer/windows/"
+          $config.Run.PassThru = $true
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "coverage/vhdbuilder_packer_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = "Cobertura"
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/vhdbuilder_packer_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
+
+      - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
+        if: (!cancelled())
+        shell: pwsh
+        run: |
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "staging/cse/windows/"
+          $config.Run.PassThru = $true
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "coverage/staging_cse_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = "Cobertura"
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/staging_cse_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action/windows@v2
+        if: (!cancelled())
+        with:
+          files: |
+            test-results/parts_windows.xml
+            test-results/vhdbuilder_packer_windows.xml
+            test-results/staging_cse_windows.xml
+
+      # coverage upload is linux runner only - need to find a windows way of doing this.
+      # - name: Code Coverage Report
+      #   uses: irongut/CodeCoverageSummary@v1.3.0
+      #   if: (!cancelled())
+      #   with:
+      #     filename: coverage/*.xml
+      #     badge: true
+      #     fail_below_min: false
+      #     format: markdown
+      #     hide_branch_rate: false
+      #     hide_complexity: true
+      #     indicators: true
+      #     output: both
+      #     thresholds: '60 80'
+
+      # - name: Add Coverage PR Comment
+      #   uses: marocchino/sticky-pull-request-comment@v2
+      #   if: github.event_name == 'pull_request'
+      #   with:
+      #     recreate: true
+      #     path: code-coverage-results.md
