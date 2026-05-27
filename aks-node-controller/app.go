@@ -384,16 +384,26 @@ func parseEnvVarsFromNBCCmdContent(content string) map[string]string {
 }
 
 // parseEnvValue parses the value portion of a KEY=VALUE assignment starting at position i.
-// It handles concatenated quoted and unquoted segments. Returns the parsed value and the new position.
+// It handles concatenated quoted (single or double) and unquoted segments. Returns the parsed value and the new position.
 func parseEnvValue(content string, i int) (string, int) {
 	n := len(content)
 	var value strings.Builder
 	for i < n {
 		switch {
 		case content[i] == '"':
-			// Quoted section: read until closing quote.
+			// Double-quoted section: read until closing double quote.
 			i++ // skip opening quote
 			for i < n && content[i] != '"' {
+				value.WriteByte(content[i])
+				i++
+			}
+			if i < n {
+				i++ // skip closing quote
+			}
+		case content[i] == '\'':
+			// Single-quoted section: read until closing single quote.
+			i++ // skip opening quote
+			for i < n && content[i] != '\'' {
 				value.WriteByte(content[i])
 				i++
 			}
@@ -426,13 +436,21 @@ func isEnvKeyChar(c byte) bool {
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// skipToken advances past the current non-whitespace token, respecting double-quoted sections.
+// skipToken advances past the current non-whitespace token, respecting quoted sections.
 func skipToken(content string, i int) int {
 	n := len(content)
 	for i < n && content[i] != ' ' && content[i] != '\t' && content[i] != '\n' && content[i] != ';' {
 		if content[i] == '"' {
 			i++
 			for i < n && content[i] != '"' {
+				i++
+			}
+			if i < n {
+				i++
+			}
+		} else if content[i] == '\'' {
+			i++
+			for i < n && content[i] != '\'' {
 				i++
 			}
 			if i < n {
