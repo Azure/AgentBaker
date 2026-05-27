@@ -44,12 +44,12 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers
 
-cat <<'EOF' | base64 -d >%[1]s
+cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
 EOF
 chmod 0600 %[1]s
 
-cat <<'EOF' | base64 -d >%[3]s
+cat <<'EOF' | base64 -d | gzip -d >%[3]s
 %[4]s
 EOF
 chmod 0755 %[3]s
@@ -113,8 +113,14 @@ func CustomDataPhase3(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (str
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 
-	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	encodedNBCCSECmd := base64.StdEncoding.EncodeToString([]byte(nbcCSECMD))
+	encodedAksNodeConfigJSON, err := gzipAndBase64Encode(aksNodeConfigJSON)
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip and base64 encode nbc config: %w", err)
+	}
+	encodedNBCCSECmd, err := gzipAndBase64Encode([]byte(nbcCSECMD))
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip and base64 encode nbc cse cmd: %w", err)
+	}
 	boothook := fmt.Sprintf(boothookPhase3Template, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, encodedNBCCSECmd)
 
 	var customData bytes.Buffer

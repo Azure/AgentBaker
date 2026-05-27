@@ -198,7 +198,7 @@ func buildFlatcarCloudConfig(encodedConfig, configPath, encodedNBCCmd, nbcCmdPat
 	}
 	if encodedNBCCmd != "" {
 		fmt.Fprintf(&sb, `- path: %s.gz.b64
-  permissions: "0644"
+  permissions: "0600"
   owner: root
   content: |
     %s
