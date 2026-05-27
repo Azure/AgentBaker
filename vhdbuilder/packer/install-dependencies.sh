@@ -735,7 +735,7 @@ EOF
     update-initramfs -u
 
     # 2. install drivers
-    BOM_PATH="gb200-mai-bom.json"
+    BOM_PATH="gb-mai-bom.json"
 
     # Install a custom repository if a doca-custom-repo is specified
     DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)

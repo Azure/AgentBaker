@@ -799,8 +799,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/gb200-mai-bom.json",
-      "destination": "/home/packer/gb200-mai-bom.json"
+      "source": "vhdbuilder/packer/gb-mai-bom.json",
+      "destination": "/home/packer/gb-mai-bom.json"
     },
     {
       "type": "shell",

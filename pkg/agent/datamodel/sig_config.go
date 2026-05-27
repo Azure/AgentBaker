@@ -485,7 +485,7 @@ var (
 	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2404gen2arm64gb200containerd",
+		Definition:    "2404gen2arm64gbcontainerd",
 		Version:       FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
 	}
 
