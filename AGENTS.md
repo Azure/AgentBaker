@@ -17,7 +17,7 @@ Windows VHD is configured through [VHD](./vhdbuilder/packer/windows/windows-vhd-
 
 [apiserver](./apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
 
-windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1).
+windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1.template).
 
 The webserver is also used to determine the latest version of Linux VHDs available for provisioning within AKS clusters.
 
@@ -55,7 +55,7 @@ The operational goals of this project are:
 
 When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
 
-One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder. 
+One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder.
 
 The SRE guidelines ground other coding guidelines and practices.
 
@@ -88,6 +88,7 @@ When reviewing pull requests, perform breaking change analysis to prevent regres
 Analyze PRs for these compatibility scenarios:
 
 **1. Linux Provisioning Script Changes**
+
 - **Context**: Scripts in `parts/linux/cloud-init/artifacts/` run during critical VM bootstrap and are used in both:
   - VHD build (uploaded via packer configs in `vhdbuilder/packer/*.json`)
   - VM provisioning (CSE - embedded in Go service via `pkg/agent/const.go`)
@@ -112,6 +113,7 @@ Analyze PRs for these compatibility scenarios:
   - **ANC hotfix entry removal**: If a PR removes or modifies the `anc-hotfix: auto-generated` block in `parts/linux/cloud-init/nodecustomdata.yml` or resets `hotfix/anc-hotfix-version.json` to `{}`, **always confirm with the PR owner** that all affected VHDs have been republished with the fix baked in or are out of the 6-month support window. Premature removal means nodes provisioned via scale-up on the old buggy VHD will no longer receive the hotfix.
 
 **2. Windows Bidirectional Compatibility**
+
 - **Context**: Windows VHD and CSE scripts release on different cadences with no guaranteed order
 - **What to check**: Changes to `staging/cse/windows/` (CSE scripts) or `vhdbuilder/packer/windows/` (VHD scripts)
 - **Breaking signals**:
@@ -121,6 +123,7 @@ Analyze PRs for these compatibility scenarios:
   - Removing PowerShell functions or cmdlets that the other component might call
 
 **3. aks-node-controller Migration (Dual-Mode Support)**
+
 - **Context**: Transitioning from uploading scripts during both VHD build and CSE to only uploading aks-node-controller during VHD build
 - **What to check**: Any changes must work in BOTH deployment modes
 - **Breaking signals**:
@@ -130,6 +133,7 @@ Analyze PRs for these compatibility scenarios:
   - Hardcoded paths that differ between deployment modes
 
 **4. Cross-OS Compatibility**
+
 - **What to check**: Changes work on Ubuntu, Azure Linux/Mariner, and Windows
 - **Breaking signals**:
   - Linux commands that don't work on both Ubuntu and Azure Linux/Mariner
@@ -138,6 +142,7 @@ Analyze PRs for these compatibility scenarios:
   - Systemd differences between distributions
 
 **5. Package/Dependency Update PRs (Renovate)**
+
 - **Context**: Renovate bot automatically creates PRs to update component versions in `parts/common/components.json`. These components are cached on VHDs during build and directly affect node stability, GPU workloads, networking, and security. Updated packages are downloaded from `packages.aks.azure.com` or upstream registries during VHD build.
 - **What to check**: Every version bump—even patch versions—can introduce regressions that affect production nodes.
 - **Analysis steps for every package update PR**:
@@ -161,6 +166,7 @@ Analyze PRs for these compatibility scenarios:
 - **Review output for package update PRs must include a detailed version diff analysis**:
 
   **Header:**
+
   ```
   ## Package Update Analysis: <component-name>
   **Version change**: X.Y.Z → A.B.C (<major|minor|patch> update)
@@ -195,6 +201,7 @@ Analyze PRs for these compatibility scenarios:
   **If upstream changelog is unavailable**, explicitly state: _"Upstream changelog not found for this version range. Manual testing recommended before merge."_
 
   **Overall risk assessment:**
+
   ```
   ### Overall Risk: 🟢 Low / 🟡 Medium / 🔴 High
   **Justification**: <1-2 sentence summary of why this risk level was chosen>
@@ -202,6 +209,7 @@ Analyze PRs for these compatibility scenarios:
   ```
 
   **Example** (for a PR like dcgm-exporter 4.7.1 → 4.8.0):
+
   ```
   ## Package Update Analysis: dcgm-exporter
   **Version change**: 4.7.1 → 4.8.0 (minor update)
@@ -224,6 +232,7 @@ Analyze PRs for these compatibility scenarios:
 ### Analysis Approach
 
 **Dynamic Dependency Tracing**:
+
 1. For each changed file, identify what depends on it
 2. Follow `source` statements in bash scripts to trace dependency chains
 3. Check for function calls, variable references across files
@@ -235,10 +244,12 @@ Analyze PRs for these compatibility scenarios:
    - Flag downloads from unauthorized sources (only packages.aks.azure.com and sources in components.json allowed)
 
 **Historical Context**:
+
 - Look for related changes that previously caused issues
 - Identify patterns of fragile areas that break frequently
 
 **Test Coverage Assessment**:
+
 - Note if changed code has e2e test coverage
 - Flag changes to untested areas as higher risk
 - Mention if new behavior lacks corresponding test additions
@@ -248,6 +259,7 @@ Analyze PRs for these compatibility scenarios:
 Provide targeted inline comments on specific lines where you detect issues:
 
 **For each breaking change or risk:**
+
 - Comment directly on the problematic line or code block
 - Explain why this is risky (e.g., "This removes function X which may be called by VHDs built in the last 6 months")
 - Suggest specific mitigations or alternatives
@@ -276,6 +288,7 @@ Provide targeted inline comments on specific lines where you detect issues:
 ### Review Philosophy
 
 Think like an experienced reviewer who "eyeballs" PRs for subtle risks. Look beyond pattern matching:
+
 - Understand the architecture and how components interact
 - Consider timing of releases and deployment sequences
 - Reason about implicit dependencies and assumptions
