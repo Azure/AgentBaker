@@ -67,7 +67,7 @@ docker run \
     -v "$WORK_DIR:/convert" \
     -v /dev:/dev \
     "${IMG_CUSTOMIZER_CONTAINER}:${IMG_CUSTOMIZER_VERSION}" \
-    imagecustomizer convert \
+    convert \
         --log-level "debug" \
         --build-dir /convert/build \
         --image-file "/convert/${CAPTURED_SIG_VERSION}.vhd" \
