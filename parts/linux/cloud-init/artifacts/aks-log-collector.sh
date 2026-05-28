@@ -46,6 +46,7 @@ ZIP="aks_logs.zip"
 
 # Log bundle upload max size is limited to 100MB
 MAX_SIZE=104857600
+MAX_COLLECT_SIZE=$((10 * 1024 * 1024))
 
 # File globs to include
 # Smaller and more critical files are closer to the top so that we can be certain they're included.
@@ -190,7 +191,7 @@ trap "cleanup" EXIT
 function collectToZip {
   command -v "${2}" >/dev/null || { printf "%s not found, skipping.\n" "${2}"; return; }
   mkfifo "${1}"
-  "${@:2}" >"${1}" 2>&1 &
+  "${@:2}" 2>&1 | tail -c "$MAX_COLLECT_SIZE" >"${1}" &
   zip -gumDZ deflate --fifo "${ZIP}" "${1}"
 }
 
@@ -314,20 +315,19 @@ fi
 # Add each file sequentially to the zip archive. This is slightly less efficient then adding them
 # all at once, but allows us to easily check when we've exceeded the maximum file size and stop
 # adding things to the archive.
-MAX_FILE_SIZE=$((10 * 1024 * 1024))
-echo "Adding log files to zip archive with max file size: $MAX_FILE_SIZE bytes..."
+echo "Adding log files to zip archive with max file size: $MAX_COLLECT_SIZE bytes..."
 for file in "${GLOBS[@]}"; do
   # shellcheck disable=SC3010
   [[ "$file" == *.gz ]] && continue
   test -e "$file" || continue
 
   fsize=$(stat --printf "%s" "$file")
-  if [ "$fsize" -gt "$MAX_FILE_SIZE" ]; then
+  if [ "$fsize" -gt "$MAX_COLLECT_SIZE" ]; then
     # Preserve directory structure so zip entry has the original path
     truncdir="${file%/*}"
     mkdir -p ".${truncdir}"
     mkfifo ".${file}"
-    tail -c "$MAX_FILE_SIZE" "$file" >".${file}" &
+    tail -c "$MAX_COLLECT_SIZE" "$file" >".${file}" &
     tail_pid=$!
     zip -gDZ deflate --fifo "${ZIP}" ".${file}"
     wait "$tail_pid" 2>/dev/null
