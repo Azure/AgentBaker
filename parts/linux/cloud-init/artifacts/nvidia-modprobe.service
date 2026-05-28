@@ -1,11 +1,10 @@
 [Unit]
-Description=Installs and loads NVIDIA GPU kernel modules
+Description=Installs and loads Nvidia GPU kernel module
 Before=kubelet.service
 [Service]
 Type=oneshot
 RemainAfterExit=true
 ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
 ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-ExecStartPost=/bin/sh -c "if modinfo nvidia_peermem >/dev/null 2>&1; then modprobe nvidia_peermem; else echo 'nvidia_peermem module not available; skipping'; fi"
 [Install]
 WantedBy=multi-user.target kubelet.service
