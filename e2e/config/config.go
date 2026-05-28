@@ -88,6 +88,10 @@ type Configuration struct {
 	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
+	// PreviouslyBuiltVHDBuildID, when set, pins the "previously built VHD" lookup
+	// to a specific ADO build ID (matched against the "buildId" tag on gallery versions).
+	// When empty, the lookup selects the most recent main-branch build excluding the current one.
+	PreviouslyBuiltVHDBuildID string `env:"PREVIOUSLY_BUILT_VHD_BUILD_ID"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {

@@ -464,8 +464,9 @@ func Test_ACL_ABUpdate(t *testing.T) {
 			ABUpdate: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDACLGen2TL,
+			UsePreviouslyBuiltVHD: true,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},

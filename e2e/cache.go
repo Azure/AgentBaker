@@ -214,14 +214,15 @@ func isNotFoundErr(err error) bool {
 var CachedPrepareVHD = cachedFunc(prepareVHD)
 
 type GetVHDRequest struct {
-	Location string
-	Image    config.Image
+	Location              string
+	Image                 config.Image
+	UsePreviouslyBuiltVHD bool
 }
 
 // prepareVHD retrieves the Azure resource ID for a VHD image. A gallery is scanned for the correct version
 // and replicated to the location specified in the request if it does not already exist.
 func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceID, error) {
-	return config.GetVHDResourceID(ctx, request.Image, request.Location)
+	return config.GetVHDResourceID(ctx, request.Image, request.Location, request.UsePreviouslyBuiltVHD)
 }
 
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)

@@ -377,8 +377,9 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	}
 
 	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
+		Image:                 *s.VHD,
+		Location:              s.Location,
+		UsePreviouslyBuiltVHD: s.UsePreviouslyBuiltVHD,
 	})
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
