@@ -402,9 +402,21 @@ configureContainerdRegistryHost() {
   touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   CONTAINER_REGISTRY_URL=$(sed 's@/@/v2/@1' <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/")
+  # NOTE: the "referrers" capability is required for dm-verity enforcement.
+  # Without it, containerd routes blob/manifest pulls via the mirror but
+  # falls back to the implicit registry (mcr.microsoft.com) for OCI
+  # referrers API calls -- where the dm-verity notation signature manifest
+  # lives. MCR has no notation referrers, so the layer rejection
+  # "dm-verity signature required but not present" fires at unpack time.
+  # Setting "server" as a top-level directive also ensures the fallback
+  # (last resort) endpoint is the mirror, not the original registry, in
+  # case the per-host block's capability filtering excludes a host for
+  # any reason.
   tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+server = "https://${CONTAINER_REGISTRY_URL%/}"
+
 [host."https://${CONTAINER_REGISTRY_URL%/}"]
-  capabilities = ["pull", "resolve"]
+  capabilities = ["pull", "resolve", "referrers"]
   override_path = true
 EOF
 }
