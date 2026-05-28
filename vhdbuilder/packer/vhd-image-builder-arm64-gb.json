@@ -114,17 +114,17 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/format-mount-nvme-root.sh",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/format-mount-nvme-root.sh",
       "destination": "/home/packer/format-mount-nvme-root.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/format-mount-nvme-root.service",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/format-mount-nvme-root.service",
       "destination": "/home/packer/format-mount-nvme-root.service"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/format-mount-kubelet.conf",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/format-mount-kubelet.conf",
       "destination": "/home/packer/format-mount-kubelet.conf"
     },
     {
@@ -769,38 +769,43 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.list",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/doca.list",
       "destination": "/home/packer/doca.list"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/doca.pub",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/doca.pub",
       "destination": "/home/packer/doca.pub"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/nvidia-2404.list",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia-2404.list",
       "destination": "/home/packer/nvidia-2404.list"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/nvidia.pub",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia.pub",
       "destination": "/home/packer/nvidia.pub"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/containerd-nvidia.toml",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/containerd-nvidia.toml",
       "destination": "/home/packer/containerd-nvidia.toml"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/modprobe-nvidia-parameters.conf",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/modprobe-nvidia-parameters.conf",
       "destination": "/home/packer/modprobe-nvidia-parameters.conf"
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/gb200-mai-bom.json",
-      "destination": "/home/packer/gb200-mai-bom.json"
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia-peermem.conf",
+      "destination": "/home/packer/nvidia-peermem.conf"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/gb-mai-bom.json",
+      "destination": "/home/packer/gb-mai-bom.json"
     },
     {
       "type": "shell",

@@ -516,7 +516,7 @@ copyPackerFiles() {
     cpAndMode $NOTICE_SRC $NOTICE_DEST 444
   fi
 
-  if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
+  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     FMT_SH_SRC=/home/packer/format-mount-nvme-root.sh
     FMT_SH_DEST=/opt/azure/containers/format-mount-nvme-root.sh
     cpAndMode $FMT_SH_SRC $FMT_SH_DEST 0544
@@ -537,7 +537,7 @@ copyPackerFiles() {
       cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
 
       # This will only currently work if changes are applied to the subscription
-      # the node runs in. Otherwise, until the GB200 is recognized as a GPU SKU,
+      # the node runs in. Otherwise, until NVIDIA GB is recognized as a GPU SKU,
       # it'll be overwritten by a containerd configuration that doesn't support
       # running GPU workloads.
       CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
@@ -556,8 +556,15 @@ copyPackerFiles() {
       NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
       cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
 
-      BOM_SRC=/home/packer/gb200-mai-bom.json
-      BOM_DEST=/opt/azure/containers/gb200-mai-bom.json
+      # Force-load nvidia_peermem at boot via systemd-modules-load.service.
+      # The softdep in /etc/modprobe.d/nvidia.conf is unreliable because `nvidia`
+      # is autoloaded by PCI modalias before the OFED RDMA stack is available.
+      NVIDIA_PEERMEM_MODULES_LOAD_SRC=/home/packer/nvidia-peermem.conf
+      NVIDIA_PEERMEM_MODULES_LOAD_DEST=/etc/modules-load.d/nvidia-peermem.conf
+      cpAndMode $NVIDIA_PEERMEM_MODULES_LOAD_SRC $NVIDIA_PEERMEM_MODULES_LOAD_DEST 644
+
+      BOM_SRC=/home/packer/gb-mai-bom.json
+      BOM_DEST=/opt/azure/containers/gb-mai-bom.json
       cpAndMode $BOM_SRC $BOM_DEST 644
     fi
   fi

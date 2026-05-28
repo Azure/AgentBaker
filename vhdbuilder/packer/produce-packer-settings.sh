@@ -88,10 +88,10 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS" && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; 
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
 
-# GB200 specific build location handling (if needed in future)
-if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-	echo "GB200: Using standard ARM64 build location ${PACKER_BUILD_LOCATION}"
-	# Additional GB200-specific configuration can be added here
+# NVIDIA GB specific build location handling (if needed in future)
+if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+	echo "NVIDIA GB: Using standard ARM64 build location ${PACKER_BUILD_LOCATION}"
+	# Additional NVIDIA GB-specific configuration can be added here
 fi
 
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
