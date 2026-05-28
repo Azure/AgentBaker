@@ -911,7 +911,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				// VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 				WindowsPauseImageURL:                 "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1",
-				WindowsProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip",
+				WindowsProvisioningScriptsPackageURL: "",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			},
 			EndpointConfig: datamodel.AzureEndpointConfig{
