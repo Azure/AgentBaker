@@ -2197,7 +2197,7 @@
       "windowsVersions": [
         {
           "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "1.7.0",
+          "latestVersion": "1.7.1",
           "windowsSkuMatch": "2025*"
         }
       ]
