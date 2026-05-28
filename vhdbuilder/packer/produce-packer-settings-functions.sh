@@ -323,7 +323,7 @@ function prepare_windows_vhd() {
 			windows_sigmode_source_gallery_name="${sig_source_gallery_name}"
 			windows_sigmode_source_subscription_id=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_subscription_id" <$CDIR/windows/windows_settings.json)
 			windows_sigmode_source_resource_group_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_resource_group_name" <$CDIR/windows/windows_settings.json)
-			windows_sigmode_source_image_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_image_name" <$CDIR/windows/windows_settings.json)
+			windows_sigmode_source_image_name="${WINDOWS_IMAGE_SKU}"
 			windows_sigmode_source_image_version=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_image_version" <$CDIR/windows/windows_settings.json)
 			WINDOWS_IMAGE_URL="" # clear marketplace source when using SIG source
 			echo "Using shared image gallery source:"
