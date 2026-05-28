@@ -316,6 +316,23 @@ function prepare_windows_vhd() {
 	windows_sigmode_source_image_name=""
 	windows_sigmode_source_image_version=""
 
+	# Allow windows_settings.json to specify a shared image gallery source (e.g. for 1P embargo builds)
+	local sig_source_gallery_name
+	if sig_source_gallery_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_gallery_name" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sig_source_gallery_name}" ] && [ "${sig_source_gallery_name}" != "null" ]; then
+			windows_sigmode_source_gallery_name="${sig_source_gallery_name}"
+			windows_sigmode_source_subscription_id=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_subscription_id" <$CDIR/windows/windows_settings.json)
+			windows_sigmode_source_resource_group_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_resource_group_name" <$CDIR/windows/windows_settings.json)
+			windows_sigmode_source_image_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_image_name" <$CDIR/windows/windows_settings.json)
+			windows_sigmode_source_image_version=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_image_version" <$CDIR/windows/windows_settings.json)
+			WINDOWS_IMAGE_URL="" # clear marketplace source when using SIG source
+			echo "Using shared image gallery source:"
+			echo "  Gallery: ${windows_sigmode_source_gallery_name}"
+			echo "  Image: ${windows_sigmode_source_image_name}"
+			echo "  Version: ${windows_sigmode_source_image_version}"
+		fi
+	fi
+
 	# default: build VHD images from a marketplace base image
 	export AZCOPY_AUTO_LOGIN_TYPE="AZCLI" # use AZCLI for AzCopy authentication
 	export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"

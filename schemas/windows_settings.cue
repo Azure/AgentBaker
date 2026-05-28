@@ -27,6 +27,11 @@
   base_image_version:    string
   windows_image_name:    string
   patches_to_apply:      #WindowsPatches
+  sig_source_gallery_name?:      string
+  sig_source_subscription_id?:   string
+  sig_source_resource_group_name?: string
+  sig_source_image_name?:        string
+  sig_source_image_version?:     string
 }
 
 #WindowsComments: [...string]
