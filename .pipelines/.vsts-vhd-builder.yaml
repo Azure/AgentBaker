@@ -221,7 +221,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.2'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.3'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -245,7 +245,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.2'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.3'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -269,7 +269,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.2'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.3'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -293,7 +293,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.2'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_VERSION]1.3'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
