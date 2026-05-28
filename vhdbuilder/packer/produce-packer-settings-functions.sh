@@ -330,6 +330,17 @@ function prepare_windows_vhd() {
 			echo "  Gallery: ${windows_sigmode_source_gallery_name}"
 			echo "  Image: ${windows_sigmode_source_image_name}"
 			echo "  Version: ${windows_sigmode_source_image_version}"
+
+			# List latest 3 available versions for this image in the shared gallery
+			echo "  Latest 3 available versions in gallery:"
+			az sig image-version list-shared \
+				--gallery-unique-name "${windows_sigmode_source_gallery_name}" \
+				--gallery-image-definition "${windows_sigmode_source_image_name}" \
+				--location "${PACKER_BUILD_LOCATION}" \
+				--shared-to tenant \
+				--query "[-3:].name" -o tsv | while read -r ver; do
+				echo "    - ${ver}"
+			done
 		fi
 	fi
 
