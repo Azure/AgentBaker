@@ -799,6 +799,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia-peermem.conf",
+      "destination": "/home/packer/nvidia-peermem.conf"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/gb-mai-bom.json",
       "destination": "/home/packer/gb-mai-bom.json"
     },

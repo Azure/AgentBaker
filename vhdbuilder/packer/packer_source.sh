@@ -556,6 +556,13 @@ copyPackerFiles() {
       NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
       cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
 
+      # Force-load nvidia_peermem at boot via systemd-modules-load.service.
+      # The softdep in /etc/modprobe.d/nvidia.conf is unreliable because `nvidia`
+      # is autoloaded by PCI modalias before the OFED RDMA stack is available.
+      NVIDIA_PEERMEM_MODULES_LOAD_SRC=/home/packer/nvidia-peermem.conf
+      NVIDIA_PEERMEM_MODULES_LOAD_DEST=/etc/modules-load.d/nvidia-peermem.conf
+      cpAndMode $NVIDIA_PEERMEM_MODULES_LOAD_SRC $NVIDIA_PEERMEM_MODULES_LOAD_DEST 644
+
       BOM_SRC=/home/packer/gb-mai-bom.json
       BOM_DEST=/opt/azure/containers/gb-mai-bom.json
       cpAndMode $BOM_SRC $BOM_DEST 644
