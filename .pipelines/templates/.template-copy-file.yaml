@@ -31,3 +31,6 @@ steps:
 
     condition: and(succeeded(), eq('${{ parameters.enabled }}', true))
     displayName: Overwrite file ${{ parameters.destinationFile }}
+    env:
+      destinationFile: ${{ parameters.destinationFile }}
+      sourceFile: ${{ parameters.sourceFile }}
