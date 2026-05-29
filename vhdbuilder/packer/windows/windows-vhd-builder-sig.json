@@ -101,6 +101,24 @@
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
+                "ProvisioningPhase=0",
+                "WindowsSKU={{user `windows_sku`}}",
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
+            ]
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
