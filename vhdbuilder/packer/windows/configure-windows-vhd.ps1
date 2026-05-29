@@ -783,16 +783,14 @@ function Update-DefenderSignatures
 
 function Update-WindowsFeatures
 {
-    $featuresToEnable = @(
-        "Containers",
-        "Hyper-V",
-        "Hyper-V-PowerShell")
+    Write-Log "Enabling Windows feature: Containers"
+    Install-WindowsFeature Containers
 
-    foreach ($feature in $featuresToEnable)
-    {
-        Write-Log "Enabling Windows feature: $feature"
-        Install-WindowsFeature $feature
-    }
+    Write-Log "Enabling Windows feature: Hyper-V"
+    Dism.exe /online /Enable-Feature /FeatureName:Microsoft-Hyper-V /All /NoRestart
+
+    Write-Log "Enabling Windows feature: Hyper-V-PowerShell"
+    Install-WindowsFeature Hyper-V-PowerShell
 }
 
 function Enable-WindowsFixInPath
