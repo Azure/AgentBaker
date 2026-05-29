@@ -1,6 +1,7 @@
 #!/usr/bin/env shellspec
 
 # Unit tests for disableVulnerableKernelModule() in cse_main.sh
+# and the OS gate that selects which OS variants get the runtime apply.
 
 Describe 'disableVulnerableKernelModule()'
     MODPROBE_DIR=""
@@ -68,5 +69,80 @@ Describe 'disableVulnerableKernelModule()'
         }
         When call not_loaded_test
         The output should not include "unloaded"
+    End
+End
+
+# Tests the OS gate that decides whether to call disableVulnerableKernelModule
+# at CSE provisioning time. Apply on: Ubuntu, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard
+# (defense-in-depth — hardened secure-boot variant intentionally retains the mitigation). Skip on:
+# AzureLinux 3.0 regular/Kata (kernel 6.6.139.1-1.azl3+ has the upstream fix and
+# customers reported the blacklist actively blocks legitimate workloads), ACL, Flatcar.
+# See https://github.com/Azure/AKS/issues/5753.
+Describe 'CVE kernel module mitigation OS gate'
+    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    gate() {
+        # Mirrors the condition in cse_main.sh basePrep — must be kept in sync.
+        if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+            echo "APPLY"
+        else
+            echo "SKIP"
+        fi
+    }
+
+    It 'applies the mitigation on Ubuntu'
+        OS="${UBUNTU_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "APPLY"
+    End
+
+    It 'applies the mitigation on AzureLinux 3.0 OSGuard — defense-in-depth retained'
+        OS="${AZURELINUX_OS_NAME}"
+        OS_VARIANT="${AZURELINUX_OSGUARD_OS_VARIANT}"
+        When call gate
+        The output should equal "APPLY"
+    End
+
+    It 'applies the mitigation on Mariner/AzureLinux 2.0 (AzL2) — VHDs are frozen so CSE-time apply is required'
+        OS="${MARINER_OS_NAME}"
+        OS_VARIANT=""
+        OS_VERSION="2.0"
+        When call gate
+        The output should equal "APPLY"
+    End
+    It 'applies the mitigation on Mariner Kata (AzL2) — VHDs are frozen so CSE-time apply is required'
+        OS="${MARINER_KATA_OS_NAME}"
+        OS_VARIANT=""
+        OS_VERSION="2.0"
+        When call gate
+        The output should equal "APPLY"
+    End
+    It 'skips on AzureLinux 3.0 regular (kernel 6.6.139.1-1.azl3+ has upstream fix)'
+        OS="${AZURELINUX_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
+    End
+
+    It 'skips on AzureLinux 3.0 Kata (same kernel as AzL3 regular)'
+        OS="${AZURELINUX_KATA_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
+    End
+
+    It 'skips on ACL (Flatcar-based; never in scope)'
+        OS="${ACL_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
+    End
+
+    It 'skips on Flatcar (never in scope)'
+        OS="${FLATCAR_OS_NAME}"
+        OS_VARIANT=""
+        When call gate
+        The output should equal "SKIP"
     End
 End

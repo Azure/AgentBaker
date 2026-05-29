@@ -330,6 +330,59 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureContainerd'
+        It 'should not overwrite an existing NVIDIA containerd config'
+            grep() {
+                echo "grep $@"
+                return 0
+            }
+
+            mkdir() {
+                echo "mkdir $@"
+            }
+
+            rm() {
+                echo "rm $@"
+            }
+
+            tee() {
+                echo "tee $@"
+                cat >/dev/null
+            }
+
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $@"
+                return 0
+            }
+
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+
+            should_e2e_mock_azure_china_cloud() {
+                echo "false"
+            }
+
+            GPU_NODE="false"
+            TARGET_CLOUD="AzurePublicCloud"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            ERR_SYSCTL_RELOAD=1
+            ERR_SYSTEMCTL_START_FAIL=1
+
+            When call ensureContainerd
+
+            The output should include 'grep -q BinaryName = "/usr/bin/nvidia-container-runtime" /etc/containerd/config.toml'
+            The output should include "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
+            The output should not include "rm -f /etc/containerd/config.toml"
+            The output should not include "Generating containerd config"
+            The output should not include "Generating GPU containerd config"
+            The output should not include "Generating non-GPU containerd config"
+            The output should include "systemctlEnableAndStartNoBlock containerd 30"
+            The status should be success
+        End
+    End
+
     Describe 'configureContainerdRegistryHost'
         It 'should configure registry host correctly if MCR_REPOSITORY_BASE is unset'
             mkdir() {

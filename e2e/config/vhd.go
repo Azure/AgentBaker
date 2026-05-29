@@ -127,41 +127,15 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 	}
-	// this is a particular 2204gen2containerd image originally built with private packages,
-	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
-	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
-		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
-		Name:                     "2204Gen2",
-		OS:                       OSUbuntu,
-		Arch:                     "amd64",
-		Version:                  "1.1704411049.2812",
-		Distro:                   datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery:                  imageGalleryLinux,
-		UnsupportedKubeletNodeIP: true,
-		UnsupportedLocalDns:      true,
-		// old image, doesn't have Secure TLS Bootstrapping support
-		UnsupportedSecureTLSBootstrapping: true,
-		UnsupportedNVMe:                   true,
-		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
-		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
-		IgnoreFailedCgroupTelemetryServices: true,
-	}
-
-	// without kubelet, kubectl, credential-provider and wasm
-	VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached = &Image{
-		Name:                "2204Gen2",
-		OS:                  OSUbuntu,
+	VHDAzureLinuxV3Gen2FIPS = &Image{
+		Name:                "AzureLinuxV3gen2fips",
+		OS:                  OSAzureLinux,
 		Arch:                "amd64",
-		Version:             "1.1725612526.29638",
-		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
+		Distro:              datamodel.AKSAzureLinuxV3Gen2FIPS,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// old image, doesn't have Secure TLS Bootstrapping support
+		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
-		UnsupportedNVMe:                   true,
-		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
-		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
-		IgnoreFailedCgroupTelemetryServices: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -278,23 +252,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Gallery: imageGalleryWindows,
-	}
-
-	VHDWindows23H2 = &Image{
-		Name:            "windows-23H2",
-		OS:              OSWindows,
-		Arch:            "amd64",
-		Distro:          datamodel.AKSWindows23H2,
-		Gallery:         imageGalleryWindows,
-		UnsupportedGen2: true,
-	}
-
-	VHDWindows23H2Gen2 = &Image{
-		Name:    "windows-23H2-gen2",
-		OS:      OSWindows,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows23H2Gen2,
 		Gallery: imageGalleryWindows,
 	}
 

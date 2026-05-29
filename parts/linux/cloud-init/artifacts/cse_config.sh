@@ -345,22 +345,27 @@ LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
-  # Remove in case this is an existing symlink
-  rm -f /etc/containerd/config.toml
-  if [ "${GPU_NODE}" = "true" ]; then
-    # Check VM tag directly to determine if GPU drivers should be skipped
-    export -f should_skip_nvidia_drivers
-    should_skip=$(should_skip_nvidia_drivers)
-    if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
-      echo "Generating non-GPU containerd config for GPU node due to VM tags"
-      echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+
+  if grep -q 'BinaryName = "/usr/bin/nvidia-container-runtime"' /etc/containerd/config.toml 2>/dev/null; then
+    echo "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
+  else
+    # Remove in case this is an existing symlink or non-NVIDIA config
+    rm -f /etc/containerd/config.toml
+    if [ "${GPU_NODE}" = "true" ]; then
+      # Check VM tag directly to determine if GPU drivers should be skipped
+      export -f should_skip_nvidia_drivers
+      should_skip=$(should_skip_nvidia_drivers)
+      if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
+        echo "Generating non-GPU containerd config for GPU node due to VM tags"
+        echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      else
+        echo "Generating GPU containerd config..."
+        echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      fi
     else
-      echo "Generating GPU containerd config..."
+      echo "Generating containerd config..."
       echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
     fi
-  else
-    echo "Generating containerd config..."
-    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
   export -f should_e2e_mock_azure_china_cloud
@@ -650,6 +655,44 @@ ensurePodInfraContainerImage() {
 
     rm -rf ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
+}
+
+validateKubeletNodeLabels() {
+    local labels="$1"
+    local validated_labels=""
+    local delimiter=""
+
+    # Return empty if no labels provided
+    if [ -z "$labels" ]; then
+        echo "No labels found in KUBELET_NODE_LABELS"
+        return 0
+    fi
+
+    # Split labels by comma and process each
+    IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+    for label in "${LABEL_ARRAY[@]}"; do
+        # Split each label into key and value
+        # shellcheck disable=SC3010
+        if [[ "$label" == *"="* ]]; then
+            key="${label%%=*}"
+            value="${label#*=}"
+
+            # Check if key length exceeds 63 characters
+            if [ ${#key} -gt 63 ]; then
+                echo "Warning: Label key '$key' exceeds 63 characters, truncating to 63 characters" >&2
+                key="${key:0:63}"
+            fi
+
+            # Rebuild the label with potentially truncated key
+            validated_labels="${validated_labels}${delimiter}${key}=${value}"
+        fi
+
+        # Set delimiter for subsequent labels
+        delimiter=","
+    done
+
+    # Update the global variable with validated labels
+    KUBELET_NODE_LABELS="$validated_labels"
 }
 
 ensureKubelet() {

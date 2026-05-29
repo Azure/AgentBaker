@@ -393,7 +393,7 @@ const (
 	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
 	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
-	// Check with Keith and Alex, since they have their own branch for GB200.
+	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
 	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
@@ -485,8 +485,9 @@ var (
 	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2404gen2arm64gb200containerd",
-		Version:       FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
+		// The Go symbol keeps GB200 for API/distro compatibility, but the SIG image definition uses the generalized GB name.
+		Definition: "2404gen2arm64gbcontainerd",
+		Version:    FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{

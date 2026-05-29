@@ -74,9 +74,6 @@ stages:
       # 2022 gen1 is the default, so build that for PRs
       build2022containerd: True
       build2022containerdgen2: False
-      # 23H2 gen1 is the default, so build that for PRs
-      build23H2: True
-      build23H2gen2: False
       # 2025 gen2 is the default, so build that for PRs
       build2025: False
       build2025gen2: True
