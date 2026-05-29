@@ -258,11 +258,7 @@ function create_new_base_image() {
 
 	# Use imported sig image to create the build VM
 	WINDOWS_IMAGE_URL=""
-	windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
-	windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
-	windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
-	windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
-	windows_sigmode_source_image_version="1.0.0"
+	windows_sigmode_source_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${IMPORTED_IMAGE_NAME}/versions/1.0.0"
 }
 
 function prepare_windows_vhd() {
@@ -310,19 +306,24 @@ function prepare_windows_vhd() {
 	fi
 
 	# By default, packer uses marketplace source (image_publisher/offer/sku/version).
+	# For VHD imports, we use shared_image_gallery.id (full ARM resource ID).
 	# For embargo builds, we use direct_shared_gallery_image_id to source from a 1P shared gallery.
+	windows_sigmode_source_id=""
 	windows_sigmode_direct_shared_gallery_image_id=""
 
 	local sig_source_gallery_name
 	if sig_source_gallery_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_gallery_name" <$CDIR/windows/windows_settings.json); then
 		if [ -n "${sig_source_gallery_name}" ] && [ "${sig_source_gallery_name}" != "null" ]; then
 			local sig_image_name="${WINDOWS_IMAGE_SKU}"
+			# Use AZURE_LOCATION for gallery queries — PACKER_BUILD_LOCATION may not be normalized yet for Windows
+			local gallery_location="${AZURE_LOCATION:-${PACKER_BUILD_LOCATION}}"
+
 			# List latest 3 available versions for this image in the shared gallery
 			echo "  Latest 3 available versions in gallery:"
 			az sig image-version list-shared \
 				--gallery-unique-name "${sig_source_gallery_name}" \
 				--gallery-image-definition "${sig_image_name}" \
-				--location "${PACKER_BUILD_LOCATION}" \
+				--location "${gallery_location}" \
 				--shared-to tenant \
 				--query "[-3:].name" -o tsv | while read -r ver; do
 				echo "    - ${ver}"
@@ -334,7 +335,7 @@ function prepare_windows_vhd() {
 				WINDOWS_IMAGE_VERSION=$(az sig image-version list-shared \
 					--gallery-unique-name "${sig_source_gallery_name}" \
 					--gallery-image-definition "${sig_image_name}" \
-					--location "${PACKER_BUILD_LOCATION}" \
+					--location "${gallery_location}" \
 					--shared-to tenant \
 					--query "[-1].name" -o tsv)
 				if [ -z "${WINDOWS_IMAGE_VERSION}" ]; then

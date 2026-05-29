@@ -243,6 +243,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
   "windows_private_packages_url": "${windows_private_packages_url}",
+  "windows_sigmode_source_id": "${windows_sigmode_source_id}",
   "windows_sigmode_direct_shared_gallery_image_id": "${windows_sigmode_direct_shared_gallery_image_id}",
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",

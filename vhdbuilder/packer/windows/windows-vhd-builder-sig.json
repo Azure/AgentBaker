@@ -38,6 +38,7 @@
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
             "shared_image_gallery": {
+              "id": "{{user `windows_sigmode_source_id`}}",
               "direct_shared_gallery_image_id": "{{user `windows_sigmode_direct_shared_gallery_image_id`}}"
             },
             "shared_image_gallery_destination": {
