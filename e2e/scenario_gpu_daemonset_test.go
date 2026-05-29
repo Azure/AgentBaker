@@ -30,7 +30,7 @@ const (
 // This is the "upstream" deployment model commonly used by customers who manage their own
 // NVIDIA device plugin deployment.
 func Test_Ubuntu2204_NvidiaDevicePlugin_Daemonset(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenarioSequential(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin works when deployed as a DaemonSet (not systemd service)",
 		Tags: Tags{
 			GPU: true,
