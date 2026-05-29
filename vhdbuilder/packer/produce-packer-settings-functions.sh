@@ -317,10 +317,20 @@ function prepare_windows_vhd() {
 	if sig_source_gallery_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_gallery_name" <$CDIR/windows/windows_settings.json); then
 		if [ -n "${sig_source_gallery_name}" ] && [ "${sig_source_gallery_name}" != "null" ]; then
 			local sig_image_name="${WINDOWS_IMAGE_SKU}"
+			# List latest 3 available versions for this image in the shared gallery
+			echo "  Latest 3 available versions in gallery:"
+			az sig image-version list-shared \
+				--gallery-unique-name "${sig_source_gallery_name}" \
+				--gallery-image-definition "${sig_image_name}" \
+				--location "${PACKER_BUILD_LOCATION}" \
+				--shared-to tenant \
+				--query "[-3:].name" -o tsv | while read -r ver; do
+				echo "    - ${ver}"
+			done
 
 			# Resolve version dynamically if base_image_version is empty
 			if [ -z "${WINDOWS_IMAGE_VERSION}" ] || [ "${WINDOWS_IMAGE_VERSION}" = "null" ]; then
-				echo "base_image_version is empty, resolving latest from shared gallery..."
+				echo "base_image_version is empty, resolving latest from shared gallery ${sig_source_gallery_name}/${sig_image_name}..."
 				WINDOWS_IMAGE_VERSION=$(az sig image-version list-shared \
 					--gallery-unique-name "${sig_source_gallery_name}" \
 					--gallery-image-definition "${sig_image_name}" \
@@ -344,16 +354,6 @@ function prepare_windows_vhd() {
 			echo "Using direct shared gallery source:"
 			echo "  ID: ${windows_sigmode_direct_shared_gallery_image_id}"
 
-			# List latest 3 available versions for this image in the shared gallery
-			echo "  Latest 3 available versions in gallery:"
-			az sig image-version list-shared \
-				--gallery-unique-name "${sig_source_gallery_name}" \
-				--gallery-image-definition "${sig_image_name}" \
-				--location "${PACKER_BUILD_LOCATION}" \
-				--shared-to tenant \
-				--query "[-3:].name" -o tsv | while read -r ver; do
-				echo "    - ${ver}"
-			done
 		fi
 	fi
 
@@ -364,8 +364,8 @@ function prepare_windows_vhd() {
 	mkdir -p "${AZCOPY_LOG_LOCATION}"
 	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
+		echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 		download_windows_json_artifact
 		extract_windows_image_urls
 	else
@@ -374,14 +374,14 @@ function prepare_windows_vhd() {
 	fi
 
 	# Check if base, nano, and servercore urls are set
-	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
-		echo "Error: One of the Windows image URLs are not set."
+	if [ -n "${windows_nanoserver_image_url}" ] && [ -n "${windows_servercore_image_url}" ] && [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "All Windows image URLs are set."
 	else
-		# If all URLs are set, print them
-		echo "Using Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
-		echo "Using Windows Nano Server image URL: ${windows_nanoserver_image_url}"
-		echo "Using Windows Server Core image URL: ${windows_servercore_image_url}"
+		echo "At least one of the Windows image URLs are not set:"
 	fi
+		echo "  Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
+		echo "  Windows Nano Server image URL: ${windows_nanoserver_image_url}"
+		echo "  Windows Server Core image URL: ${windows_servercore_image_url}"
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
