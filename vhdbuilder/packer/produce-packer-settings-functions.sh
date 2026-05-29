@@ -309,50 +309,41 @@ function prepare_windows_vhd() {
 		exit 1
 	fi
 
-	# Create the sig image from the official images defined in windows-settings.json by default
-	windows_sigmode_source_subscription_id=""
-	windows_sigmode_source_resource_group_name=""
-	windows_sigmode_source_gallery_name=""
-	windows_sigmode_source_image_name=""
-	windows_sigmode_source_image_version=""
+	# By default, packer uses marketplace source (image_publisher/offer/sku/version).
+	# For embargo builds, we use direct_shared_gallery_image_id to source from a 1P shared gallery.
+	windows_sigmode_direct_shared_gallery_image_id=""
 
-	# Allow windows_settings.json to specify a shared image gallery source (e.g. for 1P embargo builds)
 	local sig_source_gallery_name
 	if sig_source_gallery_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_gallery_name" <$CDIR/windows/windows_settings.json); then
 		if [ -n "${sig_source_gallery_name}" ] && [ "${sig_source_gallery_name}" != "null" ]; then
-			windows_sigmode_source_gallery_name="${sig_source_gallery_name}"
-			windows_sigmode_source_subscription_id=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_subscription_id" <$CDIR/windows/windows_settings.json)
-			windows_sigmode_source_resource_group_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_resource_group_name" <$CDIR/windows/windows_settings.json)
-			windows_sigmode_source_image_name="${WINDOWS_IMAGE_SKU}"
+			local sig_image_name="${WINDOWS_IMAGE_SKU}"
 
 			# Resolve version dynamically if base_image_version is empty
 			if [ -z "${WINDOWS_IMAGE_VERSION}" ] || [ "${WINDOWS_IMAGE_VERSION}" = "null" ]; then
 				echo "base_image_version is empty, resolving latest from shared gallery..."
 				WINDOWS_IMAGE_VERSION=$(az sig image-version list-shared \
-					--gallery-unique-name "${windows_sigmode_source_gallery_name}" \
-					--gallery-image-definition "${windows_sigmode_source_image_name}" \
+					--gallery-unique-name "${sig_source_gallery_name}" \
+					--gallery-image-definition "${sig_image_name}" \
 					--location "${PACKER_BUILD_LOCATION}" \
 					--shared-to tenant \
 					--query "[-1].name" -o tsv)
 				if [ -z "${WINDOWS_IMAGE_VERSION}" ]; then
-					echo "ERROR: Failed to resolve latest image version from gallery ${windows_sigmode_source_gallery_name}/${windows_sigmode_source_image_name}"
+					echo "ERROR: Failed to resolve latest image version from gallery ${sig_source_gallery_name}/${sig_image_name}"
 					exit 1
 				fi
 				echo "Resolved base_image_version: ${WINDOWS_IMAGE_VERSION}"
 			fi
 
-			windows_sigmode_source_image_version="${WINDOWS_IMAGE_VERSION}"
+			windows_sigmode_direct_shared_gallery_image_id="/SharedGalleries/${sig_source_gallery_name}/Images/${sig_image_name}/Versions/${WINDOWS_IMAGE_VERSION}"
 			WINDOWS_IMAGE_URL="" # clear marketplace source when using SIG source
-			echo "Using shared image gallery source:"
-			echo "  Gallery: ${windows_sigmode_source_gallery_name}"
-			echo "  Image: ${windows_sigmode_source_image_name}"
-			echo "  Version: ${windows_sigmode_source_image_version}"
+			echo "Using direct shared gallery source:"
+			echo "  ID: ${windows_sigmode_direct_shared_gallery_image_id}"
 
 			# List latest 3 available versions for this image in the shared gallery
 			echo "  Latest 3 available versions in gallery:"
 			az sig image-version list-shared \
-				--gallery-unique-name "${windows_sigmode_source_gallery_name}" \
-				--gallery-image-definition "${windows_sigmode_source_image_name}" \
+				--gallery-unique-name "${sig_source_gallery_name}" \
+				--gallery-image-definition "${sig_image_name}" \
 				--location "${PACKER_BUILD_LOCATION}" \
 				--shared-to tenant \
 				--query "[-3:].name" -o tsv | while read -r ver; do
