@@ -17,7 +17,7 @@ Windows VHD is configured through [VHD](./vhdbuilder/packer/windows/windows-vhd-
 
 [apiserver](./apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
 
-windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1).
+windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1.template).
 
 The webserver is also used to determine the latest version of Linux VHDs available for provisioning within AKS clusters.
 
