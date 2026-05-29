@@ -335,7 +335,12 @@ function prepare_windows_vhd() {
 			fi
 
 			windows_sigmode_direct_shared_gallery_image_id="/SharedGalleries/${sig_source_gallery_name}/Images/${sig_image_name}/Versions/${WINDOWS_IMAGE_VERSION}"
-			WINDOWS_IMAGE_URL="" # clear marketplace source when using SIG source
+			# Clear marketplace source fields — packer requires exactly one source type
+			WINDOWS_IMAGE_URL=""
+			WINDOWS_IMAGE_PUBLISHER=""
+			WINDOWS_IMAGE_OFFER=""
+			WINDOWS_IMAGE_SKU=""
+			WINDOWS_IMAGE_VERSION=""
 			echo "Using direct shared gallery source:"
 			echo "  ID: ${windows_sigmode_direct_shared_gallery_image_id}"
 
