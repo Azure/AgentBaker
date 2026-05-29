@@ -141,9 +141,11 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 		Config: Config{
 			Cluster: clusterAzureOverlayNetwork,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},

@@ -38,13 +38,14 @@ type ClusterParams struct {
 }
 
 type Cluster struct {
-	Model           *armcontainerservice.ManagedCluster
-	Kube            *Kubeclient
-	KubeletIdentity *armcontainerservice.UserAssignedIdentity
-	SubnetID        string
-	ClusterParams   *ClusterParams
-	Bastion         *Bastion
-	ProxyURL        string
+	Model            *armcontainerservice.ManagedCluster
+	Kube             *Kubeclient
+	KubeletIdentity  *armcontainerservice.UserAssignedIdentity
+	SubnetID         string
+	VNetResourceGUID string
+	ClusterParams    *ClusterParams
+	Bastion          *Bastion
+	ProxyURL         string
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -89,6 +90,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	})
 	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
 	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
+	vNet := dag.Go(g, func(ctx context.Context) (VNet, error) {
+		return getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+	})
 	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
@@ -131,13 +135,14 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
 	}
 	return &Cluster{
-		Model:           cluster,
-		Kube:            kube.MustGet(),
-		KubeletIdentity: identity.MustGet(),
-		SubnetID:        subnet.MustGet(),
-		ClusterParams:   extract.MustGet(),
-		Bastion:         bastion.MustGet(),
-		ProxyURL:        proxyURL.MustGet(),
+		Model:            cluster,
+		Kube:             kube.MustGet(),
+		KubeletIdentity:  identity.MustGet(),
+		SubnetID:         subnet.MustGet(),
+		VNetResourceGUID: vNet.MustGet().resourceGUID,
+		ClusterParams:    extract.MustGet(),
+		Bastion:          bastion.MustGet(),
+		ProxyURL:         proxyURL.MustGet(),
 	}, nil
 }
 
@@ -702,8 +707,9 @@ func sanitizeAzureResourceName(name string) string {
 }
 
 type VNet struct {
-	name     string
-	subnetId string
+	name         string
+	subnetId     string
+	resourceGUID string
 }
 
 func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, error) {
@@ -717,7 +723,7 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 			if v == nil {
 				return VNet{}, fmt.Errorf("aks vnet was empty")
 			}
-			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet")}, nil
+			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), resourceGUID: *v.Properties.ResourceGUID}, nil
 		}
 	}
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
