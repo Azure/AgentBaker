@@ -16,6 +16,9 @@ e2e/scenario-logs
 **/vhd-publishing-info.json
 out/
 build/
+coverage/
+test-results/
+.devcontainer/devcontainer-lock.json
 
 test/junit/
 test/e2e/kubernetes/junit.xml

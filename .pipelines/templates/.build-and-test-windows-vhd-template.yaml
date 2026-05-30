@@ -101,7 +101,7 @@ stages:
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
-    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
+    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'), ne(dependencies.build_${{ parameters.stageName }}.outputs['build_${{ parameters.stageName }}.skipVhd.skipping_vhd_build'], 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
