@@ -53,6 +53,8 @@ The operational goals of this project are:
 
 When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
 
+VHD cleanup steps in `cleanup-vhd.sh` must not silently ignore failures. Verify removal of security-sensitive components and fail the build if expected state is not achieved.
+
 One way to debug / explore / just for fun is to run [e2e](./e2e/) tests. To run locally, follow the readme file under that folder.
 
 The SRE guidelines ground other coding guidelines and practices.
@@ -68,12 +70,16 @@ The SRE guidelines ground other coding guidelines and practices.
 
 ### ShellScripts Guidelines
 
-- use shellcheck for sanity checking
-- use ShellSpec for testing
+- use shellcheck for sanity checking — **all shell scripts must pass the CI shellcheck gate** (`make validate-shell`). This enforces POSIX compliance even in `#!/bin/bash` scripts (e.g., use `[ ]` not `[[ ]]`, use `=` not `==` for string comparison). Use `# shellcheck disable=SCXXXX` inline comments only when necessary and with justification.
+- use ShellSpec for testing — all shell script changes should have corresponding tests in `spec/parts/linux/`
 - the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
 - when using functions defined in other files, ensure it is sourced properly.
+- for scriptless provisioning compatibility, security hotfix functions must be defined in `cse_main.sh` (not sourced from other scripts) so they work standalone.
+- prefer simple single-purpose functions with positional args over complex data-driven designs with associative arrays or encoded strings.
+- use `isUbuntu()`, `isMarinerOrAzureLinux()`, and `isACL()` helper functions for OS detection instead of raw string comparisons.
 - use local variables rather than constants when their scoping allows for it.
 - avoid using variables declared inside another function, even they are visible. It is hard to reason and might introduce subtle bugs.
+- define functions at top-level scope, not nested inside other functions.
 
 ## Pull Request Review Guidelines
 
