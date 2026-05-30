@@ -27,6 +27,8 @@
   base_image_version:    string
   windows_image_name:    string
   patches_to_apply:      #WindowsPatches
+  sig_source_gallery_name?:      string
+  skip_vhd?:                     bool
 }
 
 #WindowsComments: [...string]

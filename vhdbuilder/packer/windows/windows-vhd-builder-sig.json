@@ -38,11 +38,8 @@
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
             "shared_image_gallery": {
-              "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
-              "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
-              "gallery_name": "{{user `windows_sigmode_source_gallery_name`}}",
-              "image_name": "{{user `windows_sigmode_source_image_name`}}",
-              "image_version": "{{user `windows_sigmode_source_image_version`}}"
+              "id": "{{user `windows_sigmode_source_id`}}",
+              "direct_shared_gallery_image_id": "{{user `windows_sigmode_direct_shared_gallery_image_id`}}"
             },
             "shared_image_gallery_destination": {
                 "resource_group": "{{user `resource_group_name`}}",
@@ -99,6 +96,24 @@
             "{{user `windows_cse_package_uri`}}"
         ],
         "destination": "c:/akse-cache/"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=0",
+                "WindowsSKU={{user `windows_sku`}}",
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
+            ]
+        },
+        {
+            "restart_timeout": "10m",
+            "type": "windows-restart"
         },
         {
             "elevated_user": "packer",

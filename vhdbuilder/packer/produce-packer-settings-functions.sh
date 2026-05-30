@@ -258,14 +258,21 @@ function create_new_base_image() {
 
 	# Use imported sig image to create the build VM
 	WINDOWS_IMAGE_URL=""
-	windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
-	windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
-	windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
-	windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
-	windows_sigmode_source_image_version="1.0.0"
+	windows_sigmode_source_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${IMPORTED_IMAGE_NAME}/versions/1.0.0"
 }
 
 function prepare_windows_vhd() {
+	local skip_vhd
+	skip_vhd=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".skip_vhd // false" <$CDIR/windows/windows_settings.json)
+	if [ "${skip_vhd}" = "true" ]; then
+		echo "skip_vhd is set to true for ${WINDOWS_SKU}, skipping VHD build."
+		echo "##vso[task.setvariable variable=skipping_vhd_build;isOutput=true]true"
+		echo "##vso[task.setvariable variable=skipping_vhd_build]true"
+		exit 0
+	fi
+	echo "##vso[task.setvariable variable=skipping_vhd_build;isOutput=true]false"
+	echo "##vso[task.setvariable variable=skipping_vhd_build]false"
+
 	echo "Set the base image sku and version from windows_settings.json"
 
 	WINDOWS_IMAGE_SKU=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" <$CDIR/windows/windows_settings.json)
@@ -309,12 +316,59 @@ function prepare_windows_vhd() {
 		exit 1
 	fi
 
-	# Create the sig image from the official images defined in windows-settings.json by default
-	windows_sigmode_source_subscription_id=""
-	windows_sigmode_source_resource_group_name=""
-	windows_sigmode_source_gallery_name=""
-	windows_sigmode_source_image_name=""
-	windows_sigmode_source_image_version=""
+	# By default, packer uses marketplace source (image_publisher/offer/sku/version).
+	# For VHD imports, we use shared_image_gallery.id (full ARM resource ID).
+	# For embargo builds, we use direct_shared_gallery_image_id to source from a 1P shared gallery.
+	windows_sigmode_source_id=""
+	windows_sigmode_direct_shared_gallery_image_id=""
+
+	local sig_source_gallery_name
+	if sig_source_gallery_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_gallery_name" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sig_source_gallery_name}" ] && [ "${sig_source_gallery_name}" != "null" ]; then
+			local sig_image_name="${WINDOWS_IMAGE_SKU}"
+			# Use AZURE_LOCATION for gallery queries — PACKER_BUILD_LOCATION may not be normalized yet for Windows
+			local gallery_location="${AZURE_LOCATION:-${PACKER_BUILD_LOCATION}}"
+
+			# List latest 3 available versions for this image in the shared gallery
+			echo "  Latest 3 available versions in gallery:"
+			az sig image-version list-shared \
+				--gallery-unique-name "${sig_source_gallery_name}" \
+				--gallery-image-definition "${sig_image_name}" \
+				--location "${gallery_location}" \
+				--shared-to tenant \
+				--query "[-3:].name" -o tsv | while read -r ver; do
+				echo "    - ${ver}"
+			done
+
+			# Resolve version dynamically if base_image_version is empty
+			if [ -z "${WINDOWS_IMAGE_VERSION}" ] || [ "${WINDOWS_IMAGE_VERSION}" = "null" ]; then
+				echo "base_image_version is empty, resolving latest from shared gallery ${sig_source_gallery_name}/${sig_image_name}..."
+				WINDOWS_IMAGE_VERSION=$(az sig image-version list-shared \
+					--gallery-unique-name "${sig_source_gallery_name}" \
+					--gallery-image-definition "${sig_image_name}" \
+					--location "${gallery_location}" \
+					--shared-to tenant \
+					--query "sort_by(@, &name)[-1].name" -o tsv)
+				if [ -z "${WINDOWS_IMAGE_VERSION}" ]; then
+					echo "ERROR: Failed to resolve latest image version from gallery ${sig_source_gallery_name}/${sig_image_name}"
+					exit 1
+				fi
+				echo "Resolved base_image_version: ${WINDOWS_IMAGE_VERSION}"
+			fi
+
+			windows_sigmode_direct_shared_gallery_image_id="/SharedGalleries/${sig_source_gallery_name}/Images/${sig_image_name}/Versions/${WINDOWS_IMAGE_VERSION}"
+			# Clear marketplace and raw VHD source fields — packer requires exactly one source type
+			WINDOWS_IMAGE_URL=""
+			WINDOWS_BASE_IMAGE_URL=""
+			WINDOWS_IMAGE_PUBLISHER=""
+			WINDOWS_IMAGE_OFFER=""
+			WINDOWS_IMAGE_SKU=""
+			WINDOWS_IMAGE_VERSION=""
+			echo "Using direct shared gallery source:"
+			echo "  ID: ${windows_sigmode_direct_shared_gallery_image_id}"
+
+		fi
+	fi
 
 	# default: build VHD images from a marketplace base image
 	export AZCOPY_AUTO_LOGIN_TYPE="AZCLI" # use AZCLI for AzCopy authentication
@@ -323,8 +377,8 @@ function prepare_windows_vhd() {
 	mkdir -p "${AZCOPY_LOG_LOCATION}"
 	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
+		echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 		download_windows_json_artifact
 		extract_windows_image_urls
 	else
@@ -333,14 +387,14 @@ function prepare_windows_vhd() {
 	fi
 
 	# Check if base, nano, and servercore urls are set
-	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
-		echo "Error: One of the Windows image URLs are not set."
+	if [ -n "${windows_nanoserver_image_url}" ] && [ -n "${windows_servercore_image_url}" ] && [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "All Windows image URLs are set."
 	else
-		# If all URLs are set, print them
-		echo "Using Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
-		echo "Using Windows Nano Server image URL: ${windows_nanoserver_image_url}"
-		echo "Using Windows Server Core image URL: ${windows_servercore_image_url}"
+		echo "At least one of the Windows image URLs are not set:"
 	fi
+		echo "  Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
+		echo "  Windows Nano Server image URL: ${windows_nanoserver_image_url}"
+		echo "  Windows Server Core image URL: ${windows_servercore_image_url}"
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
