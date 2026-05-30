@@ -173,7 +173,7 @@ if [ -n "${sig_source_gallery_name}" ] && [ -n "${MANAGED_SIG_ID}" ]; then
 	export MANAGED_SIG_ID="${NEW_SIG_ID}"
 
 	echo "Cleaning up temporary disk..."
-	az disk delete --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --name "${LINEAGE_DISK_NAME}" --yes --no-wait
+	az disk delete --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --name "${LINEAGE_DISK_NAME}" --yes -o none
 
 	echo "Gallery lineage successfully broken"
 else
