@@ -142,6 +142,15 @@ if [ -n "${sig_source_gallery_name}" ] && [ -n "${MANAGED_SIG_ID}" ]; then
 	DISK_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${LINEAGE_DISK_NAME}"
 	echo "Created disk: ${DISK_ID}"
 
+	echo "Capturing tags from original SIG image version..."
+	ORIGINAL_TAGS=$(az sig image-version show \
+		--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
+		--gallery-name "${SIG_GALLERY_NAME}" \
+		--gallery-image-definition "${SIG_IMAGE_NAME}" \
+		--gallery-image-version "${SIG_IMAGE_VERSION}" \
+		--query "tags" -o json 2>/dev/null || echo "{}")
+	echo "Captured tags: ${ORIGINAL_TAGS}"
+
 	echo "Deleting original SIG image version..."
 	az sig image-version delete \
 		--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
@@ -158,15 +167,23 @@ if [ -n "${sig_source_gallery_name}" ] && [ -n "${MANAGED_SIG_ID}" ]; then
 		--deleted 2>/dev/null || sleep 30
 
 	echo "Re-creating SIG image version from managed disk (no gallery lineage)..."
-	az sig image-version create \
-		--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
-		--gallery-name "${SIG_GALLERY_NAME}" \
-		--gallery-image-definition "${SIG_IMAGE_NAME}" \
-		--gallery-image-version "${SIG_IMAGE_VERSION}" \
-		--os-snapshot "${DISK_ID}" \
-		--location "${LOCATION}" \
-		--replica-count 1 \
+	CREATE_ARGS=(
+		--resource-group "${AZURE_RESOURCE_GROUP_NAME}"
+		--gallery-name "${SIG_GALLERY_NAME}"
+		--gallery-image-definition "${SIG_IMAGE_NAME}"
+		--gallery-image-version "${SIG_IMAGE_VERSION}"
+		--os-snapshot "${DISK_ID}"
+		--location "${LOCATION}"
+		--replica-count 1
 		-o none
+	)
+	if [ "${ORIGINAL_TAGS}" != "{}" ] && [ -n "${ORIGINAL_TAGS}" ]; then
+		CREATE_ARGS+=(--tags)
+		while IFS="=" read -r key value; do
+			CREATE_ARGS+=("${key}=${value}")
+		done < <(echo "${ORIGINAL_TAGS}" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+	fi
+	az sig image-version create "${CREATE_ARGS[@]}"
 
 	NEW_SIG_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 	echo "New SIG image version (lineage-free): ${NEW_SIG_ID}"
