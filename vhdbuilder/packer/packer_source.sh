@@ -241,6 +241,10 @@ copyPackerFiles() {
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
 
+  CSE_PRELOAD_SRC=/home/packer/provision_preload.sh
+  CSE_PRELOAD_DEST=/opt/azure/containers/provision_preload.sh
+  cpAndMode $CSE_PRELOAD_SRC $CSE_PRELOAD_DEST 0744
+
   CSE_START_SRC=/home/packer/provision_start.sh
   CSE_START_DEST=/opt/azure/containers/provision_start.sh
   cpAndMode $CSE_START_SRC $CSE_START_DEST 0744
