@@ -13,6 +13,9 @@ $global:ExternalNetwork = "ext"
 $global:CNIConfig = "$CNIConfig"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
+
+# Correct sku-cpu label if it doesn't match actual logical processor count (e.g., Harvest VMs)
+Fix-SkuCpuLabel
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsSkipCleanupNetwork)
 
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled)

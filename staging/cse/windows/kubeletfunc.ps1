@@ -260,6 +260,32 @@ function Remove-KubeletNodeLabel {
     $global:KubeletNodeLabels = $filtered -join ","
 }
 
+# For Harvest VMs (and potentially other oversubscribed SKUs), the sku-cpu label set by the RP
+# reflects the nominal vCPU count from the CRP SKU API, but the guest OS may see more cores.
+# This function detects the mismatch by comparing the label value against the actual logical
+# processor count and corrects the label to match what kubelet reports as capacity.cpu.
+function Fix-SkuCpuLabel {
+    $actualCores = (Get-CimInstance -ClassName Win32_ComputerSystem).NumberOfLogicalProcessors
+    if (-not $actualCores -or $actualCores -eq 0) {
+        Write-Log "WARNING: could not detect actual CPU cores, skipping sku-cpu fix"
+        return
+    }
+
+    $labelList = $global:KubeletNodeLabels -split ","
+    $skuCpuLabel = $labelList | Where-Object { $_ -match '^kubernetes\.azure\.com/sku-cpu=' }
+    if (-not $skuCpuLabel) {
+        return
+    }
+
+    $currentValue = ($skuCpuLabel -split '=')[1]
+    if ($currentValue -ne "$actualCores") {
+        Write-Log "Correcting sku-cpu label from $currentValue to $actualCores (actual logical processors)"
+        $labelList = $labelList | Where-Object { $_ -notmatch '^kubernetes\.azure\.com/sku-cpu=' }
+        $labelList += "kubernetes.azure.com/sku-cpu=$actualCores"
+        $global:KubeletNodeLabels = $labelList -join ","
+    }
+}
+
 function Get-TagValue {
     Param(
         [Parameter(Mandatory=$true)][string]
