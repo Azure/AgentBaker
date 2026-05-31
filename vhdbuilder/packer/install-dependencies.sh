@@ -718,6 +718,24 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+
+  # Bake the nouveau blacklist + initramfs into the VHD so GPU nodes skip the ~10-30s per-boot
+  # `update-initramfs -u` that aks-gpu/install.sh would otherwise run. The kernel purge/reinstall/
+  # reboot to the final shipped kernel happens before this script (see the kernel log near the top),
+  # so `uname -r` here is the node's boot kernel and the baked initramfs matches it. The Ubuntu VHD
+  # is shared with non-GPU nodes; blacklisting nouveau is safe there because AKS Ubuntu node images
+  # have no functional dependency on nouveau, while GPU nodes require it disabled before the
+  # proprietary NVIDIA driver loads. aks-gpu/install.sh only skips its own update-initramfs when the
+  # marker kernel matches AND the on-disk blacklist content matches the image's copy, otherwise it
+  # falls back to the full path. Mirrors the existing NVIDIA GB VHD path below.
+  cat << EOF > /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+  update-initramfs -u
+  mkdir -p /opt/azure/aks-gpu
+  echo "kernel=$(uname -r)" > /opt/azure/aks-gpu/nouveau-blacklist-marker
+  echo "  - nouveau blacklist baked into VHD initramfs for kernel $(uname -r)" >> ${VHD_LOGS_FILEPATH}
 fi
 
 if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
