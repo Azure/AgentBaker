@@ -1678,4 +1678,68 @@ SETUP_EOF
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
     End
+
+    Describe 'gpuPrebuiltModuleMatches'
+        setup() {
+            GPU_PREBUILT_MARKER_FILE="$(mktemp)"
+            GPU_DV="535.230.02"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            NVIDIA_DRIVER_IMAGE_TAG="535.230.02-abc123"
+        }
+        cleanup() {
+            rm -f "$GPU_PREBUILT_MARKER_FILE"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        uname() { echo "5.15.0-1078-azure"; }
+        modinfo() { return 0; }
+
+        write_marker() {
+            cat > "$GPU_PREBUILT_MARKER_FILE" <<EOF
+kernel=$1
+driver_version=$2
+driver_kind=$3
+arch=amd64
+image_tag=$4
+EOF
+        }
+
+        It 'matches when kernel, driver version/kind, and image tag all align'
+            write_marker "5.15.0-1078-azure" "535.230.02" "cuda" "535.230.02-abc123"
+            When call gpuPrebuiltModuleMatches
+            The status should be success
+        End
+
+        It 'does not match when the marker file is absent'
+            rm -f "$GPU_PREBUILT_MARKER_FILE"
+            When call gpuPrebuiltModuleMatches
+            The status should be failure
+        End
+
+        It 'does not match on kernel drift'
+            write_marker "5.15.0-1000-azure" "535.230.02" "cuda" "535.230.02-abc123"
+            When call gpuPrebuiltModuleMatches
+            The status should be failure
+        End
+
+        It 'does not match when the driver image tag differs'
+            write_marker "5.15.0-1078-azure" "535.230.02" "cuda" "535.230.02-OLDSHA"
+            When call gpuPrebuiltModuleMatches
+            The status should be failure
+        End
+
+        It 'does not match for a different driver kind (e.g. grid)'
+            write_marker "5.15.0-1078-azure" "535.230.02" "grid" "535.230.02-abc123"
+            When call gpuPrebuiltModuleMatches
+            The status should be failure
+        End
+
+        It 'does not match when the compiled module is not loadable'
+            modinfo() { return 1; }
+            write_marker "5.15.0-1078-azure" "535.230.02" "cuda" "535.230.02-abc123"
+            When call gpuPrebuiltModuleMatches
+            The status should be failure
+        End
+    End
 End
