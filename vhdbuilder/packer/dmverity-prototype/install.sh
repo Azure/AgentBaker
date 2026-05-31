@@ -82,14 +82,29 @@ TMP_RPM=$(mktemp --suffix=.rpm)
 TMP_CERT=$(mktemp --suffix=.pem)
 trap 'rm -f "${TMP_KRPM}" "${TMP_RPM}" "${TMP_CERT}"' EXIT
 
-# ----- Install patched kernel RPM (optional) -----------------------------
+# ----- Install patched kernel RPM (optional, normally delegated) --------
 # Bakes the OS Guard CA into .builtin_trusted_keys at compile time so
 # dm-verity layer-sig verification works on boot without keyctl enrollment.
-# Installed by FULL FILE PATH so tdnf does NOT resolve from any repo:
-# the spec uses Release: 99.osguard1%{?dist} which outranks any realistic
-# upstream patch release at the same Version (1, 2, ..., 9), but a
-# hypothetical upstream Version bump (e.g. 6.6.140.1) would silently win
-# via repo resolution -- file-path install makes that impossible.
+#
+# *** NORMAL OPERATION: DMVERITY_KERNEL_RPM_URL is empty. ***
+# The patched kernel RPM is delivered to the Packer build VM by the
+# mariner-aks-pipelines buddy-build channel (`proprietaryRpmBuddyBuildId`
+# parameter on the buildAzureLinuxV3gen2 job, set in the ADO UI when the
+# build is queued). The pipeline downloads the buddy-build artifact and
+# tdnf-installs it by file path *multiple times* during standard
+# install-dependencies.sh execution -- BEFORE this install.sh ever runs.
+# Re-downloading from kataccstorage here is therefore redundant AND was
+# observed to fail mid-build on build 1129685 when the kataccstorage
+# container public-access flag flipped off, returning HTTP 409. See
+# dmverity-prototype.env for the design write-up.
+#
+# *** OPT-IN URL PATH (rare): when DMVERITY_KERNEL_RPM_URL is set, we
+# install the kernel BY FULL FILE PATH so tdnf does NOT resolve from any
+# repo: the spec uses Release: 99.osguard1%{?dist} which outranks any
+# realistic upstream patch release at the same Version (1, 2, ..., 9),
+# but a hypothetical upstream Version bump (e.g. 6.6.140.1) would
+# silently win via repo resolution -- file-path install makes that
+# impossible.
 #
 # We --disablerepo='preview-repo' (NOT '*') so dependency resolution can
 # still reach azurelinux-official-base for any new transitive deps the
@@ -117,7 +132,7 @@ if [[ -n "${DMVERITY_KERNEL_RPM_URL:-}" ]]; then
     tdnf install -y --nogpgcheck --disablerepo='preview-repo' "${TMP_KRPM}"
     log "patched kernel staged; will boot on next reboot (VHD capture)"
 else
-    log "DMVERITY_KERNEL_RPM_URL empty; staying on stock kernel (keyring-load fallback will run)"
+    log "DMVERITY_KERNEL_RPM_URL empty; patched kernel install delegated to buddy-build channel (proprietaryRpmBuddyBuildId)"
 fi
 
 # ----- Download patched containerd RPM -----------------------------------
@@ -216,7 +231,7 @@ systemctl is-active --quiet containerd || { err "containerd failed to start"; jo
 log "containerd is active"
 
 log "dmverity prototype installation complete"
-log "  - kernel:            $(uname -r) (build VM); installed for next boot: ${DMVERITY_KERNEL_RPM_URL:-<stock>}"
+log "  - kernel:            $(uname -r) (build VM); installed for next boot: ${DMVERITY_KERNEL_RPM_URL:-<delegated to buddy-build channel>}"
 log "  - containerd:        ${INSTALLED_VER}"
 log "  - config:            /etc/containerd/config.toml (shipped by RPM)"
 log "  - modules-load:      /etc/modules-load.d/aks-dmverity.conf (shipped by RPM)"
