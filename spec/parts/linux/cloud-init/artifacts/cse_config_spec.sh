@@ -1678,4 +1678,54 @@ SETUP_EOF
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
     End
+
+    Describe 'startNvidiaManagedExpServices'
+        logs_to_events() {
+            echo "logs_to_events $1"
+            eval "$2"
+        }
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $@"
+        }
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $@"
+        }
+        mkdir() {
+            echo "mkdir $@"
+        }
+        tee() {
+            cat > /dev/null
+            echo "tee $@"
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+
+        BeforeEach 'MIG_NODE="false"'
+
+        It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
+            When call startNvidiaManagedExpServices
+
+            # device-plugin gates GPU scheduling, so it must stay blocking.
+            The output should include "systemctlEnableAndStart nvidia-device-plugin 30"
+            # dcgm/dcgm-exporter are telemetry only and must not block provisioning.
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'does not fail when dcgm telemetry services cannot be enqueued'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "warning: nvidia-dcgm could not be enqueued"
+            The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
+        End
+    End
 End

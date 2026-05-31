@@ -1003,14 +1003,20 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
-        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
+        # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
+        if ! ctr -n k8s.io images ls -q | grep -qx "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; then
+            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        fi
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
             exit $ERR_GPU_DRIVERS_START_FAIL
         fi
-        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        # Drop the driver image reference so containerd can reclaim its space, but skip --sync so
+        # garbage collection runs asynchronously instead of blocking node provisioning.
+        ctr -n k8s.io images rm $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
@@ -1636,7 +1642,9 @@ EOF
     logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 
     # 2. Start the nvidia-dcgm service.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStart nvidia-dcgm 30" || exit $ERR_NVIDIA_DCGM_FAIL
+    # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without
+    # blocking node provisioning and treat a slow/failed start as non-fatal.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStartNoBlock nvidia-dcgm 30" || echo "warning: nvidia-dcgm could not be enqueued; GPU monitoring will start asynchronously"
 
     # 3. Start the nvidia-dcgm-exporter service.
     # Create systemd drop-in directory for nvidia-dcgm-exporter service
@@ -1658,7 +1666,9 @@ EOF
     systemctl daemon-reload
 
     # Start the nvidia-dcgm-exporter service.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+    # The exporter is telemetry only and does not gate scheduling, so start it off the critical
+    # path and treat a slow/failed start as non-fatal.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
 
 get_compute_sku() {
