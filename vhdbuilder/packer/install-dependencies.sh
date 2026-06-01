@@ -474,9 +474,12 @@ while IFS= read -r p; do
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
-        if isMarinerOrAzureLinux || isUbuntu; then
+        if isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
           installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isMarinerOrAzureLinux; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
         elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
