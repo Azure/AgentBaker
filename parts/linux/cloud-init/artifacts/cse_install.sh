@@ -272,10 +272,10 @@ installSecureTLSBootstrapClient() {
         return 0
     fi
 
-    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    downloadSecureTLSBootstrapClientFromURL "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 }
 
-downloadSecureTLSBootstrapClient() {
+downloadSecureTLSBootstrapClientFromURL() {
     # TODO(cameissner): have this managed by renovate, migrate from github to MCR/packages.microsoft.com
 
     local CLIENT_EXTRACTED_DIR=${1-$:SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}

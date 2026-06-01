@@ -474,9 +474,12 @@ while IFS= read -r p; do
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+        if isMarinerOrAzureLinux || isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+        fi
       done
       ;;
     "azure-acr-credential-provider")
