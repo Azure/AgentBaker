@@ -689,8 +689,8 @@ func strKeyValToMap(str string, pairDelim string) map[string]string {
 	return m
 }
 
-// isValidEvictionSignal reports whether the given key is an eviction signal recognized by kubelet
-// See https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#eviction-signals
+// isValidEvictionSignal reports whether the given key is an eviction signal recognized by kubelet.
+// See https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#eviction-signals.
 func isValidEvictionSignal(signal string) bool {
 	switch signal {
 	case "memory.available",
@@ -706,13 +706,13 @@ func isValidEvictionSignal(signal string) bool {
 	}
 }
 
-// filterEvictionSignals drops any keys not recognized by the kubelet so we never pass it an invalid value
+// filterEvictionSignals drops any keys not recognized by the kubelet so we never pass it an invalid value.
 func filterEvictionSignals(signals map[string]string) map[string]string {
 	if len(signals) == 0 {
 		return nil
 	}
 
-	// Copy only the entries whose key is a kubelet-recognized eviction signal
+	// Copy only the entries whose key is a kubelet-recognized eviction signal.
 	validSignals := make(map[string]string, len(signals))
 	for signal, threshold := range signals {
 		if isValidEvictionSignal(signal) {
@@ -720,7 +720,7 @@ func filterEvictionSignals(signals map[string]string) map[string]string {
 		}
 	}
 
-	// Every key was invalid, so return nil instead of an empty json object
+	// Every key was invalid, so return nil instead of an empty json object.
 	if len(validSignals) == 0 {
 		return nil
 	}
