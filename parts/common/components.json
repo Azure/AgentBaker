@@ -970,7 +970,7 @@
             "versionsV2": [
               {
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
-                "latestVersion": "v1.1.3-1-azlinux3"
+                "latestVersion": "1.1.3-1-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext:${version}-${SYSTEMD_ARCH}"
