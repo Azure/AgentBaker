@@ -343,7 +343,7 @@ extractDebBinaryFromFile() {
 
     local sourceBinary="${extractDir}/usr/bin/${packageName}"
     if [ ! -f "${sourceBinary}" ]; then
-        # Some packages ship the binary with an architecture suffix (e.g., foo-amd64)
+        # Some packages ship the binary with an architecture suffix (e.g., aks-secure-tls-bootstrap-client-amd64)
         local archSuffix
         archSuffix=$(getCPUArch)
         sourceBinary="${extractDir}/usr/bin/${packageName}-${archSuffix}"
