@@ -92,7 +92,7 @@ func prepareCluster(ctx context.Context, infra *ClusterInfra, clusterModel *armc
 	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, infra, cluster) })
 	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, infra, cluster) })
 	vNet := dag.Go(g, func(ctx context.Context) (VNet, error) {
-		return getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+		return getClusterVNet(ctx, infra, *cluster.Properties.NodeResourceGroup)
 	})
 	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, infra, cluster) })
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {

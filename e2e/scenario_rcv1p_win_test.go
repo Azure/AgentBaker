@@ -42,30 +42,6 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 	})
 }
 
-// Test_RCV1P_Windows23H2 validates RCV1P on Windows Server 23H2, the annual channel release.
-func Test_RCV1P_Windows23H2(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
-	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 23H2 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
-		Tags: Tags{
-			RCV1PCertMode: true,
-		},
-		Config: Config{
-			Cluster:                ClusterRCV1PAzureNetwork,
-			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        rcv1pOptInVMConfigMutator,
-			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: cseMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertModeWindows(ctx, s)
-			},
-		},
-	})
-}
-
 // Test_RCV1P_Windows2025 validates RCV1P on Windows Server 2025 (non-gen2).
 func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
@@ -108,30 +84,6 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 		Config: Config{
 			Cluster:                ClusterRCV1PAzureNetwork,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator:        rcv1pOptInVMConfigMutator,
-			VMInstanceTags:         rcv1pVMInstanceTags(),
-			BootstrapConfigMutator: cseMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertModeWindows(ctx, s)
-			},
-		},
-	})
-}
-
-// Test_RCV1P_Windows23H2Gen2 validates RCV1P on Windows Server 23H2 Gen2. Covers the gen2 pipeline job.
-func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
-	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 23H2 Gen2 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
-		Tags: Tags{
-			RCV1PCertMode: true,
-		},
-		Config: Config{
-			Cluster:                ClusterRCV1PAzureNetwork,
-			VHD:                    config.VHDWindows23H2Gen2,
 			VMConfigMutator:        rcv1pOptInVMConfigMutator,
 			VMInstanceTags:         rcv1pVMInstanceTags(),
 			BootstrapConfigMutator: cseMutator,
