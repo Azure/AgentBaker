@@ -476,10 +476,13 @@ while IFS= read -r p; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
         if isMarinerOrAzureLinux || isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
         elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          installSecureTLSBootstrapClientSysext "${version}" || exit $?
         fi
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-acr-credential-provider")

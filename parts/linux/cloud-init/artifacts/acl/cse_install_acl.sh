@@ -121,6 +121,18 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     installCredentialProviderFromPkg "$2" "$1"
 }
 
+# Called during VHD build to merge the already-downloaded sysext and symlink the binary.
+# The secure TLS bootstrap client is installed entirely at VHD build time, NOT at provisioning time.
+installSecureTLSBootstrapClientSysext() {
+    local version=$1
+    local registry=${2:-mcr.microsoft.com}
+    if ! mergeSysexts aks-secure-tls-bootstrap-client "${registry}"/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext "${version}"; then
+        echo "Failed to install aks-secure-tls-bootstrap-client sysext"
+        return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+    fi
+    ln -snf /usr/bin/aks-secure-tls-bootstrap-client /opt/bin/aks-secure-tls-bootstrap-client
+}
+
 # Reads VERSION_ID from /etc/os-release for use as the sysext version tag.
 # GPU sysexts are tagged by the OS image version, not the driver version.
 getACLVersionID() {

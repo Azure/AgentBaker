@@ -249,6 +249,39 @@ Describe 'cse_install.sh'
             The output should include "aks-secure-tls-bootstrap-client installed successfully"
             The status should be success
         End
+
+        It 'should remove sysext and refresh on ACL when secure TLS bootstrapping is disabled'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            OS="AZURECONTAINERLINUX"
+            OS_VARIANT=""
+            ACL_OS_NAME="AZURECONTAINERLINUX"
+            ACL_OS_VARIANT="AZURECONTAINERLINUX"
+            FLATCAR_OS_NAME="FLATCAR"
+            rm() {
+                echo "mock rm $*" >&2
+            }
+            systemd-sysext() {
+                echo "mock systemd-sysext $*" >&2
+            }
+            When call installSecureTLSBootstrapClient
+            The output should include "secure TLS bootstrapping is disabled"
+            The error should include "mock rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw"
+            The error should include "mock systemd-sysext --no-reload refresh"
+            The status should be success
+        End
+
+        It 'should be a no-op on ACL when secure TLS bootstrapping is enabled and no custom URL'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
+            CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL=""
+            OS="AZURECONTAINERLINUX"
+            OS_VARIANT=""
+            ACL_OS_NAME="AZURECONTAINERLINUX"
+            ACL_OS_VARIANT="AZURECONTAINERLINUX"
+            FLATCAR_OS_NAME="FLATCAR"
+            When call installSecureTLSBootstrapClient
+            The output should include "secure TLS bootstrapping is enabled but no custom client download URL was provided, nothing to download"
+            The status should be success
+        End
     End
 
     Describe 'installKubeletKubectlFromBootstrapProfileRegistry'
