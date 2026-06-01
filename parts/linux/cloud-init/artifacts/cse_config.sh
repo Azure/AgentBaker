@@ -1005,7 +1005,7 @@ configGPUDrivers() {
         mkdir -p /opt/{actions,gpu}
         # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
         # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
-        if ! ctr -n k8s.io images ls -q | grep -qx "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; then
+        if ! ctr -n k8s.io images ls -q | grep -qxF "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; then
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
