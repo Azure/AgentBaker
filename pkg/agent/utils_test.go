@@ -597,6 +597,41 @@ func TestGetKubeletConfigFileNodeMemoryHardeningFieldsOmittedByDefault(t *testin
 	}
 }
 
+func TestGetKubeletConfigFileFiltersUnknownEvictionSignals(t *testing.T) {
+	// Kubelet only accepts a fixed set of eviction signals; any unknown key would
+	// cause it to fail to start. Verify we drop unknowns from --eviction-hard,
+	// --eviction-soft, and --eviction-soft-grace-period before rendering.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-hard"] = "memory.available<750Mi,bogus.signal<1Gi,nodefs.available<10%"
+	kc["--eviction-soft"] = "memory.available<500Mi,not-a-signal<1Gi"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,not-a-signal=1m"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionHard            map[string]string `json:"evictionHard"`
+		EvictionSoft            map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	for _, m := range []map[string]string{got.EvictionHard, got.EvictionSoft, got.EvictionSoftGracePeriod} {
+		for _, bad := range []string{"bogus.signal", "not-a-signal"} {
+			if _, present := m[bad]; present {
+				t.Errorf("expected unknown eviction signal %q to be filtered, got map %v", bad, m)
+			}
+		}
+	}
+	if _, ok := got.EvictionHard["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionHard, got %v", got.EvictionHard)
+	}
+	if _, ok := got.EvictionSoft["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionSoft, got %v", got.EvictionSoft)
+	}
+}
+
 func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 	cases := []struct {
 		tlsBootstrapToken *string

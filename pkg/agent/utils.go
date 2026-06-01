@@ -599,17 +599,17 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// EvictionHard.
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(eh, "<")
+		kubeletConfig.EvictionHard = filterEvictionSignals(strKeyValToMap(eh, "<"))
 	}
 
 	// EvictionSoft (e.g. "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%").
 	if es, ok := kc["--eviction-soft"]; ok && es != "" {
-		kubeletConfig.EvictionSoft = strKeyValToMap(es, "<")
+		kubeletConfig.EvictionSoft = filterEvictionSignals(strKeyValToMap(es, "<"))
 	}
 
 	// EvictionSoftGracePeriod (e.g. "memory.available=30s,nodefs.available=2m,imagefs.available=2m").
 	if esg, ok := kc["--eviction-soft-grace-period"]; ok && esg != "" {
-		kubeletConfig.EvictionSoftGracePeriod = strKeyValToMap(esg, "=")
+		kubeletConfig.EvictionSoftGracePeriod = filterEvictionSignals(strKeyValToMap(esg, "="))
 	}
 
 	// EvictionMaxPodGracePeriod (integer seconds, e.g. "60").
@@ -687,6 +687,44 @@ func strKeyValToMap(str string, pairDelim string) map[string]string {
 		}
 	}
 	return m
+}
+
+// isValidEvictionSignal reports whether the given key is an eviction signal recognized by kubelet
+// See https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#eviction-signals
+func isValidEvictionSignal(signal string) bool {
+	switch signal {
+	case "memory.available",
+		"nodefs.available",
+		"nodefs.inodesFree",
+		"imagefs.available",
+		"imagefs.inodesFree",
+		"pid.available",
+		"allocatableMemory.available":
+		return true
+	default:
+		return false
+	}
+}
+
+// filterEvictionSignals drops any keys not recognized by the kubelet so we never pass it an invalid value
+func filterEvictionSignals(signals map[string]string) map[string]string {
+	if len(signals) == 0 {
+		return nil
+	}
+
+	// Copy only the entries whose key is a kubelet-recognized eviction signal
+	validSignals := make(map[string]string, len(signals))
+	for signal, threshold := range signals {
+		if isValidEvictionSignal(signal) {
+			validSignals[signal] = threshold
+		}
+	}
+
+	// Every key was invalid, so return nil instead of an empty json object
+	if len(validSignals) == 0 {
+		return nil
+	}
+	return validSignals
 }
 
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
