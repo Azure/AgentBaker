@@ -697,8 +697,30 @@ prebuildGPUKernelModule() {
   local image="$1" tag="$2"
   local ref="${image}:${tag}"
   local marker="/opt/azure/aks-gpu/dkms-marker"
+  local running newest
+  running="$(uname -r)"
 
-  echo "Prebuilding GPU kernel module into VHD from ${ref} for kernel $(uname -r)"
+  # Guard: the module is DKMS-compiled against the builder's *running* kernel, but a node boots
+  # the newest kernel baked into the image. If those differ, every provisioned node would see a
+  # marker kernel != uname -r, silently fall back to the full boot-time build, and ship a useless
+  # (space-wasting, unsigned) prebuilt module. Fail the build loudly so it gets fixed instead of
+  # silently regressing the optimization.
+  newest="$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -n1)"
+  if [ -z "$newest" ]; then
+    echo "Error: could not enumerate installed kernels under /lib/modules" >&2
+    exit 1
+  fi
+  if [ "$running" != "$newest" ]; then
+    echo "Error: running kernel ($running) is not the newest installed kernel ($newest); a GPU module prebuilt now would not match the kernel nodes boot. Run prebuildGPUKernelModule after the final kernel is installed and the builder has rebooted into it." >&2
+    exit 1
+  fi
+  # The DKMS build needs the matching kernel headers on the builder.
+  if [ ! -d "/lib/modules/${running}/build" ]; then
+    echo "Error: kernel headers for ${running} not found (/lib/modules/${running}/build missing); cannot prebuild the GPU kernel module." >&2
+    exit 1
+  fi
+
+  echo "Prebuilding GPU kernel module into VHD from ${ref} for kernel ${running}"
   mkdir -p /opt/{actions,gpu}
   rm -f "$marker"
 
