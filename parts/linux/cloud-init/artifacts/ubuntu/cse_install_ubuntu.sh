@@ -343,7 +343,13 @@ extractDebBinaryFromFile() {
 
     local sourceBinary="${extractDir}/usr/bin/${packageName}"
     if [ ! -f "${sourceBinary}" ]; then
-        echo "Failed to locate usr/bin/${packageName} in ${debFile}"
+        # Some packages ship the binary with an architecture suffix (e.g., foo-amd64)
+        local archSuffix
+        archSuffix=$(getCPUArch)
+        sourceBinary="${extractDir}/usr/bin/${packageName}-${archSuffix}"
+    fi
+    if [ ! -f "${sourceBinary}" ]; then
+        echo "Failed to locate usr/bin/${packageName} (or arch-suffixed variant) in ${debFile}"
         rm -rf "${extractDir}"
         return 1
     fi
