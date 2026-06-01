@@ -122,7 +122,8 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
 }
 
 # Called during VHD build to merge the already-downloaded sysext and symlink the binary.
-# The secure TLS bootstrap client is installed entirely at VHD build time, NOT at provisioning time.
+# The secure TLS bootstrap client is installed at VHD build time, and optionally overridden at provisioning time
+# using a plain tarball download and in-place replacement of the binary within /opt/bin.
 installSecureTLSBootstrapClientSysext() {
     local version=$1
     local registry=${2:-mcr.microsoft.com}
