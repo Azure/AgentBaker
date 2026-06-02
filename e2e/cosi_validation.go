@@ -98,23 +98,114 @@ type cosiCompression struct {
 	Type string `json:"type,omitempty"`
 }
 
+// newACLCosiValidator returns a validation function tailored to the ACL
+// disk layout version. The VERSION_ID from os-release in the COSI metadata
+// determines which validator is returned:
+//   - 3.0.* → original layout (5 partitions, inline verity hash)
+//   - 3.1.* → A/B hash layout (7 partitions, dedicated verity hash partitions)
+//
+// Each validator runs common checks (COSI version, arch, disk, bootloader,
+// compression) then adds version-specific assertions (expected filesystems,
+// verity configuration, GPT region counts, etc.).
+func newACLCosiValidator(t *testing.T, osRelease string) func(*testing.T, cosiMetadata) {
+	t.Helper()
+	major, minor := parseACLVersionID(t, osRelease)
+	switch {
+	case major == 3 && minor == 0:
+		t.Log("ACL version 3.0.x — using original disk layout validator")
+		return validateACLCosi30
+	case major == 3 && minor >= 1:
+		t.Logf("ACL version 3.%d.x — using A/B hash disk layout validator", minor)
+		return validateACLCosi31
+	default:
+		t.Fatalf("unsupported ACL major.minor version: %d.%d", major, minor)
+		return nil
+	}
+}
+
+// parseACLVersionID extracts the major and minor version from the VERSION_ID
+// field in the os-release content embedded in COSI metadata. VERSION_ID has
+// the format "MAJOR.MINOR.YYYYMMDD" (e.g., "3.0.20250601").
+func parseACLVersionID(t *testing.T, osRelease string) (major, minor int) {
+	t.Helper()
+	for _, line := range strings.Split(osRelease, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "VERSION_ID=") {
+			versionID := strings.TrimPrefix(line, "VERSION_ID=")
+			versionID = strings.Trim(versionID, "\"")
+			parts := strings.SplitN(versionID, ".", 3)
+			require.True(t, len(parts) >= 2,
+				"VERSION_ID must have at least MAJOR.MINOR, got %q", versionID)
+			_, err := fmt.Sscanf(parts[0]+"."+parts[1], "%d.%d", &major, &minor)
+			require.NoError(t, err, "parsing VERSION_ID major.minor from %q", versionID)
+			t.Logf("parsed ACL VERSION_ID=%s (major=%d, minor=%d)", versionID, major, minor)
+			return major, minor
+		}
+	}
+	t.Fatal("VERSION_ID not found in osRelease metadata")
+	return 0, 0
+}
+
 // expectedFilesystem describes an expected filesystem entry in the COSI metadata.
 type expectedFilesystem struct {
-	MountPoint   string
-	FsType       string
+	MountPoint    string
+	FsType        string
 	RequireVerity bool
 }
 
-// expectedACLFilesystems defines the filesystem entries we expect in an ACL COSI
-// built from the UKI disk layout (disk_layout_uki.json).
+// validateACLCosiCommon runs validation checks shared across all ACL disk
+// layout versions: COSI version, architecture, disk basics, bootloader,
+// and compression.
+func validateACLCosiCommon(t *testing.T, m cosiMetadata) {
+	t.Helper()
+	validateCosiMetadataVersion(t, m)
+	validateCosiOsArch(t, m)
+	validateCosiDisk(t, m)
+	validateCosiBootloader(t, m)
+	validateCosiCompression(t, m)
+}
+
+// validateACLCosi30 validates the 3.0.x disk layout:
+// 5 partitions (ESP, USR-A, USR-B, OEM, ROOT). USR-B is an empty A/B slot
+// and is not in the COSI images array. Verity hash for USR-A is inline
+// (referenced via the filesystem's verity.image field, no dedicated partition).
+func validateACLCosi30(t *testing.T, m cosiMetadata) {
+	t.Helper()
+	validateACLCosiCommon(t, m)
+
+	expected := []expectedFilesystem{
+		{MountPoint: "/boot", FsType: "vfat", RequireVerity: false},
+		{MountPoint: "/usr", FsType: "btrfs", RequireVerity: true},
+		{MountPoint: "/oem", FsType: "btrfs", RequireVerity: false},
+		{MountPoint: "/", FsType: "ext4", RequireVerity: false},
+	}
+	validateExpectedFilesystems(t, m, expected)
+}
+
+// validateACLCosi31 validates the 3.1.x disk layout:
+// 7 partitions (ESP, USR-A, HASH-A, USR-B, HASH-B, OEM, ROOT).
+// USR-B and HASH-B are empty A/B slots — not in the COSI images array.
+// HASH-A is a dedicated verity hash partition for USR-A.
 //
-// The ACL UKI layout has 5 partitions but USR-B (partition 3) is an empty A/B
-// update slot with no filesystem, so it is NOT present in the COSI images array.
-var expectedACLFilesystems = []expectedFilesystem{
-	{MountPoint: "/boot", FsType: "vfat", RequireVerity: false},
-	{MountPoint: "/usr", FsType: "btrfs", RequireVerity: true},
-	{MountPoint: "/oem", FsType: "btrfs", RequireVerity: false},
-	{MountPoint: "/", FsType: "ext4", RequireVerity: false},
+// TODO: update expected filesystems and verity checks once 3.1.x COSI
+// output is known (HASH-A may appear as a separate images[] entry or
+// may remain referenced only via verity.image on /usr).
+func validateACLCosi31(t *testing.T, m cosiMetadata) {
+	t.Helper()
+	validateACLCosiCommon(t, m)
+
+	expected := []expectedFilesystem{
+		{MountPoint: "/boot", FsType: "vfat", RequireVerity: false},
+		{MountPoint: "/usr", FsType: "btrfs", RequireVerity: true},
+		{MountPoint: "/oem", FsType: "btrfs", RequireVerity: false},
+		{MountPoint: "/", FsType: "ext4", RequireVerity: false},
+	}
+	validateExpectedFilesystems(t, m, expected)
+
+	// TODO: add 3.1.x-specific checks:
+	// - verify HASH-A partition exists in GPT regions with type dps-usr-verity
+	// - verify verity hash image for /usr references the HASH-A partition image
+	// - verify GPT region count reflects 7 partitions
 }
 
 // ESP partition type GUID per Discoverable Partition Specification
@@ -192,13 +283,9 @@ func ValidateACLCOSI(t *testing.T, cosiURL string) {
 	require.NoError(t, err, "parsing metadata.json")
 	t.Log("✓ metadata.json parsed successfully")
 
-	// --- 3. Validate metadata fields ---
-	validateCosiMetadataVersion(t, metadata)
-	validateCosiOsArch(t, metadata)
-	validateCosiDisk(t, metadata)
-	validateCosiBootloader(t, metadata)
-	validateCosiFilesystems(t, metadata)
-	validateCosiCompression(t, metadata)
+	// --- 3. Version-aware validation (common + version-specific checks) ---
+	validateACLLayout := newACLCosiValidator(t, metadata.OsRelease)
+	validateACLLayout(t, metadata)
 
 	// Collect all image paths referenced in metadata
 	metadataImagePaths := collectMetadataImagePaths(t, metadata)
@@ -329,11 +416,14 @@ func validateCosiBootloader(t *testing.T, m cosiMetadata) {
 		m.Bootloader.Type, len(m.Bootloader.SystemdBoot.Entries))
 }
 
-// validateCosiFilesystems validates the images (filesystem) array against
-// the expected ACL UKI partition layout.
-func validateCosiFilesystems(t *testing.T, m cosiMetadata) {
+// validateExpectedFilesystems checks that the COSI images array exactly matches
+// the given expected filesystem list — no missing, no extras.
+func validateExpectedFilesystems(t *testing.T, m cosiMetadata, expected []expectedFilesystem) {
 	t.Helper()
-	require.NotEmpty(t, m.Images, "images array must not be empty")
+
+	// Exact count — no unexpected filesystems
+	require.Equal(t, len(expected), len(m.Images),
+		"expected %d filesystem images but COSI contains %d", len(expected), len(m.Images))
 
 	// Build a lookup by mount point
 	fsByMount := make(map[string]*cosiFilesystem)
@@ -345,45 +435,44 @@ func validateCosiFilesystems(t *testing.T, m cosiMetadata) {
 	}
 
 	// Validate each expected filesystem is present with correct properties
-	for _, expected := range expectedACLFilesystems {
-		fs, found := fsByMount[expected.MountPoint]
+	for _, exp := range expected {
+		fs, found := fsByMount[exp.MountPoint]
 		require.True(t, found,
-			"expected filesystem with mount point %q not found in COSI metadata", expected.MountPoint)
-		require.Equal(t, expected.FsType, fs.FsType,
-			"mount point %s: expected fsType %q, got %q", expected.MountPoint, expected.FsType, fs.FsType)
+			"expected filesystem with mount point %q not found in COSI metadata", exp.MountPoint)
+		require.Equal(t, exp.FsType, fs.FsType,
+			"mount point %s: expected fsType %q, got %q", exp.MountPoint, exp.FsType, fs.FsType)
 
 		// Validate image file
-		validateImageFile(t, fs.Image, fmt.Sprintf("filesystem[%s]", expected.MountPoint))
+		validateImageFile(t, fs.Image, fmt.Sprintf("filesystem[%s]", exp.MountPoint))
 
 		// Validate fsUuid is present and non-empty
 		require.NotEmpty(t, fs.FsUUID,
-			"mount point %s: fsUuid must not be empty", expected.MountPoint)
+			"mount point %s: fsUuid must not be empty", exp.MountPoint)
 
 		// Validate partition type GUID
 		require.NotEmpty(t, fs.PartType,
-			"mount point %s: partType must not be empty", expected.MountPoint)
+			"mount point %s: partType must not be empty", exp.MountPoint)
 
 		// ESP must use the standard ESP partition type GUID
-		if expected.MountPoint == "/boot" {
+		if exp.MountPoint == "/boot" {
 			require.Equal(t, espPartTypeGUID, strings.ToLower(fs.PartType),
 				"mount point /boot: partType must be ESP GUID")
 		}
 
 		// Verity validation
-		if expected.RequireVerity {
+		if exp.RequireVerity {
 			require.NotNil(t, fs.Verity,
-				"mount point %s: verity must be present", expected.MountPoint)
+				"mount point %s: verity must be present", exp.MountPoint)
 			require.NotEmpty(t, fs.Verity.RootHash,
-				"mount point %s: verity roothash must not be empty", expected.MountPoint)
+				"mount point %s: verity roothash must not be empty", exp.MountPoint)
 			validateImageFile(t, fs.Verity.Image,
-				fmt.Sprintf("filesystem[%s].verity", expected.MountPoint))
+				fmt.Sprintf("filesystem[%s].verity", exp.MountPoint))
 		}
 
-		t.Logf("✓ filesystem %s: %s (verity=%v)", expected.MountPoint, expected.FsType, expected.RequireVerity)
+		t.Logf("✓ filesystem %s: %s (verity=%v)", exp.MountPoint, exp.FsType, exp.RequireVerity)
 	}
 
-	t.Logf("✓ all %d expected filesystems validated (%d total in COSI)",
-		len(expectedACLFilesystems), len(m.Images))
+	t.Logf("✓ all %d expected filesystems validated (exact match)", len(expected))
 }
 
 // validateCosiCompression checks the compression metadata.
