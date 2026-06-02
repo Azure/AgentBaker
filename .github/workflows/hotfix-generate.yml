@@ -73,6 +73,7 @@ jobs:
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           FILE="parts/linux/cloud-init/nodecustomdata.yml"
           if git diff --quiet "$FILE"; then
@@ -80,10 +81,10 @@ jobs:
             exit 0
           fi
           CONTENT=$(base64 -w 0 "$FILE")
-          SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha')
+          SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=$HEAD_REF" --jq '.sha')
           gh api "repos/${{ github.repository }}/contents/${FILE}" \
             -X PUT \
             -f message="chore: auto-generate hotfix template entries" \
             -f content="$CONTENT" \
-            -f branch="${{ github.head_ref }}" \
+            -f branch="$HEAD_REF" \
             -f sha="$SHA"
