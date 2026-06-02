@@ -285,6 +285,11 @@ if [ "$action" = "ca-refresh" ]; then
     exit
 fi
 
+if [ "$install_ca_refresh_schedule" -eq 1 ] && [ -z "$LOCATION" ]; then
+    echo "ERROR: LOCATION is required to install ca-refresh schedule but is empty"
+    exit 1
+fi
+
 if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
     scriptPath=$0
     # Determine an absolute, canonical path to this script for use in cron.
