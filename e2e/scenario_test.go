@@ -3,8 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -1076,23 +1074,39 @@ func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 }
 
 func Test_ACL_COSI(t *testing.T) {
-	cosiURLs := os.Getenv("COSI_URLS")
-	if cosiURLs == "" {
-		t.Skip("COSI_URLS not set, skipping COSI validation test")
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-tl-gen2, skipping")
 	}
 	t.Parallel()
-	for _, cosiURL := range strings.Split(cosiURLs, "|") {
-		cosiURL = strings.TrimSpace(cosiURL)
-		if cosiURL == "" {
-			continue
-		}
-		// Use the sanitized URL (without SAS token) as the subtest name
-		name := sanitizeURL(cosiURL)
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			ValidateACLCOSI(t, cosiURL)
-		})
+	ValidateACLCOSI(t, cosiURL)
+}
+
+func Test_ACL_COSI_ARM64(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-arm64-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-arm64-tl-gen2, skipping")
 	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
+}
+
+func Test_ACL_COSI_FIPS(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-fips-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-fips-tl-gen2, skipping")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
+}
+
+func Test_ACL_COSI_ARM64_FIPS(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-arm64-fips-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-arm64-fips-tl-gen2, skipping")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
 }
 
 func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
