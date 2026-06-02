@@ -23,12 +23,13 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func isDeprecatedCSEVar(key string) bool {
+func isExepectedDiffCSEVar(key string) bool {
 	switch key {
 	case "CLOUD_INIT_STATUS_SCRIPT",
 		"HYPERKUBE_URL",
 		"MCR_REPOSITORY_BASE",
-		"BLOCK_OUTBOUND_NETWORK":
+		"BLOCK_OUTBOUND_NETWORK",
+		"SKIP_WAAGENT_HOLD":
 		return true
 	}
 	return false
@@ -329,11 +330,13 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 		case inPC && !inNBC:
 			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
 		case !inPC && inNBC:
-			if !isDeprecatedCSEVar(key) {
+			if !isExepectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
 			}
 		case !envValsEqual(pcVal, nbcVal):
-			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+			if !isExepectedDiffCSEVar(key) {
+				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+			}
 		}
 	}
 	return diffs
