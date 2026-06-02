@@ -4,7 +4,7 @@
 // Import-Certificate. A scheduled task (aks-ca-certs-refresh-task) is registered to
 // periodically refresh the certificates.
 //
-// These tests run against the same RCV1P subscription and require the same VM opt-in tag
+// These tests run against the E2E subscription and require the same VM opt-in tag
 // as the Linux tests (see scenario_rcv1p_test.go for details on the two-layer access control).
 package e2e
 
@@ -23,9 +23,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -47,9 +45,7 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -75,9 +71,7 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -99,9 +93,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -131,12 +123,9 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 // script correctly skips certificate download and refresh task registration.
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
-	skipNotOptedInOnAutoDetect(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
+	cseMutator := rcv1pWindowsCSEMutator(t)// TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},

@@ -4,8 +4,9 @@
 // at provisioning time to download the latest root certificates and installs them into the OS trust store.
 //
 // These tests require:
-//   - A dedicated subscription (RCV1P_SUBSCRIPTION_ID) with the Microsoft.Compute/PlatformSettingsOverride
-//     feature flag registered, which enables the wireserver certificate endpoint.
+//   - The E2E subscription (E2E_SUBSCRIPTION_ID / SUBSCRIPTION_ID) must have the
+//     Microsoft.Compute/PlatformSettingsOverride feature flag registered, which enables the
+//     wireserver certificate endpoint.
 //   - The VM opt-in tag "platformsettings.host_environment.service.platform_optedin_for_rootcerts=true"
 //     on each VMSS, which tells wireserver to serve certificates to this specific VM.
 //
@@ -41,70 +42,17 @@ import (
 // if the subscription has the PlatformSettingsOverride feature registered.
 const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
 
-// skipIfRCV1PNotConfigured skips the test when no subscription with the RCV1P feature flag
-// is available. It checks in order:
-//  1. Explicit RCV1P_SUBSCRIPTION_ID (dedicated RCV1P subscription)
-//  2. E2E_SUBSCRIPTION_ID auto-detection (checks if the feature flag is registered)
-//
-// When E2E_SUBSCRIPTION_ID has the feature flag registered (e.g., MSFT tenant pipelines),
-// the RCV1P tests run automatically without needing a separate variable.
+// skipIfRCV1PNotConfigured skips the test when the E2E subscription does not have the
+// Microsoft.Compute/PlatformSettingsOverride feature flag registered.
 func skipIfRCV1PNotConfigured(t *testing.T) {
 	t.Helper()
 
-	subID := strings.TrimSpace(config.Config.RCV1PSubscriptionID)
-	if subID != "" && !strings.HasPrefix(subID, "$(") {
-		// Explicit RCV1P subscription configured — verify it has the feature flag
-		checkPlatformSettingsOverrideFeatureFlag(t, subID, config.RCV1PAzure, true)
-		return
+	subID := strings.TrimSpace(config.Config.SubscriptionID)
+	if subID == "" {
+		t.Skip("E2E_SUBSCRIPTION_ID / SUBSCRIPTION_ID is not set, skipping RCV1P test")
 	}
 
-	// No explicit RCV1P subscription — try auto-detecting from the E2E subscription
-	t.Log("RCV1P_SUBSCRIPTION_ID not set, checking if E2E subscription has PlatformSettingsOverride feature flag...")
-	e2eSubID := strings.TrimSpace(config.Config.SubscriptionID)
-	if e2eSubID == "" {
-		t.Skip("neither RCV1P_SUBSCRIPTION_ID nor E2E_SUBSCRIPTION_ID is set, skipping RCV1P test")
-	}
-
-	e2eAzure, err := config.NewAzureClient()
-	if err != nil {
-		t.Skipf("failed to create E2E Azure client for feature flag auto-detection: %v", err)
-	}
-
-	registered, err := queryFeatureFlag(t.Context(), e2eSubID, e2eAzure)
-	if err != nil {
-		t.Skipf("failed to query feature flag on E2E subscription %s: %v", e2eSubID, err)
-	}
-	if !registered {
-		t.Skipf("E2E subscription %s does not have PlatformSettingsOverride registered, skipping RCV1P test", e2eSubID)
-	}
-
-	// E2E subscription is enrolled — configure RCV1P globals so the rest of the test infra works
-	t.Logf("auto-detected PlatformSettingsOverride on E2E subscription %s, using it for RCV1P tests", e2eSubID)
-	rcv1pAutoDetectOnce.Do(func() {
-		config.Config.RCV1PSubscriptionID = e2eSubID
-		config.RCV1PAzure = e2eAzure
-		rcv1pAutoDetected = true
-	})
-}
-
-var (
-	rcv1pAutoDetectOnce sync.Once
-	// rcv1pAutoDetected is true when the RCV1P subscription was auto-detected from the
-	// E2E subscription rather than explicitly set via RCV1P_SUBSCRIPTION_ID. On auto-detected
-	// (enrolled) subscriptions, the platform auto-injects the opt-in tag on ALL VMSSes,
-	// making "not opted in" negative tests impossible.
-	rcv1pAutoDetected bool
-)
-
-// skipNotOptedInOnAutoDetect skips NotOptedIn negative tests when the RCV1P subscription was
-// auto-detected. On enrolled subscriptions, the platform auto-injects the opt-in tag on ALL
-// VMSSes, making it impossible to test the "not opted in" scenario.
-func skipNotOptedInOnAutoDetect(t *testing.T) {
-	t.Helper()
-	if rcv1pAutoDetected {
-		t.Skip("skipping NotOptedIn test: RCV1P subscription was auto-detected from E2E subscription — " +
-			"platform auto-injects opt-in tag on all VMSSes in enrolled subscriptions")
-	}
+	checkPlatformSettingsOverrideFeatureFlag(t, subID, config.Azure, true)
 }
 
 var (
@@ -325,9 +273,7 @@ func rcv1pWindowsCSEMutator(t *testing.T) func(*Cluster, *datamodel.NodeBootstra
 func Test_RCV1P_Ubuntu2204(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -351,9 +297,7 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 func Test_RCV1P_Ubuntu2404(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -377,9 +321,7 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -403,9 +345,7 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 func Test_RCV1P_Flatcar(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Flatcar with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on Flatcar with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -429,9 +369,7 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 func Test_RCV1P_ACL(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on ACL with VM opt-in tag",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode on ACL with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -461,11 +399,8 @@ func Test_RCV1P_ACL(t *testing.T) {
 // subscription feature alone is not sufficient — the VM must also be explicitly tagged.
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
-	skipNotOptedInOnAutoDetect(t)
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
+		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
