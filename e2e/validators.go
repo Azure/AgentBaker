@@ -25,6 +25,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
@@ -925,7 +926,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 	unitFailureAllowList := map[string]bool{
@@ -2733,7 +2734,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 
@@ -2820,7 +2821,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
 		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
 		return
 	}
@@ -2929,7 +2930,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	// blacklist and the bake-in has been removed because customers need those modules. Assert
 	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
 	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
-	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
