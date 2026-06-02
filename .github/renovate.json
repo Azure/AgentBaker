@@ -590,6 +590,16 @@
     },
     {
       "matchPackageNames": [
+        "aks/aks-gpu-grid-v20"
+      ],
+      "groupName": "nvidia-gpu-grid-v20",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod/prometheus-collector/images"
       ],
       "matchDatasources": [

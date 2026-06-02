@@ -15,12 +15,20 @@ func TestLoadConfig(t *testing.T) {
 		t.Error("NvidiaGridDriverVersion is empty")
 	}
 
+	if NvidiaGridV20DriverVersion == "" {
+		t.Error("NvidiaGridV20DriverVersion is empty")
+	}
+
 	if AKSGPUCudaVersionSuffix == "" {
 		t.Error("NvidiaCudaDriverVersion is empty")
 	}
 
 	if AKSGPUGridVersionSuffix == "" {
 		t.Error(("AKSGPUGridVersionSuffix is empty"))
+	}
+
+	if AKSGPUGridV20VersionSuffix == "" {
+		t.Error(("AKSGPUGridV20VersionSuffix is empty"))
 	}
 
 	// Define regular expressions for expected formats
@@ -40,11 +48,19 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("NvidiaGridDriverVersion '%s' does not match expected format", NvidiaGridDriverVersion)
 	}
 
+	if !versionPattern.MatchString(NvidiaGridV20DriverVersion) {
+		t.Errorf("NvidiaGridV20DriverVersion '%s' does not match expected format", NvidiaGridV20DriverVersion)
+	}
+
 	if !suffixPattern.MatchString(AKSGPUCudaVersionSuffix) {
 		t.Errorf("AKSGPUCudaVersionSuffix '%s' does not match expected format", AKSGPUCudaVersionSuffix)
 	}
 
 	if !suffixPattern.MatchString(AKSGPUGridVersionSuffix) {
 		t.Errorf("AKSGPUGridVersionSuffix '%s' does not match expected format", AKSGPUGridVersionSuffix)
+	}
+
+	if !suffixPattern.MatchString(AKSGPUGridV20VersionSuffix) {
+		t.Errorf("AKSGPUGridV20VersionSuffix '%s' does not match expected format", AKSGPUGridV20VersionSuffix)
 	}
 }
