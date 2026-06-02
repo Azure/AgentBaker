@@ -240,10 +240,17 @@ func validateCosiMetadataVersion(t *testing.T, m cosiMetadata) {
 	t.Logf("✓ COSI version: %s", m.Version)
 }
 
-// validateCosiOsArch checks the architecture field.
+// validACLArchitectures lists the architectures expected in ACL COSI images.
+var validACLArchitectures = map[string]bool{
+	"x86_64":  true,
+	"aarch64": true,
+}
+
+// validateCosiOsArch checks the architecture field is a known ACL architecture.
 func validateCosiOsArch(t *testing.T, m cosiMetadata) {
 	t.Helper()
-	require.Equal(t, "x86_64", m.OsArch, "expected osArch x86_64")
+	require.True(t, validACLArchitectures[m.OsArch],
+		"unexpected osArch %q, expected one of: x86_64, aarch64", m.OsArch)
 	t.Logf("✓ osArch: %s", m.OsArch)
 }
 
