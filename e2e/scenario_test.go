@@ -542,6 +542,25 @@ func Test_AzureLinuxV3(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV2 node can be properly bootstrapped",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV2Gen2,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				k8sVersion := "1.30.101-akslts"
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = k8sVersion
+				nbc.EnableScriptlessCSECmd = false
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 // Returns config for the 'base' E2E scenario
 
 func Test_Ubuntu2204_Scriptless(t *testing.T) {

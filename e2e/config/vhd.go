@@ -77,7 +77,7 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 		UnsupportedGen2:                   true,
-		Skip2004Validations:               true,
+		SkipOldVHDValidations:             true,
 	}
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
@@ -109,6 +109,15 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
+	}
+	VHDAzureLinuxV2Gen2 = &Image{
+		Name:                  "V2gen2",
+		OS:                    OSAzureLinux,
+		Arch:                  "amd64",
+		Distro:                datamodel.AKSAzureLinuxV2Gen2,
+		Version:               datamodel.FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
+		Gallery:               imageGalleryLinux,
+		SkipOldVHDValidations: true,
 	}
 	VHDAzureLinuxV3Gen2 = &Image{
 		Name:    "AzureLinuxV3gen2",
@@ -295,7 +304,7 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
-	Skip2004Validations                 bool
+	SkipOldVHDValidations               bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }
