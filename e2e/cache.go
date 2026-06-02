@@ -10,7 +10,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 )
 
 // cachedFunc creates a thread-safe memoized version of a function.
@@ -205,26 +204,18 @@ func clusterCiliumNetwork(ctx context.Context, request ClusterRequest) (*Cluster
 
 var ClusterRCV1PKubenet = cachedFunc(clusterRCV1PKubenet)
 
-// clusterRCV1PKubenet creates a kubenet cluster in the RCV1P subscription for cert mode testing.
+// clusterRCV1PKubenet creates a kubenet cluster for RCV1P cert mode testing.
 func clusterRCV1PKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	infra := RCV1PClusterInfra()
-	if infra == nil {
-		return nil, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set, cannot create RCV1P cluster")
-	}
-	return prepareCluster(ctx, infra, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterRCV1PAzureNetwork = cachedFunc(clusterRCV1PAzureNetwork)
 
-// clusterRCV1PAzureNetwork creates an Azure CNI cluster in the RCV1P subscription for Windows cert mode testing.
+// clusterRCV1PAzureNetwork creates an Azure CNI cluster for Windows RCV1P cert mode testing.
 // Windows tests require Azure CNI (not kubenet) because baseTemplateWindows() configures the NBC for
 // Azure CNI overlay mode.
 func clusterRCV1PAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	infra := RCV1PClusterInfra()
-	if infra == nil {
-		return nil, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set, cannot create RCV1P Azure CNI cluster")
-	}
-	return prepareCluster(ctx, infra, getAzureNetworkClusterModel("abe2e-rcv1p-azure-v1", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, DefaultClusterInfra, getAzureNetworkClusterModel("abe2e-rcv1p-azure-v1", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
@@ -252,25 +243,6 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 var CachedEnsureResourceGroup = cachedFunc(ensureResourceGroup)
 var CachedCreateVMManagedIdentity = cachedFunc(config.Azure.CreateVMManagedIdentity)
 var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
-
-// CachedRCV1PEnsureResourceGroup creates the resource group in the RCV1P subscription.
-var CachedRCV1PEnsureResourceGroup = cachedFunc(ensureRCV1PResourceGroup)
-
-// CachedRCV1PCreateVMManagedIdentity creates a VM managed identity in the RCV1P subscription.
-var CachedRCV1PCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
-	if config.RCV1PAzure == nil {
-		return "", fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set")
-	}
-	return config.RCV1PAzure.CreateVMManagedIdentityInRG(ctx, config.RCV1PResourceGroupName(location), location)
-})
-
-func ensureRCV1PResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-	infra := RCV1PClusterInfra()
-	if infra == nil {
-		return armresources.ResourceGroup{}, fmt.Errorf("RCV1P_SUBSCRIPTION_ID not set")
-	}
-	return ensureResourceGroupWithInfra(ctx, infra, location)
-}
 
 // VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
 type VMSizeSKURequest struct {
