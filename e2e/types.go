@@ -36,18 +36,6 @@ var DefaultClusterInfra = &ClusterInfra{
 	ResourceGroupName: config.ResourceGroupName,
 }
 
-// RCV1PClusterInfra returns the ClusterInfra for the RCV1P subscription, or nil if not configured.
-func RCV1PClusterInfra() *ClusterInfra {
-	if config.RCV1PAzure == nil {
-		return nil
-	}
-	return &ClusterInfra{
-		Azure:             config.RCV1PAzure,
-		SubscriptionID:    config.Config.RCV1PSubscriptionID,
-		ResourceGroupName: config.RCV1PResourceGroupName,
-	}
-}
-
 type Tags struct {
 	Name                   string
 	ImageName              string
@@ -527,16 +515,10 @@ func (s *Scenario) GetSubscriptionID() string {
 
 // GetResourceGroupName returns the resource group name for this scenario's location.
 func (s *Scenario) GetResourceGroupName() string {
-	if s.SubscriptionID != "" && s.SubscriptionID != config.Config.SubscriptionID {
-		return config.RCV1PResourceGroupName(s.Location)
-	}
 	return config.ResourceGroupName(s.Location)
 }
 
 // GetVMIdentityResourceID returns the VM identity resource ID for this scenario.
 func (s *Scenario) GetVMIdentityResourceID() string {
-	if s.SubscriptionID != "" && s.SubscriptionID != config.Config.SubscriptionID {
-		return config.Config.RCV1PVMIdentityResourceID(s.Location)
-	}
 	return config.Config.VMIdentityResourceID(s.Location)
 }
