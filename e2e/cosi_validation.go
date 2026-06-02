@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -117,6 +119,33 @@ var expectedACLFilesystems = []expectedFilesystem{
 
 // ESP partition type GUID per Discoverable Partition Specification
 const espPartTypeGUID = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+
+// cosiPublishingInfo is the JSON structure written by convert-vhd-to-cosi.sh.
+type cosiPublishingInfo struct {
+	CosiURL string `json:"cosi_url"`
+}
+
+// loadCOSIURL reads the cosi_url from a COSI publishing info artifact directory.
+// artifactName is the pipeline artifact name (e.g., "cosi-publishing-info-acl-tl-gen2").
+// Returns the URL, or empty string if COSI_ARTIFACTS_DIR is not set or the
+// artifact was not downloaded (variant not built).
+func loadCOSIURL(t *testing.T, artifactName string) string {
+	t.Helper()
+	dir := os.Getenv("COSI_ARTIFACTS_DIR")
+	if dir == "" {
+		return ""
+	}
+	infoPath := filepath.Join(dir, artifactName, "cosi-publishing-info.json")
+	data, err := os.ReadFile(infoPath)
+	if os.IsNotExist(err) {
+		return ""
+	}
+	require.NoError(t, err, "reading %s", infoPath)
+	var info cosiPublishingInfo
+	require.NoError(t, json.Unmarshal(data, &info), "parsing %s", infoPath)
+	require.NotEmpty(t, info.CosiURL, "cosi_url is empty in %s", infoPath)
+	return info.CosiURL
+}
 
 // ValidateACLCOSI downloads a COSI file from the given URL and validates its
 // structure and metadata against the expected ACL UKI disk layout.

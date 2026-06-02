@@ -39,33 +39,6 @@ jobs:
             artifact: '${{ artifactName }}'
             path: '$(Pipeline.Workspace)/cosi-info/${{ artifactName }}'
 
-      - ${{ if gt(length(parameters.cosiArtifactNames), 0) }}:
-        - bash: |
-            set -euo pipefail
-            COSI_URLS=""
-            for dir in $(Pipeline.Workspace)/cosi-info/*/; do
-              info_file="${dir}cosi-publishing-info.json"
-              artifact_name=$(basename "$dir")
-              if [ ! -f "$info_file" ]; then
-                echo "##vso[task.logissue type=error]Expected COSI publishing info at $info_file but file was not found"
-                exit 1
-              fi
-              url=$(jq -er '.cosi_url // empty' "$info_file")
-              if [ -z "$url" ]; then
-                echo "##vso[task.logissue type=error]cosi_url is missing or empty in $info_file"
-                exit 1
-              fi
-              echo "Found COSI URL for $artifact_name (redacted from logs)"
-              if [ -n "$COSI_URLS" ]; then
-                COSI_URLS="${COSI_URLS}|${url}"
-              else
-                COSI_URLS="$url"
-              fi
-            done
-            echo "##vso[task.setvariable variable=COSI_URLS;issecret=true]$COSI_URLS"
-            echo "Extracted $(echo "$COSI_URLS" | tr '|' '\n' | wc -l) COSI URL(s)"
-          displayName: Extract COSI URLs
-
       - task: AzureCLI@2
         inputs:
           azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
@@ -82,7 +55,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
-          COSI_URLS: $(COSI_URLS)
+          COSI_ARTIFACTS_DIR: $(Pipeline.Workspace)/cosi-info
 
       - task: PublishTestResults@2
         displayName: Upload test results

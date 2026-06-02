@@ -41,7 +41,7 @@ TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
-COSI_URLS="${COSI_URLS:-}"
+COSI_ARTIFACTS_DIR="${COSI_ARTIFACTS_DIR:-}"
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
 echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
@@ -54,11 +54,10 @@ echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
 echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "E2E_GO_TEST_TIMEOUT: ${E2E_GO_TEST_TIMEOUT}"
-if [ -n "${COSI_URLS}" ]; then
-  COSI_COUNT=$(echo "${COSI_URLS}" | tr '|' '\n' | wc -l)
-  echo "COSI_URLS: <set, ${COSI_COUNT} URL(s), redacted>"
+if [ -n "${COSI_ARTIFACTS_DIR}" ]; then
+  echo "COSI_ARTIFACTS_DIR: ${COSI_ARTIFACTS_DIR}"
 else
-  echo "COSI_URLS: <not set, COSI validation test will be skipped>"
+  echo "COSI_ARTIFACTS_DIR: <not set, COSI validation tests will be skipped>"
 fi
 
 # set variables that the go program expects if we are running a specific build
