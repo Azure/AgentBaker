@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1075,12 +1076,23 @@ func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 }
 
 func Test_ACL_COSI(t *testing.T) {
-	cosiURL := os.Getenv("COSI_URL")
-	if cosiURL == "" {
-		t.Skip("COSI_URL not set, skipping COSI validation test")
+	cosiURLs := os.Getenv("COSI_URLS")
+	if cosiURLs == "" {
+		t.Skip("COSI_URLS not set, skipping COSI validation test")
 	}
 	t.Parallel()
-	ValidateACLCOSI(t, cosiURL)
+	for _, cosiURL := range strings.Split(cosiURLs, "|") {
+		cosiURL = strings.TrimSpace(cosiURL)
+		if cosiURL == "" {
+			continue
+		}
+		// Use the sanitized URL (without SAS token) as the subtest name
+		name := sanitizeURL(cosiURL)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			ValidateACLCOSI(t, cosiURL)
+		})
+	}
 }
 
 func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
