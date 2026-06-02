@@ -64,8 +64,13 @@ fi
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
 
-if [[ -z "${DMVERITY_RPM_URL:-}" ]]; then
-    log "DMVERITY_RPM_URL empty; skipping (stock build)"
+# Stock-build short-circuit: when BOTH the containerd2 and kernel RPM URLs
+# are empty AND we have no CA cert to deploy, there is nothing for this
+# script to do. (Either both RPMs are coming from the buddy-build channel
+# AND the CA is baked into the buddy-build kernel via .builtin_trusted_keys,
+# OR this is genuinely a stock build.)
+if [[ -z "${DMVERITY_RPM_URL:-}" && -z "${DMVERITY_KERNEL_RPM_URL:-}" && -z "${DMVERITY_CERT_URL:-}" ]]; then
+    log "all DMVERITY_*_URL values empty; skipping (stock build)"
     exit 0
 fi
 
@@ -135,30 +140,41 @@ else
     log "DMVERITY_KERNEL_RPM_URL empty; patched kernel install delegated to buddy-build channel (proprietaryRpmBuddyBuildId)"
 fi
 
-# ----- Download patched containerd RPM -----------------------------------
-log "downloading patched containerd RPM from ${DMVERITY_RPM_URL}"
-if ! curl -fsSL --retry 5 --retry-delay 3 -o "${TMP_RPM}" "${DMVERITY_RPM_URL}"; then
-    err "failed to download patched containerd RPM"
-    exit 1
-fi
-
-if [[ -n "${DMVERITY_RPM_SHA256:-}" ]]; then
-    actual=$(sha256sum "${TMP_RPM}" | awk '{print $1}')
-    if [[ "${actual}" != "${DMVERITY_RPM_SHA256}" ]]; then
-        err "RPM sha256 mismatch: expected ${DMVERITY_RPM_SHA256}, got ${actual}"
+# ----- Install patched containerd2 RPM (optional, normally delegated) ---
+# Mirrors the kernel-RPM gate above. The patched containerd2 (starting at
+# 2.2.4-6000.verity) is delivered via the same mariner-aks-pipelines
+# buddy-build channel as the kernel, installed BEFORE this script runs by
+# install-dependencies.sh's standard buddy-build consumption. Re-downloading
+# from kataccstorage is therefore redundant AND brittle; see env file for
+# the design write-up. Leave DMVERITY_RPM_URL empty for the normal path.
+if [[ -n "${DMVERITY_RPM_URL:-}" ]]; then
+    log "downloading patched containerd RPM from ${DMVERITY_RPM_URL}"
+    if ! curl -fsSL --retry 5 --retry-delay 3 -o "${TMP_RPM}" "${DMVERITY_RPM_URL}"; then
+        err "failed to download patched containerd RPM"
         exit 1
     fi
-    log "RPM sha256 verified: ${actual}"
+
+    if [[ -n "${DMVERITY_RPM_SHA256:-}" ]]; then
+        actual=$(sha256sum "${TMP_RPM}" | awk '{print $1}')
+        if [[ "${actual}" != "${DMVERITY_RPM_SHA256}" ]]; then
+            err "RPM sha256 mismatch: expected ${DMVERITY_RPM_SHA256}, got ${actual}"
+            exit 1
+        fi
+        log "RPM sha256 verified: ${actual}"
+    fi
+
+    # Force-install (replaces stock containerd2 if a different build is
+    # already present from installStandaloneContainerd). --disablerepo='preview-repo'
+    # (NOT '*') so dependency resolution can still pull in the containerd
+    # RPM's Requires: erofs-utils + veritysetup from azurelinux-official-base.
+    # The preview-repo SAS has been observed to 403 mid-build which would
+    # abort the install with "Failed to synchronize cache for repo".
+    log "installing patched containerd RPM by file path"
+    tdnf install -y --nogpgcheck --disablerepo='preview-repo' "${TMP_RPM}"
+else
+    log "DMVERITY_RPM_URL empty; patched containerd2 install delegated to buddy-build channel (proprietaryRpmBuddyBuildId)"
 fi
 
-# Force-install (replaces stock containerd2 if a different build is already
-# present from installStandaloneContainerd). We pass --disablerepo='preview-repo'
-# (NOT '*') so dependency resolution can still pull in the containerd RPM's
-# Requires: erofs-utils + veritysetup from azurelinux-official-base. The
-# preview-repo SAS has been observed to 403 mid-build which would abort the
-# install with "Failed to synchronize cache for repo".
-log "installing patched containerd RPM by file path"
-tdnf install -y --nogpgcheck --disablerepo='preview-repo' "${TMP_RPM}"
 log "  mkfs.erofs:   $(mkfs.erofs --version 2>&1 | head -1 || echo 'MISSING')"
 log "  veritysetup:  $(veritysetup --version 2>&1 | head -1 || echo 'MISSING')"
 
