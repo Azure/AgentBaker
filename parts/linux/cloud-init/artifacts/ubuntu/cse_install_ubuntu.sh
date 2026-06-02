@@ -343,13 +343,7 @@ extractDebBinaryFromFile() {
 
     local sourceBinary="${extractDir}/usr/bin/${packageName}"
     if [ ! -f "${sourceBinary}" ]; then
-        # Some packages ship the binary with an architecture suffix (e.g., aks-secure-tls-bootstrap-client-amd64)
-        local archSuffix
-        archSuffix=$(getCPUArch)
-        sourceBinary="${extractDir}/usr/bin/${packageName}-${archSuffix}"
-    fi
-    if [ ! -f "${sourceBinary}" ]; then
-        echo "Failed to locate usr/bin/${packageName} (or arch-suffixed variant) in ${debFile}"
+        echo "Failed to locate usr/bin/${packageName} in ${debFile}"
         rm -rf "${extractDir}"
         return 1
     fi

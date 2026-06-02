@@ -52,10 +52,7 @@ installRPMPackageFromFile() {
     echo "Unpacking usr/bin/${packageName} from ${downloadDir}/${packageName}-${desiredVersion}*"
     mkdir -p "$(dirname "${targetPath}")"
     # This assumes that the binary will either be in /usr/bin or /usr/local/bin, but not both.
-    # Some packages ship the binary with an architecture suffix (e.g., foo-amd64).
-    local archSuffix
-    archSuffix=$(getCPUArch)
-    rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${packageName}" "./usr/local/bin/${packageName}" "./usr/bin/${packageName}-${archSuffix}" "./usr/local/bin/${packageName}-${archSuffix}" | install -m0755 /dev/stdin "${targetPath}"
+    rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${packageName}" "./usr/local/bin/${packageName}" | install -m0755 /dev/stdin "${targetPath}"
 	rm -rf "${downloadDir}"
     # Clean up stale cached binaries that were not used
     rm -f /opt/bin/"${packageName}"-* &
