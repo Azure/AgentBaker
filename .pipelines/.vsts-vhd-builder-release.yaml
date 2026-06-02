@@ -1004,3 +1004,4 @@ stages:
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
+          cosiArtifactName: 'cosi-publishing-info-acl-tl-gen2'

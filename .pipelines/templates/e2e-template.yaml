@@ -10,6 +10,10 @@ parameters:
     type: string
     displayName: Variable group to use for e2e tests
     default: ab-e2e
+  - name: cosiArtifactName
+    type: string
+    displayName: Name of the COSI publishing info pipeline artifact to download. Leave empty to skip COSI validation.
+    default: ""
 
 jobs:
   - job: e2e
@@ -28,6 +32,28 @@ jobs:
         fetchTags: false
         fetchDepth: 1
 
+      - ${{ if ne(parameters.cosiArtifactName, '') }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: Download COSI publishing info
+          inputs:
+            artifact: '${{ parameters.cosiArtifactName }}'
+            path: '$(Pipeline.Workspace)/cosi-info'
+        - bash: |
+            set -euo pipefail
+            COSI_INFO="$(Pipeline.Workspace)/cosi-info/cosi-publishing-info.json"
+            if [ ! -f "$COSI_INFO" ]; then
+              echo "##vso[task.logissue type=error]Expected COSI publishing info at $COSI_INFO but file was not found"
+              exit 1
+            fi
+            url=$(jq -er '.cosi_url // empty' "$COSI_INFO")
+            if [ -z "$url" ]; then
+              echo "##vso[task.logissue type=error]cosi_url is missing or empty in $COSI_INFO"
+              exit 1
+            fi
+            echo "Found COSI URL in artifact (redacted from logs)"
+            echo "##vso[task.setvariable variable=COSI_URL;issecret=true]$url"
+          displayName: Extract COSI URL
+
       - task: AzureCLI@2
         inputs:
           azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
@@ -44,6 +70,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          COSI_URL: $(COSI_URL)
 
       - task: PublishTestResults@2
         displayName: Upload test results
