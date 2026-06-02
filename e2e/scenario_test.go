@@ -459,9 +459,6 @@ func Test_ACL_ABUpdate(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description: "Tests full A/B update lifecycle: stage COSI, finalize (reboot), verify volume switch",
-		Tags: Tags{
-			ABUpdate: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
@@ -483,9 +480,6 @@ func Test_ACL_ABUpdate_ARM64(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description: "Tests full A/B update lifecycle on ARM64: stage COSI, finalize (reboot), verify volume switch",
-		Tags: Tags{
-			ABUpdate: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLArm64Gen2TL,
@@ -513,9 +507,6 @@ func Test_ACL_ABUpdate_FIPS(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description: "Tests full A/B update lifecycle on FIPS: stage COSI, finalize (reboot), verify volume switch",
-		Tags: Tags{
-			ABUpdate: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2FIPSTL,
@@ -540,9 +531,6 @@ func Test_ACL_ABUpdate_ARM64_FIPS(t *testing.T) {
 
 	RunScenario(t, &Scenario{
 		Description: "Tests full A/B update lifecycle on ARM64 FIPS: stage COSI, finalize (reboot), verify volume switch",
-		Tags: Tags{
-			ABUpdate: true,
-		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLArm64Gen2FIPSTL,

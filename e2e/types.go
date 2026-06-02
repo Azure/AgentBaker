@@ -36,7 +36,6 @@ type Tags struct {
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
 	VMSeriesCoverageTest   bool
-	ABUpdate               bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.

@@ -1004,7 +1004,6 @@ stages:
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
-          RunABUpdateTests: true
           cosiArtifactNames:
             - ${{ if eq(parameters.buildacltlgen2, true) }}:
               - 'cosi-publishing-info-acl-tl-gen2'
