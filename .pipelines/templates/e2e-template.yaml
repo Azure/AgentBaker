@@ -18,10 +18,6 @@ parameters:
     type: object
     displayName: List of COSI publishing info pipeline artifact names to download. Leave empty to skip COSI validation.
     default: []
-  - name: RunABUpdateTests
-    type: boolean
-    displayName: Run A/B update tests for ACL images
-    default: false
 
 jobs:
   - job: e2e
@@ -64,7 +60,6 @@ jobs:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           COSI_ARTIFACTS_DIR: $(Pipeline.Workspace)/cosi-info
-          RUN_AB_UPDATE_TESTS: ${{parameters.RunABUpdateTests}}
 
       - task: PublishTestResults@2
         displayName: Upload test results
