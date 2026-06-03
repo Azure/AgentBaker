@@ -41,6 +41,10 @@ type Tags struct {
 // MatchesFilters checks if the Tags struct matches all given filters.
 // Filters are comma-separated "key=value" pairs (e.g., "gpu=true,os=x64").
 // Returns true if all filters match, false otherwise. Errors on invalid input.
+//
+// Special case: when ALL filters use the "Name" key (e.g., "Name=foo,Name=bar"),
+// OR semantics are used instead, matching if any name matches. This allows
+// selecting multiple scenarios by name with a single filter string.
 func (t Tags) MatchesFilters(filters string) (bool, error) {
 	return t.matchFilters(filters, true)
 }
@@ -54,6 +58,8 @@ func (t Tags) MatchesAnyFilter(filters string) (bool, error) {
 
 // matchFilters is a helper function used by both MatchesFilters and MatchesAnyFilter.
 // The 'all' parameter determines whether all filters must match (true) or just any filter (false).
+// When all filters target the "Name" field, OR semantics are applied regardless of the 'all'
+// parameter, since a scenario can only have one name and AND would never match multiple names.
 func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	if filters == "" {
 		return true, nil
@@ -61,6 +67,10 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 	v := reflect.ValueOf(t)
 	filterPairs := strings.Split(filters, ",")
+
+	allNameFilters := true
+	anyMatch := false
+	allMatch := true
 
 	for _, pair := range filterPairs {
 		kv := strings.SplitN(pair, "=", 2)
@@ -70,6 +80,10 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 		key := strings.TrimSpace(kv[0])
 		value := strings.TrimSpace(kv[1])
+
+		if !strings.EqualFold(key, "Name") {
+			allNameFilters = false
+		}
 
 		// Case-insensitive field lookup
 		field := reflect.Value{}
@@ -98,15 +112,20 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 			return false, fmt.Errorf("unsupported field type for %s", key)
 		}
 
-		if all && !match {
-			return false, nil
-		}
-		if !all && match {
-			return true, nil
+		if match {
+			anyMatch = true
+		} else {
+			allMatch = false
 		}
 	}
 
-	return all, nil
+	if allNameFilters {
+		return anyMatch, nil
+	}
+	if all {
+		return allMatch, nil
+	}
+	return anyMatch, nil
 }
 
 // Scenario represents an AgentBaker E2E scenario.
