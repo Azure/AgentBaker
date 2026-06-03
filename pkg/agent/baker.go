@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -61,9 +62,18 @@ cat <<'EOF' | base64 -d | gzip -d >%[3]s
 %[4]s
 EOF
 chmod 0600 %[3]s
-
+%[5]s
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
+`
+	// aksNodeConfigBlock is appended to the boothook when AKSNodeConfig is provided.
+	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script
+	// can pass --provision-config alongside --nbc-cmd for env comparison.
+	aksNodeConfigBlockFmt = `
+cat <<'EOF' | base64 -d | gzip -d >%[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
 `
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
@@ -77,11 +87,20 @@ systemctl start --no-block aks-node-controller.service
         "path": "/opt/azure/containers/nodecustomdata.yml",
         "mode": 384,
         "contents": { "compression": "gzip","source": "data:;base64,%s" }
-       }]
+       }%s]
       }
      }`
+	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
+	// when AKSNodeConfig is provided for env comparison.
+	flatcarAKSNodeConfigEntry = `,
+	   {
+        "path": "/opt/azure/containers/aks-node-controller-config.json",
+        "mode": 384,
+        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+       }`
 	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
 	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	aksNodeConfigPath  = "/opt/azure/containers/aks-node-controller-config.json"
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -99,21 +118,43 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 		nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+		// Conditionally encode AKSNodeConfig so the wrapper script
+		// can pass --provision-config for env comparison alongside --nbc-cmd.
+		var encodedAKSNodeConfig string
+		if config.AKSNodeConfig != nil {
+			aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(config.AKSNodeConfig)
+			if err != nil {
+				panic(fmt.Sprintf("failed to marshal AKSNodeConfig: %v", err))
+			}
+			encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(string(aksNodeConfigJSON))
+		}
+
 		var customData string
 		if config.IsFlatcar() || config.IsACL() {
-			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData)
+			var flatcarAKSNodeConfigBlock string
+			if encodedAKSNodeConfig != "" {
+				flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
+			}
+			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
 		} else {
+			var aksNodeConfigBlock string
+			if encodedAKSNodeConfig != "" {
+				aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+			}
 			customData = fmt.Sprintf(
 				boothookTemplate,
 				nodeCustomDataPath,
 				encodedNodeCustomData,
 				nbcCmdFilePath,
 				encodedNBCCMD,
+				aksNodeConfigBlock,
 			)
 		}
 
 		return base64.StdEncoding.EncodeToString([]byte(customData))
 	}
+
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string

@@ -36,28 +36,6 @@ logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
 
-	boothookWithNBCTemplate = `#cloud-boothook
-#!/bin/bash
-set -euo pipefail
-
-logger -t aks-boothook "boothook start $(date -Ins)"
-
-mkdir -p /opt/azure/containers
-
-cat <<'EOF' | base64 -d | gzip -d >%[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
-
-cat <<'EOF' | base64 -d | gzip -d >%[3]s
-%[4]s
-EOF
-chmod 0755 %[3]s
-
-logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
-systemctl start --no-block aks-node-controller.service
-`
-
 	cloudConfigTemplate = `#cloud-config
 runcmd:
 - echo "AKS Node Controller cloud-init completed at $(date)"
@@ -105,41 +83,6 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
-}
-
-func CustomDataWithNBC(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (string, error) {
-	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-	}
-
-	encodedAksNodeConfigJSON, err := gzipAndBase64Encode(aksNodeConfigJSON)
-	if err != nil {
-		return "", fmt.Errorf("failed to gzip and base64 encode nbc config: %w", err)
-	}
-	encodedNBCCSECmd, err := gzipAndBase64Encode([]byte(nbcCSECMD))
-	if err != nil {
-		return "", fmt.Errorf("failed to gzip and base64 encode nbc cse cmd: %w", err)
-	}
-	boothook := fmt.Sprintf(boothookWithNBCTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, encodedNBCCSECmd)
-
-	var customData bytes.Buffer
-	writer := multipart.NewWriter(&customData)
-
-	fmt.Fprintf(&customData, "MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&customData, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", writer.Boundary())
-
-	if err := writeMIMEPart(writer, "text/cloud-boothook", boothook); err != nil {
-		return "", fmt.Errorf("failed to write boothook part: %w", err)
-	}
-	if err := writeMIMEPart(writer, "text/cloud-config", cloudConfigTemplate); err != nil {
-		return "", fmt.Errorf("failed to write cloud-config part: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("failed to finalize multipart custom data: %w", err)
-	}
-
-	return gzipAndBase64Encode(customData.Bytes())
 }
 
 // CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.
