@@ -591,6 +591,44 @@ installStandaloneContainerd() {
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
 
+    # AL3-only: guarantee the daemon is active on the just-installed (or
+    # already-present) binary before returning. Background: the containerd2
+    # RPM's %post enables+starts only on initial install ($1=1); on UPGRADE
+    # ($1=2) it skips both, so the old daemon keeps running on the old
+    # binary and any subsequent `ctr` call hits a stale gRPC server (the
+    # patched dm-verity build manifests this as
+    #   ctr: unknown service containerd.services.namespaces.v1.Namespaces
+    # when the new ctr 2.2.x talks to a daemon whose plugin init failed
+    # because of missing kernel modules or a config drop-in not yet
+    # reloaded). Restarting unconditionally is also the correct invariant
+    # for the skip path above (semverCompare returned true) — we still
+    # need the daemon healthy before the rest of install-dependencies.sh
+    # does `ctr namespace create k8s.io` etc.
+    #
+    # The modprobe calls are best-effort: they are no-ops on stock kernels
+    # without these modules and on kernels where they are already loaded.
+    # The dm-verity erofs config requires both modules; loading them here
+    # avoids cascade failures in containerd plugin init when the patched
+    # config is in place. `|| true` keeps set -e from bailing on stock
+    # builds.
+    if [ "$OS_VERSION" = "3.0" ]; then
+        modprobe erofs 2>/dev/null || true
+        modprobe dm_verity 2>/dev/null || true
+        systemctl daemon-reload
+        systemctl enable containerd >/dev/null 2>&1 || true
+        systemctl restart containerd
+        # Give the daemon a moment to register gRPC services before any
+        # caller (e.g. install-dependencies.sh:666 `ctr namespace create
+        # k8s.io`) tries to talk to it.
+        sleep 2
+        if ! systemctl is-active --quiet containerd; then
+            echo "ERROR: containerd failed to start after install/upgrade" >&2
+            journalctl -u containerd --no-pager -n 100 >&2 || true
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+        echo "containerd is active after installStandaloneContainerd"
+    fi
+
 }
 
 ensureRunc() {
