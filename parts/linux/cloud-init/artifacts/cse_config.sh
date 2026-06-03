@@ -518,10 +518,10 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
-# file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+# file paths defined outside so configureAndEnableSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-configureAndStartSecureTLSBootstrapping() {
+configureAndEnableSecureTLSBootstrapping() {
     BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
@@ -569,8 +569,11 @@ EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 WantedBy=kubelet.service
 EOF
 
-    # explicitly start secure TLS bootstrapping ahead of kubelet
-    systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
+    # enable the service so it runs ahead of kubelet on next boot; do not start it now
+    if ! retrycmd_if_failure 120 5 25 systemctl enable secure-tls-bootstrap; then
+        echo "secure-tls-bootstrap could not be enabled by systemctl"
+        exit $ERR_SECURE_TLS_BOOTSTRAP_ENABLE_FAILURE
+    fi
 
     # once bootstrap tokens are no longer a fallback, we can unset TLS_BOOTSTRAP_TOKEN here if needed
 }
