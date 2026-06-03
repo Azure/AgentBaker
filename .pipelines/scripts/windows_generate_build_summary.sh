@@ -1,9 +1,11 @@
 #!/bin/bash
 # Generates a markdown build summary card for Windows VHD builds.
-# Uploaded via ##vso[task.uploadsummary] to appear as an extension tab in ADO.
+# Uploaded via ##vso[task.addattachment type=Distributedtask.Core.Summary] to appear as an extension tab in ADO.
+
 set -eu
 
-SUMMARY_FILE="${SUMMARY_FILE:-build-summary.md}"
+DEFAULT_SUMMARY_FILE="$(pwd)/build-summary.md"
+SUMMARY_FILE="${SUMMARY_FILE:-$DEFAULT_SUMMARY_FILE}"
 SETTINGS_FILE="${SETTINGS_FILE:-vhdbuilder/packer/settings.json}"
 IMAGE_BOM_FILE="${IMAGE_BOM_FILE:-image-bom.json}"
 RELEASE_NOTES_FILE="${RELEASE_NOTES_FILE:-release-notes.txt}"
