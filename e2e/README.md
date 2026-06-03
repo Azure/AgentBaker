@@ -89,6 +89,13 @@ TAGS_TO_RUN="name=Test_azurelinuxv2" ./e2e-local.sh
 go test -run Test_azurelinuxv2 -v -timeout 90m
 ```
 
+To run multiple specific scenarios by name, provide multiple `Name=` filters. When all filters are
+`Name=` filters, OR semantics are used automatically (matching any of the listed names):
+
+```bash
+TAGS_TO_RUN="name=Test_azurelinuxv2,name=Test_ubuntu2204" ./e2e-local.sh
+```
+
 ### Debugging
 
 Set `KEEP_VMSS=true` to retain bootstrapped VMs for debugging. Setting this will also have the VM's private SSH key
