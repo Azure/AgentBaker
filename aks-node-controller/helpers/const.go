@@ -12,7 +12,10 @@ const (
 	VMSizeStandardDc2s   = "Standard_DC2s"
 	VMSizeStandardDc4s   = "Standard_DC4s"
 	DefaultLinuxUser     = "azureuser"
-	DefaultCloudName     = "AzurePublicCloud"
-	AksCustomCloudName   = "akscustom"
-	AzureStackCloud      = "AzureStackCloud"
+	DefaultCloudName          = "AzurePublicCloud"
+	AzureChinaCloud           = "AzureChinaCloud"
+	AzureGermanCloud          = "AzureGermanCloud"
+	AzureUSGovernmentCloud    = "AzureUSGovernmentCloud"
+	AksCustomCloudName        = "akscustom"
+	AzureStackCloud           = "AzureStackCloud"
 )
