@@ -509,13 +509,6 @@ func envSliceToMap(env []string) map[string]string {
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
 
-	// If both flags are provided, compare environments before proceeding.
-	// This is best-effort and should not block provisioning.
-	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
-		slog.Info("ProvisionConfig and NBCCmd both provided, comparing envs")
-		compareEnvs(ctx, flags, a.eventLogger)
-	}
-
 	var cmd *exec.Cmd
 	if flags.NBCCmd != "" {
 		if err := applyNodeCustomData(a.getNodeCustomDataPath()); err != nil {
@@ -551,6 +544,13 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
+	}
+
+	// If both flags are provided, compare environments.
+	// This is best-effort and should not block provisioning.
+	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
+		slog.Info("ProvisionConfig and NBCCmd both provided, comparing envs")
+		compareEnvs(ctx, flags, a.eventLogger)
 	}
 
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
