@@ -76,10 +76,10 @@ read_setting() {
     echo "| Windows SKU | ${WINDOWS_SKU:-N/A} |"
     echo "| HyperV Generation | ${HYPERV_GENERATION:-N/A} |"
     echo "| Architecture | ${ARCHITECTURE:-N/A} |"
-    echo "| VM Size | $(read_setting "vm_size") |"
-    echo "| OS Disk Size (GB) | $(read_setting "os_disk_size_gb") |"
-    echo "| Build Date | $(read_setting "build_date") |"
-    echo "| Build Location | $(read_setting "location") |"
+    echo "| VM Size | $(read_setting 'vm_size') |"
+    echo "| OS Disk Size (GB) | $(read_setting 'os_disk_size_gb') |"
+    echo "| Build Date | $(read_setting 'build_date') |"
+    echo "| Build Location | $(read_setting 'location') |"
     echo ""
 
     # --- Output VHD ---
@@ -88,9 +88,9 @@ read_setting() {
     echo "| Property | Value |"
     echo "|----------|-------|"
     echo "| Image Version | ${AKS_WINDOWS_IMAGE_VERSION:-N/A} |"
-    echo "| SIG Gallery | $(read_setting "sig_gallery_name") |"
-    echo "| SIG Image Name | $(read_setting "sig_image_name") |"
-    echo "| Captured SIG Version | $(read_setting "captured_sig_version") |"
+    echo "| SIG Gallery | $(read_setting 'sig_gallery_name') |"
+    echo "| SIG Image Name | $(read_setting 'sig_image_name') |"
+    echo "| Captured SIG Version | $(read_setting 'captured_sig_version') |"
     echo ""
 
     # --- Cached Container Images ---
