@@ -565,6 +565,7 @@ Before=kubelet.service
 [Service]
 EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 [Install]
+# this configuration has secure-tls-bootstrap.service only start when kubelet.service is started
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
 EOF
