@@ -23,7 +23,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func isExepectedDiffCSEVar(key string) bool {
+func isExpectedDiffCSEVar(key string) bool {
 	switch key {
 	case "CLOUD_INIT_STATUS_SCRIPT",
 		"HYPERKUBE_URL",
@@ -330,11 +330,11 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 		case inPC && !inNBC:
 			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
 		case !inPC && inNBC:
-			if !isExepectedDiffCSEVar(key) {
+			if !isExpectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
 			}
 		case !envValsEqual(pcVal, nbcVal):
-			if !isExepectedDiffCSEVar(key) {
+			if !isExpectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
 			}
 		}
