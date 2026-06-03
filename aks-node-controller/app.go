@@ -458,8 +458,8 @@ func isEnvKeyChar(c byte) bool {
 func skipToken(content string, i int) int {
 	n := len(content)
 	for i < n && content[i] != ' ' && content[i] != '\t' && content[i] != '\n' && content[i] != ';' {
-		switch {
-		case content[i] == '"':
+		switch content[i] {
+		case '"':
 			i++
 			for i < n && content[i] != '"' {
 				i++
@@ -467,7 +467,7 @@ func skipToken(content string, i int) int {
 			if i < n {
 				i++
 			}
-		case content[i] == '\'':
+		case '\'':
 			i++
 			for i < n && content[i] != '\'' {
 				i++
