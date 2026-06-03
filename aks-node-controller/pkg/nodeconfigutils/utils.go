@@ -36,7 +36,7 @@ logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
 
-	boothookPhase3Template = `#cloud-boothook
+	boothookWithNBCTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
@@ -107,7 +107,7 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
 }
 
-func CustomDataPhase3(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (string, error) {
+func CustomDataWithNBC(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
@@ -121,7 +121,7 @@ func CustomDataPhase3(cfg *aksnodeconfigv1.Configuration, nbcCSECMD string) (str
 	if err != nil {
 		return "", fmt.Errorf("failed to gzip and base64 encode nbc cse cmd: %w", err)
 	}
-	boothook := fmt.Sprintf(boothookPhase3Template, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, encodedNBCCSECmd)
+	boothook := fmt.Sprintf(boothookWithNBCTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, NBCCmdFilePath, encodedNBCCSECmd)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)

@@ -273,7 +273,7 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.ErrorIs(t, err, io.EOF)
 }
 
-func TestCustomDataPhase3UsesGzippedMultipartBoothookAndCloudConfig(t *testing.T) {
+func TestCustomDataWithNBCUsesGzippedMultipartBoothookAndCloudConfig(t *testing.T) {
 	cfg := &aksnodeconfigv1.Configuration{
 		Version: "v1",
 		AuthConfig: &aksnodeconfigv1.AuthConfig{
@@ -288,7 +288,7 @@ func TestCustomDataPhase3UsesGzippedMultipartBoothookAndCloudConfig(t *testing.T
 		},
 	}
 
-	customData, err := CustomDataPhase3(cfg, "echo test")
+	customData, err := CustomDataWithNBC(cfg, "echo test")
 	require.NoError(t, err)
 
 	decoded, err := base64.StdEncoding.DecodeString(customData)
