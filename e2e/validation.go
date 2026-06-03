@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -300,11 +301,11 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 
 	checks := []wireServerCheck{
 		{
-			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4 --max-time 8",
 			desc: "wireserver port 80 goalstate",
 		},
 		{
-			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4 --max-time 8",
 			desc: "wireserver port 32526 vmSettings",
 		},
 	}
@@ -313,10 +314,19 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 
 	for _, check := range checks {
 		var execResult *podExecResult
-		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
-			r, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+		// Per-attempt cap (15s) prevents a single SPDY/exec hang from consuming the entire
+		// poll budget. Derived from the poll's inner ctx so it honors both the per-attempt
+		// cap and the overall poll deadline, whichever fires first.
+		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+			attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
 			if execErr != nil {
-				s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				if errors.Is(execErr, context.DeadlineExceeded) {
+					s.T.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
+				} else {
+					s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				}
 				return false, nil
 			}
 			execResult = r
