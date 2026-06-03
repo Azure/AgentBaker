@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Generates a markdown build summary card for Windows VHD builds.
 # Uploaded via ##vso[task.uploadsummary] to appear as an extension tab in ADO.
 set -eu
