@@ -1010,12 +1010,44 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+gpuPrebuiltModuleMatches() {
+    # Returns 0 only when the VHD baked a kernel module that exactly matches what CSE is about
+    # to install: same running kernel, same driver version + kind, and the same driver image
+    # tag. Any mismatch (kernel drift, newer driver from CRP, GRID SKU, older VHD without the
+    # marker) returns non-zero so configGPUDrivers falls back to the full build. The fast path
+    # is therefore purely an optimization -- correctness never depends on it.
+    local marker_file="${GPU_PREBUILT_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    [ -f "$marker_file" ] || return 1
+
+    local m_kernel m_version m_kind m_image
+    m_kernel=$(awk -F= '/^kernel=/{print $2; exit}' "$marker_file")
+    m_version=$(awk -F= '/^driver_version=/{print $2; exit}' "$marker_file")
+    m_kind=$(awk -F= '/^driver_kind=/{print $2; exit}' "$marker_file")
+    m_image=$(awk -F= '/^image_tag=/{print $2; exit}' "$marker_file")
+
+    [ -n "$m_kernel" ] && [ "$m_kernel" = "$(uname -r)" ] || return 1
+    [ -n "$m_version" ] && [ "$m_version" = "$GPU_DV" ] || return 1
+    [ -n "$m_kind" ] && [ "$m_kind" = "$NVIDIA_GPU_DRIVER_TYPE" ] || return 1
+    [ -n "$m_image" ] && [ "$m_image" = "$NVIDIA_DRIVER_IMAGE_TAG" ] || return 1
+
+    # The compiled module must actually resolve for the running kernel.
+    modinfo -k "$(uname -r)" nvidia >/dev/null 2>&1 || return 1
+    return 0
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
+        # Fast path: when the VHD baked a kernel module matching this exact kernel + driver +
+        # image, skip the expensive boot-time DKMS compile and only run the device-init steps.
+        local gpu_install_action="install"
+        if gpuPrebuiltModuleMatches; then
+            echo "Prebuilt GPU kernel module matches running kernel/driver/image; using skip-build fast path"
+            gpu_install_action="install-skip-build"
+        fi
         ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh ${gpu_install_action}"
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."

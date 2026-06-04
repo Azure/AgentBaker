@@ -688,6 +688,63 @@ while IFS= read -r imageToBePulled; do
   fi
 done <<< "$GPUContainerImages"
 
+prebuildGPUKernelModule() {
+  # Runs the aks-gpu container in build-only mode to DKMS-compile the NVIDIA kernel module and
+  # stage userspace libs into the VHD, then records the driver image tag in the marker written
+  # by the container's install.sh. No device access happens, so this is safe on the GPU-less
+  # Packer builder. Must run after the final shipped kernel is in place (uname -r == VHD kernel)
+  # and before kernel/header autoremove, otherwise every node would ship a mismatched module.
+  local image="$1" tag="$2"
+  local ref="${image}:${tag}"
+  local marker="/opt/azure/aks-gpu/dkms-marker"
+  local running newest
+  running="$(uname -r)"
+
+  # Guard: the module is DKMS-compiled against the builder's *running* kernel, but a node boots
+  # the newest kernel baked into the image. If those differ, every provisioned node would see a
+  # marker kernel != uname -r, silently fall back to the full boot-time build, and ship a useless
+  # (space-wasting, unsigned) prebuilt module. Fail the build loudly so it gets fixed instead of
+  # silently regressing the optimization.
+  newest="$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -n1)"
+  if [ -z "$newest" ]; then
+    echo "Error: could not enumerate installed kernels under /lib/modules" >&2
+    exit 1
+  fi
+  if [ "$running" != "$newest" ]; then
+    echo "Error: running kernel ($running) is not the newest installed kernel ($newest); a GPU module prebuilt now would not match the kernel nodes boot. Run prebuildGPUKernelModule after the final kernel is installed and the builder has rebooted into it." >&2
+    exit 1
+  fi
+  # The DKMS build needs the matching kernel headers on the builder.
+  if [ ! -d "/lib/modules/${running}/build" ]; then
+    echo "Error: kernel headers for ${running} not found (/lib/modules/${running}/build missing); cannot prebuild the GPU kernel module." >&2
+    exit 1
+  fi
+
+  echo "Prebuilding GPU kernel module into VHD from ${ref} for kernel ${running}"
+  mkdir -p /opt/{actions,gpu}
+  rm -f "$marker"
+
+  # image-fetcher already imported the image into the k8s.io containerd namespace.
+  if ! retrycmd_if_failure 3 10 1200 bash -c "ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind ${ref} buildgpu /entrypoint.sh build-only"; then
+    echo "Error: GPU kernel module prebuild (build-only) failed for ${ref}" >&2
+    exit 1
+  fi
+
+  if [ ! -f "$marker" ]; then
+    echo "Error: expected GPU prebuild marker ${marker} not found after build-only run" >&2
+    exit 1
+  fi
+
+  # Bind the baked module to this exact driver image so CSE only fast-paths on an exact match.
+  {
+    echo "image_tag=${tag}"
+    echo "image=${ref}"
+  } >> "$marker"
+
+  echo "GPU kernel module prebuilt into VHD:" >> ${VHD_LOGS_FILEPATH}
+  sed 's/^/  - /' "$marker" >> ${VHD_LOGS_FILEPATH}
+}
+
 # For Ubuntu, pre-pull the CUDA driver image
 if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
@@ -718,6 +775,16 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+
+  # Optionally pre-compile the NVIDIA kernel module into the VHD so that node provisioning can
+  # skip the expensive boot-time DKMS build. Scoped to the most common GPU SKU (Ubuntu 22.04
+  # amd64, CUDA driver). The module is bound to the shipped kernel; CSE only takes the fast
+  # path when the kernel, driver version/kind, and image tag all match, otherwise it falls back
+  # to a full build at boot. Gated behind PREBUILD_GPU_KERNEL_MODULE so it is only attempted on
+  # VHDs whose aks-gpu image supports the build-only action.
+  if [ "${PREBUILD_GPU_KERNEL_MODULE:-false}" = "true" ] && [ "${UBUNTU_RELEASE}" = "22.04" ]; then
+    prebuildGPUKernelModule "$NVIDIA_DRIVER_IMAGE" "$NVIDIA_DRIVER_IMAGE_TAG"
+  fi
 fi
 
 if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
