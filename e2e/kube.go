@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
+	"golang.org/x/net/http2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -57,6 +60,25 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	// it's a test cluster - avoid unnecessary rate limiting
 	config.QPS = 200
 	config.Burst = 400
+
+	// Defense-in-depth against silent connection wedges (apiserver SPDY proxy
+	// hangs, NAT/LB idle timeouts) which manifest as kube exec calls that hang
+	// indefinitely. Bound the TCP dial and enable HTTP/2 keep-alive pings so
+	// the transport itself surfaces a dead peer as a connection error,
+	// triggering retries instead of consuming the caller's timeout budget.
+	config.Dial = (&net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		if t, ok := rt.(*http.Transport); ok {
+			if h2, err := http2.ConfigureTransports(t); err == nil {
+				h2.ReadIdleTimeout = 30 * time.Second
+				h2.PingTimeout = 15 * time.Second
+			}
+		}
+		return rt
+	}
 
 	dynamic, err := client.New(config, client.Options{})
 	if err != nil {

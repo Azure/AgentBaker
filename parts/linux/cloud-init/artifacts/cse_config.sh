@@ -852,6 +852,17 @@ EOF
     local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
     date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
+    # Node Memory Hardening (F2/F5): if the RP rendered --kube-reserved-cgroup or
+    # --system-reserved-cgroup, ensure the corresponding systemd slices exist before
+    # kubelet starts so its NodeAllocatable enforcement loop can find them. The
+    # helper is a no-op when neither value is present (back-compat with non-hardened pools).
+    resolveKubeletReservedCgroups
+    if [ -n "${KUBE_RESERVED_CGROUP}" ] || [ -n "${SYSTEM_RESERVED_CGROUP}" ]; then
+        if ! logs_to_events "AKS.CSE.ensureKubelet.ensureKubeletCgroupHierarchy" ensureKubeletCgroupHierarchy; then
+            exit $ERR_KUBELET_START_FAIL
+        fi
+    fi
+
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
