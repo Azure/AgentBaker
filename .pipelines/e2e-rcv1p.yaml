@@ -18,3 +18,4 @@ jobs:
       name: RCV1P Cert Mode Tests
       IgnoreScenariosWithMissingVhd: false
       subscriptionOverride: $(RCV1P_SUBSCRIPTION_ID)
+      rcv1pTagsAutoInjected: "false"

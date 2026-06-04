@@ -55,6 +55,16 @@ func skipIfRCV1PNotConfigured(t *testing.T) {
 	checkPlatformSettingsOverrideFeatureFlag(t, subID, config.Azure, true)
 }
 
+// skipIfRCV1PTagsAutoInjected skips the test when the platform auto-injects
+// opt-in tags on all VMSSes (e.g. MSFT tenant). NotOptedIn tests can only
+// produce meaningful results when tags are NOT auto-injected (e.g. TME tenant).
+func skipIfRCV1PTagsAutoInjected(t *testing.T) {
+	t.Helper()
+	if config.Config.RCV1PTagsAutoInjected {
+		t.Skip("RCV1P_TAGS_AUTO_INJECTED is true; NotOptedIn tests require a tenant that does not auto-inject tags")
+	}
+}
+
 var (
 	featureFlagChecks sync.Map // subscriptionID -> *featureFlagResult
 )
@@ -399,6 +409,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 // subscription feature alone is not sufficient — the VM must also be explicitly tagged.
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	skipIfRCV1PTagsAutoInjected(t)
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
 		Tags: Tags{

@@ -14,6 +14,10 @@ parameters:
     type: string
     displayName: Override E2E_SUBSCRIPTION_ID for this job (e.g. for RCV1P-enrolled subscription)
     default: ""
+  - name: rcv1pTagsAutoInjected
+    type: string
+    displayName: Whether the platform auto-injects RCV1P opt-in tags on all VMSSes (true on MSFT tenant)
+    default: "true"
 
 jobs:
   - job: e2e
@@ -48,6 +52,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
 
       - task: PublishTestResults@2
         displayName: Upload test results
