@@ -150,5 +150,40 @@ Describe 'detachAndCleanUpUA'
       The status should be failure
       The output should include "stopping, disabling and masking ua-timer.timer"
     End
+
+    It 'refuses to operate on a unit that is not an Ubuntu Pro unit'
+      systemctl() { echo "systemctl $*"; return 0; }
+      When call disableAndMaskUbuntuProUnit some-random.service
+      The status should be failure
+      The output should include "refusing to operate on non ubuntu pro unit some-random.service"
+      # A non Pro unit must never be touched.
+      The output should not include "systemctl mask"
+      The output should not include "systemctl cat"
+    End
+
+    It 'fails the build when systemctl is not responsive instead of skipping the mask'
+      # 'list-units' fails => systemd is unhealthy. A 'cat' miss must NOT be misread as absent.
+      systemctl() {
+        case "$1" in
+          list-units) return 1 ;;
+          *) echo "systemctl $*"; return 0 ;;
+        esac
+      }
+      When call disableAndMaskUbuntuProUnit ua-timer.timer
+      The status should be failure
+      The output should include "not responsive"
+      The output should not include "systemctl mask"
+    End
+
+    It 'does not leak the unit variable into the caller scope (uses local)'
+      systemctl() { echo "systemctl $*"; return 0; }
+      check_no_leak() {
+        disableAndMaskUbuntuProUnit ua-timer.timer >/dev/null
+        echo "leaked_unit=[${unit:-}]"
+      }
+      When call check_no_leak
+      The status should be success
+      The output should include "leaked_unit=[]"
+    End
   End
 End

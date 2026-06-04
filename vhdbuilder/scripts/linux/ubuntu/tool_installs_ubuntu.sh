@@ -233,9 +233,32 @@ attachUA() {
 # customer node. The set of Pro units differs across releases, so a unit that is not present
 # on this image is skipped rather than failing the build. Any other (unexpected) failure DOES
 # fail the build: leaving an active Ubuntu Pro unit on a shipped VHD is a security/compliance
-# regression and must not be silently swallowed.
+# regression and must not be silently swallowed. The helper only operates on known Pro units
+# and verifies systemd is responsive before treating a missing unit as "not present", so a
+# transient systemctl failure fails the build rather than silently skipping the mask.
 disableAndMaskUbuntuProUnit() {
-    unit="$1"
+    local unit="$1"
+
+    # Defense in depth: only ever operate on known Ubuntu Pro units so a future caller cannot
+    # accidentally stop/disable/mask an unrelated systemd unit through this helper.
+    case "${unit}" in
+        esm-cache.service|apt-news.service|ua-timer.timer|ua-timer.service) ;;
+        *)
+            echo "refusing to operate on non ubuntu pro unit ${unit}"
+            return 1
+            ;;
+    esac
+
+    # Confirm systemd is responsive BEFORE interpreting a 'systemctl cat' miss as "unit absent".
+    # Otherwise a transient systemctl/DBus failure would be misread as "not present", silently
+    # skipping the mask and potentially leaving a live Ubuntu Pro unit on the shipped VHD.
+    if ! systemctl list-units --all >/dev/null 2>&1; then
+        echo "systemctl is not responsive while handling ${unit}; failing the build"
+        return 1
+    fi
+
+    # With systemd confirmed healthy, a 'systemctl cat' miss genuinely means the unit is not
+    # shipped on this release, so it is safe to skip.
     if ! systemctl cat "${unit}" >/dev/null 2>&1; then
         echo "ubuntu pro unit ${unit} not present on this image, skipping"
         return 0
