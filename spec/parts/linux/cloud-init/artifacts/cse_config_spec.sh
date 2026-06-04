@@ -149,6 +149,157 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureSecondaryNICs'
+        cleanup() {
+            # Clean up /etc/netplan (including any files written by Ubuntu tests)
+            rm -rf /etc/netplan 2>/dev/null || true
+            # Clean up any networkd units written by Mariner tests
+            rm -f /etc/systemd/network/10-secondary-nic-*.network 2>/dev/null || true
+        }
+
+        AfterEach 'cleanup'
+
+        # Stub commands that configureSecondaryNICs calls
+        chmod() {
+            echo "chmod $@"
+        }
+        netplan() {
+            echo "netplan $@"
+        }
+        networkctl() {
+            echo "networkctl $@"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            shift 3
+            "$@"
+        }
+
+        It 'should skip when only a single NIC is present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json"
+            When run configureSecondaryNICs
+            The output should include "No secondary NICs detected, skipping"
+            The status should be success
+        End
+
+        It 'should configure netplan on Ubuntu when two NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "mac=7c:1e:52:5a:aa:aa"
+            The output should include "metric=200"
+            The output should include "chmod 600"
+            The output should include "netplan apply"
+            The status should be success
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'macaddress: "7c:1e:52:5a:aa:aa"'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp4: true'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'use-dns: false'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'set-name: "eth1"'
+        End
+
+        It 'should configure networkd on AzureLinux/Mariner when two NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURELINUX"
+            # Create the networkd directory so the heredoc write succeeds
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=200"
+            The output should include "networkctl reload"
+            The output should include "networkctl up eth1"
+            The status should be success
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'UseDNS=false'
+        End
+
+        It 'should configure netplan for both secondary NICs when three NICs are present on Ubuntu'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "Configured secondary NIC eth2"
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'macaddress: "7c:ed:8d:8a:4d:ce"'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'set-name: "eth1"'
+            # Second secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'macaddress: "bb:cc:11:dd:22:ee"'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'route-metric: 300'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'set-name: "eth2"'
+        End
+
+        It 'should configure networkd for both secondary NICs when three NICs are present on AzureLinux/Mariner'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "Configured secondary NIC eth2"
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
+            # Second secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'Name=eth2'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=300'
+        End
+
+        It 'should return error when netplan apply fails on Ubuntu'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            netplan() {
+                return 1
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to apply netplan config for secondary NICs"
+            The status should equal 243
+        End
+
+        It 'should return error when networkctl reload fails on AzureLinux/Mariner'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            networkctl() {
+                return 1
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to reload networkd for secondary NICs"
+            The status should equal 243
+        End
+
+        It 'should return error when networkctl up fails on AzureLinux/Mariner'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            networkctl() {
+                # reload succeeds, but up fails
+                if [ "$1" = "up" ]; then
+                    return 1
+                fi
+                echo "networkctl $@"
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to bring up eth1"
+            The status should equal 243
+        End
+    End
+
     Describe 'configureKubeletServing'
         preserve_vars() {
             %preserve KUBELET_FLAGS
