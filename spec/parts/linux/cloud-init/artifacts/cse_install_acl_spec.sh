@@ -79,5 +79,18 @@ Describe 'cse_install_acl.sh'
             The output should include "Failed to install aks-secure-tls-bootstrap-client sysext"
             The status should be failure
         End
+
+        It 'strips a leading v from the version before passing to mergeSysexts'
+            mergeSysexts() {
+                echo "mock mergeSysexts $*" >&2
+            }
+            ln() {
+                echo "mock ln $*" >&2
+            }
+            When call installSecureTLSBootstrapClientSysext "v1.1.3-2-azlinux3"
+            The error should include "mock mergeSysexts aks-secure-tls-bootstrap-client mcr.microsoft.com/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext 1.1.3-2-azlinux3"
+            The error should not include "vv1.1.3"
+            The status should be success
+        End
     End
 End

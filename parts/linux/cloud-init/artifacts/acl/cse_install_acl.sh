@@ -121,12 +121,13 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     installCredentialProviderFromPkg "$2" "$1"
 }
 
-# Called during VHD build to merge the already-downloaded sysext and symlink the binary.
-# The secure TLS bootstrap client is installed at VHD build time, and optionally overridden at provisioning time
-# using a plain tarball download and in-place replacement of the binary within /opt/bin.
+# Only called at build-time, unlike kubelet or credential provider installation.
 installSecureTLSBootstrapClientSysext() {
     local version=$1
     local registry=${2:-mcr.microsoft.com}
+    # matchLocalSysext prepends 'v' when building the local filename glob, so strip any leading 'v'
+    # from the version to avoid 'vv' in the pattern (versions in components.json carry a 'v' prefix).
+    version=${version#v}
     if ! mergeSysexts aks-secure-tls-bootstrap-client "${registry}"/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext "${version}"; then
         echo "Failed to install aks-secure-tls-bootstrap-client sysext"
         return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
