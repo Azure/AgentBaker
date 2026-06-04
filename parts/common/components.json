@@ -1011,7 +1011,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.2.1-ubuntu24.04u1"
+                "latestVersion": "2.2.4-ubuntu24.04u2"
               }
             ]
           },
@@ -1057,7 +1057,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.1.6-2.azl3"
+                "latestVersion": "2.1.6-3.azl3"
               }
             ]
           },
