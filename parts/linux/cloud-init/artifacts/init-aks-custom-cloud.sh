@@ -1,6 +1,73 @@
 #!/bin/bash
 set -x
 
+# GA events directory — Azure Guest Agent monitors this directory and forwards
+# JSON event files to Geneva/Kusto for off-node telemetry.
+EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
+
+# Lightweight logs_to_events for telemetry — wraps a command, records timing,
+# and writes a JSON event file that GA picks up and ships to Kusto.
+# Does NOT suppress stdout/stderr — existing log lines are preserved.
+logs_to_events() {
+    local task=$1; shift
+    local eventsFileName
+    eventsFileName=$(date +%s%3N)
+
+    local startTime
+    startTime=$(date +"%F %T.%3N")
+    "${@}"
+    local ret=$?
+    local endTime
+    endTime=$(date +"%F %T.%3N")
+
+    local json_string
+    json_string=$(jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "Completed: $*" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+
+    mkdir -p "${EVENTS_LOGGING_DIR}"
+    echo "${json_string}" > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
+
+    if [ "$ret" -ne 0 ]; then
+        return $ret
+    fi
+}
+
+# Emit a custom telemetry event with a specific message (not wrapping a command).
+emit_event() {
+    local task=$1
+    local message=$2
+    local level=${3:-Informational}
+    local eventsFileName
+    eventsFileName=$(date +%s%3N)
+    local timestamp
+    timestamp=$(date +"%F %T.%3N")
+
+    local json_string
+    json_string=$(jq -n \
+        --arg Timestamp   "${timestamp}" \
+        --arg OperationId "${timestamp}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "${level}" \
+        --arg Message     "${message}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+
+    mkdir -p "${EVENTS_LOGGING_DIR}"
+    echo "${json_string}" > "${EVENTS_LOGGING_DIR}${eventsFileName}.json"
+}
+
 IS_FLATCAR=0
 IS_UBUNTU=0
 IS_ACL=0
@@ -243,19 +310,20 @@ case "$location_normalized" in
 esac
 
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
+emit_event "AKS.CSE.customCloud.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
 install_ca_refresh_schedule=0
 mkdir -p /root/AzureCACertificates
 rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1
-    if retrieve_legacy_certs; then
-        install_certs_to_trust_store
+    if logs_to_events "AKS.CSE.customCloud.retrieveLegacyCerts" retrieve_legacy_certs; then
+        logs_to_events "AKS.CSE.customCloud.installCertsToTrustStore" install_certs_to_trust_store
     else
         echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
         exit 1
     fi
 elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
-    is_opted_in_for_root_certs
+    logs_to_events "AKS.CSE.rcv1p.isOptedIn" is_opted_in_for_root_certs
     opt_in_result=$?
     if [ $opt_in_result -eq 2 ]; then
         # Fatal: wireserver was unreachable after retries. We cannot determine whether
@@ -263,15 +331,22 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
         # falling back to the distro trust store would be a security hole if the
         # customer intended hardened certs, so we fail hard here.
         echo "ERROR: cannot provision node — wireserver unreachable for cert opt-in check"
+        emit_event "AKS.CSE.rcv1p.optInCheckFailed" "wireserver unreachable after retries" "Error"
         exit 1
     elif [ $opt_in_result -eq 0 ]; then
         install_ca_refresh_schedule=1
-        if retrieve_rcv1p_certs; then
-            install_certs_to_trust_store
+        emit_event "AKS.CSE.rcv1p.optedIn" "IsOptedInForRootCerts=true"
+        if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
+            cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
+            emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
+            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
         else
             echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
+            emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
             exit 1
         fi
+    else
+        emit_event "AKS.CSE.rcv1p.notOptedIn" "IsOptedInForRootCerts=false, skipping cert installation"
     fi
 fi
 
