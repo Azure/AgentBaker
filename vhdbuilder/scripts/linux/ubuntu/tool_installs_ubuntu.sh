@@ -8,6 +8,9 @@ ERR_UA_ENABLE_FIPS=184 {{/* Error to enable UA FIPS */}}
 ERR_UA_DETACH=185 {{/* Error to detach UA */}}
 ERR_LINUX_HEADER_INSTALL_TIMEOUT=186 {{/* Timeout to install linux header */}}
 ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
+ERR_UA_ESM_HOOK_CLEANUP=188 {{/* Error removing the apt ESM hook for Ubuntu Pro */}}
+ERR_UA_MASK_UNIT=189 {{/* Error stopping/disabling/masking an Ubuntu Pro background unit */}}
+ERR_UA_TOKEN_CLEANUP=190 {{/* Error removing the baked-in Ubuntu Pro machine token state */}}
 
 ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
 ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
@@ -225,10 +228,50 @@ attachUA() {
     retrycmd_if_failure 5 10 300 ua disable livepatch || exit $ERR_UA_DISABLE_LIVEPATCH
 }
 
+# disableAndMaskUbuntuProUnit stops, disables and masks a single Ubuntu Pro background
+# systemd unit so it can never phone home (esm.ubuntu.com / contracts.canonical.com) on a
+# customer node. The set of Pro units differs across releases, so a unit that is not present
+# on this image is skipped rather than failing the build. Any other (unexpected) failure DOES
+# fail the build: leaving an active Ubuntu Pro unit on a shipped VHD is a security/compliance
+# regression and must not be silently swallowed.
+disableAndMaskUbuntuProUnit() {
+    unit="$1"
+    if ! systemctl cat "${unit}" >/dev/null 2>&1; then
+        echo "ubuntu pro unit ${unit} not present on this image, skipping"
+        return 0
+    fi
+    echo "stopping, disabling and masking ${unit} to keep ubuntu pro inert on customer nodes..."
+    systemctl stop "${unit}" || return 1
+    systemctl disable "${unit}" || return 1
+    systemctl mask "${unit}" || return 1
+}
+
 detachAndCleanUpUA() {
     echo "disabling ua services individually to preserve FIPS kernel and grub config..."
     retrycmd_if_failure 5 10 300 ua disable esm-apps || exit $ERR_UA_DETACH
     retrycmd_if_failure 5 10 300 ua disable esm-infra || exit $ERR_UA_DETACH
+
+    # The VHD is intentionally NOT 'ua detach'ed: detaching would tear down the installed FIPS
+    # kernel/grub configuration. Instead we make Ubuntu Pro inert so the running customer node
+    # performs NO phone-home, while leaving the FIPS packages in place. The apt ESM hook removal
+    # and esm-cache masking MUST happen before the final apt_get_update below, otherwise that
+    # apt update would re-trigger esm-cache and re-establish the esm.ubuntu.com traffic.
+
+    # 1. Remove the apt ESM hook. Without this, every 'apt update' on a customer node (both
+    # cloud-init and CSE run apt update during provisioning) restarts esm-cache.service, which
+    # fetches ESM metadata from esm.ubuntu.com using its OWN cache independently of
+    # /etc/apt/sources.list.d -- so deleting the .list files below is not sufficient on its own.
+    rm -f /etc/apt/apt.conf.d/20apt-esm-hook.conf || exit $ERR_UA_ESM_HOOK_CLEANUP
+
+    # 2. Stop, disable and mask the Ubuntu Pro background units. ua-timer drives the periodic
+    # contract/metering/MOTD refresh against contracts.canonical.com; esm-cache and apt-news
+    # reach out to esm.ubuntu.com. Masking keeps ubuntu-pro-client installed but inert. esm-cache
+    # is masked before the final apt update so the hook (even if re-added by a package) cannot
+    # start it.
+    disableAndMaskUbuntuProUnit esm-cache.service || exit $ERR_UA_MASK_UNIT
+    disableAndMaskUbuntuProUnit apt-news.service || exit $ERR_UA_MASK_UNIT
+    disableAndMaskUbuntuProUnit ua-timer.timer || exit $ERR_UA_MASK_UNIT
+    disableAndMaskUbuntuProUnit ua-timer.service || exit $ERR_UA_MASK_UNIT
 
     # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
@@ -240,5 +283,15 @@ detachAndCleanUpUA() {
     rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
     rm -f /etc/apt/sources.list.d/ubuntu-fips-preview.list
     rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
+
+    # 3. Remove the baked-in Ubuntu Pro machine identity/state. The VHD is generalized and cloned
+    # onto every customer node, so a leftover machine token would give every node the same Pro
+    # machine identity. Remove the private machine-token/access state (security-relevant -> fail
+    # the build on error) and the local esm-cache state (best-effort: it is only a cache and the
+    # unit is already masked). ubuntu-pro-client stays installed -- removing it risks dependency
+    # breakage -- but with no attached identity it stays inert.
+    rm -rf /var/lib/ubuntu-advantage/private || exit $ERR_UA_TOKEN_CLEANUP
+    rm -rf /var/lib/ubuntu-advantage/messages /var/lib/ubuntu-advantage/esm-cache || true
+
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
