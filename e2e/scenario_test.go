@@ -2917,3 +2917,43 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 		},
 	})
 }
+
+func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICUp(ctx, s, "eth1")
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Azure Linux",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
+				ValidateSecondaryNICUp(ctx, s, "eth1")
+			},
+		},
+	})
+}

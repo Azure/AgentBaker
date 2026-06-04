@@ -940,6 +940,94 @@ ensureAzureNetworkConfig() {
     udevadm settle --timeout=10
 }
 
+configureSecondaryNICs() {
+    # Read NIC list from cached IMDS metadata.
+    # IMDS reports all NICs attached to the VM, including secondary ones.
+    # On a vanilla Azure VM cloud-init would configure these automatically,
+    # but AKS VHDs disable cloud-init network management (apply_network_config: false
+    # on Ubuntu, hardcoded Name=eth0 in networkd on AzureLinux). This function
+    # fills the gap for Standard-type secondary NICs that need OS-level DHCP.
+    local nic_count
+    nic_count=$(jq -r '.network.interface | length' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+
+    if [ "$nic_count" -le 1 ]; then
+        echo "No secondary NICs detected, skipping"
+        return 0
+    fi
+
+    echo "Detected $nic_count NICs, configuring secondary interfaces..."
+
+    local is_netplan=false
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        is_netplan=true
+    fi
+
+    for i in $(seq 1 $((nic_count - 1))); do
+        local mac
+        mac=$(jq -r ".network.interface[$i].macAddress" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+        # IMDS returns MAC without colons (e.g. "7CED8D8A4DCE"), convert to colon-separated lowercase
+        mac=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]')
+        local iface_name="eth${i}"
+        local metric=$(( 100 + i * 100 ))
+
+        if [ "$is_netplan" = true ]; then
+            # Ubuntu: generate netplan config for the secondary NIC
+            cat > "/etc/netplan/60-secondary-nic-${i}.yaml" <<NETPLAN_EOF
+network:
+  version: 2
+  ethernets:
+    ${iface_name}:
+      match:
+        macaddress: "${mac}"
+      dhcp4: true
+      dhcp4-overrides:
+        route-metric: ${metric}
+        use-dns: false
+      set-name: "${iface_name}"
+NETPLAN_EOF
+            chmod 600 "/etc/netplan/60-secondary-nic-${i}.yaml"
+        else
+            # AzureLinux/Mariner: generate networkd .network unit.
+            # Prefix 10- so it takes precedence over the VHD's 99-dhcp-en.network.
+            cat > "/etc/systemd/network/10-secondary-nic-${i}.network" <<NETWORKD_EOF
+[Match]
+Name=${iface_name}
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=no
+
+[DHCPv4]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+SendRelease=false
+NETWORKD_EOF
+        fi
+
+        echo "Configured secondary NIC ${iface_name} (mac=${mac}, metric=${metric})"
+    done
+
+    # Apply all configs in a single operation to avoid repeated network restarts.
+    if [ "$is_netplan" = true ]; then
+        if ! retrycmd_if_failure 5 3 10 netplan apply; then
+            echo "Failed to apply netplan config for secondary NICs" >&2
+            return $ERR_SECONDARY_NIC_CONFIG_FAIL
+        fi
+    else
+        if ! retrycmd_if_failure 5 3 10 networkctl reload; then
+            echo "Failed to reload networkd for secondary NICs" >&2
+            return $ERR_SECONDARY_NIC_CONFIG_FAIL
+        fi
+        for i in $(seq 1 $((nic_count - 1))); do
+            if ! retrycmd_if_failure 5 3 10 networkctl up "eth${i}"; then
+                echo "Failed to bring up eth${i}" >&2
+                return $ERR_SECONDARY_NIC_CONFIG_FAIL
+            fi
+        done
+    fi
+}
+
 ensureK8sControlPlane() {
     if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
         return

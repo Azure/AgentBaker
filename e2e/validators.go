@@ -2959,3 +2959,15 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
 }
+
+// ValidateSecondaryNICUp checks that the given network interface is UP and has an IPv4 address.
+func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+}
