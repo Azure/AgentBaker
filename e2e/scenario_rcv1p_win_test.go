@@ -123,6 +123,7 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 // script correctly skips certificate download and refresh task registration.
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	skipIfRCV1PTagsAutoInjected(t)
 	cseMutator := rcv1pWindowsCSEMutator(t)// TODO(rcv1p): remove once RCV1P ships in published CSE package
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",

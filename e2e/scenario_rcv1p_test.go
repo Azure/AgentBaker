@@ -55,6 +55,16 @@ func skipIfRCV1PNotConfigured(t *testing.T) {
 	checkPlatformSettingsOverrideFeatureFlag(t, subID, config.Azure, true)
 }
 
+// skipIfRCV1PTagsAutoInjected skips the test when the platform auto-injects
+// opt-in tags on all VMSSes (e.g. MSFT tenant). NotOptedIn tests can only
+// produce meaningful results when tags are NOT auto-injected (e.g. TME tenant).
+func skipIfRCV1PTagsAutoInjected(t *testing.T) {
+	t.Helper()
+	if config.Config.RCV1PTagsAutoInjected {
+		t.Skip("RCV1P_TAGS_AUTO_INJECTED is true; NotOptedIn tests require a tenant that does not auto-inject tags")
+	}
+}
+
 var (
 	featureFlagChecks sync.Map // subscriptionID -> *featureFlagResult
 )
@@ -66,9 +76,9 @@ type featureFlagResult struct {
 }
 
 // checkPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
-// feature flag on the given subscription. When failIfMissing is true (RCV1P tests), the test
-// fails if the flag is not registered. When false (diagnostics), it only logs the result.
-func checkPlatformSettingsOverrideFeatureFlag(t *testing.T, subscriptionID string, client *config.AzureClient, failIfMissing bool) {
+// feature flag on the given subscription. When skipIfMissing is true (RCV1P tests), the test
+// is skipped if the flag is not registered. When false (diagnostics), it only logs the result.
+func checkPlatformSettingsOverrideFeatureFlag(t *testing.T, subscriptionID string, client *config.AzureClient, skipIfMissing bool) {
 	t.Helper()
 	val, _ := featureFlagChecks.LoadOrStore(subscriptionID, &featureFlagResult{})
 	result := val.(*featureFlagResult)
@@ -78,15 +88,15 @@ func checkPlatformSettingsOverrideFeatureFlag(t *testing.T, subscriptionID strin
 
 	if result.err != nil {
 		t.Logf("PlatformSettingsOverride feature flag check on subscription %s: error: %v", subscriptionID, result.err)
-		if failIfMissing {
-			t.Fatalf("RCV1P feature flag check failed: %v", result.err)
+		if skipIfMissing {
+			t.Skipf("RCV1P feature flag check failed: %v", result.err)
 		}
 		return
 	}
 
 	t.Logf("PlatformSettingsOverride feature flag on subscription %s: registered=%v", subscriptionID, result.registered)
-	if failIfMissing && !result.registered {
-		t.Fatalf("Microsoft.Compute/PlatformSettingsOverride is NOT registered on subscription %s; "+
+	if skipIfMissing && !result.registered {
+		t.Skipf("Microsoft.Compute/PlatformSettingsOverride is NOT registered on subscription %s; "+
 			"wireserver will not serve root certificates without this feature flag", subscriptionID)
 	}
 }
@@ -399,6 +409,7 @@ func Test_RCV1P_ACL(t *testing.T) {
 // subscription feature alone is not sufficient — the VM must also be explicitly tagged.
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
+	skipIfRCV1PTagsAutoInjected(t)
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
