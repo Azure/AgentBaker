@@ -114,47 +114,7 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
-		config.DisableCustomData = true
-		config.EnableScriptlessCSECmd = true
-		nbcCMD := t.getLinuxNodeCSECommand(config)
-		encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
-		nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-
-		// Conditionally encode AKSNodeConfig so the wrapper script
-		// can pass --provision-config for env comparison alongside --nbc-cmd.
-		var encodedAKSNodeConfig string
-		if config.AKSNodeConfig != nil {
-			aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(config.AKSNodeConfig)
-			if err != nil {
-				panic(fmt.Sprintf("failed to marshal AKSNodeConfig: %v", err))
-			}
-			encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(string(aksNodeConfigJSON))
-		}
-
-		var customData string
-		if config.IsFlatcar() || config.IsACL() {
-			var flatcarAKSNodeConfigBlock string
-			if encodedAKSNodeConfig != "" {
-				flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
-			}
-			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
-		} else {
-			var aksNodeConfigBlock string
-			if encodedAKSNodeConfig != "" {
-				aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
-			}
-			customData = fmt.Sprintf(
-				boothookTemplate,
-				nodeCustomDataPath,
-				encodedNodeCustomData,
-				nbcCmdFilePath,
-				encodedNBCCMD,
-				aksNodeConfigBlock,
-			)
-		}
-
-		return base64.StdEncoding.EncodeToString([]byte(customData))
+		return t.getScriptlessNBCCustomData(config)
 	}
 
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
@@ -168,6 +128,64 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
 	return encoded
+}
+
+// getScriptlessNBCCustomData builds custom data for the scriptless NBC CSE path.
+// It encodes the nbc-cmd script, node custom data, and optionally AKSNodeConfig
+// into the appropriate format (boothook or flatcar ignition).
+func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+	config.DisableCustomData = true
+	config.EnableScriptlessCSECmd = true
+	nbcCMD := t.getLinuxNodeCSECommand(config)
+	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
+	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+
+	encodedAKSNodeConfig := encodeAKSNodeConfig(config)
+
+	var customData string
+	if config.IsFlatcar() || config.IsACL() {
+		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+	} else {
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(customData))
+}
+
+// encodeAKSNodeConfig marshals and gzip+base64 encodes AKSNodeConfig if present.
+func encodeAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AKSNodeConfig == nil {
+		return ""
+	}
+	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(config.AKSNodeConfig)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal AKSNodeConfig: %v", err))
+	}
+	return getBase64EncodedGzippedCustomScriptFromStr(string(aksNodeConfigJSON))
+}
+
+func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+	var flatcarAKSNodeConfigBlock string
+	if encodedAKSNodeConfig != "" {
+		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
+	}
+	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
+}
+
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+	var aksNodeConfigBlock string
+	if encodedAKSNodeConfig != "" {
+		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+	}
+	return fmt.Sprintf(
+		boothookTemplate,
+		nodeCustomDataPath,
+		encodedNodeCustomData,
+		nbcCmdFilePath,
+		encodedNBCCMD,
+		aksNodeConfigBlock,
+	)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
