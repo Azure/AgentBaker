@@ -125,7 +125,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
-          "latestVersion": "3.6"
+          "_disabled_latestVersion": "3.6"
         }
       ],
       "windowsVersions": [
@@ -133,7 +133,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
           "latestVersion": "3.9-hotfix-20230808"
         }
-      ]
+      ],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/pause:*",
@@ -198,36 +199,36 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.50",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
             }
-          }
+          },
+          "_disabled_latestVersion": "v1.5.50"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.43-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
             }
-          }
+          },
+          "_disabled_latestVersion": "v1.6.43-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.7.16-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
             }
-          }
+          },
+          "_disabled_latestVersion": "v1.7.16-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
@@ -240,7 +241,8 @@
             }
           }
         }
-      ]
+      ],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
@@ -266,36 +268,36 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.50",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
             }
-          }
+          },
+          "_disabled_latestVersion": "v1.5.50"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.43-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
             }
-          }
+          },
+          "_disabled_latestVersion": "v1.6.43-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.7.16-0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
             }
-          }
+          },
+          "_disabled_latestVersion": "v1.7.16-0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -308,7 +310,8 @@
             }
           }
         }
-      ]
+      ],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-ipam:*",
@@ -316,7 +319,6 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "previousLatestVersion": "v0.2.0",
           "latestVersion": "v0.2.1",
           "containerImagePrefetch": {
             "latestVersion": {
@@ -324,10 +326,12 @@
                 "/dropgz"
               ]
             }
-          }
+          },
+          "_disabled_previousLatestVersion": "v0.2.0"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
@@ -335,10 +339,11 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.6.42"
+          "_disabled_latestVersion": "v1.6.42"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium:*",
@@ -347,10 +352,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
           "latestVersion": "v1.17.10-260319",
-          "previousLatestVersion": "v1.17.10-260312"
+          "_disabled_previousLatestVersion": "v1.17.10-260312"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium-log-collector:*",
@@ -358,11 +364,12 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium-log-collector",
-          "latestVersion": "v0.0.1-0",
-          "previousLatestVersion": "v0.0.1-0"
+          "_disabled_latestVersion": "v0.0.1-0",
+          "_disabled_previousLatestVersion": "v0.0.1-0"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless:*",
@@ -371,10 +378,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless",
           "latestVersion": "v1.18.9-260508",
-          "previousLatestVersion": "v1.18.6-260312"
+          "_disabled_previousLatestVersion": "v1.18.6-260312"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:*",
@@ -383,10 +391,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium-distroless-init",
           "latestVersion": "v1.18.9-260508",
-          "previousLatestVersion": "v1.18.6-260312"
+          "_disabled_previousLatestVersion": "v1.18.6-260312"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
@@ -425,10 +434,11 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.3.0"
+          "_disabled_latestVersion": "3.3.0"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
@@ -466,18 +476,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.12",
-          "previousLatestVersion": "v1.31.9"
+          "_disabled_latestVersion": "v1.31.12",
+          "_disabled_previousLatestVersion": "v1.31.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.32.11",
-          "previousLatestVersion": "v1.32.8"
+          "_disabled_latestVersion": "v1.32.11",
+          "_disabled_previousLatestVersion": "v1.32.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.6",
-          "previousLatestVersion": "v1.33.3"
+          "_disabled_latestVersion": "v1.33.6",
+          "_disabled_previousLatestVersion": "v1.33.3"
         }
       ],
       "windowsVersions": [
@@ -496,7 +506,8 @@
           "latestVersion": "v1.33.6-windows-hpc",
           "previousLatestVersion": "v1.33.3-windows-hpc"
         }
-      ]
+      ],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:*",
@@ -505,32 +516,32 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.30.15-2",
-          "previousLatestVersion": "v1.30.15-1"
+          "_disabled_previousLatestVersion": "v1.30.15-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.31.12-2",
-          "previousLatestVersion": "v1.31.12-1"
+          "_disabled_previousLatestVersion": "v1.31.12-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.32.16-2",
-          "previousLatestVersion": "v1.32.14-1"
+          "_disabled_previousLatestVersion": "v1.32.14-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.33.11-2",
-          "previousLatestVersion": "v1.33.9-1"
+          "_disabled_previousLatestVersion": "v1.33.9-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.34.8-2",
-          "previousLatestVersion": "v1.34.6-1"
+          "_disabled_previousLatestVersion": "v1.34.6-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.35.3-2",
-          "previousLatestVersion": "v1.35.1-1"
+          "_disabled_previousLatestVersion": "v1.35.1-1"
         }
       ],
       "windowsVersions": [
@@ -562,7 +573,8 @@
           "latestVersion": "v1.35.3-windows-hpc-1",
           "previousLatestVersion": "v1.35.1-windows-hpc-1"
         }
-      ]
+      ],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
@@ -717,10 +729,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
           "latestVersion": "v3.20.1-6",
-          "previousLatestVersion": "v3.20.1-4"
+          "_disabled_previousLatestVersion": "v3.20.1-4"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
@@ -741,10 +754,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
           "latestVersion": "1.15.5",
-          "previousLatestVersion": "1.15.4"
+          "_disabled_previousLatestVersion": "1.15.4"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
@@ -753,10 +767,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
           "latestVersion": "1.15.5",
-          "previousLatestVersion": "1.15.4"
+          "_disabled_previousLatestVersion": "1.15.4"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
@@ -769,10 +784,11 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-node-ca-watcher",
-          "latestVersion": "master.241021.1"
+          "_disabled_latestVersion": "master.241021.1"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:*",
@@ -791,36 +807,37 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.28.103-akslts",
-          "previousLatestVersion": "v1.28.102-akslts"
+          "_disabled_latestVersion": "v1.28.103-akslts",
+          "_disabled_previousLatestVersion": "v1.28.102-akslts"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.29.101-akslts",
-          "previousLatestVersion": "v1.29.100-akslts"
+          "_disabled_latestVersion": "v1.29.101-akslts",
+          "_disabled_previousLatestVersion": "v1.29.100-akslts"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.30.101-akslts",
-          "previousLatestVersion": "v1.30.100-akslts"
+          "_disabled_latestVersion": "v1.30.101-akslts",
+          "_disabled_previousLatestVersion": "v1.30.100-akslts"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.31.14",
-          "previousLatestVersion": "v1.31.13"
+          "_disabled_latestVersion": "v1.31.14",
+          "_disabled_previousLatestVersion": "v1.31.13"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.32.11",
-          "previousLatestVersion": "v1.32.10"
+          "_disabled_latestVersion": "v1.32.11",
+          "_disabled_previousLatestVersion": "v1.32.10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.33.11",
-          "previousLatestVersion": "v1.33.10"
+          "_disabled_latestVersion": "v1.33.11",
+          "_disabled_previousLatestVersion": "v1.33.10"
         }
       ],
-      "windowsVersions": []
+      "windowsVersions": [],
+      "_comment_poc": "DISABLED for dm-verity POC (unsigned/unmirrored in notaryaksegistry; build-time erofs differ would fail-closed). Restore by renaming _disabled_* keys back."
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:*",
