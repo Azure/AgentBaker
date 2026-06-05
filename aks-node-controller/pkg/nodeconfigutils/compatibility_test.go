@@ -76,7 +76,7 @@ func setupWorktree(t *testing.T, targetCommit string) string {
 func fetchCommitsForTests(commits ...string) {
 	for _, commit := range commits {
 		if !commitExists(commit) {
-			_ = fetchCommit(commit) // Ignore errors here; ensureCommitAvailable retries and reports.
+			_, _ = fetchCommit(commit) // Ignore errors here; ensureCommitAvailable retries and reports.
 		}
 	}
 }
@@ -88,8 +88,9 @@ func commitExists(commit string) bool {
 
 // fetchCommit fetches a single commit from origin. CI uses shallow clones, so the
 // historical commits required by these tests must be fetched on demand.
-func fetchCommit(commit string) error {
-	return exec.Command("git", "fetch", "--depth=1", "origin", commit).Run()
+// It returns the combined stdout/stderr so callers can surface git's diagnostics on failure.
+func fetchCommit(commit string) ([]byte, error) {
+	return exec.Command("git", "fetch", "--depth=1", "origin", commit).CombinedOutput()
 }
 
 // ensureCommitAvailable guarantees the commit object exists locally, retrying the
@@ -102,14 +103,16 @@ func ensureCommitAvailable(t *testing.T, commit string) {
 		if commitExists(commit) {
 			return
 		}
-		if err := fetchCommit(commit); err != nil {
-			t.Logf("git fetch attempt %d/%d for %s failed: %v", attempt, maxAttempts, commit, err)
+		if output, err := fetchCommit(commit); err != nil {
+			t.Logf("git fetch attempt %d/%d for %s failed: %v (output: %s)", attempt, maxAttempts, commit, err, strings.TrimSpace(string(output)))
 		}
 		if commitExists(commit) {
 			return
 		}
-		// Linear backoff before retrying the fetch.
-		time.Sleep(time.Duration(attempt) * time.Second)
+		// Linear backoff before retrying, but skip the wait after the final attempt.
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
 	}
 	require.Truef(t, commitExists(commit),
 		"commit %s is not available locally after %d fetch attempts; "+
