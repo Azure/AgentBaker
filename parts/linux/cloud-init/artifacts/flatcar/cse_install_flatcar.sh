@@ -107,17 +107,26 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
 }
 
 # Only called at build-time, unlike kubelet or credential provider installation.
+# Flatcar's matchLocalSysext glob (name-v${ver}[.~-]*-${arch}.raw) cannot match the
+# bootstrap client's filename, which has only a single '-' between the version and arch
+# (e.g. aks-secure-tls-bootstrap-client-v1.1.3-2-azlinux3-x86-64.raw). The download has
+# already been completed by install-dependencies.sh into a known location with a known
+# filename, so activate the sysext directly instead of going through mergeSysexts.
 installSecureTLSBootstrapClientSysext() {
     local version=$1
-    local registry=${2:-mcr.microsoft.com}
-    # matchLocalSysext prepends 'v' when building the local filename glob, so strip any leading 'v'
-    # from the version to avoid 'vv' in the pattern (versions in components.json carry a 'v' prefix).
-    version=${version#v}
-    if ! mergeSysexts aks-secure-tls-bootstrap-client "${registry}"/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext "${version}"; then
-        echo "Failed to install aks-secure-tls-bootstrap-client sysext"
+    local seName=aks-secure-tls-bootstrap-client
+    local seArch
+    seArch=$(getSystemdArch)
+    # Normalize to ensure a leading 'v' to match the artifact filename produced by oras pull.
+    version="v${version#v}"
+    local seFile="/opt/${seName}/downloads/${seName}-${version}-${seArch}.raw"
+    if ! test -f "${seFile}"; then
+        echo "Failed to find downloaded ${seName} sysext at ${seFile}"
         return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
     fi
-    ln -snf /usr/bin/aks-secure-tls-bootstrap-client /opt/bin/aks-secure-tls-bootstrap-client
+    ln -snf "${seFile}" "/etc/extensions/${seName}.raw"
+    systemd-sysext --no-reload refresh
+    ln -snf "/usr/bin/${seName}" "/opt/bin/${seName}"
 }
 
 ensureRunc() {
