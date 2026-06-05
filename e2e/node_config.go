@@ -148,11 +148,16 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
-		TlsBootstrappingToken:                         nbc.KubeletClientTLSBootstrapToken,
-		SecureTlsBootstrappingDeadline:                to.Ptr(nbc.SecureTLSBootstrappingConfig.GetDeadline()),
-		SecureTlsBootstrappingAadResource:             to.Ptr(nbc.SecureTLSBootstrappingConfig.GetAADResource()),
-		SecureTlsBootstrappingUserAssignedIdentityId:  to.Ptr(nbc.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()),
-		SecureTlsBootstrappingCustomClientDownloadUrl: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()),
+		TlsBootstrappingToken:                           nbc.KubeletClientTLSBootstrapToken,
+		SecureTlsBootstrappingValidateKubeconfigTimeout: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetValidateKubeconfigTimeout()),
+		SecureTlsBootstrappingGetAccessTokenTimeout:     to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetAccessTokenTimeout()),
+		SecureTlsBootstrappingGetInstanceDataTimeout:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetInstanceDataTimeout()),
+		SecureTlsBootstrappingGetNonceTimeout:           to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetNonceTimeout()),
+		SecureTlsBootstrappingGetAttestedDataTimeout:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetAttestedDataTimeout()),
+		SecureTlsBootstrappingGetCredentialTimeout:      to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()),
+		SecureTlsBootstrappingAadResource:               to.Ptr(nbc.SecureTLSBootstrappingConfig.GetAADResource()),
+		SecureTlsBootstrappingUserAssignedIdentityId:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()),
+		SecureTlsBootstrappingCustomClientDownloadUrl:   to.Ptr(nbc.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()),
 	}
 	if nbc.SecureTLSBootstrappingConfig.GetEnabled() {
 		bootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING

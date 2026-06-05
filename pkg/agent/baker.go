@@ -53,6 +53,8 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers
 
+nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
 EOF

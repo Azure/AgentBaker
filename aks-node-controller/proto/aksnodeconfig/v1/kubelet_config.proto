@@ -393,6 +393,41 @@ message KubeletConfigFileConfig {
      +optional. */
   repeated string enforce_node_allocatable = 37;
 
+  /* evictionSoft is a map of signal names to quantities that defines soft eviction thresholds.
+     Each signal listed here must also have a corresponding entry in evictionSoftGracePeriod.
+     Soft eviction terminates pods gracefully (respecting terminationGracePeriodSeconds, capped by
+     evictionMaxPodGracePeriod) once the threshold is breached for the configured grace period.
+     Used by AKS Node Memory Hardening (F2/F5).
+     +optional. */
+  map<string, string> eviction_soft = 41;
+
+  /* evictionSoftGracePeriod is a map of signal names to durations defining how long the soft
+     eviction threshold must be breached before triggering eviction. Each entry must correspond
+     to a signal listed in evictionSoft. Used by AKS Node Memory Hardening (F2/F5).
+     +optional. */
+  map<string, string> eviction_soft_grace_period = 42;
+
+  /* evictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when
+     terminating pods in response to a soft eviction threshold being met. Setting this value
+     caps the pod's terminationGracePeriodSeconds during soft eviction. Used by AKS Node
+     Memory Hardening (F2/F5).
+     +optional. */
+  int32 eviction_max_pod_grace_period = 43;
+
+  /* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
+     kube-reserved compute resources. When enforce-node-allocatable contains "kube-reserved",
+     this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+     Used by AKS Node Memory Hardening (F2/F5).
+     +optional. */
+  string kube_reserved_cgroup = 44;
+
+  /* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
+     system-reserved compute resources. When enforce-node-allocatable contains "system-reserved",
+     this cgroup must exist before kubelet starts. Example: "/system.slice".
+     Used by AKS Node Memory Hardening (F2/F5).
+     +optional. */
+  string system_reserved_cgroup = 45;
+
   /* A comma separated whitelist of unsafe sysctls or sysctl patterns (ending in *).
      Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
      These sysctls are namespaced but not allowed by default.

@@ -77,7 +77,7 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 		UnsupportedGen2:                   true,
-		Skip2004Validations:               true,
+		SkipOldVHDValidations:             true,
 	}
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
@@ -110,6 +110,15 @@ var (
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
 	}
+	VHDAzureLinuxV2Gen2 = &Image{
+		Name:                  "V2gen2",
+		OS:                    OSAzureLinux,
+		Arch:                  "amd64",
+		Distro:                datamodel.AKSAzureLinuxV2Gen2,
+		Version:               datamodel.FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion,
+		Gallery:               imageGalleryLinux,
+		SkipOldVHDValidations: true,
+	}
 	VHDAzureLinuxV3Gen2 = &Image{
 		Name:    "AzureLinuxV3gen2",
 		OS:      OSAzureLinux,
@@ -136,42 +145,6 @@ var (
 		UnsupportedLocalDns: true,
 		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
 		UnsupportedSecureTLSBootstrapping: true,
-	}
-	// this is a particular 2204gen2containerd image originally built with private packages,
-	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
-	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
-		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
-		Name:                     "2204Gen2",
-		OS:                       OSUbuntu,
-		Arch:                     "amd64",
-		Version:                  "1.1704411049.2812",
-		Distro:                   datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery:                  imageGalleryLinux,
-		UnsupportedKubeletNodeIP: true,
-		UnsupportedLocalDns:      true,
-		// old image, doesn't have Secure TLS Bootstrapping support
-		UnsupportedSecureTLSBootstrapping: true,
-		UnsupportedNVMe:                   true,
-		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
-		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
-		IgnoreFailedCgroupTelemetryServices: true,
-	}
-
-	// without kubelet, kubectl, credential-provider and wasm
-	VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached = &Image{
-		Name:                "2204Gen2",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Version:             "1.1725612526.29638",
-		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
-		// old image, doesn't have Secure TLS Bootstrapping support
-		UnsupportedSecureTLSBootstrapping: true,
-		UnsupportedNVMe:                   true,
-		// this VHD doesn't contain fixed versions of cgroup telemetry scripts,
-		// thus it's possible cgroup telemetry services will be in a failed state after node provisioning
-		IgnoreFailedCgroupTelemetryServices: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -331,7 +304,7 @@ type Image struct {
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool
 	Flatcar                             bool
-	Skip2004Validations                 bool
+	SkipOldVHDValidations               bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
 }

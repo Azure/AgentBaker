@@ -109,8 +109,7 @@ echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
-# the VM before it finishes. if we succeeded, upload in the background
-# so that the provisioning script returns success more quickly
+# the VM before it finishes.
 upload_logs() {
     # if the VHD has the AKS log collector installed, use it instead. Otherwise
     # fall back to WALA collector
@@ -127,8 +126,6 @@ upload_logs() {
 }
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
-else
-    upload_logs &
 fi
 
 exit "$EXIT_CODE"

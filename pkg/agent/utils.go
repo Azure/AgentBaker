@@ -44,6 +44,9 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--cluster-domain":                    true,
 	"--max-pods":                          true,
 	"--eviction-hard":                     true,
+	"--eviction-soft":                     true,
+	"--eviction-soft-grace-period":        true,
+	"--eviction-max-pod-grace-period":     true,
 	"--node-status-update-frequency":      true,
 	"--node-status-report-frequency":      true,
 	"--image-gc-high-threshold":           true,
@@ -51,6 +54,8 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--event-qps":                         true,
 	"--pod-max-pids":                      true,
 	"--enforce-node-allocatable":          true,
+	"--kube-reserved-cgroup":              true,
+	"--system-reserved-cgroup":            true,
 	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
 	"--rotate-server-certificates":        true,
@@ -500,6 +505,8 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
 		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
+		KubeReservedCgroup:             kc["--kube-reserved-cgroup"],
+		SystemReservedCgroup:           kc["--system-reserved-cgroup"],
 		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
 		ServerTLSBootstrap:             strToBool(kc["--rotate-server-certificates"]),
@@ -592,7 +599,22 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// EvictionHard.
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+		kubeletConfig.EvictionHard = filterEvictionSignals(strKeyValToMap(eh, "<"))
+	}
+
+	// EvictionSoft (e.g. "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%").
+	if es, ok := kc["--eviction-soft"]; ok && es != "" {
+		kubeletConfig.EvictionSoft = filterEvictionSignals(strKeyValToMap(es, "<"))
+	}
+
+	// EvictionSoftGracePeriod (e.g. "memory.available=30s,nodefs.available=2m,imagefs.available=2m").
+	if esg, ok := kc["--eviction-soft-grace-period"]; ok && esg != "" {
+		kubeletConfig.EvictionSoftGracePeriod = filterEvictionSignals(strKeyValToMap(esg, "="))
+	}
+
+	// EvictionMaxPodGracePeriod (integer seconds, e.g. "60").
+	if v, ok := kc["--eviction-max-pod-grace-period"]; ok && v != "" {
+		kubeletConfig.EvictionMaxPodGracePeriod = strToInt32(v)
 	}
 
 	// feature gates.
@@ -601,8 +623,8 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 
 	// system reserve and kube reserve.
 	// looks like "cpu=100m,memory=1638Mi".
-	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
-	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], "=")
 
 	// Settings from customKubeletConfig, only take if it's set.
 	setCustomKubeletConfig(customKc, kubeletConfig)
@@ -653,9 +675,9 @@ func strToInt64Ptr(str string) *int64 {
 	return &i
 }
 
-func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
+func strKeyValToMap(str string, pairDelim string) map[string]string {
 	m := make(map[string]string)
-	pairs := strings.Split(str, strDelim)
+	pairs := strings.Split(str, ",")
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
@@ -665,6 +687,44 @@ func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]st
 		}
 	}
 	return m
+}
+
+// isValidEvictionSignal reports whether the given key is an eviction signal recognized by kubelet.
+// See https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#eviction-signals.
+func isValidEvictionSignal(signal string) bool {
+	switch signal {
+	case "memory.available",
+		"nodefs.available",
+		"nodefs.inodesFree",
+		"imagefs.available",
+		"imagefs.inodesFree",
+		"pid.available",
+		"allocatableMemory.available":
+		return true
+	default:
+		return false
+	}
+}
+
+// filterEvictionSignals drops any keys not recognized by the kubelet so we never pass it an invalid value.
+func filterEvictionSignals(signals map[string]string) map[string]string {
+	if len(signals) == 0 {
+		return nil
+	}
+
+	// Copy only the entries whose key is a kubelet-recognized eviction signal.
+	validSignals := make(map[string]string, len(signals))
+	for signal, threshold := range signals {
+		if isValidEvictionSignal(signal) {
+			validSignals[signal] = threshold
+		}
+	}
+
+	// Every key was invalid, so return nil instead of an empty json object.
+	if len(validSignals) == 0 {
+		return nil
+	}
+	return validSignals
 }
 
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {

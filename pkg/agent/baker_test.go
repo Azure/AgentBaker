@@ -1483,6 +1483,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
 		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
 	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {

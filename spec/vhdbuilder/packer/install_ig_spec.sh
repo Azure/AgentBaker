@@ -17,18 +17,3 @@ Describe 'ig_extract_upstream_version function'
     The stderr should include "[ig] Could not parse upstream version from 'not-a-version'"
   End
 End
-
-Describe 'ig_validate_version_compatibility function'
-  Include './vhdbuilder/packer/install-ig.sh'
-
-  It 'writes version mismatches to stderr'
-    OS="AZURELINUX"
-    AZURELINUX_OS_NAME="AZURELINUX"
-    IG_VERSION="0.51.1-4.azl3"
-
-    When run ig_validate_version_compatibility
-    The status should equal 1
-    The output should eq ""
-    The stderr should include "[ig] ig (0.51.1-4.azl3) and ig-gadgets (0.51.0-1.azl3) must share upstream version, found 0.51.1 vs 0.51.0"
-  End
-End

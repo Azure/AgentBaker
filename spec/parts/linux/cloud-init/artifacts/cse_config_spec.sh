@@ -330,6 +330,59 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureContainerd'
+        It 'should not overwrite an existing NVIDIA containerd config'
+            grep() {
+                echo "grep $@"
+                return 0
+            }
+
+            mkdir() {
+                echo "mkdir $@"
+            }
+
+            rm() {
+                echo "rm $@"
+            }
+
+            tee() {
+                echo "tee $@"
+                cat >/dev/null
+            }
+
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $@"
+                return 0
+            }
+
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+
+            should_e2e_mock_azure_china_cloud() {
+                echo "false"
+            }
+
+            GPU_NODE="false"
+            TARGET_CLOUD="AzurePublicCloud"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            ERR_SYSCTL_RELOAD=1
+            ERR_SYSTEMCTL_START_FAIL=1
+
+            When call ensureContainerd
+
+            The output should include 'grep -q BinaryName = "/usr/bin/nvidia-container-runtime" /etc/containerd/config.toml'
+            The output should include "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
+            The output should not include "rm -f /etc/containerd/config.toml"
+            The output should not include "Generating containerd config"
+            The output should not include "Generating GPU containerd config"
+            The output should not include "Generating non-GPU containerd config"
+            The output should include "systemctlEnableAndStartNoBlock containerd 30"
+            The status should be success
+        End
+    End
+
     Describe 'configureContainerdRegistryHost'
         It 'should configure registry host correctly if MCR_REPOSITORY_BASE is unset'
             mkdir() {
@@ -1623,6 +1676,56 @@ SETUP_EOF
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+    End
+
+    Describe 'startNvidiaManagedExpServices'
+        logs_to_events() {
+            echo "logs_to_events $1"
+            eval "$2"
+        }
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $@"
+        }
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $@"
+        }
+        mkdir() {
+            echo "mkdir $@"
+        }
+        tee() {
+            cat > /dev/null
+            echo "tee $@"
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+
+        BeforeEach 'MIG_NODE="false"'
+
+        It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
+            When call startNvidiaManagedExpServices
+
+            # device-plugin gates GPU scheduling, so it must stay blocking.
+            The output should include "systemctlEnableAndStart nvidia-device-plugin 30"
+            # dcgm/dcgm-exporter are telemetry only and must not block provisioning.
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'does not fail when dcgm telemetry services cannot be enqueued'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "warning: nvidia-dcgm could not be enqueued"
+            The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
         End
     End
 End

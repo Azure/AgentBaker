@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -25,6 +23,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
@@ -925,7 +924,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 	unitFailureAllowList := map[string]bool{
@@ -2383,16 +2382,12 @@ else
     exit 1
 fi`)
 	require.NoError(s.T, err, "Failed to run command to check sshd_config")
-	respJson, err := resp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output and exit code
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
-		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled") {
+		s.T.Fatalf("PubkeyAuthentication is not properly disabled. stdout: %s", stdout)
 	}
 
 	// Part 2. Check cannot SSH with private key (expect failure)
@@ -2411,9 +2406,7 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Determine the correct SSH service name based on the distro
 # Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
 if [ -f /etc/os-release ]; then
@@ -2447,24 +2440,14 @@ if echo "$status_output" | grep -q "Active: inactive (dead)"; then
 else
     echo "FAILED: SSH service is not inactive"
     exit 1
-fi`)},
-	}, nil)
+fi`)
 	require.NoError(s.T, err, "Failed to run command to check SSH service status")
-
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to complete command to check SSH service status")
-
-	// Parse the response to check the result
-	respJson, err := runResp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal run command response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
-		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: SSH service is disabled and stopped") {
+		s.T.Fatalf("SSH service is not properly disabled and stopped. stdout: %s", stdout)
 	}
 
 	s.T.Logf("SSH service is properly disabled and stopped as expected")
@@ -2747,7 +2730,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 
@@ -2834,15 +2817,8 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
 		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
-		return
-	}
-
-	// Skip on pinned-version VHDs that predate the waagent installation.
-	// These VHDs explicitly select a version number and are not updated.
-	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
-		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
 		return
 	}
 
@@ -2950,7 +2926,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	// blacklist and the bake-in has been removed because customers need those modules. Assert
 	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
 	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
-	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,

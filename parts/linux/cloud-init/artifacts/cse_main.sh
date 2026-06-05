@@ -199,9 +199,6 @@ function basePrep {
     fi
     setupCNIDirs
 
-    # pre-warm containerd by checking its version.
-    nohup /bin/sh -c '/usr/bin/containerd --version >/dev/null 2>&1' >/dev/null 2>&1 &
-
     # Network plugin already installed on Azure Linux OS Guard
     if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
@@ -344,12 +341,6 @@ EOF
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
         disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
-    fi
-
-    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
-        fi
     fi
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
@@ -585,6 +576,18 @@ function nodePrep {
     fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
+
+    if systemctl cat aks-log-collector.timer &>/dev/null; then
+        systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
+    else
+        echo "aks-log-collector.timer not found on this VHD, skipping"
+    fi
+
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+        fi
+    fi
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
