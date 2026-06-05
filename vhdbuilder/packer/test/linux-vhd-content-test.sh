@@ -538,6 +538,27 @@ testAuditDNotPresent() {
   echo "$test:Finish"
 }
 
+testArtifactStreamingPackagesCleanedUp() {
+  local test="testArtifactStreamingPackagesCleanedUp"
+  echo "$test:Start"
+  local overlaybdBinDir="/opt/acr/tools/overlaybd/bin"
+  # Skip if artifact streaming (acr-mirror) isn't installed on this VHD.
+  if [ ! -d "$overlaybdBinDir" ]; then
+    echo "$overlaybdBinDir not present; artifact streaming not installed on this VHD, skipping"
+    echo "$test:Finish"
+    return
+  fi
+  # The bundled overlaybd installer packages are unused at runtime and must be removed after install.
+  local leftovers
+  leftovers=$(find "$overlaybdBinDir" -maxdepth 1 -type f \( -name '*.deb' -o -name '*.rpm' \) 2>/dev/null)
+  if [ -n "$leftovers" ]; then
+    err $test "Leftover overlaybd install packages found (should be removed after install): ${leftovers}"
+  else
+    echo "No leftover overlaybd .deb/.rpm packages found, as expected"
+  fi
+  echo "$test:Finish"
+}
+
 testChrony() {
   os_sku=$1
   local test="testChrony"
@@ -2512,3 +2533,4 @@ testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION
+testArtifactStreamingPackagesCleanedUp
