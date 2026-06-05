@@ -363,36 +363,6 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
-  # dadelan/dalec - dm-verity prototype: if the containerd2 RPM (built from
-  # steamboat/local-vm-scripts/SPECS/containerd) is installed on the VHD, it
-  # stashes its dm-verity-aware config at /usr/share/containerd2/config.toml.
-  # Overlay it on top of the gtpl-rendered config we just wrote, so the RPM's
-  # config remains the single source of truth for dm-verity containerd config
-  # across both standalone steamboat VMs and AKS nodes. Without this overlay
-  # the gtpl above wins, the erofs snapshotter+differ are not enabled, and
-  # no .dmverity OCI referrers are fetched at pull time.
-  if [ -f /usr/share/containerd2/config.toml ]; then
-    echo "Overlaying containerd2 RPM-shipped dm-verity config from /usr/share/containerd2/config.toml"
-    cp /usr/share/containerd2/config.toml /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  fi
-
-  # dadelan/dalec - dm-verity prototype: same overlay pattern for hosts.toml.
-  # The containerd2 RPM ships /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml
-  # which redirects every mcr.microsoft.com pull (manifests, blobs, AND OCI
-  # referrers) to notaryaksegistry.azurecr.io where the dm-verity notation
-  # signatures live. On ACL the immutable-OS image bake strips everything
-  # under /etc/* from RPM contributions (only /usr/* survives extraction),
-  # so the RPM also stashes a copy at /usr/share/containerd2/certs.d/... which
-  # we re-overlay here. Idempotent on standard AzureLinux V3 VHDs where the
-  # /etc/ path is preserved -- this is a redundant copy in that case.
-  # Without this overlay, every signed-image pull on an ACL prototype cluster
-  # fails with "dm-verity signature required but not present on layer ...".
-  if [ -f /usr/share/containerd2/certs.d/mcr.microsoft.com/hosts.toml ]; then
-    echo "Overlaying containerd2 RPM-shipped hosts.toml from /usr/share/containerd2/certs.d/mcr.microsoft.com/hosts.toml"
-    mkdir -p /etc/containerd/certs.d/mcr.microsoft.com
-    cp /usr/share/containerd2/certs.d/mcr.microsoft.com/hosts.toml /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml || exit $ERR_FILE_WATCH_TIMEOUT
-  fi
-
   export -f should_e2e_mock_azure_china_cloud
   E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)
   if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
