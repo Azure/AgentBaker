@@ -199,36 +199,36 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "containerImagePrefetch": {
-            "latestVersion": {
+          "_disabled_latestVersion": "v1.5.50",
+          "_disabled_containerImagePrefetch": {
+            "_disabled_latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
             }
-          },
-          "_disabled_latestVersion": "v1.5.50"
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "containerImagePrefetch": {
-            "latestVersion": {
+          "_disabled_latestVersion": "v1.6.43-0",
+          "_disabled_containerImagePrefetch": {
+            "_disabled_latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
             }
-          },
-          "_disabled_latestVersion": "v1.6.43-0"
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "containerImagePrefetch": {
-            "latestVersion": {
+          "_disabled_latestVersion": "v1.7.16-0",
+          "_disabled_containerImagePrefetch": {
+            "_disabled_latestVersion": {
               "binaries": [
                 "/dropgz"
               ]
             }
-          },
-          "_disabled_latestVersion": "v1.7.16-0"
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
@@ -268,36 +268,36 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "containerImagePrefetch": {
-            "latestVersion": {
+          "_disabled_latestVersion": "v1.5.50",
+          "_disabled_containerImagePrefetch": {
+            "_disabled_latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
             }
-          },
-          "_disabled_latestVersion": "v1.5.50"
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "containerImagePrefetch": {
-            "latestVersion": {
+          "_disabled_latestVersion": "v1.6.43-0",
+          "_disabled_containerImagePrefetch": {
+            "_disabled_latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
             }
-          },
-          "_disabled_latestVersion": "v1.6.43-0"
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "containerImagePrefetch": {
-            "latestVersion": {
+          "_disabled_latestVersion": "v1.7.16-0",
+          "_disabled_containerImagePrefetch": {
+            "_disabled_latestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
             }
-          },
-          "_disabled_latestVersion": "v1.7.16-0"
+          }
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
