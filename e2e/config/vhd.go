@@ -352,7 +352,7 @@ func (i *Image) SupportsScriptless() bool {
 	return !i.Flatcar && !i.Distro.IsWindowsDistro()
 }
 
-func GetVHDResourceID(ctx context.Context, i Image, location string, usePreviouslyBuiltVHD bool) (VHDResourceID, error) {
+func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
 	switch {
 	case i.Version != "":
 		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location)
@@ -360,13 +360,6 @@ func GetVHDResourceID(ctx context.Context, i Image, location string, usePrevious
 			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
 		}
 		toolkit.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
-		return vhd, nil
-	case usePreviouslyBuiltVHD:
-		vhd, err := Azure.PreviouslyBuiltSIGVersion(ctx, &i, location)
-		if err != nil {
-			return "", fmt.Errorf("failed to get previously built VHD for %s: %w", i.Name, err)
-		}
-		toolkit.Logf(ctx, "got previously built VHD: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
 		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)

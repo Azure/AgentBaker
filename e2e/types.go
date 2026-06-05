@@ -218,12 +218,6 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
-
-	// UsePreviouslyBuiltVHD when true resolves the VHD to the most recent prior
-	// main-branch build in the build gallery, excluding the current pipeline run.
-	// This is used by the A/B update test to avoid the UUID collision where the
-	// current build's VHD and COSI share filesystem UUIDs.
-	UsePreviouslyBuiltVHD bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -234,9 +228,8 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *armcompute.VirtualMachineScaleSet) {
 	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:                 *s.VHD,
-		Location:              s.Location,
-		UsePreviouslyBuiltVHD: s.UsePreviouslyBuiltVHD,
+		Image:    *s.VHD,
+		Location: s.Location,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
