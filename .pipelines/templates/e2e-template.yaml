@@ -10,6 +10,10 @@ parameters:
     type: string
     displayName: Variable group to use for e2e tests
     default: ab-e2e
+  - name: cosiArtifactNames
+    type: object
+    displayName: List of COSI publishing info pipeline artifact names to download. Leave empty to skip COSI validation.
+    default: []
 
 jobs:
   - job: e2e
@@ -28,6 +32,13 @@ jobs:
         fetchTags: false
         fetchDepth: 1
 
+      - ${{ each artifactName in parameters.cosiArtifactNames }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download COSI info: ${{ artifactName }}'
+          inputs:
+            artifact: '${{ artifactName }}'
+            path: '$(Pipeline.Workspace)/cosi-info/${{ artifactName }}'
+
       - task: AzureCLI@2
         inputs:
           azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
@@ -44,6 +55,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          COSI_ARTIFACTS_DIR: $(Pipeline.Workspace)/cosi-info
 
       - task: PublishTestResults@2
         displayName: Upload test results
