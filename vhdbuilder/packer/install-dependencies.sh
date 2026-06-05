@@ -811,6 +811,18 @@ retagAKSNodeCAWatcher() {
   watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
   watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
   watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
+
+  # dm-verity POC: aks-node-ca-watcher is disabled in components.json (its
+  # version key is renamed to _disabled_latestVersion), so jq returns null/empty
+  # here. The image is therefore never pulled, so there is nothing to retag to
+  # :static. Skip the retag rather than tagging a bogus ":null" source (which
+  # also avoids the bake-time `ctr images tag` transfer-service code path).
+  # Restore by re-enabling (sign+mirror) the image in components.json.
+  if [ -z "${watcherVersion}" ] || [ "${watcherVersion}" = "null" ]; then
+    echo "aks-node-ca-watcher has no enabled version in components.json; skipping retag to :static"
+    return 0
+  fi
+
   watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
   # this image will never get pulled, the tag must be the same across different SHAs.
