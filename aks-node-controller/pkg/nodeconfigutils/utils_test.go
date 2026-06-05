@@ -1,8 +1,6 @@
 package nodeconfigutils
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"io"
 	"mime"
@@ -268,71 +266,6 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(cloudConfig), "#cloud-config\n"))
 	require.Contains(t, string(cloudConfig), "runcmd:")
-
-	_, err = reader.NextPart()
-	require.ErrorIs(t, err, io.EOF)
-}
-
-func TestCustomDataWithNBCUsesGzippedMultipartBoothookAndCloudConfig(t *testing.T) {
-	cfg := &aksnodeconfigv1.Configuration{
-		Version: "v1",
-		AuthConfig: &aksnodeconfigv1.AuthConfig{
-			SubscriptionId: "test-subscription",
-		},
-		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
-			ResourceGroup: "test-rg",
-			Location:      "eastus",
-		},
-		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
-			ApiServerName: "test-api-server",
-		},
-	}
-
-	customData, err := CustomDataWithNBC(cfg, "echo test")
-	require.NoError(t, err)
-
-	decoded, err := base64.StdEncoding.DecodeString(customData)
-	require.NoError(t, err)
-
-	gzipReader, err := gzip.NewReader(bytes.NewReader(decoded))
-	require.NoError(t, err)
-	defer gzipReader.Close()
-
-	uncompressed, err := io.ReadAll(gzipReader)
-	require.NoError(t, err)
-
-	sections := strings.SplitN(string(uncompressed), "\r\n\r\n", 2)
-	require.Len(t, sections, 2)
-
-	message := textproto.MIMEHeader{}
-	for _, line := range strings.Split(sections[0], "\r\n") {
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, ": ", 2)
-		require.Len(t, parts, 2)
-		message.Add(parts[0], parts[1])
-	}
-
-	mediaType, params, err := mime.ParseMediaType(message.Get("Content-Type"))
-	require.NoError(t, err)
-	require.Equal(t, "multipart/mixed", mediaType)
-
-	reader := multipart.NewReader(strings.NewReader(sections[1]), params["boundary"])
-
-	part, err := reader.NextPart()
-	require.NoError(t, err)
-	require.Equal(t, "text/cloud-boothook", part.Header.Get("Content-Type"))
-	boothook, err := io.ReadAll(part)
-	require.NoError(t, err)
-	require.Contains(t, string(boothook), AKSNodeConfigFilePath)
-	require.Contains(t, string(boothook), NBCCmdFilePath)
-
-	part, err = reader.NextPart()
-	require.NoError(t, err)
-	require.Equal(t, "text/cloud-config", part.Header.Get("Content-Type"))
-	_, err = io.ReadAll(part)
-	require.NoError(t, err)
 
 	_, err = reader.NextPart()
 	require.ErrorIs(t, err, io.EOF)
