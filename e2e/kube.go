@@ -637,21 +637,12 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 }
 
 func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
-	mcResourceGroupName := *cluster.Properties.NodeResourceGroup
-	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
-	for pager.More() {
-		nextResult, err := pager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("advance page: %w", err)
-		}
-		for _, v := range nextResult.Value {
-			if v == nil {
-				return "", fmt.Errorf("aks vnet was empty")
-			}
-			return fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), nil
+	for _, pool := range cluster.Properties.AgentPoolProfiles {
+		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
+			return *pool.VnetSubnetID, nil
 		}
 	}
-	return "", fmt.Errorf("failed to find aks vnet")
+	return "", fmt.Errorf("no VnetSubnetID found on any agent pool profile")
 }
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {

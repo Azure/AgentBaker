@@ -258,7 +258,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
 
 	var err error
-	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	nbc, err := getBaseNBC(ctx, s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
 	nbc.EnableScriptlessCSECmd = true
