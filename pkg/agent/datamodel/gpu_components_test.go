@@ -24,11 +24,11 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	if AKSGPUGridVersionSuffix == "" {
-		t.Error(("AKSGPUGridVersionSuffix is empty"))
+		t.Error("AKSGPUGridVersionSuffix is empty")
 	}
 
 	if AKSGPUGridV20VersionSuffix == "" {
-		t.Error(("AKSGPUGridV20VersionSuffix is empty"))
+		t.Error("AKSGPUGridV20VersionSuffix is empty")
 	}
 
 	// Define regular expressions for expected formats
