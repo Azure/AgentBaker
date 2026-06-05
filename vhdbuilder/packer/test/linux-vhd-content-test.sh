@@ -241,7 +241,8 @@ testPackagesInstalled() {
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
-      "dcgm-exporter")
+      "dcgm-exporter"|\
+      "aks-secure-tls-bootstrap-client")
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
