@@ -591,31 +591,132 @@ testChrony() {
 testFips() {
   local test="testFips"
   echo "$test:Start"
+  # Sourcing cse_helpers.sh overwrites the global OS_VERSION from /etc/os-release
+  # VERSION_ID (e.g. "2.0", "3.0", "3.0.20260506" on ACL, "20.04"), so the value
+  # passed in as $1 is the /etc/os-release one, not the pipeline-style OS_VERSION.
   os_version=$1
   enable_fips=$2
 
   # shellcheck disable=SC3010
-  if [[ (${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
-    kernel=$(uname -r)
-    if [ -f /proc/sys/crypto/fips_enabled ]; then
-      fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
-      if [ "${fips_enabled}" = "1" ]; then
-        echo "FIPS is enabled."
-      else
-        err $test "content of /proc/sys/crypto/fips_enabled is not 1."
-      fi
-    else
-      err $test "FIPS is not enabled."
-    fi
+  if [[ ${enable_fips,,} != "true" ]]; then
+    echo "$test:Finish"
+    return
+  fi
 
-    if [ ${os_version} = "20.04" ]; then
-      if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
-        echo "fips header files exist."
+  # Known FIPS-capable VERSION_ID values. New FIPS-enabled distros MUST be added
+  # here; otherwise the test fails loudly instead of silently no-op'ing (ICM
+  # 51000001009688). ACL VERSION_ID carries a date suffix (e.g. "3.0.20260506"),
+  # hence the "3.0.*" entry. `err` writes to stderr only, so we `return` after.
+  case "${os_version}" in
+    20.04|22.04|24.04|2.0|2.0.*|3.0|3.0.*) ;;
+    *)
+      err $test "testFips invoked with enable_fips=true on unrecognized os_version '${os_version}'; add it to the allowlist."
+      echo "$test:Finish"
+      return
+      ;;
+  esac
+
+  if [ -f /proc/sys/crypto/fips_enabled ]; then
+    fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
+    if [ "${fips_enabled}" = "1" ]; then
+      echo "FIPS is enabled."
+    else
+      err $test "content of /proc/sys/crypto/fips_enabled is not 1."
+    fi
+  else
+    err $test "FIPS is not enabled."
+  fi
+
+  if [ "${os_version}" = "20.04" ]; then
+    kernel=$(uname -r)
+    if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
+      echo "fips header files exist."
+    else
+      err $test "fips header files don't exist."
+    fi
+  fi
+
+  if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
+    if [ -f /etc/system-fips ]; then
+      echo "/etc/system-fips marker file exists."
+    else
+      err $test "/etc/system-fips marker file does not exist."
+    fi
+    # ACL images historically named the UKI "acl.efi"; newer (UAPI-compliant)
+    # images use "vmlinuz-<version>.efi". systemd-boot loads cmdline addons
+    # from "<UKI filename>.extra.d/", so the addon directory tracks the
+    # UKI's actual name. Probe for either layout.
+    uki_path=$(find /boot/EFI/Linux -maxdepth 1 -type f \
+      \( -name 'vmlinuz-*.efi' -o -name 'acl.efi' \) 2>/dev/null | sort | head -n1)
+    if [ -z "${uki_path}" ]; then
+      err $test "No UKI found under /boot/EFI/Linux (expected acl.efi or vmlinuz-*.efi)."
+    else
+      uki_name=$(basename "${uki_path}")
+      fips_addon_path="/boot/EFI/Linux/${uki_name}.extra.d/fips.addon.efi"
+      if [ -f "${fips_addon_path}" ]; then
+        echo "ACL FIPS UKI addon file exists at ${fips_addon_path}."
       else
-        err $test "fips header files don't exist."
+        err $test "ACL FIPS UKI addon file does not exist at ${fips_addon_path}."
       fi
     fi
   fi
+
+  # OpenSSL must have an active FIPS or SymCrypt provider on 3.x (ICM 51000001009688
+  # was caused by kernel FIPS on with no provider, causing portmap to panic). Ubuntu
+  # 20.04 ships 1.1.x and uses the legacy FIPS module — skip there. Keep in sync with
+  # the Go validator in e2e/validators.go.
+  if ! command -v openssl >/dev/null 2>&1; then
+    err $test "openssl binary not found on a FIPS-enabled VHD."
+    echo "$test:Finish"
+    return
+  fi
+  openssl_version_raw=$(openssl version 2>&1)
+  openssl_version=$(echo "${openssl_version_raw}" | awk '{print $2}')
+  case "${openssl_version}" in
+    "")
+      err $test "could not parse openssl version (raw output: '${openssl_version_raw}')."
+      ;;
+    3.*)
+      providers_output=$(openssl list -providers 2>&1)
+      echo "openssl list -providers output:"
+      echo "${providers_output}"
+      # Walk each provider block, scoping `status: active` to its enclosing header.
+      # Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider".
+      # Use `[ \t]` (not `[[:space:]]`) so a trailing CR can't break header detection;
+      # also strip \r explicitly.
+      fips_active=""
+      current_provider=""
+      header_indent=0
+      while IFS= read -r line; do
+        line="${line%$'\r'}"
+        # shellcheck disable=SC3010
+        if [[ "${line}" =~ ^([\ $'\t']+)([^[:space:]:]+)[\ $'\t']*$ ]]; then
+          header_indent=${#BASH_REMATCH[1]}
+          current_provider="${BASH_REMATCH[2]}"
+          continue
+        fi
+        # shellcheck disable=SC3010
+        if [[ "${current_provider}" == fips* || "${current_provider}" == symcrypt* ]] \
+          && [[ "${line}" =~ ^([\ $'\t']+)status:[\ $'\t']+active ]]; then
+          if [ ${#BASH_REMATCH[1]} -gt ${header_indent} ]; then
+            fips_active="${current_provider}"
+            break
+          fi
+        fi
+      done <<< "${providers_output}"
+      if [ -n "${fips_active}" ]; then
+        echo "openssl provider '${fips_active}' is registered and active."
+      else
+        err $test "openssl does not have an active fips or symcrypt provider."
+      fi
+      ;;
+    1.1.*)
+      echo "openssl providers check skipped: detected version '${openssl_version_raw}' (legacy FIPS module)."
+      ;;
+    *)
+      err $test "unexpected openssl version '${openssl_version_raw}': FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x."
+      ;;
+  esac
 
   echo "$test:Finish"
 }
@@ -1262,35 +1363,68 @@ testNfsServerService() {
   echo "$test:Finish"
 }
 
-# CVE-2026-31431 (Copy Fail): Verify algif_aead kernel module is disabled.
-# The modprobe-CIS.conf should contain "install algif_aead /bin/false" which
-# prevents the module from loading. Verify the config is present, the module
-# is not loaded, and that attempting to load it fails.
-testAlgifAeadDisabled() {
-  local test="testAlgifAeadDisabled"
+# Verify all kernel modules with known LPE vulnerabilities are disabled.
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# To add a new CVE mitigation, append the module to BOTH loops below — the
+# AzureLinux 3.0 absence loop AND the default presence + load-refusal loop.
+#
+# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
+# the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
+# require those modules). On AzL3 we therefore assert the blacklist entries are
+# ABSENT. Ubuntu and Mariner (AzL2) still assert presence + load-refusal.
+testVulnerableKernelModulesDisabled() {
+  local os_sku="${1:-$OS_SKU}"
+  local os_version="${2:-$OS_VERSION}"
+  local test="testVulnerableKernelModulesDisabled"
   echo "$test:Start"
 
-  # Verify modprobe config blocks the module
-  if ! grep -qs "install algif_aead /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
-    err "$test" "algif_aead disable rule not found in /etc/modprobe.d/*.conf"
-    return 1
-  fi
-  echo "$test: modprobe config correctly blocks algif_aead"
+  local failed=0
 
-  # Verify the module is not currently loaded
-  if grep -qE '^algif_aead ' /proc/modules 2>/dev/null; then
-    err "$test" "algif_aead kernel module is loaded despite being disabled"
-    return 1
-  fi
-  echo "$test: algif_aead module is not loaded"
+  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+    for mod in algif_aead esp4 esp6 rxrpc; do
+      if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes; no 'install' or 'blacklist' directive should remain)"
+        failed=1
+      else
+        echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
+      fi
+    done
 
-  # Verify that attempting to load the module fails
-  if modprobe algif_aead 2>/dev/null; then
-    err "$test" "modprobe algif_aead succeeded — module should be blocked"
-    rmmod algif_aead 2>/dev/null || true
+    if [ "$failed" -ne 0 ]; then
+      return 1
+    fi
+
+    echo "$test:Finish"
+    return 0
+  fi
+
+  for mod in algif_aead esp4 esp6 rxrpc; do
+    if ! grep -qsE "^install ${mod} /bin/false" /etc/modprobe.d/*.conf 2>/dev/null; then
+      err "$test" "${mod} disable rule not found in /etc/modprobe.d/*.conf"
+      failed=1
+    else
+      echo "$test: modprobe config correctly blocks ${mod}"
+    fi
+
+    if grep -qE "^${mod} " /proc/modules 2>/dev/null; then
+      err "$test" "${mod} kernel module is loaded despite being disabled"
+      failed=1
+    else
+      echo "$test: ${mod} module is not loaded"
+    fi
+
+    if modprobe "${mod}" 2>/dev/null; then
+      err "$test" "modprobe ${mod} succeeded — module should be blocked"
+      modprobe -r "${mod}" 2>/dev/null || true
+      failed=1
+    else
+      echo "$test: modprobe ${mod} correctly refused to load"
+    fi
+  done
+
+  if [ "$failed" -ne 0 ]; then
     return 1
   fi
-  echo "$test: modprobe algif_aead correctly refused to load"
 
   echo "$test:Finish"
 }
@@ -2377,4 +2511,4 @@ testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
-testAlgifAeadDisabled
+testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION

@@ -50,12 +50,44 @@ get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
 
+# Disable a single kernel module with a known LPE vulnerability.
+# Writes a modprobe blacklist rule and unloads the module if loaded.
+# Applies to existing VHDs that don't yet have the fix baked into modprobe-CIS.conf.
+# Safe to run unconditionally — idempotent (overwrites with same content if already present).
+# Defined in cse_main.sh (not sourced) to support scriptless provisioning.
+#
+# Usage: disableVulnerableKernelModule <module_name> <description>
+disableVulnerableKernelModule() {
+    local mod="$1"
+    local desc="$2"
+
+    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
+
+    if grep -q "^${mod} " /proc/modules 2>/dev/null; then
+        if modprobe -r "$mod" 2>/dev/null; then
+            echo "${desc}: successfully unloaded ${mod}"
+        else
+            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
+        fi
+    fi
+}
+
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
 # This stage prepares the base VHD image with all necessary components and configurations.
 # IMPORTANT: This stage must NOT join the node to the cluster.
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
+    # Start the hosts-setup timer as the very first action in basePrep.
+    # The timer spawns a systemd service (with After=network-online.target) that uses dig
+    # to resolve critical AKS FQDNs and populate /etc/localdns/hosts. Starting it first
+    # maximizes the time for DNS resolution to complete in the background while the rest
+    # of basePrep runs. By the time enableLocalDNS() starts CoreDNS (end of basePrep),
+    # the hosts file should already be populated.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
+    fi
+
     if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
         echo "Skipping holding walinuxagent"
     else
@@ -284,27 +316,31 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    # CVE-2026-31431 (Copy Fail): Mitigate algif_aead LPE vulnerability.
-    # Affects Ubuntu 20.04/22.04/24.04 and AzureLinux 3.0 (kernel >=4.15).
-    # Applies to existing VHDs that don't yet have the modprobe-CIS.conf fix baked in.
-    # Safe to run unconditionally — idempotent if already mitigated.
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-        if ! grep -qs "algif_aead" /etc/modprobe.d/*.conf 2>/dev/null; then
-            printf "install algif_aead /bin/false\nblacklist algif_aead\n" > /etc/modprobe.d/disable-algif_aead.conf
-        fi
-        if grep -q '^algif_aead ' /proc/modules 2>/dev/null; then
-            if rmmod algif_aead 2>/dev/null; then
-                echo "CVE-2026-31431: successfully unloaded algif_aead module"
-            else
-                echo "CVE-2026-31431: failed to unload algif_aead (in use), reboot required for full mitigation"
-            fi
-        fi
-    fi
-
-    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
-        fi
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
+    # Applied at CSE provisioning time on Ubuntu, AzureLinux OSGuard, and AzureLinux 2.0 / Mariner.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    #
+    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
+    # Fail / DirtyFrag / Fragnesia upstream, so the runtime modprobe blacklist is no longer
+    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf —
+    # customers reported the blacklist actively blocks legitimate workloads that use
+    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
+    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
+    # removal is performed — customers will get the unblocked configuration on their next AzL3
+    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
+    # the affected kernel modules.
+    #
+    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
+    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
+    # Keep the CSE-time runtime apply enabled for AzL2/Mariner while those images remain supported.
+    # See https://github.com/Azure/AKS/issues/5753.
+    #
+    if isUbuntu "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
     fi
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
@@ -319,6 +355,11 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
+    # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
+    # very start of basePrep (before disableSystemdResolved) to give the timer a head start
+    # on DNS resolution. By now, /etc/localdns/hosts should be populated, so CoreDNS can start
+    # with the hosts-plugin corefile via select_localdns_corefile().
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
@@ -454,23 +495,20 @@ function nodePrep {
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
-    VALIDATION_ERR=0
-
-    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
 
     # Edge case scenarios:
     # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
     # high timeout to address high latency for private dns server to forward request to Azure DNS
     # dns check will be done only if we use FQDN for API_SERVER_NAME
-    API_SERVER_CONN_RETRIES=50
-    # shellcheck disable=SC3010
-    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-        API_SERVER_CONN_RETRIES=100
-    fi
+    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
+    VALIDATION_ERR=0
     # shellcheck disable=SC3010
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        API_SERVER_CONN_RETRIES=50
         API_SERVER_DNS_RETRY_TIMEOUT=300
+        # shellcheck disable=SC3010
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+           API_SERVER_CONN_RETRIES=100
            API_SERVER_DNS_RETRY_TIMEOUT=600
         fi
         if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
@@ -498,7 +536,6 @@ function nodePrep {
         API_SERVER_CONN_RETRIES=300
         logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
-
     echo "API server connection check code: $VALIDATION_ERR"
     if [ "$VALIDATION_ERR" -ne 0 ]; then
         exit $VALIDATION_ERR
@@ -539,6 +576,18 @@ function nodePrep {
     fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
+
+    if systemctl cat aks-log-collector.timer &>/dev/null; then
+        systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
+    else
+        echo "aks-log-collector.timer not found on this VHD, skipping"
+    fi
+
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+        fi
+    fi
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'

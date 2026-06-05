@@ -149,11 +149,16 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
-		TlsBootstrappingToken:                         nbc.KubeletClientTLSBootstrapToken,
-		SecureTlsBootstrappingDeadline:                to.Ptr(nbc.SecureTLSBootstrappingConfig.GetDeadline()),
-		SecureTlsBootstrappingAadResource:             to.Ptr(nbc.SecureTLSBootstrappingConfig.GetAADResource()),
-		SecureTlsBootstrappingUserAssignedIdentityId:  to.Ptr(nbc.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()),
-		SecureTlsBootstrappingCustomClientDownloadUrl: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()),
+		TlsBootstrappingToken:                           nbc.KubeletClientTLSBootstrapToken,
+		SecureTlsBootstrappingValidateKubeconfigTimeout: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetValidateKubeconfigTimeout()),
+		SecureTlsBootstrappingGetAccessTokenTimeout:     to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetAccessTokenTimeout()),
+		SecureTlsBootstrappingGetInstanceDataTimeout:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetInstanceDataTimeout()),
+		SecureTlsBootstrappingGetNonceTimeout:           to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetNonceTimeout()),
+		SecureTlsBootstrappingGetAttestedDataTimeout:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetAttestedDataTimeout()),
+		SecureTlsBootstrappingGetCredentialTimeout:      to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()),
+		SecureTlsBootstrappingAadResource:               to.Ptr(nbc.SecureTLSBootstrappingConfig.GetAADResource()),
+		SecureTlsBootstrappingUserAssignedIdentityId:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetUserAssignedIdentityID()),
+		SecureTlsBootstrappingCustomClientDownloadUrl:   to.Ptr(nbc.SecureTLSBootstrappingConfig.GetCustomClientDownloadURL()),
 	}
 	if nbc.SecureTLSBootstrappingConfig.GetEnabled() {
 		bootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
@@ -292,6 +297,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
 					ServeStale:                  "Immediate",
 				},
+			},
+			CriticalFqdns: []string{
+				"mcr.microsoft.com",
+				"login.microsoftonline.com",
+				"packages.aks.azure.com",
 			},
 		},
 		NeedsCgroupv2: to.Ptr(true),
@@ -536,6 +546,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 									ServeStale:                  "Immediate",
 								},
 							},
+							CriticalFQDNs: []string{
+								"mcr.microsoft.com",
+								"login.microsoftonline.com",
+								"packages.aks.azure.com",
+							},
 						},
 					},
 				},
@@ -684,6 +699,11 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
 						ServeStale:                  "Immediate",
 					},
+				},
+				CriticalFQDNs: []string{
+					"mcr.microsoft.com",
+					"login.microsoftonline.com",
+					"packages.aks.azure.com",
 				},
 			},
 		},

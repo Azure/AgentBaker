@@ -576,6 +576,7 @@ installToolFromBootstrapProfileRegistry() {
 
     # All tools installed successfully
     rm -rf "${download_root}"
+    rm -f /opt/bin/"${tool_name}"-* &
     return 0
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -19,6 +20,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
@@ -875,6 +877,11 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 		nil,
 	)
 	if err != nil {
+		// 409 means another operation is in progress — wait and re-fetch
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+			return waitForPrivateZone(ctx, nodeResourceGroup, privateZoneName)
+		}
 		return nil, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
 	}
 	resp, err := poller.PollUntilDone(ctx, nil)
@@ -884,6 +891,27 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 
 	toolkit.Logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
 	return &resp.PrivateZone, nil
+}
+
+func waitForPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
+	defer toolkit.LogStepCtxf(ctx, "waiting for private DNS zone %s (409 conflict)", privateZoneName)()
+	var zone *armprivatedns.PrivateZone
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
+		if err != nil {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+				return false, nil // zone doesn't exist yet
+			}
+			return false, err
+		}
+		zone = &resp.PrivateZone
+		return true, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("waiting for private dns zone %q: %w", privateZoneName, err)
+	}
+	return zone, nil
 }
 
 func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
@@ -923,6 +951,22 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 		nil,
 	)
 	if err != nil {
+		// 409 means another operation is in progress — link is being created by another run
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+			toolkit.Logf(ctx, "Virtual network link creation conflict (409), waiting for completion")
+			return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+				_, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, nodeResourceGroup, privateZoneName, networkLinkName, nil)
+				if err != nil {
+					var respErr *azcore.ResponseError
+					if errors.As(err, &respErr) && respErr.StatusCode == 404 {
+						return false, nil // link doesn't exist yet
+					}
+					return false, err
+				}
+				return true, nil
+			})
+		}
 		return fmt.Errorf("failed to create virtual network link in BeginCreateOrUpdate: %w", err)
 	}
 	resp, err := poller.PollUntilDone(ctx, nil)

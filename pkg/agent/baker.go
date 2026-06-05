@@ -52,6 +52,8 @@ logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers
 
+nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
 EOF
@@ -1020,6 +1022,21 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return GetCloudTargetEnv(cs.Location)
 		},
+		"GetArmResourceEndpoint": func() string {
+			// Custom clouds (Azure Stack): RP populates CustomCloudEnv.ResourceManagerEndpoint.
+			if cs.Properties != nil && cs.Properties.CustomCloudEnv != nil {
+				return cs.Properties.CustomCloudEnv.ResourceManagerEndpoint
+			}
+			// Public sovereign clouds (FF/MC) — endpoints are public knowledge so
+			// it's safe to map by cloud name. Default to public cloud otherwise.
+			switch GetCloudTargetEnv(cs.Location) {
+			case datamodel.AzureUSGovernmentCloud:
+				return "https://management.usgovcloudapi.net/"
+			case datamodel.AzureChinaCloud:
+				return "https://management.chinacloudapi.cn/"
+			}
+			return "https://management.azure.com/"
+		},
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
 		},
@@ -1313,10 +1330,30 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldEnableLocalDNS": func() bool {
 			return profile.ShouldEnableLocalDNS()
 		},
+		"ShouldEnableHostsPlugin": func() bool {
+			return profile.ShouldEnableHostsPlugin()
+		},
 		"GetGeneratedLocalDNSCoreFile": func() (string, error) {
-			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
+			// Legacy variable: kept for backward compat with old VHDs that only know
+			// LOCALDNS_GENERATED_COREFILE. Must use includeHostsPlugin=false because
+			// old VHDs don't provision /etc/localdns/hosts.
+			output, err := GenerateLocalDNSCoreFile(config, profile, false)
 			if err != nil {
-				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
+				return "", fmt.Errorf("failed to generate localdns corefile: %w", err)
+			}
+			return base64.StdEncoding.EncodeToString([]byte(output)), nil
+		},
+		"GetGeneratedLocalDNSCoreFileBase": func() (string, error) {
+			output, err := GenerateLocalDNSCoreFile(config, profile, false)
+			if err != nil {
+				return "", fmt.Errorf("failed generate base corefile for localdns using template: %w", err)
+			}
+			return base64.StdEncoding.EncodeToString([]byte(output)), nil
+		},
+		"GetGeneratedLocalDNSCoreFileWithHosts": func() (string, error) {
+			output, err := GenerateLocalDNSCoreFile(config, profile, true)
+			if err != nil {
+				return "", fmt.Errorf("failed generate corefile with hosts plugin for localdns using template: %w", err)
 			}
 			return base64.StdEncoding.EncodeToString([]byte(output)), nil
 		},
@@ -1325,6 +1362,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
+		},
+		"GetLocalDNSCriticalFQDNs": func() string {
+			if profile.LocalDNSProfile == nil {
+				return ""
+			}
+			criticalFQDNs := make([]string, 0, len(profile.LocalDNSProfile.CriticalFQDNs))
+			for _, fqdn := range profile.LocalDNSProfile.CriticalFQDNs {
+				trimmedFQDN := strings.TrimSpace(fqdn)
+				if trimmedFQDN == "" {
+					continue
+				}
+				criticalFQDNs = append(criticalFQDNs, trimmedFQDN)
+			}
+			return strings.Join(criticalFQDNs, ",")
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
@@ -1895,16 +1946,19 @@ func containerdConfigFromTemplate(
 
 // ----------------------- Start of changes related to localdns ------------------------------------------.
 // Parse and generate localdns Corefile from template and LocalDNSProfile.
+// includeHostsPlugin controls whether the hosts plugin blocks for caching critical AKS FQDNs
+// are included in the generated Corefile. When false, the same template is rendered without
+// the hosts blocks, used as a fallback when enableAKSLocalDNSHostsSetup fails at provisioning time.
 func GenerateLocalDNSCoreFile(
 	config *datamodel.NodeBootstrappingConfiguration,
 	profile *datamodel.AgentPoolProfile,
-	tmpl string,
+	includeHostsPlugin bool,
 ) (string, error) {
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
 
-	if profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
+	if profile == nil || profile.LocalDNSProfile == nil || !profile.ShouldEnableLocalDNS() {
 		return "", nil
 	}
 
@@ -1912,7 +1966,11 @@ func GenerateLocalDNSCoreFile(
 		"hasSuffix": strings.HasSuffix,
 	}
 	localDNSCoreFileData := profile.GetLocalDNSCoreFileData()
-	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
+	localDNSCoreFileData.IncludeHostsPlugin = includeHostsPlugin
+	localDNSCorefileTemplate, err := template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(localDNSCoreFileTemplateString)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse localdns corefile template: %w", err)
+	}
 
 	// Generate the Corefile content.
 	var corefileBuffer bytes.Buffer
@@ -1925,6 +1983,10 @@ func GenerateLocalDNSCoreFile(
 }
 
 // Template to create corefile that will be used by localdns service.
+// When IncludeHostsPlugin is true, the hosts plugin blocks for caching critical AKS FQDNs
+// (mcr.microsoft.com, packages.aks.azure.com, etc.) are included in root domain server blocks.
+// When false, hosts blocks are omitted — used as a fallback when enableAKSLocalDNSHostsSetup fails at
+// provisioning time, following the same dual-config pattern used for containerd GPU/no-GPU configs.
 const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
@@ -1951,6 +2013,14 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.NodeListenerIP}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
+    {{- end}}
     {{- if $isRootDomain}}
     forward . {{$.AzureDNSIP}} {
     {{- else}}
@@ -2012,6 +2082,14 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{$.ClusterListenerIP}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
+    {{- end}}
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}

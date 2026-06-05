@@ -41,6 +41,10 @@ type Tags struct {
 // MatchesFilters checks if the Tags struct matches all given filters.
 // Filters are comma-separated "key=value" pairs (e.g., "gpu=true,os=x64").
 // Returns true if all filters match, false otherwise. Errors on invalid input.
+//
+// Special case: when ALL filters use the "Name" key (e.g., "Name=foo,Name=bar"),
+// OR semantics are used instead, matching if any name matches. This allows
+// selecting multiple scenarios by name with a single filter string.
 func (t Tags) MatchesFilters(filters string) (bool, error) {
 	return t.matchFilters(filters, true)
 }
@@ -54,6 +58,8 @@ func (t Tags) MatchesAnyFilter(filters string) (bool, error) {
 
 // matchFilters is a helper function used by both MatchesFilters and MatchesAnyFilter.
 // The 'all' parameter determines whether all filters must match (true) or just any filter (false).
+// When all filters target the "Name" field, OR semantics are applied regardless of the 'all'
+// parameter, since a scenario can only have one name and AND would never match multiple names.
 func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	if filters == "" {
 		return true, nil
@@ -61,6 +67,10 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 	v := reflect.ValueOf(t)
 	filterPairs := strings.Split(filters, ",")
+
+	allNameFilters := true
+	anyMatch := false
+	allMatch := true
 
 	for _, pair := range filterPairs {
 		kv := strings.SplitN(pair, "=", 2)
@@ -70,6 +80,10 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 		key := strings.TrimSpace(kv[0])
 		value := strings.TrimSpace(kv[1])
+
+		if !strings.EqualFold(key, "Name") {
+			allNameFilters = false
+		}
 
 		// Case-insensitive field lookup
 		field := reflect.Value{}
@@ -98,15 +112,20 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 			return false, fmt.Errorf("unsupported field type for %s", key)
 		}
 
-		if all && !match {
-			return false, nil
-		}
-		if !all && match {
-			return true, nil
+		if match {
+			anyMatch = true
+		} else {
+			allMatch = false
 		}
 	}
 
-	return all, nil
+	if allNameFilters {
+		return anyMatch, nil
+	}
+	if all {
+		return allMatch, nil
+	}
+	return anyMatch, nil
 }
 
 // Scenario represents an AgentBaker E2E scenario.
@@ -168,10 +187,10 @@ type Config struct {
 	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
-	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
+	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
-	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
+	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
@@ -409,4 +428,41 @@ func (s *Scenario) IsWindows() bool {
 
 func (s *Scenario) IsLinux() bool {
 	return !s.IsWindows()
+}
+
+// IsHostsPluginEnabled returns true if the hosts plugin is explicitly enabled
+// via either NBC (traditional) or AKSNodeConfig (scriptless) paths.
+func (s *Scenario) IsHostsPluginEnabled() bool {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil {
+		return s.Runtime.NBC.AgentPoolProfile.ShouldEnableHostsPlugin()
+	}
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.LocalDnsProfile != nil {
+		return s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableLocalDns &&
+			s.Runtime.AKSNodeConfig.LocalDnsProfile.EnableHostsPlugin
+	}
+	return false
+}
+
+// GetDefaultFQDNsForValidation returns the public cloud FQDNs to validate in hosts file checks.
+// AgentBaker e2e only runs in public cloud, so sovereign cloud branches are unnecessary.
+func (s *Scenario) GetDefaultFQDNsForValidation() []string {
+	return []string{
+		"mcr.microsoft.com",
+		"login.microsoftonline.com",
+		"packages.aks.azure.com",
+	}
+}
+
+// GetContainerRegistryFQDN returns the container registry FQDN for the cloud environment
+// determined by the cluster's location. Uses Runtime.Cluster.Model.Location so it works
+// for both legacy (NBC) and scriptless (AKSNodeConfig) bootstrap paths.
+func (s *Scenario) GetContainerRegistryFQDN() string {
+	if s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+		location := strings.ToLower(*s.Runtime.Cluster.Model.Location)
+		if strings.HasPrefix(location, "china") {
+			return "mcr.azure.cn"
+		}
+	}
+	// Default to public cloud container registry (also used by Fairfax/US Gov)
+	return "mcr.microsoft.com"
 }

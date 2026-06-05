@@ -7,9 +7,9 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 2,
+  "prHourlyLimit": 1,
   "branchConcurrentLimit": 0,
-  "commitHourlyLimit": 2,
+  "commitHourlyLimit": 1,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
@@ -218,8 +218,10 @@
     },
     {
       "matchPackageNames": [
+        "azure-cni",
         "containernetworking/azure-cni"
       ],
+      "groupName": "azure-cni",
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -382,6 +384,18 @@
     },
     {
       "matchPackageNames": [
+        "azure-acr-credential-provider-sysext"
+      ],
+      "groupName": "acr-credential-provider-sysext",
+      "assignees": [
+        "nilo19"
+      ],
+      "reviewers": [
+        "nilo19"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "kubernetes-cri-tools"
       ],
       "groupName": "kubernetes-cri-tools",
@@ -496,7 +510,7 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/azure-cloud-node-manager"
+        "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [

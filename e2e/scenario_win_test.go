@@ -16,10 +16,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
-func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {}
-func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
+func EmptyBootstrapConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+}
+func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet) {}
 
-func DualStackConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
+func DualStackConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 	properties := configuration.ContainerService.Properties
 	properties.FeatureFlags.EnableIPv6DualStack = true
 }
@@ -145,117 +146,6 @@ func Test_Windows2022Gen2AzureOverlayNetworkDualStack(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2AzureNetwork(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Network",
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2AzureOverlayNetworkDualStack(t *testing.T) {
-	t.Skip("Dual stack tests are not working yet")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack",
-		Config: Config{
-			Cluster:                ClusterAzureOverlayNetworkDualStack,
-			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        DualStackVMConfigMutator,
-			BootstrapConfigMutator: DualStackConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2AzureNetwork(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Network - hyperv gen2",
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows23H2Gen2,
-			VMConfigMutator:        EmptyVMConfigMutator,
-			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2AzureOverlayDualStack(t *testing.T) {
-	t.Skip("Dual stack tests are not working yet")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 with Azure Overlay Network Dual Stack - hyperv gen2",
-		Config: Config{
-			Cluster:                ClusterAzureOverlayNetworkDualStack,
-			VHD:                    config.VHDWindows23H2Gen2,
-			VMConfigMutator:        DualStackVMConfigMutator,
-			BootstrapConfigMutator: DualStackConfigMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip")
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2CachingRegression(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows 23H2 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
-				// Secure TLS Bootstrapping isn't supported on this CSE script package version
-				nbc.SecureTLSBootstrappingConfig.Enabled = false
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip")
-			},
-		},
-	})
-}
-
 func Test_Windows2022CachingRegression(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows 2022 VHD built before local cache enabled should still work - overwrite the CSE scripts package URL",
@@ -263,7 +153,7 @@ func Test_Windows2022CachingRegression(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v0.0.52.zip"
 				// Secure TLS Bootstrapping isn't supported on this CSE script package version
 				nbc.SecureTLSBootstrappingConfig.Enabled = false
@@ -282,7 +172,7 @@ func Test_Windows2025(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -307,7 +197,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -333,7 +223,7 @@ func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
 			VHD:                   config.VHDWindows2025Gen2,
 			VMConfigMutator:       EmptyVMConfigMutator,
 			WaitForSSHAfterReboot: 5 * time.Minute,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
 					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
@@ -363,10 +253,10 @@ func Test_Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -440,6 +330,59 @@ func Test_Windows2022_VHDCaching(t *testing.T) {
 	})
 }
 
+func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "VHD Caching - Windows Server 2025 Gen2",
+		Config: Config{
+			Cluster:    ClusterAzureNetwork,
+			VHD:        config.VHDWindows2025Gen2,
+			VHDCaching: true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
+			},
+		},
+	})
+}
+
+// Test_Windows2022_VHDCaching_LegacyTLSBootstrap exercises Windows PIS /
+// VHD-cached provisioning with secure TLS bootstrap disabled, forcing kubelet
+// to use the legacy bootstrap-token path. Catches regressions in the two-stage
+// CSE flow that only surface when no secure-tls-bootstrap client is around to
+// overwrite the temporary kubeconfig.
+func Test_Windows2022_VHDCaching_LegacyTLSBootstrap(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "VHD Caching with secure TLS bootstrap disabled",
+		Config: Config{
+			Cluster:    ClusterAzureNetwork,
+			VHD:        config.VHDWindows2022Containerd,
+			VHDCaching: true,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				if nbc.SecureTLSBootstrappingConfig == nil {
+					nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
+				}
+				nbc.SecureTLSBootstrappingConfig.Enabled = false
+			},
+		},
+	})
+}
+
 func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
@@ -447,7 +390,7 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				// 2025 supported in 1.32+ .
 				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.33.1"
 				configuration.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", "1.33.1", "1.33.1")
@@ -465,53 +408,6 @@ func Test_Windows2022Gen2_k8s_133(t *testing.T) {
 		},
 	})
 }
-func Test_Windows23H2_Cilium2(t *testing.T) {
-	t.Skip("skipping test for Cilium on Windows 23H2, as it is not supported in production AKS yet")
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 2022 with Containerd",
-		Config: Config{
-			Cluster:         ClusterCiliumNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				// cilium is only supported in 1.30 or greater.
-				configuration.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.30.9"
-				configuration.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane = datamodel.EbpfDataplane_cilium
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsRunningWindows(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Windows23H2Gen2_WindowsCiliumNetworking(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Windows Server 23H2 Gen2 with Windows Cilium Networking (WCN) enabled",
-		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-				if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
-					configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
-				}
-				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
-				configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsCiliumIsRunning(ctx, s)
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
-				ValidateCollectWindowsLogsScript(ctx, s)
-			},
-		},
-	})
-}
-
 func Test_Windows2022_McrChinaCloud_Windows(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -550,7 +446,7 @@ func Test_Windows2025Gen2_McrChinaCloud_Windows(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, configuration)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -585,7 +481,7 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDWindows2025Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -632,7 +528,7 @@ func Test_NetworkIsolatedCluster_Windows_OrasDownload(t *testing.T) {
 			Cluster:         ClusterAzureBootstrapProfileCache,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: EmptyVMConfigMutator,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				Windows2025BootstrapConfigMutator(t, nbc)
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{

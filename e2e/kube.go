@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
+	"golang.org/x/net/http2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -37,6 +40,8 @@ type Kubeclient struct {
 const (
 	hostNetworkDebugAppLabel = "debug-mariner-tolerated"
 	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
+	proxyAppLabel            = "e2e-proxy"
+	proxyPort                = 8888
 )
 
 func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
@@ -56,6 +61,25 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	config.QPS = 200
 	config.Burst = 400
 
+	// Defense-in-depth against silent connection wedges (apiserver SPDY proxy
+	// hangs, NAT/LB idle timeouts) which manifest as kube exec calls that hang
+	// indefinitely. Bound the TCP dial and enable HTTP/2 keep-alive pings so
+	// the transport itself surfaces a dead peer as a connection error,
+	// triggering retries instead of consuming the caller's timeout budget.
+	config.Dial = (&net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		if t, ok := rt.(*http.Transport); ok {
+			if h2, err := http2.ConfigureTransports(t); err == nil {
+				h2.ReadIdleTimeout = 30 * time.Second
+				h2.PingTimeout = 15 * time.Second
+			}
+		}
+		return rt
+	}
+
 	dynamic, err := client.New(config, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
@@ -74,7 +98,7 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	}, nil
 }
 
-func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace string, labelSelector string, fieldSelector string, maxRetries int) (*corev1.Pod, error) {
+func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
 	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
 
@@ -101,22 +125,6 @@ func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace
 			}
 		}
 
-		// Check for FailedCreatePodSandBox events
-		events, err := k.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
-		if err == nil {
-			for _, event := range events.Items {
-				if event.Reason == "FailedCreatePodSandBox" {
-					maxRetries--
-					sandboxErr := fmt.Errorf("pod %s has FailedCreatePodSandBox event: %s", pod.Name, event.Message)
-					if maxRetries <= 0 {
-						return false, sandboxErr
-					}
-					k.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
-					return false, nil // Keep polling
-				}
-			}
-		}
-
 		switch pod.Status.Phase {
 		case corev1.PodFailed:
 			logPodDebugInfo(ctx, k, pod)
@@ -140,10 +148,6 @@ func (k *Kubeclient) WaitUntilPodRunningWithRetry(ctx context.Context, namespace
 	})
 
 	return pod, err
-}
-
-func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
-	return k.WaitUntilPodRunningWithRetry(ctx, namespace, labelSelector, fieldSelector, 0)
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
@@ -199,7 +203,7 @@ func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeN
 	if kubeNodeName == "" {
 		return nil, fmt.Errorf("kubeNodeName must not be empty")
 	}
-	return k.WaitUntilPodRunningWithRetry(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName, 3)
+	return k.WaitUntilPodRunning(ctx, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
 }
 
 func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) {
@@ -303,13 +307,25 @@ func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isNetworkIsolate
 		return err
 	}
 
+	// proxy is not available on network-isolated clusters
+	if !isNetworkIsolated {
+		if err := k.ensureProxyConfigMap(ctx); err != nil {
+			return err
+		}
+		proxyDS := daemonsetProxy(ctx)
+		if err := k.CreateDaemonset(ctx, proxyDS); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) error {
 	desired := ds.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, ds, func() error {
-		ds = desired
+		ds.Spec = desired.Spec
+		ds.Labels = desired.Labels
 		return nil
 	})
 	if err != nil {
@@ -443,6 +459,181 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 			},
 		},
 	}
+}
+
+func (k *Kubeclient) ensureProxyConfigMap(ctx context.Context) error {
+	// Minimal HTTP forward proxy in Python. Handles both:
+	// - CONNECT tunneling for HTTPS (curl uses this when HTTPS_PROXY is set)
+	// - Plain HTTP forwarding (curl uses this when http_proxy is set)
+	proxyScript := `import socket,threading,select,sys,re
+
+def relay(client, remote):
+    sockets = [client, remote]
+    try:
+        while True:
+            readable, _, errored = select.select(sockets, [], sockets, 60)
+            if errored or not readable:
+                break
+            for s in readable:
+                data = s.recv(65536)
+                if not data:
+                    return
+                (remote if s is client else client).sendall(data)
+    finally:
+        remote.close()
+
+def handle_connect(client, host, port):
+    try:
+        remote = socket.create_connection((host, int(port)), timeout=30)
+    except Exception as e:
+        client.sendall(f"HTTP/1.1 502 Bad Gateway\r\n\r\n{e}".encode())
+        return
+    client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+    relay(client, remote)
+
+def handle_http(client, data, host, port):
+    try:
+        remote = socket.create_connection((host, int(port)), timeout=30)
+    except Exception as e:
+        client.sendall(f"HTTP/1.1 502 Bad Gateway\r\n\r\n{e}".encode())
+        return
+    # rewrite absolute URL to relative for the origin server
+    lines = data.split(b"\r\n")
+    parts = lines[0].split(b" ", 2)
+    if len(parts) == 3:
+        url = parts[1].decode()
+        m = re.match(r"https?://[^/]+(/.*)$", url)
+        if m:
+            parts[1] = m.group(1).encode()
+            lines[0] = b" ".join(parts)
+            data = b"\r\n".join(lines)
+    remote.sendall(data)
+    relay(client, remote)
+
+def handle(client):
+    try:
+        data = client.recv(65536)
+        if not data:
+            return
+        line = data.split(b"\r\n")[0]
+        parts = line.split(b" ", 2)
+        if len(parts) < 2:
+            return
+        method, target = parts[0], parts[1]
+        if method == b"CONNECT":
+            hp = target.decode().split(":")
+            handle_connect(client, hp[0], hp[1] if len(hp) > 1 else "443")
+        else:
+            # plain HTTP proxy: target is absolute URL like http://host:port/path
+            url = target.decode()
+            m = re.match(r"https?://([^/:]+)(?::(\d+))?", url)
+            if m:
+                handle_http(client, data, m.group(1), m.group(2) or "80")
+            else:
+                client.sendall(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+    finally:
+        client.close()
+
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(("0.0.0.0", ` + fmt.Sprintf("%d", proxyPort) + `))
+srv.listen(128)
+sys.stdout.write("proxy listening on port ` + fmt.Sprintf("%d", proxyPort) + `\n")
+sys.stdout.flush()
+while True:
+    c, _ = srv.accept()
+    threading.Thread(target=handle, args=(c,), daemon=True).start()
+`
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "e2e-proxy-config", Namespace: "default"},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, cm, func() error {
+		cm.Data = map[string]string{"proxy.py": proxyScript}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("ensuring proxy configmap: %w", err)
+	}
+	return nil
+}
+
+func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
+	image := "mcr.microsoft.com/cbl-mariner/base/python:3"
+	toolkit.Logf(ctx, "Creating proxy daemonset %s with image %s", proxyAppLabel, image)
+
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet", APIVersion: "apps/v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      proxyAppLabel,
+			Namespace: "default",
+			Labels:    map[string]string{"app": proxyAppLabel},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": proxyAppLabel},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": proxyAppLabel}},
+				Spec: corev1.PodSpec{
+					HostNetwork: true,
+					NodeSelector: map[string]string{
+						"kubernetes.azure.com/agentpool": "nodepool1",
+					},
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+					Containers: []corev1.Container{{
+						Name:    "proxy",
+						Image:   image,
+						Command: []string{"python3", "/opt/proxy/proxy.py"},
+						Ports:   []corev1.ContainerPort{{ContainerPort: int32(proxyPort), HostPort: int32(proxyPort)}},
+						VolumeMounts: []corev1.VolumeMount{
+							{Name: "proxy-script", MountPath: "/opt/proxy", ReadOnly: true},
+						},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "proxy-script",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "e2e-proxy-config"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+// GetProxyURL returns the proxy URL after verifying the proxy pod is ready
+// on at least one system pool node.
+func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
+	var proxyURL string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+			LabelSelector: "app=" + proxyAppLabel,
+		})
+		if err != nil {
+			return false, fmt.Errorf("listing proxy pods: %w", err)
+		}
+		if len(pods.Items) == 0 {
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			for _, c := range pod.Status.Conditions {
+				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue && pod.Status.HostIP != "" {
+					proxyURL = fmt.Sprintf("http://%s:%d", pod.Status.HostIP, proxyPort)
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
+	}
+	return proxyURL, nil
 }
 
 func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {

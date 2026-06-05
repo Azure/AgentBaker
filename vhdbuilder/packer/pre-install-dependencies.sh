@@ -66,9 +66,10 @@ if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
 fi
-# enable AKS log collector
+# disable AKS log collector and waagent collection
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
+systemctl disable --now aks-log-collector.service || exit 1
+systemctl disable --now aks-log-collector.timer || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer 30 || exit 1
@@ -87,6 +88,11 @@ if isMarinerOrAzureLinux "$OS"; then
   if [ "${ENABLE_FIPS,,}" = "true" ] && [ "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
+    installFIPS
+  fi
+elif isACL "$OS" "$OS_VARIANT"; then
+  if [ "${ENABLE_FIPS,,}" = "true" ]; then
+    echo "Install FIPS for AzureContainerLinux SKU"
     installFIPS
   fi
 else
@@ -193,18 +199,60 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
-    # This is the ubuntu 2404arm64gen2containerd image.
+    # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb image
+    # The Ubuntu PPA has early access to new kernels, such as the one in the GB300 CRD.
     # Uncomment if we have trouble finding the kernel package.
-    # sudo add-apt-repository ppa:canonical-kernel-team/ppa
-    sudo apt update
-    if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
-      echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
-      wait_for_apt_locks
-      sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
-      echo "after installation:"
-      dpkg -l | grep "linux-.*-azure-nvidia" || true
+    # add-apt-repository ppa:canonical-kernel-team/ppa
+    if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+      add-apt-repository ppa:canonical-kernel-team/ppa
+      apt-get update
+      BOM_PATH="gb-mai-bom.json"
+      if [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
+        NVIDIA_KERNEL_PACKAGE=$(jq -r '.["kernel-versions"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      fi
+      if apt-get install -s "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
+      	echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+      	  wait_for_apt_locks
+      	  apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+      	  echo "after installation:"
+      	  dpkg -l | grep "linux-.*-azure-nvidia" || true
+    	else
+    	  echo "ARM64 image. NVIDIA kernel not available from repo, fetching and installing dpkgs by hand"
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb > /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb > /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb > /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb > /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  dpkg -i /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  rm /tmp/*.deb
+      fi
+      add-apt-repository --remove ppa:canonical-kernel-team/ppa
     else
-      echo "ARM64 image. NVIDIA kernel not available, skipping installation."
+      apt-get update
+      if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
+        echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+        wait_for_apt_locks
+        sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+        echo "after installation:"
+        dpkg -l | grep "linux-.*-azure-nvidia" || true
+      else
+        echo "ARM64 image. NVIDIA kernel not available, skipping installation."
+      fi
     fi
   fi
   wait_for_apt_locks

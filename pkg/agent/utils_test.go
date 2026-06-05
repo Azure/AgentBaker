@@ -4,7 +4,15 @@
 package agent
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -506,6 +514,124 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	}
 }
 
+func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
+	// Verifies AgentBaker renders the new Node Memory Hardening kubelet args
+	// (soft eviction + cgroup tiering) into the generated kubelet config file.
+	// Uses JSON unmarshaling rather than a brittle text snapshot so that future
+	// non-related additions to AKSKubeletConfiguration do not break this test.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-soft"] = "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,nodefs.available=2m,imagefs.available=2m"
+	kc["--eviction-max-pod-grace-period"] = "60"
+	kc["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+	kc["--kube-reserved-cgroup"] = "/kubelet.slice"
+	kc["--system-reserved-cgroup"] = "/system.slice"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionSoft              map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod   map[string]string `json:"evictionSoftGracePeriod"`
+		EvictionMaxPodGracePeriod int32             `json:"evictionMaxPodGracePeriod"`
+		EnforceNodeAllocatable    []string          `json:"enforceNodeAllocatable"`
+		KubeReservedCgroup        string            `json:"kubeReservedCgroup"`
+		SystemReservedCgroup      string            `json:"systemReservedCgroup"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	wantSoft := map[string]string{
+		"memory.available":  "500Mi",
+		"nodefs.available":  "15%",
+		"imagefs.available": "20%",
+	}
+	if diff := cmp.Diff(wantSoft, got.EvictionSoft); diff != "" {
+		t.Errorf("evictionSoft mismatch (-want +got):\n%s", diff)
+	}
+
+	wantSoftGrace := map[string]string{
+		"memory.available":  "30s",
+		"nodefs.available":  "2m",
+		"imagefs.available": "2m",
+	}
+	if diff := cmp.Diff(wantSoftGrace, got.EvictionSoftGracePeriod); diff != "" {
+		t.Errorf("evictionSoftGracePeriod mismatch (-want +got):\n%s", diff)
+	}
+
+	if got.EvictionMaxPodGracePeriod != 60 {
+		t.Errorf("evictionMaxPodGracePeriod=%d, want 60", got.EvictionMaxPodGracePeriod)
+	}
+
+	wantEnforce := []string{"pods", "kube-reserved", "system-reserved"}
+	if diff := cmp.Diff(wantEnforce, got.EnforceNodeAllocatable); diff != "" {
+		t.Errorf("enforceNodeAllocatable mismatch (-want +got):\n%s", diff)
+	}
+
+	if got.KubeReservedCgroup != "/kubelet.slice" {
+		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kubelet.slice")
+	}
+	if got.SystemReservedCgroup != "/system.slice" {
+		t.Errorf("systemReservedCgroup=%q, want %q", got.SystemReservedCgroup, "/system.slice")
+	}
+}
+
+func TestGetKubeletConfigFileNodeMemoryHardeningFieldsOmittedByDefault(t *testing.T) {
+	// Backward-compat: when the RP does not pass the new flags, the generated
+	// kubelet config must NOT contain the new fields. This guards the 6-month
+	// VHD support window — non-hardened pools must see no change to these fields.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	for _, field := range []string{
+		`"evictionSoft"`,
+		`"evictionSoftGracePeriod"`,
+		`"evictionMaxPodGracePeriod"`,
+		`"kubeReservedCgroup"`,
+		`"systemReservedCgroup"`,
+	} {
+		if strings.Contains(configFileStr, field) {
+			t.Errorf("expected %s to be omitted from kubelet config when not set, got:\n%s", field, configFileStr)
+		}
+	}
+}
+
+func TestGetKubeletConfigFileFiltersUnknownEvictionSignals(t *testing.T) {
+	// Kubelet only accepts a fixed set of eviction signals; any unknown key would
+	// cause it to fail to start. Verify we drop unknowns from --eviction-hard,
+	// --eviction-soft, and --eviction-soft-grace-period before rendering.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-hard"] = "memory.available<750Mi,bogus.signal<1Gi,nodefs.available<10%"
+	kc["--eviction-soft"] = "memory.available<500Mi,not-a-signal<1Gi"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,not-a-signal=1m"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionHard            map[string]string `json:"evictionHard"`
+		EvictionSoft            map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	for _, m := range []map[string]string{got.EvictionHard, got.EvictionSoft, got.EvictionSoftGracePeriod} {
+		for _, bad := range []string{"bogus.signal", "not-a-signal"} {
+			if _, present := m[bad]; present {
+				t.Errorf("expected unknown eviction signal %q to be filtered, got map %v", bad, m)
+			}
+		}
+	}
+	if _, ok := got.EvictionHard["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionHard, got %v", got.EvictionHard)
+	}
+	if _, ok := got.EvictionSoft["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionSoft, got %v", got.EvictionSoft)
+	}
+}
+
 func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 	cases := []struct {
 		tlsBootstrapToken *string
@@ -690,7 +816,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 
 	It("When cse output format is correct and contains call known fields", func() {
 		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
-		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
+		"ExecDuration": "39", "KernelStartTime": "kernel start time",
 		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",
 		"GuestAgentStartTime": "guest agent start time", "BootDatapoints": {"dp1": "1"}}`
 		var cseStatus datamodel.CSEStatus
@@ -733,7 +859,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When Error is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "Error": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -749,7 +875,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When SystemdSummary is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "SystemdSummary": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -765,7 +891,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When GuestAgentStartTime is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "GuestAgentStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -773,7 +899,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When BootDatapoints is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "BootDatapoints": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -789,7 +915,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("when ExecDuration is an integer", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": 39}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -837,3 +963,283 @@ var _ = Describe("Test removeComments", func() {
 	})
 
 })
+
+// repoRoot returns the path to the AgentBaker repository root by walking up from the
+// current test file until we find go.mod. This avoids hard-coding absolute paths.
+func repoRoot() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("unable to determine test file path")
+	}
+	dir := filepath.Dir(filename)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			panic("could not find repo root (go.mod)")
+		}
+		dir = parent
+	}
+}
+
+// TestRemoveComments_ShellPatterns tests removeComments against realistic shell script
+// patterns that have historically caused issues, particularly patterns where '#' appears
+// inside string literals or in non-comment contexts.
+//
+// TestRemoveComments_ShellPatterns validates that removeComments correctly handles
+// various shell script patterns without breaking functional code.
+//
+// Background: removeComments is a "best-effort" comment stripper (utils.go:202) that runs on
+// all CSE shell scripts before template execution. It must not mangle code that contains
+// '#' characters in non-comment contexts (string literals, variable expansions, grep patterns).
+func TestRemoveComments_ShellPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "pure comment lines are removed",
+			input: strings.Join([]string{
+				"#!/bin/bash",
+				"# This is a comment",
+				"echo hello",
+				"## Another comment",
+				"echo world",
+			}, "\n"),
+			expected: strings.Join([]string{
+				"#!/bin/bash",
+				"echo hello",
+				"echo world",
+			}, "\n"),
+		},
+		{
+			name: "hash inside quoted grep pattern is preserved",
+			input: strings.Join([]string{
+				`    if grep -q "^#${mod} " /proc/modules 2>/dev/null; then`,
+				`        modprobe -r "$mod"`,
+				`    fi`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    if grep -q "^#${mod} " /proc/modules 2>/dev/null; then`,
+				`        modprobe -r "$mod"`,
+				`    fi`,
+			}, "\n"),
+		},
+		{
+			name: "trailing comments are trimmed but code is preserved",
+			input: strings.Join([]string{
+				`    local mod="$1" # module name`,
+				`    modprobe -r "$mod" # try to unload`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    local mod="$1" `,
+				`    modprobe -r "$mod" `,
+			}, "\n"),
+		},
+		{
+			name:     "shebang line is preserved",
+			input:    "#!/bin/bash\nset -euo pipefail",
+			expected: "#!/bin/bash\nset -euo pipefail",
+		},
+		{
+			name: "hash in variable expansion is not a comment",
+			input: strings.Join([]string{
+				`    local count=${#array[@]}`,
+				`    echo "${str#prefix}"`,
+				`    echo "${str##*/}"`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    local count=${#array[@]}`,
+				`    echo "${str#prefix}"`,
+				`    echo "${str##*/}"`,
+			}, "\n"),
+		},
+		{
+			// Documents the DOA regression from PR #8475: a line starting with "# "
+			// inside a multi-line printf format string gets stripped by removeComments,
+			// breaking the script. The fix (PR #8486) was to not emit "# " lines from
+			// code. This test asserts the current (known-limitation) behavior.
+			name: "line starting with hash-space is stripped even inside string context",
+			input: strings.Join([]string{
+				`myFunc() {`,
+				`    local desc="$1"`,
+				`    printf '# %s\ninstall %s /bin/false\n' "$desc" "$mod"`,
+				`}`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`myFunc() {`,
+				`    local desc="$1"`,
+				`    printf '`,
+				`}`,
+			}, "\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeComments([]byte(tt.input))
+			if diff := cmp.Diff(tt.expected, string(result)); diff != "" {
+				t.Errorf("removeComments() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestCSEScriptRoundTrip exercises the full CSE assembly pipeline for each embedded shell
+// script: removeComments → gzip → base64 → base64-decode → gunzip, then validates:
+//   - byte-for-byte round-trip integrity (decoded output == stripped input)
+//   - bash -n syntax check on the decoded output (catches broken scripts)
+//
+// This exercises the comment-stripping and encoding stages of the production pipeline
+// in getBase64EncodedGzippedCustomScript() (pkg/agent/utils.go). The Go template
+// execution step is not included here since it requires a full NodeBootstrappingConfiguration.
+// The comment stripping happens BEFORE template execution, so the stripped output must
+// still be syntactically valid bash — a node cannot provision if any CSE script has a
+// syntax error after stripping.
+//
+// The script list is dynamically derived by parsing variables.go and const.go source
+// to find all .sh files passed to getBase64EncodedGzippedCustomScript(). If a new script
+// is added to the CSE pipeline, it is automatically covered by this test.
+func TestCSEScriptRoundTrip(t *testing.T) {
+	cseScripts := discoverCSEScripts(t)
+	if len(cseScripts) == 0 {
+		t.Fatal("no CSE scripts discovered — check variables.go and const.go parsing")
+	}
+	t.Logf("discovered %d CSE shell scripts", len(cseScripts))
+
+	artifactsDir := filepath.Join(repoRoot(), "parts")
+
+	for _, script := range cseScripts {
+		t.Run(filepath.Base(script), func(t *testing.T) {
+			decoded := cseRoundTrip(t, filepath.Join(artifactsDir, script))
+			cseValidateBashSyntax(t, script, decoded)
+		})
+	}
+}
+
+// discoverCSEScripts parses variables.go to find all constant names passed to
+// getBase64EncodedGzippedCustomScript(), then resolves those constants to file
+// paths from const.go, filtering to .sh files only.
+func discoverCSEScripts(t *testing.T) []string {
+	t.Helper()
+	root := repoRoot()
+
+	// Step 1: Read variables.go and extract constant names from getBase64EncodedGzippedCustomScript() calls
+	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
+	variablesBytes, err := os.ReadFile(variablesPath)
+	if err != nil {
+		t.Fatalf("failed to read variables.go: %v", err)
+	}
+
+	// Match: getBase64EncodedGzippedCustomScript(constantName, config)
+	callRe := regexp.MustCompile(`getBase64EncodedGzippedCustomScript\((\w+),`)
+	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
+	constNames := make(map[string]bool)
+	for _, m := range matches {
+		constNames[m[1]] = true
+	}
+
+	// Step 2: Read const.go and resolve constant names to file paths
+	constPath := filepath.Join(root, "pkg", "agent", "const.go")
+	constBytes, err := os.ReadFile(constPath)
+	if err != nil {
+		t.Fatalf("failed to read const.go: %v", err)
+	}
+
+	// Match: constantName = "linux/cloud-init/artifacts/..."
+	constRe := regexp.MustCompile(`(\w+)\s*=\s*"([^"]+)"`)
+	constMatches := constRe.FindAllStringSubmatch(string(constBytes), -1)
+	constMap := make(map[string]string)
+	for _, m := range constMatches {
+		constMap[m[1]] = m[2]
+	}
+
+	// Step 3: Resolve and filter to .sh files
+	var scripts []string
+	seen := make(map[string]bool)
+	for name := range constNames {
+		path, ok := constMap[name]
+		if !ok {
+			continue
+		}
+		if !strings.HasSuffix(path, ".sh") {
+			continue
+		}
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		scripts = append(scripts, path)
+	}
+	sort.Strings(scripts)
+	return scripts
+}
+
+// cseRoundTrip reads a shell script, runs it through the production CSE pipeline
+// (removeComments → gzip → base64 → decode → gunzip), validates byte-for-byte
+// round-trip integrity, and returns the decoded output.
+func cseRoundTrip(t *testing.T, path string) []byte {
+	t.Helper()
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", path, err)
+	}
+
+	stripped := removeComments(raw)
+	encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
+
+	gzipped, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("base64 decode failed: %v", err)
+	}
+
+	decoded, err := getGzipDecodedValue(gzipped)
+	if err != nil {
+		t.Fatalf("gzip decode failed: %v", err)
+	}
+
+	if diff := cmp.Diff(string(stripped), string(decoded)); diff != "" {
+		t.Errorf("round-trip mismatch (-stripped +decoded):\n%s", diff)
+	}
+
+	return decoded
+}
+
+// cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors
+// introduced by comment stripping. Skips scripts with Go template directives.
+func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
+	t.Helper()
+
+	if strings.Contains(string(decoded), "{{") {
+		t.Logf("skipping bash -n for %s (contains Go template directives)", script)
+		return
+	}
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available, skipping syntax check")
+	}
+
+	tmpFile, err := os.CreateTemp("", "cse-roundtrip-*.sh")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	_, writeErr := tmpFile.Write(decoded)
+	tmpFile.Close()
+	if writeErr != nil {
+		t.Fatalf("failed to write temp file: %v", writeErr)
+	}
+
+	cmd := exec.Command(bashPath, "-O", "extglob", "-n", tmpFile.Name())
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
+			script, string(output), err)
+	}
+}

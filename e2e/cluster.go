@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -21,9 +22,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,12 +39,14 @@ type ClusterParams struct {
 }
 
 type Cluster struct {
-	Model           *armcontainerservice.ManagedCluster
-	Kube            *Kubeclient
-	KubeletIdentity *armcontainerservice.UserAssignedIdentity
-	SubnetID        string
-	ClusterParams   *ClusterParams
-	Bastion         *Bastion
+	Model            *armcontainerservice.ManagedCluster
+	Kube             *Kubeclient
+	KubeletIdentity  *armcontainerservice.UserAssignedIdentity
+	SubnetID         string
+	VNetResourceGUID string
+	ClusterParams    *ClusterParams
+	Bastion          *Bastion
+	ProxyURL         string
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -86,6 +91,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	})
 	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
 	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
+	vNet := dag.Go(g, func(ctx context.Context) (VNet, error) {
+		return getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+	})
 	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
@@ -107,19 +115,35 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	needACR := isNetworkIsolated || attachPrivateAcr
 	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
 	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
-	dag.Run1(g, kube, ensureDebugDaemonsets(cluster, isNetworkIsolated), append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)...)
+	debugDeps := append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)
+	proxyURL := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (string, error) {
+		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
+			return "", err
+		}
+		if isNetworkIsolated {
+			return "", nil
+		}
+		return k.GetProxyURL(ctx)
+	}, debugDeps...)
+	if !isNetworkIsolated {
+		dag.Run(g, func(ctx context.Context) error {
+			return setupPrivateDNSForAPIServer(ctx, cluster)
+		})
+	}
 	extract := dag.Go1(g, kube, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
 		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
 	}
 	return &Cluster{
-		Model:           cluster,
-		Kube:            kube.MustGet(),
-		KubeletIdentity: identity.MustGet(),
-		SubnetID:        subnet.MustGet(),
-		ClusterParams:   extract.MustGet(),
-		Bastion:         bastion.MustGet(),
+		Model:            cluster,
+		Kube:             kube.MustGet(),
+		KubeletIdentity:  identity.MustGet(),
+		SubnetID:         subnet.MustGet(),
+		VNetResourceGUID: vNet.MustGet().resourceGUID,
+		ClusterParams:    extract.MustGet(),
+		Bastion:          bastion.MustGet(),
+		ProxyURL:         proxyURL.MustGet(),
 	}, nil
 }
 
@@ -129,12 +153,6 @@ func addACR(cluster *armcontainerservice.ManagedCluster, needACR, isNonAnonymous
 			return nil
 		}
 		return addPrivateAzureContainerRegistry(ctx, cluster, k, id, isNonAnonymousPull)
-	}
-}
-
-func ensureDebugDaemonsets(cluster *armcontainerservice.ManagedCluster, isNetworkIsolated bool) func(context.Context, *Kubeclient) error {
-	return func(ctx context.Context, k *Kubeclient) error {
-		return k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location))
 	}
 }
 
@@ -336,23 +354,34 @@ func waitForClusterDeletion(ctx context.Context, clusterName, resourceGroupName 
 
 func waitUntilClusterReady(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
+	var clusterDeleted bool
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName(location), name, nil)
 		if err != nil {
+			var azErr *azcore.ResponseError
+			if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+				clusterDeleted = true
+				return true, nil
+			}
 			return false, err
 		}
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned", "Creating":
+		case "Updating", "Assigned", "Creating", "Deleting", "Canceling":
 			return false, nil
+		case "Canceled":
+			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)
 		default:
-			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)
+			return false, fmt.Errorf("cluster %s is in state %s, won't retry", name, *cluster.ManagedCluster.Properties.ProvisioningState)
 		}
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for cluster %s to be ready: %w", name, err)
+	}
+	if clusterDeleted {
+		return nil, nil
 	}
 	return &cluster.ManagedCluster, nil
 }
@@ -405,25 +434,35 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 			return createdCluster, nil
 		}
 
-		// Check if the error is a 409 Conflict
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+		if isRetryableClusterError(err) {
 			lastErr = err
-			toolkit.Logf(ctx, "Attempt %d failed with 409 Conflict: %v. Retrying in %v...", attempt+1, err, retryInterval)
+			toolkit.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, retryInterval)
 
 			select {
 			case <-time.After(retryInterval):
-				// Continue to next iteration
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context canceled while retrying cluster creation: %w", ctx.Err())
 			}
 		} else {
-			// If it's not a 409 error, return immediately
 			return nil, fmt.Errorf("failed to create cluster: %w", err)
 		}
 	}
 
-	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("failed to create cluster after %d attempts: %w", maxRetries, lastErr)
+}
+
+// isRetryableClusterError returns true for transient cluster creation errors
+// that can be resolved by retrying, such as 409 Conflict (concurrent operations)
+// and NotFound during managed identity reconciliation (stale references after cluster deletion).
+func isRetryableClusterError(err error) bool {
+	var respErr *azcore.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	if respErr.StatusCode == 409 {
+		return true
+	}
+	return respErr.ErrorCode == "NotFound" && strings.Contains(err.Error(), "Reconcile managed identity credential failed")
 }
 
 func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
@@ -511,13 +550,30 @@ func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	var bastionSubnetID string
-	bastionSubnet, subnetGetErr := config.Azure.Subnet.Get(ctx, nodeRG, vnet.name, bastionSubnetName, nil)
-	if subnetGetErr != nil {
-		var subnetAzErr *azcore.ResponseError
-		if !errors.As(subnetGetErr, &subnetAzErr) || subnetAzErr.StatusCode != http.StatusNotFound {
-			return nil, fmt.Errorf("get subnet %q in vnet %q rg %q: %w", bastionSubnetName, vnet.name, nodeRG, subnetGetErr)
+	var bastionSubnet armnetwork.SubnetsClientGetResponse
+	var subnetGetErr error
+	// Retry the subnet GET with a per-call timeout to tolerate ARM hangs.
+	// Without this, a single unresponsive GET consumes the entire 20-minute cluster prep budget.
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		bastionSubnet, subnetGetErr = config.Azure.Subnet.Get(callCtx, nodeRG, vnet.name, bastionSubnetName, nil)
+		if subnetGetErr == nil {
+			return true, nil
 		}
+		var subnetAzErr *azcore.ResponseError
+		if errors.As(subnetGetErr, &subnetAzErr) && subnetAzErr.StatusCode == http.StatusNotFound {
+			return true, nil // 404 is expected — will create below
+		}
+		toolkit.Logf(ctx, "transient error getting subnet %q (retrying): %v", bastionSubnetName, subnetGetErr)
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get subnet %q in vnet %q rg %q: retries exhausted: %w (last subnet error: %v)", bastionSubnetName, vnet.name, nodeRG, err, subnetGetErr)
+	}
 
+	if subnetGetErr != nil {
+		// 404 — need to create
 		toolkit.Logf(ctx, "creating subnet %s in VNet %s (rg %s)", bastionSubnetName, vnet.name, nodeRG)
 		subnetParams := armnetwork.Subnet{
 			Properties: &armnetwork.SubnetPropertiesFormat{
@@ -680,8 +736,9 @@ func sanitizeAzureResourceName(name string) string {
 }
 
 type VNet struct {
-	name     string
-	subnetId string
+	name         string
+	subnetId     string
+	resourceGUID string
 }
 
 func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, error) {
@@ -695,7 +752,7 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 			if v == nil {
 				return VNet{}, fmt.Errorf("aks vnet was empty")
 			}
-			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet")}, nil
+			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), resourceGUID: *v.Properties.ResourceGUID}, nil
 		}
 	}
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
@@ -705,8 +762,9 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
 
-	// Build a set of all existing VMSS names while deleting old ones.
-	existingVMSS := map[string]struct{}{}
+	// Build a set of VMSS names that should be kept — exclude VMSS that are
+	// being deleted so their stale K8s nodes can be cleaned up in the same pass.
+	keptVMSS := map[string]struct{}{}
 	pager := config.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -714,19 +772,20 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 			return fmt.Errorf("failed to get next page of VMSS: %w", err)
 		}
 		for _, vmss := range page.Value {
-			existingVMSS[*vmss.Name] = struct{}{}
-
 			if _, ok := vmss.Tags["KEEP_VMSS"]; ok {
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 			// don't delete managed pools
 			if _, ok := vmss.Tags["aks-managed-poolName"]; ok {
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 
 			// don't delete VMSS created in the last hour. They might be currently used in tests
 			// extra 10 minutes is a buffer for test cleanup, clock drift and timeout adjustments
 			if config.Config.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.Config.TestTimeout+10*time.Minute {
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 
@@ -735,13 +794,16 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 			})
 			if err != nil {
 				toolkit.Logf(ctx, "failed to delete vmss %q: %s", *vmss.Name, err)
+				// Keep in map so we don't try to delete its nodes while VMSS is still around
+				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
 			toolkit.Logf(ctx, "deleted vmss %q (age: %v)", *vmss.ID, time.Since(*vmss.Properties.TimeCreated))
+			// Don't add to keptVMSS — nodes from this VMSS should be cleaned up
 		}
 	}
 
-	if err := collectGarbageNodes(ctx, kube, existingVMSS); err != nil {
+	if err := collectGarbageNodes(ctx, kube, keptVMSS); err != nil {
 		return fmt.Errorf("failed to collect garbage K8s nodes: %w", err)
 	}
 	return nil
@@ -751,7 +813,7 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 // longer exists. This prevents stale nodes from accumulating in the cluster
 // and overwhelming the cloud-provider-azure route controller with perpetual
 // "instance not found" failures.
-func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map[string]struct{}) error {
+func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[string]struct{}) error {
 	defer toolkit.LogStepCtx(ctx, "collecting garbage K8s nodes")()
 
 	nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
@@ -759,7 +821,7 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 		return fmt.Errorf("listing K8s nodes for garbage collection: %w", err)
 	}
 
-	var deleteErrors []error
+	var deleted, failed int
 	for _, node := range nodes.Items {
 		// skip managed pool nodes (system nodepool)
 		if strings.HasPrefix(node.Name, "aks-") {
@@ -772,19 +834,26 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, existingVMSS map
 		}
 		vmssName := node.Name[:len(node.Name)-6]
 
-		if _, exists := existingVMSS[vmssName]; exists {
+		if _, exists := keptVMSS[vmssName]; exists {
 			continue
 		}
 
 		if err := kube.Typed.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{}); err != nil {
-			deleteErrors = append(deleteErrors, fmt.Errorf("deleting stale node %q: %w", node.Name, err))
+			if apierrors.IsNotFound(err) {
+				toolkit.Logf(ctx, "stale K8s node %q already gone", node.Name)
+				deleted++
+				continue
+			}
+			toolkit.Logf(ctx, "warning: failed to delete stale K8s node %q: %v", node.Name, err)
+			failed++
 			continue
 		}
 		toolkit.Logf(ctx, "deleted stale K8s node %q (VMSS %q not found)", node.Name, vmssName)
+		deleted++
 	}
 
-	if len(deleteErrors) > 0 {
-		return fmt.Errorf("failed to delete %d stale nodes, first error: %w", len(deleteErrors), deleteErrors[0])
+	if failed > 0 && deleted == 0 {
+		return fmt.Errorf("failed to delete any of %d stale nodes", failed)
 	}
 	return nil
 }
@@ -804,4 +873,51 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 		return armresources.ResourceGroup{}, fmt.Errorf("creating or updating RG %q: %w", resourceGroupName, err)
 	}
 	return rg.ResourceGroup, nil
+}
+
+// setupPrivateDNSForAPIServer creates a private DNS zone for the API server FQDN
+// linked to the cluster VNet with an A record pointing to the current public IP.
+// Simulates a customer environment with minimal private DNS entries.
+func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	defer toolkit.LogStepCtx(ctx, "setting up private DNS for API server")()
+
+	fqdn := *cluster.Properties.Fqdn
+	nodeRG := *cluster.Properties.NodeResourceGroup
+
+	ips, err := net.LookupHost(fqdn)
+	if err != nil {
+		return fmt.Errorf("resolving API server FQDN %q: %w", fqdn, err)
+	}
+
+	var aRecords []*armprivatedns.ARecord
+	for _, ip := range ips {
+		if parsed := net.ParseIP(ip); parsed != nil && parsed.To4() != nil {
+			aRecords = append(aRecords, &armprivatedns.ARecord{IPv4Address: to.Ptr(ip)})
+		}
+	}
+	if len(aRecords) == 0 {
+		return fmt.Errorf("no IPv4 addresses for %q", fqdn)
+	}
+
+	// createPrivateZone and createPrivateDNSLink handle 409 conflicts internally
+	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
+	}
+
+	vnet, err := getClusterVNet(ctx, nodeRG)
+	if err != nil {
+		return fmt.Errorf("getting cluster VNet: %w", err)
+	}
+	if err := createPrivateDNSLink(ctx, vnet, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("linking private zone to VNet: %w", err)
+	}
+
+	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@",
+		armprivatedns.RecordSet{Properties: &armprivatedns.RecordSetProperties{TTL: to.Ptr[int64](300), ARecords: aRecords}}, nil)
+	if err != nil {
+		return fmt.Errorf("creating A record in zone %q: %w", fqdn, err)
+	}
+
+	toolkit.Logf(ctx, "private DNS zone %q → %v", fqdn, ips)
+	return nil
 }

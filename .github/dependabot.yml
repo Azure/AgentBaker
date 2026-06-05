@@ -17,3 +17,13 @@ updates:
     labels:
       - "cleanup"
       - "dependabot"
+
+  - package-ecosystem: "pip"
+    directory: "/vhdbuilder/packer/test/pam"
+    schedule:
+      interval: daily
+      time: "01:00"
+    labels:
+      - "cleanup"
+      - "dependabot"
+    versioning-strategy: increase

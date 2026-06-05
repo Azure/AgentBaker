@@ -1012,6 +1012,16 @@ function Test-AzureExtensions
     Write-Log "Azure extensions are not found"
 }
 
+function Run-BcdEdit
+{
+    Write-Host "Running bcdedit /set hypervisorlaunchtype auto"
+    bcdedit /set hypervisorlaunchtype auto
+    if ($LASTEXITCODE)
+    {
+        throw "bcdedit /set hypervisorlaunchtype auto failed with exit code $LASTEXITCODE"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -1019,6 +1029,10 @@ try
 {
     switch ($env:ProvisioningPhase)
     {
+        "0" {
+            Write-Log "Performing actions for provisioning phase 0"
+            Run-BcdEdit
+        }
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition

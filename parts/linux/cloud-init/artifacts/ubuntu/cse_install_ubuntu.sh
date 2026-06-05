@@ -376,8 +376,8 @@ installPkgWithAptGet() {
 
         # update pmc repo to get latest versions
         updatePMCRepository "${packageVersion}"
-        # query all package versions and get the latest version for matching k8s version
-        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | awk '{print $2}' | sort -V | tail -n 1)
+        # query all package versions and get the latest version for matching k8s version and cpu architecture
+        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | grep "$(getCPUArch)" | awk '{print $2}' | sort -V | tail -n 1)
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -396,6 +396,8 @@ installPkgWithAptGet() {
     logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
 
     rm -rf "${downloadDir}"
+    # Clean up stale cached binaries that were not used
+    rm -f /opt/bin/"${packageName}"-* &
 }
 
 installPackageFromCache() {
@@ -425,6 +427,7 @@ installPackageFromCache() {
     logs_to_events "AKS.CSE.install${packageName}.extractDebBinaryFromFile" "extractDebBinaryFromFile ${debFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
 
     rm -rf "${downloadDir}"
+    rm -f /opt/bin/"${packageName}"-* &
 }
 
 downloadPkgFromVersion() {

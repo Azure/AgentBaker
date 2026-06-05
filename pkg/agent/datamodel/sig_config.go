@@ -119,6 +119,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
+	AKSACLGen2FIPSTL,
+	AKSACLArm64Gen2FIPSTL,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -182,6 +184,8 @@ var AvailableGen2Distros = []Distro{
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
+	AKSACLGen2FIPSTL,
+	AKSACLArm64Gen2FIPSTL,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -270,6 +274,8 @@ var AvailableFlatcarDistros = []Distro{
 var AvailableACLDistros = []Distro{
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
+	AKSACLGen2FIPSTL,
+	AKSACLArm64Gen2FIPSTL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -387,7 +393,7 @@ const (
 	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
 	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
-	// Check with Keith and Alex, since they have their own branch for GB200.
+	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
 	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
@@ -479,8 +485,9 @@ var (
 	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2404gen2arm64gb200containerd",
-		Version:       FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
+		// The Go symbol keeps GB200 for API/distro compatibility, but the SIG image definition uses the generalized GB name.
+		Definition: "2404gen2arm64gbcontainerd",
+		Version:    FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -763,6 +770,20 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGACLGen2FIPSTLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "aclgen2fipsTL",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGACLArm64Gen2FIPSTLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "aclgen2arm64fipsTL",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -859,7 +880,6 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	return maintained
 }
 
-//nolint:dupl // each distro family needs its own map, structural similarity is expected.
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSUbuntuFipsContainerd2004:           SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
@@ -898,7 +918,6 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	}
 }
 
-//nolint:dupl // each distro family needs its own map, structural similarity is expected.
 func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSAzureLinuxV2:                  SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
@@ -920,6 +939,8 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV3OSGuardGen2FIPSTL: SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
 		AKSACLGen2TL:                     SIGACLGen2TLImageConfigTemplate.WithOptions(opts...),
 		AKSACLArm64Gen2TL:                SIGACLArm64Gen2TLImageConfigTemplate.WithOptions(opts...),
+		AKSACLGen2FIPSTL:                 SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
+		AKSACLArm64Gen2FIPSTL:            SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

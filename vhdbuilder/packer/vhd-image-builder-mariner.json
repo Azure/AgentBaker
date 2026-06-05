@@ -175,6 +175,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_preload.sh",
+      "destination": "/home/packer/provision_preload.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
@@ -692,6 +697,21 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-exporter@.service",
       "destination": "/home/packer/localdns-exporter@.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh",
+      "destination": "/home/packer/aks-localdns-hosts-setup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.service",
+      "destination": "/home/packer/aks-localdns-hosts-setup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.timer",
+      "destination": "/home/packer/aks-localdns-hosts-setup.timer"
     },
     {
       "type": "file",

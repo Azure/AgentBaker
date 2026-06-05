@@ -47,6 +47,7 @@ $Location="{{ GetVariable "location" }}"
 $UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
 {{ end }}
 $TargetEnvironment="{{ GetTargetEnvironment }}"
+$ArmResourceEndpoint="{{ GetArmResourceEndpoint }}"
 $AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
 $NetworkAPIVersion="2018-08-01"
 
@@ -484,7 +485,6 @@ function BasePrep {
     PREPROVISION_EXTENSION
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
-    Register-NodeResetScriptTask
 
     Update-DefenderPreferences
 
@@ -577,6 +577,11 @@ function NodePrep {
         $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
         Remove-Item $kubeConfigFile
     }
+
+    # Register AFTER temp kubeconfig removal: the -AtStartup trigger would
+    # otherwise race PIS-baked VHD first boot and bring kubelet up with the
+    # embedded "nodeclient" cert instead of doing TLS bootstrap.
+    Register-NodeResetScriptTask
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
