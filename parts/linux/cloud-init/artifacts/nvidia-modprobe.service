@@ -4,7 +4,7 @@ Before=kubelet.service
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+ExecStartPre=/bin/sh -c "if modinfo nvidia >/dev/null 2>&1 && modinfo nvidia-uvm >/dev/null 2>&1; then echo 'nvidia kernel modules already built for running kernel; skipping dkms autoinstall'; else dkms autoinstall --verbose; fi"
 ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
 [Install]
 WantedBy=multi-user.target kubelet.service
