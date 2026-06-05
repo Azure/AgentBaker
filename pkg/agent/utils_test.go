@@ -681,6 +681,33 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 	}
 }
 
+func TestGetCloudTargetEnv(t *testing.T) {
+	cases := []struct {
+		location string
+		expected string
+	}{
+		{location: "chinaeast", expected: "AzureChinaCloud"},
+		{location: "chinanorth2", expected: "AzureChinaCloud"},
+		{location: "germanynortheast", expected: "AzureGermanCloud"},
+		{location: "germanycentral", expected: "AzureGermanCloud"},
+		{location: "usgovvirginia", expected: "AzureUSGovernmentCloud"},
+		{location: "usdodcentral", expected: "AzureUSGovernmentCloud"},
+		{location: "bleufrancecentral", expected: "AzureBleuCloud"},
+		{location: "deloseast", expected: "AzureGermanyCloud"},
+		{location: "singaporenorth", expected: "AzureSingaporeCloud"},
+		{location: "Singapore North", expected: "AzureSingaporeCloud"},
+		{location: "westus2", expected: "AzurePublicCloud"},
+		{location: "", expected: "AzurePublicCloud"},
+	}
+
+	for _, c := range cases {
+		actual := GetCloudTargetEnv(c.location)
+		if actual != c.expected {
+			t.Errorf("GetCloudTargetEnv(%q): expected=%s, actual=%s", c.location, c.expected, actual)
+		}
+	}
+}
+
 var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	It("should return expected kubelet config when custom configuration is not set", func() {
 		config := &datamodel.NodeBootstrappingConfiguration{

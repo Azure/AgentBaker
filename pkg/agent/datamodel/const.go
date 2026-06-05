@@ -78,14 +78,16 @@ const (
 	AzurePublicCloud = "AzurePublicCloud"
 	// AzureChinaCloud is a const string reference identifier for china cloud.
 	AzureChinaCloud = "AzureChinaCloud"
-	// AzureGermanCloud is a const string reference identifier for german cloud.
-	AzureGermanCloud = "AzureGermanCloud"
-	// AzureGermanCloud is a const string reference identifier for german cloud.
-	AzureGermanyCloud = "AzureGermanyCloud"
-	// AzureBleuCloud is a const string reference identifier for bleu cloud.
-	AzureBleuCloud = "AzureBleuCloud"
 	// AzureUSGovernmentCloud is a const string reference identifier for us government cloud.
 	AzureUSGovernmentCloud = "AzureUSGovernmentCloud"
+	// DEPRECATED - AzureGermanCloud is a const string reference identifier for german cloud.
+	AzureGermanCloud = "AzureGermanCloud"
+	// AzureBleuCloud is a const string reference identifier for bleu cloud.
+	AzureBleuCloud = "AzureBleuCloud"
+	// AzureGermanCloud is a const string reference identifier for germany cloud.
+	AzureGermanyCloud = "AzureGermanyCloud"
+	// AzureSingaporeCloud is a const string reference identifier for singapore cloud.
+	AzureSingaporeCloud = "AzureSingaporeCloud"
 	// AzureStackCloud is a const string reference identifier for Azure Stack cloud.
 	AzureStackCloud = "AzureStackCloud"
 )
