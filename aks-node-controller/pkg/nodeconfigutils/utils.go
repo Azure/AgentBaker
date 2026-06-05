@@ -2,7 +2,6 @@ package nodeconfigutils
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"fmt"
 	"mime/multipart"
@@ -16,8 +15,6 @@ const (
 	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
 
 	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
-
-	NBCCmdFilePath = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
@@ -119,19 +116,6 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 
 	_, err = part.Write([]byte(content))
 	return err
-}
-
-func gzipAndBase64Encode(data []byte) (string, error) {
-	var gzipped bytes.Buffer
-	gzipWriter := gzip.NewWriter(&gzipped)
-	if _, err := gzipWriter.Write(data); err != nil {
-		return "", fmt.Errorf("failed to gzip custom data: %w", err)
-	}
-	if err := gzipWriter.Close(); err != nil {
-		return "", fmt.Errorf("failed to finalize gzip custom data: %w", err)
-	}
-
-	return base64.StdEncoding.EncodeToString(gzipped.Bytes()), nil
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
