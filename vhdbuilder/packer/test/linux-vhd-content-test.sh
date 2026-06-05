@@ -241,9 +241,12 @@ testPackagesInstalled() {
       "nvidia-device-plugin"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
-      "dcgm-exporter"|\
-      "aks-secure-tls-bootstrap-client")
+      "dcgm-exporter")
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
+      "aks-secure-tls-bootstrap-client")
+        testSecureTLSBootstrapClientInstalled
         continue
         ;;
       "kubelet"|\
@@ -995,6 +998,21 @@ testAppArmorInstalled() {
     echo "$test: Skipping - Test is currently limited to Azure Linux 3.0 only (Current: $os_sku $os_version)"
   fi
 
+  echo "$test:Finish"
+}
+
+testSecureTLSBootstrapClientInstalled() {
+  local test="testSecureTLSBootstrapClientInstalled"
+  local binary="/opt/bin/aks-secure-tls-bootstrap-client"
+  echo "$test:Start"
+  if [ ! -x "${binary}" ]; then
+    err "$test" "${binary} does not exist or is not executable"
+    echo "$test:Finish"
+    return
+  fi
+  if ! "${binary}" -h >/dev/null 2>&1; then
+    err "$test" "${binary} -h failed to execute successfully"
+  fi
   echo "$test:Finish"
 }
 
