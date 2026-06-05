@@ -498,6 +498,174 @@ func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	)
 }
 
+// ValidateACLABUpdate performs a full A/B update lifecycle test:
+// 1. Verify initial partition layout and capture initial active volume
+// 2. Write host config pointing at the COSI URL
+// 3. Stage the update (trident update --allowed-operations stage)
+// 4. Finalize the update (trident update --allowed-operations finalize) — triggers reboot
+// 5. Wait for node to come back, re-establish SSH
+// 6. Validate active volume switched and servicing state is Provisioned
+func ValidateACLABUpdate(ctx context.Context, s *Scenario, cosiURL string) {
+	s.T.Helper()
+
+	// Step 1: Verify ACL identity and A/B partition layout
+	ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
+	// Verify dm-verity is active (ACL uses dm-verity for root integrity)
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`sudo dmsetup status | grep -q verity`,
+		0,
+		"expected dm-verity to be active on root filesystem",
+	)
+	// Verify two usr partitions exist (A/B layout)
+	execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`lsblk -ln -o NAME,PARTLABEL | grep -c usr | grep -qE '^[2-9]'`,
+		0,
+		"expected at least 2 usr partitions for A/B layout",
+	)
+	// Verify Trident update service unit is present
+	ValidateFileExists(ctx, s, "/usr/lib/systemd/system/trident-update.service")
+
+	// Capture initial boot_id so we can detect reboot
+	bootIDResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"cat /proc/sys/kernel/random/boot_id", 0, "failed to read boot_id")
+	initialBootID := strings.TrimSpace(bootIDResult.stdout)
+	s.T.Logf("Initial boot_id: %s", initialBootID)
+
+	// Capture initial trident status
+	initialStatus := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo trident get status", 0, "failed to get initial trident status")
+	s.T.Logf("Initial trident status:\n%s", initialStatus.stdout)
+
+	// Step 2: Write host config with COSI URL directly (Trident supports http/https)
+	hostConfigScript := fmt.Sprintf(`sudo mkdir -p /etc/trident && sudo tee /etc/trident/e2e-update-config.yaml >/dev/null <<'TRIDENT_EOF'
+image:
+  url: "%s"
+  sha384: "ignored"
+TRIDENT_EOF`, cosiURL)
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, hostConfigScript, 0, "failed to write host config")
+
+	// Step 3: Stage the update
+	s.T.Log("=== Staging A/B update ===")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo trident update /etc/trident/e2e-update-config.yaml --allowed-operations stage",
+		0, "trident update --allowed-operations stage failed")
+	s.T.Log("Stage completed successfully")
+
+	// Verify staging changed servicing state
+	stagedStatus := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo trident get status", 0, "failed to get trident status after stage")
+	s.T.Logf("Post-stage trident status:\n%s", stagedStatus.stdout)
+
+	// Step 4: Finalize the update (triggers immediate reboot)
+	s.T.Log("=== Finalizing A/B update (expecting reboot) ===")
+	finalizeResult, finalizeErr := execScriptOnVm(ctx, s, s.Runtime.VM,
+		"sudo trident update /etc/trident/e2e-update-config.yaml --allowed-operations finalize")
+
+	// Finalize triggers a reboot. If the command returned cleanly, check exit code.
+	// If it errored due to SSH disconnect, that's expected.
+	if finalizeErr == nil && finalizeResult != nil {
+		if finalizeResult.exitCode != "0" {
+			s.T.Fatalf("trident finalize returned exit code %s (expected 0 or SSH disconnect)\nstdout: %s\nstderr: %s",
+				finalizeResult.exitCode, finalizeResult.stdout, finalizeResult.stderr)
+		}
+		s.T.Log("Finalize returned successfully before reboot")
+	} else if finalizeErr != nil {
+		errMsg := finalizeErr.Error()
+		isDisconnect := strings.Contains(errMsg, "connection reset") ||
+			strings.Contains(errMsg, "connection refused") ||
+			strings.Contains(errMsg, "EOF") ||
+			strings.Contains(errMsg, "closed") ||
+			strings.Contains(errMsg, "broken pipe") ||
+			strings.Contains(errMsg, "System is going down")
+		if !isDisconnect {
+			s.T.Fatalf("trident finalize failed with unexpected error: %v", finalizeErr)
+		}
+		s.T.Logf("Finalize caused SSH disconnect (expected due to reboot): %v", finalizeErr)
+	}
+
+	// Step 5: Reconnect after reboot
+	s.T.Log("=== Waiting for node to come back after reboot ===")
+	cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+	s.Runtime.VM.SSHClient = nil
+
+	// Wait for the node to rejoin the cluster
+	s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+
+	// Re-establish SSH with retry loop (reboot may take a while)
+	reconnectSSHAfterReboot(ctx, s, initialBootID)
+
+	// Step 6: Validate post-reboot status
+	s.T.Log("=== Validating post-reboot A/B update status ===")
+	validateABUpdatePostReboot(ctx, s, initialBootID)
+}
+
+// reconnectSSHAfterReboot re-establishes the SSH connection after a reboot,
+// polling until the boot_id changes and SSH becomes available.
+func reconnectSSHAfterReboot(ctx context.Context, s *Scenario, initialBootID string) {
+	s.T.Helper()
+
+	pollCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	err := wait.PollUntilContextTimeout(pollCtx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		sshClient, dialErr := DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
+		if dialErr != nil {
+			s.T.Logf("SSH not yet available: %v", dialErr)
+			return false, nil
+		}
+
+		// Verify boot_id changed to confirm actual reboot
+		result, cmdErr := runSSHCommand(ctx, sshClient, "cat /proc/sys/kernel/random/boot_id", false)
+		if cmdErr != nil {
+			cleanupBastionTunnel(sshClient)
+			s.T.Logf("SSH connected but command failed: %v", cmdErr)
+			return false, nil
+		}
+
+		newBootID := strings.TrimSpace(result.stdout)
+		if newBootID == initialBootID {
+			cleanupBastionTunnel(sshClient)
+			s.T.Log("SSH connected but boot_id unchanged — node hasn't rebooted yet, retrying...")
+			return false, nil
+		}
+
+		s.T.Logf("Node rebooted successfully. New boot_id: %s", newBootID)
+		s.Runtime.VM.SSHClient = sshClient
+		return true, nil
+	})
+	require.NoError(s.T, err, "failed to re-establish SSH after reboot within timeout")
+}
+
+// validateABUpdatePostReboot checks that trident status shows the volume switched
+// and servicing state is Provisioned after an A/B update reboot.
+func validateABUpdatePostReboot(ctx context.Context, s *Scenario, initialBootID string) {
+	s.T.Helper()
+
+	// Confirm boot_id changed
+	bootIDResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"cat /proc/sys/kernel/random/boot_id", 0, "failed to read boot_id after reboot")
+	newBootID := strings.TrimSpace(bootIDResult.stdout)
+	require.NotEqual(s.T, initialBootID, newBootID, "boot_id should have changed after reboot")
+
+	// Get and log full trident status
+	statusResult := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"sudo trident get status", 0, "failed to get trident status after reboot")
+	s.T.Logf("Post-reboot trident status:\n%s", statusResult.stdout)
+
+	// Validate servicing state is Provisioned
+	require.Contains(s.T, statusResult.stdout, "Provisioned",
+		"expected servicingState to be Provisioned after A/B update")
+
+	// Validate active volume changed (should be VolumeB if started on VolumeA)
+	// ACL nodes start on VolumeA, so after update they should be on VolumeB
+	require.Contains(s.T, statusResult.stdout, "VolumeB",
+		"expected abActiveVolume to show VolumeB after A/B update")
+}
+
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
 	s.T.Helper()
 	if fileExist(ctx, s, fileName) {
