@@ -341,6 +341,8 @@ func GetCloudTargetEnv(location string) string {
 		return "AzureBleuCloud"
 	case strings.HasPrefix(loc, "delos"):
 		return "AzureGermanyCloud"
+	case strings.HasPrefix(loc, "singapore"):
+		return "AzureSingaporeCloud"
 	default:
 		return "AzurePublicCloud"
 	}
