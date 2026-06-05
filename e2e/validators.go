@@ -1976,6 +1976,40 @@ has_valid_ip() {
     echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
 }
 
+# Helper: restart localdns with bounded retries.
+# The cold-start test intentionally forces a systemd restart in a path that has
+# async cleanup/startup work (networkctl reload, resolv.conf update, interface and
+# iptables teardown). A single restart can fail transiently even though a follow-up
+# retry succeeds with the same empty-hosts-file state.
+restart_localdns_with_retry() {
+    local reason="$1"
+    local max_attempts=3
+    local retry_delay=5
+    local attempt rc=0
+
+    for attempt in $(seq 1 "$max_attempts"); do
+        if sudo systemctl restart localdns; then
+            echo "localdns restart succeeded on attempt ${attempt}/${max_attempts} (${reason})"
+            return 0
+        fi
+
+        rc=$?
+        echo "WARNING: localdns restart failed on attempt ${attempt}/${max_attempts} (${reason})"
+        echo "--- localdns service status ---"
+        sudo systemctl status localdns --no-pager 2>&1 || true
+        echo "--- localdns journal (last 50 lines) ---"
+        sudo journalctl -u localdns --no-pager -n 50 2>&1 || true
+
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo "Resetting failed state and retrying in ${retry_delay}s..."
+            sudo systemctl reset-failed localdns || true
+            sleep "${retry_delay}"
+        fi
+    done
+
+    return "$rc"
+}
+
 echo "=== Testing localdns cold start with empty hosts file ==="
 echo ""
 
@@ -1992,7 +2026,7 @@ echo ""
 # Step 1: Truncate hosts file and restart localdns (clears both hosts map and DNS cache)
 echo "Step 1: Truncating hosts file and restarting localdns..."
 sudo truncate -s 0 "$hosts_file"
-sudo systemctl restart localdns
+restart_localdns_with_retry "restart with empty hosts file"
 echo "localdns restarted with empty hosts file"
 echo ""
 
@@ -2010,7 +2044,7 @@ for i in $(seq 1 30); do
         echo "--- localdns journal (last 30 lines) ---"
         sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
         echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-        sudo systemctl restart localdns
+        restart_localdns_with_retry "restore after readiness timeout" || true
         exit 1
     fi
     sleep 1
@@ -2030,7 +2064,7 @@ if ! has_valid_ip "$critical_result"; then
     echo "--- localdns journal (last 30 lines) ---"
     sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_with_retry "restore after critical FQDN failure" || true
     exit 1
 fi
 echo "✓ Critical FQDN resolves via fallthrough"
@@ -2045,7 +2079,7 @@ if ! has_valid_ip "$noncritical_result"; then
     echo "--- localdns journal (last 30 lines) ---"
     sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_with_retry "restore after non-critical FQDN failure" || true
     exit 1
 fi
 echo "✓ Non-critical FQDN resolves via fallthrough"
@@ -2086,7 +2120,7 @@ if [ "$canary_resolved" != "true" ]; then
     echo "--- localdns journal (last 30 lines) ---"
     sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_with_retry "restore after canary failure" || true
     exit 1
 fi
 echo ""
@@ -2094,7 +2128,7 @@ echo ""
 # Step 5: Cleanup — restore original hosts file and restart localdns
 echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
 echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-sudo systemctl restart localdns
+restart_localdns_with_retry "final cleanup restore"
 echo ""
 
 # Wait for localdns to be ready after final restart
