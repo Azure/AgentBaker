@@ -1211,20 +1211,30 @@ pullGPUDriverImage() {
 }
 
 installGPUDriverImage() {
-    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+    local gpuInstallAction="${1:-install}"
+    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh ${gpuInstallAction}"
 }
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
+        # When the kernel module was pre-built into the VHD (build-only at image-bake time),
+        # a marker is present. Ask aks-gpu to skip the ~100s DKMS recompile and run only the
+        # device-dependent steps. aks-gpu independently re-validates the marker (kernel +
+        # driver_version + driver_kind) and falls back to a full build on any mismatch, so this
+        # is safe even after a kernel upgrade or on a shared VHD with a different driver kind.
+        GPU_INSTALL_ACTION="install"
+        if [ -f "${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}" ]; then
+            GPU_INSTALL_ACTION="install-skip-build"
+        fi
         # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
         # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
         # Use containerd's native exact-name filter rather than text-matching `images ls` output.
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
             logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage
         fi
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "$GPU_INSTALL_ACTION"
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
