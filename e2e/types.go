@@ -140,7 +140,6 @@ type ScenarioRuntime struct {
 	VM                        *ScenarioVM
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
-	EnableScriptlessANC       bool
 	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
 }
 

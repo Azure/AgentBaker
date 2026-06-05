@@ -101,19 +101,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 			require.NoError(t, err)
 		})
 	}
-
-	if supportsScriptlessAKSNodeConfig(s) {
-		t.Run("scriptless_anc", func(t *testing.T) {
-			t.Parallel()
-			sCopy := copyScenario(s)
-			if sCopy.Runtime == nil {
-				sCopy.Runtime = &ScenarioRuntime{}
-			}
-			sCopy.Runtime.EnableScriptlessANC = true
-			err := runScenario(t, sCopy)
-			require.NoError(t, err)
-		})
-	}
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
@@ -292,15 +279,17 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(s.Runtime.Cluster, nbc)
 	}
-	if s.AKSNodeConfigMutator != nil && (s.Runtime.EnableScriptlessANC || s.Tags.Scriptless) {
+	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
-		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// NBC is kept for comparison mode (compareEnvs) where both configs are needed,
-		// but disable scriptless flags so validators don't fire incorrectly.
-		nbc.EnableScriptlessCSECmd = false
-		nbc.EnableScriptlessNBCCSECmd = false
+		s.Runtime.NBC.AKSNodeConfig = nodeconfig
+
+		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
+		// scriptless tag means provisioning with aksnodeconfig is used
+		if !s.Tags.Scriptless {
+			nbc.EnableScriptlessNBCCSECmd = true
+		}
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
