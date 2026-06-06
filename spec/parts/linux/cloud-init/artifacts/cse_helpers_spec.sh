@@ -234,6 +234,30 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    Describe 'fixSkuCpuLabel'
+        nproc() { echo "16"; }
+
+        It 'should correct sku-cpu when nproc reports more cores than the label'
+            KUBELET_NODE_LABELS="agentpool=harvest,kubernetes.azure.com/sku-cpu=8,kubernetes.azure.com/agentpool=harvest"
+            When call fixSkuCpuLabel
+            The stdout should include 'Correcting sku-cpu label from 8 to 16'
+            The variable KUBELET_NODE_LABELS should equal 'agentpool=harvest,kubernetes.azure.com/sku-cpu=16,kubernetes.azure.com/agentpool=harvest'
+        End
+
+        It 'should not modify sku-cpu when it already matches nproc'
+            nproc() { echo "8"; }
+            KUBELET_NODE_LABELS="agentpool=pool1,kubernetes.azure.com/sku-cpu=8,kubernetes.azure.com/agentpool=pool1"
+            When call fixSkuCpuLabel
+            The variable KUBELET_NODE_LABELS should equal 'agentpool=pool1,kubernetes.azure.com/sku-cpu=8,kubernetes.azure.com/agentpool=pool1'
+        End
+
+        It 'should do nothing when sku-cpu label is not present'
+            KUBELET_NODE_LABELS="agentpool=pool1,kubernetes.azure.com/agentpool=pool1"
+            When call fixSkuCpuLabel
+            The variable KUBELET_NODE_LABELS should equal 'agentpool=pool1,kubernetes.azure.com/agentpool=pool1'
+        End
+    End
+
     Describe 'assert_refresh_token'
         # Helper function to create a mock JWT token
         # Usage: create_mock_jwt_token '{"permissions":{"actions":["read","pull"]}}'

@@ -555,6 +555,10 @@ function nodePrep {
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     fi
 
+    # For Harvest VMs, the RP-provided sku-cpu label reflects the nominal SKU vCPU count,
+    # but the guest OS sees more cores. Correct the label to match actual nproc output.
+    fixSkuCpuLabel
+
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
     # Configure localdns metrics exporter socket after ensureKubelet.
