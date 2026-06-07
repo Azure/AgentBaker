@@ -2429,6 +2429,41 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 	})
 }
 
+// Test_Ubuntu2204_SecureTLSBootstrapping_APIServerIPEnvVar validates that the
+// CSE shell code (configureAndStartSecureTLSBootstrapping in cse_config.sh)
+// resolves the API server IP at provisioning time and writes it as
+// APISERVER_IP=<addr> into /etc/default/secure-tls-bootstrap.
+//
+// Tracking: AB#38327357. The companion STLS client change in
+// Azure/aks-secure-tls-bootstrap reads this env var and dials the IP literal
+// directly so the gRPC dns:/// resolver is never consulted on retries.
+//
+// This test validates only the AgentBaker side (the env var is correctly
+// populated). The end-to-end "DNS blackhole, STLS still succeeds" test
+// requires the new STLS client binary baked into the VHD and is tracked as
+// a follow-up.
+func Test_Ubuntu2204_SecureTLSBootstrapping_APIServerIPEnvVar(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "validates that CSE writes APISERVER_IP into /etc/default/secure-tls-bootstrap so STLS can dial without DNS",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+					Enabled: true,
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// The env-var line must be present and assign a non-empty value.
+				// The resolver block falls back through IMDS tag -> getent ahostsv4
+				// -> getent ahostsv6 and writes nothing if all sources fail, so a
+				// missing line would indicate a hard regression.
+				ValidateFileHasContent(ctx, s, "/etc/default/secure-tls-bootstrap", "APISERVER_IP=")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
