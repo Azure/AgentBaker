@@ -475,6 +475,10 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_DEADLINE", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS", "")
+				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS", "")
 			},
 		},
 	}

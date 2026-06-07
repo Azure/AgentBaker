@@ -1149,6 +1149,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 			GetAttestedDataTimeout:    "custom-get-attested-data-timeout",
 			GetCredentialTimeout:      "custom-get-credential-timeout",
 			Deadline:                  "custom-deadline",
+			MaxAttempts:               "custom-max-attempts",
+			MaxTotalSeconds:           "custom-max-total-seconds",
+			InitialBackoffSeconds:     "custom-initial-backoff-seconds",
+			MaxBackoffSeconds:         "custom-max-backoff-seconds",
 		}
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
@@ -1168,6 +1172,10 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "custom-get-credential-timeout"))
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_DEADLINE", "custom-deadline"))
 		Expect(vars).To(HaveKeyWithValue("CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL", "custom-client-download-url"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS", "custom-max-attempts"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS", "custom-max-total-seconds"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS", "custom-initial-backoff-seconds"))
+		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS", "custom-max-backoff-seconds"))
 	})
 
 	It("should handle kubelet serving certificate rotation", func() {

@@ -139,6 +139,10 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT":      config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetCredentialTimeout(),
 		//nolint:staticcheck // keeping for now for backwards compatibility - will soon be removed
 		"SECURE_TLS_BOOTSTRAPPING_DEADLINE":                   config.GetBootstrappingConfig().GetSecureTlsBootstrappingDeadline(),
+		"SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS":               config.GetBootstrappingConfig().GetSecureTlsBootstrappingMaxAttempts(),
+		"SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS":          config.GetBootstrappingConfig().GetSecureTlsBootstrappingMaxTotalSeconds(),
+		"SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS":    config.GetBootstrappingConfig().GetSecureTlsBootstrappingInitialBackoffSeconds(),
+		"SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS":        config.GetBootstrappingConfig().GetSecureTlsBootstrappingMaxBackoffSeconds(),
 		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL": config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
 		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":         fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
 		"DHCPV6_SERVICE_FILEPATH":                             getDHCPV6ServiceFilepath(),

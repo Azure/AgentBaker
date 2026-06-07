@@ -1220,6 +1220,7 @@ SETUP_EOF
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
         SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR="default"
         SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR}/secure-tls-bootstrap"
+        SECURE_TLS_BOOTSTRAPPING_STATE_DIR="stls-state"
         API_SERVER_NAME="fqdn"
         AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 
@@ -1230,6 +1231,7 @@ SETUP_EOF
         cleanup() {
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR"
+            rm -rf "$SECURE_TLS_BOOTSTRAPPING_STATE_DIR"
         }
 
         AfterEach 'cleanup'
@@ -1289,6 +1291,54 @@ SETUP_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline'
+            The status should be success
+        End
+
+        It 'should wipe stale retry-cap state at the start of every provisioning session'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            mkdir -p "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}"
+            echo "999" > "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}/attempts"
+            echo "1234567890" > "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}/first-attempt"
+            : > "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}/capped"
+            When call configureAndStartSecureTLSBootstrapping
+            The path "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}/attempts" should not be exist
+            The path "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}/first-attempt" should not be exist
+            The path "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}/capped" should not be exist
+            The path "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}" should not be exist
+            The status should be success
+        End
+
+        It 'should not forward retry-cap env vars when unset (wrapper uses defaults)'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            unset SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS
+            unset SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS
+            unset SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS
+            unset SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS
+            When call configureAndStartSecureTLSBootstrapping
+            The contents of file "default/secure-tls-bootstrap" should not include 'SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS'
+            The contents of file "default/secure-tls-bootstrap" should not include 'SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS'
+            The contents of file "default/secure-tls-bootstrap" should not include 'SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS'
+            The contents of file "default/secure-tls-bootstrap" should not include 'SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS'
+            The status should be success
+        End
+
+        It 'should forward retry-cap env vars to the default file when set'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS="42"
+            SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS="3600"
+            SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS="2"
+            SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS="120"
+            When call configureAndStartSecureTLSBootstrapping
+            The contents of file "default/secure-tls-bootstrap" should include 'SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS=42'
+            The contents of file "default/secure-tls-bootstrap" should include 'SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS=3600'
+            The contents of file "default/secure-tls-bootstrap" should include 'SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS=2'
+            The contents of file "default/secure-tls-bootstrap" should include 'SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS=120'
             The status should be success
         End
     End

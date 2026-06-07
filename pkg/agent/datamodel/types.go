@@ -1902,6 +1902,29 @@ type SecureTLSBootstrappingConfig struct {
 	//
 	// Deprecated: Use individual RPC timeouts instead.
 	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
+
+	// MaxAttempts is an optional override that bounds the number of times the secure TLS bootstrap
+	// client may be re-invoked by systemd within a single provisioning session before the wrapper
+	// gives up and emits a terminal "RetryCapReached" event. See AB#38327355.
+	// When unset, the wrapper falls back to its built-in default (50).
+	MaxAttempts string `json:"secureTLSBootstrappingMaxAttempts,omitempty"`
+
+	// MaxTotalSeconds is an optional override that bounds the total wall-clock time the secure TLS
+	// bootstrap wrapper will keep re-attempting within a single provisioning session before giving
+	// up and emitting a terminal "RetryCapReached" event.
+	// When unset, the wrapper falls back to its built-in default (7200 seconds / 2 hours).
+	MaxTotalSeconds string `json:"secureTLSBootstrappingMaxTotalSeconds,omitempty"`
+
+	// InitialBackoffSeconds is an optional override for the initial backoff duration the secure
+	// TLS bootstrap wrapper sleeps between consecutive attempts. Doubled on each attempt up to
+	// MaxBackoffSeconds.
+	// When unset, the wrapper falls back to its built-in default (1 second).
+	InitialBackoffSeconds string `json:"secureTLSBootstrappingInitialBackoffSeconds,omitempty"`
+
+	// MaxBackoffSeconds is an optional override that caps the exponential backoff delay between
+	// consecutive secure TLS bootstrap attempts.
+	// When unset, the wrapper falls back to its built-in default (300 seconds / 5 minutes).
+	MaxBackoffSeconds string `json:"secureTLSBootstrappingMaxBackoffSeconds,omitempty"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
@@ -1979,6 +2002,34 @@ func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
 		return ""
 	}
 	return c.Deadline
+}
+
+func (c *SecureTLSBootstrappingConfig) GetMaxAttempts() string {
+	if c == nil {
+		return ""
+	}
+	return c.MaxAttempts
+}
+
+func (c *SecureTLSBootstrappingConfig) GetMaxTotalSeconds() string {
+	if c == nil {
+		return ""
+	}
+	return c.MaxTotalSeconds
+}
+
+func (c *SecureTLSBootstrappingConfig) GetInitialBackoffSeconds() string {
+	if c == nil {
+		return ""
+	}
+	return c.InitialBackoffSeconds
+}
+
+func (c *SecureTLSBootstrappingConfig) GetMaxBackoffSeconds() string {
+	if c == nil {
+		return ""
+	}
+	return c.MaxBackoffSeconds
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.

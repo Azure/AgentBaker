@@ -1,6 +1,6 @@
 [Unit]
 Description=AKS Secure TLS Bootstrap Client
-ConditionPathExists=/opt/bin/aks-secure-tls-bootstrap-client
+ConditionPathExists=/opt/azure/containers/secure-tls-bootstrap-retry-cap.sh
 Wants=network-online.target
 After=network-online.target
 
@@ -8,7 +8,10 @@ After=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 
-ExecStart=/opt/bin/aks-secure-tls-bootstrap-client \
+# Wrapped via secure-tls-bootstrap-retry-cap.sh to bound per-VM retries when
+# the bootstrap client is stuck. See AB#38327355 for context: a single stuck
+# VM previously generated thousands of failure events and dominated QoS.
+ExecStart=/opt/azure/containers/secure-tls-bootstrap-retry-cap.sh \
     --verbose \
     --ensure-authorized \
     --next-proto=aks-tls-bootstrap \

@@ -695,6 +695,18 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSecureTLSBootstrappingDeadline": func() string {
 			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
+		"GetSecureTLSBootstrappingMaxAttempts": func() string {
+			return config.SecureTLSBootstrappingConfig.GetMaxAttempts()
+		},
+		"GetSecureTLSBootstrappingMaxTotalSeconds": func() string {
+			return config.SecureTLSBootstrappingConfig.GetMaxTotalSeconds()
+		},
+		"GetSecureTLSBootstrappingInitialBackoffSeconds": func() string {
+			return config.SecureTLSBootstrappingConfig.GetInitialBackoffSeconds()
+		},
+		"GetSecureTLSBootstrappingMaxBackoffSeconds": func() string {
+			return config.SecureTLSBootstrappingConfig.GetMaxBackoffSeconds()
+		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},

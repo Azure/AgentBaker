@@ -131,6 +131,8 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   SECURE_TLS_BOOTSTRAP_SERVICE_SRC=/home/packer/secure-tls-bootstrap.service
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
+  SECURE_TLS_BOOTSTRAP_RETRY_CAP_SCRIPT_SRC=/home/packer/secure-tls-bootstrap-retry-cap.sh
+  SECURE_TLS_BOOTSTRAP_RETRY_CAP_SCRIPT_DEST=/opt/azure/containers/secure-tls-bootstrap-retry-cap.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -415,6 +417,7 @@ copyPackerFiles() {
 
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $SECURE_TLS_BOOTSTRAP_SERVICE_SRC $SECURE_TLS_BOOTSTRAP_SERVICE_DEST 600
+  cpAndMode $SECURE_TLS_BOOTSTRAP_RETRY_CAP_SCRIPT_SRC $SECURE_TLS_BOOTSTRAP_RETRY_CAP_SCRIPT_DEST 755
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
   cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST 755

@@ -521,7 +521,13 @@ ensureKubeCACert() {
 # file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+SECURE_TLS_BOOTSTRAPPING_STATE_DIR="/var/lib/aks-secure-tls-bootstrap"
 configureAndStartSecureTLSBootstrapping() {
+    # Reset retry-cap state at the start of every provisioning session so the
+    # wrapper (secure-tls-bootstrap-retry-cap.sh) counts from zero on fresh
+    # bootstraps. See AB#38327355.
+    rm -rf "${SECURE_TLS_BOOTSTRAPPING_STATE_DIR}"
+
     BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
@@ -554,6 +560,21 @@ configureAndStartSecureTLSBootstrapping() {
     echo "BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}" > "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    fi
+    # Retry-cap knobs consumed by secure-tls-bootstrap-retry-cap.sh. If unset,
+    # the wrapper falls back to its built-in defaults
+    # (50 attempts / 7200s budget / 1s initial backoff / 300s max backoff).
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS}" ]; then
+        echo "SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS=${SECURE_TLS_BOOTSTRAPPING_MAX_ATTEMPTS}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS}" ]; then
+        echo "SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS=${SECURE_TLS_BOOTSTRAPPING_MAX_TOTAL_SECONDS}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS}" ]; then
+        echo "SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS=${SECURE_TLS_BOOTSTRAPPING_INITIAL_BACKOFF_SECONDS}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    fi
+    if [ -n "${SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS}" ]; then
+        echo "SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS=${SECURE_TLS_BOOTSTRAPPING_MAX_BACKOFF_SECONDS}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"

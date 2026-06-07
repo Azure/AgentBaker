@@ -83,4 +83,24 @@ message BootstrappingConfig {
   // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
   // This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
   optional string secure_tls_bootstrapping_get_credential_timeout = 15;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override consumed by the on-VM
+  // wrapper that bounds per-VM retry attempts. Caps the number of times the secure TLS bootstrap
+  // client may be re-invoked by systemd within a single provisioning session before the wrapper
+  // gives up and emits a terminal RetryCapReached event. See AB#38327355.
+  optional string secure_tls_bootstrapping_max_attempts = 16;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override consumed by the on-VM
+  // wrapper. Caps the total wall-clock time (in seconds) the wrapper will keep re-attempting
+  // within a single provisioning session before giving up.
+  optional string secure_tls_bootstrapping_max_total_seconds = 17;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override consumed by the on-VM
+  // wrapper. Initial backoff (in seconds) between consecutive attempts; doubled on each attempt
+  // up to secure_tls_bootstrapping_max_backoff_seconds.
+  optional string secure_tls_bootstrapping_initial_backoff_seconds = 18;
+
+  // Only used when secure TLS bootstrapping is enabled. Optional override consumed by the on-VM
+  // wrapper. Caps the exponential backoff delay (in seconds) between consecutive attempts.
+  optional string secure_tls_bootstrapping_max_backoff_seconds = 19;
 }
