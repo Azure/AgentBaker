@@ -1227,6 +1227,17 @@ SETUP_EOF
             echo "chmod $@"
         }
 
+        # AB#38327357: stub external resolvers so the default tests do not depend on
+        # CI DNS / IMDS reachability. Per-test overrides further down provide
+        # specific responses for the new IP-resolution cases.
+        curl() {
+            return 1
+        }
+
+        getent() {
+            return 2
+        }
+
         cleanup() {
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR"
@@ -1250,6 +1261,7 @@ SETUP_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
             The contents of file "default/secure-tls-bootstrap" should not include 'AZURE_ENVIRONMENT_FILEPATH'
+            The contents of file "default/secure-tls-bootstrap" should not include 'APISERVER_IP='
             The status should be success
         End
 
@@ -1262,6 +1274,7 @@ SETUP_EOF
             The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
             The contents of file "default/secure-tls-bootstrap" should include 'AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/akscustom.json'
+            The contents of file "default/secure-tls-bootstrap" should not include 'APISERVER_IP='
             The status should be success
         End
 
@@ -1289,6 +1302,138 @@ SETUP_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline'
+            The status should be success
+        End
+
+        # AB#38327357: APISERVER_IP resolution coverage. The new resolver runs
+        # before the EnvironmentFile is written so STLS can dial the apiserver
+        # IP directly and bypass gRPC's dns resolver when node DNS is broken.
+        It 'should write APISERVER_IP as-is when API_SERVER_NAME is already an IPv4 literal'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            API_SERVER_NAME="10.0.0.5"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'APISERVER_IP=10.0.0.5'
+            The status should be success
+        End
+
+        It 'should resolve APISERVER_IP via getent ahostsv4 when DNS works'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            getent() {
+                # First arg is the database (ahostsv4 / ahostsv6).
+                if [ "$1" = "ahostsv4" ]; then
+                    printf '10.0.0.6      STREAM example.hcp.eastus.azmk8s.io\n10.0.0.6      DGRAM\n10.0.0.6      RAW\n'
+                    return 0
+                fi
+                return 2
+            }
+            API_SERVER_NAME="example.hcp.eastus.azmk8s.io"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'APISERVER_IP=10.0.0.6'
+            The status should be success
+        End
+
+        It 'should fall back to getent ahostsv6 when ahostsv4 has no answer'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            getent() {
+                if [ "$1" = "ahostsv6" ]; then
+                    printf '2603:1030::1      STREAM v6only.hcp.eastus.azmk8s.io\n'
+                    return 0
+                fi
+                return 2
+            }
+            API_SERVER_NAME="v6only.hcp.eastus.azmk8s.io"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'APISERVER_IP=2603:1030::1'
+            The status should be success
+        End
+
+        It 'should prefer the IMDS aksAPIServerIPAddress tag for privatelink FQDNs'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            curl() {
+                # IMDS returns key:value pairs separated by semicolons.
+                echo "aksAPIServerIPAddress:10.224.0.4;otherTag:someValue"
+                return 0
+            }
+            getent() {
+                # Must not be needed once IMDS hits; if called, fail loudly.
+                echo "getent should not have been called" >&2
+                return 1
+            }
+            API_SERVER_NAME="example.privatelink.eastus.azmk8s.io"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'APISERVER_IP=10.224.0.4'
+            The status should be success
+        End
+
+        It 'should fall back to DNS when IMDS returns no aksAPIServerIPAddress tag'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            curl() {
+                echo "otherTag:someValue;anotherTag:moreData"
+                return 0
+            }
+            getent() {
+                if [ "$1" = "ahostsv4" ]; then
+                    printf '10.224.0.5      STREAM example.privatelink.eastus.azmk8s.io\n'
+                    return 0
+                fi
+                return 2
+            }
+            API_SERVER_NAME="example.privatelink.eastus.azmk8s.io"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'APISERVER_IP=10.224.0.5'
+            The status should be success
+        End
+
+        It 'should omit APISERVER_IP when every resolver fails'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            # curl + getent inherit the Describe-level stubs that return failure.
+            API_SERVER_NAME="unresolvable.example.com"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS='
+            The contents of file "default/secure-tls-bootstrap" should not include 'APISERVER_IP='
+            The status should be success
+        End
+
+        It 'should reject IMDS responses that are not plausible IP literals'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+            }
+            curl() {
+                # Garbage / injected value masquerading as a tag value.
+                echo "aksAPIServerIPAddress:not-an-ip!@#"
+                return 0
+            }
+            getent() {
+                if [ "$1" = "ahostsv4" ]; then
+                    printf '10.224.0.9      STREAM example.privatelink.eastus.azmk8s.io\n'
+                    return 0
+                fi
+                return 2
+            }
+            API_SERVER_NAME="example.privatelink.eastus.azmk8s.io"
+            When call configureAndStartSecureTLSBootstrapping
+            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            # Garbage discarded, falls through to getent.
+            The contents of file "default/secure-tls-bootstrap" should include 'APISERVER_IP=10.224.0.9'
+            The contents of file "default/secure-tls-bootstrap" should not include 'APISERVER_IP=not-an-ip'
             The status should be success
         End
     End

@@ -548,12 +548,58 @@ configureAndStartSecureTLSBootstrapping() {
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
     fi
 
+    # AB#38327357: resolve the apiserver IP locally and hand it to STLS via the
+    # APISERVER_IP env var so the client can dial the literal IP and skip the
+    # gRPC dns:/// resolver. If anything fails the var stays empty, the line
+    # is omitted, and STLS falls back to its existing FQDN dial path. Best
+    # effort only — must never fail CSE.
+    APISERVER_IP=""
+    case "${API_SERVER_NAME}" in
+        ''|*[!0-9.]*)
+            # Not a plain IPv4 literal. Try the IMDS aksAPIServerIPAddress tag
+            # (private clusters only — same source reconcile-private-hosts.sh
+            # uses for privatelink FQDNs), then DNS via getent.
+            case "${API_SERVER_NAME}" in
+                *.privatelink.*)
+                    APISERVER_IP=$(curl -sSL -m 5 -H "Metadata: true" \
+                        "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text" 2>/dev/null \
+                        | tr ';' '\n' \
+                        | awk -F: 'tolower($1) == "aksapiserveripaddress" { print $2; exit }')
+                    # Discard IMDS values that are not plausible IP literals so
+                    # we fall through to getent instead of short-circuiting on
+                    # an invalid (or absent) tag.
+                    case "${APISERVER_IP}" in
+                        ''|*[!0-9a-fA-F:.]*) APISERVER_IP="" ;;
+                    esac
+                    ;;
+            esac
+            if [ -z "${APISERVER_IP}" ] && [ -n "${API_SERVER_NAME}" ]; then
+                APISERVER_IP=$(getent ahostsv4 "${API_SERVER_NAME}" 2>/dev/null | awk '/STREAM/ { print $1; exit }')
+            fi
+            if [ -z "${APISERVER_IP}" ] && [ -n "${API_SERVER_NAME}" ]; then
+                APISERVER_IP=$(getent ahostsv6 "${API_SERVER_NAME}" 2>/dev/null | awk '/STREAM/ { print $1; exit }')
+            fi
+            # Final sanity: discard anything that isn't a plausible IP literal.
+            # The STLS client also validates with net.ParseIP, but reject early
+            # so we don't write garbage into the EnvironmentFile.
+            case "${APISERVER_IP}" in
+                ''|*[!0-9a-fA-F:.]*) APISERVER_IP="" ;;
+            esac
+            ;;
+        *)
+            APISERVER_IP="${API_SERVER_NAME}"
+            ;;
+    esac
+
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     echo "BOOTSTRAP_FLAGS=${BOOTSTRAP_CLIENT_FLAGS}" > "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
+    fi
+    if [ -n "${APISERVER_IP}" ]; then
+        echo "APISERVER_IP=${APISERVER_IP}" >> "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
     fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}")"
