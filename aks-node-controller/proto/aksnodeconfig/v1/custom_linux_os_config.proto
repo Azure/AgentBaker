@@ -49,7 +49,7 @@ message SysctlConfig {
   optional int32 net_netfilter_nf_conntrack_max = 19;
   optional int32 net_netfilter_nf_conntrack_buckets = 20;
   optional int32 fs_inotify_max_user_watches = 21;
-  optional int64 fs_file_max = 22;
+  optional int32 fs_file_max = 22;
   optional int32 fs_aio_max_nr = 23;
   optional int32 fs_nr_open = 24;
   optional int32 kernel_threads_max = 25;

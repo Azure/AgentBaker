@@ -800,7 +800,7 @@ type SysctlConfig struct {
 	NetNetfilterNfConntrackMax     *int32 `json:"netNetfilterNfConntrackMax,omitempty"`
 	NetNetfilterNfConntrackBuckets *int32 `json:"netNetfilterNfConntrackBuckets,omitempty"`
 	FsInotifyMaxUserWatches        *int32 `json:"fsInotifyMaxUserWatches,omitempty"`
-	FsFileMax                      *int64 `json:"fsFileMax,omitempty"`
+	FsFileMax                      *int32 `json:"fsFileMax,omitempty"`
 	FsAioMaxNr                     *int32 `json:"fsAioMaxNr,omitempty"`
 	FsNrOpen                       *int32 `json:"fsNrOpen,omitempty"`
 	KernelThreadsMax               *int32 `json:"kernelThreadsMax,omitempty"`
