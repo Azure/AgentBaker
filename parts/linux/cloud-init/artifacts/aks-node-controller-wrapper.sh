@@ -45,7 +45,7 @@ if [ -f "$CONFIG_PATH" ]; then
 fi
 if [ -f "$NBC_CMD_PATH" ]; then
     log "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
-    command+=("--nbc-cmd=$NBC_CMD_PATH")
+    command+=(" --nbc-cmd=$NBC_CMD_PATH")
 fi
 
 "${command[@]}" &
