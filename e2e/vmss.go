@@ -1048,6 +1048,44 @@ func addSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 	)
 }
 
+// addDualStackSecondaryNIC appends a secondary (non-primary) NIC with both IPv4 and IPv6
+// IP configurations to the VMSS model, using the same subnet as the primary NIC.
+func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
+	primaryNIC := vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0]
+	subnetID := primaryNIC.Properties.IPConfigurations[0].Properties.Subnet.ID
+	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations = append(
+		vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations,
+		&armcompute.VirtualMachineScaleSetNetworkConfiguration{
+			Name: to.Ptr("secondary-nic"),
+			Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
+				Primary: to.Ptr(false),
+				IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
+					{
+						Name: to.Ptr("secondary-nic-ipconfig-v4"),
+						Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+							Primary:                 to.Ptr(true),
+							PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
+							Subnet: &armcompute.APIEntityReference{
+								ID: subnetID,
+							},
+						},
+					},
+					{
+						Name: to.Ptr("secondary-nic-ipconfig-v6"),
+						Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+							Primary:                 to.Ptr(false),
+							PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv6),
+							Subnet: &armcompute.APIEntityReference{
+								ID: subnetID,
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+}
+
 func generateVMSSNameLinux(t testing.TB) string {
 	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), t.Name())
 	name = strings.ReplaceAll(name, "_", "")

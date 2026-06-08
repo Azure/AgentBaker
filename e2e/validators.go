@@ -2971,3 +2971,17 @@ func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) 
 	require.Contains(s.T, result.stdout, "inet ",
 		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
 }
+
+// ValidateSecondaryNICDualStack checks that the given network interface is UP and has both IPv4 and IPv6 addresses.
+func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet6 ",
+		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
+}
