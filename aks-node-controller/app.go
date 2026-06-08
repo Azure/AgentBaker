@@ -328,14 +328,14 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 		nbcVal, inNBC := nbcEnv[key]
 		switch {
 		case inPC && !inNBC:
-			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
+			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s=%s", key, pcVal))
 		case !inPC && inNBC:
 			if !isExpectedDiffCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
+				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s=%s", key, nbcVal))
 			}
 		case !envValsEqual(pcVal, nbcVal):
 			if !isExpectedDiffCSEVar(key) {
-				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+				diffs = append(diffs, fmt.Sprintf("differs: %s pc=%s nbc=%s", key, pcVal, nbcVal))
 			}
 		}
 	}

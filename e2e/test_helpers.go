@@ -104,7 +104,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
+	return !s.Tags.Scriptless && s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
 }
 
 func supportsScriptlessAKSNodeConfig(s *Scenario) bool {
