@@ -416,7 +416,7 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		return ""
 	}
 
-	header := "[Service]\n"
+	header := "[Service]"
 	m := make(map[string]string)
 	if u.NoFile != nil {
 		m["LimitNOFILE"] = u.GetNoFile()

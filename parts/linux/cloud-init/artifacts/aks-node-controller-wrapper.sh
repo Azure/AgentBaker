@@ -42,13 +42,12 @@ command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then
     log "Launching aks-node-controller with config ${CONFIG_PATH}"
     command+=("--provision-config=$CONFIG_PATH")
-elif [ -f "$NBC_CMD_PATH" ]; then
+fi
+if [ -f "$NBC_CMD_PATH" ]; then
     log "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
     command+=("--nbc-cmd=$NBC_CMD_PATH")
-else
-    log "Gracefully exit aks-node-controller without provision config or nbc cmd"
-    exit 0
 fi
+
 "${command[@]}" &
 child_pid=$!
 log "Spawned aks-node-controller (pid ${child_pid})"

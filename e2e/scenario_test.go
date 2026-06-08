@@ -612,6 +612,8 @@ func Test_Ubuntu2204_Scriptless(t *testing.T) {
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.KubeletConfig.KubeletFlags = make(map[string]string)
 				config.KubeletConfig.KubeletFlags["--register-with-taints"] = registerWithTaints
 				config.CustomCaCerts = []string{encodedTestCert}
 				customLinuxOsConfig := &aksnodeconfigv1.CustomLinuxOsConfig{
@@ -1708,7 +1710,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
-			GPU:        true,
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1792,7 +1794,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
-			GPU:        true,
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -2261,7 +2263,7 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			GPU:        true,
+			GPU: true,
 		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
