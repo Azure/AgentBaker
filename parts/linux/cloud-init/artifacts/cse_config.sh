@@ -970,9 +970,19 @@ configureSecondaryNICs() {
         local iface_name="eth${i}"
         local metric=$(( 100 + i * 100 ))
 
+        # Check if this NIC has IPv6 addresses configured in IMDS
+        local ipv6_count
+        ipv6_count=$(jq -r ".network.interface[$i].ipv6.ipAddress | length" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+        local has_ipv6=false
+        if [ "$ipv6_count" -gt 0 ]; then
+            has_ipv6=true
+        fi
+
         if [ "$is_netplan" = true ]; then
             # Ubuntu: generate netplan config for the secondary NIC
-            cat > "/etc/netplan/60-secondary-nic-${i}.yaml" <<NETPLAN_EOF
+            local netplan_file="/etc/netplan/60-secondary-nic-${i}.yaml"
+            {
+                cat <<NETPLAN_EOF
 network:
   ethernets:
     ${iface_name}:
@@ -982,16 +992,26 @@ network:
       dhcp4-overrides:
         route-metric: ${metric}
         use-dns: false
+NETPLAN_EOF
+                if [ "$has_ipv6" = true ]; then
+                    cat <<NETPLAN_V6_EOF
       dhcp6: true
       dhcp6-overrides:
+        route-metric: ${metric}
         use-dns: false
+NETPLAN_V6_EOF
+                fi
+                cat <<NETPLAN_TAIL_EOF
       set-name: "${iface_name}"
-NETPLAN_EOF
-            chmod 600 "/etc/netplan/60-secondary-nic-${i}.yaml"
+NETPLAN_TAIL_EOF
+            } > "$netplan_file"
+            chmod 600 "$netplan_file"
         else
             # AzureLinux/Mariner: generate networkd .network unit.
             # Prefix 10- so it takes precedence over the VHD's 99-dhcp-en.network.
-            cat > "/etc/systemd/network/10-secondary-nic-${i}.network" <<NETWORKD_EOF
+            local networkd_file="/etc/systemd/network/10-secondary-nic-${i}.network"
+            if [ "$has_ipv6" = true ]; then
+                cat > "$networkd_file" <<NETWORKD_EOF
 [Match]
 Name=${iface_name}
 
@@ -1010,6 +1030,21 @@ RouteMetric=${metric}
 UseDNS=false
 UseDomains=false
 NETWORKD_EOF
+            else
+                cat > "$networkd_file" <<NETWORKD_EOF
+[Match]
+Name=${iface_name}
+
+[Network]
+DHCP=ipv4
+
+[DHCPv4]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+SendRelease=false
+NETWORKD_EOF
+            fi
         fi
 
         echo "Configured secondary NIC ${iface_name} (mac=${mac}, metric=${metric})"
