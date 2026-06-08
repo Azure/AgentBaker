@@ -285,9 +285,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.Runtime.AKSNodeConfig = nodeconfig
 		s.Runtime.NBC.AKSNodeConfig = nodeconfig
 
+		nbc.EnableScriptlessCSECmd = false
+
 		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
 		// scriptless tag means provisioning with aksnodeconfig is used
-		if !s.Tags.Scriptless && s.BootstrapConfigMutator == nil {
+		if !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}
 	}
