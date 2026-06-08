@@ -655,6 +655,8 @@ installAndConfigureArtifactStreaming() {
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
+  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 
