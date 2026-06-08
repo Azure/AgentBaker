@@ -261,7 +261,7 @@ installSecureTLSBootstrapClient() {
         rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}" &
         if isFlatcar || isACL; then
             rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw
-            systemd-sysext --no-reload refresh || true
+            (systemd-sysext --no-reload refresh || echo "WARNING: systemd-sysext refresh failed after removing aks-secure-tls-bootstrap-client sysext") &
         fi
         return 0
     fi

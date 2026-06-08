@@ -263,10 +263,39 @@ Describe 'cse_install.sh'
             systemd-sysext() {
                 echo "mock systemd-sysext $*" >&2
             }
-            When call installSecureTLSBootstrapClient
+            # systemd-sysext refresh is backgrounded; wait so its output is captured.
+            installAndWait() {
+                installSecureTLSBootstrapClient
+                wait
+            }
+            When call installAndWait
             The output should include "secure TLS bootstrapping is disabled"
             The error should include "mock rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw"
             The error should include "mock systemd-sysext --no-reload refresh"
+            The error should not include "WARNING: systemd-sysext refresh failed"
+            The status should be success
+        End
+
+        It 'should log a warning if systemd-sysext refresh fails on ACL when secure TLS bootstrapping is disabled'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            OS="AZURECONTAINERLINUX"
+            OS_VARIANT=""
+            ACL_OS_NAME="AZURECONTAINERLINUX"
+            ACL_OS_VARIANT="AZURECONTAINERLINUX"
+            FLATCAR_OS_NAME="FLATCAR"
+            rm() {
+                echo "mock rm $*" >&2
+            }
+            systemd-sysext() {
+                return 1
+            }
+            installAndWait() {
+                installSecureTLSBootstrapClient
+                wait
+            }
+            When call installAndWait
+            The output should include "WARNING: systemd-sysext refresh failed after removing aks-secure-tls-bootstrap-client sysext"
+            The error should include "mock rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw"
             The status should be success
         End
 
