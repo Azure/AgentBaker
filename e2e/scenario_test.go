@@ -2105,7 +2105,7 @@ func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 					EnableLocalDns: false,
 				}
 			},
-			SkipDefaultValidation: true,_s
+			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateLocalDNSService(ctx, s, "disabled")
 				ValidateLocalDNSResolution(ctx, s, "168.63.129.16")

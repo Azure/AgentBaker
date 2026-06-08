@@ -427,6 +427,10 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
+	if len(m) == 0 {
+		return header
+	}
+
 	return header + createSortedKeyValuePairs(m, " ") + " "
 }
 
