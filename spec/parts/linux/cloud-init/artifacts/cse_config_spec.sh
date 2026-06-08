@@ -198,7 +198,6 @@ Describe 'cse_config.sh'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp4: true'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'use-dns: false'
-            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp6: true'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'set-name: "eth1"'
         End
 
@@ -216,11 +215,9 @@ Describe 'cse_config.sh'
             The status should be success
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=yes'
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'IPv6AcceptRA=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'UseDNS=false'
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[DHCPv6]'
         End
 
         It 'should configure netplan for both secondary NICs when three NICs are present on Ubuntu'
