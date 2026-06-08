@@ -974,7 +974,6 @@ configureSecondaryNICs() {
             # Ubuntu: generate netplan config for the secondary NIC
             cat > "/etc/netplan/60-secondary-nic-${i}.yaml" <<NETPLAN_EOF
 network:
-  version: 2
   ethernets:
     ${iface_name}:
       match:
@@ -982,6 +981,9 @@ network:
       dhcp4: true
       dhcp4-overrides:
         route-metric: ${metric}
+        use-dns: false
+      dhcp6: true
+      dhcp6-overrides:
         use-dns: false
       set-name: "${iface_name}"
 NETPLAN_EOF
@@ -995,13 +997,18 @@ Name=${iface_name}
 
 [Network]
 DHCP=yes
-IPv6AcceptRA=no
+IPv6AcceptRA=yes
 
 [DHCPv4]
 RouteMetric=${metric}
 UseDNS=false
 UseDomains=false
 SendRelease=false
+
+[DHCPv6]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
 NETWORKD_EOF
         fi
 
