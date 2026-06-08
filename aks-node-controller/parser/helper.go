@@ -416,7 +416,8 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		return ""
 	}
 
-	header := "[Service]"
+	// spaces are used here because they are converted to newlines in scripts
+	header := "[Service] "
 	m := make(map[string]string)
 	if u.NoFile != nil {
 		m["LimitNOFILE"] = u.GetNoFile()
@@ -426,7 +427,7 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
-	return header + createSortedKeyValuePairs(m, " ")
+	return header + createSortedKeyValuePairs(m, " ") + " "
 }
 
 // getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".

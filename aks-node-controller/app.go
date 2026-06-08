@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -333,7 +334,7 @@ func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
 			if !isExpectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s=%s", key, nbcVal))
 			}
-		case !envValsEqual(pcVal, nbcVal):
+		case !envValsEqualForKey(key, pcVal, nbcVal):
 			if !isExpectedDiffCSEVar(key) {
 				diffs = append(diffs, fmt.Sprintf("differs: %s pc=%s nbc=%s", key, pcVal, nbcVal))
 			}
@@ -351,6 +352,56 @@ func envValsEqual(a, b string) bool {
 		return true
 	}
 	return stripDoubleQuotes(a) == stripDoubleQuotes(b)
+}
+
+// envValsEqualForKey performs key-specific comparison logic.
+// For SYSCTL_CONTENT, it base64-decodes both values and compares the resulting
+// key=value pairs as sets (ignoring order and whitespace differences).
+func envValsEqualForKey(key, a, b string) bool {
+	if key == "SYSCTL_CONTENT" {
+		return sysctlContentEqual(a, b)
+	}
+	return envValsEqual(a, b)
+}
+
+// sysctlContentEqual base64-decodes both values and compares the sysctl key=value
+// pairs as sets, ignoring line ordering and trailing whitespace.
+func sysctlContentEqual(a, b string) bool {
+	aDecoded, errA := base64.StdEncoding.DecodeString(a)
+	bDecoded, errB := base64.StdEncoding.DecodeString(b)
+	if errA != nil || errB != nil {
+		// Fall back to literal comparison if decoding fails.
+		return envValsEqual(a, b)
+	}
+	aSet := parseSysctlPairs(string(aDecoded))
+	bSet := parseSysctlPairs(string(bDecoded))
+	if len(aSet) != len(bSet) {
+		return false
+	}
+	for k, v := range aSet {
+		if bSet[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+// parseSysctlPairs parses newline-separated "key = value" or "key=value" entries
+// into a map, trimming whitespace from both key and value.
+func parseSysctlPairs(content string) map[string]string {
+	result := make(map[string]string)
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	return result
 }
 
 func stripDoubleQuotes(s string) string {

@@ -216,7 +216,7 @@ func Test_getUlimitContent(t *testing.T) {
 			args: args{
 				u: &aksnodeconfigv1.UlimitConfig{},
 			},
-			want: "[Service]\n",
+			want: "[Service] ",
 		},
 		{
 			name: "UlimitConfig with custom values",
@@ -226,7 +226,7 @@ func Test_getUlimitContent(t *testing.T) {
 					MaxLockedMemory: &str9999,
 				},
 			},
-			want: "[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999",
+			want: "[Service] LimitMEMLOCK=9999 LimitNOFILE=9999 ",
 		},
 	}
 	for _, tt := range tests {

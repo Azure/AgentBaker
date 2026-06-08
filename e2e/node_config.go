@@ -359,9 +359,19 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 	cfg.KubeletConfig.KubeletClientKey = kubeletClientKey
 
 	// Build kubelet flags from the NBC's KubeletConfig map, filtering the same way baker.go does.
+	// When kubelet config file is enabled, flags in TranslatedKubeletConfigFlags are written to the
+	// config file instead of being passed as CLI flags, so filter them out here.
 	if nbc.KubeletConfig != nil {
+		kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
+		omittedFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 		kubeletFlags := make(map[string]string)
 		for key, val := range nbc.KubeletConfig {
+			if kubeletConfigFileEnabled && agent.TranslatedKubeletConfigFlags[key] {
+				continue
+			}
+			if omittedFlags[key] {
+				continue
+			}
 			kubeletFlags[key] = val
 		}
 		cfg.KubeletConfig.KubeletFlags = kubeletFlags
