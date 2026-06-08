@@ -682,11 +682,12 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
@@ -1379,14 +1380,12 @@ func Test_Ubuntu2204_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2404 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
@@ -1404,14 +1403,12 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 func Test_Ubuntu2404_ArtifactStreaming_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2404 node using artifact streaming and ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableArtifactStreaming = true
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.EnableArtifactStreaming = true
 				config.VmSize = "Standard_D2pds_V5"
@@ -2048,6 +2045,7 @@ func Test_AzureLinuxV3_Scriptless(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.EnableKubeletConfigFile = true
 				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 			},
@@ -2100,6 +2098,11 @@ func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: false,
+				}
+			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns: false,
@@ -2298,6 +2301,14 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 				config.VmSize = "Standard_NC6s_v3"
@@ -2376,6 +2387,7 @@ func Test_Ubuntu2404Gen2_McrChinaCloud_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			MockAzureChinaCloud: true,
+			Scriptless:          true,
 		},
 		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
 		Config: Config{
@@ -2927,6 +2939,9 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled: false,
+					DefaultClientID:   "should-not-appear-client-id",
+					DefaultTenantID:   "should-not-appear-tenant-id",
+					LocalAuthoritySNI: "should.not.appear.sni",
 				}
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
