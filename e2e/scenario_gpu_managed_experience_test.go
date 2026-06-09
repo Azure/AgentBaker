@@ -714,3 +714,32 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2404_NvidiaDraDriverRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that NVIDIA DRA driver is running & functional on Ubuntu 24.04 GPU nodes",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+		},
+	})
+}

@@ -548,8 +548,13 @@ while IFS= read -r p; do
       done
       ;;
     "dra-driver-nvidia-gpu")
-      retrycmd_curl_file 10 5 25 "/opt/dra-driver-nvidia-gpu/downloads" "https://github.com/runzhen/dra-driver-nvidia-gpu/releases/download/v0.0.2-test/gpu-kubelet-plugin-v0.0.2-test-linux-amd64.tar.gz"
-      echo "  - xxx dra-driver-nvidia-gpu version 0.4.0" >> ${VHD_LOGS_FILEPATH}
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        mkdir -p "${downloadDir}"
+        tarball="${downloadDir}/${evaluatedURL##*/}"
+        retrycmd_get_tarball 120 5 60 "${tarball}" "${evaluatedURL}" 300 || exit $ERR_GPU_DOWNLOAD_TIMEOUT
+        echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
       ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do

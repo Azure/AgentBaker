@@ -1615,9 +1615,9 @@ configureManagedGPUExperience() {
 startNvidiaManagedExpServices() {
     # 1. Start device plugin or DRA driver
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
-        startDRADriverNvidiaGpu()
+        startDRADriverNvidiaGpu
     else
-        startNvidiaDevicePlugin()
+        startNvidiaDevicePlugin
     fi
 
     # 2. Start the nvidia-dcgm service.
