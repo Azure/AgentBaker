@@ -1719,7 +1719,7 @@ startDRADriverNvidiaGpu() {
 
 
     # Configure with pass-device-specs for non-MIG nodes
-    tee "${DRA_DRIVER_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<'EOF'
+    tee "${DRA_DRIVER_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name nvcr.io/nvidia/k8s-dra-driver-gpu:v25.8.1 --node-name=${NODE_NAME}
