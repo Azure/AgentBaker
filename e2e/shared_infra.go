@@ -34,11 +34,6 @@ const (
 	networkContributorRolID = "/providers/Microsoft.Authorization/roleDefinitions/4d97b98b-1d4f-4787-a291-c67834d212e7"
 )
 
-// APIServerDNSZone returns the private DNS zone name for API server FQDNs in a given location.
-func APIServerDNSZone(location string) string {
-	return fmt.Sprintf("hcp.%s.azmk8s.io", location)
-}
-
 type SharedInfra struct {
 	VNetName       string
 	ResourceGroup  string
@@ -60,10 +55,6 @@ func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, erro
 
 	if err := ensurePESubnet(ctx, rg); err != nil {
 		return nil, fmt.Errorf("ensuring PE subnet: %w", err)
-	}
-
-	if err := ensureAPIServerDNSZone(ctx, rg, location); err != nil {
-		return nil, fmt.Errorf("ensuring API server DNS zone: %w", err)
 	}
 
 	bastionDNS, err := ensureSharedBastion(ctx, rg, location)
@@ -143,23 +134,6 @@ func ensurePESubnet(ctx context.Context, rg string) error {
 	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return fmt.Errorf("waiting for PE subnet creation: %w", err)
-	}
-	return nil
-}
-
-// ensureAPIServerDNSZone creates the shared private DNS zone for API server FQDNs
-// and links it to the shared VNet. All clusters add their A records to this single zone.
-func ensureAPIServerDNSZone(ctx context.Context, rg, location string) error {
-	zoneName := APIServerDNSZone(location)
-	if _, err := createPrivateZone(ctx, rg, zoneName); err != nil {
-		return fmt.Errorf("creating API server DNS zone %s: %w", zoneName, err)
-	}
-	vnet := VNet{
-		name:          SharedVNetName,
-		resourceGroup: rg,
-	}
-	if err := createPrivateDNSLink(ctx, vnet, rg, zoneName); err != nil {
-		return fmt.Errorf("linking API server DNS zone to VNet: %w", err)
 	}
 	return nil
 }

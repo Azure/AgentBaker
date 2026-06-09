@@ -20,7 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
@@ -931,52 +930,54 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 	if err == nil {
 		return &pzResp.PrivateZone, nil
 	}
+	return createPrivateZoneWithRetry(ctx, nodeResourceGroup, privateZoneName)
+}
+
+// createPrivateZoneWithRetry retries zone creation on 409 conflicts, which happen
+// when ARM serializes concurrent operations in the same resource group (e.g. AKS
+// provisioning resources in MC_ alongside our DNS zone creation).
+func createPrivateZoneWithRetry(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
 	}
-	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
-		ctx,
-		nodeResourceGroup,
-		privateZoneName,
-		dnsZoneParams,
-		nil,
-	)
-	if err != nil {
-		// 409 means another operation is in progress — wait and re-fetch
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-			return waitForPrivateZone(ctx, nodeResourceGroup, privateZoneName)
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			toolkit.Logf(ctx, "retrying private DNS zone %q creation (attempt %d, last error: %v)", privateZoneName, attempt+1, lastErr)
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled waiting to retry private dns zone creation: %w", ctx.Err())
+			case <-time.After(30 * time.Second):
+			}
+			// zone may have been created by AKS or a previous attempt that got 409
+			resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
+			if err == nil {
+				return &resp.PrivateZone, nil
+			}
 		}
-		return nil, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
-	}
-	resp, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create private dns zone in polling: %w", err)
-	}
-
-	toolkit.Logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
-	return &resp.PrivateZone, nil
-}
-
-func waitForPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
-	defer toolkit.LogStepCtxf(ctx, "waiting for private DNS zone %s (409 conflict)", privateZoneName)()
-	var zone *armprivatedns.PrivateZone
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
+		poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
+			ctx,
+			nodeResourceGroup,
+			privateZoneName,
+			dnsZoneParams,
+			nil,
+		)
 		if err != nil {
 			var respErr *azcore.ResponseError
-			if errors.As(err, &respErr) && respErr.StatusCode == 404 {
-				return false, nil // zone doesn't exist yet
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+				lastErr = err
+				continue
 			}
-			return false, err
+			return nil, fmt.Errorf("failed to create private dns zone: %w", err)
 		}
-		zone = &resp.PrivateZone
-		return true, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("waiting for private dns zone %q: %w", privateZoneName, err)
+		resp, err := poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create private dns zone in polling: %w", err)
+		}
+		toolkit.Logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
+		return &resp.PrivateZone, nil
 	}
-	return zone, nil
+	return nil, fmt.Errorf("failed to create private dns zone %q after 5 attempts, last error: %w", privateZoneName, lastErr)
 }
 
 func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, privateZoneName string) error {
@@ -988,9 +989,7 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, private
 		networkLinkName,
 		nil,
 	)
-
 	if err == nil {
-		// private dns link already created
 		return nil
 	}
 
@@ -1011,40 +1010,45 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, private
 			RegistrationEnabled: to.Ptr(false),
 		},
 	}
-	poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
-		ctx,
-		resourceGroup,
-		privateZoneName,
-		networkLinkName,
-		linkParams,
-		nil,
-	)
-	if err != nil {
-		// 409 means another operation is in progress — link is being created by another run
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-			toolkit.Logf(ctx, "Virtual network link creation conflict (409), waiting for completion")
-			return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-				_, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, resourceGroup, privateZoneName, networkLinkName, nil)
-				if err != nil {
-					var respErr *azcore.ResponseError
-					if errors.As(err, &respErr) && respErr.StatusCode == 404 {
-						return false, nil // link doesn't exist yet
-					}
-					return false, err
-				}
-				return true, nil
-			})
-		}
-		return fmt.Errorf("failed to create virtual network link in BeginCreateOrUpdate: %w", err)
-	}
-	resp, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create virtual network link in polling: %w", err)
-	}
 
-	toolkit.Logf(ctx, "Virtual Network Link created or updated with ID: %s", *resp.ID)
-	return nil
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			toolkit.Logf(ctx, "retrying VNet link for zone %q (attempt %d, last error: %v)", privateZoneName, attempt+1, lastErr)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("context cancelled waiting to retry VNet link creation: %w", ctx.Err())
+			case <-time.After(30 * time.Second):
+			}
+			// link may have been created by another concurrent run
+			if _, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, resourceGroup, privateZoneName, networkLinkName, nil); err == nil {
+				return nil
+			}
+		}
+		poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
+			ctx,
+			resourceGroup,
+			privateZoneName,
+			networkLinkName,
+			linkParams,
+			nil,
+		)
+		if err != nil {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+				lastErr = err
+				continue
+			}
+			return fmt.Errorf("failed to create virtual network link: %w", err)
+		}
+		resp, err := poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create virtual network link in polling: %w", err)
+		}
+		toolkit.Logf(ctx, "Virtual Network Link created or updated with ID: %s", *resp.ID)
+		return nil
+	}
+	return fmt.Errorf("failed to create VNet link for zone %q after 5 attempts, last error: %w", privateZoneName, lastErr)
 }
 
 // addRecordSetToPrivateDNSZone creates A records in the private DNS zone for a
