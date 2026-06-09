@@ -1985,16 +1985,18 @@ restart_localdns_with_retry() {
     local reason="$1"
     local max_attempts=3
     local retry_delay=5
-    local attempt rc=0
+    local attempt=1
+    local rc=0
 
-    for attempt in $(seq 1 "$max_attempts"); do
+    while [ "$attempt" -le "$max_attempts" ]; do
         if sudo systemctl restart localdns; then
             echo "localdns restart succeeded on attempt ${attempt}/${max_attempts} (${reason})"
             return 0
+        else
+            rc=$?
         fi
 
-        rc=$?
-        echo "WARNING: localdns restart failed on attempt ${attempt}/${max_attempts} (${reason})"
+        echo "WARNING: localdns restart failed on attempt ${attempt}/${max_attempts} (${reason}, rc=$rc)" >&2
         echo "--- localdns service status ---"
         sudo systemctl status localdns --no-pager 2>&1 || true
         echo "--- localdns journal (last 50 lines) ---"
@@ -2005,6 +2007,8 @@ restart_localdns_with_retry() {
             sudo systemctl reset-failed localdns || true
             sleep "${retry_delay}"
         fi
+
+        attempt=$((attempt + 1))
     done
 
     return "$rc"
