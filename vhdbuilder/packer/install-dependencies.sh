@@ -69,6 +69,22 @@ APT::Periodic::Download-Upgradeable-Packages "0";
 APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
+
+  # AB#38355676: fwupd ships in the Ubuntu 24.04 cloud image and tries to start on boot.
+  # On AKS Linux nodes there is no firmware to manage -- firmware on Azure VMs is handled
+  # by the host -- and recent fwupd releases on 24.04 exit non-zero (no devices / no LVFS
+  # reachability on isolated networks), tripping the ValidateNoFailedSystemdUnits E2E
+  # validator (e2e/validators.go:995) on every 2404 scenario.
+  # Mask fwupd.service and fwupd-refresh.timer so systemctl preset-all cannot re-enable
+  # them. Mirrors the apt-daily masking pattern just above and the same rationale used
+  # for Ubuntu Pro on 20.04/FIPS (PR #8638 / AB#38255910).
+  # `|| true` because the units only exist when fwupd is installed (24.04 cloud image
+  # default; not guaranteed on minimal or future SKUs) and `mask` against a non-existent
+  # unit can fail under newer systemd.
+  if [ "$OS_VERSION" = "24.04" ]; then
+    systemctl mask fwupd.service fwupd-refresh.service fwupd-refresh.timer || true
+    systemctl disable --now fwupd.service fwupd-refresh.service fwupd-refresh.timer 2>/dev/null || true
+  fi
 fi
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
