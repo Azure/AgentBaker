@@ -132,7 +132,7 @@ func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
+		Enabled: config.Config.EnableSecureTLSBootstrapping,
 	}
 	nbc.TenantID = cluster.TenantID
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
