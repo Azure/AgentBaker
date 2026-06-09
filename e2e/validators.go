@@ -2984,4 +2984,6 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
 	require.Contains(s.T, result.stdout, "inet6 ",
 		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "scope global",
+		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
 }

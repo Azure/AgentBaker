@@ -151,9 +151,8 @@ Describe 'cse_config.sh'
 
     Describe 'configureSecondaryNICs'
         cleanup() {
-            # Clean up /etc/netplan (including any files written by Ubuntu tests)
-            rm -rf /etc/netplan 2>/dev/null || true
-            # Clean up any networkd units written by Mariner tests
+            # Only remove files written by the tests, not the entire directory
+            rm -f /etc/netplan/60-secondary-nic-*.yaml 2>/dev/null || true
             rm -f /etc/systemd/network/10-secondary-nic-*.network 2>/dev/null || true
         }
 
