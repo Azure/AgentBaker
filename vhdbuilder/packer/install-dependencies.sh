@@ -547,6 +547,10 @@ while IFS= read -r p; do
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "dra-driver-nvidia-gpu")
+      retrycmd_curl_file 10 5 25 "/opt/dra-driver-nvidia-gpu/downloads" "https://github.com/runzhen/dra-driver-nvidia-gpu/releases/download/v0.0.2-test/gpu-kubelet-plugin-v0.0.2-test-linux-amd64.tar.gz"
+      echo "  - xxx dra-driver-nvidia-gpu version 0.4.0" >> ${VHD_LOGS_FILEPATH}
+      ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
         downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"

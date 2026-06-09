@@ -1595,7 +1595,7 @@ configureManagedGPUExperience() {
         return
     fi
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
-    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ] || [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
@@ -1605,6 +1605,7 @@ configureManagedGPUExperience() {
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
         rm -f "${managed_gpu_marker}"
@@ -1612,46 +1613,12 @@ configureManagedGPUExperience() {
 }
 
 startNvidiaManagedExpServices() {
-    # 1. Start the nvidia-device-plugin service.
-    # Create systemd override directory to configure device plugin
-    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
-    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
-
-    if [ "${MIG_NODE}" = "true" ]; then
-        # Configure with MIG strategy for MIG nodes.
-        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
-        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
-        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
-        #
-        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
-        # Otherwise, we default to "single" which is the safer/simpler option.
-        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
-        # "None" and "Single" both result in using the "single" strategy.
-        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
-            MIG_STRATEGY_FLAG="--mig-strategy mixed"
-        else
-            # Default to "single" for "Single", "None", empty, or any other value
-            MIG_STRATEGY_FLAG="--mig-strategy single"
-        fi
-
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
-[Service]
-ExecStart=
-ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
-EOF
+    # 1. Start device plugin or DRA driver
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        startDRADriverNvidiaGpu()
     else
-        # Configure with pass-device-specs for non-MIG nodes
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
-[Service]
-ExecStart=
-ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
-EOF
+        startNvidiaDevicePlugin()
     fi
-
-    # Reload systemd to pick up the override
-    systemctl daemon-reload
-
-    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 
     # 2. Start the nvidia-dcgm service.
     # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without
@@ -1696,6 +1663,68 @@ get_compute_sku() {
         return 1
     fi
     echo "$vm_sku"
+}
+
+startNvidiaDevicePlugin() {
+    # 1. Start the nvidia-device-plugin service.
+    # Create systemd override directory to configure device plugin
+    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
+    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+
+    if [ "${MIG_NODE}" = "true" ]; then
+        # Configure with MIG strategy for MIG nodes.
+        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
+        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
+        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
+        #
+        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
+        # Otherwise, we default to "single" which is the safer/simpler option.
+        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
+        # "None" and "Single" both result in using the "single" strategy.
+        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
+            MIG_STRATEGY_FLAG="--mig-strategy mixed"
+        else
+            # Default to "single" for "Single", "None", empty, or any other value
+            MIG_STRATEGY_FLAG="--mig-strategy single"
+        fi
+
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
+EOF
+    else
+        # Configure with pass-device-specs for non-MIG nodes
+        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
+EOF
+    fi
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
+
+    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+}
+
+startDRADriverNvidiaGpu() {
+    # Create systemd override directory to configure device plugin
+    DRA_DRIVER_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
+    mkdir -p "${DRA_DRIVER_OVERRIDE_DIR}"
+
+
+    # Configure with pass-device-specs for non-MIG nodes
+    tee "${DRA_DRIVER_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name nvcr.io/nvidia/k8s-dra-driver-gpu:v25.8.1 --node-name=${NODE_NAME}
+EOF
+
+
+    # Reload systemd to pick up the override
+    systemctl daemon-reload
+    logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
 }
 
 #EOF

@@ -485,6 +485,10 @@ function nodePrep {
             ENABLE_MANAGED_GPU_EXPERIENCE="true"
         fi
 
+        if [ "${ENABLE_MANAGED_GPU_DRA}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+        fi
+
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
