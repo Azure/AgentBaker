@@ -958,7 +958,7 @@ configureSecondaryNICs() {
     echo "Detected $nic_count NICs, configuring secondary interfaces..."
 
     local is_netplan=false
-    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    if isUbuntu; then
         is_netplan=true
     fi
 
