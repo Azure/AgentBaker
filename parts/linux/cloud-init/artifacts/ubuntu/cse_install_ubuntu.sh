@@ -204,10 +204,10 @@ installNvidiaManagedExpPkgFromCache() {
     mkdir -p /var/lib/kubelet/plugins_registry
     mkdir -p /var/lib/kubelet/plugins
 
-    packageList=$(managedGPUPackageList)
+    packageList="$(managedGPUPackageList)"
 
-    if [ ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA} = "true" ]; then
-        packageList=$(managedGPUPackageListDRA)
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        packageList="$(managedGPUPackageListDRA)"
         echo "DRA is enabled, using DRA-specific package list."
     fi
 

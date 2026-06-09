@@ -72,6 +72,7 @@ ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, cri
 ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
 ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
 ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
+ERR_DRA_DRIVER_START_FAIL=124 # dra-driver-nvidia-gpu could not be started by systemctl
 
 # 123 is free for use
 

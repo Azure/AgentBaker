@@ -1605,7 +1605,7 @@ configureManagedGPUExperience() {
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
-        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop dra-driver-nvidia-gpu"
+        logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
         rm -f "${managed_gpu_marker}"
@@ -1713,9 +1713,12 @@ startDRADriverNvidiaGpu() {
     DRA_DRIVER_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
     mkdir -p "${DRA_DRIVER_OVERRIDE_DIR}"
 
+    if [ -z "${NODE_NAME}" ]; then
+        echo "NODE_NAME is empty; cannot configure dra-driver-nvidia-gpu" >&2
+        exit $ERR_DRA_DRIVER_START_FAIL
+    fi
 
-    # Configure with pass-device-specs for non-MIG nodes
-    tee "${DRA_DRIVER_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<'EOF'
+    tee "${DRA_DRIVER_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name nvcr.io/nvidia/k8s-dra-driver-gpu:v25.8.1 --node-name=${NODE_NAME}
