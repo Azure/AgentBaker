@@ -195,6 +195,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":        config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
 		"CSE_TIMEOUT":                                  getCSETimeout(config),
 		"SKIP_WAAGENT_HOLD":                            "true",
+		"ENABLE_MANAGED_GPU_DRA":                       "true",
 	}
 
 	for i, cert := range config.CustomCaCerts {
