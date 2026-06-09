@@ -22,7 +22,10 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers
+mkdir -p /opt/azure/containers /var/lib/waagent
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
 cat <<'EOF' | base64 -d >%[1]s
 %[2]s
