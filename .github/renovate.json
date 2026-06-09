@@ -446,12 +446,10 @@
       ],
       "groupName": "aks-secure-tls-bootstrap-client",
       "assignees": [
-        "cameronmeissner",
-        "djsly"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "cameronmeissner",
-        "djsly"
+        "team:aks-node-lifecycle"
       ]
     },
     {
