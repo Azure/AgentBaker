@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
 )
@@ -1806,8 +1805,8 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
-	// Pass AKSNodeConfig to compare generated provisioning with NBC cse cmd for scriptless phase 3
-	AKSNodeConfig *aksnodeconfigv1.Configuration
+	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	AKSNodeConfigJSON string
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

@@ -15,7 +15,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -140,8 +139,10 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-
-	encodedAKSNodeConfig := encodeAKSNodeConfig(config)
+	var encodedAKSNodeConfig string
+	if config.AKSNodeConfigJSON != "" {
+		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+	}
 
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
@@ -151,18 +152,6 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
-}
-
-// encodeAKSNodeConfig marshals and gzip+base64 encodes AKSNodeConfig if present.
-func encodeAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.AKSNodeConfig == nil {
-		return ""
-	}
-	aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(config.AKSNodeConfig)
-	if err != nil {
-		panic(fmt.Sprintf("failed to marshal AKSNodeConfig: %v", err))
-	}
-	return getBase64EncodedGzippedCustomScriptFromStr(string(aksNodeConfigJSON))
 }
 
 func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {

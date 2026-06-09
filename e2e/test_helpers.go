@@ -16,6 +16,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -104,11 +105,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func supportsScriptlessNBCCSECmd(s *Scenario) bool {
-	return !s.Tags.Scriptless && s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
-}
-
-func supportsScriptlessAKSNodeConfig(s *Scenario) bool {
-	return s.AKSNodeConfigMutator != nil && s.BootstrapConfigMutator != nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision
+	return s.AKSNodeConfigMutator == nil && !s.IsWindows() && len(s.Config.CustomDataWriteFiles) <= 0 && !s.VHDCaching && !config.Config.TestPreProvision && !s.SkipScriptlessNBC
 }
 
 func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
@@ -283,7 +280,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
-		s.Runtime.NBC.AKSNodeConfig = nodeconfig
+
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
+		require.NoError(s.T, err)
+		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
 		nbc.EnableScriptlessCSECmd = false
 
