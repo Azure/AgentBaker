@@ -547,6 +547,15 @@ while IFS= read -r p; do
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "dra-driver-nvidia-gpu")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        mkdir -p "${downloadDir}"
+        tarball="${downloadDir}/${evaluatedURL##*/}"
+        retrycmd_get_tarball 120 5 60 "${tarball}" "${evaluatedURL}" 300 || exit $ERR_GPU_DOWNLOAD_TIMEOUT
+        echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
         downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
