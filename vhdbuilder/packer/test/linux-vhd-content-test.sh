@@ -1358,6 +1358,40 @@ testCoreDumpSettings() {
   echo "$test:Finish"
 }
 
+# Tests that fwupd is fully masked on Ubuntu 24.04 VHDs. fwupd is shipped by the
+# 24.04 cloud image but is not used on AKS Linux nodes (firmware on Azure VMs is
+# managed out-of-band by the host) and recent fwupd builds fail to start on these
+# images, which trips ValidateNoFailedSystemdUnits in e2e/validators.go.
+# Masking happens in vhdbuilder/packer/install-dependencies.sh (AB#38355676).
+testFwupdMaskedOnUbuntu2404() {
+  local test="testFwupdMaskedOnUbuntu2404"
+  local os_sku="${1:-$OS_SKU}"
+  local os_version="${2:-$OS_VERSION}"
+  echo "$test:Start"
+
+  if [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; then
+    echo "$test: skipping; only applies to Ubuntu 24.04 (got $os_sku $os_version)"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  for unit in fwupd.service fwupd-refresh.service fwupd-refresh.timer; do
+    local is_enabled=
+    is_enabled=$(systemctl is-enabled "$unit" 2>/dev/null)
+    echo "$test: ${unit} is-enabled=${is_enabled}"
+    if [ "${is_enabled}" = "masked" ]; then
+      echo "$test: ${unit} is correctly masked"
+    elif [ "${is_enabled}" = "" ] || [ "${is_enabled}" = "not-found" ]; then
+      # Unit not shipped on this VHD variant -- no masking required.
+      echo "$test: ${unit} is not installed, which is fine"
+    else
+      err $test "${unit} is not masked on Ubuntu 24.04 (is-enabled=${is_enabled}); see AB#38355676"
+    fi
+  done
+
+  echo "$test:Finish"
+}
+
 # Tests that the nfs-server systemd service is masked, per the function
 # configuremaskNfsServerNfsServer in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
 testNfsServerService() {
@@ -2517,6 +2551,7 @@ testNetworkSettings
 testCronPermissions $IMG_SKU $OS_SKU
 testCoreDumpSettings
 testNfsServerService
+testFwupdMaskedOnUbuntu2404 $OS_SKU $OS_VERSION
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
