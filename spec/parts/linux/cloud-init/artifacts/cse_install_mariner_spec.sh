@@ -263,7 +263,7 @@ Describe 'cse_install_mariner.sh'
             NVIDIA_GPU_DRIVER_TYPE="grid-v20"
             MOCK_VM_SKU="Standard_NC128ds_xl_RTXPRO6000BSE_v6"
             When run downloadGPUDrivers
-            The status should equal 224
+            The status should equal "$ERR_NVIDIA_DRIVER_INSTALL"
             The output should include "only supported on Ubuntu"
             The output should not include "converged"
         End
