@@ -989,7 +989,7 @@ configureSecondaryNICs() {
             fi
         done
         if [ -z "$iface_name" ]; then
-            echo "Warning: could not find interface for MAC ${mac}, using eth${i} as fallback"
+            echo "Warning: could not find interface for MAC ${mac}, using eth${i} as fallback for logging"
             iface_name="eth${i}"
         fi
 
@@ -1072,7 +1072,13 @@ NETWORKD_EOF
         fi
 
         echo "Configured secondary NIC ${iface_name} (mac=${mac}, metric=${metric})"
-        secondary_ifaces="${secondary_ifaces} ${iface_name}"
+        # Only track interfaces that actually exist and are not SR-IOV VFs for
+        # the networkctl up loop. The .network files match by MAC and will
+        # auto-activate once the real interface appears, so a missing or VF
+        # interface should not block or fail the reload path.
+        if [ -d "/sys/class/net/${iface_name}" ] && [ ! -e "/sys/class/net/${iface_name}/master" ]; then
+            secondary_ifaces="${secondary_ifaces} ${iface_name}"
+        fi
     done
 
     # Apply all configs in a single operation to avoid repeated network restarts.

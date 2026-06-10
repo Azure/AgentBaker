@@ -214,7 +214,10 @@ Describe 'cse_config.sh'
             The output should include "Configured secondary NIC eth1"
             The output should include "metric=200"
             The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
-            The output should include "retrycmd_if_failure 5 3 10 networkctl up eth1"
+            # networkctl up should NOT be called because the fallback interface
+            # (eth1) does not exist in /sys/class/net — the .network files match
+            # by MAC and will auto-activate when the real interface appears.
+            The output should not include "networkctl up"
             The status should be success
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:1e:52:5a:aa:aa'
@@ -268,6 +271,9 @@ Describe 'cse_config.sh'
             The output should include "Configured secondary NIC eth1"
             The output should include "Configured secondary NIC eth2"
             The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            # networkctl up should NOT be called because the fallback interfaces
+            # don't exist in /sys/class/net
+            The output should not include "networkctl up"
             The status should be success
             # First secondary NIC
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:ed:8d:8a:4d:ce'
@@ -335,21 +341,19 @@ Describe 'cse_config.sh'
             The status should equal 243
         End
 
-        It 'should return error when networkctl up fails on AzureLinux/Mariner'
+        It 'should not call networkctl up for fallback interfaces that do not exist in sysfs'
             IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
             OS="AZURELINUX"
             mkdir -p /etc/systemd/network
-            networkctl() {
-                # reload succeeds, but up fails
-                if [ "$1" = "up" ]; then
-                    return 1
-                fi
-                echo "networkctl $@"
-            }
             When run configureSecondaryNICs
+            The output should include "could not find interface for MAC"
             The output should include "Configured secondary NIC eth1"
-            The stderr should include "Failed to bring up eth1"
-            The status should equal 243
+            # networkctl up should NOT be called because the fallback eth1 is not
+            # a real interface — it won't exist in /sys/class/net and therefore
+            # is excluded from the secondary_ifaces list.
+            The output should not include "networkctl up"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            The status should be success
         End
 
         It 'should not call networkctl up on ACL after systemd restart'

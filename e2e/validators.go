@@ -2996,9 +2996,13 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
 	s.T.Helper()
 	// Get the secondary NIC's MAC from IMDS, then look it up in sysfs.
+	// -sf makes curl fail with non-zero exit on HTTP errors (403/404) instead
+	// of silently returning the error body as the "MAC".
 	// Skip SR-IOV VFs (enslaved interfaces with /sys/class/net/<iface>/master)
 	// which share the MAC of their master but don't hold an IP address.
-	cmd := `mac=$(curl -s -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text"); mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do d=$(dirname "$f"); [ -e "$d/master" ] && continue; if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$d"; exit 0; fi; done; echo "eth1"`
+	// Exit 1 if no matching interface is found rather than falling back to a
+	// hardcoded name that could target a VF or wrong interface.
+	cmd := `mac=$(curl -sf -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text") || { echo "IMDS MAC lookup failed" >&2; exit 1; }; mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do d=$(dirname "$f"); [ -e "$d/master" ] && continue; if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$d"; exit 0; fi; done; echo "no interface found for MAC $mac_lower" >&2; exit 1`
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"failed to resolve secondary NIC interface name")
 	ifaceName := strings.TrimSpace(result.stdout)
