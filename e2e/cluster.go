@@ -133,9 +133,11 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
-	dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
-		return setupPrivateDNSForAPIServer(ctx, cluster, v)
-	})
+	if !isNetworkIsolated {
+		dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
+			return setupPrivateDNSForAPIServer(ctx, cluster, v)
+		})
+	}
 	// networkSetup adds firewall routes to the existing AKS route table or
 	// creates/associates a dedicated one when Azure CNI has none, or applies
 	// the network-isolated NSG. It must run after bastion (both mutate the

@@ -186,7 +186,9 @@ func subnetHasActiveResources(subnet *armnetwork.Subnet) bool {
 	}
 	return len(subnet.Properties.IPConfigurations) > 0 ||
 		len(subnet.Properties.ServiceAssociationLinks) > 0 ||
-		len(subnet.Properties.ResourceNavigationLinks) > 0
+		len(subnet.Properties.ResourceNavigationLinks) > 0 ||
+		subnet.Properties.NetworkSecurityGroup != nil ||
+		subnet.Properties.RouteTable != nil
 }
 
 func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) error {
