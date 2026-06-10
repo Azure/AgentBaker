@@ -1,6 +1,9 @@
 name: validate-pull-request-source
 on: pull_request
 
+# This workflow only reads pull_request event metadata; no checkout, no API calls.
+permissions: {}
+
 jobs:
   validate-pull-request-source:
     runs-on: ubuntu-24.04

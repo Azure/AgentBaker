@@ -1,6 +1,9 @@
 name: Validate Components
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   cue:
     runs-on: ubuntu-latest
