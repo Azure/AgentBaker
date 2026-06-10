@@ -2551,7 +2551,7 @@ func Test_Ubuntu2404_GPUA10(t *testing.T) {
 func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description:      "Tests that an RTX PRO 6000 BSE v6 (grid-v20) GPU node on Ubuntu 2404 bootstraps with the aks-gpu-grid-v20 (595.x) driver",
-		Location:         "westus2",
+		Location:         "southeastasia",
 		K8sSystemPoolSKU: "Standard_D2s_v3",
 		Tags: Tags{
 			GPU: true,
@@ -2559,6 +2559,9 @@ func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			// RTX PRO 6000 BSE v6 only supports NVMe disk controllers, not ResourceDisk
+			// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
+			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC128ds_xl_RTXPRO6000BSE_v6"
 				nbc.ConfigGPUDriverIfNeeded = true
