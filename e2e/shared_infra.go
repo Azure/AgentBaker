@@ -25,6 +25,7 @@ import (
 const (
 	SharedVNetName          = "abe2e-shared-vnet"
 	SharedVNetCIDR          = "10.0.0.0/8"
+	SharedVNetIPv6CIDR      = "fd00::/48"
 	SharedBastionName       = "abe2e-shared-bastion"
 	SharedBastionPIPName    = "abe2e-shared-bastion-pip"
 	SharedClusterIdentity   = "abe2e-cluster-identity"
@@ -87,8 +88,37 @@ func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, erro
 }
 
 func ensureSharedVNet(ctx context.Context, rg, location string) error {
-	_, err := config.Azure.VNet.Get(ctx, rg, SharedVNetName, nil)
+	existing, err := config.Azure.VNet.Get(ctx, rg, SharedVNetName, nil)
 	if err == nil {
+		// VNet exists — ensure it has the IPv6 address space for dual-stack clusters.
+		hasIPv6 := false
+		if existing.Properties != nil && existing.Properties.AddressSpace != nil {
+			for _, prefix := range existing.Properties.AddressSpace.AddressPrefixes {
+				if prefix != nil && *prefix == SharedVNetIPv6CIDR {
+					hasIPv6 = true
+					break
+				}
+			}
+		}
+		if !hasIPv6 {
+			toolkit.Logf(ctx, "adding IPv6 address space %s to shared VNet %s", SharedVNetIPv6CIDR, SharedVNetName)
+			prefixes := existing.Properties.AddressSpace.AddressPrefixes
+			prefixes = append(prefixes, to.Ptr(SharedVNetIPv6CIDR))
+			poller, updateErr := config.Azure.VNet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, armnetwork.VirtualNetwork{
+				Location: existing.Location,
+				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
+					AddressSpace: &armnetwork.AddressSpace{
+						AddressPrefixes: prefixes,
+					},
+				},
+			}, nil)
+			if updateErr != nil {
+				return fmt.Errorf("adding IPv6 to shared VNet: %w", updateErr)
+			}
+			if _, updateErr = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); updateErr != nil {
+				return fmt.Errorf("waiting for IPv6 VNet update: %w", updateErr)
+			}
+		}
 		return nil
 	}
 	if !isNotFoundError(err) {
@@ -100,7 +130,7 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 		Location: to.Ptr(location),
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
-				AddressPrefixes: []*string{to.Ptr(SharedVNetCIDR)},
+				AddressPrefixes: []*string{to.Ptr(SharedVNetCIDR), to.Ptr(SharedVNetIPv6CIDR)},
 			},
 		},
 	}, nil)
@@ -214,6 +244,35 @@ func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) er
 		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 		if err != nil {
 			return fmt.Errorf("waiting for subnet %s: %w", subnetName, err)
+		}
+		return nil
+	})
+}
+
+// ensureDualStackSubnet creates a subnet with both IPv4 and IPv6 address prefixes
+// for dual-stack clusters.
+func ensureDualStackSubnet(ctx context.Context, rg, vnetName, subnetName, ipv4CIDR, ipv6CIDR string) error {
+	_, err := config.Azure.Subnet.Get(ctx, rg, vnetName, subnetName, nil)
+	if err == nil {
+		return nil
+	}
+	if !isNotFoundError(err) {
+		return fmt.Errorf("checking subnet %s: %w", subnetName, err)
+	}
+
+	return retryOn409(ctx, fmt.Sprintf("creating dual-stack subnet %s", subnetName), func() error {
+		toolkit.Logf(ctx, "creating dual-stack subnet %s (%s, %s) in VNet %s", subnetName, ipv4CIDR, ipv6CIDR, vnetName)
+		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, armnetwork.Subnet{
+			Properties: &armnetwork.SubnetPropertiesFormat{
+				AddressPrefixes: []*string{to.Ptr(ipv4CIDR), to.Ptr(ipv6CIDR)},
+			},
+		}, nil)
+		if err != nil {
+			return fmt.Errorf("creating dual-stack subnet %s: %w", subnetName, err)
+		}
+		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		if err != nil {
+			return fmt.Errorf("waiting for dual-stack subnet %s: %w", subnetName, err)
 		}
 		return nil
 	})
@@ -409,6 +468,7 @@ func ensureClusterIdentity(ctx context.Context, rg, location string) (string, st
 type ClusterSubnetRequest struct {
 	Location    string
 	ClusterName string
+	DualStack   bool
 }
 
 var CachedEnsureClusterSubnet = cachedFunc(ensureClusterSubnet)
@@ -435,8 +495,15 @@ func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string,
 			return "", fmt.Errorf("listing subnets: %w", err)
 		}
 		for _, s := range page.Value {
-			if s.Properties != nil && s.Properties.AddressPrefix != nil {
-				usedCIDRs[*s.Properties.AddressPrefix] = true
+			if s.Properties != nil {
+				if s.Properties.AddressPrefix != nil {
+					usedCIDRs[*s.Properties.AddressPrefix] = true
+				}
+				for _, p := range s.Properties.AddressPrefixes {
+					if p != nil {
+						usedCIDRs[*p] = true
+					}
+				}
 			}
 		}
 	}
@@ -447,8 +514,18 @@ func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string,
 		return "", fmt.Errorf("no free /20 CIDR available in shared VNet")
 	}
 
-	if err := ensureSubnet(ctx, rg, SharedVNetName, subnetName, cidr); err != nil {
-		return "", err
+	if req.DualStack {
+		ipv6CIDR := allocateSubnetIPv6CIDR(subnetName, usedCIDRs)
+		if ipv6CIDR == "" {
+			return "", fmt.Errorf("no free IPv6 /64 CIDR available in shared VNet")
+		}
+		if err := ensureDualStackSubnet(ctx, rg, SharedVNetName, subnetName, cidr, ipv6CIDR); err != nil {
+			return "", err
+		}
+	} else {
+		if err := ensureSubnet(ctx, rg, SharedVNetName, subnetName, cidr); err != nil {
+			return "", err
+		}
 	}
 
 	return fmt.Sprintf(
@@ -538,6 +615,24 @@ func cidrFromIndex(idx int) string {
 	}
 	thirdOctet := (idx % 16) * 16 // 0, 16, 32, ..., 240
 	return fmt.Sprintf("10.%d.%d.0/20", secondOctet, thirdOctet)
+}
+
+// allocateSubnetIPv6CIDR finds a free /64 within the VNet's fd00::/48 space.
+// Uses the same hash-based approach as IPv4 allocation. The fd00::/48 space
+// gives us 65536 /64 subnets (fd00:0000::/64 through fd00:ffff::/64).
+func allocateSubnetIPv6CIDR(name string, usedCIDRs map[string]bool) string {
+	const totalIPv6Slots = 65536
+	h := sha256.Sum256([]byte(name + "-ipv6"))
+	startIdx := (int(h[0])<<8 | int(h[1])) % totalIPv6Slots
+	for i := 0; i < totalIPv6Slots; i++ {
+		idx := (startIdx + i) % totalIPv6Slots
+		cidr := fmt.Sprintf("fd00:%04x::/64", idx)
+		if usedCIDRs[cidr] {
+			continue
+		}
+		return cidr
+	}
+	return ""
 }
 
 func isNotFoundError(err error) bool {
