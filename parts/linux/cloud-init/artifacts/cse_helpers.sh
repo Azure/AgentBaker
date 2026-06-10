@@ -409,9 +409,9 @@ _retry_file_curl_internal() {
         # AB#36680094: -k 5s forces SIGKILL after SIGTERM grace so a hung curl
         # (e.g. blocked on D-state disk I/O while writing verbose output) cannot
         # stall the retry loop.
-        timeout -k 5s $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+        timeout -k 5s "$effectiveTimeout" curl -fsSLv "$url" -o "$filePath" > "$CURL_OUTPUT" 2>&1
         if [ "$?" -ne 0 ]; then
-            cat $CURL_OUTPUT
+            cat "$CURL_OUTPUT"
         fi
 
         # On the last attempt, do a final check so every retry gets a curl attempt
