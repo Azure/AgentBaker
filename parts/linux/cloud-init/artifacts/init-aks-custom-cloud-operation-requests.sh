@@ -1,34 +1,49 @@
 #!/bin/bash
 set -x
-mkdir -p /root/AzureCACertificates
 
-IS_FLATCAR=0
-IS_UBUNTU=0
-IS_ACL=0
-# shellcheck disable=SC3010
-if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
+# Path constants — overridable for testing via env vars; defaults preserve
+# production behavior. functions defined until "${__SOURCED__:+return}" are
+# sourced and tested in spec/parts/linux/cloud-init/artifacts/init_aks_custom_cloud_operation_requests_spec.sh.
+: "${OS_RELEASE_FILE:=/etc/os-release}"
+: "${AZURE_CA_CERTS_DIR:=/root/AzureCACertificates}"
+: "${CA_TRUST_ANCHORS_DIR:=/etc/pki/ca-trust/source/anchors}"
+: "${SSL_CERTS_DIR:=/etc/ssl/certs}"
+: "${LOCAL_SHARE_CA_CERTS_DIR:=/usr/local/share/ca-certificates}"
+: "${OPENSSL_CERT_FILE:=/usr/lib/ssl/cert.pem}"
+: "${APT_SOURCES_LIST:=/etc/apt/sources.list}"
+: "${APT_SOURCES_LIST_D_DIR:=/etc/apt/sources.list.d}"
+: "${APT_KEYRINGS_DIR:=/etc/apt/keyrings}"
+: "${APT_BACKUP_DIR:=/etc/apt/backup}"
+: "${SYSTEMD_SYSTEM_DIR:=/etc/systemd/system}"
+# http://168.63.129.16 is a constant for the host's wireserver endpoint
+: "${WIRESERVER_ENDPOINT:=http://168.63.129.16}"
+
+detect_distro() {
+    IS_FLATCAR=0
+    IS_UBUNTU=0
+    IS_ACL=0
     # shellcheck disable=SC3010
-    if [[ $NAME == *"Ubuntu"* ]]; then
-        IS_UBUNTU=1
-    elif [[ $ID == *"flatcar"* ]]; then
-        IS_FLATCAR=1
-    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
-        IS_ACL=1
+    if [[ -f "${OS_RELEASE_FILE}" ]]; then
+        . "${OS_RELEASE_FILE}"
+        # shellcheck disable=SC3010
+        if [[ $NAME == *"Ubuntu"* ]]; then
+            IS_UBUNTU=1
+        elif [[ $ID == *"flatcar"* ]]; then
+            IS_FLATCAR=1
+        elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
+            IS_ACL=1
+        else
+            echo "Unknown Linux distribution"
+            exit 1
+        fi
     else
-        echo "Unknown Linux distribution"
+        echo "Unsupported operating system"
         exit 1
     fi
-else
-    echo "Unsupported operating system"
-    exit 1
-fi
 
-echo "distribution is $distribution"
-echo "Running on $NAME"
-
-# http://168.63.129.16 is a constant for the host's wireserver endpoint
-WIRESERVER_ENDPOINT="http://168.63.129.16"
+    echo "distribution is $distribution"
+    echo "Running on $NAME"
+}
 
 # Function to make HTTP request with retry logic for rate limiting
 make_request_with_retry() {
@@ -102,7 +117,7 @@ process_cert_operations() {
 
         if [ -n "$cert_content" ]; then
             # Save the certificate to the appropriate location
-            echo "$cert_content" > "/root/AzureCACertificates/$cert_filename"
+            echo "$cert_content" > "${AZURE_CA_CERTS_DIR}/$cert_filename"
             echo "Successfully saved certificate: $cert_filename"
         else
             echo "Warning: Failed to retrieve certificate content for $cert_filename"
@@ -110,69 +125,64 @@ process_cert_operations() {
     done
 }
 
-# Process root certificates
-process_cert_operations "operationrequestsroot"
+fetch_and_install_ca_certs() {
+    mkdir -p "${AZURE_CA_CERTS_DIR}"
 
-# Process intermediate certificates
-process_cert_operations "operationrequestsintermediate"
+    # Process root certificates
+    process_cert_operations "operationrequestsroot"
 
-if [ "$IS_ACL" -eq 1 ]; then
-    cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
-    update-ca-trust
-elif [ "${IS_FLATCAR}" -eq 0 ]; then
-    # Copy all certificate files to the system certificate directory
-    cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
+    # Process intermediate certificates
+    process_cert_operations "operationrequestsintermediate"
 
-    # Update the system certificate store
-    update-ca-certificates
+    if [ "$IS_ACL" -eq 1 ]; then
+        cp "${AZURE_CA_CERTS_DIR}"/*.crt "${CA_TRUST_ANCHORS_DIR}/"
+        update-ca-trust
+    elif [ "${IS_FLATCAR}" -eq 0 ]; then
+        # Copy all certificate files to the system certificate directory
+        cp "${AZURE_CA_CERTS_DIR}"/*.crt "${LOCAL_SHARE_CA_CERTS_DIR}/"
 
-    # This copies the updated bundle to the location used by OpenSSL which is commonly used
-    cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
-else
-    for cert in /root/AzureCACertificates/*.crt; do
-        destcert="${cert##*/}"
-        destcert="${destcert%.*}.pem"
-        cp "$cert" /etc/ssl/certs/"$destcert"
-    done
-    update-ca-certificates
-fi
+        # Update the system certificate store
+        update-ca-certificates
 
+        # This copies the updated bundle to the location used by OpenSSL which is commonly used
+        cp "${SSL_CERTS_DIR}/ca-certificates.crt" "${OPENSSL_CERT_FILE}"
+    else
+        for cert in "${AZURE_CA_CERTS_DIR}"/*.crt; do
+            destcert="${cert##*/}"
+            destcert="${destcert%.*}.pem"
+            cp "$cert" "${SSL_CERTS_DIR}/$destcert"
+        done
+        update-ca-certificates
+    fi
+}
 
-
-# This section creates a cron job to poll for refreshed CA certs daily
-# It can be removed if not needed or desired
-action=${1:-init}
-if [ "$action" = "ca-refresh" ]; then
-    exit
-fi
-
-function init_ubuntu_main_repo_depot {
+init_ubuntu_main_repo_depot() {
     local repodepot_endpoint="$1"
     # Initialize directory for keys
-    mkdir -p /etc/apt/keyrings
+    mkdir -p "${APT_KEYRINGS_DIR}"
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used
     echo "Copying updated bundle to OpenSSL .pem file..."
-    cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+    cp "${SSL_CERTS_DIR}/ca-certificates.crt" "${OPENSSL_CERT_FILE}"
     echo "Updated bundle copied."
 
     # Back up sources.list and sources.list.d contents
-    mkdir -p /etc/apt/backup/
-    if [ -f "/etc/apt/sources.list" ]; then
-        mv /etc/apt/sources.list /etc/apt/backup/
+    mkdir -p "${APT_BACKUP_DIR}/"
+    if [ -f "${APT_SOURCES_LIST}" ]; then
+        mv "${APT_SOURCES_LIST}" "${APT_BACKUP_DIR}/"
     fi
-    for sources_file in /etc/apt/sources.list.d/*; do
+    for sources_file in "${APT_SOURCES_LIST_D_DIR}"/*; do
         if [ -f "$sources_file" ]; then
-            mv "$sources_file" /etc/apt/backup/
+            mv "$sources_file" "${APT_BACKUP_DIR}/"
         fi
     done
 
     # Set location of sources file
-    . /etc/os-release
-    aptSourceFile="/etc/apt/sources.list.d/ubuntu.sources"
+    . "${OS_RELEASE_FILE}"
+    aptSourceFile="${APT_SOURCES_LIST_D_DIR}/ubuntu.sources"
 
     # Create main sources file
-    cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
+    cat <<EOF > "${aptSourceFile}"
 
 Types: deb
 URIs: ${repodepot_endpoint}/ubuntu
@@ -194,7 +204,7 @@ EOF
     echo ""
 }
 
-function check_url {
+check_url() {
     local url=$1
     echo "Checking url: $url"
 
@@ -208,13 +218,13 @@ function check_url {
     fi
 }
 
-function write_to_sources_file {
+write_to_sources_file() {
     local sources_list_d_file=$1
     local source_uri=$2
     shift 2
     local key_paths=("$@")
 
-    sources_file_path="/etc/apt/sources.list.d/${sources_list_d_file}.sources"
+    sources_file_path="${APT_SOURCES_LIST_D_DIR}/${sources_list_d_file}.sources"
     ubuntuDist=$(lsb_release -c | awk '{print $2}')
 
     tee -a $sources_file_path <<EOF
@@ -228,7 +238,7 @@ Signed-By: ${key_paths[*]}
 EOF
 }
 
-function add_key_ubuntu {
+add_key_ubuntu() {
     local key_name=$1
 
     key_url="${repodepot_endpoint}/keys/${key_name}"
@@ -240,18 +250,18 @@ function add_key_ubuntu {
     echo "$key_name key added to keyring."
 }
 
-function derive_key_paths {
+derive_key_paths() {
     local key_names=("$@")
     local key_paths=()
 
     for key_name in "${key_names[@]}"; do
-        key_paths+=("/etc/apt/keyrings/${key_name}.gpg")
+        key_paths+=("${APT_KEYRINGS_DIR}/${key_name}.gpg")
     done
 
     echo "${key_paths[*]}"
 }
 
-function add_ms_keys {
+add_ms_keys() {
     # Add the Microsoft package server keys to keyring.
     echo "Adding Microsoft keys to keyring..."
 
@@ -259,7 +269,7 @@ function add_ms_keys {
     add_key_ubuntu msopentech.asc
 }
 
-function aptget_update {
+aptget_update() {
     echo "apt-get updating..."
     echo "note: depending on how many sources have been added this may take a couple minutes..."
     if apt-get update | grep -q "404 Not Found"; then
@@ -270,7 +280,7 @@ function aptget_update {
     fi
 }
 
-function init_ubuntu_pmc_repo_depot {
+init_ubuntu_pmc_repo_depot() {
     local repodepot_endpoint="$1"
     # Add Microsoft packages source to the azure specific sources.list.
     echo "Adding the packages.microsoft.com Ubuntu-$ubuntuRel repo..."
@@ -284,7 +294,7 @@ function init_ubuntu_pmc_repo_depot {
     add_ms_keys $repodepot_endpoint
 }
 
-if [ "$IS_UBUNTU" -eq 1 ]; then
+setup_ubuntu_ca_refresh_cron() {
     scriptPath=$0
     # Determine an absolute, canonical path to this script for use in cron.
     if command -v readlink >/dev/null 2>&1; then
@@ -298,22 +308,12 @@ if [ "$IS_UBUNTU" -eq 1 ]; then
             echo "Failed to install ca-refresh cron job via crontab" >&2
         fi
     fi
+}
 
-    cloud-init status --wait
-    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    # logic taken from https://repodepot.azure.com/scripts/cloud-init/setup_repodepot.sh
-    ubuntuRel=$(lsb_release --release | awk '{print $2}')
-    ubuntuDist=$(lsb_release -c | awk '{print $2}')
-    # initialize archive.ubuntu.com repo
-    init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
-    init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
-    # update apt list
-    echo "Running apt-get update"
-    aptget_update
-elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
+setup_flatcar_or_acl_ca_refresh_timer() {
     script_path="$(readlink -f "$0")"
-    svc="/etc/systemd/system/azure-ca-refresh.service"
-    tmr="/etc/systemd/system/azure-ca-refresh.timer"
+    svc="${SYSTEMD_SYSTEM_DIR}/azure-ca-refresh.service"
+    tmr="${SYSTEMD_SYSTEM_DIR}/azure-ca-refresh.timer"
 
     cat >"$svc" <<EOF
 [Unit]
@@ -341,6 +341,42 @@ EOF
 
     systemctl daemon-reload
     systemctl enable --now azure-ca-refresh.timer
-fi
+}
+
+init_ubuntu_repo_depot() {
+    cloud-init status --wait
+    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+    # logic taken from https://repodepot.azure.com/scripts/cloud-init/setup_repodepot.sh
+    ubuntuRel=$(lsb_release --release | awk '{print $2}')
+    ubuntuDist=$(lsb_release -c | awk '{print $2}')
+    # initialize archive.ubuntu.com repo
+    init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
+    init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
+    # update apt list
+    echo "Running apt-get update"
+    aptget_update
+}
+
+main() {
+    detect_distro
+    fetch_and_install_ca_certs
+
+    # This section creates a cron job to poll for refreshed CA certs daily
+    # It can be removed if not needed or desired
+    action=${1:-init}
+    if [ "$action" = "ca-refresh" ]; then
+        exit
+    fi
+
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        setup_ubuntu_ca_refresh_cron
+        init_ubuntu_repo_depot
+    elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
+        setup_flatcar_or_acl_ca_refresh_timer
+    fi
+}
+
+${__SOURCED__:+return}
+main "$@"
 
 #EOF
