@@ -962,13 +962,31 @@ configureSecondaryNICs() {
         is_netplan=true
     fi
 
+    # Collect resolved interface names for networkctl up calls after reload.
+    local secondary_ifaces=""
+
     for i in $(seq 1 $((nic_count - 1))); do
         local mac
         mac=$(jq -r ".network.interface[$i].macAddress" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
         # IMDS returns MAC without colons (e.g. "7CED8D8A4DCE"), convert to colon-separated lowercase
         mac=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]')
-        local iface_name="eth${i}"
         local metric=$(( 100 + i * 100 ))
+
+        # Resolve the actual kernel interface name by matching the MAC address against
+        # /sys/class/net/*/address. This is necessary because SR-IOV virtual functions
+        # can claim eth1 before the secondary NIC is attached, so we cannot assume
+        # secondary NIC $i is eth${i}.
+        local iface_name=""
+        for sys_path in /sys/class/net/*/address; do
+            if [ "$(cat "$sys_path" 2>/dev/null | tr '[:upper:]' '[:lower:]')" = "$mac" ]; then
+                iface_name=$(basename "$(dirname "$sys_path")")
+                break
+            fi
+        done
+        if [ -z "$iface_name" ]; then
+            echo "Warning: could not find interface for MAC ${mac}, using eth${i} as fallback"
+            iface_name="eth${i}"
+        fi
 
         # Check if this NIC has IPv6 addresses configured in IMDS
         local ipv6_count
@@ -979,13 +997,15 @@ configureSecondaryNICs() {
         fi
 
         if [ "$is_netplan" = true ]; then
-            # Ubuntu: generate netplan config for the secondary NIC
+            # Ubuntu: generate netplan config for the secondary NIC.
+            # Match by MAC address so we configure the right device regardless of
+            # kernel naming (SR-IOV VFs can shift ethN indices).
             local netplan_file="/etc/netplan/60-secondary-nic-${i}.yaml"
             {
                 cat <<NETPLAN_EOF
 network:
   ethernets:
-    ${iface_name}:
+    secondary-nic-${i}:
       match:
         macaddress: "${mac}"
       dhcp4: true
@@ -1001,19 +1021,18 @@ NETPLAN_EOF
         use-dns: false
 NETPLAN_V6_EOF
                 fi
-                cat <<NETPLAN_TAIL_EOF
-      set-name: "${iface_name}"
-NETPLAN_TAIL_EOF
             } > "$netplan_file"
             chmod 600 "$netplan_file"
         else
             # AzureLinux/Mariner: generate networkd .network unit.
             # Prefix 10- so it takes precedence over the VHD's 99-dhcp-en.network.
+            # Match by MAC address so we configure the right device regardless of
+            # kernel naming (SR-IOV VFs can shift ethN indices).
             local networkd_file="/etc/systemd/network/10-secondary-nic-${i}.network"
             if [ "$has_ipv6" = true ]; then
                 cat > "$networkd_file" <<NETWORKD_EOF
 [Match]
-Name=${iface_name}
+MACAddress=${mac}
 
 [Network]
 DHCP=yes
@@ -1033,7 +1052,7 @@ NETWORKD_EOF
             else
                 cat > "$networkd_file" <<NETWORKD_EOF
 [Match]
-Name=${iface_name}
+MACAddress=${mac}
 
 [Network]
 DHCP=ipv4
@@ -1048,6 +1067,7 @@ NETWORKD_EOF
         fi
 
         echo "Configured secondary NIC ${iface_name} (mac=${mac}, metric=${metric})"
+        secondary_ifaces="${secondary_ifaces} ${iface_name}"
     done
 
     # Apply all configs in a single operation to avoid repeated network restarts.
@@ -1072,9 +1092,9 @@ NETWORKD_EOF
             echo "Failed to reload networkd for secondary NICs" >&2
             return $ERR_SECONDARY_NIC_CONFIG_FAIL
         fi
-        for i in $(seq 1 $((nic_count - 1))); do
-            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "eth${i}"; then
-                echo "Failed to bring up eth${i}" >&2
+        for iface in $secondary_ifaces; do
+            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "$iface"; then
+                echo "Failed to bring up ${iface}" >&2
                 return $ERR_SECONDARY_NIC_CONFIG_FAIL
             fi
         done
