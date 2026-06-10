@@ -670,7 +670,9 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 		toolkit.Logf(ctx, "    %s", s)
 	}
 	// Log ALL nodes with labels and conditions to diagnose scheduling issues
-	nodes, err := k.Typed.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	listCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	nodes, err := k.Typed.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
 	if err != nil {
 		toolkit.Logf(ctx, "    (failed to list nodes: %v)", err)
 		return
