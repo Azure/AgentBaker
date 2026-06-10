@@ -2960,6 +2960,21 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
 }
 
+// resolveSecondaryNICName discovers the kernel interface name of the secondary NIC
+// (IMDS interface index 1) by matching its MAC address against /sys/class/net/*/address.
+// This avoids hardcoding "eth1" which can be wrong when SR-IOV VFs or predictable
+// naming (ens*/enP*) are in use.
+func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
+	s.T.Helper()
+	// Get the secondary NIC's MAC from IMDS, then look it up in sysfs
+	cmd := `mac=$(curl -s -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text"); mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$(dirname "$f")"; exit 0; fi; done; echo "eth1"`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"failed to resolve secondary NIC interface name")
+	ifaceName := strings.TrimSpace(result.stdout)
+	require.NotEmpty(s.T, ifaceName, "resolved secondary NIC name should not be empty")
+	return ifaceName
+}
+
 // ValidateSecondaryNICUp checks that the given network interface is UP and has an IPv4 address.
 func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) {
 	s.T.Helper()
