@@ -38,7 +38,6 @@ type ClusterParams struct {
 
 type Cluster struct {
 	Model            *armcontainerservice.ManagedCluster
-	Kube             *Kubeclient
 	kubeconfig       []byte // raw kubeconfig for minting per-test clients
 	KubeletIdentity  *armcontainerservice.UserAssignedIdentity
 	SubnetID         string
@@ -131,7 +130,6 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	kubeForDebug := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
 	kubeForExtract := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
 	kubeForACR := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
-	kubePrimary := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
@@ -185,7 +183,6 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	}
 	return &Cluster{
 		Model:            cluster,
-		Kube:             kubePrimary.MustGet(),
 		kubeconfig:       kubeconfigBytes.MustGet(),
 		KubeletIdentity:  identity.MustGet(),
 		SubnetID:         subnet.MustGet(),
