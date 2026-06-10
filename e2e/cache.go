@@ -198,7 +198,7 @@ var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkD
 
 // clusterAzureOverlayNetworkDualStack creates a dual-stack (IPv4+IPv6) Azure CNI Overlay cluster
 func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model := getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v5", request.Location, request.K8sSystemPoolSKU)
+	model := getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v6", request.Location, request.K8sSystemPoolSKU)
 	return prepareCluster(ctx, model, false, false)
 }
 
