@@ -97,7 +97,7 @@ set -euo pipefail
 
 mkdir -p /opt/azure/containers /opt/azure/bin
 
-nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &s
+nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 cat <<'EOF' | base64 -d > %[1]s
 %[2]s
