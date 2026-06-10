@@ -51,26 +51,32 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	if err != nil {
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
 	}
+	return NewKubeclient(data)
+}
 
-	config, err := clientcmd.RESTConfigFromKubeConfig(data)
+// NewKubeclient creates a Kubeclient from raw kubeconfig bytes.
+// Each call returns an independent client with its own rate limiter,
+// allowing concurrent operations to avoid starving each other.
+func NewKubeclient(kubeconfigBytes []byte) (*Kubeclient, error) {
+	cfg, err := clientcmd.RESTConfigFromKubeConfig(kubeconfigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
 
 	// it's a test cluster - avoid unnecessary rate limiting
-	config.QPS = 200
-	config.Burst = 400
+	cfg.QPS = 200
+	cfg.Burst = 400
 
 	// Defense-in-depth against silent connection wedges (apiserver SPDY proxy
 	// hangs, NAT/LB idle timeouts) which manifest as kube exec calls that hang
 	// indefinitely. Bound the TCP dial and enable HTTP/2 keep-alive pings so
 	// the transport itself surfaces a dead peer as a connection error,
 	// triggering retries instead of consuming the caller's timeout budget.
-	config.Dial = (&net.Dialer{
+	cfg.Dial = (&net.Dialer{
 		Timeout:   10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}).DialContext
-	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
 		if t, ok := rt.(*http.Transport); ok {
 			if h2, err := http2.ConfigureTransports(t); err == nil {
 				h2.ReadIdleTimeout = 30 * time.Second
@@ -80,12 +86,12 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 		return rt
 	}
 
-	dynamic, err := client.New(config, client.Options{})
+	dynamic, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating kubernetes clientset from rest config: %w", err)
 	}
@@ -93,8 +99,8 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	return &Kubeclient{
 		Dynamic:    dynamic,
 		Typed:      clientset,
-		RESTConfig: config,
-		KubeConfig: data,
+		RESTConfig: cfg,
+		KubeConfig: kubeconfigBytes,
 	}, nil
 }
 
@@ -610,7 +616,8 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 // on at least one system pool node.
 func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 	var proxyURL string
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+	var lastPodStatuses []string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
 			LabelSelector: "app=" + proxyAppLabel,
 		})
@@ -618,8 +625,10 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 			return false, fmt.Errorf("listing proxy pods: %w", err)
 		}
 		if len(pods.Items) == 0 {
+			lastPodStatuses = []string{"no proxy pods found"}
 			return false, nil
 		}
+		lastPodStatuses = lastPodStatuses[:0]
 		for _, pod := range pods.Items {
 			for _, c := range pod.Status.Conditions {
 				if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue && pod.Status.HostIP != "" {
@@ -627,13 +636,60 @@ func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 					return true, nil
 				}
 			}
+			lastPodStatuses = append(lastPodStatuses, formatPodDiagnostics(&pod))
 		}
 		return false, nil
 	})
 	if err != nil {
+		k.logProxyTimeoutDiagnostics(ctx, lastPodStatuses)
 		return "", fmt.Errorf("waiting for proxy pod to be ready: %w", err)
 	}
 	return proxyURL, nil
+}
+
+func formatPodDiagnostics(pod *corev1.Pod) string {
+	status := fmt.Sprintf("pod=%s node=%s phase=%s", pod.Name, pod.Spec.NodeName, pod.Status.Phase)
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil {
+			status += fmt.Sprintf(" container=%s waiting(reason=%s, message=%s)", cs.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
+		} else if cs.State.Terminated != nil {
+			status += fmt.Sprintf(" container=%s terminated(reason=%s, exitCode=%d)", cs.Name, cs.State.Terminated.Reason, cs.State.Terminated.ExitCode)
+		} else if cs.State.Running != nil {
+			status += fmt.Sprintf(" container=%s running(ready=%v)", cs.Name, cs.Ready)
+		}
+	}
+	for _, c := range pod.Status.Conditions {
+		if c.Status != corev1.ConditionTrue {
+			status += fmt.Sprintf(" condition(%s=%s: %s)", c.Type, c.Status, c.Message)
+		}
+	}
+	return status
+}
+
+func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStatuses []string) {
+	toolkit.Logf(ctx, "⚠️  proxy pod readiness timeout — last observed pod statuses:")
+	for _, s := range lastPodStatuses {
+		toolkit.Logf(ctx, "    %s", s)
+	}
+	// Log node conditions for nodepool1 nodes to diagnose scheduling/node issues
+	nodes, err := k.Typed.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "kubernetes.azure.com/agentpool=nodepool1",
+	})
+	if err != nil {
+		toolkit.Logf(ctx, "    (failed to list nodepool1 nodes: %v)", err)
+		return
+	}
+	for _, node := range nodes.Items {
+		nodeStatus := fmt.Sprintf("node=%s", node.Name)
+		for _, c := range node.Status.Conditions {
+			if c.Type == corev1.NodeReady {
+				nodeStatus += fmt.Sprintf(" Ready=%s", c.Status)
+			} else if c.Status != corev1.ConditionFalse {
+				nodeStatus += fmt.Sprintf(" %s=%s(%s)", c.Type, c.Status, c.Message)
+			}
+		}
+		toolkit.Logf(ctx, "    %s", nodeStatus)
+	}
 }
 
 func getClusterSubnetID(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {

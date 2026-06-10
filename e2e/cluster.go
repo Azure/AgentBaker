@@ -38,7 +38,7 @@ type ClusterParams struct {
 
 type Cluster struct {
 	Model            *armcontainerservice.ManagedCluster
-	Kube             *Kubeclient
+	kubeconfig       []byte // raw kubeconfig for minting per-test clients
 	KubeletIdentity  *armcontainerservice.UserAssignedIdentity
 	SubnetID         string
 	VNetResourceGUID string
@@ -46,6 +46,13 @@ type Cluster struct {
 	Bastion          *Bastion
 	ProxyURL         string
 	TenantID         string
+}
+
+// NewKubeclientForTest creates an independent Kubeclient with its own rate limiter.
+// Use this in individual tests to avoid sharing rate limiter tokens with other
+// parallel tests hitting the same cluster.
+func (c *Cluster) NewKubeclientForTest() (*Kubeclient, error) {
+	return NewKubeclient(c.kubeconfig)
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -110,7 +117,19 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	vNet := dag.Go(g, func(ctx context.Context) (VNet, error) {
 		return getClusterVNet(ctx, cluster)
 	})
-	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
+	// Fetch kubeconfig bytes once, then each heavy DAG task creates its own
+	// Kubeclient with an independent rate limiter to prevent starvation.
+	kubeconfigBytes := dag.Go(g, func(ctx context.Context) ([]byte, error) {
+		resourceGroupName := config.ResourceGroupName(*cluster.Location)
+		return getClusterKubeconfigBytes(ctx, resourceGroupName, *cluster.Name)
+	})
+	newKubeFromBytes := func(ctx context.Context, data []byte) (*Kubeclient, error) {
+		return NewKubeclient(data)
+	}
+	kubeForGC := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
+	kubeForDebug := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
+	kubeForExtract := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
+	kubeForACR := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
@@ -127,7 +146,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	if isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
-	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
+	dag.Run1(g, kubeForGC, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
 
 	// The private DNS zone and VNet link must exist before any PE is created.
@@ -138,14 +157,14 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 			_, err := ensurePrivateDNSZone(ctx, v)
 			return err
 		}, bastion)
-		acrNonAnon = dag.Run2(g, kube, identity, addACR(cluster, true), dnsReady)
-		acrAnon = dag.Run2(g, kube, identity, addACR(cluster, false), dnsReady)
+		acrNonAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, true), dnsReady)
+		acrAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, false), dnsReady)
 	}
 	debugDeps := append(networkDeps[:0:0], networkDeps...)
 	if acrNonAnon != nil {
 		debugDeps = append(debugDeps, acrNonAnon, acrAnon)
 	}
-	proxyURL := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (string, error) {
+	proxyURL := dag.Go1(g, kubeForDebug, func(ctx context.Context, k *Kubeclient) (string, error) {
 		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
 			return "", err
 		}
@@ -157,14 +176,14 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	dag.Run(g, func(ctx context.Context) error {
 		return setupPrivateDNSForAPIServer(ctx, vNet.MustGet().resourceGroup, cluster)
 	})
-	extract := dag.Go1(g, kube, extractClusterParams(cluster))
+	extract := dag.Go1(g, kubeForExtract, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
 		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
 	}
 	return &Cluster{
 		Model:            cluster,
-		Kube:             kube.MustGet(),
+		kubeconfig:       kubeconfigBytes.MustGet(),
 		KubeletIdentity:  identity.MustGet(),
 		SubnetID:         subnet.MustGet(),
 		VNetResourceGUID: vNet.MustGet().resourceGUID,
