@@ -301,13 +301,13 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, isNetworkIsolated bool, privateACRName string) error {
-	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isNetworkIsolated)
+	ds := daemonsetDebug(ctx, hostNetworkDebugAppLabel, map[string]string{"kubernetes.azure.com/mode": "system"}, privateACRName, true, isNetworkIsolated)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isNetworkIsolated)
+	nonHostDS := daemonsetDebug(ctx, podNetworkDebugAppLabel, map[string]string{"kubernetes.azure.com/agentpool": "nodepool2"}, privateACRName, false, isNetworkIsolated)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
@@ -377,7 +377,7 @@ func (k *Kubeclient) createKubernetesSecret(ctx context.Context, namespace, secr
 	return nil
 }
 
-func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isNetworkIsolated bool) *appsv1.DaemonSet {
+func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map[string]string, privateACRName string, isHostNetwork, isNetworkIsolated bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	secretName := ""
 	if isNetworkIsolated {
@@ -412,9 +412,7 @@ func daemonsetDebug(ctx context.Context, deploymentName, targetNodeLabel, privat
 				},
 				Spec: corev1.PodSpec{
 					HostNetwork: isHostNetwork,
-					NodeSelector: map[string]string{
-						"kubernetes.azure.com/agentpool": targetNodeLabel,
-					},
+					NodeSelector: nodeSelector,
 					ImagePullSecrets: func() []corev1.LocalObjectReference {
 						if secretName == "" {
 							return nil
@@ -584,7 +582,7 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 				Spec: corev1.PodSpec{
 					HostNetwork: true,
 					NodeSelector: map[string]string{
-						"kubernetes.azure.com/agentpool": "nodepool1",
+						"kubernetes.azure.com/mode": "system",
 					},
 					Tolerations: []corev1.Toleration{
 						{Operator: corev1.TolerationOpExists},
@@ -671,24 +669,42 @@ func (k *Kubeclient) logProxyTimeoutDiagnostics(ctx context.Context, lastPodStat
 	for _, s := range lastPodStatuses {
 		toolkit.Logf(ctx, "    %s", s)
 	}
-	// Log node conditions for nodepool1 nodes to diagnose scheduling/node issues
-	nodes, err := k.Typed.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
-		LabelSelector: "kubernetes.azure.com/agentpool=nodepool1",
-	})
+	// Log ALL nodes with labels and conditions to diagnose scheduling issues
+	listCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	nodes, err := k.Typed.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
 	if err != nil {
-		toolkit.Logf(ctx, "    (failed to list nodepool1 nodes: %v)", err)
+		toolkit.Logf(ctx, "    (failed to list nodes: %v)", err)
 		return
 	}
+	if len(nodes.Items) == 0 {
+		toolkit.Logf(ctx, "    ⚠️  no nodes found in cluster")
+		return
+	}
+	toolkit.Logf(ctx, "    --- cluster nodes (%d total) ---", len(nodes.Items))
 	for _, node := range nodes.Items {
-		nodeStatus := fmt.Sprintf("node=%s", node.Name)
-		for _, c := range node.Status.Conditions {
-			if c.Type == corev1.NodeReady {
-				nodeStatus += fmt.Sprintf(" Ready=%s", c.Status)
-			} else if c.Status != corev1.ConditionFalse {
-				nodeStatus += fmt.Sprintf(" %s=%s(%s)", c.Type, c.Status, c.Message)
+		// Collect key labels
+		labels := ""
+		for _, key := range []string{
+			"kubernetes.azure.com/agentpool",
+			"kubernetes.azure.com/mode",
+			"kubernetes.io/os",
+			"kubernetes.io/arch",
+		} {
+			if v, ok := node.Labels[key]; ok {
+				labels += fmt.Sprintf(" %s=%s", key, v)
 			}
 		}
-		toolkit.Logf(ctx, "    %s", nodeStatus)
+		// Collect conditions
+		conditions := ""
+		for _, c := range node.Status.Conditions {
+			if c.Type == corev1.NodeReady {
+				conditions += fmt.Sprintf(" Ready=%s", c.Status)
+			} else if c.Status != corev1.ConditionFalse {
+				conditions += fmt.Sprintf(" %s=%s(%s)", c.Type, c.Status, c.Message)
+			}
+		}
+		toolkit.Logf(ctx, "    node=%s |%s |%s", node.Name, labels, conditions)
 	}
 }
 

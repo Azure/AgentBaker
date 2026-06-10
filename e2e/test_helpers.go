@@ -230,6 +230,15 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
+	// Log cluster identity for debugging
+	clusterName := *cluster.Model.Name
+	clusterLocation := *cluster.Model.Location
+	resourceGroup := config.ResourceGroupName(clusterLocation)
+	subscriptionID := config.Config.SubscriptionID
+	t.Logf("using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
+	t.Logf("portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+		subscriptionID, resourceGroup, clusterName)
+
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}

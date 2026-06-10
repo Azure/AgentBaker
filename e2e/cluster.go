@@ -598,6 +598,17 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
 
+	// Build a set of VMSS name prefixes belonging to the cluster's managed pools.
+	// AKS names managed pool VMSS as "aks-<poolname>-<hash>-vmss". We use the
+	// prefix "aks-<poolname>-" to protect these even if the aks-managed-poolName
+	// tag is missing (defense-in-depth against tag propagation races).
+	managedPoolPrefixes := make([]string, 0, len(cluster.Properties.AgentPoolProfiles))
+	for _, pool := range cluster.Properties.AgentPoolProfiles {
+		if pool.Name != nil {
+			managedPoolPrefixes = append(managedPoolPrefixes, "aks-"+*pool.Name+"-")
+		}
+	}
+
 	// Build a set of VMSS names that should be kept — exclude VMSS that are
 	// being deleted so their stale K8s nodes can be cleaned up in the same pass.
 	keptVMSS := map[string]struct{}{}
@@ -612,8 +623,14 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
-			// don't delete managed pools
+			// don't delete managed pools (tag-based check)
 			if _, ok := vmss.Tags["aks-managed-poolName"]; ok {
+				keptVMSS[*vmss.Name] = struct{}{}
+				continue
+			}
+			// don't delete VMSS whose name matches a known managed pool prefix
+			// (protects against missing tags during cluster reconciliation)
+			if isManagedPoolVMSS(*vmss.Name, managedPoolPrefixes) {
 				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
@@ -692,6 +709,15 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[str
 		return fmt.Errorf("failed to delete any of %d stale nodes", failed)
 	}
 	return nil
+}
+
+func isManagedPoolVMSS(vmssName string, managedPoolPrefixes []string) bool {
+	for _, prefix := range managedPoolPrefixes {
+		if strings.HasPrefix(vmssName, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
