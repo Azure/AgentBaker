@@ -51,26 +51,32 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	if err != nil {
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
 	}
+	return NewKubeclient(data)
+}
 
-	config, err := clientcmd.RESTConfigFromKubeConfig(data)
+// NewKubeclient creates a Kubeclient from raw kubeconfig bytes.
+// Each call returns an independent client with its own rate limiter,
+// allowing concurrent operations to avoid starving each other.
+func NewKubeclient(kubeconfigBytes []byte) (*Kubeclient, error) {
+	cfg, err := clientcmd.RESTConfigFromKubeConfig(kubeconfigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
 
 	// it's a test cluster - avoid unnecessary rate limiting
-	config.QPS = 200
-	config.Burst = 400
+	cfg.QPS = 200
+	cfg.Burst = 400
 
 	// Defense-in-depth against silent connection wedges (apiserver SPDY proxy
 	// hangs, NAT/LB idle timeouts) which manifest as kube exec calls that hang
 	// indefinitely. Bound the TCP dial and enable HTTP/2 keep-alive pings so
 	// the transport itself surfaces a dead peer as a connection error,
 	// triggering retries instead of consuming the caller's timeout budget.
-	config.Dial = (&net.Dialer{
+	cfg.Dial = (&net.Dialer{
 		Timeout:   10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}).DialContext
-	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
 		if t, ok := rt.(*http.Transport); ok {
 			if h2, err := http2.ConfigureTransports(t); err == nil {
 				h2.ReadIdleTimeout = 30 * time.Second
@@ -80,12 +86,12 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 		return rt
 	}
 
-	dynamic, err := client.New(config, client.Options{})
+	dynamic, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating kubernetes clientset from rest config: %w", err)
 	}
@@ -93,8 +99,8 @@ func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.Mana
 	return &Kubeclient{
 		Dynamic:    dynamic,
 		Typed:      clientset,
-		RESTConfig: config,
-		KubeConfig: data,
+		RESTConfig: cfg,
+		KubeConfig: kubeconfigBytes,
 	}, nil
 }
 

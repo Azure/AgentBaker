@@ -140,7 +140,7 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) {
 }
 
 func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
-	kube := s.Runtime.Cluster.Kube
+	kube := s.Runtime.Kube
 	truncatePodName(s.T, pod)
 	start := time.Now()
 
@@ -186,7 +186,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 		case <-ctx.Done():
 			s.T.Fatalf("context cancelled: %v", ctx.Err())
 		case <-ticker.C:
-			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 			require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 			if isResourceAvailable(node, resourceName) {
@@ -291,7 +291,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
 
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	require.NoError(s.T, err, "failed to get non host debug pod for wireserver validation")
 
 	type wireServerCheck struct {
@@ -320,7 +320,7 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
 			attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			defer cancel()
-			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
 			if execErr != nil {
 				if errors.Is(execErr, context.DeadlineExceeded) {
 					s.T.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
