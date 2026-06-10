@@ -187,17 +187,18 @@ Describe 'cse_config.sh'
             mkdir -p /etc/netplan
             When run configureSecondaryNICs
             The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "could not find interface for MAC"
             The output should include "Configured secondary NIC eth1"
             The output should include "mac=7c:1e:52:5a:aa:aa"
             The output should include "metric=200"
             The output should include "chmod 600"
             The output should include "netplan apply"
             The status should be success
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'secondary-nic-1:'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'macaddress: "7c:1e:52:5a:aa:aa"'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp4: true'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'use-dns: false'
-            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'set-name: "eth1"'
         End
 
         It 'should configure networkd on AzureLinux/Mariner when two NICs are present'
@@ -213,7 +214,7 @@ Describe 'cse_config.sh'
             The output should include "retrycmd_if_failure 5 3 10 networkctl up eth1"
             The status should be success
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:1e:52:5a:aa:aa'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'UseDNS=false'
@@ -231,7 +232,7 @@ Describe 'cse_config.sh'
             The output should include "retrycmd_if_failure 40 5 10 networkctl up eth1"
             The status should be success
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:1e:52:5a:aa:aa'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
         End
@@ -246,13 +247,13 @@ Describe 'cse_config.sh'
             The output should include "Configured secondary NIC eth2"
             The status should be success
             # First secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'secondary-nic-1:'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'macaddress: "7c:ed:8d:8a:4d:ce"'
             The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
-            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'set-name: "eth1"'
             # Second secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'secondary-nic-2:'
             The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'macaddress: "bb:cc:11:dd:22:ee"'
             The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'route-metric: 300'
-            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'set-name: "eth2"'
         End
 
         It 'should configure networkd for both secondary NICs when three NICs are present on AzureLinux/Mariner'
@@ -266,10 +267,10 @@ Describe 'cse_config.sh'
             The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
             The status should be success
             # First secondary NIC
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:ed:8d:8a:4d:ce'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
             # Second secondary NIC
-            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'Name=eth2'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'MACAddress=bb:cc:11:dd:22:ee'
             The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=300'
         End
 
@@ -286,10 +287,10 @@ Describe 'cse_config.sh'
             The output should include "retrycmd_if_failure 40 5 10 networkctl up eth2"
             The status should be success
             # First secondary NIC
-            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:ed:8d:8a:4d:ce'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
             # Second secondary NIC
-            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'Name=eth2'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'MACAddress=bb:cc:11:dd:22:ee'
             The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=300'
         End
 
