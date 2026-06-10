@@ -39,7 +39,7 @@ type ClusterParams struct {
 type Cluster struct {
 	Model            *armcontainerservice.ManagedCluster
 	Kube             *Kubeclient
-	KubeConfig       []byte // raw kubeconfig for minting per-test clients
+	kubeconfig       []byte // raw kubeconfig for minting per-test clients
 	KubeletIdentity  *armcontainerservice.UserAssignedIdentity
 	SubnetID         string
 	VNetResourceGUID string
@@ -53,7 +53,7 @@ type Cluster struct {
 // Use this in individual tests to avoid sharing rate limiter tokens with other
 // parallel tests hitting the same cluster.
 func (c *Cluster) NewKubeclientForTest() (*Kubeclient, error) {
-	return NewKubeclient(c.KubeConfig)
+	return NewKubeclient(c.kubeconfig)
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -186,7 +186,7 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	return &Cluster{
 		Model:            cluster,
 		Kube:             kubePrimary.MustGet(),
-		KubeConfig:       kubeconfigBytes.MustGet(),
+		kubeconfig:       kubeconfigBytes.MustGet(),
 		KubeletIdentity:  identity.MustGet(),
 		SubnetID:         subnet.MustGet(),
 		VNetResourceGUID: vNet.MustGet().resourceGUID,
