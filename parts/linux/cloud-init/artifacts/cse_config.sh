@@ -1014,6 +1014,16 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+# Wrapped as functions so logs_to_events can time each step; the install's
+# bash -c command can't be passed to logs_to_events inline (it word-splits args).
+pullGPUDriverImage() {
+    ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+}
+
+installGPUDriverImage() {
+    retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1022,9 +1032,9 @@ configGPUDrivers() {
         # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
         # Use containerd's native exact-name filter rather than text-matching `images ls` output.
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
-            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage
         fi
-        retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
@@ -1034,20 +1044,20 @@ configGPUDrivers() {
         # garbage collection runs asynchronously instead of blocking node provisioning.
         ctr -n k8s.io images rm $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        downloadGPUDrivers
-        installNvidiaContainerToolkit
+        logs_to_events "AKS.CSE.configGPUDrivers.downloadGPUDrivers" downloadGPUDrivers
+        logs_to_events "AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit" installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     elif isACL "$OS" "$OS_VARIANT"; then
-        installNvidiaContainerToolkitSysext
-        installGPUDriverSysext
+        logs_to_events "AKS.CSE.configGPUDrivers.installNvidiaContainerToolkitSysext" installNvidiaContainerToolkitSysext
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverSysext" installGPUDriverSysext
         enableNvidiaPersistenceMode
     else
         echo "os $OS $OS_VARIANT not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
 
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 30 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
