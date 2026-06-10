@@ -402,6 +402,21 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
 }
 
+// ValidateNvidiaGridV20DriverInstalled asserts the node installed the grid-v20
+// (595.x) driver from the aks-gpu-grid-v20 image rather than falling back to a
+// cuda/grid driver. This is the grid-v20-specific check: if SKU->driver-type
+// selection regressed, nvidia-smi would report a different driver major.
+func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	command := []string{
+		"set -ex",
+		"driver_version=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')",
+		"echo \"nvidia driver_version=$driver_version\"",
+		"case \"$driver_version\" in 595.*) ;; *) echo \"expected grid-v20 595.x driver, got '$driver_version'\"; exit 1 ;; esac",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected grid-v20 (595.x) NVIDIA driver version")
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	s.T.Helper()
 	command := []string{

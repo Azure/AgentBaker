@@ -2548,6 +2548,36 @@ func Test_Ubuntu2404_GPUA10(t *testing.T) {
 	runScenarioUbuntu2404GRID(t, "Standard_NV6ads_A10_v5")
 }
 
+func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description:      "Tests that an RTX PRO 6000 BSE v6 (grid-v20) GPU node on Ubuntu 2404 bootstraps with the aks-gpu-grid-v20 (595.x) driver",
+		Location:         "westus2",
+		K8sSystemPoolSKU: "Standard_D2s_v3",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC128ds_xl_RTXPRO6000BSE_v6")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateNvidiaSMIInstalled(ctx, s)
+				ValidateNvidiaGridV20DriverInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2404_NPD_Basic(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test that a node with AKS VM Extension enabled can report simulated node problem detector events",
