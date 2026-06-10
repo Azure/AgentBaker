@@ -978,8 +978,13 @@ configureSecondaryNICs() {
         # secondary NIC $i is eth${i}.
         local iface_name=""
         for sys_path in /sys/class/net/*/address; do
+            local sys_dir
+            sys_dir=$(dirname "$sys_path")
+            # Skip SR-IOV VFs (enslaved interfaces) — they share the MAC of their master
+            # but don't hold an IP address themselves.
+            [ -e "$sys_dir/master" ] && continue
             if [ "$(cat "$sys_path" 2>/dev/null | tr '[:upper:]' '[:lower:]')" = "$mac" ]; then
-                iface_name=$(basename "$(dirname "$sys_path")")
+                iface_name=$(basename "$sys_dir")
                 break
             fi
         done
@@ -1077,27 +1082,32 @@ NETWORKD_EOF
             return $ERR_SECONDARY_NIC_CONFIG_FAIL
         fi
     else
-        local reload_retries=5 reload_sleep=3
         if isACL; then
-            # On ACL (Flatcar-based), networkctl communicates with systemd-networkd via a
-            # Unix control socket. During the initrd→real-root pivot the socket is torn
-            # down and reopened; there is a window that can exceed 60s where networkd is
-            # running but the socket is not yet functional, causing "Transport endpoint is
-            # not connected" errors. Use generous retries (40 × 5s = ~200s) to ride out
-            # this boot-time race.
-            reload_retries=40
-            reload_sleep=5
-        fi
-        if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl reload; then
-            echo "Failed to reload networkd for secondary NICs" >&2
-            return $ERR_SECONDARY_NIC_CONFIG_FAIL
-        fi
-        for iface in $secondary_ifaces; do
-            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "$iface"; then
-                echo "Failed to bring up ${iface}" >&2
+            # On ACL (Flatcar-based), networkctl's control socket is often broken
+            # ("Transport endpoint is not connected") because systemd-networkd's
+            # varlink socket is torn down during the initrd→real-root pivot and may
+            # never recover. Bypass the broken socket entirely by restarting the
+            # systemd-networkd service, which talks to PID-1's (always-working)
+            # D-Bus socket instead. The restart re-reads all .network files and
+            # brings up matching interfaces automatically — no separate
+            # networkctl up/reload calls needed.
+            if ! retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd; then
+                echo "Failed to restart systemd-networkd for secondary NICs" >&2
                 return $ERR_SECONDARY_NIC_CONFIG_FAIL
             fi
-        done
+        else
+            local reload_retries=5 reload_sleep=3
+            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl reload; then
+                echo "Failed to reload networkd for secondary NICs" >&2
+                return $ERR_SECONDARY_NIC_CONFIG_FAIL
+            fi
+            for iface in $secondary_ifaces; do
+                if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "$iface"; then
+                    echo "Failed to bring up ${iface}" >&2
+                    return $ERR_SECONDARY_NIC_CONFIG_FAIL
+                fi
+            done
+        fi
     fi
 }
 
