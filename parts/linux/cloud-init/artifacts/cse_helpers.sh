@@ -206,9 +206,30 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 # AB#36680094: write verbose curl/oras output under /var/log/azure (persistent OS disk)
 # instead of /tmp. On nodes with an unstable ephemeral/temp disk, writes to /tmp
 # can block the script indefinitely, hanging CSE until the global 15-minute watchdog.
+# Fallback paths are used when /var/log/azure is not writable (e.g. image-customizer
+# chroots, OS Guard restricted layouts, or shellspec test containers).
 CURL_OUTPUT=/var/log/azure/curl_verbose.out
 ORAS_OUTPUT=/var/log/azure/oras_verbose.out
-mkdir -p "$(dirname "$CURL_OUTPUT")" 2>/dev/null || true
+CURL_OUTPUT_FALLBACK=/tmp/curl_verbose.out
+ORAS_OUTPUT_FALLBACK=/tmp/oras_verbose.out
+
+# AB#36680094: ensure a verbose-output path is actually writable, falling back to /tmp
+# if the primary path cannot be created or written. Called from inside each retry
+# helper so chroot/mount changes between sourcing and execution cannot leave the
+# redirect target missing (which previously caused a 44-minute silent retry loop
+# in image-customizer when /var/log/azure was unavailable).
+_ensure_writable_output_path() {
+    local var_name=$1 fallback=$2
+    local path=${!var_name}
+    # Subshell isolates shell-level redirection errors so they cannot leak to stderr
+    # (which would abort shellspec tests and add noise to CSE logs in chroots).
+    if mkdir -p "$(dirname "$path")" 2>/dev/null && ( : > "$path" ) 2>/dev/null; then
+        return 0
+    fi
+    printf -v "$var_name" '%s' "$fallback"
+    mkdir -p "$(dirname "$fallback")" 2>/dev/null || true
+    ( : > "$fallback" ) 2>/dev/null || true
+}
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
 
 # used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
@@ -409,7 +430,9 @@ _retry_file_curl_internal() {
 
         # AB#36680094: -k 5s forces SIGKILL after SIGTERM grace so a hung curl
         # (e.g. blocked on D-state disk I/O while writing verbose output) cannot
-        # stall the retry loop.
+        # stall the retry loop. The output path is re-validated each iteration so
+        # chroot/mount changes cannot break the redirect mid-run.
+        _ensure_writable_output_path CURL_OUTPUT "$CURL_OUTPUT_FALLBACK"
         timeout -k 5s "$effectiveTimeout" curl -fsSLv "$url" -o "$filePath" > "$CURL_OUTPUT" 2>&1
         if [ "$?" -ne 0 ]; then
             cat "$CURL_OUTPUT"
@@ -472,7 +495,8 @@ retrycmd_pull_from_registry_with_oras() {
         if [ "$i" -gt 1 ]; then
             sleep $wait_sleep
         fi
-        timeout -k 5s 60 oras pull "$url" -o "$target_folder" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "$@" > $ORAS_OUTPUT 2>&1
+        _ensure_writable_output_path ORAS_OUTPUT "$ORAS_OUTPUT_FALLBACK"
+        timeout -k 5s 60 oras pull "$url" -o "$target_folder" --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "$@" > "$ORAS_OUTPUT" 2>&1
         if [ "$?" -eq 0 ]; then
             return 0
         else
@@ -504,7 +528,8 @@ retrycmd_cp_oci_layout_with_oras() {
             if [ "$i" -gt 1 ]; then
                 sleep $wait_sleep
             fi
-            timeout -k 5s 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            _ensure_writable_output_path ORAS_OUTPUT "$ORAS_OUTPUT_FALLBACK"
+            timeout -k 5s 120 oras cp "$url" "$path:$tag" --to-oci-layout --from-registry-config "${ORAS_REGISTRY_CONFIG_FILE}" > "$ORAS_OUTPUT" 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             else
