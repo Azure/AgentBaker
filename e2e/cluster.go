@@ -133,6 +133,9 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
+	dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
+		return setupPrivateDNSForAPIServer(ctx, cluster, v)
+	})
 	// networkSetup adds firewall routes to the existing AKS route table or
 	// creates/associates a dedicated one when Azure CNI has none, or applies
 	// the network-isolated NSG. It must run after bastion (both mutate the
@@ -173,9 +176,6 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		}
 		return k.GetProxyURL(ctx)
 	}, debugDeps...)
-	dag.Run(g, func(ctx context.Context) error {
-		return setupPrivateDNSForAPIServer(ctx, vNet.MustGet().resourceGroup, cluster)
-	})
 	extract := dag.Go1(g, kubeForExtract, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
@@ -713,30 +713,29 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 
 // setupPrivateDNSForAPIServer adds an A record for the cluster's API server FQDN
 // to the shared private DNS zone. The zone and VNet link are created once by ensureSharedInfra.
-func setupPrivateDNSForAPIServer(ctx context.Context, resourceGroup string, cluster *armcontainerservice.ManagedCluster) error {
+func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster, vnet VNet) error {
 	defer toolkit.LogStepCtx(ctx, "setting up private DNS for API server")()
 
 	fqdn := *cluster.Properties.Fqdn
-	zoneName := APIServerDNSZone(*cluster.Location)
-	recordName := strings.TrimSuffix(fqdn, "."+zoneName)
+	nodeRG := *cluster.Properties.NodeResourceGroup
 
 	ips, err := net.LookupHost(fqdn)
 	if err != nil {
 		return fmt.Errorf("resolving API server FQDN %q: %w", fqdn, err)
 	}
 
-	var wantIPs []string
+	var aRecords []*armprivatedns.ARecord
 	for _, ip := range ips {
 		if parsed := net.ParseIP(ip); parsed != nil && parsed.To4() != nil {
-			wantIPs = append(wantIPs, ip)
+			aRecords = append(aRecords, &armprivatedns.ARecord{IPv4Address: to.Ptr(ip)})
 		}
 	}
-	if len(wantIPs) == 0 {
+	if len(aRecords) == 0 {
 		return fmt.Errorf("no IPv4 addresses for %q", fqdn)
 	}
 
-	// Check if the record already exists with the correct IPs
-	existing, err := config.Azure.RecordSetClient.Get(ctx, resourceGroup, zoneName, armprivatedns.RecordTypeA, recordName, nil)
+	// Check if zone + record already exist and are up to date
+	existing, err := config.Azure.RecordSetClient.Get(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@", nil)
 	if err == nil && existing.Properties != nil && existing.Properties.ARecords != nil {
 		existingIPs := map[string]bool{}
 		for _, r := range existing.Properties.ARecords {
@@ -744,32 +743,35 @@ func setupPrivateDNSForAPIServer(ctx context.Context, resourceGroup string, clus
 				existingIPs[*r.IPv4Address] = true
 			}
 		}
-		if len(existingIPs) == len(wantIPs) {
-			allMatch := true
-			for _, ip := range wantIPs {
-				if !existingIPs[ip] {
+		allMatch := len(existingIPs) == len(aRecords)
+		if allMatch {
+			for _, r := range aRecords {
+				if !existingIPs[*r.IPv4Address] {
 					allMatch = false
 					break
 				}
 			}
-			if allMatch {
-				toolkit.Logf(ctx, "private DNS record %s already up to date", recordName)
-				return nil
-			}
+		}
+		if allMatch {
+			toolkit.Logf(ctx, "private DNS zone %q already up to date", fqdn)
+			return nil
 		}
 	}
 
-	var aRecords []*armprivatedns.ARecord
-	for _, ip := range wantIPs {
-		aRecords = append(aRecords, &armprivatedns.ARecord{IPv4Address: to.Ptr(ip)})
+	// Per-FQDN zone: zone name = full FQDN, record name = "@"
+	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
+	}
+	if err := createPrivateDNSLink(ctx, vnet, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("linking private zone to VNet: %w", err)
 	}
 
-	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, resourceGroup, zoneName, armprivatedns.RecordTypeA, recordName,
+	_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@",
 		armprivatedns.RecordSet{Properties: &armprivatedns.RecordSetProperties{TTL: to.Ptr[int64](300), ARecords: aRecords}}, nil)
 	if err != nil {
-		return fmt.Errorf("creating A record %q in zone %q: %w", recordName, zoneName, err)
+		return fmt.Errorf("creating A record in zone %q: %w", fqdn, err)
 	}
 
-	toolkit.Logf(ctx, "private DNS: %s.%s → %v", recordName, zoneName, wantIPs)
+	toolkit.Logf(ctx, "private DNS zone %q → %v", fqdn, ips)
 	return nil
 }
