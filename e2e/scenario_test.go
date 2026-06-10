@@ -3035,7 +3035,7 @@ func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICUp(ctx, s, "eth1")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3055,7 +3055,7 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICUp(ctx, s, "eth1")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3075,7 +3075,7 @@ func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICUp(ctx, s, "eth1")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3096,7 +3096,7 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICUp(ctx, s, "eth1")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3126,7 +3126,7 @@ func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICDualStack(ctx, s, "eth1")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3156,7 +3156,7 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
 				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
-				ValidateSecondaryNICDualStack(ctx, s, "eth1")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3185,7 +3185,7 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICDualStack(ctx, s, "eth1")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
@@ -3215,7 +3215,7 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
-				ValidateSecondaryNICDualStack(ctx, s, "eth1")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
 		},
 	})
