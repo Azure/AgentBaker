@@ -186,7 +186,9 @@ func subnetHasActiveResources(subnet *armnetwork.Subnet) bool {
 	}
 	return len(subnet.Properties.IPConfigurations) > 0 ||
 		len(subnet.Properties.ServiceAssociationLinks) > 0 ||
-		len(subnet.Properties.ResourceNavigationLinks) > 0
+		len(subnet.Properties.ResourceNavigationLinks) > 0 ||
+		subnet.Properties.NetworkSecurityGroup != nil ||
+		subnet.Properties.RouteTable != nil
 }
 
 func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) error {
@@ -460,6 +462,13 @@ func clusterSubnetName(clusterName string) string {
 
 const totalSubnetSlots = 4080
 
+// reservedSecondOctets lists second-octet values whose /16 range is used by
+// Kubernetes defaults and must not be allocated as cluster subnets.
+//   - 244: default pod CIDR (10.244.0.0/16) for kubenet/overlay
+var reservedSecondOctets = map[int]bool{
+	244: true,
+}
+
 // allocateSubnetCIDR finds a free /20 CIDR by starting at a hash-derived slot
 // and probing linearly until a free one is found.
 func allocateSubnetCIDR(name string, usedCIDRs map[string]bool) string {
@@ -468,15 +477,19 @@ func allocateSubnetCIDR(name string, usedCIDRs map[string]bool) string {
 	for i := 0; i < totalSubnetSlots; i++ {
 		idx := (startIdx + i) % totalSubnetSlots
 		cidr := cidrFromIndex(idx)
-		if !usedCIDRs[cidr] {
-			return cidr
+		if cidr == "" || usedCIDRs[cidr] {
+			continue
 		}
+		return cidr
 	}
 	return ""
 }
 
 func cidrFromIndex(idx int) string {
 	secondOctet := (idx / 16) + 1 // 1-255
+	if reservedSecondOctets[secondOctet] {
+		return ""
+	}
 	thirdOctet := (idx % 16) * 16 // 0, 16, 32, ..., 240
 	return fmt.Sprintf("10.%d.%d.0/20", secondOctet, thirdOctet)
 }
