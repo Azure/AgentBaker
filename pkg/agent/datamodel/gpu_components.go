@@ -51,11 +51,12 @@ func LoadConfig() error {
 	const expectedLength = 2
 
 	for _, image := range config.GPUContainerImages {
-		parts := strings.Split(image.GPUVersion.LatestVersion, "-")
-		if len(parts) != expectedLength {
+		// Named versionParts (not parts) to avoid shadowing the imported parts package.
+		versionParts := strings.Split(image.GPUVersion.LatestVersion, "-")
+		if len(versionParts) != expectedLength {
 			continue
 		}
-		version, suffix := parts[driverIndex], parts[suffixIndex]
+		version, suffix := versionParts[driverIndex], versionParts[suffixIndex]
 
 		// Match on the exact repo name (final path segment, tag stripped) so that
 		// repos sharing a prefix (e.g. "aks-gpu-grid" vs "aks-gpu-grid-v20") are not

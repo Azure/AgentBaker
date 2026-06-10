@@ -252,6 +252,22 @@ Describe 'cse_install_mariner.sh'
             The variable GRID_CALLED should equal "true"
         End
 
+        It 'fails fast for grid-v20 (Ubuntu-only) instead of installing a CUDA driver'
+            # RTX PRO 6000 BSE v6 maps to grid-v20, which ships only as the
+            # aks-gpu-grid-v20 container image consumed on Ubuntu. There is no
+            # nvidia-vgpu-guest-driver v20 RPM for Mariner/AzureLinux, so the guard
+            # must exit with ERR_NVIDIA_DRIVER_INSTALL rather than silently falling
+            # through to the cuda path on a vGPU node. Use 'run' so the guard's exit
+            # is captured as a status instead of aborting the example.
+            ERR_NVIDIA_DRIVER_INSTALL=224
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            MOCK_VM_SKU="Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+            When run downloadGPUDrivers
+            The status should equal 224
+            The output should include "only supported on Ubuntu"
+            The output should not include "converged"
+        End
+
         It 'selects cuda-open path for A100 when NVIDIA_GPU_DRIVER_TYPE is cuda'
             NVIDIA_GPU_DRIVER_TYPE="cuda"
             MOCK_VM_SKU="Standard_ND96asr_v4"

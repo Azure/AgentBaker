@@ -64,3 +64,27 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("AKSGPUGridV20VersionSuffix '%s' does not match expected format", AKSGPUGridV20VersionSuffix)
 	}
 }
+
+// TestGPUImageRepo verifies that the bare repo name is extracted via exact final
+// path segment (tag stripped), so prefix-sharing repos like "aks-gpu-grid" and
+// "aks-gpu-grid-v20" are never confused by substring matching. This guards the
+// LoadConfig switch that maps each repo to its own driver version/suffix.
+func TestGPUImageRepo(t *testing.T) {
+	cases := map[string]string{
+		"mcr.microsoft.com/aks/aks-gpu-cuda:*":               "aks-gpu-cuda",
+		"mcr.microsoft.com/aks/aks-gpu-grid:*":               "aks-gpu-grid",
+		"mcr.microsoft.com/aks/aks-gpu-grid-v20:*":           "aks-gpu-grid-v20",
+		"mcr.microsoft.com/aks/aks-gpu-grid-v20:595.58.03-1": "aks-gpu-grid-v20",
+		"aks-gpu-grid-v20":                                   "aks-gpu-grid-v20",
+	}
+	for downloadURL, want := range cases {
+		if got := gpuImageRepo(downloadURL); got != want {
+			t.Errorf("gpuImageRepo(%q) = %q, want %q", downloadURL, got, want)
+		}
+	}
+
+	// "aks-gpu-grid-v20" must not be parsed as "aks-gpu-grid" (substring collision).
+	if gpuImageRepo("mcr.microsoft.com/aks/aks-gpu-grid-v20:*") == "aks-gpu-grid" {
+		t.Error("aks-gpu-grid-v20 URL was incorrectly parsed as aks-gpu-grid")
+	}
+}
