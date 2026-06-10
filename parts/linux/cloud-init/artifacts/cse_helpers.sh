@@ -280,9 +280,9 @@ _retrycmd_internal() {
         fi
 
         # AB#36680094: pass -k 5s so the wrapped command receives SIGKILL 5s after the
-        # initial SIGTERM. Without -k, a process stuck in uninterruptible D-state (e.g.
-        # curl blocked on a hung disk) cannot be killed by `timeout`, and CSE hangs
-        # until the global 15-minute watchdog fires.
+        # initial SIGTERM. This helps ensure processes that ignore SIGTERM (or only exit
+        # cleanly on SIGKILL) don't stall the retry loop. Note: if a process is stuck in
+        # uninterruptible D-state due to hung I/O, signals won't take effect until the I/O returns.
         timeout -k 5s "$effectiveTimeout" "${@}"
         exitStatus=$?
 
