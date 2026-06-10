@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,38 @@ func extractMajorMinorPatchVersion(version string) string {
 	return ""
 }
 
+// extractPackageRevision returns the distro rebuild-revision counter from a
+// version string. This is the integer that MUST stay in lockstep across OS
+// variants of the same package: a Renovate bump is expected to move Ubuntu and
+// Azure Linux together, so a divergence here means only one OS was updated.
+//
+// Examples:
+//
+//	"4.8.2-ubuntu24.04u2" -> "2"  (Ubuntu PMC rebuild counter)
+//	"4.8.2-1.azl3"        -> "1"  (Azure Linux rebuild counter)
+//	"1:4.5.3-1"           -> "1"  (handles epoch prefix)
+func extractPackageRevision(version string) string {
+	// Remove epoch prefix (e.g., "1:" in "1:4.4.1-1")
+	version = regexp.MustCompile(`^\d+:`).ReplaceAllString(version, "")
+
+	// The rebuild revision lives in the trailing token after the last "-".
+	idx := strings.LastIndex(version, "-")
+	if idx == -1 {
+		return ""
+	}
+	rev := version[idx+1:] // e.g. "ubuntu24.04u2", "1.azl3", "1"
+
+	// Ubuntu scheme: "...uN" at the end of the token.
+	if m := regexp.MustCompile(`u(\d+)$`).FindStringSubmatch(rev); m != nil {
+		return m[1]
+	}
+	// Azure Linux / plain scheme: leading integer (e.g. "1.azl3", "1").
+	if m := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(rev); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
 type packageOSVariant struct {
 	pkgName   string
 	osName    string
@@ -78,6 +111,7 @@ func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 
 	for _, packageGroup := range allPackageVariants {
 		expectedVersion := ""
+		expectedRevision := ""
 		for _, pkgVar := range packageGroup {
 			componentVersions := components.GetExpectedPackageVersions(pkgVar.pkgName, pkgVar.osName, pkgVar.osRelease)
 			require.Lenf(t, componentVersions, 1,
@@ -88,15 +122,50 @@ func Test_Version_Consistency_GPU_Managed_Components(t *testing.T) {
 			require.NotEmptyf(t, pkgVersion, "Failed to extract major.minor.patch version from %s for %s %s",
 				componentVersions[0], pkgVar.osName, pkgVar.osRelease)
 
-			// For the first iteration, set the expectedVersion
+			pkgRevision := extractPackageRevision(componentVersions[0])
+			require.NotEmptyf(t, pkgRevision, "Failed to extract rebuild revision from %s for %s %s",
+				componentVersions[0], pkgVar.osName, pkgVar.osRelease)
+
+			// For the first iteration, set the expected values
 			if expectedVersion == "" {
 				expectedVersion = pkgVersion
+				expectedRevision = pkgRevision
 				continue
 			}
 			require.Equalf(t, expectedVersion, pkgVersion,
 				"Expected all %s versions to have the same major.minor.patch version, but found mismatch: %s vs %s for %s.%s",
 				pkgVar.pkgName, expectedVersion, pkgVersion, pkgVar.osName, pkgVar.osRelease)
+
+			// The trailing rebuild revision must also stay in lockstep across OS variants.
+			// A divergence here means Renovate (or a manual bump) updated one OS but not the
+			// others - e.g. Ubuntu moved to ...u2 while Azure Linux stayed at ...-1.azl3.
+			require.Equalf(t, expectedRevision, pkgRevision,
+				"Partial OS update detected for %s: rebuild revision %q (%s.%s) does not match %q from the first OS variant. "+
+					"Renovate likely updated one OS but not the others - align ALL OS entries in components.json for this package (or revert the partial bump).",
+				pkgVar.pkgName, pkgRevision, pkgVar.osName, pkgVar.osRelease, expectedRevision)
 		}
+	}
+}
+
+func Test_extractPackageRevision(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{input: "4.8.2-ubuntu24.04u2", expected: "2"},
+		{input: "4.8.2-ubuntu22.04u2", expected: "2"},
+		{input: "4.8.2-1.azl3", expected: "1"},
+		{input: "1:4.5.3-1", expected: "1"},
+		{input: "0.19.2-ubuntu22.04u10", expected: "10"},
+		{input: "4.6.0-3.azl3", expected: "3"},
+		{input: "", expected: ""},
+		{input: "4.8.2", expected: ""},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("extractPackageRevision(%q)=%q", test.input, test.expected), func(t *testing.T) {
+			require.Equal(t, test.expected, extractPackageRevision(test.input))
+		})
 	}
 }
 
