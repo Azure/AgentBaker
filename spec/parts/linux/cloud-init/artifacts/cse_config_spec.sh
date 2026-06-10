@@ -209,14 +209,31 @@ Describe 'cse_config.sh'
             The output should include "Detected 2 NICs, configuring secondary interfaces..."
             The output should include "Configured secondary NIC eth1"
             The output should include "metric=200"
-            The output should include "networkctl reload"
-            The output should include "networkctl up eth1"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl up eth1"
             The status should be success
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'UseDNS=false'
+        End
+
+        It 'should configure networkd on ACL with increased retries when two NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=200"
+            The output should include "retrycmd_if_failure 40 5 10 networkctl reload"
+            The output should include "retrycmd_if_failure 40 5 10 networkctl up eth1"
+            The status should be success
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
         End
 
         It 'should configure netplan for both secondary NICs when three NICs are present on Ubuntu'
@@ -246,6 +263,27 @@ Describe 'cse_config.sh'
             The output should include "Detected 3 NICs, configuring secondary interfaces..."
             The output should include "Configured secondary NIC eth1"
             The output should include "Configured secondary NIC eth2"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=200'
+            # Second secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'Name=eth2'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=300'
+        End
+
+        It 'should configure networkd for both secondary NICs when three NICs are present on ACL with increased retries'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "Configured secondary NIC eth2"
+            The output should include "retrycmd_if_failure 40 5 10 networkctl reload"
+            The output should include "retrycmd_if_failure 40 5 10 networkctl up eth1"
+            The output should include "retrycmd_if_failure 40 5 10 networkctl up eth2"
             The status should be success
             # First secondary NIC
             The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'Name=eth1'
@@ -281,9 +319,39 @@ Describe 'cse_config.sh'
             The status should equal 243
         End
 
+        It 'should return error when networkctl reload fails on ACL'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            networkctl() {
+                return 1
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to reload networkd for secondary NICs"
+            The status should equal 243
+        End
+
         It 'should return error when networkctl up fails on AzureLinux/Mariner'
             IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
             OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            networkctl() {
+                # reload succeeds, but up fails
+                if [ "$1" = "up" ]; then
+                    return 1
+                fi
+                echo "networkctl $@"
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to bring up eth1"
+            The status should equal 243
+        End
+
+        It 'should return error when networkctl up fails on ACL'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURECONTAINERLINUX"
             mkdir -p /etc/systemd/network
             networkctl() {
                 # reload succeeds, but up fails

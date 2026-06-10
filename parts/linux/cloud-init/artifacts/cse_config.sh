@@ -1057,17 +1057,23 @@ NETWORKD_EOF
             return $ERR_SECONDARY_NIC_CONFIG_FAIL
         fi
     else
-        # On ACL (Flatcar-based), networkctl communicates with systemd-networkd via a Unix
-        # control socket. During the initrd→real-root pivot the socket is torn down and
-        # reopened; there is a window (~30-60s) where networkd is running but the socket
-        # is not yet functional, causing "Transport endpoint is not connected" errors.
-        # Use generous retries (20 × 3s = ~60s) to ride out this boot-time race.
-        if ! retrycmd_if_failure 20 3 10 networkctl reload; then
+        local reload_retries=5 reload_sleep=3
+        if isACL; then
+            # On ACL (Flatcar-based), networkctl communicates with systemd-networkd via a
+            # Unix control socket. During the initrd→real-root pivot the socket is torn
+            # down and reopened; there is a window that can exceed 60s where networkd is
+            # running but the socket is not yet functional, causing "Transport endpoint is
+            # not connected" errors. Use generous retries (40 × 5s = ~200s) to ride out
+            # this boot-time race.
+            reload_retries=40
+            reload_sleep=5
+        fi
+        if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl reload; then
             echo "Failed to reload networkd for secondary NICs" >&2
             return $ERR_SECONDARY_NIC_CONFIG_FAIL
         fi
         for i in $(seq 1 $((nic_count - 1))); do
-            if ! retrycmd_if_failure 20 3 10 networkctl up "eth${i}"; then
+            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "eth${i}"; then
                 echo "Failed to bring up eth${i}" >&2
                 return $ERR_SECONDARY_NIC_CONFIG_FAIL
             fi
