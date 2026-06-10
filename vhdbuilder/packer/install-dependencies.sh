@@ -474,9 +474,18 @@ while IFS= read -r p; do
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+        if isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isMarinerOrAzureLinux; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          installSecureTLSBootstrapClientSysext "${version}" || exit $?
+        fi
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-acr-credential-provider")
@@ -646,6 +655,8 @@ installAndConfigureArtifactStreaming() {
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
+  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 
@@ -718,6 +729,67 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+fi
+
+if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+  # NVIDIA GB setup is only supported on arm64 Ubuntu 24.04.
+  if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+    # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
+    # aks-gpu is designed to run at node boot/join time, whereas the NVIDIA GB VHD is set up
+    # to have all drivers installed at VHD build time.
+
+    # 1. Blacklist nouveau driver
+    cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    update-initramfs -u
+
+    # 2. install drivers
+    BOM_PATH="gb-mai-bom.json"
+
+    # Install a custom repository if a doca-custom-repo is specified
+    DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
+    if [ -n "$DOCA_CUSTOM_REPO" ]; then
+      mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
+      echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
+      apt-get update
+    fi
+
+    # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
+    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
+    # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+
+    # 3. Add char device symlinks for NVIDIA devices
+    mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
+    cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    # Create systemd drop-in to override nvidia-device-plugin dependencies
+    mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
+    cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
+[Unit]
+After=kubelet.service
+
+[Service]
+ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
+EOF
+
+    # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
+    systemctl enable nvidia-dcgm
+    systemctl enable nvidia-dcgm-exporter
+    systemctl enable nvidia-device-plugin
+    systemctl enable openibd
+
+    # One additional request from MAI: signal that NPD is pre-installed on the VHD.
+    # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
+    mkdir -p /etc/node-problem-detector.d/
+    touch /etc/node-problem-detector.d/skip_vhd_npd
+  fi
 fi
 
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then

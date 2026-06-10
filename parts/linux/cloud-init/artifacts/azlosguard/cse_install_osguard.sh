@@ -20,8 +20,8 @@ installRPMPackageFromFile() {
     local fullPackageVersion=""
 
     echo "installing ${packageName} version ${desiredVersion} by manually unpacking the RPM"
-    if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ] && [ "${packageName}" != "azure-acr-credential-provider" ]; then
-        echo "Error: Unsupported package ${packageName}. Only kubelet, kubectl, and azure-acr-credential-provider installs are allowed on OSGuard."
+    if [ "${packageName}" != "kubelet" ] && [ "${packageName}" != "kubectl" ] && [ "${packageName}" != "azure-acr-credential-provider" ] && [ "${packageName}" != "aks-secure-tls-bootstrap-client" ]; then
+        echo "Error: Unsupported package ${packageName}. Only kubelet, kubectl, azure-acr-credential-provider, and aks-secure-tls-bootstrap-client installs are allowed on OSGuard."
         exit 1
     fi
     echo "installing ${packageName} version ${desiredVersion}"
@@ -54,6 +54,8 @@ installRPMPackageFromFile() {
     # This assumes that the binary will either be in /usr/bin or /usr/local/bin, but not both.
     rpm2cpio "${rpmFile}" | cpio -i --to-stdout "./usr/bin/${packageName}" "./usr/local/bin/${packageName}" | install -m0755 /dev/stdin "${targetPath}"
 	rm -rf "${downloadDir}"
+    # Clean up stale cached binaries that were not used
+    rm -f /opt/bin/"${packageName}"-* &
 }
 
 downloadPkgFromVersion() {

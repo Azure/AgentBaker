@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -131,6 +131,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	// ensure that no unexpected systemd units are in a failed state
 	ValidateNoFailedSystemdUnits(ctx, s)
+	ValidateStaleCachedKubeBinariesRemoved(ctx, s)
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) {
@@ -139,7 +140,7 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) {
 }
 
 func validatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
-	kube := s.Runtime.Cluster.Kube
+	kube := s.Runtime.Kube
 	truncatePodName(s.T, pod)
 	start := time.Now()
 
@@ -185,7 +186,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 		case <-ctx.Done():
 			s.T.Fatalf("context cancelled: %v", ctx.Err())
 		case <-ticker.C:
-			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 			require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 			if isResourceAvailable(node, resourceName) {
@@ -269,16 +270,28 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 }
 
 // validateWireServerBlocked checks that unprivileged pods cannot reach WireServer.
-// The iptables FORWARD DROP rules blocking pod→WireServer traffic can be transiently
-// absent when kube-proxy or CNI flush/recreate iptables chains during node setup.
-// We resolve the debug pod once up front (outside the retry budget) so that pod
-// scheduling latency doesn't eat into the iptables-check timeout.
+// Wireserver must never be reachable from pods — any successful connection is a
+// security issue, not a transient condition to retry through.
+//
+// We accept two curl exit codes as evidence of a working block:
+//
+//	28 = operation timeout   (FORWARD DROP — packets silently dropped)
+//	 7 = couldn't connect    (FORWARD REJECT — RST / ICMP unreachable)
+//
+// Any other exit code is suspicious and fails the test with full diagnostics:
+//
+//	  0  = wireserver reachable (security regression)
+//	127  = curl missing from debug image (test would otherwise silently bypass)
+//	2/3  = invalid curl args
+//	  6  = DNS resolution issue (wireserver IP is literal — should not happen)
+//
+// We do retry transient kube-apiserver exec hiccups, but never on the curl
+// result itself — a single observation of an unexpected exit code is enough
+// to fail loudly.
 func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating wireserver is blocked from unprivileged pods")()
 
-	// Resolve the unprivileged debug pod once — this can take 25-30s on cold nodes.
-	// Using the parent context so it has the full scenario timeout, not the short poll timeout.
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	require.NoError(s.T, err, "failed to get non host debug pod for wireserver validation")
 
 	type wireServerCheck struct {
@@ -288,39 +301,55 @@ func validateWireServerBlocked(ctx context.Context, s *Scenario) {
 
 	checks := []wireServerCheck{
 		{
-			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			cmd:  "curl http://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4 --max-time 8",
 			desc: "wireserver port 80 goalstate",
 		},
 		{
-			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			cmd:  "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4 --max-time 8",
 			desc: "wireserver port 32526 vmSettings",
 		},
 	}
 
+	allowedExitCodes := map[string]bool{"28": true, "7": true}
+
 	for _, check := range checks {
-		var lastResult *podExecResult
-		err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
-			execResult, execErr := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
+		var execResult *podExecResult
+		// Per-attempt cap (15s) prevents a single SPDY/exec hang from consuming the entire
+		// poll budget. Derived from the poll's inner ctx so it honors both the per-attempt
+		// cap and the overall poll deadline, whichever fires first.
+		pollErr := wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+			attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			r, execErr := execOnUnprivilegedPod(attemptCtx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, check.cmd)
 			if execErr != nil {
-				s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				if errors.Is(execErr, context.DeadlineExceeded) {
+					s.T.Logf("wireserver check %q: exec attempt timed out after 15s (retrying): %v", check.desc, execErr)
+				} else {
+					s.T.Logf("wireserver check %q: exec error (retrying): %v", check.desc, execErr)
+				}
 				return false, nil
 			}
-			lastResult = execResult
-			if lastResult.exitCode == "28" {
-				return true, nil
-			}
-			s.T.Logf("wireserver check %q: expected exit code 28, got %s (retrying)", check.desc, lastResult.exitCode)
-			return false, nil
+			execResult = r
+			return true, nil
 		})
-		if err != nil {
-			s.T.Logf("host IPTABLES: %s", execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String())
-			if lastResult == nil {
-				require.NoErrorf(s.T, err, "curl to %s did not complete before polling stopped", check.desc)
-			}
-			s.T.Logf("last curl result for %s: %s", check.desc, lastResult.String())
-			assert.Equal(s.T, "28", lastResult.exitCode, "curl to %s expected to fail with timeout, but it didn't after retries", check.desc)
-			s.T.FailNow()
+		require.NoErrorf(s.T, pollErr, "wireserver check %q: exec failed after retries", check.desc)
+
+		if allowedExitCodes[execResult.exitCode] {
+			continue
 		}
+
+		iptablesFwd := execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L FORWARD -v -n --line-numbers").String()
+		iptablesKubeFwd := execScriptOnVMForScenario(ctx, s, "sudo iptables -t filter -L KUBE-FORWARD -v -n --line-numbers 2>/dev/null || echo 'chain not found'").String()
+		iptablesSave := execScriptOnVMForScenario(ctx, s, "sudo iptables-save -t filter 2>/dev/null | head -80").String()
+		conntrack := execScriptOnVMForScenario(ctx, s, "sudo conntrack -L -d 168.63.129.16 2>/dev/null || echo 'conntrack not available'").String()
+		s.T.Fatalf("wireserver check %q: unexpected curl exit code %q (want 28 timeout or 7 refused)\n"+
+			"stdout=%q, stderr=%q\n"+
+			"FORWARD chain:\n%s\n"+
+			"KUBE-FORWARD chain:\n%s\n"+
+			"iptables-save filter:\n%s\n"+
+			"conntrack:\n%s",
+			check.desc, execResult.exitCode, execResult.stdout, execResult.stderr,
+			iptablesFwd, iptablesKubeFwd, iptablesSave, conntrack)
 	}
 }
 

@@ -345,22 +345,27 @@ LimitNOFILE=1048576
 EOF
 
   mkdir -p /etc/containerd
-  # Remove in case this is an existing symlink
-  rm -f /etc/containerd/config.toml
-  if [ "${GPU_NODE}" = "true" ]; then
-    # Check VM tag directly to determine if GPU drivers should be skipped
-    export -f should_skip_nvidia_drivers
-    should_skip=$(should_skip_nvidia_drivers)
-    if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
-      echo "Generating non-GPU containerd config for GPU node due to VM tags"
-      echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+
+  if grep -q 'BinaryName = "/usr/bin/nvidia-container-runtime"' /etc/containerd/config.toml 2>/dev/null; then
+    echo "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
+  else
+    # Remove in case this is an existing symlink or non-NVIDIA config
+    rm -f /etc/containerd/config.toml
+    if [ "${GPU_NODE}" = "true" ]; then
+      # Check VM tag directly to determine if GPU drivers should be skipped
+      export -f should_skip_nvidia_drivers
+      should_skip=$(should_skip_nvidia_drivers)
+      if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
+        echo "Generating non-GPU containerd config for GPU node due to VM tags"
+        echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      else
+        echo "Generating GPU containerd config..."
+        echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      fi
     else
-      echo "Generating GPU containerd config..."
+      echo "Generating containerd config..."
       echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
     fi
-  else
-    echo "Generating containerd config..."
-    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
   export -f should_e2e_mock_azure_china_cloud
@@ -513,10 +518,10 @@ ensureKubeCACert() {
     chmod 0600 "${KUBE_CA_FILE}"
 }
 
-# file paths defined outside so configureAndStartSecureTLSBootstrapping can be unit tested
+# file paths defined outside so configureAndEnableSecureTLSBootstrapping can be unit tested
 SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE="/etc/default/secure-tls-bootstrap"
 SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-configureAndStartSecureTLSBootstrapping() {
+configureAndEnableSecureTLSBootstrapping() {
     BOOTSTRAP_CLIENT_FLAGS="--aad-resource=${SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE:-$AKS_AAD_SERVER_APP_ID} --apiserver-fqdn=${API_SERVER_NAME} --cloud-provider-config=${AZURE_JSON_PATH}"
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --user-assigned-identity-id=$SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID"
@@ -560,12 +565,16 @@ Before=kubelet.service
 [Service]
 EnvironmentFile=${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}
 [Install]
+# this configuration has secure-tls-bootstrap.service only start when kubelet.service is started
 # once bootstrap tokens are no longer a fallback, kubelet.service needs to be a RequiredBy=
 WantedBy=kubelet.service
 EOF
 
-    # explicitly start secure TLS bootstrapping ahead of kubelet
-    systemctlEnableAndStartNoBlock secure-tls-bootstrap 30 || exit $ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE
+    # enable the service so it runs ahead of kubelet on next boot; do not start it now
+    if ! retrycmd_if_failure 120 5 25 systemctl enable secure-tls-bootstrap; then
+        echo "secure-tls-bootstrap could not be enabled by systemctl"
+        exit $ERR_SECURE_TLS_BOOTSTRAP_ENABLE_FAILURE
+    fi
 
     # once bootstrap tokens are no longer a fallback, we can unset TLS_BOOTSTRAP_TOKEN here if needed
 }
@@ -632,6 +641,44 @@ ensurePodInfraContainerImage() {
 
     rm -rf ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
+}
+
+validateKubeletNodeLabels() {
+    local labels="$1"
+    local validated_labels=""
+    local delimiter=""
+
+    # Return empty if no labels provided
+    if [ -z "$labels" ]; then
+        echo "No labels found in KUBELET_NODE_LABELS"
+        return 0
+    fi
+
+    # Split labels by comma and process each
+    IFS=',' read -ra LABEL_ARRAY <<< "$labels"
+    for label in "${LABEL_ARRAY[@]}"; do
+        # Split each label into key and value
+        # shellcheck disable=SC3010
+        if [[ "$label" == *"="* ]]; then
+            key="${label%%=*}"
+            value="${label#*=}"
+
+            # Check if key length exceeds 63 characters
+            if [ ${#key} -gt 63 ]; then
+                echo "Warning: Label key '$key' exceeds 63 characters, truncating to 63 characters" >&2
+                key="${key:0:63}"
+            fi
+
+            # Rebuild the label with potentially truncated key
+            validated_labels="${validated_labels}${delimiter}${key}=${value}"
+        fi
+
+        # Set delimiter for subsequent labels
+        delimiter=","
+    done
+
+    # Update the global variable with validated labels
+    KUBELET_NODE_LABELS="$validated_labels"
 }
 
 ensureKubelet() {
@@ -809,6 +856,17 @@ EOF
     local tls_bootstrapping_start_time_filepath="/opt/azure/containers/tls-bootstrap-start-time"
     date +"%F %T.%3N" > "${tls_bootstrapping_start_time_filepath}"
 
+    # Node Memory Hardening (F2/F5): if the RP rendered --kube-reserved-cgroup or
+    # --system-reserved-cgroup, ensure the corresponding systemd slices exist before
+    # kubelet starts so its NodeAllocatable enforcement loop can find them. The
+    # helper is a no-op when neither value is present (back-compat with non-hardened pools).
+    resolveKubeletReservedCgroups
+    if [ -n "${KUBE_RESERVED_CGROUP}" ] || [ -n "${SYSTEM_RESERVED_CGROUP}" ]; then
+        if ! logs_to_events "AKS.CSE.ensureKubelet.ensureKubeletCgroupHierarchy" ensureKubeletCgroupHierarchy; then
+            exit $ERR_KUBELET_START_FAIL
+        fi
+    fi
+
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
@@ -825,7 +883,7 @@ EOF
 }
 
 ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+    systemctlEnableAndStartNoBlock snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -960,14 +1018,21 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
-        ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
+        # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
+        # Use containerd's native exact-name filter rather than text-matching `images ls` output.
+        if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
+            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        fi
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
         ret=$?
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
             exit $ERR_GPU_DRIVERS_START_FAIL
         fi
-        ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+        # Drop the driver image reference so containerd can reclaim its space, but skip --sync so
+        # garbage collection runs asynchronously instead of blocking node provisioning.
+        ctr -n k8s.io images rm $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
         downloadGPUDrivers
         installNvidiaContainerToolkit
@@ -1593,7 +1658,9 @@ EOF
     logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 
     # 2. Start the nvidia-dcgm service.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStart nvidia-dcgm 30" || exit $ERR_NVIDIA_DCGM_FAIL
+    # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without
+    # blocking node provisioning and treat a slow/failed start as non-fatal.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStartNoBlock nvidia-dcgm 30" || echo "warning: nvidia-dcgm could not be enqueued; GPU monitoring will start asynchronously"
 
     # 3. Start the nvidia-dcgm-exporter service.
     # Create systemd drop-in directory for nvidia-dcgm-exporter service
@@ -1615,7 +1682,9 @@ EOF
     systemctl daemon-reload
 
     # Start the nvidia-dcgm-exporter service.
-    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStart nvidia-dcgm-exporter 30" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+    # The exporter is telemetry only and does not gate scheduling, so start it off the critical
+    # path and treat a slow/failed start as non-fatal.
+    logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
 
 get_compute_sku() {

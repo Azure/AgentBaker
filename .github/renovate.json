@@ -7,9 +7,9 @@
     "custom.regex"
   ],
   "prConcurrentLimit": 0,
-  "prHourlyLimit": 2,
+  "prHourlyLimit": 1,
   "branchConcurrentLimit": 0,
-  "commitHourlyLimit": 2,
+  "commitHourlyLimit": 1,
   "separateMinorPatch": true,
   "recreateWhen": "never",
   "labels": [
@@ -146,26 +146,10 @@
       "automerge": false,
       "enabled": true,
       "assignees": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -218,8 +202,10 @@
     },
     {
       "matchPackageNames": [
+        "azure-cni",
         "containernetworking/azure-cni"
       ],
+      "groupName": "azure-cni",
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -382,6 +368,18 @@
     },
     {
       "matchPackageNames": [
+        "azure-acr-credential-provider-sysext"
+      ],
+      "groupName": "acr-credential-provider-sysext",
+      "assignees": [
+        "nilo19"
+      ],
+      "reviewers": [
+        "nilo19"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "kubernetes-cri-tools"
       ],
       "groupName": "kubernetes-cri-tools",
@@ -444,6 +442,18 @@
     },
     {
       "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client"
+      ],
+      "groupName": "aks-secure-tls-bootstrap-client",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "datacenter-gpu-manager-4-core",
         "datacenter-gpu-manager-4-proprietary",
         "dcgm-exporter"
@@ -496,7 +506,7 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/azure-cloud-node-manager"
+        "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [

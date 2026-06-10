@@ -12,8 +12,13 @@ build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-a
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
+ifeq ($(findstring NVIDIA_GB,$(FEATURE_FLAGS)),NVIDIA_GB)
+	@echo "Using packer template file vhd-image-builder-arm64-gb.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gb.json
+else
 	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json

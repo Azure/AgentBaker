@@ -96,6 +96,8 @@ installKubeletKubectlFromPkg() {
     if mergeSysexts kubelet "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubelet-sysext "$1" \
                     kubectl "${2:-mcr.microsoft.com}"/oss/v2/kubernetes/kubectl-sysext "$1"; then
         ln -snf /usr/bin/{kubelet,kubectl} /opt/bin/
+        # Clean up stale cached binaries that were not used
+        rm -f /opt/bin/kubelet-* /opt/bin/kubectl-* &
     else
         installKubeletKubectlFromURL
     fi
@@ -117,6 +119,20 @@ installCredentialProviderFromPkg() {
 
 installCredentialProviderPackageFromBootstrapProfileRegistry() {
     installCredentialProviderFromPkg "$2" "$1"
+}
+
+# Only called at build-time, unlike kubelet or credential provider installation.
+installSecureTLSBootstrapClientSysext() {
+    local version=$1
+    local registry=${2:-mcr.microsoft.com}
+    # matchLocalSysext prepends 'v' when building the local filename glob, so strip any leading 'v'
+    # from the version to avoid 'vv' in the pattern (versions in components.json carry a 'v' prefix).
+    version=${version#v}
+    if ! mergeSysexts aks-secure-tls-bootstrap-client "${registry}"/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext "${version}"; then
+        echo "Failed to install aks-secure-tls-bootstrap-client sysext"
+        return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+    fi
+    ln -snf /usr/bin/aks-secure-tls-bootstrap-client /opt/bin/aks-secure-tls-bootstrap-client
 }
 
 # Reads VERSION_ID from /etc/os-release for use as the sysext version tag.

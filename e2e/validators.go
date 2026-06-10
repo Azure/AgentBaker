@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -25,6 +23,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
@@ -152,7 +151,7 @@ func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Sc
 
 func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
 	fieldSelector := fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName)
-	kubeletClientCSRs, err := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
+	kubeletClientCSRs, err := s.Runtime.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
 	require.NoError(s.T, err, "failed to list CSRs with field selector: %s", fieldSelector)
@@ -486,16 +485,13 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) {
 	}
 }
 
+// ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node:
+// the /etc/system-fips marker file written by vhdbuilder/scripts/linux/acl/tool_installs_acl.sh.
+// Kernel FIPS mode (/proc/sys/crypto/fips_enabled == 1) is universal and is asserted by
+// ValidateFIPSProvider; callers should compose the two validators when both are needed.
 func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	ValidateFileExists(ctx, s, "/etc/system-fips")
-	execScriptOnVMForScenarioValidateExitCode(
-		ctx,
-		s,
-		`test "$(cat /proc/sys/crypto/fips_enabled)" = "1"`,
-		0,
-		"expected /proc/sys/crypto/fips_enabled to be 1",
-	)
 }
 
 func ValidateFileDoesNotExist(ctx context.Context, s *Scenario, fileName string) {
@@ -651,6 +647,112 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 	if fileHasExactContent(ctx, s, fileName, contents) {
 		s.T.Fatalf("expected file %s to not have exact contents %q, but it does", fileName, contents)
 	}
+}
+
+// ValidateFIPSProvider verifies that FIPS is properly configured on the node:
+//  1. Kernel FIPS mode is enabled (/proc/sys/crypto/fips_enabled == 1).
+//  2. OpenSSL (3.x) has an active FIPS or SymCrypt provider loaded. The check is
+//     skipped on hosts shipping OpenSSL 1.1.x (e.g. Ubuntu 20.04 FIPS), which use
+//     the legacy FIPS module rather than the providers interface.
+//  3. /opt/cni/bin/portmap runs without panicking (regression guard for ICM 51000001009688
+//     where the OpenSSL FIPS provider was not loaded on AzureLinux V3 FIPS nodes).
+func ValidateFIPSProvider(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+
+	// 1. Kernel FIPS mode.
+	fipsEnabled := execScriptOnVMForScenarioValidateExitCode(ctx, s, "cat /proc/sys/crypto/fips_enabled", 0, "could not read /proc/sys/crypto/fips_enabled")
+	require.Equal(s.T, "1", strings.TrimSpace(fipsEnabled.stdout), "expected /proc/sys/crypto/fips_enabled to be 1, got %q", fipsEnabled.stdout)
+
+	// 2. OpenSSL provider must include an active fips or symcrypt provider on OpenSSL 3.x.
+	// 1.1.x (Ubuntu 20.04 FIPS) uses the legacy FIPS module and is skipped. Merge stderr
+	// (`2>&1`) so a version banner written to stderr still parses.
+	opensslVersion := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl version 2>&1", 0, "could not run openssl version")
+	versionFields := strings.Fields(opensslVersion.stdout)
+	require.GreaterOrEqual(s.T, len(versionFields), 2,
+		"could not parse openssl version output: %q", opensslVersion.stdout)
+	version := versionFields[1]
+	switch {
+	case strings.HasPrefix(version, "3."):
+		providers := execScriptOnVMForScenarioValidateExitCode(ctx, s, "openssl list -providers", 0, "could not list openssl providers")
+		// Prefix match so "symcrypt" covers AzureLinux V3 / ACL's "symcryptprovider". See ICM 51000001009688.
+		require.True(s.T, opensslProviderActive(providers.stdout, "fips", "symcrypt"),
+			"expected openssl to have an active fips or symcrypt provider, got:\n%s", providers.stdout)
+	case strings.HasPrefix(version, "1.1."):
+		s.T.Logf("openssl providers check skipped: detected version %q (legacy FIPS module)", strings.TrimSpace(opensslVersion.stdout))
+	default:
+		s.T.Fatalf("unexpected openssl version %q: FIPS VHDs are expected to ship OpenSSL 3.x or 1.1.x", strings.TrimSpace(opensslVersion.stdout))
+	}
+
+	// 3. portmap panic check (best-effort). The original FIPS regression manifested as
+	// /opt/cni/bin/portmap panicking when the OpenSSL FIPS provider was missing. Skip if
+	// the binary isn't at the standard CNI path (e.g. ACL stages it under /opt/cni/downloads/);
+	// checks 1 and 2 are already authoritative. Match specific Go runtime panic markers
+	// rather than the bare substring `runtime error:` which appears in CNI usage text.
+	portmapBin := "/opt/cni/bin/portmap"
+	portmapPresent := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("test -x %s", portmapBin))
+	if portmapPresent.exitCode != "0" {
+		s.T.Logf("portmap panic check skipped: %s not present or not executable on this VHD", portmapBin)
+		s.T.Logf("FIPS provider validation passed")
+		return
+	}
+	portmap := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("%s < /dev/null", portmapBin))
+	panicMarkers := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)^panic:`),
+		regexp.MustCompile(`(?m)^fatal error:`),
+		regexp.MustCompile(`runtime\.gopanic`),
+		regexp.MustCompile(`goroutine \d+ \[running\]`),
+	}
+	for _, re := range panicMarkers {
+		require.False(s.T, re.MatchString(portmap.stderr),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+		require.False(s.T, re.MatchString(portmap.stdout),
+			"portmap runtime failure matched %q, indicating FIPS provider misconfiguration:\nstdout:\n%s\nstderr:\n%s", re, portmap.stdout, portmap.stderr)
+	}
+
+	s.T.Logf("FIPS provider validation passed")
+}
+
+// Package-level regex compiled once at init.
+var (
+	// Provider header: indented (spaces or tabs) name with no key/value separator.
+	// Group 1 = indent (used to scope status lines to their block), group 2 = name.
+	opensslProviderHeaderRE = regexp.MustCompile(`^([ \t]+)(\S+)\s*$`)
+	opensslStatusLineRE     = regexp.MustCompile(`^[ \t]+status:\s*(\S+)`)
+)
+
+// opensslProviderActive parses `openssl list -providers` output and returns true if any
+// provider whose name has one of the given prefixes is reported as `status: active`.
+// The status line is scoped to its enclosing provider block (strictly more indented than
+// the header) so an active default provider cannot mask an inactive fips/symcrypt one.
+func opensslProviderActive(output string, providerPrefixes ...string) bool {
+	matches := func(name string) bool {
+		for _, p := range providerPrefixes {
+			if strings.HasPrefix(name, p) {
+				return true
+			}
+		}
+		return false
+	}
+	var current string
+	var headerIndent int
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if m := opensslProviderHeaderRE.FindStringSubmatch(line); m != nil {
+			headerIndent = len(m[1])
+			current = m[2]
+			continue
+		}
+		if current == "" || !matches(current) {
+			continue
+		}
+		if m := opensslStatusLineRE.FindStringSubmatch(line); m != nil && m[1] == "active" {
+			leading := len(line) - len(strings.TrimLeft(line, " \t"))
+			if leading > headerIndent {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
@@ -822,7 +924,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 	unitFailureAllowList := map[string]bool{
@@ -1045,7 +1147,7 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 	// Wait for NPD to report initial condition
 	var condition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
@@ -1432,7 +1534,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 	var taints []string
 	for _, taint := range node.Spec.Taints {
@@ -1608,7 +1710,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 		annotationValue, exists = node.Annotations[annotationKey]
@@ -2164,7 +2266,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	// our start should detect it. Use 8 minutes as a safety margin.
 	var filesystemCorruptionProblem *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
@@ -2211,7 +2313,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.VM.KubeName
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 	// Check if the node advertises GPU capacity
@@ -2280,16 +2382,12 @@ else
     exit 1
 fi`)
 	require.NoError(s.T, err, "Failed to run command to check sshd_config")
-	respJson, err := resp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output and exit code
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: PubkeyAuthentication is disabled") {
-		s.T.Fatalf("PubkeyAuthentication is not properly disabled. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: PubkeyAuthentication is disabled") {
+		s.T.Fatalf("PubkeyAuthentication is not properly disabled. stdout: %s", stdout)
 	}
 
 	// Part 2. Check cannot SSH with private key (expect failure)
@@ -2308,9 +2406,7 @@ func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) {
 
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	runPoller, err := config.Azure.VMSSVM.BeginRunCommand(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, armcompute.RunCommandInput{
-		CommandID: to.Ptr("RunShellScript"),
-		Script: []*string{to.Ptr(`#!/bin/bash
+	resp, err := RunCommand(ctx, s, `#!/bin/bash
 # Determine the correct SSH service name based on the distro
 # Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
 if [ -f /etc/os-release ]; then
@@ -2344,24 +2440,14 @@ if echo "$status_output" | grep -q "Active: inactive (dead)"; then
 else
     echo "FAILED: SSH service is not inactive"
     exit 1
-fi`)},
-	}, nil)
+fi`)
 	require.NoError(s.T, err, "Failed to run command to check SSH service status")
-
-	runResp, err := runPoller.PollUntilDone(ctx, nil)
-	require.NoError(s.T, err, "Failed to complete command to check SSH service status")
-
-	// Parse the response to check the result
-	respJson, err := runResp.MarshalJSON()
-	require.NoError(s.T, err, "Failed to marshal run command response")
-	s.T.Logf("Run command output: %s", string(respJson))
-
-	// Parse the JSON response to extract the output
-	respString := string(respJson)
+	stdout := lo.FromPtr(resp.Output)
+	s.T.Logf("Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
 	// Check if the command execution was successful by looking for our success message in the output
-	if !strings.Contains(respString, "SUCCESS: SSH service is disabled and stopped") {
-		s.T.Fatalf("SSH service is not properly disabled and stopped. Full response: %s", respString)
+	if !strings.Contains(stdout, "SUCCESS: SSH service is disabled and stopped") {
+		s.T.Fatalf("SSH service is not properly disabled and stopped. stdout: %s", stdout)
 	}
 
 	s.T.Logf("SSH service is properly disabled and stopped as expected")
@@ -2575,7 +2661,7 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 // ValidateNodeHasLabel checks if the node has the expected label with the expected value
 func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 	actualValue, exists := node.Labels[labelKey]
@@ -2601,6 +2687,19 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "Using NBC command for scriptless phase 2")
+	}
+}
+
+// ValidateStaleCachedKubeBinariesRemoved validates that stale versioned kube binaries (e.g. kubelet-1.29.0, kubectl-1.29.0)
+// have been removed from /opt/bin/ after the correct version is installed.
+func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	// List any remaining versioned kubelet/kubectl binaries in /opt/bin/
+	cmd := `find /opt/bin -maxdepth 1 \( -name "kubelet-*" -o -name "kubectl-*" \) -type f 2>/dev/null`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "could not list stale cached binaries")
+	staleFiles := strings.TrimSpace(result.stdout)
+	if staleFiles != "" {
+		s.T.Fatalf("expected no stale cached binaries in /opt/bin/, but found:\n%s", staleFiles)
 	}
 }
 
@@ -2644,7 +2743,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 
@@ -2731,15 +2830,8 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
 		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
-		return
-	}
-
-	// Skip on pinned-version VHDs that predate the waagent installation.
-	// These VHDs explicitly select a version number and are not updated.
-	if s.VHD == config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg || s.VHD == config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached {
-		s.T.Logf("Skipping waagent log validation: legacy VHD %s predates waagent config changes", s.VHD)
 		return
 	}
 
@@ -2820,15 +2912,48 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 		"collect-windows-logs.ps1 failed or did not produce a zip file")
 }
 
-// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known
-// LPE vulnerabilities are blocked via modprobe config, not loaded, and cannot be loaded.
-// Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
-// To add a new CVE mitigation, append the module name to the list below.
+// ValidateVulnerableKernelModulesDisabled verifies that kernel modules with known LPE
+// vulnerabilities (CVE-2026-31431 / DirtyFrag / Fragnesia: algif_aead, esp4, esp6, rxrpc)
+// are handled correctly per OS:
+//
+//   - Ubuntu / Mariner: full check — modprobe config entries are present, modules are
+//     NOT loaded, and modprobe refuses to load them.
+//   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
+//     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
+//     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
+//     blacklist actively blocks legitimate use cases). Newly-built AzL3 VHDs therefore
+//     no longer ship the modprobe-CIS.conf entries, and E2E runs against freshly-built
+//     VHDs. See https://github.com/Azure/AKS/issues/5753.
+//
+// To add a new CVE mitigation, append the module name to BOTH lists below —
+// the AzureLinux 3.0 absence-check list AND the default presence + load-refusal list.
 func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	if s.VHD.Flatcar && s.VHD.OS != config.OSACL {
 		s.T.Log("Skipping vulnerable kernel module validation: not applicable for Flatcar")
+		return
+	}
+
+	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
+	// blacklist and the bake-in has been removed because customers need those modules. Assert
+	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
+	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
+		script := strings.Join([]string{
+			`failed=0`,
+			`for mod in algif_aead esp4 esp6 rxrpc; do`,
+			`  if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
+			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes)"`,
+			`    failed=1`,
+			`  else`,
+			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0"`,
+			`  fi`,
+			`done`,
+			`exit $failed`,
+		}, "\n")
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+			"AzureLinux 3.0 modprobe blacklist should be absent (kernel fix 6.6.139.1-1.azl3+ supersedes; bake-in removed; no `install` or `blacklist` directive should remain)")
 		return
 	}
 

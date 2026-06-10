@@ -26,7 +26,9 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			},
@@ -139,9 +141,11 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 		Config: Config{
 			Cluster: clusterAzureOverlayNetwork,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -182,7 +186,7 @@ func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -260,6 +264,29 @@ func Test_ACLGen2FIPSTL(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux")
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux")
 				ValidateACLFIPSEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3Gen2FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Azure Linux V3 Gen2 FIPS VHD can be properly bootstrapped and FIPS is active at runtime",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2FIPS,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// LocalDNS isn't currently supported on FIPS-enabled VHDs.
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
+					EnableFips1403Encryption: to.Ptr(true),
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -323,7 +350,7 @@ func Test_ACL_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -463,7 +490,7 @@ func Test_AzureLinuxV3_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -510,6 +537,25 @@ func Test_AzureLinuxV3(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 				ValidateAppArmorBasic(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an AzureLinuxV2 node can be properly bootstrapped",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV2Gen2,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				k8sVersion := "1.30.101-akslts"
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = k8sVersion
+				nbc.EnableScriptlessCSECmd = false
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -760,14 +806,12 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -787,6 +831,7 @@ func Test_Ubuntu2004FIPS(t *testing.T) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -807,14 +852,12 @@ func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -836,14 +879,12 @@ func Test_Ubuntu2204Gen2FIPSTL(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
 			},
 		},
 	})
@@ -1127,85 +1168,6 @@ func Test_Ubuntu2204_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NoneCached(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is network isolated can be properly bootstrapped",
-		Tags: Tags{
-			NetworkIsolated: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetworkIsolated,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRName(config.Config.DefaultLocation)),
-						TestMode:                true,
-					},
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				// intentionally using private acr url to get kube binaries
-				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRName(config.Config.DefaultLocation),
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.EnableScriptlessCSECmd = false
-				nbc.EnableScriptlessNBCCSECmd = false
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204Gen2_Containerd_NetworkIsolatedCluster_NonAnonymousNoneCached(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binaries and in a network-isolated cluster can be properly bootstrapped with kube package install enforcement",
-		Tags: Tags{
-			NetworkIsolated: true,
-			NonAnonymousACR: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetworkIsolated,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdNetworkIsolatedK8sNotCached,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
-					},
-				}
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
-				// intentionally using private acr url to get kube binaries
-				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
-					"%s.azurecr.io/aks-managed-repository/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
-					config.PrivateACRNameNotAnon(config.Config.DefaultLocation),
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
-					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-				nbc.EnableScriptlessCSECmd = false
-				nbc.EnableScriptlessNBCCSECmd = false
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-				vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
@@ -1510,9 +1472,6 @@ func Test_Ubuntu2204_ArtifactStreaming_FIPS(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -1541,9 +1500,6 @@ func Test_Ubuntu2204_ArtifactStreaming_FIPS_Scriptless(t *testing.T) {
 				vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
 					EnableFips1403Encryption: to.Ptr(true),
 				}
-				settings := vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Settings = settings
-				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -1840,23 +1796,6 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
-				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
-				nbc.AgentPoolProfile.LocalDNSProfile = nil
-				nbc.EnableScriptlessCSECmd = false
-				nbc.EnableScriptlessNBCCSECmd = false
 			},
 		},
 	})
@@ -2462,7 +2401,7 @@ func Test_Ubuntu2204_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -2482,7 +2421,7 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 					Enabled:                true,
-					Deadline:               (10 * time.Second).String(),
+					GetAccessTokenTimeout:  (10 * time.Second).String(),
 					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
 				}
 			},
@@ -2698,7 +2637,9 @@ func Test_AzureLinux3OSGuard_PMC_Install(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
-			Validator: func(ctx context.Context, s *Scenario) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFIPSProvider(ctx, s)
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				if vmss.Tags == nil {

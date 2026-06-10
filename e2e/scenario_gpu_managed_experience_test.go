@@ -595,7 +595,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_H100_NoReboot(t *testing.T) {
 				// for the Kubernetes-API-based validators below (resource advertisement,
 				// workload schedulability, NPD), so populate it manually here.
 				if s.Runtime.VM.KubeName == "" {
-					s.Runtime.VM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+					s.Runtime.VM.KubeName = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 				}
 
 				// Cheap, scenario-relevant safety checks normally covered by ValidateCommonLinux.

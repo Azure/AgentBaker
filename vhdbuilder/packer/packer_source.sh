@@ -241,6 +241,10 @@ copyPackerFiles() {
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
 
+  CSE_PRELOAD_SRC=/home/packer/provision_preload.sh
+  CSE_PRELOAD_DEST=/opt/azure/containers/provision_preload.sh
+  cpAndMode $CSE_PRELOAD_SRC $CSE_PRELOAD_DEST 0744
+
   CSE_START_SRC=/home/packer/provision_start.sh
   CSE_START_DEST=/opt/azure/containers/provision_start.sh
   cpAndMode $CSE_START_SRC $CSE_START_DEST 0744
@@ -423,7 +427,20 @@ copyPackerFiles() {
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
-  cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
+  # CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: bake modprobe blacklist
+  # for algif_aead / esp4 / esp6 / rxrpc into the VHD.
+  #
+  # Skipped on AzureLinux 3.0 because:
+  #   1. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+  #   2. Customer workloads on AzL3 require those kernel modules; the bake-in actively
+  #      blocks legitimate use cases.
+  # Ubuntu and Mariner (AzL2) still get the bake-in — their kernels are not patched
+  # upstream yet. See https://github.com/Azure/AKS/issues/5753.
+  if isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the bake-in)"
+  else
+    cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
+  fi
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_PATH_SH_SRC $PROFILE_D_PATH_SH_DEST 755
@@ -501,6 +518,59 @@ copyPackerFiles() {
   else
     # All other OS: standard copy
     cpAndMode $NOTICE_SRC $NOTICE_DEST 444
+  fi
+
+  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    FMT_SH_SRC=/home/packer/format-mount-nvme-root.sh
+    FMT_SH_DEST=/opt/azure/containers/format-mount-nvme-root.sh
+    cpAndMode $FMT_SH_SRC $FMT_SH_DEST 0544
+    FMT_SVC_SRC=/home/packer/format-mount-nvme-root.service
+    FMT_SVC_DEST=/etc/systemd/system/format-mount-nvme-root.service
+    cpAndMode $FMT_SVC_SRC $FMT_SVC_DEST 600
+    FMT_SVC_SRC=/home/packer/format-mount-kubelet.conf
+    FMT_SVC_DEST=/etc/systemd/system/kubelet.service.d/11-fmtmount.conf
+    cpAndMode $FMT_SVC_SRC $FMT_SVC_DEST 600
+
+    if [ ${UBUNTU_RELEASE} = "24.04" ]; then
+      NVIDIA_LIST_SRC=/home/packer/nvidia-2404.list
+      NVIDIA_LIST_DEST=/etc/apt/sources.list.d/nvidia.list
+      cpAndMode $NVIDIA_LIST_SRC $NVIDIA_LIST_DEST 644
+
+      NVIDIA_ASC_SRC=/home/packer/nvidia.pub
+      NVIDIA_ASC_DEST=/etc/apt/keyrings/nvidia.pub
+      cpAndMode $NVIDIA_ASC_SRC $NVIDIA_ASC_DEST 644
+
+      # This will only currently work if changes are applied to the subscription
+      # the node runs in. Otherwise, until NVIDIA GB is recognized as a GPU SKU,
+      # it'll be overwritten by a containerd configuration that doesn't support
+      # running GPU workloads.
+      CONTAINERD_NVIDIA_TOML_SRC=/home/packer/containerd-nvidia.toml
+      CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
+      cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
+
+      DOCA_LIST_SRC=/home/packer/doca.list
+      DOCA_LIST_DEST=/etc/apt/sources.list.d/doca-net.list
+      cpAndMode $DOCA_LIST_SRC $DOCA_LIST_DEST 644
+
+      DOCA_PUB_SRC=/home/packer/doca.pub
+      DOCA_PUB_DEST=/etc/apt/keyrings/doca-net.pub
+      cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
+
+      NVIDIA_MODPROBE_PARAMETERS_SRC=/home/packer/modprobe-nvidia-parameters.conf
+      NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
+      cpAndMode $NVIDIA_MODPROBE_PARAMETERS_SRC $NVIDIA_MODPROBE_PARAMETERS_DEST 644
+
+      # Force-load nvidia_peermem at boot via systemd-modules-load.service.
+      # The softdep in /etc/modprobe.d/nvidia.conf is unreliable because `nvidia`
+      # is autoloaded by PCI modalias before the OFED RDMA stack is available.
+      NVIDIA_PEERMEM_MODULES_LOAD_SRC=/home/packer/nvidia-peermem.conf
+      NVIDIA_PEERMEM_MODULES_LOAD_DEST=/etc/modules-load.d/nvidia-peermem.conf
+      cpAndMode $NVIDIA_PEERMEM_MODULES_LOAD_SRC $NVIDIA_PEERMEM_MODULES_LOAD_DEST 644
+
+      BOM_SRC=/home/packer/gb-mai-bom.json
+      BOM_DEST=/opt/azure/containers/gb-mai-bom.json
+      cpAndMode $BOM_SRC $BOM_DEST 644
+    fi
   fi
 
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot

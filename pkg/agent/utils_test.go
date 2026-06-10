@@ -514,6 +514,124 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	}
 }
 
+func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
+	// Verifies AgentBaker renders the new Node Memory Hardening kubelet args
+	// (soft eviction + cgroup tiering) into the generated kubelet config file.
+	// Uses JSON unmarshaling rather than a brittle text snapshot so that future
+	// non-related additions to AKSKubeletConfiguration do not break this test.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-soft"] = "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,nodefs.available=2m,imagefs.available=2m"
+	kc["--eviction-max-pod-grace-period"] = "60"
+	kc["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+	kc["--kube-reserved-cgroup"] = "/kubelet.slice"
+	kc["--system-reserved-cgroup"] = "/system.slice"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionSoft              map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod   map[string]string `json:"evictionSoftGracePeriod"`
+		EvictionMaxPodGracePeriod int32             `json:"evictionMaxPodGracePeriod"`
+		EnforceNodeAllocatable    []string          `json:"enforceNodeAllocatable"`
+		KubeReservedCgroup        string            `json:"kubeReservedCgroup"`
+		SystemReservedCgroup      string            `json:"systemReservedCgroup"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	wantSoft := map[string]string{
+		"memory.available":  "500Mi",
+		"nodefs.available":  "15%",
+		"imagefs.available": "20%",
+	}
+	if diff := cmp.Diff(wantSoft, got.EvictionSoft); diff != "" {
+		t.Errorf("evictionSoft mismatch (-want +got):\n%s", diff)
+	}
+
+	wantSoftGrace := map[string]string{
+		"memory.available":  "30s",
+		"nodefs.available":  "2m",
+		"imagefs.available": "2m",
+	}
+	if diff := cmp.Diff(wantSoftGrace, got.EvictionSoftGracePeriod); diff != "" {
+		t.Errorf("evictionSoftGracePeriod mismatch (-want +got):\n%s", diff)
+	}
+
+	if got.EvictionMaxPodGracePeriod != 60 {
+		t.Errorf("evictionMaxPodGracePeriod=%d, want 60", got.EvictionMaxPodGracePeriod)
+	}
+
+	wantEnforce := []string{"pods", "kube-reserved", "system-reserved"}
+	if diff := cmp.Diff(wantEnforce, got.EnforceNodeAllocatable); diff != "" {
+		t.Errorf("enforceNodeAllocatable mismatch (-want +got):\n%s", diff)
+	}
+
+	if got.KubeReservedCgroup != "/kubelet.slice" {
+		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kubelet.slice")
+	}
+	if got.SystemReservedCgroup != "/system.slice" {
+		t.Errorf("systemReservedCgroup=%q, want %q", got.SystemReservedCgroup, "/system.slice")
+	}
+}
+
+func TestGetKubeletConfigFileNodeMemoryHardeningFieldsOmittedByDefault(t *testing.T) {
+	// Backward-compat: when the RP does not pass the new flags, the generated
+	// kubelet config must NOT contain the new fields. This guards the 6-month
+	// VHD support window — non-hardened pools must see no change to these fields.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	for _, field := range []string{
+		`"evictionSoft"`,
+		`"evictionSoftGracePeriod"`,
+		`"evictionMaxPodGracePeriod"`,
+		`"kubeReservedCgroup"`,
+		`"systemReservedCgroup"`,
+	} {
+		if strings.Contains(configFileStr, field) {
+			t.Errorf("expected %s to be omitted from kubelet config when not set, got:\n%s", field, configFileStr)
+		}
+	}
+}
+
+func TestGetKubeletConfigFileFiltersUnknownEvictionSignals(t *testing.T) {
+	// Kubelet only accepts a fixed set of eviction signals; any unknown key would
+	// cause it to fail to start. Verify we drop unknowns from --eviction-hard,
+	// --eviction-soft, and --eviction-soft-grace-period before rendering.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-hard"] = "memory.available<750Mi,bogus.signal<1Gi,nodefs.available<10%"
+	kc["--eviction-soft"] = "memory.available<500Mi,not-a-signal<1Gi"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,not-a-signal=1m"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionHard            map[string]string `json:"evictionHard"`
+		EvictionSoft            map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	for _, m := range []map[string]string{got.EvictionHard, got.EvictionSoft, got.EvictionSoftGracePeriod} {
+		for _, bad := range []string{"bogus.signal", "not-a-signal"} {
+			if _, present := m[bad]; present {
+				t.Errorf("expected unknown eviction signal %q to be filtered, got map %v", bad, m)
+			}
+		}
+	}
+	if _, ok := got.EvictionHard["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionHard, got %v", got.EvictionHard)
+	}
+	if _, ok := got.EvictionSoft["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionSoft, got %v", got.EvictionSoft)
+	}
+}
+
 func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 	cases := []struct {
 		tlsBootstrapToken *string
@@ -559,6 +677,33 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 		actual := GetTLSBootstrapTokenForKubeConfig(c.token)
 		if actual != c.expected {
 			t.Errorf("GetTLSBootstrapTokenForKubeConfig: expected=%s, actual=%s", c.expected, actual)
+		}
+	}
+}
+
+func TestGetCloudTargetEnv(t *testing.T) {
+	cases := []struct {
+		location string
+		expected string
+	}{
+		{location: "chinaeast", expected: "AzureChinaCloud"},
+		{location: "chinanorth2", expected: "AzureChinaCloud"},
+		{location: "germanynortheast", expected: "AzureGermanCloud"},
+		{location: "germanycentral", expected: "AzureGermanCloud"},
+		{location: "usgovvirginia", expected: "AzureUSGovernmentCloud"},
+		{location: "usdodcentral", expected: "AzureUSGovernmentCloud"},
+		{location: "bleufrancecentral", expected: "AzureBleuCloud"},
+		{location: "deloseast", expected: "AzureGermanyCloud"},
+		{location: "singaporenorth", expected: "AzureSingaporeCloud"},
+		{location: "Singapore North", expected: "AzureSingaporeCloud"},
+		{location: "westus2", expected: "AzurePublicCloud"},
+		{location: "", expected: "AzurePublicCloud"},
+	}
+
+	for _, c := range cases {
+		actual := GetCloudTargetEnv(c.location)
+		if actual != c.expected {
+			t.Errorf("GetCloudTargetEnv(%q): expected=%s, actual=%s", c.location, c.expected, actual)
 		}
 	}
 }
@@ -698,7 +843,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 
 	It("When cse output format is correct and contains call known fields", func() {
 		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
-		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
+		"ExecDuration": "39", "KernelStartTime": "kernel start time",
 		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",
 		"GuestAgentStartTime": "guest agent start time", "BootDatapoints": {"dp1": "1"}}`
 		var cseStatus datamodel.CSEStatus
@@ -741,7 +886,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When Error is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "Error": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -757,7 +902,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When SystemdSummary is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "SystemdSummary": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -773,7 +918,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When GuestAgentStartTime is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "GuestAgentStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -781,7 +926,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When BootDatapoints is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "BootDatapoints": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -797,7 +942,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("when ExecDuration is an integer", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": 39}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)

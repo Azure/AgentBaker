@@ -2229,6 +2229,24 @@ type AKSKubeletConfiguration struct {
 	  imagefs.available: "15%"
 	+optional. */
 	EvictionHard map[string]string `json:"evictionHard,omitempty"`
+	/* evictionSoft is a map of signal names to quantities that defines soft eviction thresholds.
+	For example: {"memory.available": "300Mi"}.
+	Each signal listed here must also have a corresponding entry in evictionSoftGracePeriod.
+	Soft eviction terminates pods gracefully (respecting terminationGracePeriodSeconds, capped by
+	evictionMaxPodGracePeriod) once the threshold is breached for the configured grace period.
+	+optional. */
+	EvictionSoft map[string]string `json:"evictionSoft,omitempty"`
+	/* evictionSoftGracePeriod is a map of signal names to durations defining how long the soft
+	eviction threshold must be breached before triggering eviction. Example:
+	{"memory.available": "30s", "nodefs.available": "2m"}.
+	Each entry must correspond to a signal listed in evictionSoft.
+	+optional. */
+	EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod,omitempty"`
+	/* evictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when
+	terminating pods in response to a soft eviction threshold being met. Setting this value
+	caps the pod's terminationGracePeriodSeconds during soft eviction.
+	+optional. */
+	EvictionMaxPodGracePeriod int32 `json:"evictionMaxPodGracePeriod,omitempty"`
 	/* protectKernelDefaults, if true, causes the Kubelet to error if kernel
 	flags are not as it expects. Otherwise the Kubelet will attempt to modify
 	kernel flags to match its expectation.
@@ -2308,6 +2326,16 @@ type AKSKubeletConfiguration struct {
 	Default: ["pods"]
 	+optional. */
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
+	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
+	for the kube-reserved compute resources. When enforce-node-allocatable contains
+	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	+optional. */
+	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
+	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
+	for the system-reserved compute resources. When enforce-node-allocatable contains
+	"system-reserved", this cgroup must exist before kubelet starts. Example: "/system.slice".
+	+optional. */
+	SystemReservedCgroup string `json:"systemReservedCgroup,omitempty"`
 	/* A comma separated whitelist of unsafe sysctls or sysctl patterns (ending in *).
 	Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
 	These sysctls are namespaced but not allowed by default.

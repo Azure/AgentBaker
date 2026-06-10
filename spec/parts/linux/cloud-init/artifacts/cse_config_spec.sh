@@ -330,6 +330,59 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'ensureContainerd'
+        It 'should not overwrite an existing NVIDIA containerd config'
+            grep() {
+                echo "grep $@"
+                return 0
+            }
+
+            mkdir() {
+                echo "mkdir $@"
+            }
+
+            rm() {
+                echo "rm $@"
+            }
+
+            tee() {
+                echo "tee $@"
+                cat >/dev/null
+            }
+
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $@"
+                return 0
+            }
+
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+
+            should_e2e_mock_azure_china_cloud() {
+                echo "false"
+            }
+
+            GPU_NODE="false"
+            TARGET_CLOUD="AzurePublicCloud"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            ERR_SYSCTL_RELOAD=1
+            ERR_SYSTEMCTL_START_FAIL=1
+
+            When call ensureContainerd
+
+            The output should include 'grep -q BinaryName = "/usr/bin/nvidia-container-runtime" /etc/containerd/config.toml'
+            The output should include "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
+            The output should not include "rm -f /etc/containerd/config.toml"
+            The output should not include "Generating containerd config"
+            The output should not include "Generating GPU containerd config"
+            The output should not include "Generating non-GPU containerd config"
+            The output should include "systemctlEnableAndStartNoBlock containerd 30"
+            The status should be success
+        End
+    End
+
     Describe 'configureContainerdRegistryHost'
         It 'should configure registry host correctly if MCR_REPOSITORY_BASE is unset'
             mkdir() {
@@ -1162,7 +1215,7 @@ SETUP_EOF
         End
     End
 
-    Describe 'configureAndStartSecureTLSBootstrapping'
+    Describe 'configureAndEnableSecureTLSBootstrapping'
         SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR="secure-tls-bootstrap.service.d"
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
         SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR="default"
@@ -1174,6 +1227,11 @@ SETUP_EOF
             echo "chmod $@"
         }
 
+        retrycmd_if_failure() {
+            shift 3
+            echo "$@"
+        }
+
         cleanup() {
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR"
@@ -1181,14 +1239,12 @@ SETUP_EOF
 
         AfterEach 'cleanup'
 
-        It 'should configure and start secure TLS bootstrapping'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
-            When call configureAndStartSecureTLSBootstrapping
+        It 'should configure and enable secure TLS bootstrapping'
+            When call configureAndEnableSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "chmod 0600 default/secure-tls-bootstrap"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The output should include "systemctl enable secure-tls-bootstrap"
+            The output should not include "systemctlEnableAndStartNoBlock"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
@@ -1201,21 +1257,15 @@ SETUP_EOF
         End
 
         It 'should include AZURE_ENVIRONMENT_FILEPATH in the default file when set'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
             AZURE_ENVIRONMENT_FILEPATH="/etc/kubernetes/akscustom.json"
-            When call configureAndStartSecureTLSBootstrapping
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            When call configureAndEnableSecureTLSBootstrapping
+            The output should include "systemctl enable secure-tls-bootstrap"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
             The contents of file "default/secure-tls-bootstrap" should include 'AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/akscustom.json'
             The status should be success
         End
 
-        It 'should configure and start secure TLS bootstrapping using provided overrides'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
+        It 'should configure and enable secure TLS bootstrapping using provided overrides'
             SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT="custom-validate-kubeconfig-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT="custom-get-access-token-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT="custom-get-instance-data-timeout"
@@ -1225,10 +1275,11 @@ SETUP_EOF
             SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
-            When call configureAndStartSecureTLSBootstrapping
+            When call configureAndEnableSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "chmod 0600 default/secure-tls-bootstrap"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The output should include "systemctl enable secure-tls-bootstrap"
+            The output should not include "systemctlEnableAndStartNoBlock"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
@@ -1623,6 +1674,56 @@ SETUP_EOF
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+    End
+
+    Describe 'startNvidiaManagedExpServices'
+        logs_to_events() {
+            echo "logs_to_events $1"
+            eval "$2"
+        }
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $@"
+        }
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $@"
+        }
+        mkdir() {
+            echo "mkdir $@"
+        }
+        tee() {
+            cat > /dev/null
+            echo "tee $@"
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+
+        BeforeEach 'MIG_NODE="false"'
+
+        It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
+            When call startNvidiaManagedExpServices
+
+            # device-plugin gates GPU scheduling, so it must stay blocking.
+            The output should include "systemctlEnableAndStart nvidia-device-plugin 30"
+            # dcgm/dcgm-exporter are telemetry only and must not block provisioning.
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'does not fail when dcgm telemetry services cannot be enqueued'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "warning: nvidia-dcgm could not be enqueued"
+            The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
         End
     End
 End

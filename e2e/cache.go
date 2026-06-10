@@ -146,7 +146,7 @@ var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
 
 // clusterLatestKubernetesVersion creates a cluster with the latest available Kubernetes version
 func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version", request.Location, request.K8sSystemPoolSKU)
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-kubernetes-version-v2", request.Location, request.K8sSystemPoolSKU)
 	if err != nil {
 		return nil, fmt.Errorf("getting latest kubernetes version cluster model: %w", err)
 	}
@@ -155,51 +155,59 @@ func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest)
 
 var ClusterKubenet = cachedFunc(clusterKubenet)
 
-// clusterKubenet creates a basic cluster using kubenet networking
+// clusterKubenet creates a basic cluster using kubenet networking with shared VNet
 func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-kubenet-v4", request.Location, request.K8sSystemPoolSKU), false, false)
+	clusterName := "abe2e-kubenet-v5"
+	model := getKubenetClusterModel(clusterName, request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
 }
 
 var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
 
 // clusterAzureNetwork creates a cluster with Azure CNI networking
 func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	model := getAzureNetworkClusterModel("abe2e-azure-network-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
 }
 
 var ClusterAzureBootstrapProfileCache = cachedFunc(clusterAzureBootstrapProfileCache)
 
 // clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
 func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v1", request.Location, request.K8sSystemPoolSKU), false, true)
+	model := getAzureNetworkClusterModel("abe2e-azure-bootstrapprofile-cache-v2", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, true)
 }
 
 var ClusterAzureNetworkIsolated = cachedFunc(clusterAzureNetworkIsolated)
 
 // clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
 func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-azure-networkisolated-v1", request.Location, request.K8sSystemPoolSKU), true, false)
+	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-v3", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, true, false)
 }
 
 var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
 
 // clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
 func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	model := getAzureOverlayNetworkClusterModel("abe2e-azure-overlay-network-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
 }
 
 var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
 
 // clusterAzureOverlayNetworkDualStack creates a dual-stack (IPv4+IPv6) Azure CNI Overlay cluster
 func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	model := getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
 }
 
 var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
 
 // clusterCiliumNetwork creates a cluster with Cilium CNI networking
 func clusterCiliumNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getCiliumNetworkClusterModel("abe2e-cilium-network-v3", request.Location, request.K8sSystemPoolSKU), false, false)
+	model := getCiliumNetworkClusterModel("abe2e-cilium-network-v4", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, false, false)
 }
 
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
