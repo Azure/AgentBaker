@@ -8,6 +8,11 @@ Describe 'long running cse helper functions'
     cse_retry_helpers_precheck() {
         unset CSE_STARTTIME_FORMATTED
         CSE_STARTTIME_SECONDS=$(date +%s)
+        # AB#36680094: CURL_OUTPUT/ORAS_OUTPUT now default to /var/log/azure/ (a path
+        # not guaranteed to exist in the shellspec container). Redirect to a writable
+        # temp file for tests so the mocked-timeout writes don't fail.
+        CURL_OUTPUT=$(mktemp -t curl_verbose.XXXXXX.out)
+        ORAS_OUTPUT=$(mktemp -t oras_verbose.XXXXXX.out)
     }
     BeforeEach cse_retry_helpers_precheck
 
