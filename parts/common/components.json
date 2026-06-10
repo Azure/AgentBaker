@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5139",
-          "previousLatestVersion": "10.0.20348.5020",
+          "latestVersion": "10.0.20348.5256",
+          "previousLatestVersion": "10.0.20348.5139",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5139",
-          "previousLatestVersion": "10.0.20348.5020",
+          "latestVersion": "10.0.20348.5256",
+          "previousLatestVersion": "10.0.20348.5139",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.32860",
-          "previousLatestVersion": "10.0.26100.32690",
+          "latestVersion": "10.0.26100.32995",
+          "previousLatestVersion": "10.0.26100.32860",
           "windowsSkuMatch": "2025*"
         },
         {
