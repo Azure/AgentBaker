@@ -208,6 +208,7 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 # can block the script indefinitely, hanging CSE until the global 15-minute watchdog.
 CURL_OUTPUT=/var/log/azure/curl_verbose.out
 ORAS_OUTPUT=/var/log/azure/oras_verbose.out
+mkdir -p "$(dirname "$CURL_OUTPUT")"
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined"
 
 # used by secure TLS bootstrapping to request AAD tokens - uniquely identifies AKS's Entra ID application.
