@@ -616,7 +616,7 @@ func daemonsetProxy(ctx context.Context) *appsv1.DaemonSet {
 // on at least one system pool node.
 func (k *Kubeclient) GetProxyURL(ctx context.Context) (string, error) {
 	var proxyURL string
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := k.Typed.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
 			LabelSelector: "app=" + proxyAppLabel,
 		})
