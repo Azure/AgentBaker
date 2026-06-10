@@ -119,12 +119,17 @@ var ConvergedGPUDriverSizes = map[string]bool{
 /* RTXPro6000GPUDriverSizes : NC_RTXPRO6000BSE_v6 (RTX PRO 6000 Blackwell Server
 Edition) SKUs require the GRID v20 (595.x) driver, published as the
 aks-gpu-grid-v20 image. All other GRID SKUs continue to use aks-gpu-grid.
+Each size ships as a ds (higher-memory) and lds (lower-memory) pair; both use
+the same GPU and therefore the same driver, so both are listed here.
 */
 //nolint:gochecknoglobals
 var RTXPro6000GPUDriverSizes = map[string]bool{
-	"standard_nc128ds_xl_rtxpro6000bse_v6": true,
-	"standard_nc256ds_xl_rtxpro6000bse_v6": true,
-	"standard_nc320ds_xl_rtxpro6000bse_v6": true,
+	"standard_nc128ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc128lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc256ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc256lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc320ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc320lds_xl_rtxpro6000bse_v6": true,
 }
 
 //nolint:gochecknoglobals
