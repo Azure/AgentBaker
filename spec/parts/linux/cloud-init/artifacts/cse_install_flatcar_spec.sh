@@ -374,6 +374,44 @@ EOF
         End
     End
 
+    Describe 'installSecureTLSBootstrapClientSysext'
+        It 'symlinks downloaded sysext into /etc/extensions and /opt/bin and refreshes systemd-sysext'
+            ln() { echo "mock ln $*" >&2; }
+            getSystemdArch() { echo "x86-64"; }
+            test() { [ "$1" = -f ] && return 0; return 1; }
+            Mock systemd-sysext
+                echo "mock systemd-sysext $*" >&2
+            End
+            When call installSecureTLSBootstrapClientSysext "v1.1.3-2-azlinux3"
+            The error should include "mock ln -snf /opt/aks-secure-tls-bootstrap-client/downloads/aks-secure-tls-bootstrap-client-v1.1.3-2-azlinux3-x86-64.raw /etc/extensions/aks-secure-tls-bootstrap-client.raw"
+            The error should include "mock systemd-sysext --no-reload refresh"
+            The error should include "mock ln -snf /usr/bin/aks-secure-tls-bootstrap-client /opt/bin/aks-secure-tls-bootstrap-client"
+            The status should be success
+        End
+
+        It 'normalizes a version without leading v to match the artifact filename'
+            ln() { echo "mock ln $*" >&2; }
+            getSystemdArch() { echo "x86-64"; }
+            test() { [ "$1" = -f ] && return 0; return 1; }
+            Mock systemd-sysext
+                echo "mock systemd-sysext $*" >&2
+            End
+            When call installSecureTLSBootstrapClientSysext "1.1.3-2-azlinux3"
+            The error should include "/opt/aks-secure-tls-bootstrap-client/downloads/aks-secure-tls-bootstrap-client-v1.1.3-2-azlinux3-x86-64.raw"
+            The error should not include "vv1.1.3"
+            The status should be success
+        End
+
+        It 'returns ERR_ORAS_PULL_SYSEXT_FAIL when the downloaded sysext file is missing'
+            getSystemdArch() { echo "x86-64"; }
+            test() { return 1; }
+            ERR_ORAS_PULL_SYSEXT_FAIL=231
+            When call installSecureTLSBootstrapClientSysext "v1.1.3-2-azlinux3"
+            The output should include "Failed to find downloaded aks-secure-tls-bootstrap-client sysext at /opt/aks-secure-tls-bootstrap-client/downloads/aks-secure-tls-bootstrap-client-v1.1.3-2-azlinux3-x86-64.raw"
+            The status should be failure
+        End
+    End
+
     Describe 'cleanUpGPUDrivers'
         It 'removes GPU directories'
             rm() {

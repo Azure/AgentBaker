@@ -146,26 +146,10 @@
       "automerge": false,
       "enabled": true,
       "assignees": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -454,6 +438,18 @@
         "djsly",
         "ganeshkumarashok",
         "surajssd"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client"
+      ],
+      "groupName": "aks-secure-tls-bootstrap-client",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {

@@ -387,7 +387,7 @@ function nodePrep {
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
-        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+        logs_to_events "AKS.CSE.configureAndEnableSecureTLSBootstrapping" configureAndEnableSecureTLSBootstrapping
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then

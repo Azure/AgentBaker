@@ -245,6 +245,10 @@ testPackagesInstalled() {
         testPkgDownloaded "${name%-pmc}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
+      "aks-secure-tls-bootstrap-client")
+        testSecureTLSBootstrapClientInstalled
+        continue
+        ;;
       "kubelet"|\
       "kubectl")
         testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
@@ -534,6 +538,27 @@ testAuditDNotPresent() {
     echo "AuditD is not present, as expected"
   else
     err $test "AuditD is active with status ${status}"
+  fi
+  echo "$test:Finish"
+}
+
+testArtifactStreamingPackagesCleanedUp() {
+  local test="testArtifactStreamingPackagesCleanedUp"
+  echo "$test:Start"
+  local overlaybdBinDir="/opt/acr/tools/overlaybd/bin"
+  # Skip if artifact streaming (acr-mirror) isn't installed on this VHD.
+  if [ ! -d "$overlaybdBinDir" ]; then
+    echo "$overlaybdBinDir not present; artifact streaming not installed on this VHD, skipping"
+    echo "$test:Finish"
+    return
+  fi
+  # The bundled overlaybd installer packages are unused at runtime and must be removed after install.
+  local leftovers
+  leftovers=$(find "$overlaybdBinDir" -maxdepth 1 -type f \( -name '*.deb' -o -name '*.rpm' \) 2>/dev/null)
+  if [ -n "$leftovers" ]; then
+    err $test "Leftover overlaybd install packages found (should be removed after install): ${leftovers}"
+  else
+    echo "No leftover overlaybd .deb/.rpm packages found, as expected"
   fi
   echo "$test:Finish"
 }
@@ -994,6 +1019,21 @@ testAppArmorInstalled() {
     echo "$test: Skipping - Test is currently limited to Azure Linux 3.0 only (Current: $os_sku $os_version)"
   fi
 
+  echo "$test:Finish"
+}
+
+testSecureTLSBootstrapClientInstalled() {
+  local test="testSecureTLSBootstrapClientInstalled"
+  local binary="/opt/bin/aks-secure-tls-bootstrap-client"
+  echo "$test:Start"
+  if [ ! -x "${binary}" ]; then
+    err "$test" "${binary} does not exist or is not executable"
+    echo "$test:Finish"
+    return
+  fi
+  if ! "${binary}" -h >/dev/null 2>&1; then
+    err "$test" "${binary} -h failed to execute successfully"
+  fi
   echo "$test:Finish"
 }
 
@@ -2512,3 +2552,4 @@ testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION
+testArtifactStreamingPackagesCleanedUp

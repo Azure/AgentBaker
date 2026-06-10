@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
@@ -150,7 +151,7 @@ func validateKubeletServingCertificateRotationWindows(ctx context.Context, s *Sc
 
 func validateKubeletClientCSRCreatedBySecureTLSBootstrapping(ctx context.Context, s *Scenario) {
 	fieldSelector := fmt.Sprintf("spec.signerName=%s", certv1.KubeAPIServerClientKubeletSignerName)
-	kubeletClientCSRs, err := s.Runtime.Cluster.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
+	kubeletClientCSRs, err := s.Runtime.Kube.Typed.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
 	require.NoError(s.T, err, "failed to list CSRs with field selector: %s", fieldSelector)
@@ -923,7 +924,7 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) {
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 	unitFailureAllowList := map[string]bool{
@@ -1146,7 +1147,7 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 	// Wait for NPD to report initial condition
 	var condition *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
@@ -1533,7 +1534,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 	var taints []string
 	for _, taint := range node.Spec.Taints {
@@ -1709,7 +1710,7 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		node, err = s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 		annotationValue, exists = node.Annotations[annotationKey]
@@ -2265,7 +2266,7 @@ func ValidateNPDFilesystemCorruption(ctx context.Context, s *Scenario) {
 	// our start should detect it. Use 8 minutes as a safety margin.
 	var filesystemCorruptionProblem *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 8*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
 			s.T.Logf("Failed to get node %q: %v", s.Runtime.VM.KubeName, err)
 			return false, nil // Continue polling on transient errors
@@ -2312,7 +2313,7 @@ func ValidateNodeAdvertisesGPUResources(ctx context.Context, s *Scenario, gpuCou
 
 	// Get the node using the Kubernetes client from the test framework
 	nodeName := s.Runtime.VM.KubeName
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", nodeName)
 
 	// Check if the node advertises GPU capacity
@@ -2633,7 +2634,7 @@ func truncatePodName(t testing.TB, pod *corev1.Pod) {
 // ValidateNodeHasLabel checks if the node has the expected label with the expected value
 func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedValue string) {
 	s.T.Helper()
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
 
 	actualValue, exists := node.Labels[labelKey]
@@ -2715,7 +2716,7 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD != nil && s.VHD.Skip2004Validations {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return
 	}
 
@@ -2802,7 +2803,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) {
 func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") {
+	if s.VHD.Flatcar || strings.Contains(string(s.VHD.Distro), "osguard") || s.VHD.SkipOldVHDValidations {
 		s.T.Logf("Skipping waagent log validation: not applicable for %s", s.VHD.Distro)
 		return
 	}
@@ -2911,7 +2912,7 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	// blacklist and the bake-in has been removed because customers need those modules. Assert
 	// the blacklist entries are NOT present on freshly-built AzL3 VHDs. AzureLinux OSGuard is
 	// intentionally kept in-scope (falls through to the full presence + load-refusal check below).
-	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,

@@ -19,11 +19,16 @@ From a high-level, for each scenario,
 
 To write an E2E scenario,
 
-- choose a testing cluster. There are a few defined
-  in [cluster.go](https://github.com/Azure/AgentBaker/blob/dev/e2e/cluster.go), e.g,
-    - ClusterKubenetAirgap
-    - ClusterAzureNetwork
+- choose a testing cluster. There are several defined
+  in [cache.go](cache.go), e.g,
     - ClusterKubenet
+    - ClusterAzureNetwork
+    - ClusterAzureOverlayNetwork
+    - ClusterAzureOverlayNetworkDualStack
+    - ClusterCiliumNetwork
+    - ClusterLatestKubernetesVersion
+    - ClusterAzureBootstrapProfileCache (private ACR)
+    - ClusterAzureNetworkIsolated (no internet access)
 - use `NodeBootstrappingConfiugration` (`nbc`) to setup your scenario. it is used to invoke the primary
   node-bootstrapping
   API [GetLatestNodeBootstrapping](https://github.com/Azure/AgentBaker/blob/2e730b5a498c5be9b082d912fd08ac9346582db9/pkg/agent/bakerapi.go#L14).
@@ -31,27 +36,153 @@ To write an E2E scenario,
   as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
   and in e2e we follow the pattern.
 - use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Check [vmss](https://github.com/Azure/AgentBaker/blob/dev/e2e/vmss.go) for other configs.
+  Check [vmss](vmss.go) for other configs.
   it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
 - use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
 
+## Infrastructure Architecture
+
+All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This
+avoids creating a per-cluster Bastion (~10 min each) and ensures all clusters are reachable from a
+single SSH entry point.
+
+```mermaid
+graph TB
+    subgraph RG["abe2e-{location} Resource Group"]
+        subgraph VNET["abe2e-shared-vnet (10.0.0.0/8)"]
+            BASTION_SUBNET["AzureBastionSubnet<br/>10.0.0.0/26"]
+            FW_SUBNET["AzureFirewallSubnet<br/>10.0.1.0/24"]
+            PE_SUBNET["abe2e-pe-subnet<br/>10.0.2.0/24<br/>(shared private endpoints)"]
+            KUBENET_SUBNET["aks-subnet-abe2e-kubenet-v5<br/>10.x.x.0/20"]
+            AZNET_SUBNET["aks-subnet-abe2e-azure-network-v4<br/>10.x.x.0/20"]
+            MORE_SUBNETS["... more cluster subnets"]
+        end
+        BASTION["abe2e-shared-bastion<br/>(Standard SKU, Tunneling)"]
+        FIREWALL["abe2e-fw<br/>(Azure Firewall)"]
+        IDENTITY["abe2e-cluster-identity<br/>(User-Assigned MSI)"]
+        PE_ACR["PE-for-abe2eprivate{location}<br/>PE-for-abe2eprivatenonanon{location}<br/>(shared ACR private endpoints)"]
+        DNS_ZONE["privatelink.azurecr.io<br/>(Private DNS Zone)"]
+        ACR_ANON["abe2eprivate{location}<br/>(Private ACR)"]
+        ACR_NONANON["abe2eprivatenonanon{location}<br/>(Non-anonymous Private ACR)"]
+    end
+
+    subgraph MC_KUBENET["MC_abe2e-kubenet-v5 Resource Group"]
+        VMSS_K["VMSS (system pool)"]
+        VMSS_K_TEST["VMSS (test VMs)"]
+        RT_K["Route Table<br/>(pod routes + firewall)"]
+    end
+
+    subgraph MC_NI["MC_abe2e-azure-networkisolated-v2 Resource Group"]
+        VMSS_NI["VMSS (system pool)"]
+        NSG_NI["NSG<br/>(blocks internet)"]
+    end
+
+    BASTION --> BASTION_SUBNET
+    FIREWALL --> FW_SUBNET
+    PE_ACR --> PE_SUBNET
+    DNS_ZONE -.->|VNet link| VNET
+    VMSS_K --> KUBENET_SUBNET
+    RT_K -.->|associated| KUBENET_SUBNET
+    VMSS_NI --> AZNET_SUBNET
+    NSG_NI -.->|associated| AZNET_SUBNET
+
+    DEV["Developer / CI"]
+    DEV -->|SSH via tunnel| BASTION
+    BASTION -->|"connects to any VM<br/>in shared VNet"| VMSS_K_TEST
+```
+
+### Shared Infrastructure Setup
+
+The shared infrastructure is created **automatically** on first test run via cached idempotent
+functions — no separate setup script is needed.
+
+| Resource | Name | Details |
+|----------|------|---------|
+| VNet | `abe2e-shared-vnet` | `10.0.0.0/8` — supports ~4096 `/20` cluster subnets |
+| Bastion | `abe2e-shared-bastion` | Standard SKU with tunneling enabled for native SSH |
+| Bastion Subnet | `AzureBastionSubnet` | `10.0.0.0/26` (required by Azure Bastion) |
+| Firewall Subnet | `AzureFirewallSubnet` | `10.0.1.0/24` |
+| PE Subnet | `abe2e-pe-subnet` | `10.0.2.0/24` — hosts shared private endpoints for ACRs |
+| Identity | `abe2e-cluster-identity` | User-assigned MSI with Network Contributor on the VNet |
+| Private DNS Zone | `privatelink.azurecr.io` | Shared zone in `abe2e-{location}` RG, linked to the VNet |
+
+Each AKS cluster gets its own `/20` subnet (4091 usable IPs) in the shared VNet. The subnet is
+named `aks-subnet-{clusterName}`. CIDRs are auto-allocated from a hash of the cluster name to
+avoid collisions.
+
+### Cluster Types
+
+All clusters use BYOV (Bring Your Own VNet) with the shared VNet. They differ in networking
+plugin, isolation level, and whether private ACR is needed.
+
+| Cluster | Network Plugin | Special Features | Private ACR |
+|---------|---------------|-----------------|:-----------:|
+| `abe2e-kubenet-v5` | Kubenet | Basic pod routing via route table | ❌ |
+| `abe2e-azure-network-v4` | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
+| `abe2e-azure-overlay-network-v4` | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
+| `abe2e-azure-overlay-dualstack-v4` | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
+| `abe2e-cilium-network-v4` | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
+| `abe2e-latest-kubernetes-version-v2` | Kubenet | Auto-discovers latest GA K8s version | ❌ |
+| `abe2e-azure-bootstrapprofile-cache-v2` | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
+| `abe2e-azure-networkisolated-v2` | Azure CNI | NSG blocks all internet except allowlist | ✅ |
+
+**Network-isolated cluster** adds an NSG to its subnet that blocks all outbound traffic except
+`management.azure.com`, the cluster FQDN, and `packages.aks.azure.com`. Private endpoints for
+the ACRs are in the shared PE subnet, with DNS records in the shared `privatelink.azurecr.io` zone.
+
+### How It Works
+
+1. **`CachedEnsureSharedInfra`** — runs once per location per test run. Creates/verifies the shared
+   VNet, Bastion, Firewall, PE subnet, and user-assigned identity.
+2. **`configureSharedVNet`** — tags the cluster model for BYOV. After the cluster name is hashed,
+   **`CachedEnsureClusterSubnet`** creates the cluster's dedicated `/20` subnet.
+3. **`prepareCluster`** — creates/gets the AKS cluster, then runs a DAG of parallel tasks:
+   - Bastion lookup (shared)
+   - Firewall route table (non-isolated clusters)
+   - NSG association (network-isolated cluster)
+   - Private DNS zone + VNet link (if ACR needed, runs once before ACR tasks)
+   - Private ACR + PE creation (bootstrapprofile-cache and network-isolated)
+   - VMSS garbage collection
+   - Debug daemonsets
+4. SSH to test VMs goes through the shared Bastion, which can reach any VM in the VNet.
+
+### Test Flow
+
 ```mermaid
 sequenceDiagram
-    E2E->>+ARM: Get or Create AKS Cluster
-    ARM-->>-E2E: Cluster details
-    E2E->>+AgentBakerCode: Fetch VM Configuration (include CSE)
-    AgentBakerCode-->>-E2E: VM Configuration
-    E2E->>+ARM: Create VM using fetched VM Config in cluster network
-    ARM-->>-E2E: VM instance
-    E2E->>+Bastion: Create SSH Tunnel
-    Bastion->>+VM: Forward SSH Connection
-    E2E->>VM: Healthcheck via SSH Tunnel
-    VM-->>E2E: Healthcheck OK
-    E2E->>+KubeAPI: Verify Node Ready
-    KubeAPI-->>-E2E: Node Ready
-    E2E->>VM: Execute test validators via SSH Tunnel
-    VM-->>-E2E: Test results
-    Bastion-->>-E2E: Close SSH Tunnel
+    participant CI as Developer / CI
+    participant Infra as Shared Infra (cached)
+    participant ARM as Azure Resource Manager
+    participant AB as AgentBaker API
+    participant Bastion as Shared Bastion
+    participant VM as Test VM
+    participant K8s as Kube API Server
+
+    CI->>Infra: Ensure shared VNet + Bastion
+    Infra-->>CI: Ready (cached after first run)
+
+    CI->>Infra: Ensure cluster subnet
+    Infra-->>CI: Subnet ID
+
+    CI->>ARM: Create/Get AKS cluster (BYOV subnet)
+    ARM-->>CI: Cluster details
+
+    CI->>AB: Generate CSE + CustomData
+    AB-->>CI: VM configuration
+
+    CI->>ARM: Create VMSS in cluster subnet
+    ARM-->>CI: VM instance
+
+    CI->>Bastion: SSH tunnel to VM private IP
+    Bastion->>VM: Forward SSH connection
+
+    CI->>VM: Run health checks + validators
+    VM-->>CI: Results
+
+    CI->>K8s: Verify node ready
+    K8s-->>CI: Node ready ✓
+
+    Bastion-->>CI: Close tunnel
 ```
 
 ## Running Locally
@@ -87,6 +218,13 @@ To run a specific test, use the test name:
 TAGS_TO_RUN="name=Test_azurelinuxv2" ./e2e-local.sh
 # or
 go test -run Test_azurelinuxv2 -v -timeout 90m
+```
+
+To run multiple specific scenarios by name, provide multiple `Name=` filters. When all filters are
+`Name=` filters, OR semantics are used automatically (matching any of the listed names):
+
+```bash
+TAGS_TO_RUN="name=Test_azurelinuxv2,name=Test_ubuntu2204" ./e2e-local.sh
 ```
 
 ### Debugging

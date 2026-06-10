@@ -509,7 +509,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		s.T.Logf("VM will be automatically deleted after the test finishes, to preserve it for debugging purposes set KEEP_VMSS=true or pause the test with a breakpoint before the test finishes or failed\n")
 	}
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
-	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s-bastion" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, *s.Runtime.Cluster.Model.Name, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, config.VMSSHPrivateKeyFileName) + "\n"
+	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	s.T.Log(result)
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
