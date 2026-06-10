@@ -25,7 +25,12 @@ MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
-CURL_OUTPUT=/tmp/curl_verbose.out
+# AB#36680094: persist curl verbose output to /var/log/azure (OS disk) instead of /tmp
+# to avoid CSE hangs when the ephemeral/temp disk is unstable. Falls back to /tmp
+# automatically via _ensure_writable_output_path when /var/log/azure is unavailable
+# (image-customizer chroots, OS Guard restricted layouts).
+CURL_OUTPUT=/var/log/azure/curl_verbose.out
+CURL_OUTPUT_FALLBACK=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
