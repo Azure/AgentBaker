@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -65,7 +66,7 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 			EventRecordQps: to.Ptr(int32(0)),
 			ClusterDomain:  "cluster.local",
 			ClusterDns: []string{
-				"10.0.0.10",
+				"172.16.0.10",
 			},
 			StreamingConnectionIdleTimeout: "4h",
 			NodeStatusUpdateFrequency:      "10s",
@@ -98,7 +99,7 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	}
 }
 
-func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -131,10 +132,9 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
+		Enabled: config.Config.EnableSecureTLSBootstrapping,
 	}
-
-	nbc.TenantID = *cluster.Model.Identity.TenantID
+	nbc.TenantID = cluster.TenantID
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
@@ -716,7 +716,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				"127.0.0.1",
 				"168.63.129.16",
 				"169.254.169.254",
-				"10.0.0.0/16",
+				"172.16.0.0/16",
 				"agentbaker-agentbaker-e2e-t-8ecadf-c82d8251.hcp.eastus.azmk8s.io",
 			},
 			TrustedCA: nil,
@@ -730,7 +730,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--cgroups-per-qos":                   "true",
 			"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
 			"--cloud-provider":                    "external",
-			"--cluster-dns":                       "10.0.0.10",
+			"--cluster-dns":                       "172.16.0.10",
 			"--cluster-domain":                    "cluster.local",
 			"--dynamic-config-dir":                "/var/lib/kubelet",
 			"--enforce-node-allocatable":          "pods",
@@ -824,11 +824,11 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
-						DNSServiceIP:         "10.0.0.10",
+						DNSServiceIP:         "172.16.0.10",
 						LoadBalancerSku:      "Standard",
 						NetworkPlugin:        "azure",
 						NetworkPluginMode:    "overlay",
-						ServiceCIDR:          "10.0.0.0/16",
+						ServiceCIDR:          "172.16.0.0/16",
 						UseInstanceMetadata:  to.Ptr(true),
 						UseManagedIdentity:   false,
 						WindowsContainerdURL: "https://packages.aks.azure.com/containerd/windows/",
@@ -962,7 +962,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
 			"--resolv-conf":                     "\"\"\"\"",
-			"--cluster-dns":                     "10.0.0.10",
+			"--cluster-dns":                     "172.16.0.10",
 			"--cluster-domain":                  "cluster.local",
 			"--rotate-certificates":             "true",
 			"--rotate-server-certificates":      "true",

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/netip"
 	"strings"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/google/uuid"
@@ -40,13 +38,21 @@ type ClusterParams struct {
 
 type Cluster struct {
 	Model            *armcontainerservice.ManagedCluster
-	Kube             *Kubeclient
+	kubeconfig       []byte // raw kubeconfig for minting per-test clients
 	KubeletIdentity  *armcontainerservice.UserAssignedIdentity
 	SubnetID         string
 	VNetResourceGUID string
 	ClusterParams    *ClusterParams
 	Bastion          *Bastion
 	ProxyURL         string
+	TenantID         string
+}
+
+// NewKubeclientForTest creates an independent Kubeclient with its own rate limiter.
+// Use this in individual tests to avoid sharing rate limiter tokens with other
+// parallel tests hitting the same cluster.
+func (c *Cluster) NewKubeclientForTest() (*Kubeclient, error) {
+	return NewKubeclient(c.kubeconfig)
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -74,7 +80,24 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 
+	infra, err := configureSharedVNet(ctx, clusterModel, *clusterModel.Location)
+	if err != nil {
+		return nil, err
+	}
+
 	clusterModel.Name = to.Ptr(fmt.Sprintf("%s-%s", *clusterModel.Name, hash(clusterModel)))
+	// If configureSharedVNet marked this model, create the per-cluster subnet
+	// now that we have the final hashed name, with an auto-allocated CIDR.
+	subnetID, err := CachedEnsureClusterSubnet(ctx, ClusterSubnetRequest{
+		Location:    *clusterModel.Location,
+		ClusterName: *clusterModel.Name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ensuring cluster subnet: %w", err)
+	}
+	for _, pool := range clusterModel.Properties.AgentPoolProfiles {
+		pool.VnetSubnetID = to.Ptr(subnetID)
+	}
 
 	cluster, err := getOrCreateCluster(ctx, clusterModel)
 	if err != nil {
@@ -92,12 +115,29 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	dag.Run(g, func(ctx context.Context) error { return ensureMaintenanceConfiguration(ctx, cluster) })
 	subnet := dag.Go(g, func(ctx context.Context) (string, error) { return getClusterSubnetID(ctx, cluster) })
 	vNet := dag.Go(g, func(ctx context.Context) (VNet, error) {
-		return getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+		return getClusterVNet(ctx, cluster)
 	})
-	kube := dag.Go(g, func(ctx context.Context) (*Kubeclient, error) { return getClusterKubeClient(ctx, cluster) })
+	// Fetch kubeconfig bytes once, then each heavy DAG task creates its own
+	// Kubeclient with an independent rate limiter to prevent starvation.
+	kubeconfigBytes := dag.Go(g, func(ctx context.Context) ([]byte, error) {
+		resourceGroupName := config.ResourceGroupName(*cluster.Location)
+		return getClusterKubeconfigBytes(ctx, resourceGroupName, *cluster.Name)
+	})
+	newKubeFromBytes := func(ctx context.Context, data []byte) (*Kubeclient, error) {
+		return NewKubeclient(data)
+	}
+	kubeForGC := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
+	kubeForDebug := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
+	kubeForExtract := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
+	kubeForACR := dag.Go1(g, kubeconfigBytes, newKubeFromBytes)
 	identity := dag.Go(g, func(ctx context.Context) (*armcontainerservice.UserAssignedIdentity, error) {
 		return getClusterKubeletIdentity(ctx, cluster)
 	})
+	if !isNetworkIsolated {
+		dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
+			return setupPrivateDNSForAPIServer(ctx, cluster, v)
+		})
+	}
 	// networkSetup adds firewall routes to the existing AKS route table or
 	// creates/associates a dedicated one when Azure CNI has none, or applies
 	// the network-isolated NSG. It must run after bastion (both mutate the
@@ -106,17 +146,30 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	// objects whose backing VMSS no longer exist.
 	var networkDeps []dag.Dep
 	if !isNetworkIsolated {
-		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, cluster) }, bastion))
+		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addFirewallRules(ctx, infra, cluster) }, bastion))
 	}
 	if isNetworkIsolated {
 		networkDeps = append(networkDeps, dag.Run(g, func(ctx context.Context) error { return addNetworkIsolatedSettings(ctx, cluster) }, bastion))
 	}
-	dag.Run1(g, kube, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
+	dag.Run1(g, kubeForGC, func(ctx context.Context, k *Kubeclient) error { return collectGarbageVMSS(ctx, cluster, k) }, networkDeps...)
 	needACR := isNetworkIsolated || attachPrivateAcr
-	acrNonAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, true))
-	acrAnon := dag.Run2(g, kube, identity, addACR(cluster, needACR, false))
-	debugDeps := append([]dag.Dep{acrNonAnon, acrAnon}, networkDeps...)
-	proxyURL := dag.Go1(g, kube, func(ctx context.Context, k *Kubeclient) (string, error) {
+
+	// The private DNS zone and VNet link must exist before any PE is created.
+	// Create them once as a dependency for both ACR tasks.
+	var acrNonAnon, acrAnon dag.Dep
+	if needACR {
+		dnsReady := dag.Run1(g, vNet, func(ctx context.Context, v VNet) error {
+			_, err := ensurePrivateDNSZone(ctx, v)
+			return err
+		}, bastion)
+		acrNonAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, true), dnsReady)
+		acrAnon = dag.Run2(g, kubeForACR, identity, addACR(cluster, false), dnsReady)
+	}
+	debugDeps := append(networkDeps[:0:0], networkDeps...)
+	if acrNonAnon != nil {
+		debugDeps = append(debugDeps, acrNonAnon, acrAnon)
+	}
+	proxyURL := dag.Go1(g, kubeForDebug, func(ctx context.Context, k *Kubeclient) (string, error) {
 		if err := k.EnsureDebugDaemonsets(ctx, isNetworkIsolated, config.GetPrivateACRName(true, *cluster.Location)); err != nil {
 			return "", err
 		}
@@ -125,33 +178,26 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 		}
 		return k.GetProxyURL(ctx)
 	}, debugDeps...)
-	if !isNetworkIsolated {
-		dag.Run(g, func(ctx context.Context) error {
-			return setupPrivateDNSForAPIServer(ctx, cluster)
-		})
-	}
-	extract := dag.Go1(g, kube, extractClusterParams(cluster))
+	extract := dag.Go1(g, kubeForExtract, extractClusterParams(cluster))
 
 	if err := g.Wait(); err != nil {
 		return nil, fmt.Errorf("prepare cluster tasks: %w", err)
 	}
 	return &Cluster{
 		Model:            cluster,
-		Kube:             kube.MustGet(),
+		kubeconfig:       kubeconfigBytes.MustGet(),
 		KubeletIdentity:  identity.MustGet(),
 		SubnetID:         subnet.MustGet(),
 		VNetResourceGUID: vNet.MustGet().resourceGUID,
 		ClusterParams:    extract.MustGet(),
 		Bastion:          bastion.MustGet(),
 		ProxyURL:         proxyURL.MustGet(),
+		TenantID:         infra.TenantID,
 	}, nil
 }
 
-func addACR(cluster *armcontainerservice.ManagedCluster, needACR, isNonAnonymousPull bool) func(context.Context, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
+func addACR(cluster *armcontainerservice.ManagedCluster, isNonAnonymousPull bool) func(context.Context, *Kubeclient, *armcontainerservice.UserAssignedIdentity) error {
 	return func(ctx context.Context, k *Kubeclient, id *armcontainerservice.UserAssignedIdentity) error {
-		if !needACR {
-			return nil
-		}
 		return addPrivateAzureContainerRegistry(ctx, cluster, k, id, isNonAnonymousPull)
 	}
 }
@@ -513,254 +559,57 @@ func createNewMaintenanceConfiguration(ctx context.Context, cluster *armcontaine
 }
 
 func getOrCreateBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
-	nodeRG := *cluster.Properties.NodeResourceGroup
-	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
-
-	existing, err := config.Azure.BastionHosts.Get(ctx, nodeRG, bastionName, nil)
-	var azErr *azcore.ResponseError
-	if errors.As(err, &azErr) && azErr.StatusCode == http.StatusNotFound {
-		return createNewBastion(ctx, cluster)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get bastion %q in rg %q: %w", bastionName, nodeRG, err)
-	}
-
-	return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, nodeRG, *existing.BastionHost.Properties.DNSName), nil
-}
-
-func createNewBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Bastion, error) {
-	nodeRG := *cluster.Properties.NodeResourceGroup
 	location := *cluster.Location
-	bastionName := fmt.Sprintf("%s-bastion", *cluster.Name)
-	defer toolkit.LogStepCtxf(ctx, "creating bastion %s", bastionName)()
-	publicIPName := fmt.Sprintf("%s-bastion-pip", *cluster.Name)
-	publicIPName = sanitizeAzureResourceName(publicIPName)
-
-	vnet, err := getClusterVNet(ctx, nodeRG)
+	sharedRG := config.ResourceGroupName(location)
+	sharedBastion, err := config.Azure.BastionHosts.Get(ctx, sharedRG, SharedBastionName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("get cluster vnet in rg %q: %w", nodeRG, err)
-	}
-
-	// Azure Bastion requires a dedicated subnet named AzureBastionSubnet. Standard SKU (required for
-	// native client support/tunneling) requires at least a /26.
-	bastionSubnetName := "AzureBastionSubnet"
-	bastionSubnetPrefix := "10.226.0.0/26"
-	if _, err := netip.ParsePrefix(bastionSubnetPrefix); err != nil {
-		return nil, fmt.Errorf("invalid bastion subnet prefix %q: %w", bastionSubnetPrefix, err)
-	}
-
-	var bastionSubnetID string
-	var bastionSubnet armnetwork.SubnetsClientGetResponse
-	var subnetGetErr error
-	// Retry the subnet GET with a per-call timeout to tolerate ARM hangs.
-	// Without this, a single unresponsive GET consumes the entire 20-minute cluster prep budget.
-	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		bastionSubnet, subnetGetErr = config.Azure.Subnet.Get(callCtx, nodeRG, vnet.name, bastionSubnetName, nil)
-		if subnetGetErr == nil {
-			return true, nil
+		if !isNotFoundError(err) {
+			return nil, fmt.Errorf("checking shared bastion %s in %s: %w", SharedBastionName, sharedRG, err)
 		}
-		var subnetAzErr *azcore.ResponseError
-		if errors.As(subnetGetErr, &subnetAzErr) && subnetAzErr.StatusCode == http.StatusNotFound {
-			return true, nil // 404 is expected — will create below
+		toolkit.Logf(ctx, "shared bastion not found, recreating")
+		dnsName, createErr := ensureSharedBastion(ctx, sharedRG, location)
+		if createErr != nil {
+			return nil, fmt.Errorf("recreating shared bastion: %w", createErr)
 		}
-		toolkit.Logf(ctx, "transient error getting subnet %q (retrying): %v", bastionSubnetName, subnetGetErr)
-		return false, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("get subnet %q in vnet %q rg %q: retries exhausted: %w (last subnet error: %v)", bastionSubnetName, vnet.name, nodeRG, err, subnetGetErr)
+		return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, sharedRG, dnsName), nil
 	}
-
-	if subnetGetErr != nil {
-		// 404 — need to create
-		toolkit.Logf(ctx, "creating subnet %s in VNet %s (rg %s)", bastionSubnetName, vnet.name, nodeRG)
-		subnetParams := armnetwork.Subnet{
-			Properties: &armnetwork.SubnetPropertiesFormat{
-				AddressPrefix: to.Ptr(bastionSubnetPrefix),
-			},
-		}
-		subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, nodeRG, vnet.name, bastionSubnetName, subnetParams, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start creating bastion subnet: %w", err)
-		}
-		bastionSubnet, err := subnetPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create bastion subnet: %w", err)
-		}
-		bastionSubnetID = *bastionSubnet.ID
-	} else {
-		bastionSubnetID = *bastionSubnet.ID
-	}
-
-	// Public IP for Bastion
-	pipParams := armnetwork.PublicIPAddress{
-		Location: to.Ptr(location),
-		SKU: &armnetwork.PublicIPAddressSKU{
-			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
-		},
-		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
-		},
-	}
-
-	toolkit.Logf(ctx, "creating bastion public IP %s (rg %s)", publicIPName, nodeRG)
-	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, nodeRG, publicIPName, pipParams, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to start creating bastion public IP: %w", err)
-	}
-	pipResp, err := pipPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bastion public IP: %w", err)
-	}
-	if pipResp.ID == nil {
-		return nil, fmt.Errorf("bastion public IP response missing ID")
-	}
-
-	bastionHost := armnetwork.BastionHost{
-		Location: to.Ptr(location),
-		SKU: &armnetwork.SKU{
-			Name: to.Ptr(armnetwork.BastionHostSKUNameStandard),
-		},
-		Properties: &armnetwork.BastionHostPropertiesFormat{
-			// Native client support is enabled via tunneling.
-			EnableTunneling: to.Ptr(true),
-			IPConfigurations: []*armnetwork.BastionHostIPConfiguration{
-				{
-					Name: to.Ptr("bastion-ipcfg"),
-					Properties: &armnetwork.BastionHostIPConfigurationPropertiesFormat{
-						Subnet: &armnetwork.SubResource{
-							ID: to.Ptr(bastionSubnetID),
-						},
-						PublicIPAddress: &armnetwork.SubResource{
-							ID: pipResp.ID,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	toolkit.Logf(ctx, "creating bastion %s (native client/tunneling enabled) in rg %s", bastionName, nodeRG)
-	bastionPoller, err := config.Azure.BastionHosts.BeginCreateOrUpdate(ctx, nodeRG, bastionName, bastionHost, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to start creating bastion: %w", err)
-	}
-	resp, err := bastionPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bastion: %w", err)
-	}
-
-	bastion := NewBastion(config.Azure.Credential, config.Config.SubscriptionID, nodeRG, *resp.BastionHost.Properties.DNSName)
-
-	if err := verifyBastion(ctx, cluster, bastion); err != nil {
-		return nil, fmt.Errorf("failed to verify bastion: %w", err)
-	}
-	return bastion, nil
-}
-
-func verifyBastion(ctx context.Context, cluster *armcontainerservice.ManagedCluster, bastion *Bastion) error {
-	nodeRG := *cluster.Properties.NodeResourceGroup
-	vmssName, err := getSystemPoolVMSSName(ctx, cluster)
-	if err != nil {
-		return err
-	}
-
-	var vmssVM *armcompute.VirtualMachineScaleSetVM
-	pager := config.Azure.VMSSVM.NewListPager(nodeRG, vmssName, nil)
-	if pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return fmt.Errorf("list vmss vms for %q in rg %q: %w", vmssName, nodeRG, err)
-		}
-		if len(page.Value) > 0 {
-			vmssVM = page.Value[0]
-		}
-	}
-
-	vmPrivateIP, err := getPrivateIPFromVMSSVM(ctx, nodeRG, vmssName, *vmssVM.InstanceID)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	sshClient, err := DialSSHOverBastion(ctx, bastion, vmPrivateIP, config.SysSSHPrivateKey)
-	if err != nil {
-		return err
-	}
-
-	defer sshClient.Close()
-
-	result, err := runSSHCommandWithPrivateKeyFile(ctx, sshClient, "uname -a", false)
-	if err != nil {
-		return err
-	}
-	if strings.Contains(result.stdout, vmssName) {
-		return nil
-	}
-	return fmt.Errorf("Executed ssh on wrong VM, Expected %s: %s", vmssName, result.stdout)
-}
-
-func getSystemPoolVMSSName(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (string, error) {
-	nodeRG := *cluster.Properties.NodeResourceGroup
-	var systemPoolName string
-	for _, pool := range cluster.Properties.AgentPoolProfiles {
-		if strings.EqualFold(string(*pool.Mode), "System") {
-			systemPoolName = *pool.Name
-		}
-	}
-	pager := config.Azure.VMSS.NewListPager(nodeRG, nil)
-	if pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("list vmss in rg %q: %w", nodeRG, err)
-		}
-		for _, vmss := range page.Value {
-			if strings.Contains(strings.ToLower(*vmss.Name), strings.ToLower(systemPoolName)) {
-				return *vmss.Name, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("no matching VMSS found for system pool %q in rg %q", systemPoolName, nodeRG)
-}
-
-func sanitizeAzureResourceName(name string) string {
-	// Azure resource name restrictions vary by type. For our usage here (Public IP name) we just
-	// keep it simple and strip problematic characters.
-	replacer := strings.NewReplacer("/", "-", "\\", "-", ":", "-", "_", "-", " ", "-")
-	name = replacer.Replace(name)
-	name = strings.Trim(name, "-")
-	if len(name) > 80 {
-		name = name[:80]
-	}
-	return name
+	toolkit.Logf(ctx, "using shared bastion %s in %s", SharedBastionName, sharedRG)
+	return NewBastion(config.Azure.Credential, config.Config.SubscriptionID, sharedRG, *sharedBastion.Properties.DNSName), nil
 }
 
 type VNet struct {
-	name         string
-	subnetId     string
-	resourceGUID string
+	name          string
+	resourceGroup string
+	subnetName    string
+	subnetId      string
+	resourceGUID  string
+	addressPrefix string
 }
 
-func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, error) {
-	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
-	for pager.More() {
-		nextResult, err := pager.NextPage(ctx)
-		if err != nil {
-			return VNet{}, fmt.Errorf("failed to advance page: %w", err)
-		}
-		for _, v := range nextResult.Value {
-			if v == nil {
-				return VNet{}, fmt.Errorf("aks vnet was empty")
-			}
-			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), resourceGUID: *v.Properties.ResourceGUID}, nil
+// getClusterVNet returns VNet info for the cluster by parsing the VnetSubnetID from the agent pool.
+func getClusterVNet(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (VNet, error) {
+	for _, pool := range cluster.Properties.AgentPoolProfiles {
+		if pool.VnetSubnetID != nil && *pool.VnetSubnetID != "" {
+			return vnetFromSubnetID(ctx, *pool.VnetSubnetID)
 		}
 	}
-	return VNet{}, fmt.Errorf("failed to find aks vnet")
+	return VNet{}, fmt.Errorf("no VnetSubnetID found on any agent pool profile")
 }
 
 func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster, kube *Kubeclient) error {
 	defer toolkit.LogStepCtx(ctx, "collecting garbage VMSS")()
 	rg := *cluster.Properties.NodeResourceGroup
+
+	// Build a set of VMSS name prefixes belonging to the cluster's managed pools.
+	// AKS names managed pool VMSS as "aks-<poolname>-<hash>-vmss". We use the
+	// prefix "aks-<poolname>-" to protect these even if the aks-managed-poolName
+	// tag is missing (defense-in-depth against tag propagation races).
+	managedPoolPrefixes := make([]string, 0, len(cluster.Properties.AgentPoolProfiles))
+	for _, pool := range cluster.Properties.AgentPoolProfiles {
+		if pool.Name != nil {
+			managedPoolPrefixes = append(managedPoolPrefixes, "aks-"+*pool.Name+"-")
+		}
+	}
 
 	// Build a set of VMSS names that should be kept — exclude VMSS that are
 	// being deleted so their stale K8s nodes can be cleaned up in the same pass.
@@ -776,8 +625,14 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
-			// don't delete managed pools
+			// don't delete managed pools (tag-based check)
 			if _, ok := vmss.Tags["aks-managed-poolName"]; ok {
+				keptVMSS[*vmss.Name] = struct{}{}
+				continue
+			}
+			// don't delete VMSS whose name matches a known managed pool prefix
+			// (protects against missing tags during cluster reconciliation)
+			if isManagedPoolVMSS(*vmss.Name, managedPoolPrefixes) {
 				keptVMSS[*vmss.Name] = struct{}{}
 				continue
 			}
@@ -858,6 +713,15 @@ func collectGarbageNodes(ctx context.Context, kube *Kubeclient, keptVMSS map[str
 	return nil
 }
 
+func isManagedPoolVMSS(vmssName string, managedPoolPrefixes []string) bool {
+	for _, prefix := range managedPoolPrefixes {
+		if strings.HasPrefix(vmssName, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func ensureResourceGroup(ctx context.Context, location string) (armresources.ResourceGroup, error) {
 	resourceGroupName := config.ResourceGroupName(location)
 	rg, err := config.Azure.ResourceGroup.CreateOrUpdate(
@@ -875,10 +739,9 @@ func ensureResourceGroup(ctx context.Context, location string) (armresources.Res
 	return rg.ResourceGroup, nil
 }
 
-// setupPrivateDNSForAPIServer creates a private DNS zone for the API server FQDN
-// linked to the cluster VNet with an A record pointing to the current public IP.
-// Simulates a customer environment with minimal private DNS entries.
-func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+// setupPrivateDNSForAPIServer adds an A record for the cluster's API server FQDN
+// to the shared private DNS zone. The zone and VNet link are created once by ensureSharedInfra.
+func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservice.ManagedCluster, vnet VNet) error {
 	defer toolkit.LogStepCtx(ctx, "setting up private DNS for API server")()
 
 	fqdn := *cluster.Properties.Fqdn
@@ -899,14 +762,33 @@ func setupPrivateDNSForAPIServer(ctx context.Context, cluster *armcontainerservi
 		return fmt.Errorf("no IPv4 addresses for %q", fqdn)
 	}
 
-	// createPrivateZone and createPrivateDNSLink handle 409 conflicts internally
-	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
-		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
+	// Check if zone + record already exist and are up to date
+	existing, err := config.Azure.RecordSetClient.Get(ctx, nodeRG, fqdn, armprivatedns.RecordTypeA, "@", nil)
+	if err == nil && existing.Properties != nil && existing.Properties.ARecords != nil {
+		existingIPs := map[string]bool{}
+		for _, r := range existing.Properties.ARecords {
+			if r.IPv4Address != nil {
+				existingIPs[*r.IPv4Address] = true
+			}
+		}
+		allMatch := len(existingIPs) == len(aRecords)
+		if allMatch {
+			for _, r := range aRecords {
+				if !existingIPs[*r.IPv4Address] {
+					allMatch = false
+					break
+				}
+			}
+		}
+		if allMatch {
+			toolkit.Logf(ctx, "private DNS zone %q already up to date", fqdn)
+			return nil
+		}
 	}
 
-	vnet, err := getClusterVNet(ctx, nodeRG)
-	if err != nil {
-		return fmt.Errorf("getting cluster VNet: %w", err)
+	// Per-FQDN zone: zone name = full FQDN, record name = "@"
+	if _, err := createPrivateZone(ctx, nodeRG, fqdn); err != nil {
+		return fmt.Errorf("creating private zone %q: %w", fqdn, err)
 	}
 	if err := createPrivateDNSLink(ctx, vnet, nodeRG, fqdn); err != nil {
 		return fmt.Errorf("linking private zone to VNet: %w", err)

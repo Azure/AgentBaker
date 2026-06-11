@@ -20,7 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // getLatestGAKubernetesVersion returns the highest GA Kubernetes version for the given location.
@@ -112,7 +111,7 @@ func getAzureOverlayNetworkDualStackClusterModel(name, location, k8sSystemPoolSK
 		networkProfile.PodCidr,
 		to.Ptr("fd12:3456:789a::/64 "),
 	}
-	networkProfile.ServiceCidr = to.Ptr("10.0.0.0/16")
+	networkProfile.ServiceCidr = to.Ptr("172.16.0.0/16")
 	networkProfile.ServiceCidrs = []*string{
 		networkProfile.ServiceCidr,
 		to.Ptr("fd12:3456:789a:1::/108"),
@@ -173,6 +172,8 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 			},
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
+				ServiceCidr:   to.Ptr("172.16.0.0/16"),
+				DNSServiceIP:  to.Ptr("172.16.0.10"),
 			},
 			AddonProfiles: map[string]*armcontainerservice.ManagedClusterAddonProfile{
 				"omsagent": {
@@ -301,113 +302,29 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 }
 
 func addFirewallRules(
-	ctx context.Context, clusterModel *armcontainerservice.ManagedCluster,
+	ctx context.Context, infra *SharedInfra, clusterModel *armcontainerservice.ManagedCluster,
 ) error {
-	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, "adding firewall rules")()
 
-	rg := *clusterModel.Properties.NodeResourceGroup
-	vnet, err := getClusterVNet(ctx, rg)
+	nodeRG := *clusterModel.Properties.NodeResourceGroup
+	vnet, err := getClusterVNet(ctx, clusterModel)
 	if err != nil {
 		return err
 	}
+
+	firewallPrivateIP := infra.FirewallIP
 
 	// For kubenet, the AKS-managed route table must stay attached so that pod
 	// routes (managed by cloud-provider-azure) and firewall routes coexist.
 	// For Azure CNI variants, the subnet may not have any route table, so we
 	// create and associate a dedicated one before adding the firewall routes.
-	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, rg, vnet.name, "aks-subnet", nil)
+	aksSubnetResp, err := config.Azure.Subnet.Get(ctx, vnet.resourceGroup, vnet.name, vnet.subnetName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get AKS subnet: %w", err)
 	}
-	aksRTName, err := ensureFirewallRouteTable(ctx, clusterModel, vnet.name, aksSubnetResp.Subnet)
+	aksRTName, err := ensureFirewallRouteTable(ctx, clusterModel, vnet, aksSubnetResp.Subnet)
 	if err != nil {
 		return err
-	}
-
-	// Create AzureFirewallSubnet - this subnet name is required by Azure Firewall
-	firewallSubnetName := "AzureFirewallSubnet"
-	firewallSubnetParams := armnetwork.Subnet{
-		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("10.225.0.0/24"), // Use a different CIDR that doesn't overlap with 10.224.0.0/16
-		},
-	}
-
-	toolkit.Logf(ctx, "Creating subnet %s in VNet %s", firewallSubnetName, vnet.name)
-	subnetPoller, err := config.Azure.Subnet.BeginCreateOrUpdate(
-		ctx,
-		rg,
-		vnet.name,
-		firewallSubnetName,
-		firewallSubnetParams,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to start creating firewall subnet: %w", err)
-	}
-
-	subnetResp, err := subnetPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return fmt.Errorf("failed to create firewall subnet: %w", err)
-	}
-
-	firewallSubnetID := *subnetResp.ID
-	toolkit.Logf(ctx, "Created firewall subnet with ID: %s", firewallSubnetID)
-
-	// Create public IP for the firewall
-	publicIPName := "abe2e-fw-pip"
-	publicIPParams := armnetwork.PublicIPAddress{
-		Location: to.Ptr(location),
-		SKU: &armnetwork.PublicIPAddressSKU{
-			Name: to.Ptr(armnetwork.PublicIPAddressSKUNameStandard),
-		},
-		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
-		},
-	}
-
-	toolkit.Logf(ctx, "Creating public IP %s", publicIPName)
-	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(
-		ctx,
-		rg,
-		publicIPName,
-		publicIPParams,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to start creating public IP: %w", err)
-	}
-
-	pipResp, err := pipPoller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return fmt.Errorf("failed to create public IP: %w", err)
-	}
-
-	publicIPID := *pipResp.ID
-	toolkit.Logf(ctx, "Created public IP with ID: %s", publicIPID)
-
-	firewallName := "abe2e-fw"
-	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
-	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, firewallName, *firewall, nil)
-	if err != nil {
-		return fmt.Errorf("failed to start Firewall creation: %w", err)
-	}
-	fwResp, err := fwPoller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create Firewall: %w", err)
-	}
-
-	// Get the firewall's private IP address
-	var firewallPrivateIP string
-	if fwResp.Properties != nil && fwResp.Properties.IPConfigurations != nil && len(fwResp.Properties.IPConfigurations) > 0 {
-		if fwResp.Properties.IPConfigurations[0].Properties != nil && fwResp.Properties.IPConfigurations[0].Properties.PrivateIPAddress != nil {
-			firewallPrivateIP = *fwResp.Properties.IPConfigurations[0].Properties.PrivateIPAddress
-			toolkit.Logf(ctx, "Firewall private IP: %s", firewallPrivateIP)
-		}
-	}
-
-	if firewallPrivateIP == "" {
-		return fmt.Errorf("failed to get firewall private IP address")
 	}
 
 	// Add firewall routes to the existing AKS route table using individual
@@ -418,7 +335,7 @@ func addFirewallRules(
 		{
 			Name: to.Ptr("vnet-local"),
 			Properties: &armnetwork.RoutePropertiesFormat{
-				AddressPrefix: to.Ptr("10.224.0.0/16"),
+				AddressPrefix: to.Ptr(vnet.addressPrefix),
 				NextHopType:   to.Ptr(armnetwork.RouteNextHopTypeVnetLocal),
 			},
 		},
@@ -434,7 +351,7 @@ func addFirewallRules(
 
 	for _, route := range firewallRoutes {
 		toolkit.Logf(ctx, "Adding route %q to AKS route table %q", *route.Name, aksRTName)
-		poller, err := config.Azure.Routes.BeginCreateOrUpdate(ctx, rg, aksRTName, *route.Name, route, nil)
+		poller, err := config.Azure.Routes.BeginCreateOrUpdate(ctx, nodeRG, aksRTName, *route.Name, route, nil)
 		if err != nil {
 			return fmt.Errorf("failed to start adding route %q: %w", *route.Name, err)
 		}
@@ -451,7 +368,7 @@ func addFirewallRules(
 func ensureFirewallRouteTable(
 	ctx context.Context,
 	clusterModel *armcontainerservice.ManagedCluster,
-	vnetName string,
+	vnet VNet,
 	aksSubnet armnetwork.Subnet,
 ) (string, error) {
 	if aksSubnet.Properties == nil {
@@ -479,21 +396,30 @@ func ensureFirewallRouteTable(
 	rg := *clusterModel.Properties.NodeResourceGroup
 	routeTableName := "abe2e-fw-rt"
 	toolkit.Logf(ctx, "AKS subnet has no route table; creating dedicated firewall route table %q", routeTableName)
-	poller, err := config.Azure.RouteTables.BeginCreateOrUpdate(ctx, rg, routeTableName, armnetwork.RouteTable{
-		Location: clusterModel.Location,
-	}, nil)
+
+	var routeTableID *string
+	err := retryOn409(ctx, fmt.Sprintf("creating route table %s", routeTableName), func() error {
+		poller, err := config.Azure.RouteTables.BeginCreateOrUpdate(ctx, rg, routeTableName, armnetwork.RouteTable{
+			Location: clusterModel.Location,
+		}, nil)
+		if err != nil {
+			return fmt.Errorf("failed to start creating firewall route table %q: %w", routeTableName, err)
+		}
+		routeTableResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		if err != nil {
+			return fmt.Errorf("failed to create firewall route table %q: %w", routeTableName, err)
+		}
+		routeTableID = routeTableResp.ID
+		return nil
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to start creating firewall route table %q: %w", routeTableName, err)
-	}
-	routeTableResp, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return "", fmt.Errorf("failed to create firewall route table %q: %w", routeTableName, err)
+		return "", err
 	}
 
 	aksSubnet.Properties.RouteTable = &armnetwork.RouteTable{
-		ID: routeTableResp.ID,
+		ID: routeTableID,
 	}
-	if err := updateSubnet(ctx, clusterModel, aksSubnet, vnetName); err != nil {
+	if err := updateSubnet(ctx, clusterModel, aksSubnet, vnet); err != nil {
 		return "", fmt.Errorf("failed to associate firewall route table %q with AKS subnet: %w", routeTableName, err)
 	}
 
@@ -512,12 +438,12 @@ func addPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontainer
 	if err := createPrivateAzureContainerRegistryPullSecret(ctx, cluster, kube, resourceGroupName, isNonAnonymousPull); err != nil {
 		return fmt.Errorf("create private acr pull secret: %w", err)
 	}
-	vnet, err := getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, cluster)
 	if err != nil {
 		return err
 	}
 
-	err = addPrivateEndpointForACR(ctx, *cluster.Properties.NodeResourceGroup, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), vnet, *cluster.Location)
+	err = addPrivateEndpointForACR(ctx, config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location), vnet, *cluster.Location)
 	if err != nil {
 		return err
 	}
@@ -533,36 +459,55 @@ func addNetworkIsolatedSettings(ctx context.Context, clusterModel *armcontainers
 	location := *clusterModel.Location
 	defer toolkit.LogStepCtx(ctx, fmt.Sprintf("Adding network settings for network isolated cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup))
 
-	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, clusterModel)
 	if err != nil {
 		return err
 	}
-	subnetId := vnet.subnetId
+
+	// The subnet is long-lived and shared across test runs. Once the NSG is
+	// associated we never need to touch it again. Private endpoints from
+	// previous runs can leave lingering IP prefix allocations on the subnet
+	// that make any PUT fail with InUsePrefixCannotBeDeleted, so we skip
+	// the update entirely when the NSG is already in place.
+	currentSubnet, err := config.Azure.Subnet.Get(ctx, vnet.resourceGroup, vnet.name, vnet.subnetName, nil)
+	if err != nil {
+		return fmt.Errorf("getting subnet %s: %w", vnet.subnetName, err)
+	}
+	if currentSubnet.Properties != nil && currentSubnet.Properties.NetworkSecurityGroup != nil {
+		toolkit.Logf(ctx, "subnet %s already has NSG, skipping update", vnet.subnetName)
+		return nil
+	}
 
 	nsgParams, err := networkIsolatedSecurityGroup(location, *clusterModel.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
-
 	nsg, err := createNetworkIsolatedSecurityGroup(ctx, clusterModel, nsgParams, nil)
 	if err != nil {
 		return err
 	}
 
-	subnetParameters := armnetwork.Subnet{
-		ID: to.Ptr(subnetId),
+	if err = updateSubnet(ctx, clusterModel, armnetwork.Subnet{
+		ID: to.Ptr(vnet.subnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("10.224.0.0/16"),
+			AddressPrefix: currentSubnet.Properties.AddressPrefix,
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID: nsg.ID,
 			},
 		},
-	}
-	if err = updateSubnet(ctx, clusterModel, subnetParameters, vnet.name); err != nil {
+	}, vnet); err != nil {
+		// After a cluster is GC'd, private endpoint IP prefix allocations can
+		// linger on the subnet. The merge in updateSubnet preserves them, but
+		// if Azure still rejects the PUT we log and continue — the NSG will be
+		// associated on the next run once allocations clear.
+		if strings.Contains(err.Error(), "InUsePrefixCannotBeDeleted") {
+			toolkit.Logf(ctx, "warning: cannot update subnet %s (lingering IP allocations), will retry next run", vnet.subnetName)
+			return nil
+		}
 		return err
 	}
 
-	toolkit.Logf(ctx, "updated cluster %s subnet with network isolated cluster settings", *clusterModel.Name)
+	toolkit.Logf(ctx, "updated cluster %s subnet with network isolated settings", *clusterModel.Name)
 	return nil
 }
 
@@ -609,30 +554,125 @@ func networkIsolatedSecurityGroup(location, clusterFQDN string) (armnetwork.Secu
 	}, nil
 }
 
-func addPrivateEndpointForACR(ctx context.Context, nodeResourceGroup, privateACRName string, vnet VNet, location string) error {
-	toolkit.Logf(ctx, "Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
-	var err error
-	var privateEndpoint *armnetwork.PrivateEndpoint
-	privateEndpointName := fmt.Sprintf("PE-for-%s", privateACRName)
-	if privateEndpoint, err = createPrivateEndpoint(ctx, nodeResourceGroup, privateEndpointName, privateACRName, vnet, location); err != nil {
-		return err
-	}
-
+// ensurePrivateDNSZone creates the private DNS zone and VNet link in the
+// shared RG. This is a VNet-level resource (one per cluster, not per ACR)
+// so it must run once before any private endpoint setup.
+//
+// Old clusters may have created their own privatelink.azurecr.io zones in
+// MC_ RGs and linked our shared VNet to them. A VNet can only link to one
+// zone per namespace, so we clean up stale links first.
+func ensurePrivateDNSZone(ctx context.Context, vnet VNet) (*armprivatedns.PrivateZone, error) {
+	sharedRG := vnet.resourceGroup
 	privateZoneName := "privatelink.azurecr.io"
-	var privateZone *armprivatedns.PrivateZone
-	if privateZone, err = createPrivateZone(ctx, nodeResourceGroup, privateZoneName); err != nil {
+
+	if err := cleanupConflictingDNSZoneLinks(ctx, vnet, sharedRG, privateZoneName); err != nil {
+		return nil, fmt.Errorf("cleaning up conflicting DNS zone links: %w", err)
+	}
+
+	zone, err := createPrivateZone(ctx, sharedRG, privateZoneName)
+	if err != nil {
+		return nil, fmt.Errorf("creating private DNS zone: %w", err)
+	}
+
+	if err = createPrivateDNSLink(ctx, vnet, sharedRG, privateZoneName); err != nil {
+		return nil, fmt.Errorf("creating private DNS VNet link: %w", err)
+	}
+
+	return zone, nil
+}
+
+// cleanupConflictingDNSZoneLinks finds privatelink.azurecr.io zones in other
+// resource groups that have a VNet link pointing to our shared VNet, and
+// deletes those links. This prevents "overlapping namespaces" errors.
+func cleanupConflictingDNSZoneLinks(ctx context.Context, vnet VNet, sharedRG, privateZoneName string) error {
+	sharedVNetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s",
+		config.Config.SubscriptionID, vnet.resourceGroup, vnet.name)
+
+	subPager := config.Azure.PrivateZonesClient.NewListPager(nil)
+	for subPager.More() {
+		page, err := subPager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("listing private DNS zones: %w", err)
+		}
+		for _, zone := range page.Value {
+			if zone.Name == nil || *zone.Name != privateZoneName {
+				continue
+			}
+			zoneRG := resourceGroupFromID(*zone.ID)
+			if strings.EqualFold(zoneRG, sharedRG) {
+				continue
+			}
+			if err := deleteVNetLinkIfPointsToSharedVNet(ctx, zoneRG, privateZoneName, sharedVNetID); err != nil {
+				toolkit.Logf(ctx, "warning: failed to clean up DNS link in %s: %v", zoneRG, err)
+			}
+		}
+	}
+	return nil
+}
+
+// deleteVNetLinkIfPointsToSharedVNet checks all VNet links on a DNS zone and
+// deletes any that point to our shared VNet.
+func deleteVNetLinkIfPointsToSharedVNet(ctx context.Context, zoneRG, zoneName, sharedVNetID string) error {
+	linkPager := config.Azure.VirutalNetworkLinksClient.NewListPager(zoneRG, zoneName, nil)
+	for linkPager.More() {
+		page, err := linkPager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("listing VNet links in %s/%s: %w", zoneRG, zoneName, err)
+		}
+		for _, link := range page.Value {
+			if link.Properties == nil || link.Properties.VirtualNetwork == nil || link.Properties.VirtualNetwork.ID == nil {
+				continue
+			}
+			if !strings.EqualFold(*link.Properties.VirtualNetwork.ID, sharedVNetID) {
+				continue
+			}
+			toolkit.Logf(ctx, "deleting conflicting DNS zone link %s in %s/%s (points to shared VNet)", *link.Name, zoneRG, zoneName)
+			poller, err := config.Azure.VirutalNetworkLinksClient.BeginDelete(ctx, zoneRG, zoneName, *link.Name, nil)
+			if err != nil {
+				return fmt.Errorf("deleting VNet link %s: %w", *link.Name, err)
+			}
+			if _, err = poller.PollUntilDone(ctx, nil); err != nil {
+				return fmt.Errorf("waiting for VNet link %s deletion: %w", *link.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// resourceGroupFromID extracts the resource group name from an Azure resource ID.
+func resourceGroupFromID(id string) string {
+	parts := strings.Split(id, "/")
+	for i, part := range parts {
+		if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
+			return parts[i+1]
+		}
+	}
+	return ""
+}
+
+func addPrivateEndpointForACR(ctx context.Context, privateACRName string, vnet VNet, location string) error {
+	sharedRG := vnet.resourceGroup
+	privateZoneName := "privatelink.azurecr.io"
+
+	// PEs live in the shared RG on the PE subnet so all clusters share one
+	// PE per ACR with a single IP address → single DNS A record.
+	peSubnetID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s",
+		config.Config.SubscriptionID, sharedRG, vnet.name, PESubnetName)
+	peVnet := VNet{
+		resourceGroup: sharedRG,
+		name:          vnet.name,
+		subnetName:    PESubnetName,
+		subnetId:      peSubnetID,
+	}
+
+	privateEndpointName := fmt.Sprintf("PE-for-%s", privateACRName)
+	toolkit.Logf(ctx, "ensuring private endpoint %s in shared RG %s", privateEndpointName, sharedRG)
+	privateEndpoint, err := createPrivateEndpoint(ctx, sharedRG, privateEndpointName, privateACRName, peVnet, location)
+	if err != nil {
 		return err
 	}
 
-	if err = createPrivateDNSLink(ctx, vnet, nodeResourceGroup, privateZoneName); err != nil {
-		return err
-	}
-
-	if err = addRecordSetToPrivateDNSZone(ctx, privateEndpoint, nodeResourceGroup, privateZoneName); err != nil {
-		return err
-	}
-
-	if err = addDNSZoneGroup(ctx, privateZone, nodeResourceGroup, privateZoneName, *privateEndpoint.Name); err != nil {
+	if err = addRecordSetToPrivateDNSZone(ctx, privateEndpoint, sharedRG, sharedRG, privateZoneName); err != nil {
 		return err
 	}
 	return nil
@@ -852,23 +892,32 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{},
 		},
 	}
-	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
-		ctx,
-		nodeResourceGroup,
-		privateEndpointName,
-		peParams,
-		nil,
-	)
+
+	var result armnetwork.PrivateEndpoint
+	err = retryOn409(ctx, fmt.Sprintf("creating private endpoint %s", privateEndpointName), func() error {
+		poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
+			ctx,
+			nodeResourceGroup,
+			privateEndpointName,
+			peParams,
+			nil,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
+		}
+		resp, err := poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create private endpoint in polling: %w", err)
+		}
+		result = resp.PrivateEndpoint
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
-	}
-	resp, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create private endpoint in polling: %w", err)
+		return nil, err
 	}
 
-	toolkit.Logf(ctx, "Private Endpoint created or updated with ID: %s", *resp.ID)
-	return &resp.PrivateEndpoint, nil
+	toolkit.Logf(ctx, "Private Endpoint created or updated with ID: %s", *result.ID)
+	return &result, nil
 }
 
 func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
@@ -881,70 +930,74 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 	if err == nil {
 		return &pzResp.PrivateZone, nil
 	}
+	return createPrivateZoneWithRetry(ctx, nodeResourceGroup, privateZoneName)
+}
+
+// createPrivateZoneWithRetry retries zone creation on 409 conflicts, which happen
+// when ARM serializes concurrent operations in the same resource group (e.g. AKS
+// provisioning resources in MC_ alongside our DNS zone creation).
+func createPrivateZoneWithRetry(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
 	}
-	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
-		ctx,
-		nodeResourceGroup,
-		privateZoneName,
-		dnsZoneParams,
-		nil,
-	)
-	if err != nil {
-		// 409 means another operation is in progress — wait and re-fetch
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-			return waitForPrivateZone(ctx, nodeResourceGroup, privateZoneName)
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			toolkit.Logf(ctx, "retrying private DNS zone %q creation (attempt %d, last error: %v)", privateZoneName, attempt+1, lastErr)
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled waiting to retry private dns zone creation: %w", ctx.Err())
+			case <-time.After(30 * time.Second):
+			}
+			// zone may have been created by AKS or a previous attempt that got 409
+			resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
+			if err == nil {
+				return &resp.PrivateZone, nil
+			}
 		}
-		return nil, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
-	}
-	resp, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create private dns zone in polling: %w", err)
-	}
-
-	toolkit.Logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
-	return &resp.PrivateZone, nil
-}
-
-func waitForPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
-	defer toolkit.LogStepCtxf(ctx, "waiting for private DNS zone %s (409 conflict)", privateZoneName)()
-	var zone *armprivatedns.PrivateZone
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
+		poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
+			ctx,
+			nodeResourceGroup,
+			privateZoneName,
+			dnsZoneParams,
+			nil,
+		)
 		if err != nil {
 			var respErr *azcore.ResponseError
-			if errors.As(err, &respErr) && respErr.StatusCode == 404 {
-				return false, nil // zone doesn't exist yet
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+				lastErr = err
+				continue
 			}
-			return false, err
+			return nil, fmt.Errorf("failed to create private dns zone: %w", err)
 		}
-		zone = &resp.PrivateZone
-		return true, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("waiting for private dns zone %q: %w", privateZoneName, err)
+		resp, err := poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create private dns zone in polling: %w", err)
+		}
+		toolkit.Logf(ctx, "Private DNS Zone created or updated with ID: %s", *resp.ID)
+		return &resp.PrivateZone, nil
 	}
-	return zone, nil
+	return nil, fmt.Errorf("failed to create private dns zone %q after 5 attempts, last error: %w", privateZoneName, lastErr)
 }
 
-func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, privateZoneName string) error {
+func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, privateZoneName string) error {
 	networkLinkName := "link-ABE2ETests"
 	_, err := config.Azure.VirutalNetworkLinksClient.Get(
 		ctx,
-		nodeResourceGroup,
+		resourceGroup,
 		privateZoneName,
 		networkLinkName,
 		nil,
 	)
-
 	if err == nil {
-		// private dns link already created
 		return nil
 	}
 
-	vnetForId, err := config.Azure.VNet.Get(ctx, nodeResourceGroup, vnet.name, nil)
+	vnetRG := vnet.resourceGroup
+	if vnetRG == "" {
+		vnetRG = resourceGroup
+	}
+	vnetForId, err := config.Azure.VNet.Get(ctx, vnetRG, vnet.name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get vnet: %w", err)
 	}
@@ -957,109 +1010,101 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, nodeResourceGroup, pri
 			RegistrationEnabled: to.Ptr(false),
 		},
 	}
-	poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
-		ctx,
-		nodeResourceGroup,
-		privateZoneName,
-		networkLinkName,
-		linkParams,
-		nil,
-	)
-	if err != nil {
-		// 409 means another operation is in progress — link is being created by another run
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
-			toolkit.Logf(ctx, "Virtual network link creation conflict (409), waiting for completion")
-			return wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-				_, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, nodeResourceGroup, privateZoneName, networkLinkName, nil)
-				if err != nil {
-					var respErr *azcore.ResponseError
-					if errors.As(err, &respErr) && respErr.StatusCode == 404 {
-						return false, nil // link doesn't exist yet
-					}
-					return false, err
-				}
-				return true, nil
-			})
-		}
-		return fmt.Errorf("failed to create virtual network link in BeginCreateOrUpdate: %w", err)
-	}
-	resp, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create virtual network link in polling: %w", err)
-	}
 
-	toolkit.Logf(ctx, "Virtual Network Link created or updated with ID: %s", *resp.ID)
-	return nil
-}
-
-func addRecordSetToPrivateDNSZone(ctx context.Context, privateEndpoint *armnetwork.PrivateEndpoint, nodeResourceGroup, privateZoneName string) error {
-	for i, dnsConfigPtr := range privateEndpoint.Properties.CustomDNSConfigs {
-		var ipAddresses []string
-		if dnsConfigPtr == nil {
-			return fmt.Errorf("CustomDNSConfigs[%d] is nil", i)
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			toolkit.Logf(ctx, "retrying VNet link for zone %q (attempt %d, last error: %v)", privateZoneName, attempt+1, lastErr)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("context cancelled waiting to retry VNet link creation: %w", ctx.Err())
+			case <-time.After(30 * time.Second):
+			}
+			// link may have been created by another concurrent run
+			if _, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, resourceGroup, privateZoneName, networkLinkName, nil); err == nil {
+				return nil
+			}
 		}
-
-		// get the ip addresses
-		dnsConfig := *dnsConfigPtr
-		if len(dnsConfig.IPAddresses) == 0 {
-			return fmt.Errorf("CustomDNSConfigs[%d].IPAddresses is nil or empty", i)
-		}
-		for _, ipPtr := range dnsConfig.IPAddresses {
-			ipAddresses = append(ipAddresses, *ipPtr)
-		}
-		if len(ipAddresses) == 0 {
-			return fmt.Errorf("IPAddresses is empty")
-		}
-
-		aRecords := make([]*armprivatedns.ARecord, len(ipAddresses))
-		for i, ip := range ipAddresses {
-			aRecords[i] = &armprivatedns.ARecord{IPv4Address: &ip}
-		}
-		ttl := int64(10)
-		aRecordSet := armprivatedns.RecordSet{
-			Properties: &armprivatedns.RecordSetProperties{
-				TTL:      &ttl,
-				ARecords: aRecords,
-			},
-		}
-		_, err := config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeResourceGroup, privateZoneName, armprivatedns.RecordTypeA, *dnsConfig.Fqdn, aRecordSet, nil)
+		poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
+			ctx,
+			resourceGroup,
+			privateZoneName,
+			networkLinkName,
+			linkParams,
+			nil,
+		)
 		if err != nil {
-			return fmt.Errorf("failed to create record set: %w", err)
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+				lastErr = err
+				continue
+			}
+			return fmt.Errorf("failed to create virtual network link: %w", err)
 		}
-	}
-
-	toolkit.Logf(ctx, "Record Set created or updated")
-	return nil
-}
-
-func addDNSZoneGroup(ctx context.Context, privateZone *armprivatedns.PrivateZone, nodeResourceGroup, privateZoneName, endpointName string) error {
-	groupName := strings.Replace(privateZoneName, ".", "-", -1) // replace . with -
-	_, err := config.Azure.PrivateDNSZoneGroup.Get(ctx, nodeResourceGroup, endpointName, groupName, nil)
-	if err == nil {
+		resp, err := poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create virtual network link in polling: %w", err)
+		}
+		toolkit.Logf(ctx, "Virtual Network Link created or updated with ID: %s", *resp.ID)
 		return nil
 	}
-	dnsZonegroup := armnetwork.PrivateDNSZoneGroup{
-		Name: to.Ptr(fmt.Sprintf("%s/default", privateZoneName)),
-		Properties: &armnetwork.PrivateDNSZoneGroupPropertiesFormat{
-			PrivateDNSZoneConfigs: []*armnetwork.PrivateDNSZoneConfig{{
-				Name: to.Ptr(groupName),
-				Properties: &armnetwork.PrivateDNSZonePropertiesFormat{
-					PrivateDNSZoneID: privateZone.ID,
-				},
-			}},
-		},
-	}
-	dnsZoneResp, err := config.Azure.PrivateDNSZoneGroup.BeginCreateOrUpdate(ctx, nodeResourceGroup, endpointName, groupName, dnsZonegroup, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create private dns zone group in BeginCreateOrUpdate: %w", err)
-	}
-	_, err = dnsZoneResp.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create private dns zone group in polling: %w", err)
+	return fmt.Errorf("failed to create VNet link for zone %q after 5 attempts, last error: %w", privateZoneName, lastErr)
+}
+
+// addRecordSetToPrivateDNSZone creates A records in the private DNS zone for a
+// private endpoint. It reads the PE's NIC to get the actual private IPs (since
+// CustomDNSConfigs is unreliable when DNS zone groups have been used).
+func addRecordSetToPrivateDNSZone(ctx context.Context, privateEndpoint *armnetwork.PrivateEndpoint, peResourceGroup, dnsZoneResourceGroup, privateZoneName string) error {
+	if privateEndpoint.Properties == nil || len(privateEndpoint.Properties.NetworkInterfaces) == 0 {
+		return fmt.Errorf("private endpoint has no network interfaces")
 	}
 
-	toolkit.Logf(ctx, "Private DNS Zone Group created or updated with ID")
+	nicID := *privateEndpoint.Properties.NetworkInterfaces[0].ID
+	nicName := nicID[strings.LastIndex(nicID, "/")+1:]
+	nic, err := config.Azure.NetworkInterfaces.Get(ctx, peResourceGroup, nicName, nil)
+	if err != nil {
+		return fmt.Errorf("getting PE NIC %s: %w", nicName, err)
+	}
+
+	// Each NIC IP config has a private IP and an associated FQDN from the
+	// PE's privateLinkServiceConnections. Create one A record per FQDN.
+	for _, ipConfig := range nic.Properties.IPConfigurations {
+		if ipConfig.Properties == nil || ipConfig.Properties.PrivateIPAddress == nil {
+			continue
+		}
+		ip := *ipConfig.Properties.PrivateIPAddress
+
+		// The PE's CustomDNSConfigs or PrivateLinkServiceConnections tell us the
+		// FQDN, but they may be empty. Use the IP config's
+		// PrivateLinkConnectionProperties for the FQDN list.
+		if ipConfig.Properties.PrivateLinkConnectionProperties == nil || len(ipConfig.Properties.PrivateLinkConnectionProperties.Fqdns) == 0 {
+			continue
+		}
+		for _, fqdn := range ipConfig.Properties.PrivateLinkConnectionProperties.Fqdns {
+			if fqdn == nil {
+				continue
+			}
+			// The NIC returns FQDNs like "myacr.azurecr.io" or
+			// "myacr.westus3.data.azurecr.io". The private DNS zone is
+			// "privatelink.azurecr.io", so the record name is everything
+			// before ".azurecr.io":
+			//   "myacr.azurecr.io"                → record "myacr"
+			//   "myacr.westus3.data.azurecr.io"   → record "myacr.westus3.data"
+			// Azure's CNAME chain maps X.azurecr.io → X.privatelink.azurecr.io
+			recordName := strings.TrimSuffix(*fqdn, ".azurecr.io")
+			aRecordSet := armprivatedns.RecordSet{
+				Properties: &armprivatedns.RecordSetProperties{
+					TTL:      to.Ptr[int64](10),
+					ARecords: []*armprivatedns.ARecord{{IPv4Address: to.Ptr(ip)}},
+				},
+			}
+			_, err := config.Azure.RecordSetClient.CreateOrUpdate(ctx, dnsZoneResourceGroup, privateZoneName, armprivatedns.RecordTypeA, recordName, aRecordSet, nil)
+			if err != nil {
+				return fmt.Errorf("failed to create A record %s → %s: %w", recordName, ip, err)
+			}
+			toolkit.Logf(ctx, "DNS A record: %s.%s → %s", recordName, privateZoneName, ip)
+		}
+	}
 	return nil
 }
 
@@ -1118,14 +1163,44 @@ func createNetworkIsolatedSecurityGroup(ctx context.Context, cluster *armcontain
 	return &nsg, nil
 }
 
-func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedCluster, subnetParameters armnetwork.Subnet, vnetName string) error {
-	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, vnetName, config.Config.DefaultSubnetName, subnetParameters, nil)
-	if err != nil {
+// updateSubnet reads the current subnet, merges in the desired fields, and PUTs
+// the result. This read-modify-write avoids stripping existing properties like
+// private endpoint allocations, service endpoints, or delegations — a bare PUT
+// with only the desired fields causes Azure to return InUsePrefixCannotBeDeleted.
+func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedCluster, desired armnetwork.Subnet, vnet VNet) error {
+	return retryOn409(ctx, fmt.Sprintf("updating subnet %s", vnet.subnetName), func() error {
+		existing, err := config.Azure.Subnet.Get(ctx, vnet.resourceGroup, vnet.name, vnet.subnetName, nil)
+		if err != nil {
+			return fmt.Errorf("getting subnet %s: %w", vnet.subnetName, err)
+		}
+
+		merged := existing.Subnet
+		mergeSubnetProperties(merged.Properties, desired.Properties)
+
+		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, vnet.resourceGroup, vnet.name, vnet.subnetName, merged, nil)
+		if err != nil {
+			return err
+		}
+		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 		return err
+	})
+}
+
+// mergeSubnetProperties overwrites only the fields that are set in desired.
+func mergeSubnetProperties(dst, desired *armnetwork.SubnetPropertiesFormat) {
+	if dst == nil || desired == nil {
+		return
 	}
-	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	if err != nil {
-		return err
+	if desired.AddressPrefix != nil {
+		dst.AddressPrefix = desired.AddressPrefix
 	}
-	return nil
+	if desired.NetworkSecurityGroup != nil {
+		dst.NetworkSecurityGroup = desired.NetworkSecurityGroup
+	}
+	if desired.RouteTable != nil {
+		dst.RouteTable = desired.RouteTable
+	}
+	if desired.ServiceEndpoints != nil {
+		dst.ServiceEndpoints = desired.ServiceEndpoints
+	}
 }

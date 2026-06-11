@@ -1215,7 +1215,7 @@ SETUP_EOF
         End
     End
 
-    Describe 'configureAndStartSecureTLSBootstrapping'
+    Describe 'configureAndEnableSecureTLSBootstrapping'
         SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR="secure-tls-bootstrap.service.d"
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
         SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR="default"
@@ -1227,6 +1227,11 @@ SETUP_EOF
             echo "chmod $@"
         }
 
+        retrycmd_if_failure() {
+            shift 3
+            echo "$@"
+        }
+
         cleanup() {
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR"
@@ -1234,14 +1239,12 @@ SETUP_EOF
 
         AfterEach 'cleanup'
 
-        It 'should configure and start secure TLS bootstrapping'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
-            When call configureAndStartSecureTLSBootstrapping
+        It 'should configure and enable secure TLS bootstrapping'
+            When call configureAndEnableSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "chmod 0600 default/secure-tls-bootstrap"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The output should include "systemctl enable secure-tls-bootstrap"
+            The output should not include "systemctlEnableAndStartNoBlock"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
@@ -1254,21 +1257,15 @@ SETUP_EOF
         End
 
         It 'should include AZURE_ENVIRONMENT_FILEPATH in the default file when set'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
             AZURE_ENVIRONMENT_FILEPATH="/etc/kubernetes/akscustom.json"
-            When call configureAndStartSecureTLSBootstrapping
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            When call configureAndEnableSecureTLSBootstrapping
+            The output should include "systemctl enable secure-tls-bootstrap"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
             The contents of file "default/secure-tls-bootstrap" should include 'AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/akscustom.json'
             The status should be success
         End
 
-        It 'should configure and start secure TLS bootstrapping using provided overrides'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
+        It 'should configure and enable secure TLS bootstrapping using provided overrides'
             SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT="custom-validate-kubeconfig-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT="custom-get-access-token-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT="custom-get-instance-data-timeout"
@@ -1278,10 +1275,11 @@ SETUP_EOF
             SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
-            When call configureAndStartSecureTLSBootstrapping
+            When call configureAndEnableSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "chmod 0600 default/secure-tls-bootstrap"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The output should include "systemctl enable secure-tls-bootstrap"
+            The output should not include "systemctlEnableAndStartNoBlock"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"

@@ -155,9 +155,9 @@ func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace stri
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	s.T.Helper()
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
+	nonHostPod, err := s.Runtime.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.VM.KubeName)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
 	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
 	return execResult
 }

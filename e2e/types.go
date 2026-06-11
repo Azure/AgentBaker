@@ -156,6 +156,7 @@ type ScenarioRuntime struct {
 	NBC                       *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig             *aksnodeconfigv1.Configuration
 	Cluster                   *Cluster
+	Kube                      *Kubeclient // per-test client with independent rate limiter
 	VM                        *ScenarioVM
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
