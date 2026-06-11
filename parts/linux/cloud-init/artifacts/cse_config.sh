@@ -940,6 +940,189 @@ ensureAzureNetworkConfig() {
     udevadm settle --timeout=10
 }
 
+configureSecondaryNICs() {
+    # Read NIC list from cached IMDS metadata.
+    # IMDS reports all NICs attached to the VM, including secondary ones.
+    # On a vanilla Azure VM cloud-init would configure these automatically,
+    # but AKS VHDs disable cloud-init network management (apply_network_config: false
+    # on Ubuntu, hardcoded Name=eth0 in networkd on AzureLinux). This function
+    # fills the gap for Standard-type secondary NICs that need OS-level DHCP.
+    local nic_count
+    nic_count=$(jq -r '.network.interface | length' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+
+    if [ "$nic_count" -le 1 ]; then
+        echo "No secondary NICs detected, skipping"
+        return 0
+    fi
+
+    echo "Detected $nic_count NICs, configuring secondary interfaces..."
+
+    local is_netplan=false
+    # Ubuntu netplan primary NIC default metric is ~100,
+    # so secondary NICs use 200, 300, etc. (base 100).
+    # AzureLinux/Mariner networkd primary NIC DHCP default metric is 1024,
+    # so secondary NICs must use >1024 to avoid asymmetric routing.
+    local metric_base=2000
+    if isUbuntu; then
+        is_netplan=true
+        metric_base=100
+    fi
+
+    # Collect resolved interface names for networkctl up calls after reload.
+    local secondary_ifaces=""
+
+    for i in $(seq 1 $((nic_count - 1))); do
+        local mac
+        mac=$(jq -r ".network.interface[$i].macAddress" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+        # IMDS returns MAC without colons (e.g. "7CED8D8A4DCE"), convert to colon-separated lowercase
+        mac=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]')
+        local metric=$(( metric_base + i * 100 ))
+
+        # Resolve the actual kernel interface name by matching the MAC address against
+        # /sys/class/net/*/address. This is necessary because SR-IOV virtual functions
+        # can claim eth1 before the secondary NIC is attached, so we cannot assume
+        # secondary NIC $i is eth${i}.
+        local iface_name=""
+        for sys_path in /sys/class/net/*/address; do
+            local sys_dir
+            sys_dir=$(dirname "$sys_path")
+            # Skip SR-IOV VFs (enslaved interfaces) — they share the MAC of their master
+            # but don't hold an IP address themselves.
+            [ -e "$sys_dir/master" ] && continue
+            if [ "$(cat "$sys_path" 2>/dev/null | tr '[:upper:]' '[:lower:]')" = "$mac" ]; then
+                iface_name=$(basename "$sys_dir")
+                break
+            fi
+        done
+        if [ -z "$iface_name" ]; then
+            echo "Warning: could not find interface for MAC ${mac}, using eth${i} as fallback for logging"
+            iface_name="eth${i}"
+        fi
+
+        # Check if this NIC has IPv6 addresses configured in IMDS
+        local ipv6_count
+        ipv6_count=$(jq -r ".network.interface[$i].ipv6.ipAddress | length" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+        local has_ipv6=false
+        if [ "$ipv6_count" -gt 0 ]; then
+            has_ipv6=true
+        fi
+
+        if [ "$is_netplan" = true ]; then
+            # Ubuntu: generate netplan config for the secondary NIC.
+            # Match by MAC address so we configure the right device regardless of
+            # kernel naming (SR-IOV VFs can shift ethN indices).
+            local netplan_file="/etc/netplan/60-secondary-nic-${i}.yaml"
+            {
+                cat <<NETPLAN_EOF
+network:
+  ethernets:
+    secondary-nic-${i}:
+      match:
+        macaddress: "${mac}"
+      dhcp4: true
+      dhcp4-overrides:
+        route-metric: ${metric}
+        use-dns: false
+NETPLAN_EOF
+                if [ "$has_ipv6" = true ]; then
+                    cat <<NETPLAN_V6_EOF
+      dhcp6: true
+      dhcp6-overrides:
+        route-metric: ${metric}
+        use-dns: false
+NETPLAN_V6_EOF
+                fi
+            } > "$netplan_file"
+            chmod 600 "$netplan_file"
+        else
+            # AzureLinux/Mariner: generate networkd .network unit.
+            # Prefix 10- so it takes precedence over the VHD's 99-dhcp-en.network.
+            # Match by MAC address so we configure the right device regardless of
+            # kernel naming (SR-IOV VFs can shift ethN indices).
+            local networkd_file="/etc/systemd/network/10-secondary-nic-${i}.network"
+            if [ "$has_ipv6" = true ]; then
+                cat > "$networkd_file" <<NETWORKD_EOF
+[Match]
+MACAddress=${mac}
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+
+[DHCPv4]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+SendRelease=false
+
+[DHCPv6]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+NETWORKD_EOF
+            else
+                cat > "$networkd_file" <<NETWORKD_EOF
+[Match]
+MACAddress=${mac}
+
+[Network]
+DHCP=ipv4
+
+[DHCPv4]
+RouteMetric=${metric}
+UseDNS=false
+UseDomains=false
+SendRelease=false
+NETWORKD_EOF
+            fi
+        fi
+
+        echo "Configured secondary NIC ${iface_name} (mac=${mac}, metric=${metric})"
+        # Only track interfaces that actually exist and are not SR-IOV VFs for
+        # the networkctl up loop. The .network files match by MAC and will
+        # auto-activate once the real interface appears, so a missing or VF
+        # interface should not block or fail the reload path.
+        if [ -d "/sys/class/net/${iface_name}" ] && [ ! -e "/sys/class/net/${iface_name}/master" ]; then
+            secondary_ifaces="${secondary_ifaces} ${iface_name}"
+        fi
+    done
+
+    # Apply all configs in a single operation to avoid repeated network restarts.
+    if [ "$is_netplan" = true ]; then
+        if ! retrycmd_if_failure 5 3 10 netplan apply; then
+            echo "Failed to apply netplan config for secondary NICs" >&2
+            return $ERR_SECONDARY_NIC_CONFIG_FAIL
+        fi
+    else
+        if isACL; then
+            # On ACL (Flatcar-based), networkctl's control socket is often broken
+            # ("Transport endpoint is not connected") because systemd-networkd's
+            # varlink socket is torn down during the initrd→real-root pivot and may
+            # never recover. Bypass the broken socket entirely by restarting the
+            # systemd-networkd service, which talks to PID-1's (always-working)
+            # D-Bus socket instead. The restart re-reads all .network files and
+            # brings up matching interfaces automatically — no separate
+            # networkctl up/reload calls needed.
+            if ! retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd; then
+                echo "Failed to restart systemd-networkd for secondary NICs" >&2
+                return $ERR_SECONDARY_NIC_CONFIG_FAIL
+            fi
+        else
+            local reload_retries=5 reload_sleep=3
+            if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl reload; then
+                echo "Failed to reload networkd for secondary NICs" >&2
+                return $ERR_SECONDARY_NIC_CONFIG_FAIL
+            fi
+            for iface in $secondary_ifaces; do
+                if ! retrycmd_if_failure $reload_retries $reload_sleep 10 networkctl up "$iface"; then
+                    echo "Failed to bring up ${iface}" >&2
+                    return $ERR_SECONDARY_NIC_CONFIG_FAIL
+                fi
+            done
+        fi
+    fi
+}
+
 ensureK8sControlPlane() {
     if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
         return

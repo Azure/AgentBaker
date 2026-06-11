@@ -405,6 +405,12 @@ function nodePrep {
     # Configure Azure network settings (udev rules for NIC configuration)
     logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
 
+    # Bring up secondary Standard-type NICs (if any) via IMDS metadata.
+    # Can be disabled via VMSS tag "SkipSecondaryNICConfig=true".
+    if [ "$(get_imds_vm_tag_value 'SkipSecondaryNICConfig')" != "true" ]; then
+        logs_to_events "AKS.CSE.configureSecondaryNICs" configureSecondaryNICs || exit $ERR_SECONDARY_NIC_CONFIG_FAIL
+    fi
+
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
     skip_nvidia_driver_install=$(should_skip_nvidia_drivers)

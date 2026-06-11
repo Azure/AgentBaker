@@ -2950,3 +2950,251 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 		},
 	})
 }
+
+func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			// configureSecondaryNICs is new and not yet baked into released VHDs.
+			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
+			// so it can't pick up the new function until the next VHD release.
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// Embed scripts in customData instead of using VHD scripts.
+				nbc.EnableScriptlessCSECmd = false
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Azure Linux",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu 22.04",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_ACL_SecondaryNIC(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on ACL",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDACLGen2TL,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				addSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
+				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 24.04",
+		Config: Config{
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDUbuntu2404Gen2Containerd,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+				if nbc.ContainerService.Properties.FeatureFlags == nil {
+					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
+				}
+				nbc.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				DualStackVMConfigMutator(vmss)
+				addDualStackSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 22.04",
+		Config: Config{
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+				if nbc.ContainerService.Properties.FeatureFlags == nil {
+					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
+				}
+				nbc.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				DualStackVMConfigMutator(vmss)
+				addDualStackSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6: true")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp4-overrides:")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "dhcp6-overrides:")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "route-metric: 200")
+				ValidateFileHasContent(ctx, s, "/etc/netplan/60-secondary-nic-1.yaml", "use-dns: false")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a dual-stack secondary NIC is properly configured on Azure Linux",
+		Config: Config{
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+				if nbc.ContainerService.Properties.FeatureFlags == nil {
+					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
+				}
+				nbc.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				DualStackVMConfigMutator(vmss)
+				addDualStackSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
+
+func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a dual-stack secondary NIC is properly configured on ACL",
+		Config: Config{
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDACLGen2TL,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+				if nbc.ContainerService.Properties.FeatureFlags == nil {
+					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
+				}
+				nbc.ContainerService.Properties.FeatureFlags.EnableIPv6DualStack = true
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginNone)
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/podnetwork-type"] = "overlay"
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
+				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				DualStackVMConfigMutator(vmss)
+				addDualStackSecondaryNIC(vmss)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
+				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
+			},
+		},
+	})
+}
