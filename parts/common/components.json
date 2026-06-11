@@ -1927,25 +1927,14 @@
       "name": "dra-driver-nvidia-gpu",
       "downloadLocation": "/opt/dra-driver-nvidia-gpu/downloads",
       "downloadURIs": {
-        "default": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "<SKIP>"
-              }
-            ]
-          }
-        },
         "ubuntu": {
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.2-test"
+                "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.4.0-ubuntu24.04u1"
               }
-            ],
-            "downloadURL": "https://github.com/runzhen/dra-driver-nvidia-gpu/releases/download/v${version}/gpu-kubelet-plugin-v${version}-linux-${CPU_ARCH}.tar.gz"
+            ]
           }
         }
       }
