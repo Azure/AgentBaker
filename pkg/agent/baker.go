@@ -1439,6 +1439,9 @@ func getPortRangeEndValue(portRange string) int {
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
+	if useGridV20Drivers(size) {
+		return datamodel.NvidiaGridV20DriverVersion
+	}
 	if useGridDrivers(size) {
 		return datamodel.NvidiaGridDriverVersion
 	}
@@ -1457,7 +1460,16 @@ func useGridDrivers(size string) bool {
 	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
 }
 
+// useGridV20Drivers reports whether the SKU needs the GRID v20 (595.x) driver
+// image (aks-gpu-grid-v20) rather than the standard GRID image (aks-gpu-grid).
+func useGridV20Drivers(size string) bool {
+	return datamodel.RTXPro6000GPUDriverSizes[strings.ToLower(size)]
+}
+
 func GetAKSGPUImageSHA(size string) string {
+	if useGridV20Drivers(size) {
+		return datamodel.AKSGPUGridV20VersionSuffix
+	}
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridVersionSuffix
 	}
@@ -1465,6 +1477,9 @@ func GetAKSGPUImageSHA(size string) string {
 }
 
 func GetGPUDriverType(size string) string {
+	if useGridV20Drivers(size) {
+		return "grid-v20"
+	}
 	if useGridDrivers(size) {
 		return "grid"
 	}
