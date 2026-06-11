@@ -2318,7 +2318,18 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			VHD:      &config.Image{
+						Name:    "2404gen2containerd",
+						OS:      config.OSUbuntu,
+						Arch:    "amd64",
+						Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
+						Version: "1.1781143084.16434",          // pin to your published version
+						Gallery: &config.Gallery{        // omit to use the default gallery
+							SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
+							ResourceGroupName: "aksvhdtestbuildrg",
+							Name:              "PackerSigGalleryEastUS",
+    					},
+					},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
