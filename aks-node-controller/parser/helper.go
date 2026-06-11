@@ -545,11 +545,11 @@ func getCloudTargetEnv(v *aksnodeconfigv1.Configuration) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
 	switch {
 	case strings.HasPrefix(loc, "china"):
-		return "AzureChinaCloud"
+		return helpers.AzureChinaCloud
 	case loc == "germanynortheast" || loc == "germanycentral":
-		return "AzureGermanCloud"
+		return helpers.AzureGermanCloud
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
-		return "AzureUSGovernmentCloud"
+		return helpers.AzureUSGovernmentCloud
 	default:
 		return helpers.DefaultCloudName
 	}
@@ -591,9 +591,9 @@ func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
 		return env.ResourceManagerEndpoint
 	}
 	switch getCloudTargetEnv(v) {
-	case "AzureUSGovernmentCloud":
+	case helpers.AzureUSGovernmentCloud:
 		return "https://management.usgovcloudapi.net/"
-	case "AzureChinaCloud":
+	case helpers.AzureChinaCloud:
 		return "https://management.chinacloudapi.cn/"
 	}
 	return "https://management.azure.com/"

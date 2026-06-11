@@ -214,6 +214,17 @@ steps:
       artifactName: 'vhd-image-list-${{ parameters.artifactName }}'
       targetPath: '$(AKS_WINDOWS_IMAGE_VERSION)-image-list.json'
 
+  - bash: |
+      bash ./.pipelines/scripts/windows_generate_build_summary.sh
+    displayName: Generate build summary card
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'))
+    continueOnError: true
+    env:
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
+      ARCHITECTURE: ${{ parameters.architecture }}
+      AKS_WINDOWS_IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
+
   # Moved conversion to VHD before cleanup.
   # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
   # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
