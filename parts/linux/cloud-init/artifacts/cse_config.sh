@@ -958,8 +958,14 @@ configureSecondaryNICs() {
     echo "Detected $nic_count NICs, configuring secondary interfaces..."
 
     local is_netplan=false
+    # Ubuntu netplan primary NIC default metric is ~100,
+    # so secondary NICs use 200, 300, etc. (base 100).
+    # AzureLinux/Mariner networkd primary NIC DHCP default metric is 1024,
+    # so secondary NICs must use >1024 to avoid asymmetric routing.
+    local metric_base=2000
     if isUbuntu; then
         is_netplan=true
+        metric_base=100
     fi
 
     # Collect resolved interface names for networkctl up calls after reload.
@@ -970,7 +976,7 @@ configureSecondaryNICs() {
         mac=$(jq -r ".network.interface[$i].macAddress" "$IMDS_INSTANCE_METADATA_CACHE_FILE")
         # IMDS returns MAC without colons (e.g. "7CED8D8A4DCE"), convert to colon-separated lowercase
         mac=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]')
-        local metric=$(( 100 + i * 100 ))
+        local metric=$(( metric_base + i * 100 ))
 
         # Resolve the actual kernel interface name by matching the MAC address against
         # /sys/class/net/*/address. This is necessary because SR-IOV virtual functions
