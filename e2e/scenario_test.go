@@ -3065,7 +3065,7 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
 				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
@@ -3114,7 +3114,7 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileExists(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=ipv4")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
 				ValidateSecondaryNICUp(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
@@ -3224,7 +3224,7 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
 				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
@@ -3261,7 +3261,7 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "DHCP=yes")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "IPv6AcceptRA=yes")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "[DHCPv6]")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=200")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "RouteMetric=2100")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/network/10-secondary-nic-1.network", "UseDNS=false")
 				ValidateSecondaryNICDualStack(ctx, s, resolveSecondaryNICName(ctx, s))
 			},
