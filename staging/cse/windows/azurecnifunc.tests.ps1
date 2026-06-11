@@ -8,6 +8,11 @@ BeforeAll {
         $script:capturedContent = $Value
     } -Verifiable
 
+    function Create-Directory {
+        param($FullPath, $DirectoryUsage)
+        New-Item -ItemType Directory -Path $FullPath -ErrorAction SilentlyContinue | Out-Null
+    }
+
     function Invoke-WebRequest {
         return  @"
             [
@@ -27,7 +32,26 @@ BeforeAll {
 
     # this often doesn't exist in test environment, so create it here so we can mock it later.
     function New-HNSNetwork {}
+    function Get-NetIPAddress {}
+    function Get-NetAdapter {}
+    function Get-NetIPConfiguration {}
+    function Restart-Service {}
+    function Get-Service {}
+    function Start-Service {}
+    function Assert-FileExists {
+        param($Filename, $ExitCode)
+    }
 
+    # Stubs for Windows-only service management cmdlets unavailable on Linux
+    Mock Get-Service -MockWith {
+        param($Name, $ErrorAction)
+    }
+
+    Mock Start-Service -MockWith {
+        param($Name, $ErrorAction)
+    }
+
+    filter RemoveNulls { $_ -replace '\0', '' }
     # overwrite Start-Sleep and Write-Host to avoid unnecessary waiting and output during tests.
     function Start-Sleep {}
     function Write-Host {}
@@ -151,7 +175,7 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'Cilium (ebpf dataplane) is enabled' {
-        It "Should use azure-cns as IPAM" {
+        It "Should use azure-cns as IPAM" -Tag Focus {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
             $global:CiliumDataplaneEnabled = $true
