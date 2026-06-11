@@ -344,7 +344,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	}
 
-	err = getCustomScriptExtensionStatus(s, scenarioVM.VM)
+	err = getCustomScriptExtensionStatus(ctx, s, scenarioVM.VM)
 	require.NoError(s.T, err)
 
 	if !s.Config.SkipDefaultValidation {
@@ -458,20 +458,54 @@ func validateVM(ctx context.Context, s *Scenario) {
 	}
 }
 
-func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
+	// Re-fetch the VM with instance view to ensure we have fresh extension status data.
+	// The VM object passed in may have been fetched before the CSE finished executing,
+	// so the extension status message could be empty or stale.
+	if vmssVM.InstanceID != nil {
+		freshVM, err := s.GetAzure().VMSSVM.Get(ctx,
+			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+			s.Runtime.VMSSName,
+			*vmssVM.InstanceID,
+			&armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+				Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
+			})
+		if err == nil && freshVM.Properties != nil && freshVM.Properties.InstanceView != nil {
+			vmssVM.Properties.InstanceView = freshVM.Properties.InstanceView
+		} else if err != nil {
+			s.T.Logf("warning: failed to re-fetch VM instance view for CSE status: %v", err)
+		}
+	}
+
 	for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+		// Only process the CSE extension, skip other extensions (e.g., ManagedIdentity)
+		// whose empty status messages would overwrite the actual CSE output file.
+		// The extension name in InstanceView is typically "vmssCSE" (matching the resource name)
+		// but may also appear as the handler type. Match on known CSE identifiers.
+		if extension.Name == nil {
+			continue
+		}
+		name := strings.ToLower(*extension.Name)
+		isCSE := name == "vmsscse" ||
+			strings.Contains(name, "customscript") ||
+			strings.Contains(name, "aksnode")
+		if !isCSE {
+			continue
+		}
 		for _, status := range extension.Statuses {
 			if s.IsWindows() {
-				// Save the CSE output for Windows VMs for better troubleshooting
-				if status.Message != nil {
-					logDir := filepath.Join("scenario-logs", s.T.Name())
+				// Save the CSE output for Windows VMs for better troubleshooting.
+				// Only write when the message has actual content to avoid overwriting
+				// with an empty file from a status entry that has no output.
+				if status.Message != nil && *status.Message != "" {
+					logDir := testDir(s.T)
 					if err := os.MkdirAll(logDir, 0755); err == nil {
 						logFile := filepath.Join(logDir, "windows-cse-output.log")
 						err = os.WriteFile(logFile, []byte(*status.Message), 0644)
 						if err != nil {
 							s.T.Logf("failed to save Windows CSE output to %s: %v", logFile, err)
 						} else {
-							s.T.Logf("saved Windows CSE output to %s", logFile)
+							s.T.Logf("saved Windows CSE output to %s (%d bytes)", logFile, len(*status.Message))
 						}
 					}
 				}
@@ -797,11 +831,11 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
-	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	vm, err := s.GetAzure().VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
 	s.T.Log("Deallocating VMSS VM...")
-	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
+	poll, err := s.GetAzure().VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
 	require.NoError(s.T, err, "Failed to begin deallocate")
 	_, err = poll.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to deallocate")
@@ -848,7 +882,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 
 	// Create the image version directly from the disk
 	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
-	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
+	createVersionOp, err := s.GetAzure().GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
 		Location: to.Ptr(s.Location),
 		Properties: &armcompute.GalleryImageVersionProperties{
 			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
@@ -884,7 +918,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
-		SubscriptionID:    config.Config.SubscriptionID,
+		SubscriptionID:    s.GetSubscriptionID(),
 		ResourceGroupName: rg,
 		Name:              *gallery.Name,
 	}

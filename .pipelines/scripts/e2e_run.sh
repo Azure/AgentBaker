@@ -17,6 +17,9 @@ set -euo pipefail
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 
+# Map E2E_SUBSCRIPTION_ID to SUBSCRIPTION_ID which the Go test framework reads
+export SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID}"
+
 # Setup go
 export GOPATH="$(go env GOPATH)"
 go version

@@ -21,6 +21,21 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// ClusterInfra captures the Azure infrastructure scope for cluster operations.
+// It allows cluster creation and management to target different subscriptions.
+type ClusterInfra struct {
+	Azure             *config.AzureClient
+	SubscriptionID    string
+	ResourceGroupName func(location string) string
+}
+
+// DefaultClusterInfra uses the default subscription and resource group naming.
+var DefaultClusterInfra = &ClusterInfra{
+	Azure:             config.Azure,
+	SubscriptionID:    config.Config.SubscriptionID,
+	ResourceGroupName: config.ResourceGroupName,
+}
+
 type Tags struct {
 	Name                   string
 	ImageName              string
@@ -35,6 +50,7 @@ type Tags struct {
 	Scriptless             bool
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
+	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
 }
 
@@ -147,6 +163,14 @@ type Scenario struct {
 	// a default size will be used.
 	K8sSystemPoolSKU string
 
+	// AzureClient overrides the default config.Azure client for this scenario.
+	// When nil, config.Azure is used.
+	AzureClient *config.AzureClient
+
+	// SubscriptionID overrides the default config.Config.SubscriptionID for this scenario.
+	// When empty, config.Config.SubscriptionID is used.
+	SubscriptionID string
+
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       testing.TB
@@ -237,6 +261,12 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// VMInstanceTags are tags applied directly to VMSS VM instances after creation via BeginUpdate.
+	// This is needed for features like RCV1P where wireserver checks tags on the individual VM instance,
+	// not the VMSS resource-level tags. These tags are applied after the VM appears in the API but
+	// before CSE completes, giving wireserver time to see them before the provisioning scripts query it.
+	VMInstanceTags map[string]*string
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -466,4 +496,30 @@ func (s *Scenario) GetContainerRegistryFQDN() string {
 	}
 	// Default to public cloud container registry (also used by Fairfax/US Gov)
 	return "mcr.microsoft.com"
+}
+
+// GetAzure returns the AzureClient for this scenario, falling back to the default config.Azure.
+func (s *Scenario) GetAzure() *config.AzureClient {
+	if s.AzureClient != nil {
+		return s.AzureClient
+	}
+	return config.Azure
+}
+
+// GetSubscriptionID returns the subscription ID for this scenario, falling back to config.Config.SubscriptionID.
+func (s *Scenario) GetSubscriptionID() string {
+	if s.SubscriptionID != "" {
+		return s.SubscriptionID
+	}
+	return config.Config.SubscriptionID
+}
+
+// GetResourceGroupName returns the resource group name for this scenario's location.
+func (s *Scenario) GetResourceGroupName() string {
+	return config.ResourceGroupName(s.Location)
+}
+
+// GetVMIdentityResourceID returns the VM identity resource ID for this scenario.
+func (s *Scenario) GetVMIdentityResourceID() string {
+	return config.Config.VMIdentityResourceID(s.Location)
 }
