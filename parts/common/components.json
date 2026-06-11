@@ -2305,6 +2305,30 @@
           }
         }
       }
+    },
+    {
+      "name": "dra-driver-nvidia-gpu",
+      "downloadLocation": "/opt/dra-driver-nvidia-gpu/downloads",
+      "downloadURIs": {
+         "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=24.04",
+                "latestVersion": "0.19.2-ubuntu24.04u1"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=22.04",
+                "latestVersion": "0.19.2-ubuntu22.04u1"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "OCIArtifacts": [
