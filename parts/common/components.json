@@ -741,7 +741,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-        "latestVersion": "580.126.09-20260126030251"
+          "latestVersion": "595.71.05-20260609172402"
       }
     },
     {
