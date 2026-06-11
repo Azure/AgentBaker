@@ -728,7 +728,7 @@ func Test_Ubuntu2404_NvidiaDraDriverRunning(t *testing.T) {
 				OS:      config.OSUbuntu,
 				Arch:    "amd64",
 				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781052049.2529", // pin to your published version
+				Version: "1.1781143084.16434", // pin to your published version
 				Gallery: &config.Gallery{ // omit to use the default gallery
 					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
 					ResourceGroupName: "aksvhdtestbuildrg",
@@ -750,6 +750,41 @@ func Test_Ubuntu2404_NvidiaDraDriverRunning(t *testing.T) {
 				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
 				require.NoError(t, err, "creating AKS VM extension")
 				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD: &config.Image{
+				Name:    "2404gen2containerd",
+				OS:      config.OSUbuntu,
+				Arch:    "amd64",
+				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
+				Version: "1.1781143084.16434", // pin to your published version
+				Gallery: &config.Gallery{ // omit to use the default gallery
+					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
+					ResourceGroupName: "aksvhdtestbuildrg",
+					Name:              "PackerSigGalleryEastUS",
+				},
+			},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", "2.5.3")
+				ValidateSSHServiceEnabled(ctx, s)
 			},
 		},
 	})
