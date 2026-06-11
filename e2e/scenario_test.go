@@ -3027,9 +3027,12 @@ func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			// configureSecondaryNICs is new and not yet baked into released VHDs.
+			// The scriptless_nbc path always uses VHD scripts (DisableCustomData=true),
+			// so it can't pick up the new function until the next VHD release.
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// configureSecondaryNICs is new and not yet on released VHDs,
-				// so we must embed scripts in customData instead of using VHD scripts.
+				// Embed scripts in customData instead of using VHD scripts.
 				nbc.EnableScriptlessCSECmd = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -3050,8 +3053,9 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Azure Linux",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
@@ -3073,8 +3077,9 @@ func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on Ubuntu 22.04",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
@@ -3096,8 +3101,9 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a secondary NIC is properly configured via configureSecondaryNICs on ACL",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDACLGen2TL,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 			},
@@ -3120,8 +3126,9 @@ func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 24.04",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDUbuntu2404Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
@@ -3151,8 +3158,9 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Ubuntu 22.04",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
@@ -3182,8 +3190,9 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on Azure Linux",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
-			VHD:     config.VHDAzureLinuxV3Gen2,
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDAzureLinuxV3Gen2,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
@@ -3212,8 +3221,9 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a dual-stack secondary NIC is properly configured on ACL",
 		Config: Config{
-			Cluster: ClusterAzureOverlayNetworkDualStack,
-			VHD:     config.VHDACLGen2TL,
+			Cluster:           ClusterAzureOverlayNetworkDualStack,
+			VHD:               config.VHDACLGen2TL,
+			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
