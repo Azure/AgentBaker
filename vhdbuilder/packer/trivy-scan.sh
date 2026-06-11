@@ -12,7 +12,7 @@ TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghc
 TRIVY_DEB_2004_VERSION="0.70.0-ubuntu20.04u3"
 
 # renovate: datasource=custom.deb2204 depName=trivy versioning=deb
-TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u2"
+TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u3"
 
 # renovate: datasource=custom.deb2404 depName=trivy versioning=deb
 TRIVY_DEB_2404_VERSION="0.70.0-ubuntu24.04u3"
