@@ -102,6 +102,12 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 		}
 		if !hasIPv6 {
 			toolkit.Logf(ctx, "adding IPv6 address space %s to shared VNet %s", SharedVNetIPv6CIDR, SharedVNetName)
+			if existing.Properties == nil {
+				existing.Properties = &armnetwork.VirtualNetworkPropertiesFormat{}
+			}
+			if existing.Properties.AddressSpace == nil {
+				existing.Properties.AddressSpace = &armnetwork.AddressSpace{}
+			}
 			prefixes := existing.Properties.AddressSpace.AddressPrefixes
 			prefixes = append(prefixes, to.Ptr(SharedVNetIPv6CIDR))
 			// Preserve existing subnets in the PUT body — Azure VNet CreateOrUpdate
