@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+[ -n "${__SOURCED__:-}" ] || set -x
 
 # Path constants — overridable for testing via env vars; defaults preserve
 # production behavior. functions defined until "${__SOURCED__:+return}" are
@@ -42,7 +42,6 @@ detect_distro() {
         exit 1
     fi
 
-    echo "distribution is $distribution"
     echo "Running on $NAME"
 }
 

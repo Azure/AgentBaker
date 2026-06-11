@@ -46,6 +46,7 @@ EOF
         It 'rewrites Mariner repo baseurls to the depot endpoint and creates extended/nvidia/cloud-native repos'
             write_mariner_extras_repo
             When call init_mariner_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_D_DIR}/mariner-extended.repo" should be exist
             The path "${YUM_REPOS_D_DIR}/mariner-nvidia.repo" should be exist
@@ -61,6 +62,7 @@ EOF
         It 'derives the nvidia repo from extras with case-preserving section/name updates'
             write_mariner_extras_repo
             When call init_mariner_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_D_DIR}/mariner-nvidia.repo" should include "[mariner-official-nvidia]"
             The contents of file "${YUM_REPOS_D_DIR}/mariner-nvidia.repo" should include "name=CBL-Mariner Official Nvidia"
@@ -70,6 +72,7 @@ EOF
     Describe 'init_azurelinux_repo_depot'
         It 'creates all seven azurelinux repo files pointing at the depot'
             When call init_azurelinux_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should be exist
             The path "${YUM_REPOS_D_DIR}/azurelinux-cloud-native.repo" should be exist
@@ -82,6 +85,7 @@ EOF
 
         It 'writes baseurls that point at the depot and never at packages.microsoft.com'
             When call init_azurelinux_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.bleu.example.com/azurelinux/"
             The contents of file "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should not include "packages.microsoft.com"
@@ -93,6 +97,7 @@ EOF
         It 'removes any pre-existing azurelinux*.repo files before creating new ones'
             echo "stale" > "${YUM_REPOS_D_DIR}/azurelinux-leftover.repo"
             When call init_azurelinux_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_D_DIR}/azurelinux-leftover.repo" should not be exist
         End
@@ -134,6 +139,7 @@ EOF
             detect_distro
             REPO_DEPOT_ENDPOINT="https://repodepot.bleu.example.com/ubuntu"
             When call init_repo_depot
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_D_DIR}/mariner-extras.repo" should include "https://repodepot.bleu.example.com/mariner/packages.microsoft.com"
             The contents of file "${YUM_REPOS_D_DIR}/mariner-extras.repo" should not include "https://packages.microsoft.com"
@@ -144,6 +150,7 @@ EOF
             detect_distro
             REPO_DEPOT_ENDPOINT="https://repodepot.bleu.example.com/ubuntu"
             When call init_repo_depot
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should include "https://repodepot.bleu.example.com/azurelinux/"
         End

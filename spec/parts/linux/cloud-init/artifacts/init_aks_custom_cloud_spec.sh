@@ -59,6 +59,7 @@ EOF
         It 'writes a ubuntu.sources file pointing at the depot, with no upstream URLs'
             write_ubuntu_os_release
             When call init_ubuntu_main_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should be exist
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.bleu.example.com/ubuntu"
@@ -73,6 +74,7 @@ EOF
             echo "deb http://archive.ubuntu.com/ubuntu jammy main" > "${APT_SOURCES_LIST}"
             echo "deb http://packages.microsoft.com/repos/azure-cli/ jammy main" > "${APT_SOURCES_LIST_D_DIR}/azure-cli.list"
             When call init_ubuntu_main_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${APT_BACKUP_DIR}/sources.list" should be exist
             The path "${APT_BACKUP_DIR}/azure-cli.list" should be exist
@@ -99,6 +101,7 @@ EOF
             ubuntuRel=22.04
             repodepot_endpoint="https://repodepot.bleu.example.com"
             When call init_ubuntu_pmc_repo_depot "${repodepot_endpoint}"
+            The output should be present
             The status should be success
             The path "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should be exist
             The path "${APT_SOURCES_LIST_D_DIR}/microsoft-prod-testing.sources" should be exist

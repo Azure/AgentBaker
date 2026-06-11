@@ -45,6 +45,7 @@ EOF
         It 'rewrites Mariner repo baseurls to the depot endpoint with no PMC leakage'
             write_mariner_extras_repo
             When call init_mariner_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_D_DIR}/mariner-extended.repo" should be exist
             The path "${YUM_REPOS_D_DIR}/mariner-nvidia.repo" should be exist
@@ -59,6 +60,7 @@ EOF
     Describe 'init_azurelinux_repo_depot'
         It 'creates azurelinux repo files all pointing at the depot, no PMC, no NVIDIA URLs'
             When call init_azurelinux_repo_depot "https://repodepot.bleu.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should be exist
             The path "${YUM_REPOS_D_DIR}/azurelinux-nvidia.repo" should be exist
@@ -103,6 +105,7 @@ EOF
             detect_distro
             REPO_DEPOT_ENDPOINT="https://repodepot.bleu.example.com/ubuntu"
             When call init_repo_depot
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_D_DIR}/mariner-extras.repo" should include "https://repodepot.bleu.example.com/mariner/packages.microsoft.com"
             The contents of file "${YUM_REPOS_D_DIR}/mariner-extras.repo" should not include "https://packages.microsoft.com"
@@ -113,6 +116,7 @@ EOF
             detect_distro
             REPO_DEPOT_ENDPOINT="https://repodepot.bleu.example.com/ubuntu"
             When call init_repo_depot
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should include "https://repodepot.bleu.example.com/azurelinux/"
             The contents of file "${YUM_REPOS_D_DIR}/azurelinux-base.repo" should not include "packages.microsoft.com"
