@@ -1966,7 +1966,8 @@ func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
 
 	s.T.Log("Testing localdns cold start with empty hosts file then population")
 
-	script := `set -euo pipefail
+	script := `#!/bin/bash
+set -euo pipefail
 hosts_file="/etc/localdns/hosts"
 canary_fqdn="canary.localdns.test"
 canary_ip="192.0.2.99"
@@ -2034,7 +2035,9 @@ restart_localdns_cleanly() {
     local rc=0
 
     echo "Stopping localdns (${reason})..."
-    if ! sudo systemctl stop localdns; then
+    if sudo systemctl stop localdns; then
+        :
+    else
         rc=$?
         echo "ERROR: localdns stop failed (${reason}, rc=$rc)" >&2
         dump_localdns_diagnostics
@@ -2049,7 +2052,9 @@ restart_localdns_cleanly() {
     sudo systemctl reset-failed localdns || true
 
     echo "Starting localdns (${reason})..."
-    if ! sudo systemctl start localdns; then
+    if sudo systemctl start localdns; then
+        :
+    else
         rc=$?
         echo "ERROR: localdns start failed (${reason}, rc=$rc)" >&2
         dump_localdns_diagnostics
