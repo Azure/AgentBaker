@@ -103,13 +103,12 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 			toolkit.Logf(ctx, "adding IPv6 address space %s to shared VNet %s", SharedVNetIPv6CIDR, SharedVNetName)
 			prefixes := existing.Properties.AddressSpace.AddressPrefixes
 			prefixes = append(prefixes, to.Ptr(SharedVNetIPv6CIDR))
+			// Preserve existing subnets in the PUT body — Azure VNet CreateOrUpdate
+			// is a full PUT, so omitting Subnets would delete them.
+			existing.Properties.AddressSpace.AddressPrefixes = prefixes
 			poller, updateErr := config.Azure.VNet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, armnetwork.VirtualNetwork{
 				Location: existing.Location,
-				Properties: &armnetwork.VirtualNetworkPropertiesFormat{
-					AddressSpace: &armnetwork.AddressSpace{
-						AddressPrefixes: prefixes,
-					},
-				},
+				Properties: existing.Properties,
 			}, nil)
 			if updateErr != nil {
 				return fmt.Errorf("adding IPv6 to shared VNet: %w", updateErr)
@@ -573,14 +572,15 @@ func cidrFromIndex(idx int) string {
 
 // allocateSubnetIPv6CIDR finds a free /64 within the VNet's fd00::/48 space.
 // Uses the same hash-based approach as IPv4 allocation. The fd00::/48 space
-// gives us 65536 /64 subnets (fd00:0000::/64 through fd00:ffff::/64).
+// gives us 65536 /64 subnets (fd00:0:0:0000::/64 through fd00:0:0:ffff::/64).
+// The variable part must be in the 4th group (bits 49-64) to stay inside the /48.
 func allocateSubnetIPv6CIDR(name string, usedCIDRs map[string]bool) string {
 	const totalIPv6Slots = 65536
 	h := sha256.Sum256([]byte(name + "-ipv6"))
 	startIdx := (int(h[0])<<8 | int(h[1])) % totalIPv6Slots
 	for i := 0; i < totalIPv6Slots; i++ {
 		idx := (startIdx + i) % totalIPv6Slots
-		cidr := fmt.Sprintf("fd00:%04x::/64", idx)
+		cidr := fmt.Sprintf("fd00:0:0:%04x::/64", idx)
 		if usedCIDRs[cidr] {
 			continue
 		}

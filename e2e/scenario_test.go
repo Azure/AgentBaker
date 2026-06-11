@@ -2924,6 +2924,11 @@ func Test_Ubuntu2404_SecondaryNIC(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				// configureSecondaryNICs is new and not yet on released VHDs,
+				// so we must embed scripts in customData instead of using VHD scripts.
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
@@ -2944,6 +2949,9 @@ func Test_AzureLinuxV3_SecondaryNIC(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
@@ -2964,6 +2972,9 @@ func Test_Ubuntu2204_SecondaryNIC(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				addSecondaryNIC(vmss)
 			},
@@ -2984,6 +2995,9 @@ func Test_ACL_SecondaryNIC(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 				addSecondaryNIC(vmss)
@@ -3006,6 +3020,7 @@ func Test_Ubuntu2404_SecondaryNIC_DualStack(t *testing.T) {
 			Cluster: ClusterAzureOverlayNetworkDualStack,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
 				}
@@ -3036,6 +3051,7 @@ func Test_Ubuntu2204_SecondaryNIC_DualStack(t *testing.T) {
 			Cluster: ClusterAzureOverlayNetworkDualStack,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
 				}
@@ -3066,6 +3082,7 @@ func Test_AzureLinuxV3_SecondaryNIC_DualStack(t *testing.T) {
 			Cluster: ClusterAzureOverlayNetworkDualStack,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
 				}
@@ -3095,6 +3112,7 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 			Cluster: ClusterAzureOverlayNetworkDualStack,
 			VHD:     config.VHDACLGen2TL,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableScriptlessCSECmd = false
 				if nbc.ContainerService.Properties.FeatureFlags == nil {
 					nbc.ContainerService.Properties.FeatureFlags = &datamodel.FeatureFlags{}
 				}
