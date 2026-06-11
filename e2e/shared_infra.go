@@ -114,7 +114,8 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 			// is a full PUT, so omitting Subnets would delete them.
 			existing.Properties.AddressSpace.AddressPrefixes = prefixes
 			poller, updateErr := config.Azure.VNet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, armnetwork.VirtualNetwork{
-				Location: existing.Location,
+				Location:   existing.Location,
+				Tags:       existing.Tags,
 				Properties: existing.Properties,
 			}, nil)
 			if updateErr != nil {
