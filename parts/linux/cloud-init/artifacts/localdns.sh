@@ -419,11 +419,12 @@ start_localdns() {
     ${COREDNS_COMMAND} &
 
     # Wait until the PID file is created.
+    # Use 0.1s polling interval since CoreDNS typically creates the PID file in <100ms.
     local elapsed=0
     while [ ! -f "${LOCALDNS_PID_FILE}" ]; do
-        sleep 1
+        sleep 0.1
         elapsed=$((elapsed + 1))
-        if [ "$elapsed" -ge "$START_LOCALDNS_TIMEOUT" ]; then
+        if [ "$elapsed" -ge "$((START_LOCALDNS_TIMEOUT * 10))" ]; then
             echo "Timed out waiting for CoreDNS to create PID file at ${LOCALDNS_PID_FILE}."
             return 1
         fi
@@ -454,7 +455,7 @@ wait_for_localdns_ready() {
             echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
             return 1
         fi
-        sleep 1
+        sleep 0.1
         ((attempts++))
     done
     echo "Localdns is online and ready to serve traffic."
@@ -588,10 +589,19 @@ add_iptable_rules_to_skip_conntrack_from_pods(){
     ip addr add ${LOCALDNS_CLUSTER_LISTENER_IP}/32 dev localdns
 
     # Add IPtables rules that skip conntrack for DNS connections coming from pods.
+    # Use iptables-restore to batch all rules in a single lock acquisition for performance.
     echo "Adding iptables rules to skip conntrack for queries to localdns."
+    local restore_input="*raw"
     for RULE in "${IPTABLES_RULES[@]}"; do
-        eval "${IPTABLES}" -A "${RULE}"
+        # Extract chain name and remainder, insert comment after chain to match legacy display order.
+        local chain="${RULE%% *}"
+        local rule_rest="${RULE#"$chain" }"
+        restore_input="${restore_input}
+-A ${chain} -m comment --comment \"localdns: skip conntrack\" ${rule_rest}"
     done
+    restore_input="${restore_input}
+COMMIT"
+    echo "${restore_input}" | iptables-restore -w --noflush
 }
 
 # Wait for localdns IP to be removed from resolv.conf after networkctl reload.
@@ -1029,7 +1039,6 @@ replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
 
 # Build IPtable rules.
 # ---------------------------------------------------------------------------------------------------------------------
-IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
 IPTABLES_RULES=()
 build_localdns_iptable_rules
 
@@ -1059,7 +1068,7 @@ fi
 start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
-wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
+wait_for_localdns_ready 600 60 || exit $ERR_LOCALDNS_FAIL
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
