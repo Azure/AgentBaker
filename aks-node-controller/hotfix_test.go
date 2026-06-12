@@ -113,6 +113,7 @@ func TestHotfixBaseFromVersion(t *testing.T) {
 		{"two-digit day", "202605.30.2", "202605.30", false},
 		{"trims whitespace", "  202604.01.1  ", "202604.01", false},
 		{"too few segments", "202604.01", "", true},
+		{"empty patch segment", "202604.01.", "", true},
 		{"single segment", "dev", "", true},
 		{"empty", "", "", true},
 	}
@@ -303,16 +304,43 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	assert.True(t, installCalled, "should proceed when base matches and hotfix patch is higher")
 }
 
-func TestDownloadHotfix_UnreadableFile(t *testing.T) {
+func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
 	require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0"}`), 0o644))
 	require.NoError(t, os.Chmod(path, 0o000))
 	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
 
-	tt := NewTestApp(t, TestAppConfig{})
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(*exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
 	tt.App.hotfixVersionPath = path
-	require.Error(t, tt.App.downloadHotfix(context.Background()))
+	// Fail-open: an unreadable config must skip the hotfix without erroring,
+	// so download-hotfix never blocks provisioning.
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip install when the config cannot be read")
+}
+
+func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(path, []byte("not json"), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(*exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	// Fail-open: malformed JSON must skip the hotfix without erroring.
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip install when the config is invalid JSON")
 }
 
 func TestDownloadHotfix_MapBaseNotPresentSkips(t *testing.T) {
