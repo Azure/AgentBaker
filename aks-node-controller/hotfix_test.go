@@ -387,6 +387,30 @@ func TestDownloadHotfix_MapPatchNotHigherSkips(t *testing.T) {
 	assert.False(t, installCalled, "should skip when resolved hotfix patch is not strictly higher")
 }
 
+func TestDownloadHotfix_MapMisconfiguredValueBaseSkips(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hotfix-config.json")
+	// Misconfigured entry: the value's base (202605.30) does not match its key (202604.01).
+	// resolveVersion selects it by key for a node on base 202604.01, but shouldUpgradeToHotfix
+	// must reject it because the YYYYMM.DD bases differ, so no wrong-base binary is installed.
+	require.NoError(t, os.WriteFile(path, []byte(`{"hotfixes": {"202604.01": "202605.30.2"}}`), 0o644))
+
+	installCalled := false
+	tt := NewTestApp(t, TestAppConfig{
+		RunFunc: func(cmd *exec.Cmd) error {
+			installCalled = true
+			return nil
+		},
+	})
+	tt.App.hotfixVersionPath = path
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+	assert.False(t, installCalled, "should skip when the map value's base does not match the node's base")
+}
+
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {
 	callCount := 0
 	tt := NewTestApp(t, TestAppConfig{
