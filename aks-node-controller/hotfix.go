@@ -38,7 +38,11 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	}
 	cfg, err := readHotfixConfig(hotfixPath)
 	if err != nil {
-		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
+		// Fail-open: an unreadable or malformed hotfix config must never block
+		// provisioning. Log and skip so the node boots on its VHD-baked binary.
+		slog.Warn("failed to read hotfix config, skipping hotfix download",
+			"path", hotfixPath, "error", err)
+		return nil
 	}
 	hotfixVersion := cfg.resolveVersion(Version)
 
@@ -95,9 +99,11 @@ type hotfixConfig struct {
 // the form "YYYYMM.DD.PATCH". It splits on "." rather than parsing semver so the literal
 // day segment — including any leading zero such as "01" — is preserved to match map keys
 // exactly (semver parsing would drop the leading zero, e.g. "202604.01" -> minor 1).
+// All three segments must be non-empty; a present-but-empty patch (e.g. "202604.01.")
+// is rejected so an obviously malformed current version never selects a map entry.
 func hotfixBaseFromVersion(version string) (string, error) {
 	parts := strings.SplitN(strings.TrimSpace(version), ".", 3)
-	if len(parts) < 3 || parts[0] == "" || parts[1] == "" {
+	if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 		return "", fmt.Errorf("version %q is not in YYYYMM.DD.PATCH form", version)
 	}
 	return parts[0] + "." + parts[1], nil
