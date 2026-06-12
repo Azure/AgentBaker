@@ -558,10 +558,9 @@ while IFS= read -r p; do
       ;;
     "dra-driver-nvidia-gpu")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        mkdir -p "${downloadDir}"
-        tarball="${downloadDir}/${evaluatedURL##*/}"
-        retrycmd_get_tarball 120 5 60 "${tarball}" "${evaluatedURL}" 300 || exit $ERR_GPU_DOWNLOAD_TIMEOUT
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+          downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
+        fi
         echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
