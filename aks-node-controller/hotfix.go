@@ -148,17 +148,6 @@ func readHotfixConfig(path string) (hotfixConfig, error) {
 	return cfg, nil
 }
 
-// readHotfixVersion reads the legacy single-version field from the hotfix config.
-// Retained for backward compatibility; map-aware callers should use readHotfixConfig
-// together with hotfixConfig.resolveVersion.
-func readHotfixVersion(path string) (string, error) {
-	cfg, err := readHotfixConfig(path)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(cfg.Version), nil
-}
-
 // packageManager represents a supported system package manager.
 type packageManager string
 
