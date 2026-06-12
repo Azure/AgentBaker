@@ -305,11 +305,23 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 }
 
 func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0"}`), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
 	require.NoError(t, os.Chmod(path, 0o000))
 	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+	if _, err := os.ReadFile(path); err == nil {
+		require.NoError(t, os.Remove(path))
+		require.NoError(t, os.Mkdir(path, 0o755))
+	}
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
 
 	installCalled := false
 	tt := NewTestApp(t, TestAppConfig{
@@ -319,6 +331,7 @@ func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
 		},
 	})
 	tt.App.hotfixVersionPath = path
+	tt.App.aptSourcesDir = aptDir
 	// Fail-open: an unreadable config must skip the hotfix without erroring,
 	// so download-hotfix never blocks provisioning.
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
@@ -326,9 +339,17 @@ func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
 }
 
 func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
 	require.NoError(t, os.WriteFile(path, []byte("not json"), 0o644))
+
+	aptDir := filepath.Join(dir, "sources.list.d")
+	require.NoError(t, os.MkdirAll(aptDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
 
 	installCalled := false
 	tt := NewTestApp(t, TestAppConfig{
@@ -338,6 +359,7 @@ func TestDownloadHotfix_InvalidJSONFailsOpen(t *testing.T) {
 		},
 	})
 	tt.App.hotfixVersionPath = path
+	tt.App.aptSourcesDir = aptDir
 	// Fail-open: malformed JSON must skip the hotfix without erroring.
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 	assert.False(t, installCalled, "should skip install when the config is invalid JSON")
