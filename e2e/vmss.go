@@ -192,6 +192,7 @@ func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string
 	require.NoError(s.T, err)
 
 	customData = strings.Replace(string(decoded), "aks-node-controller-nbc-cmd.sh", "aks-node-controller-nbc-cmd-hack.sh", -1)
+	customData = strings.Replace(customData, "aks-node-controller-config.json", "aks-node-controller-config-hack.json", -1)
 
 	if s.VHD.Flatcar {
 		// For Flatcar, customData is an ignition JSON config from baker.go's flatcarTemplate.
@@ -250,6 +251,23 @@ func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string
 
 		// Build a #cloud-config that writes both the nbc-cmd script and hack runner,
 		// then starts the hack service via coreos.units command: start
+		var aksNodeConfigEntry string
+		provisionFlags := "--nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+		if s.Runtime.AKSNodeConfig != nil {
+			aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+			if err != nil {
+				return "", fmt.Errorf("failed to marshal AKSNodeConfig: %w", err)
+			}
+			encodedConfig := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+			aksNodeConfigEntry = fmt.Sprintf(`- path: /opt/azure/containers/aks-node-controller-config-hack.json
+  permissions: "0600"
+  owner: root
+  content: !!binary |
+   %s
+`, encodedConfig)
+			provisionFlags += " --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json"
+		}
+
 		cloudConfig := fmt.Sprintf(`#cloud-config
 write_files:
 - path: /opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
@@ -257,7 +275,7 @@ write_files:
   owner: root
   content: !!binary |
    %[1]s
-- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+%[4]s- path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
   owner: root
   content: |
@@ -266,7 +284,7 @@ write_files:
     mkdir -p /opt/azure/bin
     curl -fSL --retry 10 --retry-delay 2 "%[2]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+    /opt/azure/bin/aks-node-controller-hack provision %[3]s
 coreos:
   units:
     - name: aks-node-controller-hack.service
@@ -281,15 +299,28 @@ coreos:
         ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
         [Install]
         WantedBy=multi-user.target
-`, nbcCmdContent, binaryURL)
+`, nbcCmdContent, binaryURL, provisionFlags, aksNodeConfigEntry)
 
 		return base64.StdEncoding.EncodeToString([]byte(cloudConfig)), nil
+	}
+
+	provisionFlags := "--nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+	var aksNodeConfigBlock string
+	if s.Runtime.AKSNodeConfig != nil {
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal AKSNodeConfig: %w", err)
+		}
+		encodedConfig := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+		configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
+		aksNodeConfigBlock = fmt.Sprintf("\ncat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0600 %s\n", configPath, encodedConfig, configPath)
+		provisionFlags += " --provision-config=" + configPath
 	}
 
 	cloudConfigTemplate := `%s
 
 mkdir -p /opt/azure/bin
-
+%s
 cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
 set -euo pipefail
@@ -297,7 +328,7 @@ mkdir -p /opt/azure/bin
 curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
-/opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+/opt/azure/bin/aks-node-controller-hack provision %s
 
 SCRIPT
 chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
@@ -320,7 +351,7 @@ systemctl daemon-reload
 systemctl start --no-block aks-node-controller-hack.service
 `
 
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, binaryURL)
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, aksNodeConfigBlock, binaryURL, provisionFlags)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
@@ -331,30 +362,45 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	require.NoError(s.T, err)
 	var cse, customData string
 
+	if s.Runtime.NBC != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
+		require.NoError(s.T, err)
+	}
+
 	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
+		aksNodeConfig := s.Runtime.AKSNodeConfig
+
+		if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+			cse = nodeBootstrapping.CSE
+		}
+
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
 				if s.VHD.Flatcar {
-					data, err = nodeconfigutils.CustomDataFlatcar(s.Runtime.AKSNodeConfig)
+					data, err = nodeconfigutils.CustomDataFlatcar(aksNodeConfig)
 				} else {
-					data, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+					data, err = nodeconfigutils.CustomData(aksNodeConfig)
 				}
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+			if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+				customData := nodeBootstrapping.CustomData
+				customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
+				require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+				return customData
+			}
 			data, err := CustomDataWithHack(s, binaryURL)
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
 
 	} else {
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
 		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly {

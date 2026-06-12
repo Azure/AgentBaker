@@ -1805,6 +1805,8 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
+	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	AKSNodeConfigJSON string
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

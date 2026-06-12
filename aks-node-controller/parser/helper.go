@@ -181,6 +181,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
+	// TODO: add containerdv2 support
 	// the containerd config template is different based on whether the node is with GPU or not.
 	_template := containerdConfigTemplate
 	if noGPU {
@@ -402,7 +403,7 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["vm.vfs_cache_pressure"] = s.GetVmVfsCachePressure()
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
+	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n"))
 }
 
 func getShouldConfigContainerdUlimits(u *aksnodeconfigv1.UlimitConfig) bool {
@@ -415,7 +416,8 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		return ""
 	}
 
-	header := "[Service]\n"
+	// spaces are used here because they are converted to newlines in scripts
+	header := "[Service] "
 	m := make(map[string]string)
 	if u.NoFile != nil {
 		m["LimitNOFILE"] = u.GetNoFile()
@@ -425,7 +427,11 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
-	return header + createSortedKeyValuePairs(m, " ")
+	if len(m) == 0 {
+		return header
+	}
+
+	return header + createSortedKeyValuePairs(m, " ") + " "
 }
 
 // getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".
@@ -471,24 +477,18 @@ func getPortRangeEndValue(portRange string) int {
 
 // createSortedKeyValuePairs creates a string with key=value pairs, sorted by key, with custom delimiter.
 func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
-	keys := []string{}
+	keys := make([]string, 0, len(m))
 	for key := range m {
 		keys = append(keys, key)
 	}
 
 	// we are sorting the keys for deterministic output for readability and testing.
 	sort.Strings(keys)
-	var buf bytes.Buffer
-	i := 0
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		i++
-		// set the last delimiter to empty string
-		if i == len(keys) {
-			delimiter = ""
-		}
-		buf.WriteString(fmt.Sprintf("%s=%v%s", key, m[key], delimiter))
+		pairs = append(pairs, fmt.Sprintf("%s=%v", key, m[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, delimiter)
 }
 
 func getExcludeMasterFromStandardLB(lb *aksnodeconfigv1.LoadBalancerConfig) bool {
@@ -652,7 +652,7 @@ func marshalToJSON(v any) ([]byte, error) {
 		}
 
 		var rawMessage json.RawMessage = data
-		jsonByte, err := json.MarshalIndent(rawMessage, "", "  ")
+		jsonByte, err := json.MarshalIndent(rawMessage, "", "    ")
 		if err != nil {
 			log.Printf("error marshalling kubelet config file content: %v", err)
 			return nil, err

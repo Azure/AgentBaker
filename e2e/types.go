@@ -298,11 +298,11 @@ func (s *Scenario) KubeletConfigFileEnabled() bool {
 	if s.Runtime == nil {
 		return false
 	}
-	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||
-		(nbc.AgentPoolProfile != nil && (nbc.AgentPoolProfile.CustomKubeletConfig != nil || nbc.AgentPoolProfile.CustomLinuxOSConfig != nil))) {
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
 		return true
 	}
-	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.KubeletConfig != nil && nodeConfig.KubeletConfig.EnableKubeletConfigFile {
+	if nbc := s.Runtime.NBC; nbc != nil && (nbc.EnableKubeletConfigFile ||
+		(nbc.AgentPoolProfile != nil && (nbc.AgentPoolProfile.CustomKubeletConfig != nil || nbc.AgentPoolProfile.CustomLinuxOSConfig != nil))) {
 		return true
 	}
 	return false

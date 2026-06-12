@@ -16,6 +16,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -292,10 +293,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
-		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
-		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
-		s.Runtime.NBC = nil
+
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
+		require.NoError(s.T, err)
+		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
+
+		nbc.EnableScriptlessCSECmd = false
+
+		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
+		// scriptless tag means provisioning with aksnodeconfig is used
+		if !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
+			nbc.EnableScriptlessNBCCSECmd = true
+		}
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -365,9 +374,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	s.Tags.VHDCaching = s.VHDCaching
-	if s.AKSNodeConfigMutator != nil {
-		s.Tags.Scriptless = true
-	}
 
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)
