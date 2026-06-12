@@ -770,7 +770,7 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 				OS:      config.OSUbuntu,
 				Arch:    "amd64",
 				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781227942.2465", // pin to your published version
+				Version: "1.1781236619.29233", // pin to your published version
 				Gallery: &config.Gallery{ // omit to use the default gallery
 					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
 					ResourceGroupName: "aksvhdtestbuildrg",
@@ -780,10 +780,8 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				nbc.ManagedGPUExperienceAFECEnabled = true
-				nbc.EnableManagedGPU = true
+				nbc.EnableManagedGPUDRA = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
