@@ -1713,16 +1713,12 @@ EOF
 }
 
 startDRADriverNvidiaGpu() {
-    # Create systemd override directory to configure device plugin
-    DRA_DRIVER_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
-    mkdir -p "${DRA_DRIVER_OVERRIDE_DIR}"
-
     if [ -z "${NODE_NAME}" ]; then
         echo "NODE_NAME is empty; cannot configure dra-driver-nvidia-gpu" >&2
         exit $ERR_DRA_DRIVER_START_FAIL
     fi
 
-    tee "${DRA_DRIVER_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+    tee "/etc/systemd/system/dra-driver-nvidia-gpu.service" > /dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name nvcr.io/nvidia/k8s-dra-driver-gpu:v25.8.1 --node-name=${NODE_NAME}

@@ -770,7 +770,7 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 				OS:      config.OSUbuntu,
 				Arch:    "amd64",
 				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781236619.29233", // pin to your published version
+				Version: "1.1781244216.14425", // pin to your published version
 				Gallery: &config.Gallery{ // omit to use the default gallery
 					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
 					ResourceGroupName: "aksvhdtestbuildrg",
