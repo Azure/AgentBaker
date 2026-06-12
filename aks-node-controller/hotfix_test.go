@@ -12,54 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReadHotfixVersion(t *testing.T) {
-	t.Run("file does not exist", func(t *testing.T) {
-		version, err := readHotfixVersion("/nonexistent/path")
-		assert.NoError(t, err)
-		assert.Equal(t, "", version)
-	})
-
-	t.Run("file is empty", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(""), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "", version)
-	})
-
-	t.Run("file has version", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "202603.30.0-hotfix1"}`), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "202603.30.0-hotfix1", version)
-	})
-
-	t.Run("file has empty version field", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": ""}`), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "", version)
-	})
-
-	t.Run("file has invalid JSON", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte("not json"), 0644))
-		_, err := readHotfixVersion(path)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "parsing hotfix config")
-	})
-
-	t.Run("file has extra fields (forward compat)", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "sha256": "abc123"}`), 0644))
-		version, err := readHotfixVersion(path)
-		assert.NoError(t, err)
-		assert.Equal(t, "1.0.0", version)
-	})
-}
-
 func TestReadHotfixConfig(t *testing.T) {
 	t.Run("file does not exist returns zero config", func(t *testing.T) {
 		cfg, err := readHotfixConfig("/nonexistent/path")
@@ -98,6 +50,14 @@ func TestReadHotfixConfig(t *testing.T) {
 		_, err := readHotfixConfig(path)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "parsing hotfix config")
+	})
+
+	t.Run("ignores extra fields (forward compat)", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1", "sha256": "abc123"}`), 0644))
+		cfg, err := readHotfixConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "202604.01.1", cfg.Version)
 	})
 }
 
