@@ -763,13 +763,14 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 		},
 
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster:           ClusterKubenet,
+			SkipScriptlessNBC: true,
 			VHD: &config.Image{
 				Name:    "2404gen2containerd",
 				OS:      config.OSUbuntu,
 				Arch:    "amd64",
 				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781214354.6367", // pin to your published version
+				Version: "1.1781227942.2465", // pin to your published version
 				Gallery: &config.Gallery{ // omit to use the default gallery
 					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
 					ResourceGroupName: "aksvhdtestbuildrg",
@@ -783,6 +784,14 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 				nbc.EnableManagedGPU = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")

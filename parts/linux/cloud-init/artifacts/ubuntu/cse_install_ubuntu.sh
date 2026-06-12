@@ -211,7 +211,10 @@ installNvidiaManagedExpPkgFromCache() {
         echo "DRA is enabled, using DRA-specific package list."
     fi
 
-    for packageName in $(packageList); do
+    echo "Installing managed GPU experience packages: ${packageList}"
+    echo "ENABLE_MANAGED_GPU_EXPERIENCE_DRA=${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
+
+    for packageName in ${packageList}; do
         downloadDir="/opt/${packageName}/downloads"
         if isPackageInstalled "${packageName}"; then
             echo "${packageName} is already installed, skipping."
