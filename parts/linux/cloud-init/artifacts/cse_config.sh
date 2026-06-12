@@ -1718,16 +1718,25 @@ startDRADriverNvidiaGpu() {
         exit $ERR_DRA_DRIVER_START_FAIL
     fi
 
-    tee "/etc/systemd/system/dra-driver-nvidia-gpu.service" > /dev/null <<EOF
+    # Use a drop-in so we keep the package's [Unit]/[Install] sections.
+    # Add After=kubelet.service + Restart=on-failure so the service self-heals
+    # while kubelet is still completing TLS bootstrap and writing /var/lib/kubelet/kubeconfig.
+    DRA_DRIVER_OVERRIDE_DIR="/etc/systemd/system/"
+    tee "${DRA_DRIVER_OVERRIDE_DIR}/dra-driver-nvidia-gpu.service" > /dev/null <<EOF
+[Unit]
+After=kubelet.service
+
 [Service]
 ExecStart=
 ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name nvcr.io/nvidia/k8s-dra-driver-gpu:v25.8.1 --node-name=${NODE_NAME}
+Restart=on-failure
+RestartSec=5
 EOF
 
-
-    # Reload systemd to pick up the override
     systemctl daemon-reload
-    logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+    # Start off the critical path: kubeconfig may still be missing at this point, the
+    # service will retry via Restart=on-failure until kubelet completes TLS bootstrap.
+    logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStartNoBlock dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
 }
 
 #EOF

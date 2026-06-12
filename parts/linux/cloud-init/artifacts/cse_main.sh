@@ -472,27 +472,6 @@ function nodePrep {
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
 
-        # Configure managed GPU experience (device-plugin, dcgm, dcgm-exporter)
-        export -f should_enable_managed_gpu_experience
-        ENABLE_MANAGED_GPU_BY_TAG=$(should_enable_managed_gpu_experience)
-        if [ "$?" -ne 0 ]; then
-            echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
-            exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
-        fi
-
-        # Combine NBC and tag-based settings
-        if [ "${ENABLE_MANAGED_GPU_BY_TAG}" = "true" ] || [ "${ENABLE_MANAGED_GPU,,}" = "true" ]; then
-            ENABLE_MANAGED_GPU_EXPERIENCE="true"
-        fi
-
-        if [ "${ENABLE_MANAGED_GPU_DRA}" = "true" ]; then
-            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
-        fi
-
-        echo "Fully Managed GPU device plugin mode: ${ENABLE_MANAGED_GPU_EXPERIENCE}, DRA mode: ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
-
-        logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
-
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
 
@@ -582,6 +561,33 @@ function nodePrep {
     fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
+
+    # Defer Configure managed GPU experience after `checkServiceHealth kubelet`
+    # The dra-driver-nvidia-gpu service needs that /var/lib/kubelet/kubeconfig, so it must be started
+    # only after kubelet is up. The other managed GPU services (device-plugin, dcgm,
+    # dcgm-exporter) do not require kubeconfig but are kept here so the whole flow
+    # stays in one place.
+    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
+        export -f should_enable_managed_gpu_experience
+        ENABLE_MANAGED_GPU_BY_TAG=$(should_enable_managed_gpu_experience)
+        if [ "$?" -ne 0 ]; then
+            echo "failed to determine if managed GPU experience should be enabled by nodepool tags"
+            exit $ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG
+        fi
+
+        # Combine NBC and tag-based settings
+        if [ "${ENABLE_MANAGED_GPU_BY_TAG}" = "true" ] || [ "${ENABLE_MANAGED_GPU,,}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+        fi
+
+        if [ "${ENABLE_MANAGED_GPU_DRA}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+        fi
+
+        echo "Fully Managed GPU device plugin mode: ${ENABLE_MANAGED_GPU_EXPERIENCE}, DRA mode: ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
+
+        logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
+    fi
 
     if systemctl cat aks-log-collector.timer &>/dev/null; then
         systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
