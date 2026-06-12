@@ -662,6 +662,59 @@ EOF
     End
 
 
+# This section tests - calculate_max_poll_attempts
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'calculate_max_poll_attempts'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+        It 'should return the exact attempt count when timeout divides evenly by the interval'
+            When call calculate_max_poll_attempts 2 0.5
+            The status should be success
+            The output should eq "4"
+        End
+
+        It 'should round up when timeout does not divide evenly by the interval'
+            When call calculate_max_poll_attempts 1 0.3
+            The status should be success
+            The output should eq "4"
+        End
+
+        It 'should return zero attempts for a zero timeout'
+            When call calculate_max_poll_attempts 0 0.1
+            The status should be success
+            The output should eq "0"
+        End
+
+        It 'should fail for a negative timeout'
+            When call calculate_max_poll_attempts -1 0.1
+            The status should be failure
+        End
+
+        It 'should fail for a zero interval'
+            When call calculate_max_poll_attempts 1 0
+            The status should be failure
+        End
+
+        It 'should fail for a non-numeric timeout'
+            When call calculate_max_poll_attempts abc 0.1
+            The status should be failure
+        End
+
+        It 'should fail for a fractional timeout'
+            When call calculate_max_poll_attempts 0.5 0.1
+            The status should be failure
+        End
+
+        It 'should fail for a non-numeric interval'
+            When call calculate_max_poll_attempts 1 abc
+            The status should be failure
+        End
+    End
+
+
 # This section tests - start_localdns
 # This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
@@ -669,10 +722,12 @@ EOF
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
             LOCALDNS_PID_FILE="/tmp/localdns.pid"
+            SLEEP_LOG_FILE="/tmp/localdns-start-sleep-log-$$"
         }
         cleanup() {
             rm -f "${LOCALDNS_PID_FILE}"
             rm -f ./mock-coredns.sh
+            rm -f "${SLEEP_LOG_FILE}"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -707,6 +762,37 @@ EOF
             The status should be failure
             The output should include "Timed out waiting for CoreDNS to create PID file"
         End
+
+        It 'should poll for the PID file every 0.1 seconds'
+            mock_coredns() {
+                return 0
+            }
+            COREDNS_COMMAND="mock_coredns"
+            START_LOCALDNS_TIMEOUT=1
+            sleep() {
+                echo "sleep called with: $1"
+            }
+            When call start_localdns
+            The status should be failure
+            The output should include "sleep called with: 0.1"
+        End
+
+        It 'should succeed after polling for the PID file every 0.1 seconds'
+            mock_coredns() {
+                return 0
+            }
+            COREDNS_COMMAND="mock_coredns"
+            EXPECTED_SLEEP_LOG=$(printf '0.1\n')
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+                echo "12345" > "${LOCALDNS_PID_FILE}"
+            }
+            When call start_localdns
+            The status should be success
+            The output should include "Localdns PID is 12345."
+            The file "${LOCALDNS_PID_FILE}" should be exist
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
+        End
     End
 
 
@@ -716,35 +802,152 @@ EOF
     Describe 'wait_for_localdns_ready'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            DATE_SEQUENCE_FILE="/tmp/localdns-date-sequence-$$"
+            SLEEP_LOG_FILE="/tmp/localdns-sleep-log-$$"
+        }
+        cleanup() {
+            rm -f "$DATE_SEQUENCE_FILE" "${DATE_SEQUENCE_FILE}.next" "$SLEEP_LOG_FILE"
         }
         BeforeEach 'setup'
+        AfterEach 'cleanup'
     #------------------------- wait_for_localdns_ready -----------------------------------------------------------
         It 'should return success if localdns is ready'
             CURL_COMMAND="echo OK"
-            MAX_ATTEMPTS=100
             TIMEOUT=5
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
+            When call wait_for_localdns_ready $TIMEOUT
             The status should be success
             The output should include "Waiting for localdns to start and be able to serve traffic."
             The output should include "Localdns is online and ready to serve traffic."
         End
 
-        It 'should return failure if localdns is not ready, after timeout'
+        It 'should return failure if localdns is not ready after the wall-clock timeout'
             CURL_COMMAND="echo NOTOK"
-            MAX_ATTEMPTS=1000
             TIMEOUT=2
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
+            EXPECTED_SLEEP_LOG=$(printf '0.1\n0.1\n')
+            # Expected date consumption order:
+            # 1. starttime initialization -> 100
+            # 2. first loop timeout check -> 100
+            # 3. second loop timeout check -> 101
+            # 4. third loop timeout check -> 102 (triggers timeout after two sleeps)
+            cat > "$DATE_SEQUENCE_FILE" <<EOF
+100
+100
+101
+102
+EOF
+            date() {
+                local current_time
+
+                if [ "$#" -ne 1 ] || [ "$1" != "+%s" ]; then
+                    echo "unexpected date args: $*" >&2
+                    return 1
+                fi
+
+                current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
+                tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
+                mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
+
+                echo "$current_time"
+            }
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+            }
+            When call wait_for_localdns_ready $TIMEOUT
             The status should be failure
             The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
 
-        It 'should return failure if localdns is not ready, after max attempts'
+        It 'should prefer the wall-clock timeout message when timeout and attempt cap are both reached'
             CURL_COMMAND="echo NOTOK"
-            MAX_ATTEMPTS=2
-            TIMEOUT=50
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
+            TIMEOUT=2
+            LOCALDNS_READY_POLL_INTERVAL_SECONDS=0.5
+            EXPECTED_SLEEP_LOG=$(printf '0.5\n0.5\n0.5\n0.5\n')
+            # Expected date consumption order:
+            # 1. starttime initialization -> 100
+            # 2. first loop timeout check -> 100
+            # 3. second loop timeout check -> 100
+            # 4. third loop timeout check -> 101
+            # 5. fourth loop timeout check -> 101
+            # 6. fifth loop timeout check -> 102 (wall-clock timeout and attempt cap both true)
+            cat > "$DATE_SEQUENCE_FILE" <<EOF
+100
+100
+100
+101
+101
+102
+EOF
+            date() {
+                local current_time
+
+                if [ "$#" -ne 1 ] || [ "$1" != "+%s" ]; then
+                    echo "unexpected date args: $*" >&2
+                    return 1
+                fi
+
+                current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
+                tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
+                mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
+
+                echo "$current_time"
+            }
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+            }
+            When call wait_for_localdns_ready $TIMEOUT
             The status should be failure
-            The output should include "Localdns failed to come online after ${MAX_ATTEMPTS} attempts."
+            The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
+            The output should not include "safety limit"
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
+        End
+
+        It 'should fail if readiness polling attempts cannot be calculated'
+            CURL_COMMAND="echo NOTOK"
+            TIMEOUT=abc
+            When call wait_for_localdns_ready $TIMEOUT
+            The status should be failure
+            The output should include "Failed to calculate localdns readiness poll attempts for timeout ${TIMEOUT} and interval ${LOCALDNS_READY_POLL_INTERVAL_SECONDS}."
+        End
+
+        It 'should return failure after derived max attempts when the clock does not advance'
+            CURL_COMMAND="echo NOTOK"
+            TIMEOUT=2
+            LOCALDNS_READY_POLL_INTERVAL_SECONDS=0.5
+            EXPECTED_SLEEP_LOG=$(printf '0.5\n0.5\n0.5\n0.5\n')
+            cat > "$DATE_SEQUENCE_FILE" <<EOF
+100
+100
+100
+100
+100
+100
+100
+100
+100
+100
+EOF
+            date() {
+                local current_time
+
+                if [ "$#" -ne 1 ] || [ "$1" != "+%s" ]; then
+                    echo "unexpected date args: $*" >&2
+                    return 1
+                fi
+
+                current_time=$(head -n 1 "$DATE_SEQUENCE_FILE")
+                tail -n +2 "$DATE_SEQUENCE_FILE" > "${DATE_SEQUENCE_FILE}.next"
+                mv "${DATE_SEQUENCE_FILE}.next" "$DATE_SEQUENCE_FILE"
+
+                echo "$current_time"
+            }
+            sleep() {
+                echo "$1" >> "$SLEEP_LOG_FILE"
+            }
+            When call wait_for_localdns_ready $TIMEOUT
+            The status should be failure
+            The output should include "Localdns failed to come online after 4 attempts (safety limit for ${TIMEOUT} seconds timeout)."
+            The contents of file "$SLEEP_LOG_FILE" should eq "$EXPECTED_SLEEP_LOG"
         End
     End
 
