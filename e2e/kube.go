@@ -105,6 +105,14 @@ func NewKubeclient(kubeconfigBytes []byte) (*Kubeclient, error) {
 }
 
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	return k.waitUntilPod(ctx, namespace, labelSelector, fieldSelector, false)
+}
+
+func (k *Kubeclient) WaitUntilPodCompleted(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	return k.waitUntilPod(ctx, namespace, labelSelector, fieldSelector, true)
+}
+
+func (k *Kubeclient) waitUntilPod(ctx context.Context, namespace string, labelSelector string, fieldSelector string, allowCompleted bool) (*corev1.Pod, error) {
 	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
 	var lastErr error
@@ -141,15 +149,15 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 		case corev1.PodPending:
 			return false, nil // Keep polling
 		case corev1.PodSucceeded:
-			return true, nil // Pod completed successfully
-		case corev1.PodRunning:
-			// Check if the pod is ready
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == "Ready" && cond.Status == "True" {
-					return true, nil
-				}
+			if allowCompleted {
+				return true, nil
 			}
-			return false, nil // Running but not ready yet
+			return false, nil
+		case corev1.PodRunning:
+			if !allPodContainersReady(pod) {
+				return false, nil
+			}
+			return true, nil
 		default:
 			logPodDebugInfo(ctx, k, pod)
 			return false, fmt.Errorf("pod %s is in unexpected phase %s", pod.Name, pod.Status.Phase)
@@ -160,6 +168,18 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 	}
 
 	return pod, err
+}
+
+func allPodContainersReady(pod *corev1.Pod) bool {
+	if pod == nil || len(pod.Status.ContainerStatuses) == 0 {
+		return false
+	}
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if !containerStatus.Ready {
+			return false
+		}
+	}
+	return true
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
