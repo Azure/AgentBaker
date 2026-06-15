@@ -169,6 +169,9 @@ EOF
         The variable thirdCall should eq "provision"
     End
 
+    # Fail-open also covers the backward-compat case where ANC_HOTFIX_ENABLED=true reaches
+    # a node whose VHD-baked binary predates 2.1b: `check-hotfix` is an unknown subcommand
+    # there and exits non-zero, which the wrapper tolerates so provisioning still proceeds.
     It 'proceeds to provision when check-hotfix fails (fail-open)'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
