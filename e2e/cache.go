@@ -13,7 +13,9 @@ import (
 )
 
 // cachedFunc creates a thread-safe memoized version of a function.
-// Results are cached per unique Request key using sync.Once for single execution.
+// Successful results are cached permanently per unique Request key.
+// Errors are NOT cached — a failed call will be retried on the next invocation,
+// preventing a transient failure from poisoning all future callers sharing the key.
 // Request type must be comparable (no slices/maps/pointers).
 // Cache persists for program lifetime with no TTL or invalidation.
 // WARNING: Incorrect keys can cause hard-to-debug cache collisions.

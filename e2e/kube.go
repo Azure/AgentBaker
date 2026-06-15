@@ -157,6 +157,9 @@ func (k *Kubeclient) waitUntilPod(ctx context.Context, namespace string, labelSe
 			if !allPodContainersReady(pod) {
 				return false, nil
 			}
+			if !allowCompleted && !isPodReadyCondition(pod) {
+				return false, nil
+			}
 			return true, nil
 		default:
 			logPodDebugInfo(ctx, k, pod)
@@ -180,6 +183,17 @@ func allPodContainersReady(pod *corev1.Pod) bool {
 		}
 	}
 	return true
+}
+
+// isPodReadyCondition checks the pod-level PodReady condition, which reflects
+// readiness gates and minReadySeconds in addition to container readiness.
+func isPodReadyCondition(pod *corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+	return false
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {
