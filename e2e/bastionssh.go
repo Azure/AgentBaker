@@ -64,7 +64,7 @@ type tunnelSession struct {
 }
 
 func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port uint16) (*tunnelSession, error) {
-	session, err := b.newSessionToken(targetHost, port)
+	session, err := b.newSessionToken(ctx, targetHost, port)
 	if err != nil {
 		return nil, err
 	}
@@ -132,9 +132,9 @@ func (t *tunnelSession) Close() error {
 	return nil
 }
 
-func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken, error) {
+func (b *Bastion) newSessionToken(ctx context.Context, targetHost string, port uint16) (*sessionToken, error) {
 
-	token, err := b.credential.GetToken(context.Background(), policy.TokenRequestOptions{
+	token, err := b.credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{fmt.Sprintf("%s/.default", cloud.AzurePublic.Services[cloud.ResourceManager].Endpoint)},
 	})
 
@@ -156,6 +156,7 @@ func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken
 	if err != nil {
 		return nil, err
 	}
+	req = req.WithContext(ctx)
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := b.httpClient.Do(req) // TODO client settings
@@ -303,9 +304,7 @@ func DialSSHOverBastion(
 		}
 		toolkit.Logf(ctx, "Attempt %d/%d establishing SSH over bastion to %s", attempt, sshDialAttempts, vmPrivateIP)
 
-		// Intentionally use a background context to prevent cancelling the SSH connection before
-		// we fetch logs during cleanup.
-		tunnel, err := bastion.NewTunnelSession(context.Background(), vmPrivateIP, 22)
+		tunnel, err := bastion.NewTunnelSession(ctx, vmPrivateIP, 22)
 		if err != nil {
 			lastErr = err
 			toolkit.Logf(ctx, "Attempt %d/%d failed to create bastion tunnel: %v", attempt, sshDialAttempts, err)
