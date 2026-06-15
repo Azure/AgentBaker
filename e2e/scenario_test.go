@@ -679,6 +679,36 @@ func Test_Ubuntu2204_Early_Failure_Scriptless(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_CSETimeoutOnUnreachableDownload validates that the per-curl timeout (-k 5)
+// in cse_helpers.sh _retry_file_curl_internal properly kills hung download attempts.
+// It sets CustomKubeBinaryURL to a non-routable IP (RFC 5737 TEST-NET-1) which causes curl
+// to hang until the timeout fires, and sets a short CSETimeout so the test completes quickly.
+// The global timeout in cse_start.sh (timeout -k5s) kills the entire provisioning script.
+func Test_Ubuntu2204_CSETimeoutOnUnreachableDownload(t *testing.T) {
+	// 192.0.2.1 is a non-routable IP (RFC 5737 TEST-NET-1) that causes connections to hang
+	unreachableURL := "http://192.0.2.1:9999/fake-kubernetes-node-linux-amd64.tar.gz"
+	RunScenario(t, &Scenario{
+		Description: "Tests that CSE properly times out and exits when a download endpoint is unreachable, " +
+			"validating the timeout -k behavior in cse_helpers.sh",
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			VHD:               config.VHDUbuntu2204Gen2Containerd,
+			SkipScriptlessNBC: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = unreachableURL
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = unreachableURL
+				// Short CSE timeout (90s) so the test doesn't wait 15 minutes.
+				// The first curl attempt hangs for 60s (--max-time in retrycmd_get_tarball),
+				// gets killed by timeout -k 5 60, then the global timeout -k5s 90 fires
+				// and kills the entire provisioning script.
+				nbc.CSETimeout = 90
+			},
+			// Exit code 124 = killed by timeout(1) SIGTERM from the global CSE timeout wrapper
+			ExpectedError: "vmssCSE 124",
+		},
+	})
+}
+
 func Test_Ubuntu2404_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
