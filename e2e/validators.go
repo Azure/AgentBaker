@@ -246,7 +246,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 
 func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, len(customSysctls))
+	keysToCheck := make([]string, 0, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
