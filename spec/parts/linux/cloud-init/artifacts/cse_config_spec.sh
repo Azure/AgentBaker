@@ -1798,6 +1798,9 @@ SETUP_EOF
             # Must not block CSE on a service that legitimately waits for kubeconfig.
             The output should include "systemctlEnableAndStartNoBlock dra-driver-nvidia-gpu 30"
             The output should not include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+        End
+    End
+
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
