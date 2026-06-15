@@ -391,6 +391,22 @@ Describe 'cse_config.sh'
             The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=2200'
         End
 
+        It 'should return error when IMDS cache file is missing'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="/nonexistent/path.json"
+            When run configureSecondaryNICs
+            The stderr should include "Failed to parse NIC count from IMDS cache file"
+            The status should equal 243
+        End
+
+        It 'should return error when IMDS cache file contains invalid JSON'
+            tmpfile=$(mktemp)
+            echo "not valid json" > "$tmpfile"
+            IMDS_INSTANCE_METADATA_CACHE_FILE="$tmpfile"
+            When run configureSecondaryNICs
+            The stderr should include "Failed to parse NIC count from IMDS cache file"
+            The status should equal 243
+        End
+
         It 'should return error when netplan apply fails on Ubuntu'
             IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
             OS="UBUNTU"

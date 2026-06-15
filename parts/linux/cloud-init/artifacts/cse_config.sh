@@ -948,7 +948,14 @@ configureSecondaryNICs() {
     # on Ubuntu, hardcoded Name=eth0 in networkd on AzureLinux). This function
     # fills the gap for Standard-type secondary NICs that need OS-level DHCP.
     local nic_count
-    nic_count=$(jq -r '.network.interface | length' "$IMDS_INSTANCE_METADATA_CACHE_FILE")
+    nic_count=$(jq -r '.network.interface | length' "$IMDS_INSTANCE_METADATA_CACHE_FILE") || {
+        echo "Failed to parse NIC count from IMDS cache file: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return $ERR_SECONDARY_NIC_CONFIG_FAIL
+    }
+    if ! [[ "$nic_count" =~ ^[0-9]+$ ]]; then
+        echo "Invalid NIC count '$nic_count' from IMDS cache file: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
+        return $ERR_SECONDARY_NIC_CONFIG_FAIL
+    fi
 
     if [ "$nic_count" -le 1 ]; then
         echo "No secondary NICs detected, skipping"
