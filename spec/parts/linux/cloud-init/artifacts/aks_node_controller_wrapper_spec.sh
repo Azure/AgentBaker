@@ -42,7 +42,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ANC_HOTFIX_ENABLED CHECK_HOTFIX_EXIT
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT
     }
 
     create_fake_aks_node_controller() {
@@ -127,7 +127,7 @@ EOF
         The variable thirdArg should eq ""
     End
 
-    It 'does not call check-hotfix when ANC_HOTFIX_ENABLED is unset'
+    It 'does not call check-hotfix when ENABLE_PROVISIONING_HOTFIX is unset'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
 
@@ -140,10 +140,10 @@ EOF
         The variable calls should eq "provision"
     End
 
-    It 'treats a non-true ANC_HOTFIX_ENABLED value as disabled'
+    It 'treats a non-true ENABLE_PROVISIONING_HOTFIX value as disabled'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
-        export ANC_HOTFIX_ENABLED="1"
+        export ENABLE_PROVISIONING_HOTFIX="1"
 
         When run bash "$SCRIPT"
         The status should be success
@@ -152,10 +152,10 @@ EOF
         The variable calls should eq "provision"
     End
 
-    It 'runs check-hotfix before download-hotfix when ANC_HOTFIX_ENABLED is true'
+    It 'runs check-hotfix before download-hotfix when ENABLE_PROVISIONING_HOTFIX is true'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         create_recording_aks_node_controller
-        export ANC_HOTFIX_ENABLED="true"
+        export ENABLE_PROVISIONING_HOTFIX="true"
 
         When run bash "$SCRIPT"
         The status should be success
@@ -169,13 +169,13 @@ EOF
         The variable thirdCall should eq "provision"
     End
 
-    # Fail-open also covers the backward-compat case where ANC_HOTFIX_ENABLED=true reaches
+    # Fail-open also covers the backward-compat case where ENABLE_PROVISIONING_HOTFIX=true reaches
     # a node whose VHD-baked binary predates 2.1b: `check-hotfix` is an unknown subcommand
     # there and exits non-zero, which the wrapper tolerates so provisioning still proceeds.
     It 'proceeds to provision when check-hotfix fails (fail-open)'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
-        export ANC_HOTFIX_ENABLED="true"
+        export ENABLE_PROVISIONING_HOTFIX="true"
         export CHECK_HOTFIX_EXIT="1"
 
         When run bash "$SCRIPT"

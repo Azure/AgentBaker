@@ -29,11 +29,13 @@ fi
 
 # check-hotfix reads the kube-system/anc-hotfix-version ConfigMap and refreshes
 # $HOTFIX_JSON, which the download-hotfix block below consumes, so it must run first.
-# Gated default-off behind ANC_HOTFIX_ENABLED so existing VHDs behave exactly as before;
-# only the literal string "true" enables it. The command is fail-open (always exits 0),
+# Gated default-off behind ENABLE_PROVISIONING_HOTFIX so existing VHDs behave exactly as
+# before; only the literal string "true" enables it. This env var is the on-node terminal
+# of the EnableProvisioningHotfix aks-rp region toggle (toggle -> absvc -> ANC), so regions
+# where the toggle is off see no behavior change. The command is fail-open (always exits 0),
 # but we still wrap it defensively so it can never block provisioning.
-if [ "${ANC_HOTFIX_ENABLED:-}" = "true" ]; then
-    log "ANC_HOTFIX_ENABLED=true; running check-hotfix to refresh hotfix pointer"
+if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
+    log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
     if "$BIN_PATH" check-hotfix; then
         log "ANC check-hotfix completed; hotfix pointer refresh attempted"
     else
