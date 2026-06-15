@@ -1100,6 +1100,10 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", fmt.Errorf("failed to decode customData: %w", err)
 	}
 
+	if strings.Contains(string(decoded), "#cloud-boothook") {
+		return injectWriteFilesEntriesToBoothookCustomData(decoded, entries)
+	}
+
 	reader, err := gzip.NewReader(bytes.NewReader(decoded))
 	if err != nil {
 		return "", fmt.Errorf("failed to create gzip reader: %w", err)
@@ -1152,6 +1156,57 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
 	return encoded, nil
+}
+
+func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []CustomDataWriteFile) (string, error) {
+	boothookStr := string(decoded)
+
+	entryBlock, err := renderBoothookWriteFilesEntries(entries)
+	if err != nil {
+		return "", err
+	}
+
+	const serviceStart = "systemctl start --no-block aks-node-controller.service"
+	insertPos := strings.Index(boothookStr, serviceStart)
+	if insertPos == -1 {
+		return "", fmt.Errorf("cloud-boothook customData missing %q", serviceStart)
+	}
+
+	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
+	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil
+}
+
+func renderBoothookWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {
+	var entryBuilder strings.Builder
+	entryBuilder.WriteString("\n")
+	for _, entry := range entries {
+		if entry.Path == "" {
+			return "", fmt.Errorf("cloud-init write_files entry path cannot be empty")
+		}
+
+		permissions := entry.Permissions
+		if permissions == "" {
+			permissions = "0644"
+		}
+
+		owner := entry.Owner
+		if owner == "" {
+			owner = "root"
+		}
+
+		quotedPath := shellSingleQuote(entry.Path)
+		entryBuilder.WriteString(fmt.Sprintf("mkdir -p \"$(dirname %s)\"\n", quotedPath))
+		entryBuilder.WriteString(fmt.Sprintf("cat <<'EOF' | base64 -d > %s\n", quotedPath))
+		entryBuilder.WriteString(base64.StdEncoding.EncodeToString([]byte(entry.Content)))
+		entryBuilder.WriteString("\nEOF\n")
+		entryBuilder.WriteString(fmt.Sprintf("chmod %s %s\n", shellSingleQuote(permissions), quotedPath))
+		entryBuilder.WriteString(fmt.Sprintf("chown %s %s\n\n", shellSingleQuote(owner), quotedPath))
+	}
+	return entryBuilder.String(), nil
+}
+
+func shellSingleQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func indentYAMLBlock(content, indent string) string {
