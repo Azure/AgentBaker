@@ -794,18 +794,7 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 		Config: Config{
 			Cluster:           ClusterKubenet,
 			SkipScriptlessNBC: true,
-			VHD: &config.Image{
-				Name:    "2404gen2containerd",
-				OS:      config.OSUbuntu,
-				Arch:    "amd64",
-				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781297662.31801", // pin to your published version
-				Gallery: &config.Gallery{ // omit to use the default gallery
-					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
-					ResourceGroupName: "aksvhdtestbuildrg",
-					Name:              "PackerSigGalleryEastUS",
-				},
-			},
+			VHD: config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
