@@ -21,15 +21,29 @@ import (
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
 	var err error
 	for i := range maxRetries {
-		err = validatePodRunning(ctx, s, pod)
+		podAttempt := pod.DeepCopy()
+		podAttempt.Name = podNameForAttempt(pod.Name, i+1)
+		err = validatePodRunning(ctx, s, podAttempt)
 		if err != nil {
 			time.Sleep(1 * time.Second)
-			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+			s.T.Logf("retrying pod %q validation (%d/%d)", podAttempt.Name, i+1, maxRetries)
 			continue
 		}
 		break
 	}
 	require.NoErrorf(s.T, err, "failed to validate pod running %q", pod.Name)
+}
+
+func podNameForAttempt(baseName string, attempt int) string {
+	suffix := fmt.Sprintf("-%d", attempt)
+	maxBaseLen := 63 - len(suffix)
+	if maxBaseLen < 0 {
+		maxBaseLen = 0
+	}
+	if len(baseName) > maxBaseLen {
+		baseName = strings.TrimRight(baseName[:maxBaseLen], "-")
+	}
+	return baseName + suffix
 }
 
 func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
