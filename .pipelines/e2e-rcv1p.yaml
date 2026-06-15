@@ -17,5 +17,5 @@ jobs:
     parameters:
       name: RCV1P Cert Mode Tests
       IgnoreScenariosWithMissingVhd: false
-      subscriptionOverride: $(RCV1P_SUBSCRIPTION_ID)
+      variableGroup: ab-e2e-tme-rcv1p
       rcv1pTagsAutoInjected: "false"
