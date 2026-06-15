@@ -131,7 +131,8 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
+		Enabled:  config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
+		Deadline: "120s",
 	}
 
 	nbc.TenantID = *cluster.Model.Identity.TenantID
