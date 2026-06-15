@@ -1431,7 +1431,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
-		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
+		"EnableScriptlessCSECmd":          func() bool { return config.EnableScriptlessCSECmd },
+		"GetStandardSecondaryNICCount":    func() int { return config.StandardSecondaryNICCount },
 	}
 }
 

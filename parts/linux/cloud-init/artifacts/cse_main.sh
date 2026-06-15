@@ -406,8 +406,8 @@ function nodePrep {
     logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
 
     # Bring up secondary Standard-type NICs (if any) via IMDS metadata.
-    # Can be disabled via VMSS tag "SkipSecondaryNICConfig=true".
-    if [ "$(get_imds_vm_tag_value 'SkipSecondaryNICConfig')" != "true" ]; then
+    # Only runs when the RP signals that secondary NICs were attached.
+    if [ "${STANDARD_SECONDARY_NIC_COUNT}" -gt 0 ] 2>/dev/null; then
         logs_to_events "AKS.CSE.configureSecondaryNICs" configureSecondaryNICs || exit $ERR_SECONDARY_NIC_CONFIG_FAIL
     fi
 
