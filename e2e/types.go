@@ -158,6 +158,7 @@ type ScenarioRuntime struct {
 	Cluster                   *Cluster
 	Kube                      *Kubeclient // per-test client with independent rate limiter
 	VM                        *ScenarioVM
+	VMSize                    string
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
 	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events

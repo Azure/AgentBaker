@@ -1166,10 +1166,14 @@ func indentYAMLBlock(content, indent string) string {
 }
 
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+	vmSize := config.Config.DefaultVMSKU
+	if s.Runtime != nil && s.Runtime.VMSize != "" {
+		vmSize = s.Runtime.VMSize
+	}
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr(config.Config.DefaultVMSKU),
+			Name:     to.Ptr(vmSize),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{

@@ -321,28 +321,31 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	require.NoError(s.T, err)
 
+	effectiveVMSKU := config.Config.DefaultVMSKU
+
 	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   effectiveVMSKU,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", effectiveVMSKU)
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", effectiveVMSKU, config.DefaultV5VMSKU)
+		effectiveVMSKU = config.DefaultV5VMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   effectiveVMSKU,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", effectiveVMSKU)
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", effectiveVMSKU, config.DefaultV5VMSKU)
+			effectiveVMSKU = config.DefaultV5VMSKU
 		} else {
 			s.Config.UseNVMe = true
 		}
 	}
+	s.Runtime.VMSize = effectiveVMSKU
 
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
