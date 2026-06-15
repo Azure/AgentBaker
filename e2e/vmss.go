@@ -376,6 +376,17 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		}
 
 		customData = func() string {
+			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+			if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+				customData := nodeBootstrapping.CustomData
+				customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
+				require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+				return customData
+			}
+			data, err := CustomDataWithHack(s, binaryURL)
+			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
+
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
@@ -387,16 +398,6 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}
-			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
-			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
-			if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
-				customData := nodeBootstrapping.CustomData
-				customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
-				require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
-				return customData
-			}
-			data, err := CustomDataWithHack(s, binaryURL)
-			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
 
