@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -296,8 +297,9 @@ func DialSSHOverBastion(
 	var lastErr error
 	for attempt := 1; attempt <= sshDialAttempts; attempt++ {
 		if attempt > 1 {
+			backoff := sshDialBackoff + time.Duration(rand.Int63n(int64(sshDialBackoff)))
 			select {
-			case <-time.After(sshDialBackoff):
+			case <-time.After(backoff):
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}

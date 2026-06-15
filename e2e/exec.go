@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	mrand "math/rand"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -218,8 +219,9 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 
 		// If it's a retryable connection error and we have retries left, retry
 		if isRetryableConnectionError(err) && attempt < maxRetries-1 {
+			backoff := retryDelay + time.Duration(mrand.Int63n(int64(retryDelay)))
 			select {
-			case <-time.After(retryDelay):
+			case <-time.After(backoff):
 				// Continue to next attempt
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled during retry attempt %d: %w", attempt+1, ctx.Err())

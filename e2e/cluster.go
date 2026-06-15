@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"strings"
@@ -554,10 +555,11 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 					return nil, fmt.Errorf("failed waiting for cluster deletion: %w", deleteErr)
 				}
 			}
-			toolkit.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, retryInterval)
+			backoff := retryInterval + time.Duration(rand.Int63n(int64(retryInterval)))
+			toolkit.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, backoff)
 
 			select {
-			case <-time.After(retryInterval):
+			case <-time.After(backoff):
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context canceled while retrying cluster creation: %w", ctx.Err())
 			}
