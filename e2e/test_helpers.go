@@ -187,12 +187,54 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	})
 }
 
-// Helper to deep copy a Scenario (implement as needed for your struct)
+// copyScenario creates an isolated copy of Scenario state used by parallel subtests.
 func copyScenario(s *Scenario) *Scenario {
-	// Implement deep copy logic for Scenario and its fields
-	// This is a placeholder; you may need to copy nested structs and slices
 	copied := *s
-	copied.Config = s.Config // If Config is a struct, deep copy its fields as well
+
+	if s.Config.VHD != nil {
+		vhdCopy := *s.Config.VHD
+		if s.Config.VHD.Gallery != nil {
+			galleryCopy := *s.Config.VHD.Gallery
+			vhdCopy.Gallery = &galleryCopy
+		}
+		copied.Config.VHD = &vhdCopy
+	}
+
+	if s.Config.CustomDataWriteFiles != nil {
+		copied.Config.CustomDataWriteFiles = append([]CustomDataWriteFile(nil), s.Config.CustomDataWriteFiles...)
+	}
+
+	if s.Runtime != nil {
+		runtimeCopy := *s.Runtime
+		if s.Runtime.NBC != nil {
+			nbcCopy := *s.Runtime.NBC
+			runtimeCopy.NBC = &nbcCopy
+		}
+		if s.Runtime.AKSNodeConfig != nil {
+			aksNodeConfigCopy := *s.Runtime.AKSNodeConfig
+			runtimeCopy.AKSNodeConfig = &aksNodeConfigCopy
+		}
+		if s.Runtime.Cluster != nil {
+			clusterCopy := *s.Runtime.Cluster
+			runtimeCopy.Cluster = &clusterCopy
+		}
+		if s.Runtime.VM != nil {
+			vmCopy := *s.Runtime.VM
+			runtimeCopy.VM = &vmCopy
+		}
+		if s.Runtime.CSETimingReport != nil {
+			reportCopy := *s.Runtime.CSETimingReport
+			reportCopy.Tasks = append([]CSETaskTiming(nil), s.Runtime.CSETimingReport.Tasks...)
+			if s.Runtime.CSETimingReport.Provision != nil {
+				provisionCopy := *s.Runtime.CSETimingReport.Provision
+				reportCopy.Provision = &provisionCopy
+			}
+			reportCopy.taskIndex = nil
+			runtimeCopy.CSETimingReport = &reportCopy
+		}
+		copied.Runtime = &runtimeCopy
+	}
+
 	return &copied
 }
 
