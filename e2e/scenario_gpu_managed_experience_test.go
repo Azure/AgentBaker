@@ -784,9 +784,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
+func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests DRA driver works on Ubuntu 2404 VHD with containerd v2",
+		Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
 		Tags: Tags{
 			GPU: true,
 		},
