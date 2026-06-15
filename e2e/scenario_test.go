@@ -763,7 +763,7 @@ func Test_Ubuntu2204_ANCHotfix_BinarySelection(t *testing.T) {
 				},
 			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableScriptlessCSECmd = true
+				nbc.EnableScriptlessNBCCSECmd = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Wrapper found the pre-seeded hotfix binary and selected it
@@ -1388,6 +1388,11 @@ func Test_Ubuntu2404_ArtifactStreaming_ARM64(t *testing.T) {
 			VHD:     config.VHDUbuntu2404ArmContainerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableArtifactStreaming = true
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
@@ -2971,7 +2976,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
-					Enabled: false,
+					Enabled:           false,
 					DefaultClientID:   "should-not-appear-client-id",
 					DefaultTenantID:   "should-not-appear-tenant-id",
 					LocalAuthoritySNI: "should.not.appear.sni",
