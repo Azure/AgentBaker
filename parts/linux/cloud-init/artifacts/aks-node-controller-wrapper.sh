@@ -7,7 +7,7 @@ done
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
-HOTFIX_JSON="/opt/azure/containers/aks-node-controller-hotfix.json"
+HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
@@ -25,6 +25,20 @@ ${__SOURCED__:+return}
 if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     log "Gracefully exit aks-node-controller without provision config or nbc cmd"
     exit 0
+fi
+
+# check-hotfix reads the kube-system/anc-hotfix-version ConfigMap and refreshes
+# $HOTFIX_JSON, which the download-hotfix block below consumes, so it must run first.
+# Gated default-off behind ANC_HOTFIX_ENABLED so existing VHDs behave exactly as before;
+# only the literal string "true" enables it. The command is fail-open (always exits 0),
+# but we still wrap it defensively so it can never block provisioning.
+if [ "${ANC_HOTFIX_ENABLED:-}" = "true" ]; then
+    log "ANC_HOTFIX_ENABLED=true; running check-hotfix to refresh hotfix pointer"
+    if "$BIN_PATH" check-hotfix; then
+        log "ANC check-hotfix completed; hotfix pointer refresh attempted"
+    else
+        log "ANC check-hotfix failed; continuing (fail-open)"
+    fi
 fi
 
 if [ -f "$HOTFIX_JSON" ]; then
