@@ -1167,6 +1167,7 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 	s.T.Helper()
 	// Wait for NPD to report initial condition
 	var condition *corev1.NodeCondition
+	var lastObserved *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
@@ -1176,20 +1177,27 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 
 		// Check for condition with correct reason
 		for i := range node.Status.Conditions {
-			if string(node.Status.Conditions[i].Type) == conditionType && string(node.Status.Conditions[i].Reason) == conditionReason {
-				condition = &node.Status.Conditions[i] // Found the partial condition we are looking for
+			current := &node.Status.Conditions[i]
+			if string(current.Type) == conditionType {
+				lastObserved = current
 			}
-
-			if strings.Contains(node.Status.Conditions[i].Message, conditionMessage) {
-				condition = &node.Status.Conditions[i]
-				return true, nil // Found the exact condition we are looking for
+			if string(current.Type) == conditionType &&
+				string(current.Reason) == conditionReason &&
+				strings.Contains(current.Message, conditionMessage) {
+				condition = current
+				return true, nil
 			}
 		}
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
 	if err != nil && condition == nil {
-		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
+		if lastObserved != nil {
+			require.NoErrorf(s.T, err, "timed out waiting for %s condition with reason %s and message %q on node %q; last observed condition: type=%s status=%s reason=%s message=%q",
+				conditionType, conditionReason, conditionMessage, s.Runtime.VM.KubeName, lastObserved.Type, lastObserved.Status, lastObserved.Reason, lastObserved.Message)
+		}
+		require.NoErrorf(s.T, err, "timed out waiting for %s condition with reason %s and message %q on node %q",
+			conditionType, conditionReason, conditionMessage, s.Runtime.VM.KubeName)
 	}
 
 	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
