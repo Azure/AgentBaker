@@ -1301,12 +1301,12 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
-      - "mcr.microsoft.com"
+      - "${MCR_REPOSITORY_BASE}"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
       - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
+      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"
