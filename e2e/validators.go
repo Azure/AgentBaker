@@ -2996,7 +2996,7 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 	command := []string{
 		"set -ex",
 		"systemctl is-active dra-driver-nvidia-gpu.service",
-		"systemctl is-enabled dra-driver-nvidia-gpu.service",
+		"test \"$(systemctl is-enabled dra-driver-nvidia-gpu.service)\" = \"enabled\"",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
 }
