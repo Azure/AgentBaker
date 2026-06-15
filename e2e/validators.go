@@ -1436,9 +1436,11 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
 	}
 
-	jsonBytes := getWindowsSettingsJson()
+	jsonBytes, err := getWindowsSettingsJson()
+	require.NoError(s.T, err, "failed to read windows settings json")
 	osVersion := gjson.GetBytes(jsonBytes, fmt.Sprintf("WindowsBaseVersions.%s.base_image_version", windowsVersion))
 	versionSliced := strings.Split(osVersion.String(), ".")
+	require.NotEmpty(s.T, versionSliced[0], "expected non-empty Windows base image version for %q", windowsVersion)
 	osMajorVersion := versionSliced[0]
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
@@ -1476,9 +1478,8 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
 
-func getWindowsSettingsJson() []byte {
-	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
-	return jsonBytes
+func getWindowsSettingsJson() ([]byte, error) {
+	return os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
 }
 
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
