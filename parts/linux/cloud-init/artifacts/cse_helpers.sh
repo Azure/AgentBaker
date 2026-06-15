@@ -399,7 +399,7 @@ _retry_file_curl_internal() {
             fi
         fi
 
-        timeout $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+        timeout -k 5 $effectiveTimeout curl --max-time $effectiveTimeout -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
         if [ "$?" -ne 0 ]; then
             cat $CURL_OUTPUT
         fi

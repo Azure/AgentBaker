@@ -262,6 +262,19 @@ Describe 'long running cse helper functions'
                     The stdout should include "5 file curl retries"
                     The stderr should include "Operation budget of 1s exceeded"
                 End
+                Describe 'timeout flags'
+                    It "passes -k 5 and --max-time to timeout and curl"
+                        timeout() {
+                            # Capture the args passed to timeout for verification
+                            echo "timeout_args: $*" >> $CURL_OUTPUT
+                            return 0
+                        }
+                        When call _retry_file_curl_internal 1 1 30 0 "/tmp/nonexistent" "https://dummy.url/file" "[ -f /tmp/curl_flag_test_done ]"
+                        The status should eq 1
+                        The stdout should include "1 file curl retries"
+                        The contents of file "$CURL_OUTPUT" should include "timeout_args: -k 5 30 curl --max-time 30"
+                    End
+                End
             End
         End
 
