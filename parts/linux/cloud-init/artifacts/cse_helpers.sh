@@ -72,7 +72,6 @@ ERR_INVALID_CLI_TOOL=120 # Invalid CLI tool specified, should be one of ctr, cri
 ERR_KUBELET_INSTALL_FAIL=121 # Error installing kubelet
 ERR_KUBECTL_INSTALL_FAIL=122 # Error installing kubectl
 ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
-ERR_DRA_DRIVER_START_FAIL=124 # dra-driver-nvidia-gpu could not be started by systemctl
 
 # 123 is free for use
 
@@ -80,6 +79,7 @@ ERR_DRA_DRIVER_START_FAIL=124 # dra-driver-nvidia-gpu could not be started by sy
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter service
+ERR_DRA_DRIVER_START_FAIL=129 # dra-driver-nvidia-gpu could not be started by systemctl
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
