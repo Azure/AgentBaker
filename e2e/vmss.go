@@ -1103,6 +1103,9 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 	if strings.Contains(string(decoded), "#cloud-boothook") {
 		return injectWriteFilesEntriesToBoothookCustomData(decoded, entries)
 	}
+	if strings.Contains(string(decoded), "write_files:") {
+		return injectWriteFilesEntriesToPlainCloudConfig(decoded, entries)
+	}
 
 	reader, err := gzip.NewReader(bytes.NewReader(decoded))
 	if err != nil {
@@ -1114,13 +1117,50 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", fmt.Errorf("failed to read gzip data: %w", err)
 	}
 
+	yamlStr, err := injectWriteFilesEntriesToCloudConfigYAML(string(yamlBytes), entries)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err = gw.Write([]byte(yamlStr))
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip customData: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return encoded, nil
+}
+
+func injectWriteFilesEntriesToPlainCloudConfig(decoded []byte, entries []CustomDataWriteFile) (string, error) {
+	yamlStr, err := injectWriteFilesEntriesToCloudConfigYAML(string(decoded), entries)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString([]byte(yamlStr)), nil
+}
+
+func injectWriteFilesEntriesToCloudConfigYAML(yamlStr string, entries []CustomDataWriteFile) (string, error) {
 	const writeFilesMarker = "write_files:"
-	yamlStr := string(yamlBytes)
 	idx := strings.Index(yamlStr, writeFilesMarker)
 	if idx == -1 {
 		return "", fmt.Errorf("cloud-init customData missing %q section", writeFilesMarker)
 	}
 
+	entryBlock, err := renderCloudConfigWriteFilesEntries(entries)
+	if err != nil {
+		return "", err
+	}
+
+	insertPos := idx + len(writeFilesMarker)
+	return yamlStr[:insertPos] + entryBlock + yamlStr[insertPos:], nil
+}
+
+func renderCloudConfigWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {
 	var entryBuilder strings.Builder
 	for _, entry := range entries {
 		if entry.Path == "" {
@@ -1140,22 +1180,7 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		indentedContent := indentYAMLBlock(entry.Content, "    ")
 		entryBuilder.WriteString(fmt.Sprintf("\n- path: %s\n  permissions: %q\n  owner: %s\n  content: |\n%s\n", entry.Path, permissions, owner, indentedContent))
 	}
-
-	insertPos := idx + len(writeFilesMarker)
-	yamlStr = yamlStr[:insertPos] + entryBuilder.String() + yamlStr[insertPos:]
-
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	_, err = gw.Write([]byte(yamlStr))
-	if err != nil {
-		return "", fmt.Errorf("failed to gzip customData: %w", err)
-	}
-	if err := gw.Close(); err != nil {
-		return "", fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
-	return encoded, nil
+	return entryBuilder.String(), nil
 }
 
 func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []CustomDataWriteFile) (string, error) {
@@ -1166,10 +1191,12 @@ func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []Custo
 		return "", err
 	}
 
-	const serviceStart = "systemctl start --no-block aks-node-controller.service"
-	insertPos := strings.Index(boothookStr, serviceStart)
+	insertPos := strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
 	if insertPos == -1 {
-		return "", fmt.Errorf("cloud-boothook customData missing %q", serviceStart)
+		insertPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller-hack.service")
+	}
+	if insertPos == -1 {
+		return "", fmt.Errorf("cloud-boothook customData missing aks-node-controller service start")
 	}
 
 	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
