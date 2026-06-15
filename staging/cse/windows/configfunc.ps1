@@ -401,7 +401,7 @@ providers:
     elseif (![string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
         $mcrRegistry = if ((Test-Path variable:global:MCRRepositoryBase) -and
             -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
-            [string]$global:MCRRepositoryBase
+            ([string]$global:MCRRepositoryBase).TrimEnd("/")
         }
         else {
             "mcr.microsoft.com"
