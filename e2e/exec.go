@@ -144,9 +144,11 @@ func runSSHCommandWithPrivateKeyFile(
 	if err != nil {
 		if exitErr, ok := err.(*ssh.ExitError); ok {
 			exitCode = exitErr.ExitStatus()
-		} else if errors.As(err, &ssh.ExitMissingError{}) {
-			return nil, err
 		} else {
+			var exitMissingErr *ssh.ExitMissingError
+			if errors.As(err, &exitMissingErr) {
+				return nil, fmt.Errorf("ssh command %q closed without exit status: %w", command, exitMissingErr)
+			}
 			return nil, err // real SSH failure
 		}
 	}
