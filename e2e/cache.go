@@ -19,7 +19,8 @@ import (
 // WARNING: Incorrect keys can cause hard-to-debug cache collisions.
 func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
 	type entry struct {
-		once  sync.Once
+		mu    sync.Mutex
+		done  bool
 		value Response
 		err   error
 	}
@@ -30,9 +31,17 @@ func cachedFunc[Request comparable, Response any](fn func(context.Context, Reque
 		actual, _ := cache.LoadOrStore(key, &entry{})
 		e := actual.(*entry)
 
-		e.once.Do(func() {
-			e.value, e.err = fn(ctx, key)
-		})
+		e.mu.Lock()
+		defer e.mu.Unlock()
+
+		if e.done {
+			return e.value, nil
+		}
+
+		e.value, e.err = fn(ctx, key)
+		if e.err == nil {
+			e.done = true
+		}
 
 		return e.value, e.err
 	}
