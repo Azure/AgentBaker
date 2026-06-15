@@ -1618,12 +1618,8 @@ configureManagedGPUExperience() {
     else
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
-        if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
-            logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
-        fi
-        if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
-            logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
-        fi
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
         rm -f "${managed_gpu_marker}"
@@ -1735,9 +1731,6 @@ startDRADriverNvidiaGpu() {
     # TODO: get version from components.json
     IMAGE_NAME="mcr.microsoft.com/oss/v2/nvidia/dra-driver-nvidia-gpu:v0.4.0-1"
 
-    # Use a drop-in so we keep the package's [Unit]/[Install] sections.
-    # Add After=kubelet.service + Restart=on-failure so the service self-heals
-    # while kubelet is still completing TLS bootstrap and writing /var/lib/kubelet/kubeconfig.
     DRA_DRIVER_SVC_DIR="/etc/systemd/system/"
     tee "${DRA_DRIVER_SVC_DIR}/dra-driver-nvidia-gpu.service" > /dev/null <<EOF
 [Unit]
