@@ -952,7 +952,7 @@ configureSecondaryNICs() {
         echo "Failed to parse NIC count from IMDS cache file: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
         return $ERR_SECONDARY_NIC_CONFIG_FAIL
     }
-    if ! [[ "$nic_count" =~ ^[0-9]+$ ]]; then
+    if ! [ "$nic_count" -eq "$nic_count" ] 2>/dev/null; then
         echo "Invalid NIC count '$nic_count' from IMDS cache file: $IMDS_INSTANCE_METADATA_CACHE_FILE" >&2
         return $ERR_SECONDARY_NIC_CONFIG_FAIL
     fi
