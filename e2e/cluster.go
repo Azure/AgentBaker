@@ -330,7 +330,7 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
-		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
+		nodeRGExists, err := isUsableNodeResourceGroup(ctx, location, clusterName, *existingCluster.Properties.NodeResourceGroup)
 
 		if err != nil {
 			return nil, err
@@ -339,7 +339,18 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 		if nodeRGExists {
 			return &existingCluster.ManagedCluster, nil
 		}
-		fallthrough
+		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s has deleting or missing node resource group %s, deleting cluster", clusterName, *existingCluster.Properties.NodeResourceGroup)
+		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
+			return nil, err
+		}
+		// Wait for Azure to confirm cluster is fully deleted before allowing recreation.
+		// This prevents "Reconcile managed identity credential failed" errors where Azure's
+		// backend still has stale references to the old cluster during the new cluster's
+		// identity reconciliation process.
+		if err := waitForClusterDeletion(ctx, clusterName, resourceGroupName); err != nil {
+			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
+		}
+		return nil, nil
 	case "Failed":
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
@@ -429,16 +440,45 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 	if clusterDeleted {
 		return nil, nil
 	}
+	if cluster.ManagedCluster.Properties != nil && cluster.ManagedCluster.Properties.NodeResourceGroup != nil {
+		nodeRGExists, err := isUsableNodeResourceGroup(ctx, location, name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
+		if err != nil {
+			return nil, err
+		}
+		if !nodeRGExists {
+			resourceGroupName := config.ResourceGroupName(location)
+			toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s became ready with deleting or missing node resource group %s, deleting cluster", name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
+			if err := deleteCluster(ctx, name, resourceGroupName); err != nil {
+				return nil, err
+			}
+			if err := waitForClusterDeletion(ctx, name, resourceGroupName); err != nil {
+				return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
+			}
+			return nil, nil
+		}
+	}
 	return &cluster.ManagedCluster, nil
 }
 
-func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
-	rgExistence, err := config.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
+func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resourceGroupName string) (bool, error) {
+	rg, err := config.Azure.ResourceGroup.Get(ctx, resourceGroupName, nil)
 	if err != nil {
+		var azErr *azcore.ResponseError
+		if errors.As(err, &azErr) && azErr.StatusCode == http.StatusNotFound {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
 	}
 
-	return rgExistence.Success, nil
+	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
+		if err := detachRouteTableFromClusterSubnet(ctx, location, clusterName, resourceGroupName); err != nil {
+			toolkit.Logf(ctx, "warning: failed to detach route table for deleting node resource group %q: %v", resourceGroupName, err)
+		}
+		toolkit.Logf(ctx, "node resource group %q is deleting; recreating cluster %q", resourceGroupName, clusterName)
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
@@ -482,6 +522,32 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 
 		if isRetryableClusterError(err) {
 			lastErr = err
+			if isClusterCreateOperationInProgressError(err) {
+				toolkit.Logf(ctx, "cluster %s has an in-progress create operation; waiting for it to finish", *cluster.Name)
+				createdCluster, waitErr := waitUntilClusterReady(ctx, *cluster.Name, *cluster.Location)
+				if waitErr != nil {
+					return nil, fmt.Errorf("waiting for in-progress cluster creation: %w", waitErr)
+				}
+				if createdCluster != nil {
+					return createdCluster, nil
+				}
+				continue
+			}
+			if isResourceGroupBeingDeletedError(err) {
+				nodeResourceGroup := expectedNodeResourceGroupName(*cluster.Location, *cluster.Name)
+				if cluster.Properties != nil && cluster.Properties.NodeResourceGroup != nil {
+					nodeResourceGroup = *cluster.Properties.NodeResourceGroup
+				}
+				if cleanupErr := detachRouteTableFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
+					toolkit.Logf(ctx, "warning: failed to detach route table for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+				}
+				if deleteErr := deleteCluster(ctx, *cluster.Name, config.ResourceGroupName(*cluster.Location)); deleteErr != nil {
+					return nil, fmt.Errorf("deleting cluster with deleting node resource group %q: %w", nodeResourceGroup, deleteErr)
+				}
+				if deleteErr := waitForClusterDeletion(ctx, *cluster.Name, config.ResourceGroupName(*cluster.Location)); deleteErr != nil {
+					return nil, fmt.Errorf("failed waiting for cluster deletion: %w", deleteErr)
+				}
+			}
 			toolkit.Logf(ctx, "Attempt %d failed with retryable error: %v. Retrying in %v...", attempt+1, err, retryInterval)
 
 			select {
@@ -497,6 +563,10 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 	return nil, fmt.Errorf("failed to create cluster after %d attempts: %w", maxRetries, lastErr)
 }
 
+func expectedNodeResourceGroupName(location, clusterName string) string {
+	return fmt.Sprintf("MC_%s_%s_%s", config.ResourceGroupName(location), clusterName, location)
+}
+
 // isRetryableClusterError returns true for transient cluster creation errors
 // that can be resolved by retrying, such as 409 Conflict (concurrent operations)
 // and NotFound during managed identity reconciliation (stale references after cluster deletion).
@@ -509,6 +579,19 @@ func isRetryableClusterError(err error) bool {
 		return true
 	}
 	return respErr.ErrorCode == "NotFound" && strings.Contains(err.Error(), "Reconcile managed identity credential failed")
+}
+
+func isResourceGroupBeingDeletedError(err error) bool {
+	var respErr *azcore.ResponseError
+	return errors.As(err, &respErr) && respErr.StatusCode == http.StatusConflict && respErr.ErrorCode == "ResourceGroupBeingDeleted"
+}
+
+func isClusterCreateOperationInProgressError(err error) bool {
+	var respErr *azcore.ResponseError
+	return errors.As(err, &respErr) &&
+		respErr.StatusCode == http.StatusConflict &&
+		respErr.ErrorCode == "OperationNotAllowed" &&
+		strings.Contains(err.Error(), "in progress create managed cluster operation")
 }
 
 func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {

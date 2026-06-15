@@ -97,6 +97,8 @@ set -euo pipefail
 
 mkdir -p /opt/azure/containers /opt/azure/bin
 
+nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+
 cat <<'EOF' | base64 -d > %[1]s
 %[2]s
 EOF
@@ -190,6 +192,7 @@ func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string
 	require.NoError(s.T, err)
 
 	customData = strings.Replace(string(decoded), "aks-node-controller-nbc-cmd.sh", "aks-node-controller-nbc-cmd-hack.sh", -1)
+	customData = strings.Replace(customData, "aks-node-controller-config.json", "aks-node-controller-config-hack.json", -1)
 
 	if s.VHD.Flatcar {
 		// For Flatcar, customData is an ignition JSON config from baker.go's flatcarTemplate.
@@ -248,6 +251,23 @@ func CustomDataWithNBCCmdHack(s *Scenario, customData, binaryURL string) (string
 
 		// Build a #cloud-config that writes both the nbc-cmd script and hack runner,
 		// then starts the hack service via coreos.units command: start
+		var aksNodeConfigEntry string
+		provisionFlags := "--nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+		if s.Runtime.AKSNodeConfig != nil {
+			aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+			if err != nil {
+				return "", fmt.Errorf("failed to marshal AKSNodeConfig: %w", err)
+			}
+			encodedConfig := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+			aksNodeConfigEntry = fmt.Sprintf(`- path: /opt/azure/containers/aks-node-controller-config-hack.json
+  permissions: "0600"
+  owner: root
+  content: !!binary |
+   %s
+`, encodedConfig)
+			provisionFlags += " --provision-config=/opt/azure/containers/aks-node-controller-config-hack.json"
+		}
+
 		cloudConfig := fmt.Sprintf(`#cloud-config
 write_files:
 - path: /opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
@@ -255,7 +275,7 @@ write_files:
   owner: root
   content: !!binary |
    %[1]s
-- path: /opt/azure/bin/run-aks-node-controller-hack.sh
+%[4]s- path: /opt/azure/bin/run-aks-node-controller-hack.sh
   permissions: "0755"
   owner: root
   content: |
@@ -264,7 +284,7 @@ write_files:
     mkdir -p /opt/azure/bin
     curl -fSL --retry 10 --retry-delay 2 "%[2]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
-    /opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+    /opt/azure/bin/aks-node-controller-hack provision %[3]s
 coreos:
   units:
     - name: aks-node-controller-hack.service
@@ -279,15 +299,28 @@ coreos:
         ExecStart=/opt/azure/bin/run-aks-node-controller-hack.sh
         [Install]
         WantedBy=multi-user.target
-`, nbcCmdContent, binaryURL)
+`, nbcCmdContent, binaryURL, provisionFlags, aksNodeConfigEntry)
 
 		return base64.StdEncoding.EncodeToString([]byte(cloudConfig)), nil
+	}
+
+	provisionFlags := "--nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
+	var aksNodeConfigBlock string
+	if s.Runtime.AKSNodeConfig != nil {
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal AKSNodeConfig: %w", err)
+		}
+		encodedConfig := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+		configPath := "/opt/azure/containers/aks-node-controller-config-hack.json"
+		aksNodeConfigBlock = fmt.Sprintf("\ncat <<'EOF' | base64 -d > %s\n%s\nEOF\nchmod 0600 %s\n", configPath, encodedConfig, configPath)
+		provisionFlags += " --provision-config=" + configPath
 	}
 
 	cloudConfigTemplate := `%s
 
 mkdir -p /opt/azure/bin
-
+%s
 cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
 set -euo pipefail
@@ -295,7 +328,7 @@ mkdir -p /opt/azure/bin
 curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
-/opt/azure/bin/aks-node-controller-hack provision --nbc-cmd=/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh
+/opt/azure/bin/aks-node-controller-hack provision %s
 
 SCRIPT
 chmod +x /opt/azure/bin/run-aks-node-controller-hack.sh
@@ -318,7 +351,7 @@ systemctl daemon-reload
 systemctl start --no-block aks-node-controller-hack.service
 `
 
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, binaryURL)
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, customData, aksNodeConfigBlock, binaryURL, provisionFlags)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
@@ -329,30 +362,45 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	require.NoError(s.T, err)
 	var cse, customData string
 
+	if s.Runtime.NBC != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
+		require.NoError(s.T, err)
+	}
+
 	if s.Runtime.AKSNodeConfig != nil {
 		cse = nodeconfigutils.CSE
+		aksNodeConfig := s.Runtime.AKSNodeConfig
+
+		if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+			cse = nodeBootstrapping.CSE
+		}
+
 		customData = func() string {
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
 				if s.VHD.Flatcar {
-					data, err = nodeconfigutils.CustomDataFlatcar(s.Runtime.AKSNodeConfig)
+					data, err = nodeconfigutils.CustomDataFlatcar(aksNodeConfig)
 				} else {
-					data, err = nodeconfigutils.CustomData(s.Runtime.AKSNodeConfig)
+					data, err = nodeconfigutils.CustomData(aksNodeConfig)
 				}
 				require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig")
 				return data
 			}
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
+			if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+				customData := nodeBootstrapping.CustomData
+				customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
+				require.NoError(s.T, err, "failed to generate custom data with NBC cmd hack")
+				return customData
+			}
 			data, err := CustomDataWithHack(s, binaryURL)
 			require.NoError(s.T, err, "failed to generate custom data from AKSNodeConfig with hack")
 			return data
 		}()
 
 	} else {
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-		require.NoError(s.T, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
 		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly {
@@ -1052,6 +1100,13 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", fmt.Errorf("failed to decode customData: %w", err)
 	}
 
+	if strings.Contains(string(decoded), "#cloud-boothook") {
+		return injectWriteFilesEntriesToBoothookCustomData(decoded, entries)
+	}
+	if strings.Contains(string(decoded), "write_files:") {
+		return injectWriteFilesEntriesToPlainCloudConfig(decoded, entries)
+	}
+
 	reader, err := gzip.NewReader(bytes.NewReader(decoded))
 	if err != nil {
 		return "", fmt.Errorf("failed to create gzip reader: %w", err)
@@ -1062,13 +1117,50 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", fmt.Errorf("failed to read gzip data: %w", err)
 	}
 
+	yamlStr, err := injectWriteFilesEntriesToCloudConfigYAML(string(yamlBytes), entries)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err = gw.Write([]byte(yamlStr))
+	if err != nil {
+		return "", fmt.Errorf("failed to gzip customData: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return encoded, nil
+}
+
+func injectWriteFilesEntriesToPlainCloudConfig(decoded []byte, entries []CustomDataWriteFile) (string, error) {
+	yamlStr, err := injectWriteFilesEntriesToCloudConfigYAML(string(decoded), entries)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString([]byte(yamlStr)), nil
+}
+
+func injectWriteFilesEntriesToCloudConfigYAML(yamlStr string, entries []CustomDataWriteFile) (string, error) {
 	const writeFilesMarker = "write_files:"
-	yamlStr := string(yamlBytes)
 	idx := strings.Index(yamlStr, writeFilesMarker)
 	if idx == -1 {
 		return "", fmt.Errorf("cloud-init customData missing %q section", writeFilesMarker)
 	}
 
+	entryBlock, err := renderCloudConfigWriteFilesEntries(entries)
+	if err != nil {
+		return "", err
+	}
+
+	insertPos := idx + len(writeFilesMarker)
+	return yamlStr[:insertPos] + entryBlock + yamlStr[insertPos:], nil
+}
+
+func renderCloudConfigWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {
 	var entryBuilder strings.Builder
 	for _, entry := range entries {
 		if entry.Path == "" {
@@ -1088,22 +1180,60 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		indentedContent := indentYAMLBlock(entry.Content, "    ")
 		entryBuilder.WriteString(fmt.Sprintf("\n- path: %s\n  permissions: %q\n  owner: %s\n  content: |\n%s\n", entry.Path, permissions, owner, indentedContent))
 	}
+	return entryBuilder.String(), nil
+}
 
-	insertPos := idx + len(writeFilesMarker)
-	yamlStr = yamlStr[:insertPos] + entryBuilder.String() + yamlStr[insertPos:]
+func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []CustomDataWriteFile) (string, error) {
+	boothookStr := string(decoded)
 
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	_, err = gw.Write([]byte(yamlStr))
+	entryBlock, err := renderBoothookWriteFilesEntries(entries)
 	if err != nil {
-		return "", fmt.Errorf("failed to gzip customData: %w", err)
-	}
-	if err := gw.Close(); err != nil {
-		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+		return "", err
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
-	return encoded, nil
+	insertPos := strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
+	if insertPos == -1 {
+		insertPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller-hack.service")
+	}
+	if insertPos == -1 {
+		return "", fmt.Errorf("cloud-boothook customData missing aks-node-controller service start")
+	}
+
+	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
+	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil
+}
+
+func renderBoothookWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {
+	var entryBuilder strings.Builder
+	entryBuilder.WriteString("\n")
+	for _, entry := range entries {
+		if entry.Path == "" {
+			return "", fmt.Errorf("cloud-init write_files entry path cannot be empty")
+		}
+
+		permissions := entry.Permissions
+		if permissions == "" {
+			permissions = "0644"
+		}
+
+		owner := entry.Owner
+		if owner == "" {
+			owner = "root"
+		}
+
+		quotedPath := shellSingleQuote(entry.Path)
+		entryBuilder.WriteString(fmt.Sprintf("mkdir -p \"$(dirname %s)\"\n", quotedPath))
+		entryBuilder.WriteString(fmt.Sprintf("cat <<'EOF' | base64 -d > %s\n", quotedPath))
+		entryBuilder.WriteString(base64.StdEncoding.EncodeToString([]byte(entry.Content)))
+		entryBuilder.WriteString("\nEOF\n")
+		entryBuilder.WriteString(fmt.Sprintf("chmod %s %s\n", shellSingleQuote(permissions), quotedPath))
+		entryBuilder.WriteString(fmt.Sprintf("chown %s %s\n\n", shellSingleQuote(owner), quotedPath))
+	}
+	return entryBuilder.String(), nil
+}
+
+func shellSingleQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func indentYAMLBlock(content, indent string) string {

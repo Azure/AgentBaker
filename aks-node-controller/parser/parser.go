@@ -33,7 +33,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
-		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision.log",
+		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"MOBY_VERSION":                                         "",
 		"CLOUDPROVIDER_BACKOFF":                                fmt.Sprintf("%v", cloudProviderSettings.backoff),
 		"CLOUDPROVIDER_BACKOFF_MODE":                           cloudProviderSettings.backoffMode,
@@ -47,7 +47,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CLOUDPROVIDER_RATELIMIT_BUCKET":                       fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucket),
 		"CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE":                 fmt.Sprintf("%v", cloudProviderSettings.rateLimitBucketWrite),
 		"CLI_TOOL":                                             "ctr",
-		"NETWORK_MODE":                                         "transparent",
+		"NETWORK_MODE":                                         "",
 		"ADMINUSER":                                            getLinuxAdminUsername(config.GetLinuxAdminUsername()),
 		"TENANT_ID":                                            config.GetAuthConfig().GetTenantId(),
 		"KUBERNETES_VERSION":                                   config.GetKubernetesVersion(),
@@ -196,6 +196,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CSE_TIMEOUT":                                  getCSETimeout(config),
 		"SKIP_WAAGENT_HOLD":                            "true",
 		"ENABLE_MANAGED_GPU_DRA":                       "false", // TODO: add proto buff field
+		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 	}
 
 	for i, cert := range config.CustomCaCerts {

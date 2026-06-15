@@ -1806,6 +1806,15 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
+	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	AKSNodeConfigJSON string
+
+	// StandardSecondaryNICCount is the number of Standard-type secondary network
+	// interfaces configured on the agent pool. The node bootstrapping scripts use
+	// this to detect and configure the additional NICs at the OS level.
+	// Dynamic-type secondary NICs are not included in this count as they are
+	// configured by CNS rather than the node bootstrapping scripts.
+	StandardSecondaryNICCount int
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

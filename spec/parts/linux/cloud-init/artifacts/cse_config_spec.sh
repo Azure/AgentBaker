@@ -1798,6 +1798,73 @@ SETUP_EOF
             # Must not block CSE on a service that legitimately waits for kubeconfig.
             The output should include "systemctlEnableAndStartNoBlock dra-driver-nvidia-gpu 30"
             The output should not include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+    Describe 'configGPUDrivers'
+        # Assert the per-step CSE timing event names emitted via logs_to_events,
+        # without running the real (hardware/daemon) driver steps. logs_to_events
+        # is mocked to print only the event name so the wrapped commands never run.
+        logs_to_events() {
+            echo "logs_to_events $1"
+        }
+        waitForContainerdReady() { return 0; }
+        retrycmd_if_failure() { return 0; }
+        ctr() { return 0; }
+        mkdir() { return 0; }
+        enableNvidiaPersistenceMode() { return 0; }
+        createNvidiaSymlinkToAllDeviceNodes() { return 0; }
+        systemctlEnableAndStart() { return 0; }
+        systemctl() { return 0; }
+
+        UBUNTU_OS_NAME="UBUNTU"
+        NVIDIA_DRIVER_IMAGE="mcr.example/nvidia/driver"
+        NVIDIA_DRIVER_IMAGE_TAG="000.00"
+        NVIDIA_GPU_DRIVER_TYPE="cuda"
+        OS_VARIANT=""
+        ERR_GPU_DRIVERS_START_FAIL=88
+
+        It 'times the image pull and install steps on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'times the driver download and toolkit install on Mariner/AzureLinux'
+            OS="AZURELINUX"
+            isMarinerOrAzureLinux() { return 0; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.downloadGPUDrivers"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'times the sysext pulls on Azure Container Linux (ACL)'
+            OS="AZURELINUX"
+            OS_VARIANT="acl"
+            isMarinerOrAzureLinux() { return 0; }
+            isAzureLinuxOSGuard() { return 0; }
+            isACL() { return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkitSysext"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
         End
     End
 End

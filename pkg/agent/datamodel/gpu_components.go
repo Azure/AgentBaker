@@ -12,10 +12,12 @@ const Nvidia470CudaDriverVersion = "cuda-470.82.01"
 
 //nolint:gochecknoglobals
 var (
-	NvidiaCudaDriverVersion string
-	NvidiaGridDriverVersion string
-	AKSGPUCudaVersionSuffix string
-	AKSGPUGridVersionSuffix string
+	NvidiaCudaDriverVersion    string
+	NvidiaGridDriverVersion    string
+	NvidiaGridV20DriverVersion string
+	AKSGPUCudaVersionSuffix    string
+	AKSGPUGridVersionSuffix    string
+	AKSGPUGridV20VersionSuffix string
 )
 
 type gpuVersion struct {
@@ -49,21 +51,42 @@ func LoadConfig() error {
 	const expectedLength = 2
 
 	for _, image := range config.GPUContainerImages {
-		parts := strings.Split(image.GPUVersion.LatestVersion, "-")
-		if len(parts) != expectedLength {
+		// Named versionParts (not parts) to avoid shadowing the imported parts package.
+		versionParts := strings.Split(image.GPUVersion.LatestVersion, "-")
+		if len(versionParts) != expectedLength {
 			continue
 		}
-		version, suffix := parts[driverIndex], parts[suffixIndex]
+		version, suffix := versionParts[driverIndex], versionParts[suffixIndex]
 
-		if strings.Contains(image.DownloadURL, "aks-gpu-cuda") {
+		// Match on the exact repo name (final path segment, tag stripped) so that
+		// repos sharing a prefix (e.g. "aks-gpu-grid" vs "aks-gpu-grid-v20") are not
+		// confused by substring matching.
+		switch gpuImageRepo(image.DownloadURL) {
+		case "aks-gpu-cuda":
 			NvidiaCudaDriverVersion = version
 			AKSGPUCudaVersionSuffix = suffix
-		} else if strings.Contains(image.DownloadURL, "aks-gpu-grid") {
+		case "aks-gpu-grid":
 			NvidiaGridDriverVersion = version
 			AKSGPUGridVersionSuffix = suffix
+		case "aks-gpu-grid-v20":
+			NvidiaGridV20DriverVersion = version
+			AKSGPUGridV20VersionSuffix = suffix
 		}
 	}
 	return nil
+}
+
+// gpuImageRepo extracts the bare repo name from a download URL such as
+// "mcr.microsoft.com/aks/aks-gpu-grid-v20:*" -> "aks-gpu-grid-v20".
+func gpuImageRepo(downloadURL string) string {
+	repo := downloadURL
+	if idx := strings.LastIndex(repo, "/"); idx != -1 {
+		repo = repo[idx+1:]
+	}
+	if idx := strings.Index(repo, ":"); idx != -1 {
+		repo = repo[:idx]
+	}
+	return repo
 }
 
 //nolint:gochecknoinits
@@ -91,6 +114,22 @@ var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nc8ads_a10_v4":   true,
 	"standard_nc16ads_a10_v4":  true,
 	"standard_nc32ads_a10_v4":  true,
+}
+
+/* RTXPro6000GPUDriverSizes : NC_RTXPRO6000BSE_v6 (RTX PRO 6000 Blackwell Server
+Edition) SKUs require the GRID v20 (595.x) driver, published as the
+aks-gpu-grid-v20 image. All other GRID SKUs continue to use aks-gpu-grid.
+Each size ships as a ds (higher-memory) and lds (lower-memory) pair; both use
+the same GPU and therefore the same driver, so both are listed here.
+*/
+//nolint:gochecknoglobals
+var RTXPro6000GPUDriverSizes = map[string]bool{
+	"standard_nc128ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc128lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc256ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc256lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc320ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc320lds_xl_rtxpro6000bse_v6": true,
 }
 
 //nolint:gochecknoglobals

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,18 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/urfave/cli/v3"
 )
+
+func isExpectedDiffCSEVar(key string) bool {
+	switch key {
+	case "CLOUD_INIT_STATUS_SCRIPT",
+		"HYPERKUBE_URL",
+		"MCR_REPOSITORY_BASE",
+		"BLOCK_OUTBOUND_NETWORK",
+		"SKIP_WAAGENT_HOLD":
+		return true
+	}
+	return false
+}
 
 type App struct {
 	// cmdRun is a function that runs the given command.
@@ -257,14 +270,7 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 	}
 
 	// Extract CSE-specific env vars from provision config by filtering out unmodified OS env vars.
-	osEnv := envSliceToMap(os.Environ())
-	pcAllEnv := envSliceToMap(provisionConfigCmd.Env)
-	pcEnv := make(map[string]string, len(pcAllEnv))
-	for k, v := range pcAllEnv {
-		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
-			pcEnv[k] = v
-		}
-	}
+	pcEnv := extractCSEEnvVars(provisionConfigCmd.Env)
 
 	// Parse env vars directly from the NBC command file content.
 	nbcCmdContent, err := os.ReadFile(flags.NBCCmd)
@@ -274,8 +280,36 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 	}
 	nbcEnv := parseEnvVarsFromNBCCmdContent(string(nbcCmdContent))
 
-	// Collect all keys from both environments.
-	allKeys := make(map[string]struct{})
+	diffs := diffEnvMaps(pcEnv, nbcEnv)
+
+	now := time.Now()
+	if len(diffs) == 0 {
+		slog.Info("env compare: no differences found between provision-config and nbc-cmd env vars")
+		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
+	} else {
+		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
+		slog.Info(message)
+		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
+	}
+}
+
+// extractCSEEnvVars filters a command's env slice to only CSE-specific variables
+// by removing entries that match the current OS environment.
+func extractCSEEnvVars(cmdEnv []string) map[string]string {
+	osEnv := envSliceToMap(os.Environ())
+	allEnv := envSliceToMap(cmdEnv)
+	cseEnv := make(map[string]string, len(allEnv))
+	for k, v := range allEnv {
+		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
+			cseEnv[k] = v
+		}
+	}
+	return cseEnv
+}
+
+// diffEnvMaps compares two environment variable maps and returns a sorted list of human-readable differences.
+func diffEnvMaps(pcEnv, nbcEnv map[string]string) []string {
+	allKeys := make(map[string]struct{}, len(pcEnv)+len(nbcEnv))
 	for k := range pcEnv {
 		allKeys[k] = struct{}{}
 	}
@@ -297,21 +331,81 @@ func compareEnvs(ctx context.Context, flags ProvisionFlags, eventLogger *helpers
 		case inPC && !inNBC:
 			diffs = append(diffs, fmt.Sprintf("only-in-pc: %s", key))
 		case !inPC && inNBC:
-			diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
-		case pcVal != nbcVal:
-			diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+			if !isExpectedDiffCSEVar(key) {
+				diffs = append(diffs, fmt.Sprintf("only-in-nbc: %s", key))
+			}
+		case !envValsEqualForKey(key, pcVal, nbcVal):
+			if !isExpectedDiffCSEVar(key) {
+				diffs = append(diffs, fmt.Sprintf("differs: %s", key))
+			}
 		}
 	}
+	return diffs
+}
 
-	now := time.Now()
-	if len(diffs) == 0 {
-		slog.Info("env compare: no differences found between provision-config and nbc-cmd env vars")
-		eventLogger.LogEvent("CompareEnvs", "env vars match between provision-config and nbc-cmd", helpers.EventLevelInformational, now, now)
-	} else {
-		message := fmt.Sprintf("env var differences (%d): %s", len(diffs), strings.Join(diffs, "; "))
-		slog.Info(message)
-		eventLogger.LogEvent("CompareEnvs", message, helpers.EventLevelInformational, now, now)
+// envValsEqual compares two environment variable values, treating them as equal
+// if they differ only in the presence of double quotes around substrings.
+// This handles cases like PROXY_VARS where the legacy path strips inner quotes
+// due to shell quoting collision while the scriptless path preserves them.
+func envValsEqual(a, b string) bool {
+	if a == b {
+		return true
 	}
+	return stripDoubleQuotes(a) == stripDoubleQuotes(b)
+}
+
+// envValsEqualForKey performs key-specific comparison logic.
+// For SYSCTL_CONTENT, it base64-decodes both values and compares the resulting
+// key=value pairs as sets (ignoring order and whitespace differences).
+func envValsEqualForKey(key, a, b string) bool {
+	if key == "SYSCTL_CONTENT" {
+		return sysctlContentEqual(a, b)
+	}
+	return envValsEqual(a, b)
+}
+
+// sysctlContentEqual base64-decodes both values and compares the sysctl key=value
+// pairs as sets, ignoring line ordering and trailing whitespace.
+func sysctlContentEqual(a, b string) bool {
+	aDecoded, errA := base64.StdEncoding.DecodeString(a)
+	bDecoded, errB := base64.StdEncoding.DecodeString(b)
+	if errA != nil || errB != nil {
+		// Fall back to literal comparison if decoding fails.
+		return envValsEqual(a, b)
+	}
+	aSet := parseSysctlPairs(string(aDecoded))
+	bSet := parseSysctlPairs(string(bDecoded))
+	if len(aSet) != len(bSet) {
+		return false
+	}
+	for k, v := range aSet {
+		if bSet[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+// parseSysctlPairs parses newline-separated "key = value" or "key=value" entries
+// into a map, trimming whitespace from both key and value.
+func parseSysctlPairs(content string) map[string]string {
+	result := make(map[string]string)
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	return result
+}
+
+func stripDoubleQuotes(s string) string {
+	return strings.ReplaceAll(s, "\"", "")
 }
 
 // parseEnvVarsFromNBCCmdContent extracts environment variable assignments from an NBC command string.
@@ -359,16 +453,26 @@ func parseEnvVarsFromNBCCmdContent(content string) map[string]string {
 }
 
 // parseEnvValue parses the value portion of a KEY=VALUE assignment starting at position i.
-// It handles concatenated quoted and unquoted segments. Returns the parsed value and the new position.
+// It handles concatenated quoted (single or double) and unquoted segments. Returns the parsed value and the new position.
 func parseEnvValue(content string, i int) (string, int) {
 	n := len(content)
 	var value strings.Builder
 	for i < n {
 		switch {
 		case content[i] == '"':
-			// Quoted section: read until closing quote.
+			// Double-quoted section: read until closing double quote.
 			i++ // skip opening quote
 			for i < n && content[i] != '"' {
+				value.WriteByte(content[i])
+				i++
+			}
+			if i < n {
+				i++ // skip closing quote
+			}
+		case content[i] == '\'':
+			// Single-quoted section: read until closing single quote.
+			i++ // skip opening quote
+			for i < n && content[i] != '\'' {
 				value.WriteByte(content[i])
 				i++
 			}
@@ -401,11 +505,12 @@ func isEnvKeyChar(c byte) bool {
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// skipToken advances past the current non-whitespace token, respecting double-quoted sections.
+// skipToken advances past the current non-whitespace token, respecting quoted sections.
 func skipToken(content string, i int) int {
 	n := len(content)
 	for i < n && content[i] != ' ' && content[i] != '\t' && content[i] != '\n' && content[i] != ';' {
-		if content[i] == '"' {
+		switch content[i] {
+		case '"':
 			i++
 			for i < n && content[i] != '"' {
 				i++
@@ -413,7 +518,15 @@ func skipToken(content string, i int) int {
 			if i < n {
 				i++
 			}
-		} else {
+		case '\'':
+			i++
+			for i < n && content[i] != '\'' {
+				i++
+			}
+			if i < n {
+				i++
+			}
+		default:
 			i++
 		}
 	}
@@ -446,12 +559,6 @@ func envSliceToMap(env []string) map[string]string {
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
-
-	// If both flags are provided, compare environments before proceeding.
-	// This is best-effort and should not block provisioning.
-	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
-		compareEnvs(ctx, flags, a.eventLogger)
-	}
 
 	var cmd *exec.Cmd
 	if flags.NBCCmd != "" {
@@ -488,6 +595,13 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
+	}
+
+	// If both flags are provided, compare environments.
+	// This is best-effort and should not block provisioning.
+	if flags.ProvisionConfig != "" && flags.NBCCmd != "" {
+		slog.Info("ProvisionConfig and NBCCmd both provided, comparing envs")
+		compareEnvs(ctx, flags, a.eventLogger)
 	}
 
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)

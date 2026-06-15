@@ -27,8 +27,7 @@ import (
 - KEY="VALUE WITH WHITSPACE". */
 const cseRegexString = `([^=\s]+)=(\"[^\"]*\"|[^\s]*)`
 
-const expectedlocalDNSCorefileWithoutOverrides = `
-# ***********************************************************************************
+const expectedlocalDNSCorefileWithoutOverrides = `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
@@ -403,8 +402,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
-				expectedlocalDNSCorefile := `
-# ***********************************************************************************
+				expectedlocalDNSCorefile := `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
@@ -593,8 +591,7 @@ testdomain456.com:53 {
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(BeEmpty())
 
-				expectedlocalDNSCorefile := `
-# ***********************************************************************************
+				expectedlocalDNSCorefile := `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
@@ -952,6 +949,13 @@ var _ = Describe("GetGPUDriverVersion", func() {
 		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.NvidiaGridDriverVersion))
 		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.NvidiaGridDriverVersion))
 	})
+	It("should use grid v20 with rtx pro 6000 bse v6", func() {
+		Expect(GetGPUDriverVersion("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("Standard_NC320ds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		// lds (lower-memory) variants share the same GPU/driver
+		Expect(GetGPUDriverVersion("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("Standard_NC320lds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
 		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaDriverVersion))
@@ -967,6 +971,13 @@ var _ = Describe("GetGPUDriverType", func() {
 		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
 		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
+	It("should use grid-v20 with rtx pro 6000 bse v6", func() {
+		Expect(GetGPUDriverType("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("Standard_NC320ds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+		// lds (lower-memory) variants share the same GPU/driver
+		Expect(GetGPUDriverType("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal("grid-v20"))
+		Expect(GetGPUDriverType("Standard_NC320lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
+	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
 		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
@@ -976,6 +987,10 @@ var _ = Describe("GetGPUDriverType", func() {
 var _ = Describe("GetAKSGPUImageSHA", func() {
 	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
 		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
+	})
+	It("should use newest AKSGPUGridV20VersionSuffix with rtx pro 6000 bse v6", func() {
+		Expect(GetAKSGPUImageSHA("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
+		Expect(GetAKSGPUImageSHA("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
 	})
 	It("should use newest AKSGPUCudaVersionSuffix with non grid SKU", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
@@ -1060,7 +1075,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vars).To(HaveKey("KUBELET_FLAGS"))
-		Expect(vars["KUBELET_FLAGS"]).To(Equal("--image-gc-high-threshold=85 --max-pods=110 --pod-max-pids=-1 "))
+		Expect(vars["KUBELET_FLAGS"]).To(Equal("--image-gc-high-threshold=85 --max-pods=110 --pod-max-pids=-1"))
 	})
 
 	It("should handle different distros", func() {
