@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
@@ -458,6 +459,51 @@ func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string,
 
 func clusterSubnetName(clusterName string) string {
 	return "aks-subnet-" + clusterName
+}
+
+func detachRouteTableFromClusterSubnet(ctx context.Context, location, clusterName, routeTableResourceGroup string) error {
+	rg := config.ResourceGroupName(location)
+	subnetName := clusterSubnetName(clusterName)
+
+	return retryOn409(ctx, fmt.Sprintf("detaching route table from subnet %s", subnetName), func() error {
+		subnetResp, err := config.Azure.Subnet.Get(ctx, rg, SharedVNetName, subnetName, nil)
+		if err != nil {
+			if isNotFoundError(err) {
+				return nil
+			}
+			return fmt.Errorf("getting subnet %s: %w", subnetName, err)
+		}
+		shouldDetach, err := subnetRouteTableInResourceGroup(subnetResp.Subnet, routeTableResourceGroup)
+		if err != nil {
+			return err
+		}
+		if !shouldDetach {
+			return nil
+		}
+
+		routeTableID := *subnetResp.Properties.RouteTable.ID
+
+		toolkit.Logf(ctx, "detaching route table %q from shared subnet %q because resource group %q is deleting", routeTableID, subnetName, routeTableResourceGroup)
+		subnetResp.Subnet.Properties.RouteTable = nil
+		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, subnetName, subnetResp.Subnet, nil)
+		if err != nil {
+			return fmt.Errorf("detaching route table from subnet %s: %w", subnetName, err)
+		}
+		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+		return err
+	})
+}
+
+func subnetRouteTableInResourceGroup(subnet armnetwork.Subnet, routeTableResourceGroup string) (bool, error) {
+	if subnet.Properties == nil || subnet.Properties.RouteTable == nil || subnet.Properties.RouteTable.ID == nil {
+		return false, nil
+	}
+	routeTableID := *subnet.Properties.RouteTable.ID
+	parsedRouteTable, err := arm.ParseResourceID(routeTableID)
+	if err != nil {
+		return false, fmt.Errorf("parsing route table ID %q: %w", routeTableID, err)
+	}
+	return strings.EqualFold(parsedRouteTable.ResourceGroupName, routeTableResourceGroup), nil
 }
 
 const totalSubnetSlots = 4080
