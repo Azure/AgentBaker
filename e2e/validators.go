@@ -779,21 +779,27 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 
 		// get the PID of the service, so we can check it's changed
-		fmt.Sprintf("INITIAL_PID=`sudo pgrep %s`", serviceName),
+		fmt.Sprintf("INITIAL_PID=$(sudo systemctl show -p MainPID --value %s)", serviceName),
 		"echo INITIAL_PID: $INITIAL_PID",
 
 		// we use systemctl kill rather than kill -9 because container restrictions stop us sending a kill sig to a process
 		fmt.Sprintf("sudo systemctl kill %s", serviceName),
 
-		// sleep for restartTimeoutInSeconds seconds to give the service time tor restart
-		fmt.Sprintf("sleep %d", restartTimeoutInSeconds),
+		fmt.Sprintf(`for _ in $(seq 1 %d); do
+  CURRENT_STATE=$(systemctl is-active %s || true)
+  POST_PID=$(sudo systemctl show -p MainPID --value %s)
+  if [[ "$CURRENT_STATE" == "active" && -n "$POST_PID" && "$POST_PID" != "0" && "$POST_PID" != "$INITIAL_PID" ]]; then
+    break
+  fi
+  sleep 2
+done`, restartTimeoutInSeconds/2, serviceName, serviceName),
 
 		// print the status of the service and then verify it is active.
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 
 		// get the PID of the service after restart, so we can check it's changed
-		fmt.Sprintf("POST_PID=`sudo pgrep %s`", serviceName),
+		fmt.Sprintf("POST_PID=$(sudo systemctl show -p MainPID --value %s)", serviceName),
 		"echo POST_PID: $POST_PID",
 
 		// verify the PID has changed.
@@ -1899,6 +1905,7 @@ func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) {
 
 	s.T.Log("Testing hosts plugin serves IPv6 entries from hosts file")
 
+	// TODO(reliability): replace embedded shell sleeps in this validator with fully polled readiness checks when the shell flow is refactored into Go helpers.
 	script := `set -euo pipefail
 hosts_file="/etc/localdns/hosts"
 
@@ -2354,9 +2361,28 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
-	// Wait for resources to be available and add delay for device health
+	// Wait for resources to be available and for the allocatable count to stabilize.
 	waitUntilResourceAvailable(ctx, s, resourceName)
-	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+	gpuReadyCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	err := wait.PollUntilContextCancel(gpuReadyCtx, 2*time.Second, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("transient error polling GPU allocatable resource %q, will retry: %v", resourceName, err)
+			return false, nil
+		}
+		quantity, exists := node.Status.Allocatable[corev1.ResourceName(resourceName)]
+		if !exists {
+			s.T.Logf("GPU allocatable resource %q not advertised yet, retrying", resourceName)
+			return false, nil
+		}
+		if quantity.Value() < int64(gpuCount) {
+			s.T.Logf("GPU allocatable resource %q=%d, waiting for at least %d", resourceName, quantity.Value(), gpuCount)
+			return false, nil
+		}
+		return true, nil
+	})
+	require.NoError(s.T, err, "GPU allocatable resource %q did not become ready", resourceName)
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
 	pod := &corev1.Pod{
