@@ -558,7 +558,7 @@ while IFS= read -r p; do
       ;;
     "dra-driver-nvidia-gpu")
       for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
           downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
         fi
         echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
