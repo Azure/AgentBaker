@@ -28,11 +28,10 @@
 // collected errors. Panics inside task functions are recovered and surfaced
 // as errors; they never crash the process.
 //
-// Note: the package does not perform runtime cycle detection. Dependency
-// cycles created via the untyped [Go]/[Run] API (where a task's closure
-// captures a [Result] that transitively depends on itself) will cause
-// [Group.Wait] to deadlock. The typed variants (Go1–Go3, Run1–Run3) make
-// cycles harder to construct but do not prevent them entirely.
+// Note: the package performs runtime cycle detection for explicit dependency
+// edges declared via [Go]/[Run]/[Go1-3]/[Run1-3]. Hidden cycles created by
+// closures that capture undeclared [Result] values are still outside the
+// scheduler's view and can deadlock [Group.Wait].
 //
 // Example:
 //
@@ -85,13 +84,16 @@ type Group struct {
 	mu   sync.Mutex
 	errs []error
 	wg   sync.WaitGroup
+	deps map[taskNode][]taskNode
 }
+
+type taskNode any
 
 // NewGroup creates a Group whose tasks run under ctx.
 // On the first task error the Group cancels ctx, signalling all other tasks.
 func NewGroup(ctx context.Context) *Group {
 	ctx, cancel := context.WithCancel(ctx)
-	return &Group{ctx: ctx, cancel: cancel}
+	return &Group{ctx: ctx, cancel: cancel, deps: map[taskNode][]taskNode{}}
 }
 
 // Wait blocks until every task in the group has finished.
@@ -116,6 +118,40 @@ func (g *Group) recordError(err error) {
 	g.errs = append(g.errs, err)
 	g.mu.Unlock()
 	g.cancel()
+}
+
+func (g *Group) registerTask(task taskNode, deps []Dep) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	taskDeps := make([]taskNode, len(deps))
+	for i, dep := range deps {
+		taskDeps[i] = dep
+	}
+	g.deps[task] = taskDeps
+	for _, dep := range taskDeps {
+		if g.hasPathLocked(dep, task, map[taskNode]bool{}) {
+			delete(g.deps, task)
+			return fmt.Errorf("dag: dependency cycle detected")
+		}
+	}
+	return nil
+}
+
+func (g *Group) hasPathLocked(current, target taskNode, seen map[taskNode]bool) bool {
+	if current == target {
+		return true
+	}
+	if seen[current] {
+		return false
+	}
+	seen[current] = true
+	for _, dep := range g.deps[current] {
+		if g.hasPathLocked(dep, target, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // errSkipped is a sentinel set on tasks that were skipped because a
@@ -246,6 +282,12 @@ func (e *Effect) finish(err error) {
 // via [Result.MustGet] inside fn.
 func Go[T any](g *Group, fn func(ctx context.Context) (T, error), deps ...Dep) *Result[T] {
 	r := newResult[T]()
+	if err := g.registerTask(r, deps); err != nil {
+		var zero T
+		r.finish(zero, err)
+		g.recordError(err)
+		return r
+	}
 	g.launch(deps, func() {
 		val, err := fn(g.ctx)
 		if err != nil {
@@ -263,7 +305,14 @@ func Go[T any](g *Group, fn func(ctx context.Context) (T, error), deps ...Dep) *
 // Extra deps are waited on but their values are not passed to fn.
 func Go1[T, D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1) (T, error), extra ...Dep) *Result[T] {
 	r := newResult[T]()
-	g.launch(append([]Dep{dep}, extra...), func() {
+	deps := append([]Dep{dep}, extra...)
+	if err := g.registerTask(r, deps); err != nil {
+		var zero T
+		r.finish(zero, err)
+		g.recordError(err)
+		return r
+	}
+	g.launch(deps, func() {
 		val, err := fn(g.ctx, dep.val)
 		if err != nil {
 			g.recordError(err)
@@ -280,7 +329,14 @@ func Go1[T, D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D
 // Extra deps are waited on but their values are not passed to fn.
 func Go2[T, D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx context.Context, d1 D1, d2 D2) (T, error), extra ...Dep) *Result[T] {
 	r := newResult[T]()
-	g.launch(append([]Dep{dep1, dep2}, extra...), func() {
+	deps := append([]Dep{dep1, dep2}, extra...)
+	if err := g.registerTask(r, deps); err != nil {
+		var zero T
+		r.finish(zero, err)
+		g.recordError(err)
+		return r
+	}
+	g.launch(deps, func() {
 		val, err := fn(g.ctx, dep1.val, dep2.val)
 		if err != nil {
 			g.recordError(err)
@@ -297,7 +353,14 @@ func Go2[T, D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ct
 // Extra deps are waited on but their values are not passed to fn.
 func Go3[T, D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Result[D3], fn func(ctx context.Context, d1 D1, d2 D2, d3 D3) (T, error), extra ...Dep) *Result[T] {
 	r := newResult[T]()
-	g.launch(append([]Dep{dep1, dep2, dep3}, extra...), func() {
+	deps := append([]Dep{dep1, dep2, dep3}, extra...)
+	if err := g.registerTask(r, deps); err != nil {
+		var zero T
+		r.finish(zero, err)
+		g.recordError(err)
+		return r
+	}
+	g.launch(deps, func() {
 		val, err := fn(g.ctx, dep1.val, dep2.val, dep3.val)
 		if err != nil {
 			g.recordError(err)
@@ -320,6 +383,11 @@ func Go3[T, D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *
 // Run launches fn with optional untyped deps.
 func Run(g *Group, fn func(ctx context.Context) error, deps ...Dep) *Effect {
 	e := newEffect()
+	if err := g.registerTask(e, deps); err != nil {
+		e.finish(err)
+		g.recordError(err)
+		return e
+	}
 	g.launch(deps, func() {
 		err := fn(g.ctx)
 		if err != nil {
@@ -334,7 +402,13 @@ func Run(g *Group, fn func(ctx context.Context) error, deps ...Dep) *Effect {
 // Extra deps are waited on but their values are not passed to fn.
 func Run1[D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1) error, extra ...Dep) *Effect {
 	e := newEffect()
-	g.launch(append([]Dep{dep}, extra...), func() {
+	deps := append([]Dep{dep}, extra...)
+	if err := g.registerTask(e, deps); err != nil {
+		e.finish(err)
+		g.recordError(err)
+		return e
+	}
+	g.launch(deps, func() {
 		err := fn(g.ctx, dep.val)
 		if err != nil {
 			g.recordError(err)
@@ -348,7 +422,13 @@ func Run1[D1 any](g *Group, dep *Result[D1], fn func(ctx context.Context, d1 D1)
 // Extra deps are waited on but their values are not passed to fn.
 func Run2[D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx context.Context, d1 D1, d2 D2) error, extra ...Dep) *Effect {
 	e := newEffect()
-	g.launch(append([]Dep{dep1, dep2}, extra...), func() {
+	deps := append([]Dep{dep1, dep2}, extra...)
+	if err := g.registerTask(e, deps); err != nil {
+		e.finish(err)
+		g.recordError(err)
+		return e
+	}
+	g.launch(deps, func() {
 		err := fn(g.ctx, dep1.val, dep2.val)
 		if err != nil {
 			g.recordError(err)
@@ -362,7 +442,13 @@ func Run2[D1, D2 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], fn func(ctx 
 // Extra deps are waited on but their values are not passed to fn.
 func Run3[D1, D2, D3 any](g *Group, dep1 *Result[D1], dep2 *Result[D2], dep3 *Result[D3], fn func(ctx context.Context, d1 D1, d2 D2, d3 D3) error, extra ...Dep) *Effect {
 	e := newEffect()
-	g.launch(append([]Dep{dep1, dep2, dep3}, extra...), func() {
+	deps := append([]Dep{dep1, dep2, dep3}, extra...)
+	if err := g.registerTask(e, deps); err != nil {
+		e.finish(err)
+		g.recordError(err)
+		return e
+	}
+	g.launch(deps, func() {
 		err := fn(g.ctx, dep1.val, dep2.val, dep3.val)
 		if err != nil {
 			g.recordError(err)
