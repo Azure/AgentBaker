@@ -2959,3 +2959,15 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
 }
+
+func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating DRA driver NVIDIA GPU systemd service is running")
+
+	command := []string{
+		"set -ex",
+		"systemctl is-active dra-driver-nvidia-gpu.service",
+		"systemctl is-enabled dra-driver-nvidia-gpu.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+}

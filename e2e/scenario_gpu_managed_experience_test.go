@@ -715,49 +715,9 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2404_NvidiaDraDriverRunning(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that NVIDIA DRA driver is running & functional on Ubuntu 24.04 GPU nodes",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD: &config.Image{
-				Name:    "2404gen2containerd",
-				OS:      config.OSUbuntu,
-				Arch:    "amd64",
-				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781143084.16434", // pin to your published version
-				Gallery: &config.Gallery{ // omit to use the default gallery
-					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
-					ResourceGroupName: "aksvhdtestbuildrg",
-					Name:              "PackerSigGalleryEastUS",
-				},
-			},
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-				if vmss.Tags == nil {
-					vmss.Tags = map[string]*string{}
-				}
-
-				// Enable the AKS VM extension for GPU nodes
-				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
-				require.NoError(t, err, "creating AKS VM extension")
-				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Description: "Tests DRA driver works on Ubuntu 2404 VHD with containerd v2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -770,7 +730,7 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 				OS:      config.OSUbuntu,
 				Arch:    "amd64",
 				Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-				Version: "1.1781248411.30094", // pin to your published version
+				Version: "1.1781297662.31801", // pin to your published version
 				Gallery: &config.Gallery{ // omit to use the default gallery
 					SubscriptionID:    "c4c3550e-a965-4993-a50c-628fd38cd3e1",
 					ResourceGroupName: "aksvhdtestbuildrg",
@@ -797,8 +757,7 @@ func Test_Ubuntu2404Gen2DraDriver(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", "2.5.3")
-				ValidateSSHServiceEnabled(ctx, s)
+				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
 			},
 		},
 	})

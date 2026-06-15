@@ -1718,17 +1718,20 @@ startDRADriverNvidiaGpu() {
         exit $ERR_DRA_DRIVER_START_FAIL
     fi
 
+    # TODO: get version from components.json
+    IMAGE_NAME="mcr.microsoft.com/oss/v2/nvidia/dra-driver-nvidia-gpu:v0.4.0-1"
+
     # Use a drop-in so we keep the package's [Unit]/[Install] sections.
     # Add After=kubelet.service + Restart=on-failure so the service self-heals
     # while kubelet is still completing TLS bootstrap and writing /var/lib/kubelet/kubeconfig.
-    DRA_DRIVER_OVERRIDE_DIR="/etc/systemd/system/"
-    tee "${DRA_DRIVER_OVERRIDE_DIR}/dra-driver-nvidia-gpu.service" > /dev/null <<EOF
+    DRA_DRIVER_SVC_DIR="/etc/systemd/system/"
+    tee "${DRA_DRIVER_SVC_DIR}/dra-driver-nvidia-gpu.service" > /dev/null <<EOF
 [Unit]
 After=kubelet.service
 
 [Service]
 ExecStart=
-ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name nvcr.io/nvidia/k8s-dra-driver-gpu:v25.8.1 --node-name=${NODE_NAME}
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name ${IMAGE_NAME} --node-name=${NODE_NAME}
 Restart=on-failure
 RestartSec=5
 EOF
