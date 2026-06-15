@@ -1720,13 +1720,18 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	var node *corev1.Node
 	var err error
+	var lastErr error
 	var annotationValue string
 	var exists bool
 	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+		if err != nil {
+			lastErr = err
+			s.T.Logf("transient error polling node %q annotation %q, will retry: %v", s.Runtime.VM.KubeName, annotationKey, err)
+			continue
+		}
 
 		annotationValue, exists = node.Annotations[annotationKey]
 		if exists && annotationValue == "enabled" {
@@ -1735,8 +1740,13 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 		}
 
 		if attempt == maxAttempts {
-			s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
-				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+			if lastErr != nil {
+				s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Last transient polling error: %v. Annotation is best-effort in production, continuing with stronger validators.",
+					s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue, lastErr)
+			} else {
+				s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
+					s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+			}
 		}
 
 		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s

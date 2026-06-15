@@ -412,6 +412,7 @@ func waitForClusterDeletion(ctx context.Context, clusterName, resourceGroupName 
 func waitUntilClusterReady(ctx context.Context, name, location string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
 	var clusterDeleted bool
+	var lastErr error
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName(location), name, nil)
@@ -421,7 +422,9 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 				clusterDeleted = true
 				return true, nil
 			}
-			return false, err
+			lastErr = err
+			toolkit.Logf(ctx, "transient error polling cluster %s, will retry: %v", name, err)
+			return false, nil
 		}
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
@@ -435,6 +438,9 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 		}
 	})
 	if err != nil {
+		if lastErr != nil {
+			return nil, fmt.Errorf("failed to wait for cluster %s to be ready after transient polling error: %w", name, lastErr)
+		}
 		return nil, fmt.Errorf("failed to wait for cluster %s to be ready: %w", name, err)
 	}
 	if clusterDeleted {

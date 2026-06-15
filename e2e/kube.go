@@ -107,6 +107,7 @@ func NewKubeclient(kubeconfigBytes []byte) (*Kubeclient, error) {
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
 	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
+	var lastErr error
 
 	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := k.Typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
@@ -114,7 +115,9 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 			LabelSelector: labelSelector,
 		})
 		if err != nil {
-			return false, err
+			lastErr = err
+			toolkit.Logf(ctx, "transient error polling pods in %q, will retry: %v", namespace, err)
+			return false, nil
 		}
 
 		if len(pods.Items) == 0 {
@@ -152,6 +155,9 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 			return false, fmt.Errorf("pod %s is in unexpected phase %s", pod.Name, pod.Status.Phase)
 		}
 	})
+	if err != nil && lastErr != nil {
+		return pod, fmt.Errorf("timed out waiting for pod after transient polling error: %w", lastErr)
+	}
 
 	return pod, err
 }

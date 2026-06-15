@@ -181,14 +181,22 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 	nodeName := s.Runtime.VM.KubeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	var lastErr error
 
 	for {
 		select {
 		case <-ctx.Done():
-			s.T.Fatalf("context cancelled: %v", ctx.Err())
+			if lastErr != nil {
+				s.T.Fatalf("context cancelled while waiting for resource %q: %v (last transient polling error: %v)", resourceName, ctx.Err(), lastErr)
+			}
+			s.T.Fatalf("context cancelled while waiting for resource %q: %v", resourceName, ctx.Err())
 		case <-ticker.C:
 			node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			require.NoError(s.T, err, "failed to get node %q", nodeName)
+			if err != nil {
+				lastErr = err
+				s.T.Logf("transient error polling node %q for resource %q, will retry: %v", nodeName, resourceName, err)
+				continue
+			}
 
 			if isResourceAvailable(node, resourceName) {
 				s.T.Logf("resource %q is available", resourceName)
