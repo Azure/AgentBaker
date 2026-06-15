@@ -75,7 +75,6 @@ func newTestCtx(t testing.TB) context.Context {
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
-	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
 		t.Run("VHDCreation", func(t *testing.T) {
