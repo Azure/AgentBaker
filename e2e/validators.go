@@ -788,7 +788,7 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 		fmt.Sprintf(`for _ in $(seq 1 %d); do
   CURRENT_STATE=$(systemctl is-active %s || true)
   POST_PID=$(sudo systemctl show -p MainPID --value %s)
-  if [[ "$CURRENT_STATE" == "active" && -n "$POST_PID" && "$POST_PID" != "0" && "$POST_PID" != "$INITIAL_PID" ]]; then
+  if [ "$CURRENT_STATE" = "active" ] && [ -n "$POST_PID" ] && [ "$POST_PID" != "0" ] && [ "$POST_PID" != "$INITIAL_PID" ]; then
     break
   fi
   sleep 2
@@ -803,7 +803,7 @@ done`, restartTimeoutInSeconds/2, serviceName, serviceName),
 		"echo POST_PID: $POST_PID",
 
 		// verify the PID has changed.
-		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
+		"if [ \"$INITIAL_PID\" = \"$POST_PID\" ]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
 	}
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
@@ -1745,6 +1745,11 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 		if err != nil {
 			lastErr = err
 			s.T.Logf("transient error polling node %q annotation %q, will retry: %v", s.Runtime.VM.KubeName, annotationKey, err)
+			sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+			if sleepDuration > 10*time.Second {
+				sleepDuration = 10 * time.Second
+			}
+			time.Sleep(sleepDuration)
 			continue
 		}
 

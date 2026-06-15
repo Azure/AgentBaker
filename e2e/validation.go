@@ -43,6 +43,11 @@ func podNameForAttempt(baseName string, attempt int) string {
 	if len(baseName) > maxBaseLen {
 		baseName = strings.TrimRight(baseName[:maxBaseLen], "-")
 	}
+	if baseName == "" {
+		// baseName was empty or trimmed entirely; use a safe fallback that
+		// starts with an alphanumeric character (DNS-1123 requirement).
+		return fmt.Sprintf("pod%s", suffix)
+	}
 	return baseName + suffix
 }
 
