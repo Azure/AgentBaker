@@ -22,6 +22,11 @@ log() {
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
 
+if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
+    log "Gracefully exit aks-node-controller without provision config or nbc cmd"
+    exit 0
+fi
+
 if [ -f "$HOTFIX_JSON" ]; then
     log "Found ANC hotfix config at ${HOTFIX_JSON}; running download-hotfix"
     if "$BIN_PATH" download-hotfix; then
