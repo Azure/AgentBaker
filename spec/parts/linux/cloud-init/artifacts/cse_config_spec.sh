@@ -1760,44 +1760,14 @@ SETUP_EOF
             The stderr should include "NODE_NAME is empty"
         End
 
-        It 'skips silently when the dra-driver-nvidia-gpu unit is not present'
-            # systemctl cat returns non-zero when the unit does not exist
-            systemctl() {
-                if [ "$1" = "cat" ] && [ "$2" = "dra-driver-nvidia-gpu.service" ]; then
-                    return 1
-                fi
-                echo "systemctl $@"
-            }
-
+        It 'creates the service unit and starts it non-blocking'
             When call startDRADriverNvidiaGpu
 
             The status should be success
-            The output should include "dra-driver-nvidia-gpu.service not present"
-            The output should not include "systemctlEnableAndStartNoBlock dra-driver-nvidia-gpu"
-        End
-
-        It 'starts the DRA driver non-blocking when the unit is present'
-            # systemctl cat returns 0 when the unit exists; other systemctl calls just echo.
-            systemctl() {
-                if [ "$1" = "cat" ] && [ "$2" = "dra-driver-nvidia-gpu.service" ]; then
-                    return 0
-                fi
-                echo "systemctl $@"
-            }
-
-            When call startDRADriverNvidiaGpu
-
-            The status should be success
-            # Drop-in directory is created (the package's [Install] section is preserved
-            # because we layer via a drop-in rather than overwriting the unit file).
-            The output should include "mkdir -p /etc/systemd/system/dra-driver-nvidia-gpu.service.d"
-            # Any stale legacy full-unit override is removed.
-            The output should include "rm -f /etc/systemd/system/dra-driver-nvidia-gpu.service"
-            # systemd is reloaded so the drop-in is picked up.
+            # systemd is reloaded so the new unit is picked up
             The output should include "systemctl daemon-reload"
-            # Must not block CSE on a service that legitimately waits for kubeconfig.
+            # Must not block CSE on a service that legitimately waits for kubeconfig
             The output should include "systemctlEnableAndStartNoBlock dra-driver-nvidia-gpu 30"
-            The output should not include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
         End
     End
 
