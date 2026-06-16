@@ -1059,7 +1059,7 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 	stdout := execResult.stdout
 
 	// Search for "--node-ip" flag and its value.
-	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
+	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
 	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout)
 	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout)
 
@@ -1966,29 +1966,118 @@ echo "IPv6 entries in hosts file are correctly served by CoreDNS hosts plugin"
 		"CoreDNS hosts plugin should serve IPv6 entries from hosts file")
 }
 
-// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when restarted
+// ValidateLocalDNSHostsPluginColdStart verifies that localdns works correctly when started
 // with an empty hosts file — the exact scenario that occurs when localdns starts before
 // aks-localdns-hosts-setup finishes resolving FQDNs.
 //
 // Test flow:
-//  1. Truncate hosts file, restart localdns — CoreDNS starts fresh with empty hosts file and empty cache
+//  1. Truncate hosts file, stop/start localdns — CoreDNS starts fresh with empty hosts file and empty cache
 //  2. Verify critical and non-critical FQDNs resolve via fallthrough (upstream DNS)
 //  3. Populate hosts file with a canary entry (simulates aks-localdns-hosts-setup completing)
 //  4. Wait for CoreDNS reload (5s), verify canary resolves (hosts plugin picks up new file)
-//  5. Restore original hosts file and restart localdns to leave node in clean state
+//  5. Restore original hosts file and stop/start localdns to leave node in clean state
 func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
 	s.T.Log("Testing localdns cold start with empty hosts file then population")
 
-	script := `set -euo pipefail
+	script := `#!/bin/bash
+set -euo pipefail
 hosts_file="/etc/localdns/hosts"
 canary_fqdn="canary.localdns.test"
 canary_ip="192.0.2.99"
+localdns_ip="169.254.10.10"
+resolv_conf="/run/systemd/resolve/resolv.conf"
 
 # Helper: validate that dig output contains at least one valid IP address (not error text).
 has_valid_ip() {
     echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
+# Helper: dump localdns state for debugging.
+dump_localdns_diagnostics() {
+    echo "--- localdns service status ---"
+    sudo systemctl status localdns --no-pager 2>&1 || true
+    echo "--- localdns journal (last 50 lines) ---"
+    sudo journalctl -u localdns --no-pager -n 50 2>&1 || true
+}
+
+# Helper: wait for localdns teardown side effects to settle before starting again.
+# localdns stop triggers cleanup that removes the DNS drop-in, reloads network config,
+# tears down the dummy interface, and exits CoreDNS. Some of that state converges
+# asynchronously outside the systemd unit, so we explicitly wait for it here instead of
+# relying on a one-shot systemctl restart.
+wait_for_localdns_shutdown_stability() {
+    local reason="$1"
+    local max_wait_seconds=30
+    local attempt=1
+    local current_dns systemd_state interface_present
+
+    echo "Waiting for localdns teardown to settle (${reason})..."
+    while [ "$attempt" -le "$max_wait_seconds" ]; do
+        current_dns=$(awk '/^nameserver/ {print $2}' "$resolv_conf" 2>/dev/null | paste -sd' ')
+        systemd_state=$(sudo systemctl is-active localdns 2>&1 || true)
+        interface_present="false"
+        if ip link show dev localdns >/dev/null 2>&1; then
+            interface_present="true"
+        fi
+
+        if [ "$systemd_state" != "active" ] && [ "$systemd_state" != "activating" ] && [ "$systemd_state" != "deactivating" ] && \
+            ! grep -qwF "$localdns_ip" <<< "$current_dns" && [ "$interface_present" = "false" ]; then
+            echo "localdns teardown settled after ${attempt}s (${reason}); systemd=${systemd_state}, DNS=${current_dns:-<none>}"
+            return 0
+        fi
+
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+
+    echo "ERROR: localdns teardown did not settle after ${max_wait_seconds}s (${reason})" >&2
+    echo "systemctl is-active localdns: $(sudo systemctl is-active localdns 2>&1 || true)"
+    echo "Current DNS: $(awk '/^nameserver/ {print $2}' "$resolv_conf" 2>/dev/null | paste -sd' ')"
+    if ip link show dev localdns >/dev/null 2>&1; then
+        echo "localdns interface is still present"
+    else
+        echo "localdns interface has been removed"
+    fi
+    return 1
+}
+
+# Helper: cold-start localdns by splitting restart into stop -> wait for stable teardown -> start.
+# This targets the actual flaky edge in the E2E: external DNS/network state settling after stop.
+restart_localdns_cleanly() {
+    local reason="$1"
+    local rc=0
+
+    echo "Stopping localdns (${reason})..."
+    if sudo systemctl stop localdns; then
+        :
+    else
+        rc=$?
+        echo "ERROR: localdns stop failed (${reason}, rc=$rc)" >&2
+        dump_localdns_diagnostics
+        return "$rc"
+    fi
+
+    if ! wait_for_localdns_shutdown_stability "$reason"; then
+        dump_localdns_diagnostics
+        return 1
+    fi
+
+    sudo systemctl reset-failed localdns || true
+
+    echo "Starting localdns (${reason})..."
+    if sudo systemctl start localdns; then
+        :
+    else
+        rc=$?
+        echo "ERROR: localdns start failed (${reason}, rc=$rc)" >&2
+        dump_localdns_diagnostics
+        return "$rc"
+    fi
+
+    echo "localdns start completed (${reason})"
+    return 0
 }
 
 echo "=== Testing localdns cold start with empty hosts file ==="
@@ -2004,11 +2093,11 @@ saved_content=$(cat "$hosts_file")
 echo "Saved hosts file ($(echo "$saved_content" | wc -l) lines)"
 echo ""
 
-# Step 1: Truncate hosts file and restart localdns (clears both hosts map and DNS cache)
-echo "Step 1: Truncating hosts file and restarting localdns..."
+# Step 1: Truncate hosts file and cold-start localdns (clears both hosts map and DNS cache)
+echo "Step 1: Truncating hosts file and cold-starting localdns..."
 sudo truncate -s 0 "$hosts_file"
-sudo systemctl restart localdns
-echo "localdns restarted with empty hosts file"
+restart_localdns_cleanly "start with empty hosts file"
+echo "localdns started with empty hosts file"
 echo ""
 
 # Wait for localdns to be fully ready
@@ -2020,12 +2109,9 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         echo "ERROR: localdns did not become ready after 30s"
-        echo "--- localdns service status ---"
-        sudo systemctl status localdns --no-pager 2>&1 || true
-        echo "--- localdns journal (last 30 lines) ---"
-        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+        dump_localdns_diagnostics
         echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-        sudo systemctl restart localdns
+        restart_localdns_cleanly "restore after readiness timeout" || true
         exit 1
     fi
     sleep 1
@@ -2040,12 +2126,9 @@ critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tr
 echo "Critical FQDN ($critical_fqdn): '$critical_result'"
 if ! has_valid_ip "$critical_result"; then
     echo "ERROR: Critical FQDN did not return a valid IP after cold start with empty hosts file"
-    echo "--- localdns service status ---"
-    sudo systemctl status localdns --no-pager 2>&1 || true
-    echo "--- localdns journal (last 30 lines) ---"
-    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_cleanly "restore after critical FQDN failure" || true
     exit 1
 fi
 echo "✓ Critical FQDN resolves via fallthrough"
@@ -2055,12 +2138,9 @@ noncritical_result=$(dig "$noncritical_fqdn" @169.254.10.10 -t A +short +timeout
 echo "Non-critical FQDN ($noncritical_fqdn): '$noncritical_result'"
 if ! has_valid_ip "$noncritical_result"; then
     echo "ERROR: Non-critical FQDN did not return a valid IP after cold start with empty hosts file"
-    echo "--- localdns service status ---"
-    sudo systemctl status localdns --no-pager 2>&1 || true
-    echo "--- localdns journal (last 30 lines) ---"
-    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_cleanly "restore after non-critical FQDN failure" || true
     exit 1
 fi
 echo "✓ Non-critical FQDN resolves via fallthrough"
@@ -2096,23 +2176,20 @@ if [ "$canary_resolved" != "true" ]; then
     echo "ERROR: Canary did not resolve after 60s — hot-reload after cold start broken"
     echo "Expected: $canary_ip"
     echo "Last dig result: '$canary_result'"
-    echo "--- localdns service status ---"
-    sudo systemctl status localdns --no-pager 2>&1 || true
-    echo "--- localdns journal (last 30 lines) ---"
-    sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+    dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    sudo systemctl restart localdns
+    restart_localdns_cleanly "restore after canary failure" || true
     exit 1
 fi
 echo ""
 
-# Step 5: Cleanup — restore original hosts file and restart localdns
-echo "Step 5: Cleaning up — restoring original hosts file and restarting localdns..."
+# Step 5: Cleanup — restore original hosts file and cold-start localdns
+echo "Step 5: Cleaning up — restoring original hosts file and cold-starting localdns..."
 echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-sudo systemctl restart localdns
+restart_localdns_cleanly "final cleanup restore"
 echo ""
 
-# Wait for localdns to be ready after final restart
+# Wait for localdns to be ready after final cold start
 for i in $(seq 1 30); do
     if dig "health-check.localdns.local" @169.254.10.10 +short +timeout=1 +tries=1 >/dev/null 2>&1; then
         echo "localdns is ready after cleanup"
@@ -2120,17 +2197,14 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         echo "WARNING: localdns did not become ready after cleanup (30s)"
-        echo "--- localdns service status ---"
-        sudo systemctl status localdns --no-pager 2>&1 || true
-        echo "--- localdns journal (last 30 lines) ---"
-        sudo journalctl -u localdns --no-pager -n 30 2>&1 || true
+        dump_localdns_diagnostics
     fi
     sleep 1
 done
 
 echo "=== SUCCESS ==="
 echo "localdns cold start with empty hosts file verified:"
-echo "  1. Restart with empty hosts file: DNS resolves via fallthrough"
+echo "  1. Start with empty hosts file: DNS resolves via fallthrough"
 echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 `
 
@@ -2999,4 +3073,51 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 		"test \"$(systemctl is-enabled dra-driver-nvidia-gpu.service)\" = \"enabled\"",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+// resolveSecondaryNICName discovers the kernel interface name of the secondary NIC
+// (IMDS interface index 1) by matching its MAC address against /sys/class/net/*/address.
+// This avoids hardcoding "eth1" which can be wrong when SR-IOV VFs or predictable
+// naming (ens*/enP*) are in use.
+func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
+	s.T.Helper()
+	// Get the secondary NIC's MAC from IMDS, then look it up in sysfs.
+	// -sf makes curl fail with non-zero exit on HTTP errors (403/404) instead
+	// of silently returning the error body as the "MAC".
+	// Skip SR-IOV VFs (enslaved interfaces with /sys/class/net/<iface>/master)
+	// which share the MAC of their master but don't hold an IP address.
+	// Exit 1 if no matching interface is found rather than falling back to a
+	// hardcoded name that could target a VF or wrong interface.
+	cmd := `mac=$(curl -sf -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text") || { echo "IMDS MAC lookup failed" >&2; exit 1; }; mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do d=$(dirname "$f"); [ -e "$d/master" ] && continue; if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$d"; exit 0; fi; done; echo "no interface found for MAC $mac_lower" >&2; exit 1`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"failed to resolve secondary NIC interface name")
+	ifaceName := strings.TrimSpace(result.stdout)
+	require.NotEmpty(s.T, ifaceName, "resolved secondary NIC name should not be empty")
+	return ifaceName
+}
+
+// ValidateSecondaryNICUp checks that the given network interface is UP and has an IPv4 address.
+func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+}
+
+// ValidateSecondaryNICDualStack checks that the given network interface is UP and has both IPv4 and IPv6 addresses.
+func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet6 ",
+		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "scope global",
+		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
 }

@@ -379,6 +379,9 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
+				if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+					return nodeBootstrapping.CustomData
+				}
 				if s.VHD.Flatcar {
 					data, err = nodeconfigutils.CustomDataFlatcar(aksNodeConfig)
 				} else {
@@ -1063,6 +1066,91 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations =
 		append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
 	return nil
+}
+
+// addSecondaryNIC appends a secondary (non-primary) NIC to the VMSS model,
+// using the same subnet as the primary NIC. This triggers configureSecondaryNICs
+// during node provisioning.
+func addSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
+	primaryNIC, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		panic(fmt.Sprintf("addSecondaryNIC: unable to get primary NIC config: %v", err))
+	}
+	if len(primaryNIC.Properties.IPConfigurations) == 0 {
+		panic("addSecondaryNIC: primary NIC has no IP configurations")
+	}
+	subnetID := primaryNIC.Properties.IPConfigurations[0].Properties.Subnet.ID
+	if subnetID == nil || *subnetID == "" {
+		panic("addSecondaryNIC: primary NIC subnet ID is nil or empty")
+	}
+	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations = append(
+		vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations,
+		&armcompute.VirtualMachineScaleSetNetworkConfiguration{
+			Name: to.Ptr("secondary-nic"),
+			Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
+				Primary: to.Ptr(false),
+				IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
+					{
+						Name: to.Ptr("secondary-nic-ipconfig"),
+						Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+							Primary:                 to.Ptr(true),
+							PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
+							Subnet: &armcompute.APIEntityReference{
+								ID: subnetID,
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+}
+
+// addDualStackSecondaryNIC appends a secondary (non-primary) NIC with both IPv4 and IPv6
+// IP configurations to the VMSS model, using the same subnet as the primary NIC.
+func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
+	primaryNIC, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		panic(fmt.Sprintf("addDualStackSecondaryNIC: unable to get primary NIC config: %v", err))
+	}
+	if len(primaryNIC.Properties.IPConfigurations) == 0 {
+		panic("addDualStackSecondaryNIC: primary NIC has no IP configurations")
+	}
+	subnetID := primaryNIC.Properties.IPConfigurations[0].Properties.Subnet.ID
+	if subnetID == nil || *subnetID == "" {
+		panic("addDualStackSecondaryNIC: primary NIC subnet ID is nil or empty")
+	}
+	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations = append(
+		vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations,
+		&armcompute.VirtualMachineScaleSetNetworkConfiguration{
+			Name: to.Ptr("secondary-nic"),
+			Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
+				Primary: to.Ptr(false),
+				IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
+					{
+						Name: to.Ptr("secondary-nic-ipconfig-v4"),
+						Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+							Primary:                 to.Ptr(true),
+							PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv4),
+							Subnet: &armcompute.APIEntityReference{
+								ID: subnetID,
+							},
+						},
+					},
+					{
+						Name: to.Ptr("secondary-nic-ipconfig-v6"),
+						Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+							Primary:                 to.Ptr(false),
+							PrivateIPAddressVersion: to.Ptr(armcompute.IPVersionIPv6),
+							Subnet: &armcompute.APIEntityReference{
+								ID: subnetID,
+							},
+						},
+					},
+				},
+			},
+		},
+	)
 }
 
 func generateVMSSNameLinux(t testing.TB) string {
