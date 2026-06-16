@@ -407,7 +407,7 @@ function nodePrep {
 
     # Bring up secondary Standard-type NICs (if any) via IMDS metadata.
     # Only runs when the RP signals that secondary NICs were attached.
-    if [ "${STANDARD_SECONDARY_NIC_COUNT}" -gt 0 ] 2>/dev/null; then
+    if [ "${STANDARD_SECONDARY_NIC_COUNT:-0}" -gt 0 ]; then
         logs_to_events "AKS.CSE.configureSecondaryNICs" configureSecondaryNICs || exit $ERR_SECONDARY_NIC_CONFIG_FAIL
     fi
 
