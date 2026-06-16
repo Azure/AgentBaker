@@ -46,6 +46,17 @@ func readStagedConfig(t *testing.T, path string) hotfixConfig {
 	return cfg
 }
 
+// enableHotfixGate writes a minimal AKSNodeConfig that turns the enable_provisioning_hotfix
+// contract gate ON and points the App at it. Without this, checkHotfix self-gates to
+// outcomeDisabled and never reaches the fetch path. Tests that also need a cold-start
+// hotfixes pointer write their own node config inline instead.
+func enableHotfixGate(t *testing.T, app *App) {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
+	require.NoError(t, os.WriteFile(p, []byte(`{"version":"v1","enableProvisioningHotfix":true}`), 0644))
+	app.nodeConfigPath = p
+}
+
 func TestParseHotfixConfig(t *testing.T) {
 	t.Run("parses the hotfixes object directly", func(t *testing.T) {
 		cfg, err := parseHotfixConfig([]byte(`{"hotfixes":{"202604.01":"202604.01.1","202605.01":"202605.01.2"}}`))
@@ -94,6 +105,7 @@ func TestCheckHotfix_SuccessReadAndWrite(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
+	enableHotfixGate(t, tt.App)
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 		return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.1"}), nil
 	}
@@ -114,6 +126,7 @@ func TestCheckHotfix_NoHotfixForBase(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
+	enableHotfixGate(t, tt.App)
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 		return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.1"}), nil
 	}
@@ -145,7 +158,7 @@ func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
 			// Even with a cold-start pointer present, a benign LPS answer stages no overlay.
 			nodeConfig := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
 			require.NoError(t, os.WriteFile(nodeConfig, []byte(
-				`{"version":"v1","hotfixes":{"202604.01":"202604.01.9"}}`), 0644))
+				`{"version":"v1","enableProvisioningHotfix":true,"hotfixes":{"202604.01":"202604.01.9"}}`), 0644))
 			tt.App.nodeConfigPath = nodeConfig
 
 			tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
@@ -167,8 +180,8 @@ func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
-	// No node config -> no cold-start fallback available.
-	tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent-config.json")
+	// Gate on, but the node config carries no cold-start hotfixes pointer -> no fallback.
+	enableHotfixGate(t, tt.App)
 
 	// Transport-level failures (not benign 401/403/404) with no fallback -> failed.
 	cases := map[string]error{
@@ -195,6 +208,7 @@ func TestCheckHotfix_InvalidPointerFailsOpen(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
+	enableHotfixGate(t, tt.App)
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 		return []byte("not valid json"), nil
 	}
@@ -218,7 +232,7 @@ func TestCheckHotfix_ColdStartFallback(t *testing.T) {
 	// Node config carries a lenient top-level hotfixes pointer (PoC cold-start contract).
 	nodeConfig := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
 	require.NoError(t, os.WriteFile(nodeConfig, []byte(
-		`{"version":"v1","hotfixes":{"202604.01":"202604.01.2"}}`), 0644))
+		`{"version":"v1","enableProvisioningHotfix":true,"hotfixes":{"202604.01":"202604.01.2"}}`), 0644))
 	tt.App.nodeConfigPath = nodeConfig
 
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
@@ -239,7 +253,7 @@ func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
 	tt.App.hotfixVersionPath = path
 
 	nodeConfig := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
-	require.NoError(t, os.WriteFile(nodeConfig, []byte(`{"version":"v1"}`), 0644))
+	require.NoError(t, os.WriteFile(nodeConfig, []byte(`{"version":"v1","enableProvisioningHotfix":true}`), 0644))
 	tt.App.nodeConfigPath = nodeConfig
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 		return nil, errors.New("dial tcp: connection refused")
@@ -262,6 +276,7 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
+		enableHotfixGate(t, tt.App)
 		tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 			return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.1"}), nil
 		}
@@ -279,7 +294,7 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 	t.Run("failure path emits error event but still exits 0", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
-		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
+		enableHotfixGate(t, tt.App)
 		tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 			return nil, errors.New("LPS returned status 500")
 		}
@@ -297,7 +312,7 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 	t.Run("cli wiring returns exit code 0 even on fetch failure", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
-		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
+		enableHotfixGate(t, tt.App)
 		tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
 			return nil, errors.New("boom")
 		}
@@ -312,7 +327,7 @@ func TestCheckHotfix_DefaultsToLPSFetcherWhenNoInjection(t *testing.T) {
 	// resolution fails deterministically and the network is never actually dialed.
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
-	tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
+	enableHotfixGate(t, tt.App)
 	// checkHotfixFetcher intentionally nil.
 
 	err := tt.App.runCheckHotfixCommand(context.Background())
@@ -376,6 +391,100 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		_, _, err := tt.App.lpsTargetFromNodeConfig()
 		require.Error(t, err)
 	})
+}
+
+func TestCheckHotfix_GateDisabled(t *testing.T) {
+	// When enable_provisioning_hotfix is not true, checkHotfix must self-gate: return
+	// outcomeDisabled, make NO remote hotfix call (injected fetcher untouched), and exit 0.
+	cases := map[string]string{
+		"field unset":          `{"version":"v1"}`,
+		"field explicit false": `{"version":"v1","enableProvisioningHotfix":false}`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			tt := NewTestApp(t, TestAppConfig{})
+			path := filepath.Join(t.TempDir(), "hotfix.json")
+			tt.App.hotfixVersionPath = path
+
+			nodeConfig := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
+			require.NoError(t, os.WriteFile(nodeConfig, []byte(body), 0644))
+			tt.App.nodeConfigPath = nodeConfig
+
+			fetched := false
+			tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+				fetched = true
+				return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.1"}), nil
+			}
+
+			outcome, err := tt.App.checkHotfix(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, outcomeDisabled, outcome)
+			assert.False(t, fetched, "hotfix fetcher must not be called when the gate is disabled")
+			// Nothing should be staged.
+			_, statErr := os.Stat(path)
+			assert.True(t, os.IsNotExist(statErr))
+		})
+	}
+}
+
+func TestCheckHotfix_GateMissingConfigDisables(t *testing.T) {
+	// A missing/unreadable node config cannot prove the feature is on -> default-off,
+	// fail-open: outcomeDisabled, no remote hotfix call.
+	tt := NewTestApp(t, TestAppConfig{})
+	path := filepath.Join(t.TempDir(), "hotfix.json")
+	tt.App.hotfixVersionPath = path
+	tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "does-not-exist.json")
+
+	fetched := false
+	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+		fetched = true
+		return nil, nil
+	}
+
+	outcome, err := tt.App.checkHotfix(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, outcomeDisabled, outcome)
+	assert.False(t, fetched, "hotfix fetcher must not be called when node config is unreadable")
+}
+
+func TestCheckHotfix_GateEnabledReachesFetch(t *testing.T) {
+	// When the gate is on, checkHotfix proceeds to call the injected fetcher.
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
+	enableHotfixGate(t, tt.App)
+
+	fetched := false
+	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+		fetched = true
+		return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.1"}), nil
+	}
+
+	outcome, err := tt.App.checkHotfix(context.Background())
+	require.NoError(t, err)
+	assert.True(t, fetched, "hotfix fetcher must be called when the gate is enabled")
+	assert.Equal(t, outcomeLPSRead, outcome)
+}
+
+func TestRunCheckHotfixCommand_DisabledEmitsInformational(t *testing.T) {
+	// The cli Action emits an informational telemetry event (not Error) when disabled.
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
+	nodeConfig := filepath.Join(t.TempDir(), "aks-node-controller-config.json")
+	require.NoError(t, os.WriteFile(nodeConfig, []byte(`{"version":"v1"}`), 0644))
+	tt.App.nodeConfigPath = nodeConfig
+
+	err := tt.App.runCheckHotfixCommand(context.Background())
+	require.NoError(t, err)
+
+	events := tt.eventLogger.Events()
+	require.Len(t, events, 1)
+	assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
+	assert.Equal(t, "Informational", events[0].EventLevel)
+	assert.Contains(t, events[0].Message, string(outcomeDisabled))
 }
 
 func TestStripScheme(t *testing.T) {
