@@ -211,9 +211,6 @@ function copy_windows_base_image_to_storage_account() {
 function create_new_base_image() {
 	# https://www.packer.io/plugins/builders/azure/arm#image_url
 	# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
-	# Preserve publisher/offer from windows_settings.json for SIG image definition metadata
-	local sig_def_publisher="${WINDOWS_IMAGE_PUBLISHER:-microsoft-aks}"
-	local sig_def_offer="${WINDOWS_IMAGE_OFFER:-$IMPORTED_IMAGE_NAME}"
 	WINDOWS_IMAGE_PUBLISHER=""
 	WINDOWS_IMAGE_OFFER=""
 	WINDOWS_IMAGE_SKU=""
@@ -231,8 +228,11 @@ function create_new_base_image() {
 		--os-type ${OS_TYPE}
 
 	# create a gallery image definition $IMPORTED_IMAGE_NAME
+	# Use microsoft-aks as publisher and $IMPORTED_IMAGE_NAME as offer to ensure the
+	# (publisher, offer, sku) tuple is unique per run. Using marketplace publisher/offer
+	# (e.g. MicrosoftWindowsServer/windowsserver2022) causes collisions with previous
+	# builds since $IMPORTED_IMAGE_NAME is a unique definition name but the tuple is not.
 	echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-	# Need to specifiy hyper-v-generation to support Gen 2
 	az sig image-definition create \
 		--resource-group $AZURE_RESOURCE_GROUP_NAME \
 		--gallery-name $SIG_GALLERY_NAME \
@@ -240,9 +240,9 @@ function create_new_base_image() {
 		--location $AZURE_LOCATION \
 		--hyper-v-generation $HYPERV_GENERATION \
 		--os-type ${OS_TYPE} \
-		--publisher "${sig_def_publisher}" \
+		--publisher microsoft-aks \
 		--sku ${WINDOWS_SKU} \
-		--offer "${sig_def_offer}" \
+		--offer $IMPORTED_IMAGE_NAME \
 		--os-state generalized \
 		--description "Imported image for AKS Packer build"
 
