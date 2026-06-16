@@ -379,6 +379,9 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 			if config.Config.DisableScriptLessCompilation {
 				var data string
 				var err error
+				if s.Runtime.NBC.EnableScriptlessNBCCSECmd {
+					return nodeBootstrapping.CustomData
+				}
 				if s.VHD.Flatcar {
 					data, err = nodeconfigutils.CustomDataFlatcar(aksNodeConfig)
 				} else {
