@@ -2,6 +2,7 @@ import os
 import pwd
 import random
 import string
+import subprocess
 import sys
 
 import pexpect
@@ -101,20 +102,14 @@ def set_password(username, password):
       password (str): The password to set for the user
     """
     print("\n=== Setting password for " + username + " to " + password)
-    child = BashSpawn(f"sudo passwd {username}", encoding='utf-8',
-                      logfile=sys.stdout)
     try:
-        child.expect_password_prompt(password)
-        child.expect(["Retype new password:"])
-        print("\n-------Confirming password")
-        child.sendline(password)
-
-        child.expect([pexpect.EOF])
-    except Exception as e:
-        print("\n-----Failed to set password: " + str(e))
+        subprocess.run(["passwd", username],
+                       input=f"{password}\n{password}\n",
+                       text=True,
+                       check=True)
+    except subprocess.CalledProcessError as exception:
+        print("\n-----Failed to set password: " + str(exception))
         pytest.fail("Failed to set password")
-    finally:
-        child.close()
     print("\n-----Initial password set successfully")
 
 
@@ -144,21 +139,18 @@ class User:
           not set successfully
         """
         print(f"\n=== Adding user {self.name} with password {self.pw}")
-        child = BashSpawn("sudo useradd -M -s /bin/bash -K PASS_MIN_DAYS=0 " +
-                          f"{self.name}",
-                          encoding='utf-8')
         try:
-            child.expect([pexpect.EOF])
+            subprocess.run(["useradd", "-M", "-s", "/bin/bash", "-K",
+                            "PASS_MIN_DAYS=0", self.name],
+                           check=True)
 
             if not check_user_exists(self.name):
                 raise Exception("useradd failed")
 
             set_password(self.name, self.pw)
-        except Exception as e:
-            print("\n-----Failed to add user: " + str(e))
+        except Exception as exception:
+            print("\n-----Failed to add user: " + str(exception))
             pytest.fail("Failed to add user")
-        finally:
-            child.close()
 
         print("\n-----User added successfully")
         return self.pw
@@ -173,32 +165,27 @@ class User:
         """
 
         print(f"\n=== Deleting user {self.name}")
-        child = BashSpawn(f"sudo userdel -f {self.name}", encoding='utf-8')
         try:
-            child.expect([pexpect.EOF])
+            subprocess.run(["userdel", "-f", self.name], check=True)
 
             if check_user_exists(self.name):
                 raise Exception(f"userdel failed for {self.name}")
 
             print(f"\n-----User {self.name} deleted")
 
-        except Exception as e:
-            print("\n-----Failed to delete user: " + str(e))
+        except Exception as exception:
+            print("\n-----Failed to delete user: " + str(exception))
             pytest.fail("Failed to delete user")
-        finally:
-            child.close()
 
         print(f"\n-----Removing faillock file for {self.name}")
-        child = BashSpawn(f"sudo rm -f /var/run/faillock/{self.name}",
-                          encoding='utf-8')
-        try:
-            child.expect([pexpect.EOF])
-
-        except Exception as e:
-            print("\n-----Failed to delete user: " + str(e))
-            pytest.fail("Failed to delete user")
-        finally:
-            child.close()
+        for faillock_dir in ["/var/log/faillock", "/var/run/faillock"]:
+            try:
+                os.remove(f"{faillock_dir}/{self.name}")
+            except FileNotFoundError:
+                pass
+            except OSError as exception:
+                print("\n-----Failed to delete user: " + str(exception))
+                pytest.fail("Failed to delete user")
 
 
 @pytest.fixture
@@ -243,7 +230,7 @@ def login(user, pw=None):
     if pw is None:
         pw = user.pw
     print("\n=== Logging in as " + user.name)
-    child = BashSpawn("sudo login", encoding='utf-8')
+    child = BashSpawn("login", encoding='utf-8')
     try:
         child.expect_login_prompt(user.name)
         child.expect_password_prompt(pw)
@@ -256,6 +243,8 @@ def login(user, pw=None):
             print(f"\n-----Login as {user.name} successful")
             child.sendline("whoami")
             child.expect(user.name)
+            child.sendline("exit")
+            child.expect([pexpect.EOF])
 
     except Exception as e:
         print("\n-----Failed to login: " + str(e))
@@ -279,9 +268,10 @@ def change_password(user, new_pw):
     """
     print(f"\n=== Changing password for {user.name} to {new_pw}")
     result = False
-    child = BashSpawn(f"sudo login {user.name}", encoding='utf-8',
-                      logfile=sys.stdout, timeout=1)
+    child = BashSpawn("login", encoding='utf-8', logfile=sys.stdout,
+                      timeout=1)
     try:
+        child.expect_login_prompt(user.name)
         child.expect_password_prompt(user.pw)
         child.expect([r"\$"])
         child.sendline("whoami")
@@ -309,6 +299,9 @@ def change_password(user, new_pw):
             if i == 0:
                 print("\n-----expecting EOF")
                 child.expect([r"\$ ", pexpect.EOF])
+                if child.isalive():
+                    child.sendline("exit")
+                    child.expect([pexpect.EOF])
                 user.pw = new_pw
                 print(f"\n-----Password for {user.name} changed to {new_pw}")
                 result = True
@@ -344,9 +337,10 @@ def change_password_w_retries(user, bad_pw):
 
     print(f"\n===Attempting to change password for {user.name} to invalid " +
           f"pw '{bad_pw}'")
-    child = BashSpawn(f"sudo login {user.name}", encoding='utf-8')
+    child = BashSpawn("login", encoding='utf-8')
     count = 0
     try:
+        child.expect_login_prompt(user.name)
         child.expect_password_prompt(user.pw)
         child.expect([r"\$"])
 
@@ -374,6 +368,9 @@ def change_password_w_retries(user, bad_pw):
                 done = True
 
         child.expect([r"\$ ", pexpect.EOF], timeout=1)
+        if child.isalive():
+            child.sendline("exit")
+            child.expect([pexpect.EOF])
 
     except Exception as e:
         print("\n-----Unexpected error while attempting to change password: "

@@ -533,6 +533,12 @@ testImagesRetagged() {
 testAuditDNotPresent() {
   local test="testAuditDNotPresent"
   echo "$test:Start"
+  # AzL4 ships with auditd enabled by default
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "$test: Skipping on AzureLinux 4.0 (auditd enabled by default)"
+    echo "$test:Finish"
+    return 0
+  fi
   status=$(systemctl show -p SubState --value auditd.service)
   if [ "$status" = 'dead' ]; then
     echo "AuditD is not present, as expected"
@@ -1682,10 +1688,10 @@ testPam() {
     # install the dependencies
     pip3 install --disable-pip-version-check -r requirements.txt || \
       (err ${test} "Failed to install dependencies"; return 1)
-    # run the script
-    # the pam tests are flaky as they require scraping the console
+    # Allocate a pseudo-terminal because these tests drive interactive login/passwd under Azure VM RunCommand.
     # if there are test failures, --reruns 5 will rerun the failed tests up to 5 times
-    output=$(pytest -v -s --reruns 5 test_pam.py)
+    output=$(python3 -c 'import os, pty, sys; sys.exit(os.waitstatus_to_exitcode(pty.spawn(sys.argv[1:])))' \
+      pytest -v -s --reruns 5 test_pam.py)
     retval=$?
     # deactivate the virtual environment
     deactivate
@@ -1955,6 +1961,9 @@ testCriCtl() {
   local crictl_version=$(crictl --version)
   # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
   crictl_version=$(echo $crictl_version | cut -d' ' -f3)
+  # TODO(AzL4): remove when kubernetes-cri-tools is installable on AzL4.
+  # The temporary upstream static binary reports versions with a leading 'v'.
+  crictl_version=${crictl_version#v}
   echo "$test: checking if crictl version is $expectedVersion"
   if [ "$crictl_version" != "$expectedVersion" ]; then
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
