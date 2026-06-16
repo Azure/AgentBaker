@@ -196,6 +196,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"CSE_TIMEOUT":                                  getCSETimeout(config),
 		"SKIP_WAAGENT_HOLD":                            "true",
 		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
+		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
 	}
 
 	for i, cert := range config.CustomCaCerts {

@@ -1059,7 +1059,7 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 	stdout := execResult.stdout
 
 	// Search for "--node-ip" flag and its value.
-	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
+	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.:,]*)`).FindStringSubmatch(stdout)
 	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout)
 	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout)
 
@@ -2987,4 +2987,53 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) {
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
 		"Vulnerable kernel module mitigation validation failed (algif_aead/esp4/esp6/rxrpc)")
+}
+
+// resolveSecondaryNICName discovers the kernel interface name of the secondary NIC
+// (IMDS interface index 1) by matching its MAC address against /sys/class/net/*/address.
+// This avoids hardcoding "eth1" which can be wrong when SR-IOV VFs or predictable
+// naming (ens*/enP*) are in use.
+func resolveSecondaryNICName(ctx context.Context, s *Scenario) string {
+	s.T.Helper()
+	// Get the secondary NIC's MAC from IMDS, then look it up in sysfs.
+	// -sf makes curl fail with non-zero exit on HTTP errors (403/404) instead
+	// of silently returning the error body as the "MAC".
+	// Skip SR-IOV VFs (enslaved interfaces with /sys/class/net/<iface>/master)
+	// which share the MAC of their master but don't hold an IP address.
+	// Exit 1 if no matching interface is found rather than falling back to a
+	// hardcoded name that could target a VF or wrong interface.
+	cmd := `mac=$(curl -sf -H "Metadata:true" "http://169.254.169.254/metadata/instance/network/interface/1/macAddress?api-version=2021-02-01&format=text") || { echo "IMDS MAC lookup failed" >&2; exit 1; }; mac_lower=$(echo "$mac" | sed 's/\(..\)/\1:/g; s/:$//' | tr '[:upper:]' '[:lower:]'); for f in /sys/class/net/*/address; do d=$(dirname "$f"); [ -e "$d/master" ] && continue; if [ "$(cat "$f" 2>/dev/null)" = "$mac_lower" ]; then basename "$d"; exit 0; fi; done; echo "no interface found for MAC $mac_lower" >&2; exit 1`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"failed to resolve secondary NIC interface name")
+	ifaceName := strings.TrimSpace(result.stdout)
+	require.NotEmpty(s.T, ifaceName, "resolved secondary NIC name should not be empty")
+	return ifaceName
+}
+
+// ValidateSecondaryNICUp checks that the given network interface is UP and has an IPv4 address.
+func ValidateSecondaryNICUp(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+}
+
+// ValidateSecondaryNICDualStack checks that the given network interface is UP and has both IPv4 and IPv6 addresses.
+func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName string) {
+	s.T.Helper()
+	cmd := fmt.Sprintf("ip addr show %s", ifaceName)
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		fmt.Sprintf("failed to get interface info for %s", ifaceName))
+	require.Contains(s.T, result.stdout, "state UP",
+		"expected interface %s to be UP, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet ",
+		"expected interface %s to have an IPv4 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "inet6 ",
+		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
+	require.Contains(s.T, result.stdout, "scope global",
+		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
 }

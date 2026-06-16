@@ -88,9 +88,20 @@ func prepareCluster(ctx context.Context, clusterModel *armcontainerservice.Manag
 	clusterModel.Name = to.Ptr(fmt.Sprintf("%s-%s", *clusterModel.Name, hash(clusterModel)))
 	// If configureSharedVNet marked this model, create the per-cluster subnet
 	// now that we have the final hashed name, with an auto-allocated CIDR.
+	// Dual-stack clusters need subnets with both IPv4 and IPv6 address prefixes.
+	isDualStack := false
+	if clusterModel.Properties.NetworkProfile != nil {
+		for _, family := range clusterModel.Properties.NetworkProfile.IPFamilies {
+			if family != nil && *family == armcontainerservice.IPFamilyIPv6 {
+				isDualStack = true
+				break
+			}
+		}
+	}
 	subnetID, err := CachedEnsureClusterSubnet(ctx, ClusterSubnetRequest{
 		Location:    *clusterModel.Location,
 		ClusterName: *clusterModel.Name,
+		DualStack:   isDualStack,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("ensuring cluster subnet: %w", err)
