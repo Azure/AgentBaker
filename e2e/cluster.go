@@ -482,14 +482,35 @@ func isUsableNodeResourceGroup(ctx context.Context, location, clusterName, resou
 	}
 
 	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
-		if err := detachRouteTableFromClusterSubnet(ctx, location, clusterName, resourceGroupName); err != nil {
-			toolkit.Logf(ctx, "warning: failed to detach route table for deleting node resource group %q: %v", resourceGroupName, err)
+		if err := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, location, clusterName, resourceGroupName); err != nil {
+			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", resourceGroupName, err)
 		}
 		toolkit.Logf(ctx, "node resource group %q is deleting; recreating cluster %q", resourceGroupName, clusterName)
 		return false, nil
 	}
 
+	hasVMSS, err := hasVMSSInResourceGroup(ctx, resourceGroupName)
+	if err != nil {
+		return false, err
+	}
+	if !hasVMSS {
+		toolkit.Logf(ctx, "node resource group %q has no VMSS; recreating cluster %q", resourceGroupName, clusterName)
+		return false, nil
+	}
+
 	return true, nil
+}
+
+func hasVMSSInResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
+	pager := config.Azure.VMSS.NewListPager(resourceGroupName, nil)
+	if !pager.More() {
+		return false, nil
+	}
+	page, err := pager.NextPage(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to list VMSS in node resource group %q: %w", resourceGroupName, err)
+	}
+	return len(page.Value) > 0, nil
 }
 
 func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
@@ -549,8 +570,8 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 				if cluster.Properties != nil && cluster.Properties.NodeResourceGroup != nil {
 					nodeResourceGroup = *cluster.Properties.NodeResourceGroup
 				}
-				if cleanupErr := detachRouteTableFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
-					toolkit.Logf(ctx, "warning: failed to detach route table for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+				if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
+					toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
 				}
 				if deleteErr := deleteCluster(ctx, *cluster.Name, config.ResourceGroupName(*cluster.Location)); deleteErr != nil {
 					return nil, fmt.Errorf("deleting cluster with deleting node resource group %q: %w", nodeResourceGroup, deleteErr)

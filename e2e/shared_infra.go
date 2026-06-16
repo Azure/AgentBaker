@@ -544,11 +544,11 @@ func clusterSubnetName(clusterName string) string {
 	return "aks-subnet-" + clusterName
 }
 
-func detachRouteTableFromClusterSubnet(ctx context.Context, location, clusterName, routeTableResourceGroup string) error {
+func detachNodeResourceGroupReferencesFromClusterSubnet(ctx context.Context, location, clusterName, nodeResourceGroup string) error {
 	rg := config.ResourceGroupName(location)
 	subnetName := clusterSubnetName(clusterName)
 
-	return retryOn409(ctx, fmt.Sprintf("detaching route table from subnet %s", subnetName), func() error {
+	return retryOn409(ctx, fmt.Sprintf("detaching node resource group references from subnet %s", subnetName), func() error {
 		subnetResp, err := config.Azure.Subnet.Get(ctx, rg, SharedVNetName, subnetName, nil)
 		if err != nil {
 			if isNotFoundError(err) {
@@ -556,37 +556,62 @@ func detachRouteTableFromClusterSubnet(ctx context.Context, location, clusterNam
 			}
 			return fmt.Errorf("getting subnet %s: %w", subnetName, err)
 		}
-		shouldDetach, err := subnetRouteTableInResourceGroup(subnetResp.Subnet, routeTableResourceGroup)
+
+		shouldDetachRouteTable, err := subnetResourceIDInResourceGroup(routeTableID(subnetResp.Properties.RouteTable), nodeResourceGroup)
 		if err != nil {
 			return err
 		}
-		if !shouldDetach {
+		shouldDetachNSG, err := subnetResourceIDInResourceGroup(networkSecurityGroupID(subnetResp.Properties.NetworkSecurityGroup), nodeResourceGroup)
+		if err != nil {
+			return err
+		}
+
+		if shouldDetachRouteTable {
+			routeTableID := *subnetResp.Properties.RouteTable.ID
+			toolkit.Logf(ctx, "detaching route table %q from shared subnet %q because resource group %q is deleting", routeTableID, subnetName, nodeResourceGroup)
+			subnetResp.Subnet.Properties.RouteTable = nil
+		}
+		if shouldDetachNSG {
+			nsgID := *subnetResp.Properties.NetworkSecurityGroup.ID
+			toolkit.Logf(ctx, "detaching network security group %q from shared subnet %q because resource group %q is deleting", nsgID, subnetName, nodeResourceGroup)
+			subnetResp.Subnet.Properties.NetworkSecurityGroup = nil
+		}
+		if !shouldDetachRouteTable && !shouldDetachNSG {
 			return nil
 		}
 
-		routeTableID := *subnetResp.Properties.RouteTable.ID
-
-		toolkit.Logf(ctx, "detaching route table %q from shared subnet %q because resource group %q is deleting", routeTableID, subnetName, routeTableResourceGroup)
-		subnetResp.Subnet.Properties.RouteTable = nil
 		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, subnetName, subnetResp.Subnet, nil)
 		if err != nil {
-			return fmt.Errorf("detaching route table from subnet %s: %w", subnetName, err)
+			return fmt.Errorf("detaching node resource group references from subnet %s: %w", subnetName, err)
 		}
 		_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 		return err
 	})
 }
 
-func subnetRouteTableInResourceGroup(subnet armnetwork.Subnet, routeTableResourceGroup string) (bool, error) {
-	if subnet.Properties == nil || subnet.Properties.RouteTable == nil || subnet.Properties.RouteTable.ID == nil {
+func routeTableID(routeTable *armnetwork.RouteTable) *string {
+	if routeTable == nil {
+		return nil
+	}
+	return routeTable.ID
+}
+
+func networkSecurityGroupID(nsg *armnetwork.SecurityGroup) *string {
+	if nsg == nil {
+		return nil
+	}
+	return nsg.ID
+}
+
+func subnetResourceIDInResourceGroup(resourceID *string, resourceGroup string) (bool, error) {
+	if resourceID == nil {
 		return false, nil
 	}
-	routeTableID := *subnet.Properties.RouteTable.ID
-	parsedRouteTable, err := arm.ParseResourceID(routeTableID)
+	parsedResource, err := arm.ParseResourceID(*resourceID)
 	if err != nil {
-		return false, fmt.Errorf("parsing route table ID %q: %w", routeTableID, err)
+		return false, fmt.Errorf("parsing subnet resource ID %q: %w", *resourceID, err)
 	}
-	return strings.EqualFold(parsedRouteTable.ResourceGroupName, routeTableResourceGroup), nil
+	return strings.EqualFold(parsedResource.ResourceGroupName, resourceGroup), nil
 }
 
 const totalSubnetSlots = 4080
