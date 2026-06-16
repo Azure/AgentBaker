@@ -97,7 +97,7 @@ type hotfixConfig struct {
 
 // hotfixBaseFromVersion extracts the "YYYYMM.DD" base from an ANC version string of
 // the form "YYYYMM.DD.PATCH". It splits on "." rather than parsing semver so the literal
-// day segment — including any leading zero such as "01" — is preserved to match map keys
+// day segment - including any leading zero such as "01" - is preserved to match map keys
 // exactly (semver parsing would drop the leading zero, e.g. "202604.01" -> minor 1).
 // All three segments must be non-empty; a present-but-empty patch (e.g. "202604.01.")
 // is rejected so an obviously malformed current version never selects a map entry.
@@ -345,10 +345,10 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 // ANC versions use the format YYYYMM.DD.PATCH which is valid semver (Major.Minor.Patch).
 //
 // This ensures the hotfix only targets the specific VHD it was built for:
-//   - Older VHDs (different base) are skipped — remediated via VHD republish
-//   - Newer VHDs (different base) are skipped — fix is already baked in
-//   - Same version is skipped — already at hotfix
-//   - Unparseable versions (e.g. "dev") return an error — caller should skip
+//   - Older VHDs (different base) are skipped - remediated via VHD republish
+//   - Newer VHDs (different base) are skipped - fix is already baked in
+//   - Same version is skipped - already at hotfix
+//   - Unparseable versions (e.g. "dev") return an error - caller should skip
 func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
 	cv, err := semver.NewVersion(strings.TrimSpace(current))
 	if err != nil {
