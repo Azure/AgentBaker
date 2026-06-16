@@ -979,6 +979,15 @@
                 "latestVersion": "1.1.4-1.azl3"
               }
             ]
+          },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.1.4"
+              }
+            ],
+            "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
           }
         },
         "azurelinuxkata": {
@@ -1109,6 +1118,14 @@
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
                 "latestVersion": "2.2.4-3.azl3"
+              }
+            ]
+          },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64/repodata, name=containerd, os=azurelinux, release=4.0",
+                "latestVersion": "2.1.6-2.azl4"
               }
             ]
           },
@@ -1258,6 +1275,14 @@
               }
             ]
           },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.0-1.azl3"
+              }
+            ]
+          },
           "OSGUARD/v3.0": {
             "versionsV2": [
               {
@@ -1381,6 +1406,14 @@
               }
             ]
           },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubernetes-cri-tools, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.0-2.azl3"
+              }
+            ]
+          },
           "OSGUARD/v3.0": {
             "versionsV2": [
               {
@@ -1451,6 +1484,21 @@
         },
         "azurelinux": {
           "v3.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.8-1.azl3",
+                "previousLatestVersion": "1.34.7-1.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubelet, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.5-1.azl3"
+              }
+            ]
+          },
+          "v4.0": {
             "versionsV2": [
               {
                 "k8sVersion": "1.34",
@@ -1549,6 +1597,21 @@
         },
         "azurelinux": {
           "v3.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.8-2.azl3",
+                "previousLatestVersion": "1.34.7-3.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=kubectl, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.5-2.azl3"
+              }
+            ]
+          },
+          "v4.0": {
             "versionsV2": [
               {
                 "k8sVersion": "1.34",
@@ -1741,6 +1804,14 @@
                 "latestVersion": "0.52.0-2.azl3"
               }
             ]
+          },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
+                "latestVersion": "0.52.0-2.azl3"
+              }
+            ]
           }
         }
       }
@@ -1886,6 +1957,38 @@
                 "renovateTag": "name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0",
                 "latestVersion": "1.36.2-1.azl3",
                 "previousLatestVersion": "1.36.1-1.azl3"
+              }
+            ]
+          },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.32",
+                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0",
+                "latestVersion": "1.32.18-1.azl3",
+                "previousLatestVersion": "1.32.11-1.azl3"
+              },
+              {
+                "k8sVersion": "1.33",
+                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0",
+                "latestVersion": "1.33.13-1.azl3",
+                "previousLatestVersion": "1.33.6-1.azl3"
+              },
+              {
+                "k8sVersion": "1.34",
+                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0",
+                "latestVersion": "1.34.10-1.azl3",
+                "previousLatestVersion": "1.34.7-1.azl3"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0",
+                "latestVersion": "1.35.5-1.azl3"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "name=azure-acr-credential-provider, repository=production, os=azurelinux, release=3.0",
+                "latestVersion": "1.36.1-1.azl3"
               }
             ]
           }
@@ -2159,6 +2262,14 @@
               }
             ]
           },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-exporter-kubernetes, os=azurelinux, release=3.0",
+                "latestVersion": "1.9.1-12.azl3"
+              }
+            ]
+          },
           "OSGUARD/v3.0": {
             "versionsV2": []
           }
@@ -2253,6 +2364,15 @@
             ],
             "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
           },
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.3.1"
+              }
+            ],
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
+          },
           "OSGUARD/v3.0": {
             "versionsV2": [
               {
@@ -2290,6 +2410,15 @@
       "downloadURIs": {
         "azurelinux": {
           "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "3.0.15-1"
+              }
+            ],
+            "downloadURL": "https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${version}.$(uname -m).rpm"
+          },
+          "v4.0": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",

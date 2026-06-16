@@ -25,6 +25,17 @@ installDeps() {
       echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
       dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
+    elif [ "$OS_VERSION" = "4.0" ]; then
+      # TODO(AzL4): replace this with the signed AzureLinux 4.0 cloud-native repo when it exists.
+      echo "AzureLinux 4.0: adding AzL3 cloud-native repo as fallback"
+      cat > /etc/yum.repos.d/azl3-cloud-native.repo <<'REPOEOF'
+[azl3-cloud-native]
+name=AzureLinux 3.0 Cloud Native (fallback for AzL4)
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/$basearch
+enabled=1
+gpgcheck=0
+skip_if_unavailable=True
+REPOEOF
     else
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
@@ -32,11 +43,30 @@ installDeps() {
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
-      if ! dnf_install 30 1 600 $dnf_package; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    done
+
+    # AzL4 is Fedora/dnf5 based, so keep the shared package set separate from the
+    # OS-version deltas. Package differences from AzL3:
+    # - iptables and ebtables: AzL4 uses nftables backend only, provided by iptables-nft.
+    # - iotop: AzL4 uses the maintained C implementation, iotop-c.
+    # - dnf-automatic and check-restart: AzL4 uses DNF5 packages and AKS-owned timer wiring.
+    # - cloud-init-azure-kvp, inotify-tools, blobfuse2: not published in current AzL4 feeds yet.
+    local common_packages="ca-certificates cifs-utils conntrack-tools cracklib ethtool fuse iproute ipset jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath"
+
+    if [ "$OS_VERSION" = "4.0" ]; then
+      local azl4_packages="iptables-nft iotop-c dnf5-plugin-automatic dnf5-plugins"
+      for dnf_package in $common_packages $azl4_packages; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    else
+      local azl3_packages="ebtables iptables iotop check-restart cloud-init-azure-kvp dnf-automatic inotify-tools blobfuse2"
+      for dnf_package in $common_packages $azl3_packages; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
 
     # install 2.0 specific packages
     # the blobfuse package is not available in AzureLinux 3.0
@@ -83,7 +113,32 @@ installCriCtlPackage() {
     echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
   fi
   echo "Installing ${packageName} with dnf"
-  dnf_install 30 1 600 ${packageName} || exit 1
+  if ! dnf_install 30 1 600 ${packageName}; then
+    if [ "$OS_VERSION" != "4.0" ]; then
+      exit 1
+    fi
+
+    # TODO(AzL4): remove this fallback when kubernetes-cri-tools is installable on AzL4.
+    # The AzL3 cloud-native package requires SymCrypt/SymCrypt-OpenSSL, which are not
+    # in current AzL4 feeds. It provides crictl on AzL3, so temporarily install the
+    # matching upstream crictl binary directly.
+    echo "dnf install failed for ${packageName}, falling back to static binary download"
+    local upstream_version="${version%%-*}"
+    local crictl_version="v${upstream_version}"
+    local arch="amd64"
+    if [ "$(getCPUArch)" = "arm64" ]; then
+      arch="arm64"
+    fi
+    local url="https://github.com/kubernetes-sigs/cri-tools/releases/download/${crictl_version}/crictl-${crictl_version}-linux-${arch}.tar.gz"
+    local archive
+    archive="$(mktemp)"
+    echo "Downloading crictl from ${url}"
+    curl -fsSL "${url}" -o "${archive}" || exit 1
+    tar -xzf "${archive}" -C /usr/local/bin || exit 1
+    chown root:root /usr/local/bin/crictl
+    rm -f "${archive}"
+    echo "crictl installed via static binary: $(crictl --version 2>/dev/null)"
+  fi
 }
 
 downloadGridDrivers() {
@@ -640,6 +695,11 @@ installStandaloneContainerd() {
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.
     if [ -f /etc/containerd/config.toml.rpmsave ]; then
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
+    fi
+
+    # AzL3 uses the containerd2 package path
+    if [ "$OS_VERSION" = "4.0" ]; then
+        systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 
 }

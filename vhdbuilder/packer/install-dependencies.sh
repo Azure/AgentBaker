@@ -474,7 +474,12 @@ while IFS= read -r p; do
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
-        if isUbuntu; then
+        # TODO(AzL4): remove this direct download once aks-secure-tls-bootstrap-client
+        # is available as an AzL4 PMC package; current AzL4 PMC has no RPM.
+        if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSecureTLSBootstrapClientFromURL "/opt/bin" "${evaluatedURL}" || exit $?
+        elif isUbuntu; then
           downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
           installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
         elif isMarinerOrAzureLinux; then
@@ -1104,13 +1109,13 @@ configureLsmWithBpf() {
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
         fi
-        echo "Updating GRUB configuration for Azure Linux 3.0..."
+        echo "Updating GRUB configuration for Azure Linux 3.0+..."
         grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: /etc/default/grub not found, skipping LSM configuration"
       fi
     else
-      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
+      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0+, skipping"
     fi
 
     echo "LSM configuration update completed"

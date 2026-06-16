@@ -640,17 +640,31 @@ function nodePrep {
                 elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
                     echo 'EnableUnattendedUpgrade is not supported by Azure Linux OS Guard, will not be enabled'
                 else
-                    # By default the dnf-automatic is service is notify only in Mariner.
-                    # Enable the automatic install timer and the check-restart timer.
-                    # Stop the notify only dnf timer since we've enabled the auto install one.
-                    # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-                    systemctl disable dnf-automatic-notifyonly.timer
-                    systemctl stop dnf-automatic-notifyonly.timer
-                    # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
-                    systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
-                    systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-                    systemctlEnableAndStart dnf-automatic-install.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
-                    # The check-restart service which will inform kured of required restarts should already be running
+                    if [ "$OS_VERSION" = "4.0" ]; then
+                        # AzL4 uses DNF5 automatic instead of the DNF4 install/notify timers.
+                        # The default DNF5 config downloads only, so enable apply_updates before starting the timer.
+                        mkdir -p /etc/dnf
+                        if [ ! -f /etc/dnf/automatic.conf ]; then
+                            cp /usr/share/dnf5/dnf5-plugins/automatic.conf /etc/dnf/automatic.conf || exit 1
+                        fi
+                        sed -i 's/^[[:space:]]*apply_updates[[:space:]]*=.*/apply_updates = yes/' /etc/dnf/automatic.conf || exit 1
+                        grep -q '^[[:space:]]*apply_updates[[:space:]]*=[[:space:]]*yes' /etc/dnf/automatic.conf || exit 1
+                        systemctl unmask dnf5-automatic.service || exit $ERR_SYSTEMCTL_START_FAIL
+                        systemctl unmask dnf5-automatic.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                        systemctlEnableAndStart dnf5-automatic.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+                    else
+                        # By default the dnf-automatic is service is notify only in Mariner.
+                        # Enable the automatic install timer and the check-restart timer.
+                        # Stop the notify only dnf timer since we've enabled the auto install one.
+                        # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+                        systemctl disable dnf-automatic-notifyonly.timer
+                        systemctl stop dnf-automatic-notifyonly.timer
+                        # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+                        systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
+                        systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                        systemctlEnableAndStart dnf-automatic-install.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+                    fi
+                    # The reboot-required timer which will inform kured of required restarts should already be running
                 fi
             fi
         fi

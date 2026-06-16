@@ -7,7 +7,11 @@ installBcc() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_install 120 5 25 bcc-tools || exit $ERR_BCC_INSTALL_TIMEOUT
     echo "Installing BCC examples..."
-    dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
+    if [ "$OS_VERSION" = "4.0" ]; then
+        dnf_install 120 5 25 bcc-doc || exit $ERR_BCC_INSTALL_TIMEOUT
+    else
+        dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
 }
 
 installBpftrace() {
@@ -47,6 +51,11 @@ enabled=1
 skip_if_unavailable=True
 sslverify=1
 EOF
+    fi
+
+    if [ "$OS_VERSION" = "4.0" ]; then
+        # TODO(AzL4): add the Azure Linux 4.0 NVIDIA repo when GPU packages are published.
+        echo "Azure Linux 4.0: NVIDIA repo not yet available, skipping GPU setup"
     fi
 }
 
@@ -93,6 +102,14 @@ listInstalledPackages() {
 
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
+    if [ "$OS_VERSION" = "4.0" ]; then
+        systemctl stop dnf5-automatic.timer || exit 1
+        systemctl disable dnf5-automatic.timer || exit 1
+        systemctl mask dnf5-automatic.service || exit 1
+        systemctl mask dnf5-automatic.timer || exit 1
+        return 0
+    fi
+
     # Ensure the automatic notifyonly timer is disabled.
     systemctl stop dnf-automatic-notifyonly.timer || exit 1
     systemctl disable dnf-automatic-notifyonly.timer || exit 1
@@ -120,12 +137,55 @@ disableTimesyncd() {
 
 # Regardless of UU mode, ensure check-restart is running
 enableCheckRestart() {
-  # Even if UU is disabled, we should still run check-restart so that kured
-  # will work as expected if it is installed.
-  # At 8:000:00 UTC check if a reboot-required package was installed
-  # Touch /var/run/reboot-required if a reboot required package was installed.
-  # This helps avoid a Mariner/AzureLinux specific reboot check command in kured.
-  systemctlEnableAndStart check-restart.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    if [ "$OS_VERSION" = "4.0" ]; then
+        # AzureLinux 4.0 does not ship check-restart. DNF5 exits 1 when a reboot is
+        # required, so map that case to kured's /var/run/reboot-required contract.
+        cat > /usr/local/bin/aks-check-restart.sh <<'EOF'
+#!/bin/bash
+OUTPUT=$(LC_ALL=C dnf5 needs-restarting -r 2>&1)
+STATUS=$?
+echo "$OUTPUT"
+RESTART_REQUIRED='Reboot is required'
+if [[ "$OUTPUT" == *"$RESTART_REQUIRED"* ]]; then
+    touch /var/run/reboot-required || exit 1
+    exit 0
+fi
+exit "$STATUS"
+EOF
+        chmod 755 /usr/local/bin/aks-check-restart.sh || exit 1
+
+        cat > /etc/systemd/system/aks-check-restart.service <<'EOF'
+[Unit]
+Description=Checks if system needs to be restarted due to recent version updates
+Wants=aks-check-restart.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/aks-check-restart.sh
+EOF
+
+        cat > /etc/systemd/system/aks-check-restart.timer <<'EOF'
+[Unit]
+Description=Checks if system needs to be restarted due to recent version updates
+
+[Timer]
+Unit=aks-check-restart.service
+OnCalendar=*-*-* 08:00:00
+
+[Install]
+WantedBy=timers.target
+EOF
+        systemctl daemon-reload || exit 1
+        systemctlEnableAndStart aks-check-restart.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
+        return 0
+    fi
+
+    # Even if UU is disabled, we should still run check-restart so that kured
+    # will work as expected if it is installed.
+    # At 8:000:00 UTC check if a reboot-required package was installed
+    # Touch /var/run/reboot-required if a reboot required package was installed.
+    # This helps avoid a Mariner/AzureLinux specific reboot check command in kured.
+    systemctlEnableAndStart check-restart.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # There are several issues in default file permissions when trying to run AMA and ASA extensions.
