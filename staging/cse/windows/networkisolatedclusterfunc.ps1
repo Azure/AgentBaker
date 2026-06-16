@@ -171,52 +171,85 @@ function Invoke-OrasLogin {
         Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_NETWORK_TIMEOUT -ErrorMessage "failed with an error other than unauthorized, exiting"
     }
 
-    # Get AAD Access Token using Managed Identity Metadata Service
+    # Try ACR endpoint (containerregistry.azure.net) first, fall back to ARM endpoint (management.azure.com)
+    $acrEndpoint = "https://containerregistry.azure.net"
     $armEndpoint = if ([string]::IsNullOrWhiteSpace($ArmResourceEndpoint)) { "https://management.azure.com/" } else { $ArmResourceEndpoint }
-    $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${armEndpoint}&client_id=$ClientID"
-    try {
-        $requestArgs = @{
-            Uri     = $accessUrl
-            Method  = "Get"
-            Headers = @{ Metadata = "true" }
-            TimeoutSec  = 10
+    $endpoints = @($acrEndpoint, $armEndpoint)
+    $accessToken = $null
+    $refreshToken = $null
+    $anyEndpointGotAccessToken = $false
+
+    foreach ($endpoint in $endpoints) {
+        Write-Log "Attempting to get access token with endpoint: $endpoint"
+
+        # Get AAD Access Token using Managed Identity Metadata Service
+        $accessUrl = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${endpoint}&client_id=$ClientID"
+        try {
+            $requestArgs = @{
+                Uri     = $accessUrl
+                Method  = "Get"
+                Headers = @{ Metadata = "true" }
+                TimeoutSec  = 10
+            }
+            $rawAccessTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
+            $accessToken = $rawAccessTokenResponse.access_token
         }
-        $rawAccessTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
-        $accessToken = $rawAccessTokenResponse.access_token
-    }
-    catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT -ErrorMessage "failed to retrieve AAD access token: $($_.Exception.Message)"
+        catch {
+            Write-Log "Failed to retrieve AAD access token with endpoint ${endpoint}: $($_.Exception.Message)"
+            $accessToken = $null
+            continue
+        }
+
+        # At least one endpoint successfully returned an IMDS access token
+        $anyEndpointGotAccessToken = $true
+
+        if ([string]::IsNullOrWhiteSpace($accessToken)) {
+            Write-Log "Failed to parse access token with endpoint $endpoint"
+            continue
+        }
+
+        # Exchange AAD Access Token for ACR Refresh Token
+        try {
+            $exchangeUrl = "https://$Acr_Url/oauth2/exchange"
+            $body = @{
+                grant_type   = "access_token"
+                service      = $Acr_Url
+                tenant       = $TenantID
+                access_token = $accessToken
+            }
+            $requestArgs = @{
+                Uri         = $exchangeUrl
+                Method      = "Post"
+                ContentType = "application/x-www-form-urlencoded"
+                Body        = $body
+                TimeoutSec  = 10
+            }
+            $rawRefreshTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
+            $refreshToken = $rawRefreshTokenResponse.refresh_token
+        }
+        catch {
+            Write-Log "Failed to retrieve refresh token with endpoint ${endpoint}: $($_.Exception.Message)"
+            $accessToken = $null
+            $refreshToken = $null
+            continue
+        }
+
+        if ([string]::IsNullOrWhiteSpace($refreshToken)) {
+            Write-Log "Failed to parse refresh token with endpoint $endpoint"
+            $accessToken = $null
+            continue
+        }
+
+        Write-Log "Successfully obtained tokens with endpoint: $endpoint"
+        break
     }
 
-    if ([string]::IsNullOrWhiteSpace($accessToken)) {
-        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to parse imds access token"
-    }
-
-    # Exchange AAD Access Token for ACR Refresh Token
-    try {
-        $exchangeUrl = "https://$Acr_Url/oauth2/exchange"
-        $body = @{
-            grant_type   = "access_token"
-            service      = $Acr_Url
-            tenant       = $TenantID
-            access_token = $accessToken
+    if ([string]::IsNullOrWhiteSpace($accessToken) -or [string]::IsNullOrWhiteSpace($refreshToken)) {
+        if (-not $anyEndpointGotAccessToken) {
+            Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT -ErrorMessage "failed to obtain IMDS tokens with all endpoints"
+        } else {
+            Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to obtain tokens with all endpoints"
         }
-        $requestArgs = @{
-            Uri         = $exchangeUrl
-            Method      = "Post"
-            ContentType = "application/x-www-form-urlencoded"
-            Body        = $body
-            TimeoutSec  = 10
-        }
-        $rawRefreshTokenResponse = Retry-Command -Command "Invoke-RestMethod" -Args $requestArgs -Retries 10 -RetryDelaySeconds 5
-        $refreshToken = $rawRefreshTokenResponse.refresh_token
-    }
-    catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to retrieve refresh token: $($_.Exception.Message)"
-    }
-
-    if ([string]::IsNullOrWhiteSpace($refreshToken)) {
-        Set-ExitCode $global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED -ErrorMessage "failed to parse refresh token"
     }
 
     # Pre-validate refresh token permissions
