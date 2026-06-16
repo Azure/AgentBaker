@@ -2744,7 +2744,7 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) {
 	nbc := s.Runtime.NBC
 	if nbc != nil && nbc.EnableScriptlessNBCCSECmd && s.VHD.SupportsScriptless() {
 		fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated {
+		if !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && len(s.Config.CustomDataWriteFiles) <= 0 {
 			fileNameToCheck = "/opt/azure/containers/aks-node-controller-nbc-cmd-hack.sh"
 		}
 		ValidateFileExists(ctx, s, fileNameToCheck)
