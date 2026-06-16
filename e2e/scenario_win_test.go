@@ -490,7 +490,6 @@ func Test_NetworkIsolatedCluster_Windows_WithEgress(t *testing.T) {
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
 					},
 				}
-				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "https://xinhlab.blob.core.chinacloudapi.cn/wincse/aks-windows-cse-scripts-test.zip?sp=r&st=2026-06-15T06:56:17Z&se=2026-06-15T15:11:17Z&sv=2024-11-04&sr=b&sig=jRo%2Bzb3NgLOhpy8Tdyrv8xQHFMyatniFDA1JM%2BdXk4w%3D"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
 				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
 				nbc.KubeletConfig["--image-credential-provider-config"] = "c:\\k\\credential-provider-config.yaml"
