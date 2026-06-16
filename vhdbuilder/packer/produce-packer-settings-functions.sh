@@ -57,9 +57,9 @@ function ensure_sig_image_name_linux() {
 			else
 				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
-		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ] && [ "${OS_SKU,,}" != "azurecontainerlinux" ]; then
-			# for Azure Linux 3.0, only use AzureLinux prefix.
-			# AzureContainerLinux (ACL) shares the azure-linux-3 marketplace offer but its destination
+		elif { [ "${IMG_OFFER,,}" = "azure-linux-3" ] || [ "${IMG_OFFER,,}" = "azure-linux-4" ]; } && [ "${OS_SKU,,}" != "azurecontainerlinux" ]; then
+			# for Azure Linux 3.0/4.0, only use AzureLinux prefix.
+			# AzureContainerLinux (ACL) can share Azure Linux marketplace offers but its destination
 			# SIG image definitions (e.g. aclgen2TL, aclgen2arm64TL) intentionally have no AzureLinux prefix,
 			# so it falls through to the no-prefix branch below.
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
