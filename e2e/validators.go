@@ -3073,6 +3073,8 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 		"test \"$(systemctl is-enabled dra-driver-nvidia-gpu.service)\" = \"enabled\"",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+}
+
 // resolveSecondaryNICName discovers the kernel interface name of the secondary NIC
 // (IMDS interface index 1) by matching its MAC address against /sys/class/net/*/address.
 // This avoids hardcoding "eth1" which can be wrong when SR-IOV VFs or predictable
