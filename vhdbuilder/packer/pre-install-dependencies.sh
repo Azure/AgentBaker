@@ -31,6 +31,39 @@ if isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT"; then
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  if command -v getenforce &>/dev/null; then
+    echo "AzureLinux 4.0: SELinux mode is $(getenforce)"
+    # AKS runs AzL4 with SELinux permissive; keep runtime and persisted mode aligned.
+    setenforce 0 2>/dev/null || true
+    if [ -f /etc/selinux/config ]; then
+      sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+    fi
+  fi
+
+  if systemctl list-unit-files firewalld.service &>/dev/null; then
+    # AzL3 does not ship firewalld; AKS manages forwarding through kube-proxy iptables/nftables rules.
+    echo "Azure Linux 4.0: disabling firewalld (conflicts with kube-proxy iptables)"
+    systemctl stop firewalld || true
+    systemctl disable firewalld
+    systemctl mask firewalld
+  fi
+
+  if command -v dnf &>/dev/null; then
+    dnfProxyConfigDir="/etc/dnf/libdnf5.conf.d"
+    dnfProxyConfigFile="${dnfProxyConfigDir}/50-aks-proxy-ssl.conf"
+    # DNF5 verifies HTTPS proxy certificates separately from repository server certificates.
+    # CSE installs custom proxy CAs with update-ca-trust, which refreshes this generated bundle.
+    install -d -m 755 "${dnfProxyConfigDir}"
+    cat > "${dnfProxyConfigFile}" <<'EOF'
+[main]
+proxy_sslcacert=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+EOF
+    chmod 644 "${dnfProxyConfigFile}"
+    echo "AzureLinux 4.0: configured dnf5 proxy_sslcacert for HTTPS proxy support"
+  fi
+fi
+
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
@@ -42,6 +75,25 @@ if isMarinerOrAzureLinux "$OS"; then
     echo -e "\nnews.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
 else
     echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+fi
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  # AzL4 uses authselect-managed PAM; enable the equivalent faillock and password-history policy.
+  authselect enable-feature with-faillock || exit 1
+  authselect enable-feature with-pwhistory || exit 1
+
+  if grep -q '^[[:space:]]*retry[[:space:]]*=' /etc/security/pwquality.conf; then
+    sed -i 's/^[[:space:]]*retry[[:space:]]*=.*/retry=3/' /etc/security/pwquality.conf
+  else
+    echo 'retry=3' >> /etc/security/pwquality.conf
+  fi
+
+  cat >/etc/security/pwhistory.conf <<'EOF'
+remember=5
+EOF
+  chmod 600 /etc/security/pwhistory.conf
+
+  # Unlike AzL3, AzL4 base images do not currently ship rsyslog.
+  dnf_install 30 1 600 rsyslog || exit $ERR_APT_INSTALL_TIMEOUT
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1

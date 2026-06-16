@@ -474,9 +474,13 @@ copyPackerFiles() {
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
 
-    # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
-    cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
-    cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+    if [ "$OS_VERSION" = "4.0" ]; then
+      cpAndMode $FAILLOCK_CONF_SRC $FAILLOCK_CONF_DEST 600
+    else
+      # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
+      cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+      cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+    fi
   elif isACL "$OS" "$OS_VARIANT"; then
     # ACL cannot share the isMarinerOrAzureLinux block because:
     # - containerd.service: ACL provides containerd via sysext.
