@@ -1,0 +1,30 @@
+Release notes for security patch 20260607T000000Z timestamp
+Package difference between 20260524T000000Z and 20260607T000000Z
+
+No reboot required
+
+
+=== Package Updates ===
+gnutls  3.8.3-11.azl3  azurelinux-official-base
+curl-libs  8.11.1-7.azl3  azurelinux-official-base
+curl  8.11.1-7.azl3  azurelinux-official-base
+containerd2  2.2.4-2.azl3  azurelinux-official-base
+binutils-devel  2.41-13.azl3  azurelinux-official-base
+binutils  2.41-13.azl3  azurelinux-official-base
+azurelinux-release  3.0-45.azl3  azurelinux-official-base
+WALinuxAgent  2.11.1.4-4.azl3  azurelinux-official-base
+systemd-networkd  255-30.azl3  azurelinux-official-base
+systemd-resolved  255-30.azl3  azurelinux-official-base
+systemd-udev  255-30.azl3  azurelinux-official-base
+systemd-rpm-macros  255-30.azl3  azurelinux-official-base
+systemd-pam  255-30.azl3  azurelinux-official-base
+systemd-libs  255-30.azl3  azurelinux-official-base
+systemd  255-30.azl3  azurelinux-official-base
+python3-curses  3.12.9-11.azl3  azurelinux-official-base
+python3-libs  3.12.9-11.azl3  azurelinux-official-base
+python3  3.12.9-11.azl3  azurelinux-official-base
+librelp  1.11.0-2.azl3  azurelinux-official-base
+krb5  1.21.3-4.azl3  azurelinux-official-base
+jq  1.7.1-6.azl3  azurelinux-official-base
+ig-gadgets  0.53.0-1.azl3  azurelinux-official-cloud-native
+ig  0.53.0-1.azl3  azurelinux-official-cloud-native
