@@ -1108,7 +1108,7 @@ ensureGPUDrivers() {
 dnf_install_amd_ama_core_package() {
     ver=$1; retries=$2; wait_sleep=$3; timeout=$4; shift && shift && shift && shift
     # Currently version 1.5.0 is supported.  Add more versions as they become available.
-    if [[ "$ver" == "1.5.0" ]]; then
+    if [ "$ver" == "1.5.0" ]; then
         AMD_AMA_CORE_PACKAGE="https://download.microsoft.com/download/f030c57a-a582-4bcc-9c7c-593c9a486814/amd-ama-core_1.5.0-20260424092403.x86_64.rpm"
     else
         return 1
