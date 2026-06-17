@@ -406,7 +406,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	} else {
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		if enableScriptlessCCompilation(s) {
+		if enableScriptlessCompilation(s) {
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
 			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
@@ -473,7 +473,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	return model
 }
 
-func enableScriptlessCCompilation(s *Scenario) bool {
+func enableScriptlessCompilation(s *Scenario) bool {
 	return s.Runtime.NBC.EnableScriptlessNBCCSECmd && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly
 }
 
