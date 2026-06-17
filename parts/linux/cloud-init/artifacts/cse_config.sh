@@ -1104,13 +1104,18 @@ ensureGPUDrivers() {
     fi
 }
 
-# Install AMD AMA SW package for MA35D (Supernova GPU SKU)
-dnf_install_amd_ama_package() {
-    name=$1; ver=$2; bld=$3; retries=$4; wait_sleep=$5; timeout=$6; shift && shift && shift && shift && shift && shift
-    AMD_AMA_PACKAGE="https://packages.xilinx.com/artifactory/rpm-packages/x86_64/amd-ama-${name}_${ver}-${bld}.x86_64.rpm"
+# Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+dnf_install_amd_ama_core_package() {
+    ver=$1; retries=$2; wait_sleep=$3; timeout=$4; shift && shift && shift && shift
+    # Currently version 1.5.0 is supported.  Add more versions as they become available.
+    if [[ "$ver" == "1.5.0" ]]; then
+        AMD_AMA_CORE_PACKAGE="https://download.microsoft.com/download/f030c57a-a582-4bcc-9c7c-593c9a486814/amd-ama-core_1.5.0-20260424092403.x86_64.rpm"
+    else
+        return 1
+    fi
     for i in $(seq 1 $retries); do
         # RPM_FRONTEND env variable needed to disable license agreement prompt
-        RPM_FRONTEND=noninteractive dnf install -y $AMD_AMA_PACKAGE && break || \
+        RPM_FRONTEND=noninteractive dnf install -y $AMD_AMA_CORE_PACKAGE && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -1118,10 +1123,11 @@ dnf_install_amd_ama_package() {
             dnf_makecache
         fi
     done
-    echo Executed dnf install AMD AMA $name package $i times;
+    echo Executed dnf install AMD AMA core package $i times;
 }
 
 # Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
+# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
 setupAmdAma() {
     if [ "$(isARM64)" -eq 1 ]; then
         return
@@ -1146,7 +1152,7 @@ setupAmdAma() {
 
         # Install FW package
         AMD_AMA_FIRMWARE_PACKAGE="${AMD_AMA_DRIVER_PACKAGE/driver/firmware}"
-        if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
+        if [ -z "$AMD_AMA_FIRMWARE_PACKAGE" ]; then
             echo "Unable to find AMD AMA firmware package for current kernel version, exiting..."
             exit $ERR_AMDAMA_DRIVER_NOT_FOUND
         fi
@@ -1166,9 +1172,8 @@ setupAmdAma() {
           echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
-        TMP="${AMD_AMA_DRIVER_PACKAGE#amd-ama-driver-*:}"; AMD_AMA_DRIVER_VERSION="${TMP%%_*}"        
-        TMP2="${TMP#*_}"; AMD_AMA_DRIVER_BUILD_NUMBER="${TMP2%%-*}"
-        if ! dnf_install_amd_ama_package core $AMD_AMA_DRIVER_VERSION $AMD_AMA_DRIVER_BUILD_NUMBER 30 1 600; then
+        TMP="${AMD_AMA_DRIVER_PACKAGE#amd-ama-driver-*:}"; AMD_AMA_DRIVER_VERSION="${TMP%%_*}"
+        if ! dnf_install_amd_ama_core_package $AMD_AMA_DRIVER_VERSION 30 1 600; then
           echo "Unable to install AMD AMA core package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
