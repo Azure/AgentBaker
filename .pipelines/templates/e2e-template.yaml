@@ -10,10 +10,10 @@ parameters:
     type: string
     displayName: Variable group to use for e2e tests
     default: ab-e2e
-  - name: subscriptionOverride
+  - name: subscriptionId
     type: string
-    displayName: Override E2E_SUBSCRIPTION_ID for this job (e.g. for RCV1P-enrolled subscription)
-    default: ""
+    displayName: Subscription ID to use for E2E tests
+    default: $(E2E_SUBSCRIPTION_ID)
   - name: rcv1pTagsAutoInjected
     type: string
     displayName: Whether the platform auto-injects RCV1P opt-in tags on all VMSSes (true on MSFT tenant)
@@ -45,7 +45,7 @@ jobs:
             bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_SUBSCRIPTION_ID: ${{ coalesce(parameters.subscriptionOverride, '$(E2E_SUBSCRIPTION_ID)') }}
+          E2E_SUBSCRIPTION_ID: ${{parameters.subscriptionId}}
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
