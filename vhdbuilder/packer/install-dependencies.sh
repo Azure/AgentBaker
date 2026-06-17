@@ -556,6 +556,14 @@ while IFS= read -r p; do
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "dra-driver-nvidia-gpu")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
+          downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
+        fi
+        echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "datacenter-gpu-manager-4-core")
       for version in ${PACKAGE_VERSIONS[@]}; do
         downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
