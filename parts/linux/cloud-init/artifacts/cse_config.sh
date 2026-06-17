@@ -1152,7 +1152,7 @@ setupAmdAma() {
 
         # Install FW package
         AMD_AMA_FIRMWARE_PACKAGE="${AMD_AMA_DRIVER_PACKAGE/driver/firmware}"
-        if [ -z "$AMD_AMA_FIRMWARE_PACKAGE" ]; then
+        if [ -z "$AMD_AMA_FIRMWARE_PACKAGE" ] || [ "$AMD_AMA_FIRMWARE_PACKAGE" == "$AMD_AMA_DRIVER_PACKAGE" ]; then
             echo "Unable to find AMD AMA firmware package for current kernel version, exiting..."
             exit $ERR_AMDAMA_DRIVER_NOT_FOUND
         fi
