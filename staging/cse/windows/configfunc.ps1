@@ -421,7 +421,7 @@ providers:
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
         - $azureConfigFile
-        - --registry-mirror=${mcrRegistry}:$global:BootstrapProfileContainerRegistryServer
+        - --registry-mirror=${mcrRegistry}:{$global:BootstrapProfileContainerRegistryServer}
 "@
     }
     $credentialProviderConfig | Out-File -encoding ASCII -filepath "$CredentialProviderConfPATH"
