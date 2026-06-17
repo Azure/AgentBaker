@@ -486,7 +486,6 @@ function BasePrep {
     PREPROVISION_EXTENSION
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
-    Register-NodeResetScriptTask
     # Guard against older CSE packages that do not yet export Should-InstallCACertificatesRefreshTask.
     # If the function is absent (old package), fall back to the previous unconditional behaviour so
     # that legacy/ussec/usnat clusters continue to register the refresh task.
