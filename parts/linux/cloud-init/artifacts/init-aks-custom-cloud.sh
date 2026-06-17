@@ -317,7 +317,10 @@ rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1
     if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
+        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
+            echo "ERROR: failed to install legacy CA certificates into trust store" >&2
+            exit 1
+        }
     else
         echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
         exit 1
