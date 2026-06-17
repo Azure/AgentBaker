@@ -304,7 +304,7 @@ fi
 
 cat > $chrony_conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
+# information about usable directives.
 
 # This will use (up to):
 # - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
