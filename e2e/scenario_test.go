@@ -413,7 +413,11 @@ func Test_ACL_GPUA100(t *testing.T) {
 }
 
 func Test_ACL_GPUA10(t *testing.T) {
-	runScenarioACLGRID(t, "Standard_NV6ads_A10_v5")
+	for _, vmSize := range []string{"Standard_NV6ads_A10_v5", "Standard_NC16ads_A10_v4"} {
+		t.Run(vmSize, func(t *testing.T) {
+			runScenarioACLGRID(t, vmSize)
+		})
+	}
 }
 
 func runScenarioACLGPU(t *testing.T, vmSize string, location string) {
@@ -2243,32 +2247,36 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 }
 
 func Test_AzureLinuxV3_GPUA10(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node with A10 GPU SKU using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateNvidiaGRIDLicenseValid(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateServicesDoNotRestartKubelet(ctx, s)
-				ValidateNvidiaPersistencedRunning(ctx, s)
-			},
-		},
-	})
+	for _, vmSize := range []string{"Standard_NV6ads_A10_v5", "Standard_NC16ads_A10_v4"} {
+		t.Run(vmSize, func(t *testing.T) {
+			RunScenario(t, &Scenario{
+				Description: fmt.Sprintf("Tests that a GPU-enabled node with A10 GPU SKU %s using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped", vmSize),
+				Tags: Tags{
+					GPU: true,
+				},
+				Config: Config{
+					Cluster: ClusterKubenet,
+					VHD:     config.VHDAzureLinuxV3Gen2,
+					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+						nbc.AgentPoolProfile.VMSize = vmSize
+						nbc.ConfigGPUDriverIfNeeded = true
+						nbc.EnableGPUDevicePluginIfNeeded = false
+						nbc.EnableNvidia = true
+					},
+					VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+						vmss.SKU.Name = to.Ptr(vmSize)
+					},
+					Validator: func(ctx context.Context, s *Scenario) {
+						ValidateNvidiaModProbeInstalled(ctx, s)
+						ValidateNvidiaGRIDLicenseValid(ctx, s)
+						ValidateKubeletHasNotStopped(ctx, s)
+						ValidateServicesDoNotRestartKubelet(ctx, s)
+						ValidateNvidiaPersistencedRunning(ctx, s)
+					},
+				},
+			})
+		})
+	}
 }
 
 func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
