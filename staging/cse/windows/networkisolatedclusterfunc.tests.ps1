@@ -411,14 +411,18 @@ Describe "Get-FileNameFromUrl" {
 
 Describe "DownloadFileWithOras" {
   BeforeEach {
-    $global:OrasPath = "Mock-OrasCli"
-    $script:MockOrasExitCode = 0
-    function global:Mock-OrasCli {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $global:LASTEXITCODE = $script:MockOrasExitCode
-    }
+    $global:OrasPath = "oras"
     $global:OrasRegistryConfigFile = "C:\oras-config.json"
     $global:AppInsightsClient = $null
+
+    # Mock Start-Process to return a fake process object that completes immediately with exit code 0
+    $script:MockOrasExitCode = 0
+    Mock Start-Process -MockWith {
+      $mockProcess = [PSCustomObject]@{ ExitCode = $script:MockOrasExitCode }
+      $mockProcess | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($ms) return $true }
+      $mockProcess | Add-Member -MemberType ScriptMethod -Name Kill -Value {}
+      return $mockProcess
+    }
 
     Mock Set-ExitCode -MockWith {
       Param(
@@ -460,6 +464,20 @@ Describe "DownloadFileWithOras" {
     $destPath = "c:\k.zip"
 
     { DownloadFileWithOras -Reference $reference -DestinationPath $destPath } | Should -Throw "*oras pull failed*"
+  }
+
+  It "should throw when oras pull times out" {
+    Mock Start-Process -MockWith {
+      $mockProcess = [PSCustomObject]@{ ExitCode = 0 }
+      $mockProcess | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($ms) return $false }
+      $mockProcess | Add-Member -MemberType ScriptMethod -Name Kill -Value {}
+      return $mockProcess
+    }
+
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+    $destPath = "c:\k.zip"
+
+    { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -TimeoutSeconds 5 } | Should -Throw "*oras pull timed out*"
   }
 
   It "should throw when no file is found after oras pull" {
@@ -511,12 +529,6 @@ Describe "DownloadFileWithOras" {
     Set-Content -Path $cachedFilePath -Value "cached-content" -NoNewline
 
     $global:CacheDir = $cacheRoot
-    $script:orasInvoked = $false
-    function global:Mock-OrasCli {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $script:orasInvoked = $true
-      $global:LASTEXITCODE = 0
-    }
 
     Mock Copy-Item -MockWith {}
 
@@ -526,7 +538,7 @@ Describe "DownloadFileWithOras" {
         $Path -eq $cachedFilePath -and $Destination -eq $destPath -and $Force
       }
       Assert-MockCalled -CommandName 'Move-Item' -Times 0
-      $script:orasInvoked | Should -Be $false
+      Assert-MockCalled -CommandName 'Start-Process' -Times 0
     }
     finally {
       Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -543,19 +555,13 @@ Describe "DownloadFileWithOras" {
     New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
 
     $global:CacheDir = $cacheRoot
-    $script:orasInvoked = $false
-    function global:Mock-OrasCli {
-      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-      $script:orasInvoked = $true
-      $global:LASTEXITCODE = 0
-    }
 
     Mock Copy-Item -MockWith {}
 
     try {
       { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
       Assert-MockCalled -CommandName 'Copy-Item' -Times 0
-      $script:orasInvoked | Should -Be $true
+      Assert-MockCalled -CommandName 'Start-Process' -Exactly -Times 1
     }
     finally {
       Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
