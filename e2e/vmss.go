@@ -406,7 +406,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	} else {
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		if s.Runtime.NBC.EnableScriptlessNBCCSECmd && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly {
+		if enableScriptlessCompilation(s) {
 			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 			require.NoError(s.T, err, "failed to compile and upload aks-node-controller binary")
 			customData, err = CustomDataWithNBCCmdHack(s, customData, binaryURL)
@@ -471,6 +471,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
 	}
 	return model
+}
+
+func enableScriptlessCompilation(s *Scenario) bool {
+	return s.Runtime.NBC.EnableScriptlessNBCCSECmd && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.Runtime.NBC.PreProvisionOnly
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
