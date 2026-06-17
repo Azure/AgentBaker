@@ -335,7 +335,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium-log-collector",
-          "latestVersion": "v0.0.1-0",
+          "latestVersion": "v0.0.2-0",
           "previousLatestVersion": "v0.0.1-0"
         }
       ],
