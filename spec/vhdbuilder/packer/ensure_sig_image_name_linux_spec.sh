@@ -212,13 +212,14 @@ Describe 'ensure_sig_image_name_linux function'
     End
   End
 
-  Describe 'IMG_OFFER azure-linux-3 with OS_SKU AzureContainerLinux (ACL) scenarios'
-    # ACL shares the azure-linux-3 marketplace offer but its destination SIG image
-    # definitions (aclgen2TL, aclgen2arm64TL) intentionally have no AzureLinux prefix.
+  Describe 'OS_SKU AzureContainerLinux (ACL) scenarios'
+    # ACL uses a direct shared gallery source image (not marketplace).
+    # Its destination SIG image definitions (aclgen2TL, aclgen2arm64TL)
+    # intentionally have no AzureLinux prefix.
     It 'should NOT add AzureLinux prefix when OS_SKU is AzureContainerLinux (gen2 TL)'
       SIG_IMAGE_NAME=""
       SKU_NAME="aclgen2TL"
-      IMG_OFFER="azure-linux-3"
+      IMG_OFFER=""
       OS_SKU="AzureContainerLinux"
       When call ensure_sig_image_name_linux
       The status should be success
@@ -229,7 +230,7 @@ Describe 'ensure_sig_image_name_linux function'
     It 'should NOT add AzureLinux prefix when OS_SKU is AzureContainerLinux (arm64 gen2 TL)'
       SIG_IMAGE_NAME=""
       SKU_NAME="aclgen2arm64TL"
-      IMG_OFFER="azure-linux-3"
+      IMG_OFFER=""
       OS_SKU="AzureContainerLinux"
       When call ensure_sig_image_name_linux
       The status should be success
@@ -240,7 +241,7 @@ Describe 'ensure_sig_image_name_linux function'
     It 'should handle case-insensitive OS_SKU azurecontainerlinux (lowercase)'
       SIG_IMAGE_NAME=""
       SKU_NAME="aclgen2TL"
-      IMG_OFFER="azure-linux-3"
+      IMG_OFFER=""
       OS_SKU="azurecontainerlinux"
       When call ensure_sig_image_name_linux
       The status should be success
@@ -251,7 +252,7 @@ Describe 'ensure_sig_image_name_linux function'
     It 'should handle case-insensitive OS_SKU AzureContainerLinux (uppercase)'
       SIG_IMAGE_NAME=""
       SKU_NAME="aclgen2TL"
-      IMG_OFFER="azure-linux-3"
+      IMG_OFFER=""
       OS_SKU="AZURECONTAINERLINUX"
       When call ensure_sig_image_name_linux
       The status should be success
