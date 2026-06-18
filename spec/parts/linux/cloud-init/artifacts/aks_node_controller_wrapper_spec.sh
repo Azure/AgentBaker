@@ -108,4 +108,44 @@ EOF
         The variable secondArg should eq "--nbc-cmd=${NBC_CMD_PATH}"
         The variable thirdArg should eq ""
     End
+
+    It 'runs the check-lps connectivity probe before provisioning'
+        touch "$CONFIG_PATH"
+        # Record every subcommand invocation so we can assert check-lps ran.
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/calls"
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Running ANC check-lps pre-kubelet connectivity probe"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
+        The variable firstCall should eq "check-lps"
+        The variable secondCall should eq "provision"
+    End
+
+    It 'does not abort provisioning when check-lps fails'
+        touch "$CONFIG_PATH"
+        # Fake binary fails for check-lps but succeeds for provision.
+        cat >"$BIN_PATH" <<'EOF'
+#!/bin/sh
+if [ "$1" = "check-lps" ]; then
+    exit 1
+fi
+printf '%s\n' "$@" >"${TEST_DIR}/args"
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC check-lps returned non-zero (ignored)"
+        The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
+        firstArg=$(sed -n '1p' "${TEST_DIR}/args")
+        The variable firstArg should eq "provision"
+    End
 End

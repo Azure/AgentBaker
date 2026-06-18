@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,6 +49,12 @@ type App struct {
 	aptSourcesDir string
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
+
+	// httpProbeClient overrides the HTTP client used by the check-lps connectivity
+	// probes for testing. When nil, a default client (short timeout, InsecureSkipVerify)
+	// is used. The probe only verifies reachability, not certificate trust, since it
+	// runs pre-kubelet before any kube credential or CA trust is established.
+	httpProbeClient *http.Client
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -137,6 +144,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					return a.runDownloadHotfixCommand(ctx)
 				},
 			},
+			{
+				Name:  "check-lps",
+				Usage: "Probe apiserver connectivity (ClusterIP via kube-proxy + direct FQDN) pre-kubelet and log results",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provision-config", Usage: "path to the provision config file (used to source the apiserver FQDN)"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					// check-lps is a diagnostic probe and must never block provisioning.
+					// Swallow any error and always return nil so the exit code is 0 (fail-open).
+					a.runCheckLPSCommand(ctx, cmd.String("provision-config"))
+					return nil
+				},
+			},
 		},
 	}
 
@@ -191,6 +211,16 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	}
 	slog.Info("aks-node-controller hotfix download finished")
 	return nil
+}
+
+func (a *App) runCheckLPSCommand(ctx context.Context, provisionConfigPath string) {
+	slog.Info("aks-node-controller check-lps started")
+	// checkLPS never returns an error (it logs everything and is fail-open), but we
+	// defensively log here in case that ever changes so it stays a non-blocking probe.
+	if err := a.checkLPS(ctx, provisionConfigPath); err != nil {
+		slog.Warn("aks-node-controller check-lps encountered an error (ignored)", "error", err)
+	}
+	slog.Info("aks-node-controller check-lps finished")
 }
 
 func buildCmdFromProvisionConfig(ctx context.Context, path string) (*exec.Cmd, error) {

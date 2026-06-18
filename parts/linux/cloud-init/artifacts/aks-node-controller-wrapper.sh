@@ -43,6 +43,12 @@ else
     log "Using VHD-baked binary: $BIN_PATH"
 fi
 
+# Diagnostic pre-kubelet apiserver connectivity probe (LPS Option 4 validation).
+# This is fail-open: check-lps always exits 0, and the || guard ensures the wrapper
+# never aborts on probe failure regardless.
+log "Running ANC check-lps pre-kubelet connectivity probe"
+"$BIN_PATH" check-lps --provision-config "$CONFIG_PATH" || log "ANC check-lps returned non-zero (ignored)"
+
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then
     log "Launching aks-node-controller with config ${CONFIG_PATH}"
