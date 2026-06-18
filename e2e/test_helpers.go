@@ -75,7 +75,6 @@ func newTestCtx(t testing.TB) context.Context {
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
-	t.Parallel()
 	// Special case for testing VHD caching. Not used by default.
 	if config.Config.TestPreProvision || s.VHDCaching {
 		t.Run("VHDCreation", func(t *testing.T) {
@@ -188,12 +187,54 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 	})
 }
 
-// Helper to deep copy a Scenario (implement as needed for your struct)
+// copyScenario creates an isolated copy of Scenario state used by parallel subtests.
 func copyScenario(s *Scenario) *Scenario {
-	// Implement deep copy logic for Scenario and its fields
-	// This is a placeholder; you may need to copy nested structs and slices
 	copied := *s
-	copied.Config = s.Config // If Config is a struct, deep copy its fields as well
+
+	if s.Config.VHD != nil {
+		vhdCopy := *s.Config.VHD
+		if s.Config.VHD.Gallery != nil {
+			galleryCopy := *s.Config.VHD.Gallery
+			vhdCopy.Gallery = &galleryCopy
+		}
+		copied.Config.VHD = &vhdCopy
+	}
+
+	if s.Config.CustomDataWriteFiles != nil {
+		copied.Config.CustomDataWriteFiles = append([]CustomDataWriteFile(nil), s.Config.CustomDataWriteFiles...)
+	}
+
+	if s.Runtime != nil {
+		runtimeCopy := *s.Runtime
+		if s.Runtime.NBC != nil {
+			nbcCopy := *s.Runtime.NBC
+			runtimeCopy.NBC = &nbcCopy
+		}
+		if s.Runtime.AKSNodeConfig != nil {
+			aksNodeConfigCopy := *s.Runtime.AKSNodeConfig
+			runtimeCopy.AKSNodeConfig = &aksNodeConfigCopy
+		}
+		if s.Runtime.Cluster != nil {
+			clusterCopy := *s.Runtime.Cluster
+			runtimeCopy.Cluster = &clusterCopy
+		}
+		if s.Runtime.VM != nil {
+			vmCopy := *s.Runtime.VM
+			runtimeCopy.VM = &vmCopy
+		}
+		if s.Runtime.CSETimingReport != nil {
+			reportCopy := *s.Runtime.CSETimingReport
+			reportCopy.Tasks = append([]CSETaskTiming(nil), s.Runtime.CSETimingReport.Tasks...)
+			if s.Runtime.CSETimingReport.Provision != nil {
+				provisionCopy := *s.Runtime.CSETimingReport.Provision
+				reportCopy.Provision = &provisionCopy
+			}
+			reportCopy.taskIndex = nil
+			runtimeCopy.CSETimingReport = &reportCopy
+		}
+		copied.Runtime = &runtimeCopy
+	}
+
 	return &copied
 }
 
@@ -323,28 +364,31 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 	require.NoError(s.T, err)
 
+	effectiveVMSKU := config.Config.DefaultVMSKU
+
 	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   effectiveVMSKU,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "checking if VM size %q supports only Gen2", effectiveVMSKU)
 	if gen2Only && s.Config.VHD.UnsupportedGen2 {
-		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-		config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+		s.T.Logf("VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supported gen 1 %q", effectiveVMSKU, config.DefaultV5VMSKU)
+		effectiveVMSKU = config.DefaultV5VMSKU
 	}
 	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
 		Location: s.Location,
-		VMSize:   config.Config.DefaultVMSKU,
+		VMSize:   effectiveVMSKU,
 	})
-	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", config.Config.DefaultVMSKU)
+	require.NoError(s.T, err, "checking if VM size %q supports only NVMe", effectiveVMSKU)
 	if supportsNVMe {
 		if s.Config.VHD.UnsupportedNVMe {
-			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", config.Config.DefaultVMSKU, config.DefaultV5VMSKU)
-			config.Config.DefaultVMSKU = config.DefaultV5VMSKU
+			s.T.Logf("VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", effectiveVMSKU, config.DefaultV5VMSKU)
+			effectiveVMSKU = config.DefaultV5VMSKU
 		} else {
 			s.Config.UseNVMe = true
 		}
 	}
+	s.Runtime.VMSize = effectiveVMSKU
 
 	start := time.Now() // Record the start time
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)

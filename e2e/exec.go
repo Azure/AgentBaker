@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
+	mrand "math/rand"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -80,7 +82,7 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	}
 	defer scpClient.Close()
 
-	copyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	return remoteCommand, scpClient.Copy(copyCtx,
@@ -121,16 +123,32 @@ func runSSHCommandWithPrivateKeyFile(
 	session.Stdout = stdout
 	session.Stderr = stderr
 
-	err = session.Run(command)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- session.Run(command)
+	}()
+
+	select {
+	case err = <-errCh:
+	case <-ctx.Done():
+		_ = session.Signal(ssh.SIGTERM)
+		_ = session.Close()
+		select {
+		case <-errCh:
+		case <-time.After(5 * time.Second):
+		}
+		return nil, ctx.Err()
+	}
 
 	exitCode := 0
 	if err != nil {
 		if exitErr, ok := err.(*ssh.ExitError); ok {
 			exitCode = exitErr.ExitStatus()
-		} else if _, ok := err.(*ssh.ExitMissingError); ok {
-			// Bastion closed channel early – ignore
-			err = nil
 		} else {
+			var exitMissingErr *ssh.ExitMissingError
+			if errors.As(err, &exitMissingErr) {
+				return nil, fmt.Errorf("ssh command %q closed without exit status: %w", command, exitMissingErr)
+			}
 			return nil, err // real SSH failure
 		}
 	}
@@ -203,8 +221,9 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 
 		// If it's a retryable connection error and we have retries left, retry
 		if isRetryableConnectionError(err) && attempt < maxRetries-1 {
+			backoff := retryDelay + time.Duration(mrand.Int63n(int64(retryDelay)))
 			select {
-			case <-time.After(retryDelay):
+			case <-time.After(backoff):
 				// Continue to next attempt
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled during retry attempt %d: %w", attempt+1, ctx.Err())

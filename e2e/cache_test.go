@@ -72,7 +72,7 @@ func Test_cachedFunc_different_keys_produce_different_cache_entries(t *testing.T
 	assert.Equal(t, int32(2), callCount.Load(), "underlying function should be called once per unique key")
 }
 
-func Test_cachedFunc_caches_errors(t *testing.T) {
+func Test_cachedFunc_retries_on_error(t *testing.T) {
 	var callCount atomic.Int32
 	expectedErr := fmt.Errorf("something went wrong")
 	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
@@ -88,7 +88,39 @@ func Test_cachedFunc_caches_errors(t *testing.T) {
 	_, err2 := fn(ctx, "a")
 	require.ErrorIs(t, err2, expectedErr)
 
-	assert.Equal(t, int32(1), callCount.Load(), "underlying function should only be called once even when it returns an error")
+	assert.Equal(t, int32(2), callCount.Load(), "underlying function should be retried after each error, not memoized")
+}
+
+func Test_cachedFunc_caches_after_success_following_error(t *testing.T) {
+	var callCount atomic.Int32
+	shouldFail := true
+	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
+		callCount.Add(1)
+		if shouldFail {
+			return "", fmt.Errorf("transient error")
+		}
+		return "ok", nil
+	})
+
+	ctx := context.Background()
+
+	// First call fails — not cached
+	_, err := fn(ctx, "a")
+	require.Error(t, err)
+	assert.Equal(t, int32(1), callCount.Load())
+
+	// Second call succeeds — result is now cached
+	shouldFail = false
+	v1, err := fn(ctx, "a")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", v1)
+	assert.Equal(t, int32(2), callCount.Load())
+
+	// Third call hits cache — underlying function not called again
+	v2, err := fn(ctx, "a")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", v2)
+	assert.Equal(t, int32(2), callCount.Load(), "successful result should be cached; underlying function should not be called again")
 }
 
 func Test_cachedFunc_with_struct_key(t *testing.T) {

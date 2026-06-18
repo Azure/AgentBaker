@@ -246,7 +246,7 @@ func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, fil
 
 func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
 	s.T.Helper()
-	keysToCheck := make([]string, len(customSysctls))
+	keysToCheck := make([]string, 0, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
@@ -779,25 +779,31 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 
 		// get the PID of the service, so we can check it's changed
-		fmt.Sprintf("INITIAL_PID=`sudo pgrep %s`", serviceName),
+		fmt.Sprintf("INITIAL_PID=$(sudo systemctl show -p MainPID --value %s)", serviceName),
 		"echo INITIAL_PID: $INITIAL_PID",
 
 		// we use systemctl kill rather than kill -9 because container restrictions stop us sending a kill sig to a process
 		fmt.Sprintf("sudo systemctl kill %s", serviceName),
 
-		// sleep for restartTimeoutInSeconds seconds to give the service time tor restart
-		fmt.Sprintf("sleep %d", restartTimeoutInSeconds),
+		fmt.Sprintf(`for _ in $(seq 1 %d); do
+  CURRENT_STATE=$(systemctl is-active %s || true)
+  POST_PID=$(sudo systemctl show -p MainPID --value %s)
+  if [ "$CURRENT_STATE" = "active" ] && [ -n "$POST_PID" ] && [ "$POST_PID" != "0" ] && [ "$POST_PID" != "$INITIAL_PID" ]; then
+    break
+  fi
+  sleep 2
+done`, restartTimeoutInSeconds/2, serviceName, serviceName),
 
 		// print the status of the service and then verify it is active.
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 
 		// get the PID of the service after restart, so we can check it's changed
-		fmt.Sprintf("POST_PID=`sudo pgrep %s`", serviceName),
+		fmt.Sprintf("POST_PID=$(sudo systemctl show -p MainPID --value %s)", serviceName),
 		"echo POST_PID: $POST_PID",
 
 		// verify the PID has changed.
-		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
+		"if [ \"$INITIAL_PID\" = \"$POST_PID\" ]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
 	}
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
@@ -1161,6 +1167,7 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 	s.T.Helper()
 	// Wait for NPD to report initial condition
 	var condition *corev1.NodeCondition
+	var lastObserved *corev1.NodeCondition
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
 		if err != nil {
@@ -1170,20 +1177,27 @@ func validateNPDCondition(ctx context.Context, s *Scenario, conditionType, condi
 
 		// Check for condition with correct reason
 		for i := range node.Status.Conditions {
-			if string(node.Status.Conditions[i].Type) == conditionType && string(node.Status.Conditions[i].Reason) == conditionReason {
-				condition = &node.Status.Conditions[i] // Found the partial condition we are looking for
+			current := &node.Status.Conditions[i]
+			if string(current.Type) == conditionType {
+				lastObserved = current
 			}
-
-			if strings.Contains(node.Status.Conditions[i].Message, conditionMessage) {
-				condition = &node.Status.Conditions[i]
-				return true, nil // Found the exact condition we are looking for
+			if string(current.Type) == conditionType &&
+				string(current.Reason) == conditionReason &&
+				strings.Contains(current.Message, conditionMessage) {
+				condition = current
+				return true, nil
 			}
 		}
 
 		return false, nil // Continue polling until the condition is found or timeout occurs
 	})
 	if err != nil && condition == nil {
-		require.NoError(s.T, err, "timed out waiting for %s condition with reason %s to appear on node %q", conditionType, conditionReason, s.Runtime.VM.KubeName)
+		if lastObserved != nil {
+			require.NoErrorf(s.T, err, "timed out waiting for %s condition with reason %s and message %q on node %q; last observed condition: type=%s status=%s reason=%s message=%q",
+				conditionType, conditionReason, conditionMessage, s.Runtime.VM.KubeName, lastObserved.Type, lastObserved.Status, lastObserved.Reason, lastObserved.Message)
+		}
+		require.NoErrorf(s.T, err, "timed out waiting for %s condition with reason %s and message %q on node %q",
+			conditionType, conditionReason, conditionMessage, s.Runtime.VM.KubeName)
 	}
 
 	require.NotNil(s.T, condition, "expected to find %s condition with %s reason on node", conditionType, conditionReason)
@@ -1430,9 +1444,11 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
 	}
 
-	jsonBytes := getWindowsSettingsJson()
+	jsonBytes, err := getWindowsSettingsJson()
+	require.NoError(s.T, err, "failed to read windows settings json")
 	osVersion := gjson.GetBytes(jsonBytes, fmt.Sprintf("WindowsBaseVersions.%s.base_image_version", windowsVersion))
 	versionSliced := strings.Split(osVersion.String(), ".")
+	require.NotEmpty(s.T, versionSliced[0], "expected non-empty Windows base image version for %q", windowsVersion)
 	osMajorVersion := versionSliced[0]
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
@@ -1470,9 +1486,8 @@ func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVers
 	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
 
-func getWindowsSettingsJson() []byte {
-	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
-	return jsonBytes
+func getWindowsSettingsJson() ([]byte, error) {
+	return os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
 }
 
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
@@ -1720,13 +1735,23 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 
 	var node *corev1.Node
 	var err error
+	var lastErr error
 	var annotationValue string
 	var exists bool
 	maxAttempts := 33 // ~5 minutes: first 4 attempts use 1+2+4+8=15s, then ~29 attempts at 10s cap = ~305s
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		node, err = s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		require.NoError(s.T, err, "failed to get node %q", s.Runtime.VM.KubeName)
+		if err != nil {
+			lastErr = err
+			s.T.Logf("transient error polling node %q annotation %q, will retry: %v", s.Runtime.VM.KubeName, annotationKey, err)
+			sleepDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+			if sleepDuration > 10*time.Second {
+				sleepDuration = 10 * time.Second
+			}
+			time.Sleep(sleepDuration)
+			continue
+		}
 
 		annotationValue, exists = node.Annotations[annotationKey]
 		if exists && annotationValue == "enabled" {
@@ -1735,8 +1760,13 @@ func ValidateLocalDNSHostsPluginBypass(ctx context.Context, s *Scenario) {
 		}
 
 		if attempt == maxAttempts {
-			s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
-				s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+			if lastErr != nil {
+				s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Last transient polling error: %v. Annotation is best-effort in production, continuing with stronger validators.",
+					s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue, lastErr)
+			} else {
+				s.T.Logf("WARNING: node %q annotation %q not found or not 'enabled' after %d attempts (~5 minutes). Current value: exists=%v, value=%q. Annotation is best-effort in production, continuing with stronger validators.",
+					s.Runtime.VM.KubeName, annotationKey, maxAttempts, exists, annotationValue)
+			}
 		}
 
 		// Exponential backoff: 1s, 2s, 4s, 8s, max 10s
@@ -1889,6 +1919,7 @@ func ValidateLocalDNSHostsPluginIPv6(ctx context.Context, s *Scenario) {
 
 	s.T.Log("Testing hosts plugin serves IPv6 entries from hosts file")
 
+	// TODO(reliability): replace embedded shell sleeps in this validator with fully polled readiness checks when the shell flow is refactored into Go helpers.
 	script := `set -euo pipefail
 hosts_file="/etc/localdns/hosts"
 
@@ -2418,9 +2449,28 @@ func ValidateGPUWorkloadSchedulable(ctx context.Context, s *Scenario, gpuCount i
 	s.T.Helper()
 	s.T.Logf("validating that GPU workloads can be scheduled")
 
-	// Wait for resources to be available and add delay for device health
+	// Wait for resources to be available and for the allocatable count to stabilize.
 	waitUntilResourceAvailable(ctx, s, resourceName)
-	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+	gpuReadyCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	err := wait.PollUntilContextCancel(gpuReadyCtx, 2*time.Second, true, func(ctx context.Context) (bool, error) {
+		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+		if err != nil {
+			s.T.Logf("transient error polling GPU allocatable resource %q, will retry: %v", resourceName, err)
+			return false, nil
+		}
+		quantity, exists := node.Status.Allocatable[corev1.ResourceName(resourceName)]
+		if !exists {
+			s.T.Logf("GPU allocatable resource %q not advertised yet, retrying", resourceName)
+			return false, nil
+		}
+		if quantity.Value() < int64(gpuCount) {
+			s.T.Logf("GPU allocatable resource %q=%d, waiting for at least %d", resourceName, quantity.Value(), gpuCount)
+			return false, nil
+		}
+		return true, nil
+	})
+	require.NoError(s.T, err, "GPU allocatable resource %q did not become ready", resourceName)
 
 	// Create a GPU test pod using the same pattern as podRunNvidiaWorkload
 	pod := &corev1.Pod{

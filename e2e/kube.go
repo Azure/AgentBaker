@@ -105,8 +105,17 @@ func NewKubeclient(kubeconfigBytes []byte) (*Kubeclient, error) {
 }
 
 func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	return k.waitUntilPod(ctx, namespace, labelSelector, fieldSelector, false)
+}
+
+func (k *Kubeclient) WaitUntilPodCompleted(ctx context.Context, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	return k.waitUntilPod(ctx, namespace, labelSelector, fieldSelector, true)
+}
+
+func (k *Kubeclient) waitUntilPod(ctx context.Context, namespace string, labelSelector string, fieldSelector string, allowCompleted bool) (*corev1.Pod, error) {
 	defer toolkit.LogStepCtxf(ctx, "waiting for pod %s %s in %q namespace", labelSelector, fieldSelector, namespace)()
 	var pod *corev1.Pod
+	var lastErr error
 
 	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := k.Typed.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
@@ -114,7 +123,9 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 			LabelSelector: labelSelector,
 		})
 		if err != nil {
-			return false, err
+			lastErr = err
+			toolkit.Logf(ctx, "transient error polling pods in %q, will retry: %v", namespace, err)
+			return false, nil
 		}
 
 		if len(pods.Items) == 0 {
@@ -138,22 +149,51 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, namespace string, 
 		case corev1.PodPending:
 			return false, nil // Keep polling
 		case corev1.PodSucceeded:
-			return true, nil // Pod completed successfully
-		case corev1.PodRunning:
-			// Check if the pod is ready
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == "Ready" && cond.Status == "True" {
-					return true, nil
-				}
+			if allowCompleted {
+				return true, nil
 			}
-			return false, nil // Running but not ready yet
+			return false, nil
+		case corev1.PodRunning:
+			if !allPodContainersReady(pod) {
+				return false, nil
+			}
+			if !allowCompleted && !isPodReadyCondition(pod) {
+				return false, nil
+			}
+			return true, nil
 		default:
 			logPodDebugInfo(ctx, k, pod)
 			return false, fmt.Errorf("pod %s is in unexpected phase %s", pod.Name, pod.Status.Phase)
 		}
 	})
+	if err != nil && lastErr != nil {
+		return pod, fmt.Errorf("timed out waiting for pod after transient polling error: %w", lastErr)
+	}
 
 	return pod, err
+}
+
+func allPodContainersReady(pod *corev1.Pod) bool {
+	if pod == nil || len(pod.Status.ContainerStatuses) == 0 {
+		return false
+	}
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if !containerStatus.Ready {
+			return false
+		}
+	}
+	return true
+}
+
+// isPodReadyCondition checks the pod-level PodReady condition, which reflects
+// readiness gates and minReadySeconds in addition to container readiness.
+func isPodReadyCondition(pod *corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+	return false
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t testing.TB, vmssName string) string {

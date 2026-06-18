@@ -21,15 +21,34 @@ import (
 func ValidatePodRunningWithRetry(ctx context.Context, s *Scenario, pod *corev1.Pod, maxRetries int) {
 	var err error
 	for i := range maxRetries {
-		err = validatePodRunning(ctx, s, pod)
+		podAttempt := pod.DeepCopy()
+		podAttempt.Name = podNameForAttempt(pod.Name, i+1)
+		err = validatePodRunning(ctx, s, podAttempt)
 		if err != nil {
 			time.Sleep(1 * time.Second)
-			s.T.Logf("retrying pod %q validation (%d/%d)", pod.Name, i+1, maxRetries)
+			s.T.Logf("retrying pod %q validation (%d/%d)", podAttempt.Name, i+1, maxRetries)
 			continue
 		}
 		break
 	}
 	require.NoErrorf(s.T, err, "failed to validate pod running %q", pod.Name)
+}
+
+func podNameForAttempt(baseName string, attempt int) string {
+	suffix := fmt.Sprintf("-%d", attempt)
+	maxBaseLen := 63 - len(suffix)
+	if maxBaseLen < 0 {
+		maxBaseLen = 0
+	}
+	if len(baseName) > maxBaseLen {
+		baseName = strings.TrimRight(baseName[:maxBaseLen], "-")
+	}
+	if baseName == "" {
+		// baseName was empty or trimmed entirely; use a safe fallback that
+		// starts with an alphanumeric character (DNS-1123 requirement).
+		return fmt.Sprintf("pod%s", suffix)
+	}
+	return baseName + suffix
 }
 
 func ValidatePodRunning(ctx context.Context, s *Scenario, pod *corev1.Pod) {
@@ -181,14 +200,22 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 	nodeName := s.Runtime.VM.KubeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	var lastErr error
 
 	for {
 		select {
 		case <-ctx.Done():
-			s.T.Fatalf("context cancelled: %v", ctx.Err())
+			if lastErr != nil {
+				s.T.Fatalf("context cancelled while waiting for resource %q: %v (last transient polling error: %v)", resourceName, ctx.Err(), lastErr)
+			}
+			s.T.Fatalf("context cancelled while waiting for resource %q: %v", resourceName, ctx.Err())
 		case <-ticker.C:
 			node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			require.NoError(s.T, err, "failed to get node %q", nodeName)
+			if err != nil {
+				lastErr = err
+				s.T.Logf("transient error polling node %q for resource %q, will retry: %v", nodeName, resourceName, err)
+				continue
+			}
 
 			if isResourceAvailable(node, resourceName) {
 				s.T.Logf("resource %q is available", resourceName)

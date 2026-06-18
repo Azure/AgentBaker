@@ -540,6 +540,10 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if err != nil {
 		return vm, err
 	}
+	s.T.Cleanup(func() {
+		defer cleanupBastionTunnel(vm.SSHClient)
+		cleanupVMSS(ctx, s, vm)
+	})
 	// We want to generate SSH instructions as soon as possible, so we can debug CSE issues
 	// Wait for VMSS VM to appear before extracting the private IP
 	vm.VM, err = waitForVMSSVM(ctx, s)
@@ -551,11 +555,6 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if err != nil {
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
-
-	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.SSHClient)
-		cleanupVMSS(ctx, s, vm)
-	})
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
@@ -1032,11 +1031,15 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 		}
 		return
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	poller, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
 		s.T.Logf("failed to delete vmss %q: %s", s.Runtime.VMSSName, err)
+		return
+	}
+	if _, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		s.T.Logf("failed while waiting for vmss %q deletion: %s", s.Runtime.VMSSName, err)
 		return
 	}
 	s.T.Logf("vmss %q deleted successfully", s.Runtime.VMSSName)
@@ -1340,10 +1343,14 @@ func indentYAMLBlock(content, indent string) string {
 }
 
 func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+	vmSize := config.Config.DefaultVMSKU
+	if s.Runtime != nil && s.Runtime.VMSize != "" {
+		vmSize = s.Runtime.VMSize
+	}
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(s.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr(config.Config.DefaultVMSKU),
+			Name:     to.Ptr(vmSize),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
