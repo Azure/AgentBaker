@@ -223,12 +223,50 @@ removeNvidiaRepos() {
     fi
 }
 
+# cleanUpPrebakedGPUDriver tears down a CUDA driver that was pre-baked into a shared Ubuntu VHD
+# when this node is NOT a GPU node. On a non-GPU node the installed driver is dead weight: it
+# wastes disk and, because it stays DKMS-registered, forces an nvidia.ko rebuild on every kernel
+# patch. The nvidia module is never loaded on a non-GPU node, so deregistration cannot hit
+# "module in use". It is a no-op unless the aks-gpu prebake marker is present, so today's
+# non-prebaked VHDs are completely unaffected. Idempotent and safe to re-run.
+# NOTE: this runs synchronously on the (non-GPU) provisioning path; the teardown is light
+# (deregister + rm + ldconfig, no initramfs rebuild). To move it fully off the critical path it
+# can be launched via a transient systemd unit (systemd-run --no-block) instead -- see the PR
+# description for that variant and its trade-offs.
+cleanUpPrebakedGPUDriver() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    if [ ! -f "${marker}" ]; then
+        return 0
+    fi
+    echo "Removing pre-baked NVIDIA driver inherited from shared VHD on non-GPU node"
+
+    # Deregister the nvidia DKMS module so future kernel upgrades stop rebuilding it. Parsing stops
+    # at the first ',', ':' or space so "nvidia/<ver>: added" and "nvidia/<ver>, <kernel>: installed"
+    # both yield just <ver>.
+    if command -v dkms >/dev/null 2>&1; then
+        dkms status 2>/dev/null | sed -n 's#^nvidia/\([^,: ]*\).*#\1#p' | sort -u | while read -r nvidiaVersion; do
+            [ -n "${nvidiaVersion}" ] && dkms remove "nvidia/${nvidiaVersion}" --all || true
+        done
+    fi
+    rm -rf /var/lib/dkms/nvidia || true
+    # aks-gpu relocates the userspace libs under GPU_DEST/lib64; on Ubuntu GPU_DEST=/usr/bin.
+    rm -rf /usr/bin/lib64 || true
+    rm -f /etc/ld.so.conf.d/nvidia.conf || true
+    ldconfig || true
+    rm -f "${marker}" || true
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
+
+    # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a non-GPU node, and while
+    # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
+    # No-op on VHDs without the aks-gpu prebake marker.
+    cleanUpPrebakedGPUDriver
 }
 
 installCriCtlPackage() {
