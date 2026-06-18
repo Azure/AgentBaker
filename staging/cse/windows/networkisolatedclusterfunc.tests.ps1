@@ -229,18 +229,47 @@ Describe "Set-PodInfraContainerImage" {
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
     $script:CtrExeInvocations.Count | Should -Be 1
   }
+  It "should replace MCR base (default mcr.microsoft.com) with bootstrap profile registry" {
+    $script:CtrExeMock = { param($Args) return @() }
 
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = $null
     { Set-PodInfraContainerImage } | Should -Not -Throw
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
-    $global:MCRRepositoryBase = $null
+  }
 
+  It "should use MCRRepositoryBase (and trim trailing slash) for image replacement" {
+    Mock Get-Content -MockWith {
+      @'
+{
+  "Cri": {
+    "Images": {
+      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"
+    }
+  }
+}
+'@
+    }
+
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = "mcr.microsoft.us/"
     { Set-PodInfraContainerImage } | Should -Not -Throw
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
-    $global:MCRRepositoryBase = $null
-
-    { Set-PodInfraContainerImage } | Should -Not -Throw
-    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
-    $global:MCRRepositoryBase = $null
+  }
 }
 
 Describe "Invoke-OrasLogin" {
