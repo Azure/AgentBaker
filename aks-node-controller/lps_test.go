@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -148,6 +150,63 @@ type rewriteTransport struct {
 func (rt *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.URL.Host = rt.target
 	return rt.base.RoundTrip(req)
+}
+
+func TestLogProbeResultFormat(t *testing.T) {
+	t.Run("reachable line", func(t *testing.T) {
+		var buf bytes.Buffer
+		app := &App{probeLogWriter: &buf}
+		app.logProbeResult(probeResult{
+			label:      "fqdn",
+			url:        "https://my-cluster.example.com:443/healthz",
+			reachable:  true,
+			statusCode: 200,
+			latency:    42 * time.Millisecond,
+		})
+		assert.Equal(t,
+			"check-lps: target=fqdn url=https://my-cluster.example.com:443/healthz success=true http_status=200 latency_ms=42 err=\"\"\n",
+			buf.String())
+	})
+
+	t.Run("unreachable line", func(t *testing.T) {
+		var buf bytes.Buffer
+		app := &App{probeLogWriter: &buf}
+		app.logProbeResult(probeResult{
+			label:     "clusterip",
+			url:       "https://10.0.0.1:443/healthz",
+			reachable: false,
+			latency:   5001 * time.Millisecond,
+			err:       errors.New("dial tcp timeout"),
+		})
+		assert.Equal(t,
+			"check-lps: target=clusterip url=https://10.0.0.1:443/healthz success=false http_status=0 latency_ms=5001 err=\"dial tcp timeout\"\n",
+			buf.String())
+	})
+}
+
+func TestCheckLPSEmitsBothTargets(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	app := &App{
+		httpProbeClient: &http.Client{
+			Timeout:   lpsProbeTimeout,
+			Transport: &rewriteTransport{target: server.Listener.Addr().String(), base: insecureTestClient().Transport},
+		},
+		probeLogWriter: &buf,
+	}
+
+	path := filepath.Join(t.TempDir(), "config.json")
+	content := `{"version":"v1","apiServerConfig":{"apiServerName":"my-cluster.example.com"}}`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+
+	require.NoError(t, app.checkLPS(context.Background(), path))
+	out := buf.String()
+	assert.Contains(t, out, "check-lps: target=clusterip ")
+	assert.Contains(t, out, "check-lps: target=fqdn ")
 }
 
 func TestProbeClientDefault(t *testing.T) {

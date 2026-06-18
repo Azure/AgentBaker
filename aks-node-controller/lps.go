@@ -50,9 +50,11 @@ type probeResult struct {
 func (a *App) checkLPS(ctx context.Context, provisionConfigPath string) error {
 	// Probe #1: ClusterIP through kube-proxy.
 	clusterIPURL := fmt.Sprintf("https://%s:%s%s", lpsClusterIP, lpsAPIServerPort, lpsProbePath)
-	a.logProbeResult(a.probeEndpoint(ctx, "clusterip-via-kube-proxy", clusterIPURL))
+	a.logProbeResult(a.probeEndpoint(ctx, "clusterip", clusterIPURL))
 
 	// Probe #2: direct apiserver FQDN, sourced from the provision config.
+	// TODO(nbc-cmd mode): NBC_CMD provisioning does not pass a provision-config file, so the
+	// FQDN probe is skipped in that mode. Add NBC_CMD_PATH FQDN sourcing if/when needed.
 	fqdn := apiServerFQDNFromConfig(provisionConfigPath)
 	if fqdn == "" {
 		slog.Warn("check-lps could not determine apiserver FQDN, skipping direct probe",
@@ -60,7 +62,7 @@ func (a *App) checkLPS(ctx context.Context, provisionConfigPath string) error {
 		return nil
 	}
 	fqdnURL := fmt.Sprintf("https://%s:%s%s", fqdn, lpsAPIServerPort, lpsProbePath)
-	a.logProbeResult(a.probeEndpoint(ctx, "fqdn-direct", fqdnURL))
+	a.logProbeResult(a.probeEndpoint(ctx, "fqdn", fqdnURL))
 
 	return nil
 }
@@ -137,21 +139,25 @@ func (a *App) probeClient() *http.Client {
 	}
 }
 
-// logProbeResult emits a structured log line describing a probe outcome.
+// logProbeResult emits a fixed-format, greppable marker line to stdout describing a probe
+// outcome. The E2E harness greps the CSE output log (which captures ANC stdout) for the
+// "check-lps:" prefix, so the prefix and key names here are a stable contract:
+//
+//	check-lps: target=clusterip url=https://10.0.0.1:443/healthz success=false http_status=0 latency_ms=5001 err="dial tcp timeout"
+//	check-lps: target=fqdn url=https://<fqdn>:443/healthz success=true http_status=200 latency_ms=42 err=""
 func (a *App) logProbeResult(r probeResult) {
-	if r.reachable {
-		slog.Info("check-lps probe reachable",
-			"probe", r.label,
-			"url", r.url,
-			"statusCode", r.statusCode,
-			"latencyMs", r.latency.Milliseconds())
-		return
+	//nolint:forbidigo // stdout is the required telemetry channel for the E2E grep contract
+	_, _ = fmt.Fprintf(a.probeOut(),
+		"check-lps: target=%s url=%s success=%t http_status=%d latency_ms=%d err=%q\n",
+		r.label, r.url, r.reachable, r.statusCode, r.latency.Milliseconds(), errString(r.err))
+}
+
+// probeOut returns the injected probe log writer when set, otherwise os.Stdout.
+func (a *App) probeOut() io.Writer {
+	if a.probeLogWriter != nil {
+		return a.probeLogWriter
 	}
-	slog.Info("check-lps probe unreachable",
-		"probe", r.label,
-		"url", r.url,
-		"latencyMs", r.latency.Milliseconds(),
-		"error", errString(r.err))
+	return os.Stdout
 }
 
 func errString(err error) string {

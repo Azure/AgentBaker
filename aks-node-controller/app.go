@@ -55,6 +55,10 @@ type App struct {
 	// is used. The probe only verifies reachability, not certificate trust, since it
 	// runs pre-kubelet before any kube credential or CA trust is established.
 	httpProbeClient *http.Client
+
+	// probeLogWriter overrides the destination for check-lps probe marker lines for
+	// testing. When nil, os.Stdout is used (the channel the E2E harness greps).
+	probeLogWriter io.Writer
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
