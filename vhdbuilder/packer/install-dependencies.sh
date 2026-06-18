@@ -715,7 +715,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
   # anonymous-pull test ACR build so the pipeline exercises the unmerged build-only path.
   # DO NOT MERGE. ===
   NVIDIA_DRIVER_IMAGE="gpuprebaketest47729.azurecr.io/aks-gpu-cuda"
-  NVIDIA_DRIVER_IMAGE_TAG="595.71.05-test2"
+  NVIDIA_DRIVER_IMAGE_TAG="595.71.05-test4"
 
   mkdir -p /opt/{actions,gpu}
 
@@ -737,14 +737,17 @@ EOF
   if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
     echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
     CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
-    retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
+    # TEST-DIAG (ganesh/prebake-pipeline-test): single attempt + non-fatal so the Build VHD step
+    # completes on attempt 1 and the packer log (with aks-gpu build-only diagnostics) publishes.
+    retrycmd_if_failure 1 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || echo "TEST-DIAG: prebake build-only returned non-zero (continuing, non-fatal)"
     if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
-      echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
-      exit 1
-    fi
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
+      echo "TEST-DIAG: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker (continuing)"
+    else
+      echo "TEST-DIAG: prebake marker produced:"; cat /opt/azure/aks-gpu/dkms-marker
+      cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF
+    fi
   fi
 fi
 
