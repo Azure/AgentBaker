@@ -55,6 +55,10 @@ type App struct {
 	// is used. The probe only verifies reachability, not certificate trust, since it
 	// runs pre-kubelet before any kube credential or CA trust is established.
 	httpProbeClient *http.Client
+
+	// probeLogWriter overrides the destination for the secondary check-lps stdout marker
+	// for testing. When nil, os.Stdout is used. The primary channel is the slog log file.
+	probeLogWriter io.Writer
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

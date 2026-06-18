@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,12 +35,13 @@ func TestProbeEndpoint(t *testing.T) {
 		defer server.Close()
 
 		app := &App{httpProbeClient: insecureTestClient()}
-		result := app.probeEndpoint(context.Background(), "fqdn-direct", server.URL)
+		result := app.probeEndpoint(context.Background(), "fqdn-direct", "fqdn", server.URL)
 
 		assert.True(t, result.reachable)
 		assert.Equal(t, http.StatusOK, result.statusCode)
 		assert.NoError(t, result.err)
 		assert.Equal(t, "fqdn-direct", result.label)
+		assert.Equal(t, "fqdn", result.target)
 	})
 
 	t.Run("server error is still reachable", func(t *testing.T) {
@@ -48,7 +51,7 @@ func TestProbeEndpoint(t *testing.T) {
 		defer server.Close()
 
 		app := &App{httpProbeClient: insecureTestClient()}
-		result := app.probeEndpoint(context.Background(), "fqdn-direct", server.URL)
+		result := app.probeEndpoint(context.Background(), "fqdn-direct", "fqdn", server.URL)
 
 		assert.True(t, result.reachable)
 		assert.Equal(t, http.StatusForbidden, result.statusCode)
@@ -62,7 +65,7 @@ func TestProbeEndpoint(t *testing.T) {
 		server.Close()
 
 		app := &App{httpProbeClient: insecureTestClient()}
-		result := app.probeEndpoint(context.Background(), "clusterip-via-kube-proxy", url)
+		result := app.probeEndpoint(context.Background(), "clusterip-via-kube-proxy", "clusterip", url)
 
 		assert.False(t, result.reachable)
 		assert.Equal(t, 0, result.statusCode)
@@ -71,7 +74,7 @@ func TestProbeEndpoint(t *testing.T) {
 
 	t.Run("invalid url returns failure", func(t *testing.T) {
 		app := &App{httpProbeClient: insecureTestClient()}
-		result := app.probeEndpoint(context.Background(), "bad", "://not-a-url")
+		result := app.probeEndpoint(context.Background(), "bad", "bad", "://not-a-url")
 
 		assert.False(t, result.reachable)
 		assert.Error(t, result.err)
@@ -173,7 +176,66 @@ func TestProbeEndpointRespectsTimeout(t *testing.T) {
 	client.Timeout = 50 * time.Millisecond
 	app := &App{httpProbeClient: client}
 
-	result := app.probeEndpoint(context.Background(), "slow", server.URL)
+	result := app.probeEndpoint(context.Background(), "slow", "slow", server.URL)
 	assert.False(t, result.reachable)
 	assert.Error(t, result.err)
+}
+
+func TestLogProbeResultMarker(t *testing.T) {
+	t.Run("reachable line", func(t *testing.T) {
+		var buf bytes.Buffer
+		app := &App{probeLogWriter: &buf}
+		app.logProbeResult(probeResult{
+			label:      "fqdn-direct",
+			target:     "fqdn",
+			url:        "https://my-cluster.example.com:443/healthz",
+			reachable:  true,
+			statusCode: 200,
+			latency:    42 * time.Millisecond,
+		})
+		assert.Equal(t,
+			"check-lps: target=fqdn url=https://my-cluster.example.com:443/healthz success=true http_status=200 latency_ms=42 err=\"\"\n",
+			buf.String())
+	})
+
+	t.Run("unreachable line", func(t *testing.T) {
+		var buf bytes.Buffer
+		app := &App{probeLogWriter: &buf}
+		app.logProbeResult(probeResult{
+			label:     "clusterip-via-kube-proxy",
+			target:    "clusterip",
+			url:       "https://10.0.0.1:443/healthz",
+			reachable: false,
+			latency:   5001 * time.Millisecond,
+			err:       errors.New("dial tcp timeout"),
+		})
+		assert.Equal(t,
+			"check-lps: target=clusterip url=https://10.0.0.1:443/healthz success=false http_status=0 latency_ms=5001 err=\"dial tcp timeout\"\n",
+			buf.String())
+	})
+}
+
+func TestCheckLPSEmitsBothTargets(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	app := &App{
+		httpProbeClient: &http.Client{
+			Timeout:   lpsProbeTimeout,
+			Transport: &rewriteTransport{target: server.Listener.Addr().String(), base: insecureTestClient().Transport},
+		},
+		probeLogWriter: &buf,
+	}
+
+	path := filepath.Join(t.TempDir(), "config.json")
+	content := `{"version":"v1","apiServerConfig":{"apiServerName":"my-cluster.example.com"}}`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+
+	require.NoError(t, app.checkLPS(context.Background(), path))
+	out := buf.String()
+	assert.Contains(t, out, "check-lps: target=clusterip ")
+	assert.Contains(t, out, "check-lps: target=fqdn ")
 }
