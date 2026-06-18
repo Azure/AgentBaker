@@ -1019,13 +1019,13 @@ configureNvidiaCDIRefresh() {
     local systemd_unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
     local service_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.service.d"
     mkdir -p "$service_dropin_dir"
-    cat > "${service_dropin_dir}/10-aks-wait-for-driver.conf" <<'EOF'
+    cat > "${service_dropin_dir}/10-aks-retry-until-driver-ready.conf" <<'EOF'
 [Unit]
 StartLimitIntervalSec=0
 
 [Service]
-TimeoutStartSec=600
-ExecStartPre=/bin/bash -c 'for _ in $(seq 1 180); do nvidia-smi >/dev/null 2>&1 && exit 0; sleep 2; done; exit 0'
+Restart=on-failure
+RestartSec=10
 EOF
     local path_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.path.d"
     mkdir -p "$path_dropin_dir"
