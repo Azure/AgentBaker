@@ -21,6 +21,7 @@ package e2e
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -119,13 +120,21 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	bodyStr := string(body)
 
 	if resp.StatusCode != 200 {
-		return false, fmt.Errorf("feature flag query returned status %d: %s", resp.StatusCode, bodyStr)
+		return false, fmt.Errorf("feature flag query returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return strings.Contains(bodyStr, `"Registered"`), nil
+	var result struct {
+		Properties struct {
+			State string `json:"state"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false, fmt.Errorf("failed to parse feature flag response: %w", err)
+	}
+
+	return strings.EqualFold(result.Properties.State, "Registered"), nil
 }
 
 // rcv1pOptInVMConfigMutator sets the platform opt-in tag on the VMSS resource level.
