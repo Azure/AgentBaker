@@ -715,7 +715,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
   # anonymous-pull test ACR build so the pipeline exercises the unmerged build-only path.
   # DO NOT MERGE. ===
   NVIDIA_DRIVER_IMAGE="gpuprebaketest47729.azurecr.io/aks-gpu-cuda"
-  NVIDIA_DRIVER_IMAGE_TAG="595.71.05-test4"
+  NVIDIA_DRIVER_IMAGE_TAG="580.126.09-test5"
 
   mkdir -p /opt/{actions,gpu}
 

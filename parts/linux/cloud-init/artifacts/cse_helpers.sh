@@ -200,12 +200,12 @@ export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
 # === TEST-ONLY (ganesh/prebake-pipeline-test): point the node-boot CUDA driver image at the
 # anonymous-pull test ACR build that carries the unmerged install-skip-build support (aks-gpu
-# PR #162), at the same 595.71.05 version baked into the VHD so the marker matches. GRID stays on
+# PR #162), at the same 580.126.09 version baked into the VHD so the marker matches. GRID stays on
 # the production image (the marker driver_kind guard routes GRID nodes to a normal full install).
 # DO NOT MERGE. ===
 if [ "${NVIDIA_GPU_DRIVER_TYPE}" = "cuda" ]; then
     export NVIDIA_DRIVER_IMAGE="gpuprebaketest47729.azurecr.io/aks-gpu-cuda"
-    export NVIDIA_DRIVER_IMAGE_TAG="595.71.05-test4"
+    export NVIDIA_DRIVER_IMAGE_TAG="580.126.09-test5"
 fi
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
