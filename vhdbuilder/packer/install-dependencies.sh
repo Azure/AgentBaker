@@ -711,6 +711,12 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     exit 1
   fi
 
+  # === TEST-ONLY (ganesh/prebake-pipeline-test): override the aks-gpu-cuda image to the
+  # anonymous-pull test ACR build so the pipeline exercises the unmerged build-only path.
+  # DO NOT MERGE. ===
+  NVIDIA_DRIVER_IMAGE="gpuprebaketest47729.azurecr.io/aks-gpu-cuda"
+  NVIDIA_DRIVER_IMAGE_TAG="595.71.05-test"
+
   mkdir -p /opt/{actions,gpu}
 
   /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
