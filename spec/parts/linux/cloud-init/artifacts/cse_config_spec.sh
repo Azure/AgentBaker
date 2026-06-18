@@ -1728,4 +1728,46 @@ SETUP_EOF
             The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
         End
     End
+
+    Describe "setupAmdAma"
+
+        uname() {
+            echo "6.6.139.1-1.azl3"
+        }
+
+        dnf_install() {
+            return 0
+        }
+
+        dnf_install_amd_ama_core_package() {
+            return 0
+        }
+
+        systemctl() {
+            return 0
+        }
+
+        sh() {
+            return 0
+        }
+
+        BeforeEach 'OS=AZURELINUX'
+
+        It "selects the newest matching AMD AMA driver package"
+            dnf() {
+                cat <<EOF
+amd-ama-driver-0:1.4.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.5.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+EOF
+            }
+
+            When call setupAmdAma
+
+            The status should be success
+            The variable AMD_AMA_DRIVER_PACKAGE should equal \
+                "amd-ama-driver-0:1.5.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
+            The variable AMD_AMA_DRIVER_VERSION should equal "1.5.1"
+        End
+    End
 End
