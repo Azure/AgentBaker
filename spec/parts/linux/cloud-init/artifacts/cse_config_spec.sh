@@ -2128,14 +2128,15 @@ SETUP_EOF
         # driver-not-yet-staged race (NVIDIA Container Toolkit 1.18.0) are written as expected.
         systemctl() { return 0; }
 
-        It 'writes service + path drop-ins that wait for the driver and remove the start-limit'
+        It 'writes service + path drop-ins that retry on failure and remove the start-limit'
             SYSTEMD_UNIT_DIR="$(mktemp -d)"
             When call configureNvidiaCDIRefresh
             The status should be success
-            The path "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should be file
-            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should include "StartLimitIntervalSec=0"
-            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should include "ExecStartPre="
-            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should include "nvidia-smi"
+            The path "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-retry-until-driver-ready.conf" should be file
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-retry-until-driver-ready.conf" should include "StartLimitIntervalSec=0"
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-retry-until-driver-ready.conf" should include "Restart=on-failure"
+            # must NOT block the toolkit install: no ExecStartPre wait on the driver
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-retry-until-driver-ready.conf" should not include "ExecStartPre"
             The path "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.path.d/10-aks-no-start-limit.conf" should be file
             The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.path.d/10-aks-no-start-limit.conf" should include "StartLimitIntervalSec=0"
             rm -rf "${SYSTEMD_UNIT_DIR}"

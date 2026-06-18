@@ -1217,24 +1217,28 @@ installGPUDriverImage() {
 # nvidia-container-toolkit 1.18.0 ships nvidia-cdi-refresh.{path,service} and its packaging
 # auto-starts them the moment the toolkit is installed. On AKS GPU nodes the toolkit is installed
 # (by the aks-gpu driver container) BEFORE the NVIDIA driver userspace libraries (libnvidia-ml.so)
-# are staged, so the auto-triggered `nvidia-ctk cdi generate` runs too early, fails with NVML
-# ERROR_LIBRARY_NOT_FOUND, exhausts its restart start-limit within a few seconds, and the units are
-# left in a permanent "failed" state -- even though the driver becomes ready shortly afterwards.
-# Drop in an override (written BEFORE the toolkit is installed) that waits, bounded, for the driver
-# to be ready so the CDI spec is generated on the first real attempt, and removes the start-rate
-# limit so an early pre-driver failure cannot latch the unit into a failed state. The override is
-# inert on VHDs whose toolkit predates these units (systemd ignores drop-ins for absent units).
+# are staged, so the auto-triggered `nvidia-ctk cdi generate` runs too early and fails with NVML
+# ERROR_LIBRARY_NOT_FOUND. With the toolkit's default start-rate-limit it exhausts its restarts
+# within a few seconds and the units are left in a permanent "failed" state -- even though the
+# driver becomes ready shortly afterwards.
+# Drop in an override (written BEFORE the toolkit is installed) that removes the start-rate limit and
+# keeps retrying on failure, so the unit recovers on its own once the driver is staged. The retry is
+# cheap (cdi generate fails fast until then) and -- crucially -- NON-BLOCKING: it must not delay the
+# toolkit's own install. (An ExecStartPre that waits for the driver would deadlock, because the
+# toolkit's postinst synchronously starts this unit and the driver install is sequenced AFTER it.)
+# The override is inert on VHDs whose toolkit predates these units (systemd ignores drop-ins for
+# absent units).
 configureNvidiaCDIRefresh() {
     local systemd_unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
     local service_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.service.d"
     mkdir -p "$service_dropin_dir"
-    cat > "${service_dropin_dir}/10-aks-wait-for-driver.conf" <<'EOF'
+    cat > "${service_dropin_dir}/10-aks-retry-until-driver-ready.conf" <<'EOF'
 [Unit]
 StartLimitIntervalSec=0
 
 [Service]
-TimeoutStartSec=600
-ExecStartPre=/bin/bash -c 'for _ in $(seq 1 180); do nvidia-smi >/dev/null 2>&1 && exit 0; sleep 2; done; exit 0'
+Restart=on-failure
+RestartSec=10
 EOF
     local path_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.path.d"
     mkdir -p "$path_dropin_dir"
