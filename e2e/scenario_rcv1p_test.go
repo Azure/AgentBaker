@@ -61,7 +61,7 @@ func skipIfRCV1PNotConfigured(t *testing.T) {
 func skipIfRCV1PTagsAutoInjected(t *testing.T) {
 	t.Helper()
 	if config.Config.RCV1PTagsAutoInjected {
-		t.Skip("RCV1P_TAGS_AUTO_INJECTED is true; NotOptedIn tests require a tenant that does not auto-inject tags")
+		t.Skip("RCV1P_TAGS_AUTO_INJECTED is true; NotOptedIn tests require an environment where the platform does not auto-inject tags")
 	}
 }
 
