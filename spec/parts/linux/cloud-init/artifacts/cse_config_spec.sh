@@ -1757,8 +1757,8 @@ SETUP_EOF
             dnf() {
                 cat <<EOF
 amd-ama-driver-0:1.4.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.4.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
 amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
-amd-ama-driver-0:1.5.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
 EOF
             }
 
@@ -1766,8 +1766,8 @@ EOF
 
             The status should be success
             The variable AMD_AMA_DRIVER_PACKAGE should equal \
-                "amd-ama-driver-0:1.5.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
-            The variable AMD_AMA_DRIVER_VERSION should equal "1.5.1"
+                "amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
+            The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
         End
     End
 End
