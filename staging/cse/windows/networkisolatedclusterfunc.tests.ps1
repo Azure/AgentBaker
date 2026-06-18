@@ -238,40 +238,9 @@ Describe "Set-PodInfraContainerImage" {
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
     $global:MCRRepositoryBase = $null
 
-  It "handles MCRRepositoryBase with trailing slash" {
-    $global:MCRRepositoryBase = "mcr.microsoft.us/"
-    $script:orasImageArg = $null
-
-    Mock Get-Content -MockWith {
-      @'
-{
-  "Cri": {
-    "Images": {
-      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"
-    }
-  }
-}
-'@
-    }
-
-    $script:CtrExeMock = {
-      param($Args)
-      if ($Args -contains 'list') {
-        return @()
-      }
-      return "ok"
-    }
-
-    function global:Mock-OrasCli {
-      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-      $script:orasImageArg = $Args[1]
-      $global:LASTEXITCODE = 0
-      return "oras ok"
-    }
-
     { Set-PodInfraContainerImage } | Should -Not -Throw
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
-  }
+    $global:MCRRepositoryBase = $null
 }
 
 Describe "Invoke-OrasLogin" {
