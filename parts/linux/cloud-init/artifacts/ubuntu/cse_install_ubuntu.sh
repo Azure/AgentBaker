@@ -240,17 +240,23 @@ cleanUpPrebakedGPUDriver() {
     fi
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD on non-GPU node"
 
-    # Deregister the nvidia DKMS module so future kernel upgrades stop rebuilding it. Parsing stops
-    # at the first ',', ':' or space so "nvidia/<ver>: added" and "nvidia/<ver>, <kernel>: installed"
-    # both yield just <ver>.
-    if command -v dkms >/dev/null 2>&1; then
-        dkms status 2>/dev/null | sed -n 's#^nvidia/\([^,: ]*\).*#\1#p' | sort -u | while read -r nvidiaVersion; do
-            [ -n "${nvidiaVersion}" ] && dkms remove "nvidia/${nvidiaVersion}" --all || true
-        done
-    fi
+    # Deregister the nvidia DKMS module so future kernel upgrades stop rebuilding it, WITHOUT the
+    # slow `dkms remove --all` (it dominated CSE duration on the non-GPU provisioning path, ~35s).
+    # Removing the DKMS source tree deregisters it (dkms autoinstall iterates /var/lib/dkms/*), and
+    # removing the built module reclaims disk. The module is never loaded on a non-GPU node, so no
+    # depmod/initramfs refresh is required.
     rm -rf /var/lib/dkms/nvidia || true
+    rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
     # aks-gpu relocates the userspace libs under GPU_DEST/lib64; on Ubuntu GPU_DEST=/usr/bin.
     rm -rf /usr/bin/lib64 || true
+    # nvidia-installer also drops driver userspace BINARIES under GPU_DEST (=/usr/bin on Ubuntu).
+    # Remove them too so a non-GPU node looks genuinely driver-free: otherwise e.g. `nvidia-smi`
+    # remains on PATH and, with its libs (lib64) gone, errors instead of being "command not found".
+    for nvidiaBin in nvidia-smi nvidia-debugdump nvidia-persistenced nvidia-cuda-mps-control \
+                     nvidia-cuda-mps-server nvidia-modprobe nvidia-bug-report.sh nvidia-powerd \
+                     nvidia-ngx-updater nvidia-sleep.sh; do
+        rm -f "/usr/bin/${nvidiaBin}" || true
+    done
     rm -f /etc/ld.so.conf.d/nvidia.conf || true
     ldconfig || true
     rm -f "${marker}" || true

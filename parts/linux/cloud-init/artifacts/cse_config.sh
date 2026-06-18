@@ -1016,11 +1016,16 @@ configGPUDrivers() {
         mkdir -p /opt/{actions,gpu}
         # When the kernel module was pre-built into the VHD (build-only at image-bake time),
         # a marker is present. Ask aks-gpu to skip the ~100s DKMS recompile and run only the
-        # device-dependent steps. aks-gpu independently re-validates the marker (kernel +
-        # driver_version + driver_kind) and falls back to a full build on any mismatch, so this
-        # is safe even after a kernel upgrade or on a shared VHD with a different driver kind.
+        # device-dependent steps -- but ONLY when the marker's driver_kind matches THIS node's
+        # driver (NVIDIA_GPU_DRIVER_TYPE). A CUDA-prebaked marker on a GRID node (or vice-versa)
+        # must request a full "install": the other driver image may not even support
+        # install-skip-build and would fail to stage its userspace files (e.g. /opt/gpu/config.sh).
+        # aks-gpu still independently re-validates the marker (kernel + driver_version +
+        # driver_kind) and falls back to a full build on any remaining mismatch (e.g. kernel drift).
         GPU_INSTALL_ACTION="install"
-        if [ -f "${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}" ]; then
+        GPU_DKMS_MARKER="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+        if [ -f "$GPU_DKMS_MARKER" ] && \
+           [ "$(sed -n 's/^driver_kind=//p' "$GPU_DKMS_MARKER" | head -n1)" = "$NVIDIA_GPU_DRIVER_TYPE" ]; then
             GPU_INSTALL_ACTION="install-skip-build"
         fi
         # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
