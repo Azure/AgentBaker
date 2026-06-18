@@ -538,11 +538,12 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
 	_, requestedRCV1PTag := model.Tags[rcv1pTagKey]
 
-	// For scenarios that need VM instance tags (e.g., RCV1P), we must apply tags
+	// E2E-specific: For scenarios that need VM instance tags (e.g., RCV1P), we must apply tags
 	// before CSE runs because wireserver checks per-VM-instance tags. The only
 	// working method for Uniform VMSS is BeginUpdate (full PUT), which takes ~108s.
 	// To avoid the race, we strip the CSE extension before creation, apply tags
 	// via BeginUpdate, then re-add the extension in a second update.
+	// In production, AKS RP handles tag application and CSE sequencing through CRP.
 	var deferredExtensionProfile *armcompute.VirtualMachineScaleSetExtensionProfile
 	if len(s.Config.VMInstanceTags) > 0 && model.Properties.VirtualMachineProfile.ExtensionProfile != nil {
 		deferredExtensionProfile = model.Properties.VirtualMachineProfile.ExtensionProfile
