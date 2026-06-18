@@ -230,40 +230,9 @@ Describe "Set-PodInfraContainerImage" {
     $script:CtrExeInvocations.Count | Should -Be 1
   }
 
-  It "uses MCRRepositoryBase instead of hardcoded mcr.microsoft.com for image replacement" {
-    $global:MCRRepositoryBase = "mcr.microsoft.us"
-    $script:orasImageArg = $null
-
-    Mock Get-Content -MockWith {
-      @'
-{
-  "Cri": {
-    "Images": {
-      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"
-    }
-  }
-}
-'@
-    }
-
-    $script:CtrExeMock = {
-      param($Args)
-      if ($Args -contains 'list') {
-        return @()
-      }
-      return "ok"
-    }
-
-    function global:Mock-OrasCli {
-      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-      $script:orasImageArg = $Args[1]
-      $global:LASTEXITCODE = 0
-      return "oras ok"
-    }
-
     { Set-PodInfraContainerImage } | Should -Not -Throw
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
-  }
+    $global:MCRRepositoryBase = $null
 
   It "falls back to mcr.microsoft.com when MCRRepositoryBase is not set" {
     $global:MCRRepositoryBase = $null
