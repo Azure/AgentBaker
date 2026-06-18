@@ -46,18 +46,6 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
-# ===== TESTING-ONLY OVERRIDES (branch: sakwa_testing) =====
-# Force-enable LocalDNS and the hosts plugin regardless of what AKS-RP templated
-# into cse_cmd.sh, and pin the critical FQDN list to the standard AKS endpoints.
-# These overrides intentionally shadow the SHOULD_ENABLE_LOCALDNS,
-# SHOULD_ENABLE_HOSTS_PLUGIN, and LOCALDNS_CRITICAL_FQDNS values set earlier in
-# the CSE command. The FQDN list is the standard AKS critical endpoints plus the
-# Speech / CTS transcription endpoints under test. DO NOT MERGE TO A RELEASE BRANCH.
-export SHOULD_ENABLE_LOCALDNS="true"
-export SHOULD_ENABLE_HOSTS_PLUGIN="true"
-export LOCALDNS_CRITICAL_FQDNS="packages.microsoft.com,acs-mirror.azureedge.net,mcr.microsoft.com,login.microsoftonline.com,management.azure.com,packages.aks.azure.com,westus.onlinects.speech.microsoft.com,eastus.onlinects.speech.microsoft.com,westeurope.onlinects.speech.microsoft.com,southeastasia.onlinects.speech.microsoft.com,transcribe.teams.eastus.cts.speech.microsoft.com,transcribe.teams.westus.cts.speech.microsoft.com,transcribe.teams.westcentralus.cts.speech.microsoft.com,northeurope.onlinects.speech.microsoft.com,transcribe.teams.westeurope.cts.speech.microsoft.com,transcribe.teams.eastasia.cts.speech.microsoft.com,northeurope.onlinectseui.speech.microsoft.com,transcribe.teams.northeurope.cts.speech.microsoft.com,titles.prod.mos.microsoft.com"
-# ===== END TESTING-ONLY OVERRIDES =====
-
 get_ubuntu_release() {
     lsb_release -r -s 2>/dev/null || echo ""
 }
