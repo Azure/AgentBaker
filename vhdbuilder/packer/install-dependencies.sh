@@ -736,6 +736,10 @@ EOF
   # Dropping the image is a separate, deferred size optimization.
   if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
     echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
+    # nvidia-installer compiles the kernel module and needs the libc development headers (libc6-dev),
+    # which the standard (non-GPU) VHD builder image does not ship by default. gcc/make are present
+    # but libc6-dev is not, so ensure the kernel-module build toolchain before the bake.
+    apt_get_install 10 2 300 gcc make libc6-dev || echo "TEST-DIAG: build toolchain install returned non-zero"
     CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
     # TEST-DIAG (ganesh/prebake-pipeline-test): single attempt + non-fatal so the Build VHD step
     # completes on attempt 1 and the packer log (with aks-gpu build-only diagnostics) publishes.
