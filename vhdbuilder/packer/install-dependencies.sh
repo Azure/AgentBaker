@@ -707,8 +707,10 @@ while IFS= read -r imageToBePulled; do
   fi
 done <<< "$GPUContainerImages"
 
-# For Ubuntu, pre-pull the CUDA driver image
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+# For Ubuntu, pre-pull the CUDA driver image.
+# Skip GB images: they bake the GPU driver via apt in the NVIDIA_GB block below. All other Ubuntu
+# images (amd64 and arm64) cache aks-gpu-cuda so CSE can install the driver at node boot.
+if [ $OS = $UBUNTU_OS_NAME ] && ! grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then  # incl. ARM64 (e.g. GB300 on vanilla)
   gpu_action="copy"
 
   while IFS= read -r imageToBePulled; do
