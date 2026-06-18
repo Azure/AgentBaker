@@ -721,6 +721,15 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
+  # === TEST-ONLY (ganesh/prebake-pipeline-test): also cache the test GRID image into the VHD.
+  # The e2e environment is network-isolated (firewall), so GRID nodes can only use images baked into
+  # the VHD. In production the aks-gpu-grid image is cached via the general container-image cache, but
+  # our test-ACR override (cse_helpers.sh) points GRID nodes at an image that is NOT in components.json
+  # and therefore not cached -- so the firewalled GRID node fails to pull it ("not found" -> exit 84).
+  # Pre-pull it here so GRID nodes (routed to a full install by the driver_kind guard) exercise the
+  # lib-clear fix. DO NOT MERGE. ===
+  /opt/azure/containers/image-fetcher "gpuprebaketest47729.azurecr.io/aks-gpu-grid:570.211.01-test1"
+
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
