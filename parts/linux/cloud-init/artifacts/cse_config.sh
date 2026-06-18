@@ -1214,6 +1214,41 @@ installGPUDriverImage() {
     retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
 }
 
+# nvidia-container-toolkit 1.18.0 ships nvidia-cdi-refresh.{path,service} and its packaging
+# auto-starts them the moment the toolkit is installed. On AKS GPU nodes the toolkit is installed
+# (by the aks-gpu driver container) BEFORE the NVIDIA driver userspace libraries (libnvidia-ml.so)
+# are staged, so the auto-triggered `nvidia-ctk cdi generate` runs too early and fails with NVML
+# ERROR_LIBRARY_NOT_FOUND. With the toolkit's default start-rate-limit it exhausts its restarts
+# within a few seconds and the units are left in a permanent "failed" state -- even though the
+# driver becomes ready shortly afterwards.
+# Drop in an override (written BEFORE the toolkit is installed) that removes the start-rate limit and
+# keeps retrying on failure, so the unit recovers on its own once the driver is staged. The retry is
+# cheap (cdi generate fails fast until then) and -- crucially -- NON-BLOCKING: it must not delay the
+# toolkit's own install. (An ExecStartPre that waits for the driver would deadlock, because the
+# toolkit's postinst synchronously starts this unit and the driver install is sequenced AFTER it.)
+# The override is inert on VHDs whose toolkit predates these units (systemd ignores drop-ins for
+# absent units).
+configureNvidiaCDIRefresh() {
+    local systemd_unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+    local service_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.service.d"
+    mkdir -p "$service_dropin_dir"
+    cat > "${service_dropin_dir}/10-aks-retry-until-driver-ready.conf" <<'EOF'
+[Unit]
+StartLimitIntervalSec=0
+
+[Service]
+Restart=on-failure
+RestartSec=10
+EOF
+    local path_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.path.d"
+    mkdir -p "$path_dropin_dir"
+    cat > "${path_dropin_dir}/10-aks-no-start-limit.conf" <<'EOF'
+[Unit]
+StartLimitIntervalSec=0
+EOF
+    systemctl daemon-reload || true
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1224,6 +1259,9 @@ configGPUDrivers() {
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
             logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage
         fi
+        # Make the toolkit's nvidia-cdi-refresh units resilient to the driver-not-yet-staged race
+        # before the aks-gpu container installs the toolkit (which auto-triggers them).
+        logs_to_events "AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh" configureNvidiaCDIRefresh
         logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
         ret=$?
         if [ "$ret" -ne 0 ]; then
