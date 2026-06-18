@@ -2085,6 +2085,7 @@ SETUP_EOF
 
             The status should be success
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
@@ -2119,6 +2120,25 @@ SETUP_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+    End
+
+    Describe 'configureNvidiaCDIRefresh'
+        # Verify the systemd drop-ins that make the toolkit's nvidia-cdi-refresh units tolerate the
+        # driver-not-yet-staged race (NVIDIA Container Toolkit 1.18.0) are written as expected.
+        systemctl() { return 0; }
+
+        It 'writes service + path drop-ins that wait for the driver and remove the start-limit'
+            SYSTEMD_UNIT_DIR="$(mktemp -d)"
+            When call configureNvidiaCDIRefresh
+            The status should be success
+            The path "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should be file
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should include "StartLimitIntervalSec=0"
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should include "ExecStartPre="
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.service.d/10-aks-wait-for-driver.conf" should include "nvidia-smi"
+            The path "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.path.d/10-aks-no-start-limit.conf" should be file
+            The contents of file "${SYSTEMD_UNIT_DIR}/nvidia-cdi-refresh.path.d/10-aks-no-start-limit.conf" should include "StartLimitIntervalSec=0"
+            rm -rf "${SYSTEMD_UNIT_DIR}"
         End
     End
 End
