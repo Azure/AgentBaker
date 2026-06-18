@@ -1010,6 +1010,32 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+# nvidia-container-toolkit 1.18.0 ships nvidia-cdi-refresh.{path,service} and its packaging
+# auto-starts them the moment the toolkit is installed, before the GPU driver userspace libs are
+# staged -> nvidia-ctk cdi generate fails (NVML not found) -> start-limit-hit -> units stay failed.
+# Drop in an override (before the toolkit is installed) that waits for the driver and removes the
+# start-limit so an early pre-driver failure cannot latch the units into a failed state.
+configureNvidiaCDIRefresh() {
+    local systemd_unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+    local service_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.service.d"
+    mkdir -p "$service_dropin_dir"
+    cat > "${service_dropin_dir}/10-aks-wait-for-driver.conf" <<'EOF'
+[Unit]
+StartLimitIntervalSec=0
+
+[Service]
+TimeoutStartSec=600
+ExecStartPre=/bin/bash -c 'for _ in $(seq 1 180); do nvidia-smi >/dev/null 2>&1 && exit 0; sleep 2; done; exit 0'
+EOF
+    local path_dropin_dir="${systemd_unit_dir}/nvidia-cdi-refresh.path.d"
+    mkdir -p "$path_dropin_dir"
+    cat > "${path_dropin_dir}/10-aks-no-start-limit.conf" <<'EOF'
+[Unit]
+StartLimitIntervalSec=0
+EOF
+    systemctl daemon-reload || true
+}
+
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -1034,6 +1060,7 @@ configGPUDrivers() {
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
+        configureNvidiaCDIRefresh
         retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $GPU_INSTALL_ACTION"
         ret=$?
         if [ "$ret" -ne 0 ]; then
