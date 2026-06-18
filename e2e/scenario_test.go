@@ -858,6 +858,26 @@ func Test_Ubuntu2004FIPS(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen2 VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2004FIPSGen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
+				ValidateSSHServiceEnabled(ctx, s)
+				ValidateFIPSProvider(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 FIPS Gen2 VHD can be properly bootstrapped",
