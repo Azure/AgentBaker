@@ -16,7 +16,7 @@ parameters:
     default: $(E2E_SUBSCRIPTION_ID)
   - name: rcv1pTagsAutoInjected
     type: string
-    displayName: Whether the platform auto-injects RCV1P opt-in tags on all VMSSes (true on MSFT tenant)
+    displayName: Whether the platform auto-injects RCV1P opt-in tags on all VMSSes
     default: "true"
 
 jobs:
