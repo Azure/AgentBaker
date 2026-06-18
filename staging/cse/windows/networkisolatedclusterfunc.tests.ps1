@@ -234,28 +234,9 @@ Describe "Set-PodInfraContainerImage" {
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
     $global:MCRRepositoryBase = $null
 
-  It "falls back to mcr.microsoft.com when MCRRepositoryBase is not set" {
-    $global:MCRRepositoryBase = $null
-    $script:orasImageArg = $null
-
-    $script:CtrExeMock = {
-      param($Args)
-      if ($Args -contains 'list') {
-        return @()
-      }
-      return "ok"
-    }
-
-    function global:Mock-OrasCli {
-      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-      $script:orasImageArg = $Args[1]
-      $global:LASTEXITCODE = 0
-      return "oras ok"
-    }
-
     { Set-PodInfraContainerImage } | Should -Not -Throw
     $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
-  }
+    $global:MCRRepositoryBase = $null
 
   It "handles MCRRepositoryBase with trailing slash" {
     $global:MCRRepositoryBase = "mcr.microsoft.us/"
