@@ -29,12 +29,7 @@ const (
 
 // probeResult captures the outcome of a single connectivity probe for logging.
 type probeResult struct {
-	// label is the verbose probe name used by the primary slog channel
-	// (e.g. "clusterip-via-kube-proxy", "fqdn-direct").
-	label string
-	// target is the short probe name used by the secondary stdout marker
-	// (e.g. "clusterip", "fqdn").
-	target     string
+	label      string
 	url        string
 	reachable  bool
 	statusCode int
@@ -55,11 +50,9 @@ type probeResult struct {
 func (a *App) checkLPS(ctx context.Context, provisionConfigPath string) error {
 	// Probe #1: ClusterIP through kube-proxy.
 	clusterIPURL := fmt.Sprintf("https://%s:%s%s", lpsClusterIP, lpsAPIServerPort, lpsProbePath)
-	a.logProbeResult(a.probeEndpoint(ctx, "clusterip-via-kube-proxy", "clusterip", clusterIPURL))
+	a.logProbeResult(a.probeEndpoint(ctx, "clusterip-via-kube-proxy", clusterIPURL))
 
 	// Probe #2: direct apiserver FQDN, sourced from the provision config.
-	// TODO(nbc-cmd mode): NBC_CMD provisioning does not pass a provision-config file, so the
-	// FQDN probe is skipped in that mode. Add NBC_CMD_PATH FQDN sourcing if/when needed.
 	fqdn := apiServerFQDNFromConfig(provisionConfigPath)
 	if fqdn == "" {
 		slog.Warn("check-lps could not determine apiserver FQDN, skipping direct probe",
@@ -67,7 +60,7 @@ func (a *App) checkLPS(ctx context.Context, provisionConfigPath string) error {
 		return nil
 	}
 	fqdnURL := fmt.Sprintf("https://%s:%s%s", fqdn, lpsAPIServerPort, lpsProbePath)
-	a.logProbeResult(a.probeEndpoint(ctx, "fqdn-direct", "fqdn", fqdnURL))
+	a.logProbeResult(a.probeEndpoint(ctx, "fqdn-direct", fqdnURL))
 
 	return nil
 }
@@ -100,13 +93,13 @@ func apiServerFQDNFromConfig(provisionConfigPath string) string {
 // TLS verification is intentionally skipped: pre-kubelet there is no established CA
 // trust, and the probe only cares about reachability (a completed TLS handshake plus any
 // HTTP response — including 401/403 — counts as reachable).
-func (a *App) probeEndpoint(ctx context.Context, label, target, url string) probeResult {
+func (a *App) probeEndpoint(ctx context.Context, label, url string) probeResult {
 	client := a.probeClient()
 
 	ctx, cancel := context.WithTimeout(ctx, lpsProbeTimeout)
 	defer cancel()
 
-	result := probeResult{label: label, target: target, url: url}
+	result := probeResult{label: label, url: url}
 	start := time.Now()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -144,14 +137,7 @@ func (a *App) probeClient() *http.Client {
 	}
 }
 
-// logProbeResult emits a probe outcome on two channels (PoC option C):
-//
-//   - PRIMARY/authoritative: structured slog JSON to the logger configured in main.go,
-//     which writes to /var/log/azure/aks-node-controller.log (a file ANC opens directly,
-//     independent of how the systemd oneshot routes stdout). Messages
-//     "check-lps probe reachable"/"check-lps probe unreachable" with field probe=<label>.
-//   - SECONDARY/convenience: a fixed-format "check-lps:" marker line to stdout (target=<short>),
-//     a bonus if it lands in the CSE output log or journal.
+// logProbeResult emits a structured log line describing a probe outcome.
 func (a *App) logProbeResult(r probeResult) {
 	if r.reachable {
 		slog.Info("check-lps probe reachable",
@@ -159,26 +145,13 @@ func (a *App) logProbeResult(r probeResult) {
 			"url", r.url,
 			"statusCode", r.statusCode,
 			"latencyMs", r.latency.Milliseconds())
-	} else {
-		slog.Info("check-lps probe unreachable",
-			"probe", r.label,
-			"url", r.url,
-			"latencyMs", r.latency.Milliseconds(),
-			"error", errString(r.err))
+		return
 	}
-
-	//nolint:forbidigo // secondary convenience marker; primary sink is the slog log file above
-	_, _ = fmt.Fprintf(a.probeOut(),
-		"check-lps: target=%s url=%s success=%t http_status=%d latency_ms=%d err=%q\n",
-		r.target, r.url, r.reachable, r.statusCode, r.latency.Milliseconds(), errString(r.err))
-}
-
-// probeOut returns the injected probe marker writer when set, otherwise os.Stdout.
-func (a *App) probeOut() io.Writer {
-	if a.probeLogWriter != nil {
-		return a.probeLogWriter
-	}
-	return os.Stdout
+	slog.Info("check-lps probe unreachable",
+		"probe", r.label,
+		"url", r.url,
+		"latencyMs", r.latency.Milliseconds(),
+		"error", errString(r.err))
 }
 
 func errString(err error) string {
