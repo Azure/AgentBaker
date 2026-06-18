@@ -603,11 +603,10 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 			if err != nil {
 				return vm, fmt.Errorf("failed to begin adding CSE extension: %w", err)
 			}
-			vmssResp2, err := cseOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+			vmssResp, err = cseOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 			if err != nil {
 				return vm, fmt.Errorf("failed to add CSE extension: %w", err)
 			}
-			vmssResp = vmssResp2
 		}
 	}
 
