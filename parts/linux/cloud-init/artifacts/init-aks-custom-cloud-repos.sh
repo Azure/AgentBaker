@@ -351,9 +351,9 @@ makestep 1.0 -1
 EOF
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
-    systemctl restart chrony
+    logs_to_events "AKS.CSE.customCloud.restartChrony" systemctl restart chrony
 elif [ "$IS_FLATCAR" -eq 1 ]; then
-    systemctl restart chronyd
+    logs_to_events "AKS.CSE.customCloud.restartChrony" systemctl restart chronyd
 fi
 fi
 
