@@ -675,7 +675,7 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 // It also observes the faithful live-patching-service probes ("lps-sni-fqdn" /
 // "lps-sni-clusterip"), which exercise the real node→SNI→kube-api-proxy→LPS path. AB e2e
 // cannot deploy the LPS data plane, so those are logged-and-asserted-to-have-run only; set
-// E2E_LPS_ENABLED=true (on an LPS-enabled cluster, e.g. the aks-rp E2Ev3 run) to also
+// LPS_ENABLED=true (on an LPS-enabled cluster, e.g. the aks-rp E2Ev3 run) to also
 // hard-assert that lps-sni-fqdn reached the service.
 //
 // The probe only exists in aks-node-controller binaries built from the check-lps branch,
@@ -751,14 +751,14 @@ func ValidateCheckLPSProbes(ctx context.Context, s *Scenario) {
 
 	// The faithful lps-sni-fqdn probe must at least RUN on any check-lps build. We only
 	// hard-assert that it reached the live-patching-service (HTTP 200 path) when the
-	// cluster is known to have LPS deployed, signalled out-of-band via E2E_LPS_ENABLED=true.
+	// cluster is known to have LPS deployed, signalled out-of-band via LPS_ENABLED=true.
 	// AB e2e cannot deploy the LPS data plane, so by default this is observe-and-log only;
 	// the aks-rp E2Ev3 LPS cluster flips the env var to enforce reachability.
 	require.True(s.T, sawLPSSNIFQDNProbe,
 		"expected check-lps lps-sni-fqdn faithful probe to have run, but no such line was found in %s", logPath)
-	if strings.EqualFold(os.Getenv("E2E_LPS_ENABLED"), "true") {
+	if strings.EqualFold(os.Getenv("LPS_ENABLED"), "true") {
 		require.True(s.T, sawLPSSNIFQDNReachable,
-			"E2E_LPS_ENABLED=true but check-lps lps-sni-fqdn faithful probe was not reachable; expected the live-patching-service SNI path to succeed on an LPS-enabled cluster (see %s)", logPath)
+			"LPS_ENABLED=true but check-lps lps-sni-fqdn faithful probe was not reachable; expected the live-patching-service SNI path to succeed on an LPS-enabled cluster (see %s)", logPath)
 	}
 }
 
