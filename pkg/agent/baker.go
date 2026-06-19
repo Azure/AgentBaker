@@ -63,9 +63,18 @@ cat <<'EOF' | base64 -d | gzip -d >%[3]s
 %[4]s
 EOF
 chmod 0600 %[3]s
-
+%[5]s
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
+`
+	// aksNodeConfigBlock is appended to the boothook when AKSNodeConfig is provided.
+	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script
+	// can pass --provision-config alongside --nbc-cmd for env comparison.
+	aksNodeConfigBlockFmt = `
+cat <<'EOF' | base64 -d | gzip -d >%[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
 `
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
@@ -79,11 +88,20 @@ systemctl start --no-block aks-node-controller.service
         "path": "/opt/azure/containers/nodecustomdata.yml",
         "mode": 384,
         "contents": { "compression": "gzip","source": "data:;base64,%s" }
-       }]
+       }%s]
       }
      }`
+	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
+	// when AKSNodeConfig is provided for env comparison.
+	flatcarAKSNodeConfigEntry = `,
+	   {
+        "path": "/opt/azure/containers/aks-node-controller-config.json",
+        "mode": 384,
+        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+       }`
 	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
 	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	aksNodeConfigPath  = "/opt/azure/containers/aks-node-controller-config.json"
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -95,27 +113,9 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly {
-		config.DisableCustomData = true
-		config.EnableScriptlessCSECmd = true
-		nbcCMD := t.getLinuxNodeCSECommand(config)
-		encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
-		nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
-		var customData string
-		if config.IsFlatcar() || config.IsACL() {
-			customData = fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData)
-		} else {
-			customData = fmt.Sprintf(
-				boothookTemplate,
-				nodeCustomDataPath,
-				encodedNodeCustomData,
-				nbcCmdFilePath,
-				encodedNBCCMD,
-			)
-		}
-
-		return base64.StdEncoding.EncodeToString([]byte(customData))
+		return t.getScriptlessNBCCustomData(config)
 	}
+
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
 	var encoded string
@@ -127,6 +127,54 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
 	return encoded
+}
+
+// getScriptlessNBCCustomData builds custom data for the scriptless NBC CSE path.
+// It encodes the nbc-cmd script, node custom data, and optionally AKSNodeConfig
+// into the appropriate format (boothook or flatcar ignition).
+func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+	config.DisableCustomData = true
+	config.EnableScriptlessCSECmd = true
+	nbcCMD := t.getLinuxNodeCSECommand(config)
+	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
+	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
+	var encodedAKSNodeConfig string
+	if config.AKSNodeConfigJSON != "" {
+		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+	}
+
+	var customData string
+	if config.IsFlatcar() || config.IsACL() {
+		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+	} else {
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(customData))
+}
+
+func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+	var flatcarAKSNodeConfigBlock string
+	if encodedAKSNodeConfig != "" {
+		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
+	}
+	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
+}
+
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+	var aksNodeConfigBlock string
+	if encodedAKSNodeConfig != "" {
+		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+	}
+	return fmt.Sprintf(
+		boothookTemplate,
+		nodeCustomDataPath,
+		encodedNodeCustomData,
+		nbcCmdFilePath,
+		encodedNBCCMD,
+		aksNodeConfigBlock,
+	)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -1383,7 +1431,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
-		"EnableScriptlessCSECmd": func() bool { return config.EnableScriptlessCSECmd },
+		"EnableScriptlessCSECmd":       func() bool { return config.EnableScriptlessCSECmd },
+		"GetStandardSecondaryNICCount": func() int { return config.StandardSecondaryNICCount },
 	}
 }
 
@@ -1439,6 +1488,9 @@ func getPortRangeEndValue(portRange string) int {
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
+	if useGridV20Drivers(size) {
+		return datamodel.NvidiaGridV20DriverVersion
+	}
 	if useGridDrivers(size) {
 		return datamodel.NvidiaGridDriverVersion
 	}
@@ -1457,7 +1509,16 @@ func useGridDrivers(size string) bool {
 	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
 }
 
+// useGridV20Drivers reports whether the SKU needs the GRID v20 (595.x) driver
+// image (aks-gpu-grid-v20) rather than the standard GRID image (aks-gpu-grid).
+func useGridV20Drivers(size string) bool {
+	return datamodel.RTXPro6000GPUDriverSizes[strings.ToLower(size)]
+}
+
 func GetAKSGPUImageSHA(size string) string {
+	if useGridV20Drivers(size) {
+		return datamodel.AKSGPUGridV20VersionSuffix
+	}
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridVersionSuffix
 	}
@@ -1465,6 +1526,9 @@ func GetAKSGPUImageSHA(size string) string {
 }
 
 func GetGPUDriverType(size string) string {
+	if useGridV20Drivers(size) {
+		return "grid-v20"
+	}
 	if useGridDrivers(size) {
 		return "grid"
 	}
@@ -1610,30 +1674,29 @@ vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
 {{- end}}
 `
 
-const kubenetCniTemplate = `
-{
-    "cniVersion": "0.3.1",
-    "name": "kubenet",
-    "plugins": [{
-    "type": "bridge",
-    "bridge": "cbr0",
-    "mtu": 1500,
-    "addIf": "eth0",
-    "isGateway": true,
-    "ipMasq": false,
-    "promiscMode": true,
-    "hairpinMode": false,
-    "ipam": {
-        "type": "host-local",
-        "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
-        "routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
-    }
-    },
-    {
-    "type": "portmap",
-    "capabilities": {"portMappings": true},
-    "externalSetMarkChain": "KUBE-MARK-MASQ"
-    }]
+const kubenetCniTemplate = `{
+	"cniVersion": "0.3.1",
+	"name": "kubenet",
+	"plugins": [{
+		"type": "bridge",
+		"bridge": "cbr0",
+		"mtu": 1500,
+		"addIf": "eth0",
+		"isGateway": true,
+		"ipMasq": false,
+		"promiscMode": true,
+		"hairpinMode": false,
+		"ipam": {
+			"type": "host-local",
+			"ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
+			"routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
+		}
+	},
+	{
+		"type": "portmap",
+		"capabilities": {"portMappings": true},
+		"externalSetMarkChain": "KUBE-MARK-MASQ"
+	}]
 }
 `
 
@@ -1719,10 +1782,10 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
-	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
@@ -1735,7 +1798,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1744,15 +1806,14 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
-
 [plugins."io.containerd.cri.v1.runtime".containerd]
   {{- if IsNSeriesSKU }}
   default_runtime_name = "nvidia-container-runtime"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
     runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-      BinaryName = "/usr/bin/nvidia-container-runtime"
-      SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+    BinaryName = "/usr/bin/nvidia-container-runtime"
+    SystemdCgroup = true
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
@@ -1761,13 +1822,13 @@ root = "{{GetDataDir}}"{{- end}}
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
     runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-      BinaryName = "/usr/bin/runc"
-      SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+    BinaryName = "/usr/bin/runc"
+    SystemdCgroup = true
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+    BinaryName = "/usr/bin/runc"
 {{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
@@ -1775,10 +1836,8 @@ root = "{{GetDataDir}}"{{- end}}
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-
 [metrics]
   address = "0.0.0.0:10257"
-
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1796,10 +1855,10 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
-	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
@@ -1807,13 +1866,11 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
-
 [plugins."io.containerd.cri.v1.images"]
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
 {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1822,7 +1879,6 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
-
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
@@ -1840,10 +1896,8 @@ root = "{{GetDataDir}}"{{- end}}
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-
 [metrics]
   address = "0.0.0.0:10257"
-
 {{- if IsArtifactStreamingEnabled }}
 [proxy_plugins]
   [proxy_plugins.overlaybd]
@@ -1918,10 +1972,10 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
-	pod_annotations = ["io.katacontainers.*"]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
@@ -1987,8 +2041,7 @@ func GenerateLocalDNSCoreFile(
 // (mcr.microsoft.com, packages.aks.azure.com, etc.) are included in root domain server blocks.
 // When false, hosts blocks are omitted — used as a fallback when enableAKSLocalDNSHostsSetup fails at
 // provisioning time, following the same dual-config pattern used for containerd GPU/no-GPU configs.
-const localDNSCoreFileTemplateString = `
-# ***********************************************************************************
+const localDNSCoreFileTemplateString = `# ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)

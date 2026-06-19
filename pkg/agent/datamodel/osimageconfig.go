@@ -13,10 +13,16 @@ var (
 	}
 
 	AzureCloudToOSImageMap = map[string]map[Distro]AzureOSImageConfig{
-		AzureBleuCloud: {
+		AzurePublicCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzureChinaCloud: {
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
+		},
+		AzureUSGovernmentCloud: {
+			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
+		},
+		AzureBleuCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		AzureGermanCloud: {
@@ -25,10 +31,7 @@ var (
 		AzureGermanyCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
-		AzurePublicCloud: {
-			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
-		},
-		AzureUSGovernmentCloud: {
+		AzureSingaporeCloud: {
 			AKSUbuntuContainerd2204Gen2: AKSUbuntuContainerd2204Gen2OSImageConfig,
 		},
 		USNatCloud: {

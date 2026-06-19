@@ -16,6 +16,7 @@ import (
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -230,11 +231,24 @@ func runScenario(t testing.TB, s *Scenario) error {
 	// need to find the root cause and fix it, this should help to catch such cases
 	require.NotNil(t, cluster)
 
+	// Log cluster identity for debugging
+	clusterName := *cluster.Model.Name
+	clusterLocation := *cluster.Model.Location
+	resourceGroup := config.ResourceGroupName(clusterLocation)
+	subscriptionID := config.Config.SubscriptionID
+	t.Logf("using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
+	t.Logf("portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
+		subscriptionID, resourceGroup, clusterName)
+
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
 	s.Runtime.VMSSName = generateVMSSName(s)
+
+	testKube, err := cluster.NewKubeclientForTest()
+	require.NoError(t, err, "creating per-test kubeclient")
+	s.Runtime.Kube = testKube
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
@@ -258,10 +272,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	defer toolkit.LogStep(s.T, "preparing AKS node")()
 
 	var err error
-	nbc, err := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	nbc, err := getBaseNBC(ctx, s.T, s.Runtime.Cluster, s.VHD)
 	require.NoError(s.T, err)
 
-	nbc.EnableScriptlessCSECmd = true
+	if !config.Config.DisableScriptless {
+		nbc.EnableScriptlessCSECmd = true
+	}
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
 		nbc.EnableScriptlessCSECmd = false
@@ -279,10 +295,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
-		// AKSNodeConfig scenarios use aks-node-controller, not GetNodeBootstrapping.
-		// Clear NBC so validators that check NBC fields (e.g., ValidateScriptlessCSECmd)
-		// don't fire incorrectly — those validations only apply to NBC-based provisioning.
-		s.Runtime.NBC = nil
+
+		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
+		require.NoError(s.T, err)
+		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
+
+		nbc.EnableScriptlessCSECmd = false
+
+		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
+		// scriptless tag means provisioning with aksnodeconfig is used
+		if !s.Tags.Scriptless && s.BootstrapConfigMutator != nil {
+			nbc.EnableScriptlessNBCCSECmd = true
+		}
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -337,7 +361,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if !s.Config.SkipDefaultValidation {
 		vmssCreatedAt := time.Now()         // Record the start time
 		creationElapse := time.Since(start) // Calculate the elapsed time
-		scenarioVM.KubeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+		scenarioVM.KubeName = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
 		totalElapse := time.Since(start)
 		toolkit.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
@@ -352,9 +376,6 @@ func maybeSkipScenario(ctx context.Context, t testing.TB, s *Scenario) {
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	s.Tags.VHDCaching = s.VHDCaching
-	if s.AKSNodeConfigMutator != nil {
-		s.Tags.Scriptless = true
-	}
 
 	if config.Config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.Config.TagsToRun)

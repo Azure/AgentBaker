@@ -12,18 +12,18 @@ TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghc
 TRIVY_DEB_2004_VERSION="0.70.0-ubuntu20.04u3"
 
 # renovate: datasource=custom.deb2204 depName=trivy versioning=deb
-TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u2"
+TRIVY_DEB_2204_VERSION="0.70.0-ubuntu22.04u3"
 
 # renovate: datasource=custom.deb2404 depName=trivy versioning=deb
 TRIVY_DEB_2404_VERSION="0.70.0-ubuntu24.04u3"
 
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-TRIVY_RPM_VERSION="0.70.0-2.azl3"
+TRIVY_RPM_VERSION="0.70.0-3.azl3"
 
 # Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
 # This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
 # renovate: datasource=github-releases depName=aquasecurity/trivy
-TRIVY_GITHUB_VERSION="0.69.2"
+TRIVY_GITHUB_VERSION="0.69.3"
 
 MODULE_NAME="vuln-to-kusto-vhd"
 

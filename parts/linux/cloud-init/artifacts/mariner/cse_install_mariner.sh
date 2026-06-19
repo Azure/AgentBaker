@@ -113,8 +113,9 @@ downloadGPUDrivers() {
     # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
     # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
     #
-    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
-    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
+    # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
+    # "grid-v20" (Ubuntu-only, rejected below); all others get "cuda".
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     VM_SKU=$(get_compute_sku)
@@ -124,6 +125,16 @@ downloadGPUDrivers() {
         echo "VM SKU ${VM_SKU} uses NVIDIA GRID driver (converged)"
         downloadGridDrivers
         return
+    fi
+
+    # GRID v20 (595.x) ships only as the aks-gpu-grid-v20 container image, which is
+    # consumed on the Ubuntu provisioning path. There is no nvidia-vgpu-guest-driver
+    # v20 RPM for Mariner/AzureLinux, so fail fast with a clear error rather than
+    # silently falling through and installing a CUDA driver on an RTX PRO 6000 BSE v6
+    # (vGPU) node.
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid-v20" ]; then
+        echo "NVIDIA GRID v20 driver (NVIDIA_GPU_DRIVER_TYPE=grid-v20) is only supported on Ubuntu, not Mariner/AzureLinux (vm_sku=${VM_SKU})"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
     fi
 
     local driver_ret

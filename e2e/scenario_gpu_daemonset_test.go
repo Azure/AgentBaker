@@ -203,14 +203,14 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) {
 	// Delete any existing DaemonSet from a previous failed run
 	deleteCtx, deleteCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer deleteCancel()
-	_ = s.Runtime.Cluster.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
+	_ = s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
 		deleteCtx,
 		ds.Name,
 		metav1.DeleteOptions{},
 	)
 
 	// Create the DaemonSet
-	err := s.Runtime.Cluster.Kube.CreateDaemonset(ctx, ds)
+	err := s.Runtime.Kube.CreateDaemonset(ctx, ds)
 	require.NoError(s.T, err, "failed to create NVIDIA device plugin DaemonSet")
 
 	s.T.Logf("NVIDIA device plugin DaemonSet %s/%s created successfully", ds.Namespace, ds.Name)
@@ -220,7 +220,7 @@ func deployNvidiaDevicePluginDaemonset(ctx context.Context, s *Scenario) {
 		s.T.Logf("Cleaning up NVIDIA device plugin DaemonSet %s/%s...", ds.Namespace, ds.Name)
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cleanupCancel()
-		deleteErr := s.Runtime.Cluster.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
+		deleteErr := s.Runtime.Kube.Typed.AppsV1().DaemonSets(ds.Namespace).Delete(
 			cleanupCtx,
 			ds.Name,
 			metav1.DeleteOptions{},
@@ -239,7 +239,7 @@ func waitForNvidiaDevicePluginDaemonsetReady(ctx context.Context, s *Scenario) {
 	dsName := nvidiaDevicePluginDaemonsetName(s.Runtime.VM.KubeName)
 	s.T.Logf("Waiting for NVIDIA device plugin DaemonSet pod to be ready on node %s...", s.Runtime.VM.KubeName)
 
-	_, err := s.Runtime.Cluster.Kube.WaitUntilPodRunning(
+	_, err := s.Runtime.Kube.WaitUntilPodRunning(
 		ctx,
 		"kube-system",
 		fmt.Sprintf("name=%s", dsName),

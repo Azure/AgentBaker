@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -20,7 +21,7 @@ import (
 // this is a base kubelet config for Scriptless e2e test
 func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{
-		EnableKubeletConfigFile: true,
+		EnableKubeletConfigFile: false,
 		KubeletFlags: map[string]string{
 			"--cloud-provider": "external",
 			"--kubeconfig":     "/var/lib/kubelet/kubeconfig",
@@ -58,14 +59,16 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 				Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
 					Enabled: true,
 				},
+				Anonymous: &aksnodeconfigv1.KubeletAnonymousAuthentication{},
 			},
 			Authorization: &aksnodeconfigv1.KubeletAuthorization{
-				Mode: "Webhook",
+				Mode:    "Webhook",
+				Webhook: &aksnodeconfigv1.KubeletWebhookAuthorization{},
 			},
 			EventRecordQps: to.Ptr(int32(0)),
 			ClusterDomain:  "cluster.local",
 			ClusterDns: []string{
-				"10.0.0.10",
+				"172.16.0.10",
 			},
 			StreamingConnectionIdleTimeout: "4h",
 			NodeStatusUpdateFrequency:      "10s",
@@ -81,8 +84,9 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 				"nodefs.inodesFree": "5%",
 			},
 			ProtectKernelDefaults: true,
-			FeatureGates:          map[string]bool{},
-			FailSwapOn:            to.Ptr(false),
+			FeatureGates: map[string]bool{
+				"RotateKubeletServerCertificate": true,
+			},
 			KubeReserved: map[string]string{
 				"cpu":    "100m",
 				"memory": "1638Mi",
@@ -90,15 +94,11 @@ func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 			EnforceNodeAllocatable: []string{
 				"pods",
 			},
-			AllowedUnsafeSysctls: []string{
-				"kernel.msg*",
-				"net.ipv4.route.min_pmtu",
-			},
 		},
 	}
 }
 
-func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNBC(ctx context.Context, t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.NodeBootstrappingConfiguration, error) {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
 	if vhd.Distro.IsWindowsDistro() {
@@ -131,10 +131,9 @@ func getBaseNBC(t testing.TB, cluster *Cluster, vhd *config.Image) (*datamodel.N
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-		Enabled: config.Config.EnableSecureTLSBootstrapping && !vhd.UnsupportedSecureTLSBootstrapping,
+		Enabled: config.Config.EnableSecureTLSBootstrapping,
 	}
-
-	nbc.TenantID = *cluster.Model.Identity.TenantID
+	nbc.TenantID = cluster.TenantID
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
@@ -164,16 +163,59 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		bootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 	}
 
-	return &aksnodeconfigv1.Configuration{
+	k8sConfig := cs.Properties.OrchestratorProfile.KubernetesConfig
+
+	// Derive UseInstanceMetadata from NBC config.
+	useInstanceMeta := false
+	if k8sConfig.UseInstanceMetadata != nil {
+		useInstanceMeta = *k8sConfig.UseInstanceMetadata
+	}
+
+	// Base64-encode SP secret and kubelet client key to match what baker.go renders.
+	spSecret := ""
+	if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
+		spSecret = base64.StdEncoding.EncodeToString([]byte(cs.Properties.ServicePrincipalProfile.Secret))
+	}
+	kubeletClientKey := ""
+	if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
+		kubeletClientKey = base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey))
+	}
+
+	// Build HttpProxyConfig with all fields (not just NoProxyEntries) to match NBC.
+	httpProxyConfig := &aksnodeconfigv1.HttpProxyConfig{}
+	if nbc.HTTPProxyConfig != nil {
+		if nbc.HTTPProxyConfig.NoProxy != nil {
+			httpProxyConfig.NoProxyEntries = *nbc.HTTPProxyConfig.NoProxy
+		}
+		if nbc.HTTPProxyConfig.HTTPProxy != nil {
+			httpProxyConfig.HttpProxy = *nbc.HTTPProxyConfig.HTTPProxy
+		}
+		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
+			httpProxyConfig.HttpsProxy = *nbc.HTTPProxyConfig.HTTPSProxy
+		}
+		if nbc.HTTPProxyConfig.TrustedCA != nil {
+			httpProxyConfig.ProxyTrustedCa = *nbc.HTTPProxyConfig.TrustedCA
+		}
+	}
+
+	// Derive EnableUnattendedUpgrade from NBC (baker uses !DisableUnattendedUpgrades).
+	enableUnattendedUpgrade := !nbc.DisableUnattendedUpgrades
+	vnetCNIPluginURL := nbc.CloudSpecConfig.KubernetesSpecConfig.VnetCNILinuxPluginsDownloadURL
+	if nbc.IsARM64 {
+		vnetCNIPluginURL = nbc.CloudSpecConfig.KubernetesSpecConfig.VnetCNIARM64LinuxPluginsDownloadURL
+	}
+
+	cfg := &aksnodeconfigv1.Configuration{
 		Version:             "v1",
 		BootstrappingConfig: bootstrappingConfig,
 		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.DefaultVMSKU,
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
-			Location:      nbc.ContainerService.Location,
-			ResourceGroup: nbc.ResourceGroupName,
-			VmType:        aksnodeconfigv1.VmType_VM_TYPE_VMSS,
+			Location:            nbc.ContainerService.Location,
+			ResourceGroup:       nbc.ResourceGroupName,
+			VmType:              aksnodeconfigv1.VmType_VM_TYPE_VMSS,
+			UseInstanceMetadata: useInstanceMeta,
 			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 				SecurityGroupName: cs.Properties.GetNSGName(),
 				VnetName:          cs.Properties.GetVirtualNetworkName(),
@@ -182,26 +224,29 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 				RouteTable:        cs.Properties.GetRouteTableName(),
 			},
 			CloudProviderConfig: &aksnodeconfigv1.CloudProviderConfig{
-				Backoff:              cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoff,
-				BackoffMode:          cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffMode,
-				BackoffRetries:       to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffRetries)),
-				BackoffExponent:      to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffExponent),
-				BackoffDuration:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffDuration)),
-				BackoffJitter:        to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderBackoffJitter),
-				RateLimit:            cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimit,
-				RateLimitQps:         to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPS),
-				RateLimitQpsWrite:    to.Ptr(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitQPSWrite),
-				RateLimitBucket:      to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucket)),
-				RateLimitBucketWrite: to.Ptr(int32(cs.Properties.OrchestratorProfile.KubernetesConfig.CloudProviderRateLimitBucketWrite)),
+				Backoff:              k8sConfig.CloudProviderBackoff,
+				BackoffMode:          k8sConfig.CloudProviderBackoffMode,
+				BackoffRetries:       to.Ptr(int32(k8sConfig.CloudProviderBackoffRetries)),
+				BackoffExponent:      to.Ptr(k8sConfig.CloudProviderBackoffExponent),
+				BackoffDuration:      to.Ptr(int32(k8sConfig.CloudProviderBackoffDuration)),
+				BackoffJitter:        to.Ptr(k8sConfig.CloudProviderBackoffJitter),
+				RateLimit:            k8sConfig.CloudProviderRateLimit,
+				RateLimitQps:         to.Ptr(k8sConfig.CloudProviderRateLimitQPS),
+				RateLimitQpsWrite:    to.Ptr(k8sConfig.CloudProviderRateLimitQPSWrite),
+				RateLimitBucket:      to.Ptr(int32(k8sConfig.CloudProviderRateLimitBucket)),
+				RateLimitBucketWrite: to.Ptr(int32(k8sConfig.CloudProviderRateLimitBucketWrite)),
 			},
 			PrimaryScaleSet: nbc.PrimaryScaleSetName,
+			LoadBalancerConfig: &aksnodeconfigv1.LoadBalancerConfig{
+				LoadBalancerSku: aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD,
+			},
 		},
 		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
 			ApiServerName: cs.Properties.HostedMasterProfile.FQDN,
 		},
 		AuthConfig: &aksnodeconfigv1.AuthConfig{
 			ServicePrincipalId:     cs.Properties.ServicePrincipalProfile.ClientID,
-			ServicePrincipalSecret: cs.Properties.ServicePrincipalProfile.Secret,
+			ServicePrincipalSecret: spSecret,
 			TenantId:               nbc.TenantID,
 			SubscriptionId:         nbc.SubscriptionID,
 			AssignedIdentityId:     nbc.UserAssignedIdentityClientID,
@@ -209,13 +254,14 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		NetworkConfig: &aksnodeconfigv1.NetworkConfig{
 			NetworkPlugin:     aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET,
 			CniPluginsUrl:     nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
-			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
+			VnetCniPluginsUrl: vnetCNIPluginURL,
 		},
 		GpuConfig: &aksnodeconfigv1.GpuConfig{
 			ConfigGpuDriver: true,
 			GpuDevicePlugin: false,
 		},
-		EnableUnattendedUpgrade: true,
+		EnableUnattendedUpgrade: enableUnattendedUpgrade,
+		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
@@ -223,17 +269,15 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		OutboundCommand:  helpers.GetDefaultOutboundCommand(),
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{
-			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
+			KubeBinaryUrl:             k8sConfig.CustomKubeBinaryURL,
 			PodInfraContainerImageUrl: nbc.K8sComponents.PodInfraContainerImageURL,
 		},
-		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
-		HttpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
-			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
-		},
+		KubeProxyUrl:    k8sConfig.CustomKubeProxyImage,
+		HttpProxyConfig: httpProxyConfig,
 		LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 			EnableLocalDns:       true,
 			CpuLimitInMilliCores: to.Ptr(int32(2008)),
-			MemoryLimitInMb:      to.Ptr(int32(256)),
+			MemoryLimitInMb:      to.Ptr(int32(128)),
 			VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
 				".": {
 					QueryLogging:                "Log",
@@ -243,23 +287,23 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 					MaxConcurrent:               to.Ptr(int32(1000)),
 					CacheDurationInSeconds:      to.Ptr(int32(3600)),
 					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
-					ServeStale:                  "Immediate",
+					ServeStale:                  "Verify",
 				},
 				"cluster.local": {
 					QueryLogging:                "Error",
 					Protocol:                    "ForceTCP",
 					ForwardDestination:          "ClusterCoreDNS",
-					ForwardPolicy:               "RoundRobin",
-					MaxConcurrent:               to.Ptr(int32(3000)),
-					CacheDurationInSeconds:      to.Ptr(int32(7200)),
-					ServeStaleDurationInSeconds: to.Ptr(int32(4500)),
+					ForwardPolicy:               "Sequential",
+					MaxConcurrent:               to.Ptr(int32(1000)),
+					CacheDurationInSeconds:      to.Ptr(int32(3600)),
+					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
 					ServeStale:                  "Disable",
 				},
 				"testdomain456.com": {
 					QueryLogging:                "Log",
 					Protocol:                    "PreferUDP",
-					ForwardDestination:          "VnetDNS",
-					ForwardPolicy:               "Random",
+					ForwardDestination:          "ClusterCoreDNS",
+					ForwardPolicy:               "Sequential",
 					MaxConcurrent:               to.Ptr(int32(1000)),
 					CacheDurationInSeconds:      to.Ptr(int32(3600)),
 					ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
@@ -310,6 +354,30 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
 		KubeletConfig: baseKubeletConfig(),
 	}
+
+	// Populate KubeletConfig fields from NBC that aren't in the static baseKubeletConfig.
+	cfg.KubeletConfig.KubeletClientKey = kubeletClientKey
+
+	// Build kubelet flags from the NBC's KubeletConfig map, filtering the same way baker.go does.
+	// When kubelet config file is enabled, flags in TranslatedKubeletConfigFlags are written to the
+	// config file instead of being passed as CLI flags, so filter them out here.
+	if nbc.KubeletConfig != nil {
+		kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
+		omittedFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
+		kubeletFlags := make(map[string]string)
+		for key, val := range nbc.KubeletConfig {
+			if kubeletConfigFileEnabled && agent.TranslatedKubeletConfigFlags[key] {
+				continue
+			}
+			if omittedFlags[key] {
+				continue
+			}
+			kubeletFlags[key] = val
+		}
+		cfg.KubeletConfig.KubeletFlags = kubeletFlags
+	}
+
+	return cfg
 }
 
 // this is huge, but accurate, so leave it here.
@@ -391,7 +459,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 						AzureCNIURLLinux:                  "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-linux-amd64-v1.6.21.tgz",
 						AzureCNIURLARM64Linux:             "",
 						AzureCNIURLWindows:                "",
-						MaximumLoadBalancerRuleCount:      250,
+						MaximumLoadBalancerRuleCount:      148,
 						PrivateAzureRegistryServer:        "",
 						NetworkPluginMode:                 "",
 					},
@@ -589,7 +657,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 				CNIPluginsDownloadURL:                "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
-				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+				VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-linux-amd64-v1.6.21.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 				CSIProxyDownloadURL:                  "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
@@ -716,7 +784,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 				"127.0.0.1",
 				"168.63.129.16",
 				"169.254.169.254",
-				"10.0.0.0/16",
+				"172.16.0.0/16",
 				"agentbaker-agentbaker-e2e-t-8ecadf-c82d8251.hcp.eastus.azmk8s.io",
 			},
 			TrustedCA: nil,
@@ -730,7 +798,7 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 			"--cgroups-per-qos":                   "true",
 			"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
 			"--cloud-provider":                    "external",
-			"--cluster-dns":                       "10.0.0.10",
+			"--cluster-dns":                       "172.16.0.10",
 			"--cluster-domain":                    "cluster.local",
 			"--dynamic-config-dir":                "/var/lib/kubelet",
 			"--enforce-node-allocatable":          "pods",
@@ -824,11 +892,11 @@ func baseTemplateWindows(t testing.TB, location string) *datamodel.NodeBootstrap
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						AzureCNIURLWindows:   "https://packages.aks.azure.com/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
 						ClusterSubnet:        "10.224.0.0/16",
-						DNSServiceIP:         "10.0.0.10",
+						DNSServiceIP:         "172.16.0.10",
 						LoadBalancerSku:      "Standard",
 						NetworkPlugin:        "azure",
 						NetworkPluginMode:    "overlay",
-						ServiceCIDR:          "10.0.0.0/16",
+						ServiceCIDR:          "172.16.0.0/16",
 						UseInstanceMetadata:  to.Ptr(true),
 						UseManagedIdentity:   false,
 						WindowsContainerdURL: "https://packages.aks.azure.com/containerd/windows/",
@@ -962,7 +1030,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			"--kubeconfig":                      "c:\\k\\config",
 			"--max-pods":                        "30",
 			"--resolv-conf":                     "\"\"\"\"",
-			"--cluster-dns":                     "10.0.0.10",
+			"--cluster-dns":                     "172.16.0.10",
 			"--cluster-domain":                  "cluster.local",
 			"--rotate-certificates":             "true",
 			"--rotate-server-certificates":      "true",

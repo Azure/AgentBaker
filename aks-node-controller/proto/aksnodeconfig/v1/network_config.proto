@@ -17,6 +17,12 @@ message NetworkConfig {
 
   // URL to the cni plugins tarball.
   string cni_plugins_url = 4;
+
+  // Number of Standard-type secondary network interfaces configured on the agent
+  // pool. The node bootstrapping scripts use this to detect and configure the
+  // additional NICs at the OS level. Dynamic-type secondary NICs are not included
+  // in this count as they are configured by CNS.
+  int32 standard_secondary_nic_count = 5;
 }
 
 enum NetworkPlugin {

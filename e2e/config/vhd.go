@@ -53,6 +53,7 @@ var (
 		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
+
 	VHDUbuntu2204Gen2Containerd = &Image{
 		Name:    "2204gen2containerd",
 		OS:      OSUbuntu,
@@ -60,6 +61,7 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: imageGalleryLinux,
 	}
+
 	VHDUbuntu2204Gen2TLContainerd = &Image{
 		Name:    "2204gen2TLcontainerd",
 		OS:      OSUbuntu,
@@ -67,18 +69,28 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
 		Gallery: imageGalleryLinux,
 	}
+
 	VHDUbuntu2004FIPSContainerd = &Image{
-		Name:                "2004fipscontainerd",
-		OS:                  OSUbuntu,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSUbuntuFipsContainerd2004,
-		Gallery:             imageGalleryLinux,
-		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
-		UnsupportedGen2:                   true,
-		SkipOldVHDValidations:             true,
+		Name:                  "2004fipscontainerd",
+		OS:                    OSUbuntu,
+		Arch:                  "amd64",
+		Distro:                datamodel.AKSUbuntuFipsContainerd2004,
+		Gallery:               imageGalleryLinux,
+		UnsupportedLocalDns:   true,
+		UnsupportedGen2:       true,
+		SkipOldVHDValidations: true,
 	}
+
+	VHDUbuntu2004FIPSGen2Containerd = &Image{
+		Name:                  "2004gen2fipscontainerd",
+		OS:                    OSUbuntu,
+		Arch:                  "amd64",
+		Distro:                datamodel.AKSUbuntuFipsContainerd2004Gen2,
+		Gallery:               imageGalleryLinux,
+		UnsupportedLocalDns:   true,
+		SkipOldVHDValidations: true,
+	}
+
 	VHDUbuntu2204FIPSContainerd = &Image{
 		Name:                "2204fipscontainerd",
 		OS:                  OSUbuntu,
@@ -86,10 +98,9 @@ var (
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
-		UnsupportedGen2:                   true,
+		UnsupportedGen2:     true,
 	}
+
 	VHDUbuntu2204Gen2FIPSContainerd = &Image{
 		Name:                "2204gen2fipscontainerd",
 		OS:                  OSUbuntu,
@@ -97,9 +108,8 @@ var (
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204Gen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
+
 	VHDUbuntu2204Gen2FIPSTLContainerd = &Image{
 		Name:                "2204gen2fipsTLcontainerd",
 		OS:                  OSUbuntu,
@@ -107,9 +117,8 @@ var (
 		Distro:              datamodel.AKSUbuntuFipsContainerd2204TLGen2,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
+
 	VHDAzureLinuxV2Gen2 = &Image{
 		Name:                  "V2gen2",
 		OS:                    OSAzureLinux,
@@ -119,6 +128,7 @@ var (
 		Gallery:               imageGalleryLinux,
 		SkipOldVHDValidations: true,
 	}
+
 	VHDAzureLinuxV3Gen2 = &Image{
 		Name:    "AzureLinuxV3gen2",
 		OS:      OSAzureLinux,
@@ -126,6 +136,7 @@ var (
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: imageGalleryLinux,
 	}
+
 	VHDAzureLinux3OSGuard = &Image{
 		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
 		OS:                  OSAzureLinux,
@@ -133,9 +144,8 @@ var (
 		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
+
 	VHDAzureLinuxV3Gen2FIPS = &Image{
 		Name:                "AzureLinuxV3gen2fips",
 		OS:                  OSAzureLinux,
@@ -143,8 +153,6 @@ var (
 		Distro:              datamodel.AKSAzureLinuxV3Gen2FIPS,
 		Gallery:             imageGalleryLinux,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -230,8 +238,6 @@ var (
 		Flatcar:             true,
 		OSDiskSizeGB:        60,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
 
 	VHDACLArm64Gen2FIPSTL = &Image{
@@ -243,8 +249,6 @@ var (
 		Flatcar:             true,
 		OSDiskSizeGB:        60,
 		UnsupportedLocalDns: true,
-		// Secure TLS Bootstrapping isn't currently supported on FIPS-enabled VHDs
-		UnsupportedSecureTLSBootstrapping: true,
 	}
 
 	VHDWindows2022Containerd = &Image{
@@ -299,7 +303,6 @@ type Image struct {
 	Gallery                             *Gallery
 	UnsupportedKubeletNodeIP            bool
 	UnsupportedLocalDns                 bool
-	UnsupportedSecureTLSBootstrapping   bool
 	UnsupportedNVMe                     bool
 	UnsupportedGen2                     bool
 	IgnoreFailedCgroupTelemetryServices bool

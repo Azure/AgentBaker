@@ -121,6 +121,20 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     installCredentialProviderFromPkg "$2" "$1"
 }
 
+# Only called at build-time, unlike kubelet or credential provider installation.
+installSecureTLSBootstrapClientSysext() {
+    local version=$1
+    local registry=${2:-mcr.microsoft.com}
+    # matchLocalSysext prepends 'v' when building the local filename glob, so strip any leading 'v'
+    # from the version to avoid 'vv' in the pattern (versions in components.json carry a 'v' prefix).
+    version=${version#v}
+    if ! mergeSysexts aks-secure-tls-bootstrap-client "${registry}"/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext "${version}"; then
+        echo "Failed to install aks-secure-tls-bootstrap-client sysext"
+        return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+    fi
+    ln -snf /usr/bin/aks-secure-tls-bootstrap-client /opt/bin/aks-secure-tls-bootstrap-client
+}
+
 # Reads VERSION_ID from /etc/os-release for use as the sysext version tag.
 # GPU sysexts are tagged by the OS image version, not the driver version.
 getACLVersionID() {
@@ -159,12 +173,23 @@ installGPUDriverSysext() {
     # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
     # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-vgpu:${VERSION_ID}...
     #
-    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on ConvergedGPUDriverSizes map
-    # in gpu_components.go. Converged sizes get "grid"; all others get "cuda".
+    # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
+    # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
+    # "grid-v20" (Ubuntu-only, rejected below); all others get "cuda".
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     local vm_sku
     vm_sku=$(get_compute_sku)
     local sysext_name
+
+    # GRID v20 (595.x) ships only as the aks-gpu-grid-v20 container image, which is
+    # consumed on the Ubuntu provisioning path. There is no nvidia-driver-vgpu v20
+    # sysext for Azure Container Linux, so fail fast with a clear error rather than
+    # silently falling through and installing a CUDA sysext on an RTX PRO 6000 BSE v6
+    # (vGPU) node.
+    if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid-v20" ]; then
+        echo "NVIDIA GRID v20 driver (NVIDIA_GPU_DRIVER_TYPE=grid-v20) is only supported on Ubuntu, not Azure Container Linux (vm_sku=${vm_sku})"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
 
     # Converged GPU sizes (NVads_A10_v5, NCads_A10_v4) use GRID drivers
     if [ "$NVIDIA_GPU_DRIVER_TYPE" = "grid" ]; then

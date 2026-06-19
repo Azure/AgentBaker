@@ -474,9 +474,18 @@ while IFS= read -r p; do
     "aks-secure-tls-bootstrap-client")
       for version in ${PACKAGE_VERSIONS[@]}; do
         # removed at provisioning time if secure TLS bootstrapping is disabled
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSecureTLSBootstrapClient "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - aks-secure-tls-bootstrap-client version ${version}" >> ${VHD_LOGS_FILEPATH}
+        if isUbuntu; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isMarinerOrAzureLinux; then
+          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
+        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          installSecureTLSBootstrapClientSysext "${version}" || exit $?
+        fi
+        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-acr-credential-provider")
@@ -545,6 +554,14 @@ while IFS= read -r p; do
           downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
         fi
         echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "dra-driver-nvidia-gpu")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
+          downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
+        fi
+        echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "datacenter-gpu-manager-4-core")
@@ -646,6 +663,8 @@ installAndConfigureArtifactStreaming() {
   /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
   /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
+  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
 

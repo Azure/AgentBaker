@@ -131,9 +131,7 @@ health-check.localdns.local:53 {
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
-
         fallthrough
-
     }
     template ANY ANY reddog.microsoft.com {
         rcode NXDOMAIN

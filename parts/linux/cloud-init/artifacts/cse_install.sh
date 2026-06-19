@@ -255,11 +255,14 @@ installOras() {
 # if secure TLS bootstrapping is disabled, this will simply remove the client binary from disk.
 # otherwise, if a custom URL is provided, it will use the custom URL to overwrite the existing installation
 installSecureTLSBootstrapClient() {
-    # TODO(cameissner): can probably remove this once we get to preview
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
         echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
         rm -f "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" &
         rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}" &
+        if isFlatcar || isACL; then
+            rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw
+            (systemd-sysext --no-reload refresh || echo "WARNING: systemd-sysext refresh failed after removing aks-secure-tls-bootstrap-client sysext") &
+        fi
         return 0
     fi
 
@@ -272,13 +275,11 @@ installSecureTLSBootstrapClient() {
         return 0
     fi
 
-    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    downloadSecureTLSBootstrapClientFromURL "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 }
 
-downloadSecureTLSBootstrapClient() {
-    # TODO(cameissner): have this managed by renovate, migrate from github to MCR/packages.microsoft.com
-
-    local CLIENT_EXTRACTED_DIR=${1-$:SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
+downloadSecureTLSBootstrapClientFromURL() {
+    local CLIENT_EXTRACTED_DIR=${1:-$SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
     local CLIENT_DOWNLOAD_URL=$2
 
     mkdir -p $SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR

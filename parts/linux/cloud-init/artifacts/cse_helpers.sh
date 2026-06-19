@@ -140,7 +140,7 @@ ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
 
-ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
+ERR_SECURE_TLS_BOOTSTRAP_ENABLE_FAILURE=220 # Error enabling the secure TLS bootstrap systemd service
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
@@ -160,6 +160,7 @@ ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, r
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
 ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
+ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
@@ -1282,34 +1283,61 @@ oras_login_with_kubelet_identity() {
     fi
 
     set +x
+    # Try ACR endpoint (containerregistry.azure.net) first, fall back to ARM endpoint (management.azure.com)
+    local acr_endpoint="https://containerregistry.azure.net"
     local arm_endpoint="${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}"
-    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${arm_endpoint}&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ]; then
-        echo $raw_access_token
-        return $ret_code
-    fi
-    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
-    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-        echo "failed to parse access token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
+    local endpoints=("$acr_endpoint" "$arm_endpoint")
+    local ACCESS_TOKEN=""
+    local REFRESH_TOKEN=""
+    local last_ret_code=0
 
-    raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ]; then
-        echo "failed to retrieve refresh token: $ret_code"
-        return $ret_code
-    fi
-    # shellcheck disable=SC3010
-    if [[ "$raw_refresh_token" == *"error"* ]]; then
-        echo "failed to retrieve refresh token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-    REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
-    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
-        echo "failed to parse refresh token"
+    for endpoint in "${endpoints[@]}"; do
+        last_ret_code=0
+        echo "attempting to get access token with endpoint: $endpoint"
+        access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${endpoint}&client_id=$client_id"
+        raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
+        ret_code=$?
+        if [ "$ret_code" -ne 0 ]; then
+            echo "failed to get access token with endpoint $endpoint, ret_code: $ret_code"
+            last_ret_code=$ret_code
+            continue
+        fi
+        ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
+        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "failed to parse access token with endpoint $endpoint"
+            continue
+        fi
+
+        raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
+        ret_code=$?
+        if [ "$ret_code" -ne 0 ]; then
+            echo "failed to retrieve refresh token with endpoint $endpoint, ret_code: $ret_code"
+            last_ret_code=$ret_code
+            ACCESS_TOKEN=""
+            continue
+        fi
+        # shellcheck disable=SC3010
+        if [[ "$raw_refresh_token" == *"error"* ]]; then
+            echo "failed to retrieve refresh token with endpoint $endpoint: $(echo "$raw_refresh_token" | jq -r '.error // empty'): $(echo "$raw_refresh_token" | jq -r '.error_description // empty')"
+            ACCESS_TOKEN=""
+            continue
+        fi
+        REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
+        if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
+            echo "failed to parse refresh token with endpoint $endpoint"
+            ACCESS_TOKEN=""
+            continue
+        fi
+
+        echo "successfully obtained acr refresh tokens with endpoint: $endpoint"
+        break
+    done
+
+    if [ -z "$ACCESS_TOKEN" ] || [ -z "$REFRESH_TOKEN" ]; then
+        echo "failed to obtain tokens with all endpoints"
+        if [ "$last_ret_code" -ne 0 ]; then
+            return $last_ret_code
+        fi
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 

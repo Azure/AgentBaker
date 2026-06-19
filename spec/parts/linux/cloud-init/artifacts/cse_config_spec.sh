@@ -149,6 +149,331 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureSecondaryNICs'
+        cleanup() {
+            # Only remove files written by the tests, not the entire directory
+            rm -f /etc/netplan/60-secondary-nic-*.yaml 2>/dev/null || true
+            rm -f /etc/systemd/network/10-secondary-nic-*.network 2>/dev/null || true
+        }
+
+        AfterEach 'cleanup'
+
+        # Stub commands that configureSecondaryNICs calls
+        chmod() {
+            echo "chmod $@"
+        }
+        netplan() {
+            echo "netplan $@"
+        }
+        networkctl() {
+            echo "networkctl $@"
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            shift 3
+            "$@"
+        }
+
+        It 'should skip when only a single NIC is present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json"
+            When run configureSecondaryNICs
+            The output should include "No secondary NICs detected, skipping"
+            The status should be success
+        End
+
+        It 'should configure netplan on Ubuntu when two NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "could not find interface for MAC"
+            The output should include "Configured secondary NIC eth1"
+            The output should include "mac=7c:1e:52:5a:aa:aa"
+            The output should include "metric=200"
+            The output should include "chmod 600"
+            The output should include "netplan apply"
+            The status should be success
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'secondary-nic-1:'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'macaddress: "7c:1e:52:5a:aa:aa"'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp4: true'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'use-dns: false'
+        End
+
+        It 'should configure networkd on AzureLinux/Mariner when two NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURELINUX"
+            # Create the networkd directory so the heredoc write succeeds
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=2100"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            # networkctl up should NOT be called because the fallback interface
+            # (eth1) does not exist in /sys/class/net — the .network files match
+            # by MAC and will auto-activate when the real interface appears.
+            The output should not include "networkctl up"
+            The status should be success
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:1e:52:5a:aa:aa'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'UseDNS=false'
+        End
+
+        It 'should configure networkd on ACL with systemd restart when two NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=2100"
+            The output should include "retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd"
+            The output should not include "networkctl reload"
+            The status should be success
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[Match]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:1e:52:5a:aa:aa'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=ipv4'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+        End
+
+        It 'should configure netplan for both secondary NICs when three NICs are present on Ubuntu'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "Configured secondary NIC eth2"
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'secondary-nic-1:'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'macaddress: "7c:ed:8d:8a:4d:ce"'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
+            # Second secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'secondary-nic-2:'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'macaddress: "bb:cc:11:dd:22:ee"'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'route-metric: 300'
+        End
+
+        It 'should configure networkd for both secondary NICs when three NICs are present on AzureLinux/Mariner'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "Configured secondary NIC eth2"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            # networkctl up should NOT be called because the fallback interfaces
+            # don't exist in /sys/class/net
+            The output should not include "networkctl up"
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:ed:8d:8a:4d:ce'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+            # Second secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'MACAddress=bb:cc:11:dd:22:ee'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=2200'
+        End
+
+        It 'should configure networkd for both secondary NICs when three NICs are present on ACL with systemd restart'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "Configured secondary NIC eth2"
+            The output should include "retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd"
+            The output should not include "networkctl reload"
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'MACAddress=7c:ed:8d:8a:4d:ce'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+            # Second secondary NIC
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'MACAddress=bb:cc:11:dd:22:ee'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=2200'
+        End
+
+        It 'should configure netplan with IPv6 on Ubuntu when dual-stack NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic_dualstack.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=200"
+            The output should include "chmod 600"
+            The output should include "netplan apply"
+            The status should be success
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp4: true'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp6: true'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp6-overrides:'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'use-dns: false'
+        End
+
+        It 'should configure networkd with IPv6 on AzureLinux/Mariner when dual-stack NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic_dualstack.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=2100"
+            The status should be success
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'IPv6AcceptRA=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[DHCPv4]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[DHCPv6]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'UseDNS=false'
+        End
+
+        It 'should configure networkd with IPv6 on ACL when dual-stack NICs are present'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic_dualstack.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 2 NICs, configuring secondary interfaces..."
+            The output should include "Configured secondary NIC eth1"
+            The output should include "metric=2100"
+            The output should include "retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd"
+            The status should be success
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'IPv6AcceptRA=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[DHCPv6]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+        End
+
+        It 'should configure netplan with IPv6 for both secondary NICs when three dual-stack NICs are present on Ubuntu'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic_dualstack.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The status should be success
+            # First secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp4: true'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'route-metric: 200'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp6: true'
+            The contents of file "/etc/netplan/60-secondary-nic-1.yaml" should include 'dhcp6-overrides:'
+            # Second secondary NIC
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'dhcp4: true'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'route-metric: 300'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'dhcp6: true'
+            The contents of file "/etc/netplan/60-secondary-nic-2.yaml" should include 'dhcp6-overrides:'
+        End
+
+        It 'should configure networkd with IPv6 for both secondary NICs when three dual-stack NICs are present on AzureLinux'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/three_nic_dualstack.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Detected 3 NICs, configuring secondary interfaces..."
+            The status should be success
+            # First secondary NIC — dual-stack
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'DHCP=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'IPv6AcceptRA=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include '[DHCPv6]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-1.network" should include 'RouteMetric=2100'
+            # Second secondary NIC — dual-stack
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'DHCP=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'IPv6AcceptRA=yes'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include '[DHCPv6]'
+            The contents of file "/etc/systemd/network/10-secondary-nic-2.network" should include 'RouteMetric=2200'
+        End
+
+        It 'should return error when IMDS cache file is missing'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="/nonexistent/path.json"
+            When run configureSecondaryNICs
+            The stderr should include "Failed to parse NIC count from IMDS cache file"
+            The status should equal 243
+        End
+
+        It 'should return error when IMDS cache file contains invalid JSON'
+            tmpfile=$(mktemp)
+            echo "not valid json" > "$tmpfile"
+            IMDS_INSTANCE_METADATA_CACHE_FILE="$tmpfile"
+            When run configureSecondaryNICs
+            The stderr should include "Failed to parse NIC count from IMDS cache file"
+            The status should equal 243
+        End
+
+        It 'should return error when netplan apply fails on Ubuntu'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="UBUNTU"
+            mkdir -p /etc/netplan
+            netplan() {
+                return 1
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to apply netplan config for secondary NICs"
+            The status should equal 243
+        End
+
+        It 'should return error when networkctl reload fails on AzureLinux/Mariner'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            networkctl() {
+                return 1
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to reload networkd for secondary NICs"
+            The status should equal 243
+        End
+
+        It 'should return error when systemd-networkd restart fails on ACL'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            systemctl() {
+                return 1
+            }
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The stderr should include "Failed to restart systemd-networkd for secondary NICs"
+            The status should equal 243
+        End
+
+        It 'should not call networkctl up for fallback interfaces that do not exist in sysfs'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURELINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "could not find interface for MAC"
+            The output should include "Configured secondary NIC eth1"
+            # networkctl up should NOT be called because the fallback eth1 is not
+            # a real interface — it won't exist in /sys/class/net and therefore
+            # is excluded from the secondary_ifaces list.
+            The output should not include "networkctl up"
+            The output should include "retrycmd_if_failure 5 3 10 networkctl reload"
+            The status should be success
+        End
+
+        It 'should not call networkctl up on ACL after systemd restart'
+            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
+            OS="AZURECONTAINERLINUX"
+            mkdir -p /etc/systemd/network
+            When run configureSecondaryNICs
+            The output should include "Configured secondary NIC eth1"
+            The output should include "retrycmd_if_failure 5 5 30 systemctl restart systemd-networkd"
+            The output should not include "networkctl up"
+            The output should not include "networkctl reload"
+            The status should be success
+        End
+    End
+
     Describe 'configureKubeletServing'
         preserve_vars() {
             %preserve KUBELET_FLAGS
@@ -1215,7 +1540,7 @@ SETUP_EOF
         End
     End
 
-    Describe 'configureAndStartSecureTLSBootstrapping'
+    Describe 'configureAndEnableSecureTLSBootstrapping'
         SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR="secure-tls-bootstrap.service.d"
         SECURE_TLS_BOOTSTRAPPING_DROP_IN="${SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR}/10-securetlsbootstrap.conf"
         SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR="default"
@@ -1227,6 +1552,11 @@ SETUP_EOF
             echo "chmod $@"
         }
 
+        retrycmd_if_failure() {
+            shift 3
+            echo "$@"
+        }
+
         cleanup() {
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN_DIR"
             rm -rf "$SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE_DIR"
@@ -1234,14 +1564,12 @@ SETUP_EOF
 
         AfterEach 'cleanup'
 
-        It 'should configure and start secure TLS bootstrapping'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
-            When call configureAndStartSecureTLSBootstrapping
+        It 'should configure and enable secure TLS bootstrapping'
+            When call configureAndEnableSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "chmod 0600 default/secure-tls-bootstrap"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The output should include "systemctl enable secure-tls-bootstrap"
+            The output should not include "systemctlEnableAndStartNoBlock"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
@@ -1254,21 +1582,15 @@ SETUP_EOF
         End
 
         It 'should include AZURE_ENVIRONMENT_FILEPATH in the default file when set'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
             AZURE_ENVIRONMENT_FILEPATH="/etc/kubernetes/akscustom.json"
-            When call configureAndStartSecureTLSBootstrapping
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            When call configureAndEnableSecureTLSBootstrapping
+            The output should include "systemctl enable secure-tls-bootstrap"
             The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json'
             The contents of file "default/secure-tls-bootstrap" should include 'AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/akscustom.json'
             The status should be success
         End
 
-        It 'should configure and start secure TLS bootstrapping using provided overrides'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
+        It 'should configure and enable secure TLS bootstrapping using provided overrides'
             SECURE_TLS_BOOTSTRAPPING_VALIDATE_KUBECONFIG_TIMEOUT="custom-validate-kubeconfig-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_ACCESS_TOKEN_TIMEOUT="custom-get-access-token-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT="custom-get-instance-data-timeout"
@@ -1278,10 +1600,11 @@ SETUP_EOF
             SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
-            When call configureAndStartSecureTLSBootstrapping
+            When call configureAndEnableSecureTLSBootstrapping
             The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
             The output should include "chmod 0600 default/secure-tls-bootstrap"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
+            The output should include "systemctl enable secure-tls-bootstrap"
+            The output should not include "systemctlEnableAndStartNoBlock"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
@@ -1726,6 +2049,120 @@ SETUP_EOF
             The status should be success
             The output should include "warning: nvidia-dcgm could not be enqueued"
             The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
+        End
+    End
+
+    Describe 'configGPUDrivers'
+        # Assert the per-step CSE timing event names emitted via logs_to_events,
+        # without running the real (hardware/daemon) driver steps. logs_to_events
+        # is mocked to print only the event name so the wrapped commands never run.
+        logs_to_events() {
+            echo "logs_to_events $1"
+        }
+        waitForContainerdReady() { return 0; }
+        retrycmd_if_failure() { return 0; }
+        ctr() { return 0; }
+        mkdir() { return 0; }
+        enableNvidiaPersistenceMode() { return 0; }
+        createNvidiaSymlinkToAllDeviceNodes() { return 0; }
+        systemctlEnableAndStart() { return 0; }
+        systemctl() { return 0; }
+
+        UBUNTU_OS_NAME="UBUNTU"
+        NVIDIA_DRIVER_IMAGE="mcr.example/nvidia/driver"
+        NVIDIA_DRIVER_IMAGE_TAG="000.00"
+        NVIDIA_GPU_DRIVER_TYPE="cuda"
+        OS_VARIANT=""
+        ERR_GPU_DRIVERS_START_FAIL=88
+
+        It 'times the image pull and install steps on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'times the driver download and toolkit install on Mariner/AzureLinux'
+            OS="AZURELINUX"
+            isMarinerOrAzureLinux() { return 0; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.downloadGPUDrivers"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'times the sysext pulls on Azure Container Linux (ACL)'
+            OS="AZURELINUX"
+            OS_VARIANT="acl"
+            isMarinerOrAzureLinux() { return 0; }
+            isAzureLinuxOSGuard() { return 0; }
+            isACL() { return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkitSysext"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+    End
+
+    Describe 'ensurePodInfraContainerImage'
+        waitForContainerdReady() { return 0; }
+        ctr() { echo ""; return 0; }
+        mkdir() { echo "mkdir $@"; }
+        tar() { echo "tar $@"; return 0; }
+        rm() { echo "rm $@"; }
+        labelContainerImage() { echo "labelContainerImage $@"; }
+        retrycmd_cp_oci_layout_with_oras() { echo "retrycmd_cp_oci_layout_with_oras $@"; return 0; }
+        ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
+
+        It 'should use MCR_REPOSITORY_BASE for image replacement when set'
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE="mcr.microsoft.us"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'should fall back to mcr.microsoft.com when MCR_REPOSITORY_BASE is unset'
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE=""
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'should handle MCR_REPOSITORY_BASE with trailing slash'
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE="mcr.microsoft.us/"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
         End
     End
 

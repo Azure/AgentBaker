@@ -387,7 +387,7 @@ function nodePrep {
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
-        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+        logs_to_events "AKS.CSE.configureAndEnableSecureTLSBootstrapping" configureAndEnableSecureTLSBootstrapping
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
@@ -404,6 +404,12 @@ function nodePrep {
 
     # Configure Azure network settings (udev rules for NIC configuration)
     logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
+
+    # Bring up secondary Standard-type NICs (if any) via IMDS metadata.
+    # Only runs when the RP signals that secondary NICs were attached.
+    if [ "${STANDARD_SECONDARY_NIC_COUNT:-0}" -gt 0 ]; then
+        logs_to_events "AKS.CSE.configureSecondaryNICs" configureSecondaryNICs || exit $ERR_SECONDARY_NIC_CONFIG_FAIL
+    fi
 
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers

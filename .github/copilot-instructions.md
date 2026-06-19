@@ -40,6 +40,10 @@ Tags of AgentBaker and corresponding Linux VHDs are released every week. Linux V
 
 Windows VHD are released separately, following windows patch tuesday schedule.
 
+## Contributing
+
+When opening a pull request against this repository, the PR's head branch must live in `Azure/AgentBaker` itself — **not in a fork**. Push your branch directly to a branch in `Azure/AgentBaker` (this requires write access to the repo) and open the PR from there; do not rely on a specific remote name, since `origin` often points at a personal fork. The `validate-pull-request-source` CI check (`.github/workflows/validate-pull-request-source.yml`) fails any PR whose head branch lives in a forked repository.
+
 ## Guidelines
 
 ### SRE Guidelines

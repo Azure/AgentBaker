@@ -6,6 +6,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+      with:
+        # Compatibility tests in aks-node-controller create git worktrees at
+        # historical commits. Full history avoids relying on runtime `git fetch`
+        # of those commits, which is flaky on the default shallow checkout.
+        fetch-depth: 0
     - uses: actions/setup-go@v6
       with:
         go-version: '1.25'

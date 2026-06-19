@@ -166,7 +166,8 @@ net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
 net.ipv4.tcp_max_syn_backlog=16384
-net.ipv4.tcp_retries2=8`)),
+net.ipv4.tcp_retries2=8
+`)),
 		},
 		{
 			name: "SysctlConfig with custom values",
@@ -187,7 +188,8 @@ net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
 net.ipv4.tcp_max_syn_backlog=9999
-net.ipv4.tcp_retries2=8`)),
+net.ipv4.tcp_retries2=8
+`)),
 		},
 	}
 	for _, tt := range tests {
@@ -214,7 +216,7 @@ func Test_getUlimitContent(t *testing.T) {
 			args: args{
 				u: &aksnodeconfigv1.UlimitConfig{},
 			},
-			want: "[Service]\n",
+			want: "[Service] ",
 		},
 		{
 			name: "UlimitConfig with custom values",
@@ -224,7 +226,7 @@ func Test_getUlimitContent(t *testing.T) {
 					MaxLockedMemory: &str9999,
 				},
 			},
-			want: "[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999",
+			want: "[Service] LimitMEMLOCK=9999 LimitNOFILE=9999 ",
 		},
 	}
 	for _, tt := range tests {

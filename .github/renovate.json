@@ -146,26 +146,10 @@
       "automerge": false,
       "enabled": true,
       "assignees": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220",
-        "pdamianov-dev",
-        "SriHarsha001"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -458,6 +442,18 @@
     },
     {
       "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client"
+      ],
+      "groupName": "aks-secure-tls-bootstrap-client",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "datacenter-gpu-manager-4-core",
         "datacenter-gpu-manager-4-proprietary",
         "dcgm-exporter"
@@ -583,6 +579,16 @@
         "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu-grid",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-grid-v20"
+      ],
+      "groupName": "nvidia-gpu-grid-v20",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,

@@ -229,6 +229,47 @@ Describe "Set-PodInfraContainerImage" {
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
     $script:CtrExeInvocations.Count | Should -Be 1
   }
+  It "should replace MCR base (default mcr.microsoft.com) with bootstrap profile registry" {
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = $null
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+  }
+
+  It "should use MCRRepositoryBase (and trim trailing slash) for image replacement" {
+    Mock Get-Content -MockWith {
+      @'
+{
+  "Cri": {
+    "Images": {
+      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"
+    }
+  }
+}
+'@
+    }
+
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = "mcr.microsoft.us/"
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+  }
 }
 
 Describe "Invoke-OrasLogin" {
@@ -245,24 +286,6 @@ Describe "Invoke-OrasLogin" {
       throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
     }
 
-    $script:RetryCommandMock = {
-      param($Command, $Args, $Retries, $RetryDelaySeconds)
-      throw "Retry-Command was not configured for this test"
-    }
-    function global:Retry-Command {
-      param(
-        [Parameter(Mandatory = $true)][string]$Command,
-        [Parameter(Mandatory = $true)][hashtable]$Args,
-        [Parameter(Mandatory = $true)][int]$Retries,
-        [Parameter(Mandatory = $true)][int]$RetryDelaySeconds
-      )
-
-      return & $script:RetryCommandMock $Command $Args $Retries $RetryDelaySeconds
-    }
-  }
-
-  AfterEach {
-    Remove-Item Function:\global:Retry-Command -ErrorAction SilentlyContinue
   }
 
   It "should return unauthorized error code when ClientID is missing" {
@@ -297,16 +320,62 @@ Describe "Invoke-OrasLogin" {
       }
       throw "unexpected Invoke-RestMethod Uri: $Uri"
     }
-    $script:RetryCommandMock = {
-      param($Command, $Args, $Retries, $RetryDelaySeconds)
-      $requestUri = [string]$Args['Uri']
-      if ($requestUri -like "*metadata/identity/oauth2/token*") {
-        return [pscustomobject]@{ access_token = "imds-token" }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    $global:OrasPath = {
+      $null = $input
+      $null = $args
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1 -ParameterFilter { $RefreshToken -eq 'refresh-token' }
+  }
+
+  It "should succeed with ACR endpoint on first try" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    $script:invokeRestMethodUrls = @()
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      $script:invokeRestMethodUrls += $Uri
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        return [pscustomobject]@{ access_token = "acr-token" }
       }
-      if ($requestUri -like "*/oauth2/exchange") {
+      if ($Uri -like "*/oauth2/exchange") {
         return [pscustomobject]@{ refresh_token = "refresh-token" }
       }
-      throw "unexpected Retry-Command Uri: $requestUri"
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    $global:OrasPath = {
+      $null = $input
+      $null = $args
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    # Should have used ACR endpoint (containerregistry.azure.net), not ARM
+    $script:invokeRestMethodUrls[0] | Should -BeLike "*containerregistry.azure.net*"
+  }
+
+  It "should fallback to ARM endpoint when ACR endpoint fails access token" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        if ($Uri -like "*containerregistry.azure.net*") {
+          throw "IMDS error for ACR endpoint"
+        }
+        # ARM endpoint succeeds
+        return [pscustomobject]@{ access_token = "arm-token" }
+      }
+      if ($Uri -like "*/oauth2/exchange") {
+        return [pscustomobject]@{ refresh_token = "refresh-token" }
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
     }
     Mock Assert-RefreshToken -MockWith { 0 }
 
@@ -321,6 +390,76 @@ Describe "Invoke-OrasLogin" {
     Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1 -ParameterFilter { $RefreshToken -eq 'refresh-token' }
   }
 
+  It "should fallback to ARM endpoint when ACR endpoint fails refresh token" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    $script:currentEndpoint = $null
+    $script:exchangeCallCount = 0
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        if ($Uri -like "*containerregistry.azure.net*") {
+          $script:currentEndpoint = "acr"
+        } else {
+          $script:currentEndpoint = "arm"
+        }
+        return [pscustomobject]@{ access_token = "some-token" }
+      }
+      if ($Uri -like "*/oauth2/exchange") {
+        $script:exchangeCallCount++
+        if ($script:currentEndpoint -eq "acr") {
+          throw "Exchange error for ACR endpoint"
+        }
+        return [pscustomobject]@{ refresh_token = "refresh-token" }
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    $global:OrasPath = {
+      $null = $input
+      $null = $args
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1
+    $script:exchangeCallCount | Should -BeGreaterOrEqual 2
+  }
+
+  It "should fail when both endpoints fail to get tokens" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        throw "IMDS error"
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+
+    {
+      Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT):failed to obtain IMDS tokens with all endpoints*"
+  }
+
+  It "should fail when both endpoints return empty refresh token" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        return [pscustomobject]@{ access_token = "some-token" }
+      }
+      if ($Uri -like "*/oauth2/exchange") {
+        return [pscustomobject]@{ refresh_token = $null }
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+
+    {
+      Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED):failed to obtain tokens with all endpoints*"
+  }
+
   It "should fail after three unsuccessful oras login attempts" {
     Mock Assert-AnonymousAcrAccess -MockWith { 1 }
     Mock Invoke-RestMethod -MockWith {
@@ -332,17 +471,6 @@ Describe "Invoke-OrasLogin" {
         return [pscustomobject]@{ refresh_token = "refresh-token" }
       }
       throw "unexpected Invoke-RestMethod Uri: $Uri"
-    }
-    $script:RetryCommandMock = {
-      param($Command, $Args, $Retries, $RetryDelaySeconds)
-      $requestUri = [string]$Args['Uri']
-      if ($requestUri -like "*metadata/identity/oauth2/token*") {
-        return [pscustomobject]@{ access_token = "imds-token" }
-      }
-      if ($requestUri -like "*/oauth2/exchange") {
-        return [pscustomobject]@{ refresh_token = "refresh-token" }
-      }
-      throw "unexpected Retry-Command Uri: $requestUri"
     }
     Mock Assert-RefreshToken -MockWith { 0 }
 
