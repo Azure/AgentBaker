@@ -672,6 +672,12 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 //   - the apiserver ClusterIP ("clusterip-via-kube-proxy", 10.0.0.1) is unreachable
 //     pre-kubelet because kube-proxy has not yet programmed the Service DNAT rules.
 //
+// It also observes the faithful live-patching-service probes ("lps-sni-fqdn" /
+// "lps-sni-clusterip"), which exercise the real node→SNI→kube-api-proxy→LPS path. AB e2e
+// cannot deploy the LPS data plane, so those are logged-and-asserted-to-have-run only; set
+// E2E_LPS_ENABLED=true (on an LPS-enabled cluster, e.g. the aks-rp E2Ev3 run) to also
+// hard-assert that lps-sni-fqdn reached the service.
+//
 // The probe only exists in aks-node-controller binaries built from the check-lps branch,
 // so this validation is a no-op (logged skip) on VHDs whose ANC predates it. That keeps
 // the validation safe to attach to a scenario that may also run against a stock VHD.
@@ -688,14 +694,19 @@ func ValidateCheckLPSProbes(ctx context.Context, s *Scenario) {
 	}
 
 	var sawFQDNReachable, sawClusterIPProbe, sawClusterIPUnreachable bool
+	var sawLPSSNIFQDNProbe, sawLPSSNIFQDNReachable bool
 	for _, line := range strings.Split(content, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || !strings.Contains(line, "check-lps probe") {
 			continue
 		}
 		var entry struct {
-			Msg   string `json:"msg"`
-			Probe string `json:"probe"`
+			Msg        string `json:"msg"`
+			Probe      string `json:"probe"`
+			URL        string `json:"url"`
+			StatusCode int    `json:"statusCode"`
+			LatencyMs  int    `json:"latencyMs"`
+			Error      string `json:"error"`
 		}
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			// Not a JSON log line we recognize; skip it.
@@ -711,6 +722,23 @@ func ValidateCheckLPSProbes(ctx context.Context, s *Scenario) {
 			if entry.Msg == "check-lps probe unreachable" {
 				sawClusterIPUnreachable = true
 			}
+		case "lps-sni-fqdn":
+			sawLPSSNIFQDNProbe = true
+			// Log the faithful-path result for diagnostics. We do NOT hard-assert
+			// reachability here unless LPS is actually deployed on the cluster (see
+			// below), because the kube-api-proxy/envoy SNI route that maps
+			// aks-security-patch.data.mcr.microsoft.com to the live-patching-service
+			// backend is provisioned AKS-RP-side and is absent on a vanilla AB e2e
+			// cluster. Without it the probe legitimately reports unreachable.
+			s.T.Logf("check-lps lps-sni-fqdn (faithful LPS path): msg=%q statusCode=%d latencyMs=%d error=%q url=%q",
+				entry.Msg, entry.StatusCode, entry.LatencyMs, entry.Error, entry.URL)
+			if entry.Msg == "check-lps probe reachable" {
+				sawLPSSNIFQDNReachable = true
+			}
+		case "lps-sni-clusterip":
+			// Expected unreachable pre-kubelet (10.0.0.1 not yet programmed); log only.
+			s.T.Logf("check-lps lps-sni-clusterip (faithful LPS path via ClusterIP): msg=%q statusCode=%d latencyMs=%d error=%q url=%q",
+				entry.Msg, entry.StatusCode, entry.LatencyMs, entry.Error, entry.URL)
 		}
 	}
 
@@ -720,6 +748,18 @@ func ValidateCheckLPSProbes(ctx context.Context, s *Scenario) {
 		"expected check-lps clusterip-via-kube-proxy probe to have run, but no such line was found in %s", logPath)
 	require.True(s.T, sawClusterIPUnreachable,
 		"expected check-lps clusterip-via-kube-proxy probe to be unreachable pre-kubelet (kube-proxy DNAT not yet programmed), but it was reported reachable in %s", logPath)
+
+	// The faithful lps-sni-fqdn probe must at least RUN on any check-lps build. We only
+	// hard-assert that it reached the live-patching-service (HTTP 200 path) when the
+	// cluster is known to have LPS deployed, signalled out-of-band via E2E_LPS_ENABLED=true.
+	// AB e2e cannot deploy the LPS data plane, so by default this is observe-and-log only;
+	// the aks-rp E2Ev3 LPS cluster flips the env var to enforce reachability.
+	require.True(s.T, sawLPSSNIFQDNProbe,
+		"expected check-lps lps-sni-fqdn faithful probe to have run, but no such line was found in %s", logPath)
+	if strings.EqualFold(os.Getenv("E2E_LPS_ENABLED"), "true") {
+		require.True(s.T, sawLPSSNIFQDNReachable,
+			"E2E_LPS_ENABLED=true but check-lps lps-sni-fqdn faithful probe was not reachable; expected the live-patching-service SNI path to succeed on an LPS-enabled cluster (see %s)", logPath)
+	}
 }
 
 // ValidateFIPSProvider verifies that FIPS is properly configured on the node:
