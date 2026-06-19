@@ -2121,4 +2121,48 @@ SETUP_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
         End
     End
+
+    Describe 'ensurePodInfraContainerImage'
+        waitForContainerdReady() { return 0; }
+        ctr() { echo ""; return 0; }
+        mkdir() { echo "mkdir $@"; }
+        tar() { echo "tar $@"; return 0; }
+        rm() { echo "rm $@"; }
+        labelContainerImage() { echo "labelContainerImage $@"; }
+        retrycmd_cp_oci_layout_with_oras() { echo "retrycmd_cp_oci_layout_with_oras $@"; return 0; }
+        ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
+
+        It 'should use MCR_REPOSITORY_BASE for image replacement when set'
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE="mcr.microsoft.us"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'should fall back to mcr.microsoft.com when MCR_REPOSITORY_BASE is unset'
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE=""
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'should handle MCR_REPOSITORY_BASE with trailing slash'
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE="mcr.microsoft.us/"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+    End
 End

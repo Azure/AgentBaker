@@ -621,7 +621,9 @@ ensurePodInfraContainerImage() {
     base_name="${pod_infra_container_image%:*}"
     tag="local"
 
-    image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
+    MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+    image="${pod_infra_container_image//${MCR_REPOSITORY_BASE}/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
     acr_url=$(echo "$image" | cut -d/ -f1)
 
     mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
