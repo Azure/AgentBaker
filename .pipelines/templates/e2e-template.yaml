@@ -10,6 +10,10 @@ parameters:
     type: string
     displayName: Variable group to use for e2e tests
     default: ab-e2e
+  - name: subscriptionId
+    type: string
+    displayName: Subscription ID to use for E2E tests
+    default: $(E2E_SUBSCRIPTION_ID)
 
 jobs:
   - job: e2e
@@ -37,7 +41,7 @@ jobs:
             bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+          E2E_SUBSCRIPTION_ID: ${{parameters.subscriptionId}}
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
