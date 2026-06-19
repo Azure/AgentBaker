@@ -796,6 +796,51 @@ if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi
 
+# For ACL amd64: pre-cache GPU sysexts from ACR so that E2E GPU tests do not
+# need to pull from MCR at runtime (MCR may not have sysexts for unreleased
+# VERSION_IDs). The sysexts are placed in /opt/<name>/downloads/ where the
+# CSE's matchLocalSysext() will find them.
+if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && [ -n "${GPU_SYSEXT_ACR_REPO:-}" ] && [ -n "${GPU_SYSEXT_TAG:-}" ]; then
+  echo "=== Pre-caching GPU sysexts from ACR ==="
+  echo "  Repo: ${GPU_SYSEXT_ACR_REPO}"
+  echo "  Tag:  ${GPU_SYSEXT_TAG}"
+
+  # Authenticate ORAS to the ACR using the token passed from the pipeline
+  ACR_HOST="${GPU_SYSEXT_ACR_REPO%%/*}"
+  if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
+    /opt/bin/oras login "${ACR_HOST}" \
+      --username "00000000-0000-0000-0000-000000000000" \
+      --password "${GPU_SYSEXT_ACR_TOKEN}"
+  fi
+
+  GPU_SYSEXTS=(
+    "nvidia-driver-cuda-open"
+    "nvidia-driver-cuda"
+    "nvidia-driver-vgpu"
+    "nvidia-container-toolkit"
+    "nvidia-fabric-manager"
+  )
+
+  for sysext_name in "${GPU_SYSEXTS[@]}"; do
+    download_dir="/opt/${sysext_name}/downloads"
+    mkdir -p "${download_dir}"
+    sysext_ref="${GPU_SYSEXT_ACR_REPO}/${sysext_name}:${GPU_SYSEXT_TAG}"
+    echo "  Pulling ${sysext_ref} → ${download_dir}"
+    if /opt/bin/oras pull --output "${download_dir}" "${sysext_ref}"; then
+      echo "  - gpu-sysext ${sysext_name}:${GPU_SYSEXT_TAG} (pre-cached from ACR)" >> ${VHD_LOGS_FILEPATH}
+    else
+      echo "  WARNING: Failed to pull ${sysext_ref} — GPU E2E may fail for this driver flavor"
+    fi
+  done
+
+  # Logout from ACR
+  if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
+    /opt/bin/oras logout "${ACR_HOST}" 2>/dev/null || true
+  fi
+
+  capture_benchmark "${SCRIPT_NAME}_precache_acl_gpu_sysexts"
+fi
+
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 

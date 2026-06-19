@@ -94,6 +94,30 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        ACR_REPO="$(GPU_SYSEXT_ACR_REPO)"
+        if [[ -z "${ACR_REPO}" ]]; then
+          echo "No GPU_SYSEXT_ACR_REPO set — skipping ACR token generation"
+          exit 0
+        fi
+        ACR_HOST="${ACR_REPO%%/*}"
+        ACR_NAME="${ACR_HOST%%.*}"
+        echo "Generating ACR access token for ${ACR_NAME}..."
+        TOKEN=$(az acr login --name "${ACR_NAME}" --expose-token --output tsv --query accessToken)
+        if [[ -z "${TOKEN}" ]]; then
+          echo "##[warning]Failed to get ACR token for ${ACR_NAME} — GPU sysext pre-cache will be skipped"
+          exit 0
+        fi
+        echo "##vso[task.setvariable variable=GPU_SYSEXT_ACR_TOKEN;issecret=true]${TOKEN}"
+        echo "ACR token generated successfully for ${ACR_NAME}"
+    condition: and(ne(variables['BUILDER'], 'imagecustomizer'), ne(variables['GPU_SYSEXT_ACR_REPO'], ''))
+    displayName: Generate ACR Token for GPU Sysext Cache
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
@@ -108,6 +132,7 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+      GPU_SYSEXT_ACR_TOKEN: $(GPU_SYSEXT_ACR_TOKEN)
 
   - task: AzureCLI@2
     inputs:
