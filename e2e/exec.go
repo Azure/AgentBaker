@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -70,8 +69,11 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 		remotePath = fmt.Sprintf("c:/script_file_%x.ps1", randBytes)
 		remoteCommand = fmt.Sprintf("powershell %s", remotePath)
 	} else {
-		remotePath = filepath.Join("/home/azureuser", fmt.Sprintf("remote_script_%x.sh", randBytes))
-		remoteCommand = remotePath
+		// Use forward slashes for the remote (Linux) path. filepath.Join would
+		// produce backslashes when the test host is Windows, which the remote
+		// shell then unescapes, mangling the path (e.g. /home/azureuser/x -> homeazureuserx).
+		remotePath = fmt.Sprintf("/home/azureuser/remote_script_%x.sh", randBytes)
+		remoteCommand = "bash " + remotePath
 	}
 
 	scpClient, err := scp.NewClientBySSH(client)

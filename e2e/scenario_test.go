@@ -694,6 +694,9 @@ func Test_Ubuntu2404_Scriptless(t *testing.T) {
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				// Validates the check-lps pre-kubelet connectivity probe (Provisioning-Hotfix
+				// Option 4 reachability assumption). No-op on VHDs whose ANC predates check-lps.
+				ValidateCheckLPSProbes(ctx, s)
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			},

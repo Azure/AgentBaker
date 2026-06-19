@@ -664,6 +664,64 @@ func ValidateFileExcludesExactContent(ctx context.Context, s *Scenario, fileName
 	}
 }
 
+// ValidateCheckLPSProbes asserts on the output of the aks-node-controller `check-lps`
+// pre-kubelet connectivity probe, which logs to /var/log/azure/aks-node-controller.log
+// (slog JSON). It validates the Provisioning-Hotfix Option 4 reachability assumption:
+//
+//   - the apiserver FQDN ("fqdn-direct") is reachable pre-kubelet, and
+//   - the apiserver ClusterIP ("clusterip-via-kube-proxy", 10.0.0.1) is unreachable
+//     pre-kubelet because kube-proxy has not yet programmed the Service DNAT rules.
+//
+// The probe only exists in aks-node-controller binaries built from the check-lps branch,
+// so this validation is a no-op (logged skip) on VHDs whose ANC predates it. That keeps
+// the validation safe to attach to a scenario that may also run against a stock VHD.
+func ValidateCheckLPSProbes(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	const logPath = "/var/log/azure/aks-node-controller.log"
+
+	content, err := getFileContent(ctx, s, logPath)
+	require.NoError(s.T, err, "could not read %s to validate check-lps probes", logPath)
+
+	if !strings.Contains(content, "check-lps probe") {
+		s.T.Logf("check-lps probe output not found in %s; this VHD's aks-node-controller predates check-lps, skipping probe validation", logPath)
+		return
+	}
+
+	var sawFQDNReachable, sawClusterIPProbe, sawClusterIPUnreachable bool
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, "check-lps probe") {
+			continue
+		}
+		var entry struct {
+			Msg   string `json:"msg"`
+			Probe string `json:"probe"`
+		}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			// Not a JSON log line we recognize; skip it.
+			continue
+		}
+		switch entry.Probe {
+		case "fqdn-direct":
+			if entry.Msg == "check-lps probe reachable" {
+				sawFQDNReachable = true
+			}
+		case "clusterip-via-kube-proxy":
+			sawClusterIPProbe = true
+			if entry.Msg == "check-lps probe unreachable" {
+				sawClusterIPUnreachable = true
+			}
+		}
+	}
+
+	require.True(s.T, sawFQDNReachable,
+		"expected check-lps fqdn-direct probe to be reachable pre-kubelet, but no reachable line was found in %s", logPath)
+	require.True(s.T, sawClusterIPProbe,
+		"expected check-lps clusterip-via-kube-proxy probe to have run, but no such line was found in %s", logPath)
+	require.True(s.T, sawClusterIPUnreachable,
+		"expected check-lps clusterip-via-kube-proxy probe to be unreachable pre-kubelet (kube-proxy DNAT not yet programmed), but it was reported reachable in %s", logPath)
+}
+
 // ValidateFIPSProvider verifies that FIPS is properly configured on the node:
 //  1. Kernel FIPS mode is enabled (/proc/sys/crypto/fips_enabled == 1).
 //  2. OpenSSL (3.x) has an active FIPS or SymCrypt provider loaded. The check is

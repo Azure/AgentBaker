@@ -55,6 +55,11 @@ type App struct {
 	// is used. The probe only verifies reachability, not certificate trust, since it
 	// runs pre-kubelet before any kube credential or CA trust is established.
 	httpProbeClient *http.Client
+
+	// fetchAttestedToken overrides retrieval of the IMDS attested-data token used as the
+	// Authorization header for the faithful check-lps LPS probe. When nil, the real IMDS
+	// endpoint is queried.
+	fetchAttestedToken func(ctx context.Context) (string, error)
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

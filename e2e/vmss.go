@@ -111,6 +111,11 @@ mkdir -p /opt/azure/bin
 curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
+# check-lps: pre-kubelet apiserver connectivity probe. Runs the hacked binary's check-lps
+# subcommand in the real pre-kubelet window (before provision starts kubelet/kube-proxy) so
+# its results land in /var/log/azure/aks-node-controller.log. Fail-open: never blocks provisioning.
+/opt/azure/bin/aks-node-controller-hack check-lps --provision-config=%[1]s || true
+
 /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
 
 SCRIPT
@@ -153,6 +158,7 @@ write_files:
     mkdir -p /opt/azure/bin
     curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
+    /opt/azure/bin/aks-node-controller-hack check-lps --provision-config=%[1]s || true
     /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
 coreos:
