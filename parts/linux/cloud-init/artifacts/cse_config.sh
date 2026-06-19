@@ -867,6 +867,10 @@ EOF
         fi
     fi
 
+    # clear any prior failure state so the restart is not blocked by the systemd rate limiter
+    # (kubelet may have crash-looped before CSE had a chance to write its prerequisite files)
+    systemctl reset-failed kubelet 2>/dev/null || true
+
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it
