@@ -27,7 +27,7 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-# check-hotfix reads the kube-system/anc-hotfix-version ConfigMap and refreshes
+# check-hotfix reads the hotfix pointer from the LPS endpoint (IMDS-attested) and refreshes
 # $HOTFIX_JSON, which the download-hotfix block below consumes, so it must run first.
 # Gated default-off behind ENABLE_PROVISIONING_HOTFIX so existing VHDs behave exactly as
 # before; only the literal string "true" enables it. This env var is the on-node terminal
