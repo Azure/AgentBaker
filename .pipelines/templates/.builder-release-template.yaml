@@ -99,12 +99,19 @@ steps:
           echo "No GPU_SYSEXT_ACR_REPO set — skipping ACR token generation"
           exit 0
         fi
+        # If GPU_SYSEXT_ACR_TOKEN is already set as a pipeline secret variable,
+        # use it directly (the SP may not have access to the ACR's subscription).
+        if [[ -n "$(GPU_SYSEXT_ACR_TOKEN)" ]]; then
+          echo "GPU_SYSEXT_ACR_TOKEN already set as pipeline variable — skipping dynamic login"
+          exit 0
+        fi
         ACR_HOST="${ACR_REPO%%/*}"
         ACR_NAME="${ACR_HOST%%.*}"
         echo "Generating ACR access token for ${ACR_NAME}..."
-        TOKEN=$(az acr login --name "${ACR_NAME}" --expose-token --output tsv --query accessToken)
+        TOKEN=$(az acr login --name "${ACR_NAME}" --expose-token --output tsv --query accessToken 2>/dev/null || true)
         if [[ -z "${TOKEN}" ]]; then
           echo "##[warning]Failed to get ACR token for ${ACR_NAME} — GPU sysext pre-cache will be skipped"
+          echo "##[warning]To fix: add GPU_SYSEXT_ACR_TOKEN as a secret pipeline variable (from 'az acr token credential generate')"
           exit 0
         fi
         echo "##vso[task.setvariable variable=GPU_SYSEXT_ACR_TOKEN;issecret=true]${TOKEN}"
@@ -133,6 +140,7 @@ steps:
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
       GPU_SYSEXT_ACR_TOKEN: $(GPU_SYSEXT_ACR_TOKEN)
+      GPU_SYSEXT_ACR_USERNAME: $(GPU_SYSEXT_ACR_USERNAME)
 
   - task: AzureCLI@2
     inputs:

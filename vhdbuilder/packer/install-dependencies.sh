@@ -805,12 +805,18 @@ if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && [ -n "${GPU_SYSEXT_ACR
   echo "  Repo: ${GPU_SYSEXT_ACR_REPO}"
   echo "  Tag:  ${GPU_SYSEXT_TAG}"
 
-  # Authenticate ORAS to the ACR using the token passed from the pipeline
+  # Authenticate ORAS to the ACR using the token passed from the pipeline.
+  # Supports both Azure AD access tokens (from az acr login --expose-token)
+  # and ACR repository-scoped tokens (from az acr token credential generate).
   ACR_HOST="${GPU_SYSEXT_ACR_REPO%%/*}"
   if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
+    ORAS_USERNAME="${GPU_SYSEXT_ACR_USERNAME:-00000000-0000-0000-0000-000000000000}"
     /opt/bin/oras login "${ACR_HOST}" \
-      --username "00000000-0000-0000-0000-000000000000" \
-      --password "${GPU_SYSEXT_ACR_TOKEN}"
+      --username "${ORAS_USERNAME}" \
+      --password "${GPU_SYSEXT_ACR_TOKEN}" || {
+        echo "  WARNING: ORAS login to ${ACR_HOST} failed — GPU sysext pre-cache will be skipped"
+        GPU_SYSEXT_ACR_REPO=""
+      }
   fi
 
   GPU_SYSEXTS=(
@@ -821,6 +827,7 @@ if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && [ -n "${GPU_SYSEXT_ACR
     "nvidia-fabric-manager"
   )
 
+  if [ -n "${GPU_SYSEXT_ACR_REPO}" ]; then
   for sysext_name in "${GPU_SYSEXTS[@]}"; do
     download_dir="/opt/${sysext_name}/downloads"
     mkdir -p "${download_dir}"
@@ -832,6 +839,7 @@ if isACL "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && [ -n "${GPU_SYSEXT_ACR
       echo "  WARNING: Failed to pull ${sysext_ref} — GPU E2E may fail for this driver flavor"
     fi
   done
+  fi
 
   # Logout from ACR
   if [ -n "${GPU_SYSEXT_ACR_TOKEN:-}" ]; then
