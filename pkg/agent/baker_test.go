@@ -984,6 +984,25 @@ var _ = Describe("GetGPUDriverType", func() {
 	})
 })
 
+var _ = Describe("GPUNeedsFabricManager", func() {
+	It("should be true for GB200/GB300 (Grace-Blackwell NVL)", func() {
+		Expect(GPUNeedsFabricManager("standard_nd128isr_ndr_gb200_v6")).To(BeTrue())
+		Expect(GPUNeedsFabricManager("standard_nd128isr_gb300_v6")).To(BeTrue())
+	})
+	It("should be true for multi-GPU NVLink SKUs already in the list", func() {
+		Expect(GPUNeedsFabricManager("standard_nd96isr_h200_v5")).To(BeTrue())
+	})
+	It("should be case-insensitive", func() {
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_GB300_v6")).To(BeTrue())
+	})
+	It("should be false for A100 oddballs that fail to start fabricmanager", func() {
+		Expect(GPUNeedsFabricManager("standard_nc24ads_a100_v4")).To(BeFalse())
+	})
+	It("should be false for SKUs not in the list", func() {
+		Expect(GPUNeedsFabricManager("standard_nc6_v3")).To(BeFalse())
+	})
+})
+
 var _ = Describe("GetAKSGPUImageSHA", func() {
 	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
 		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
