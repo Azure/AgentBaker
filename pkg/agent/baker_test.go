@@ -992,8 +992,11 @@ var _ = Describe("GPUNeedsFabricManager", func() {
 	It("should be true for multi-GPU NVLink SKUs already in the list", func() {
 		Expect(GPUNeedsFabricManager("standard_nd96isr_h200_v5")).To(BeTrue())
 	})
-	It("should be case-insensitive", func() {
+	It("should be case-insensitive (matches RP-provided mixed-case VM sizes)", func() {
+		// Mixed-case exactly as the RP passes the VM size; a typo here would silently
+		// skip starting nvidia-fabricmanager, the core behavior this change enables.
 		Expect(GPUNeedsFabricManager("Standard_ND128isr_GB300_v6")).To(BeTrue())
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_NDR_GB200_v6")).To(BeTrue())
 	})
 	It("should be false for A100 oddballs that fail to start fabricmanager", func() {
 		Expect(GPUNeedsFabricManager("standard_nc24ads_a100_v4")).To(BeFalse())
