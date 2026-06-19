@@ -1027,7 +1027,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.4.1-ubuntu20.04u1"
+                "latestVersion": "1.4.3-ubuntu20.04u1"
               }
             ]
           },
