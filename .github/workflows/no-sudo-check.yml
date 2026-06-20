@@ -5,7 +5,7 @@ jobs:
   no-sudo:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Ensure no sudo command invocations in provisioning scripts
       run: |
         # Search for 'sudo ' as a command invocation in shell scripts and service/timer files,
