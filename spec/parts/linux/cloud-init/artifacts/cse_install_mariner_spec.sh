@@ -95,7 +95,47 @@ Describe 'cse_install_mariner.sh'
             desiredVersion="1.99.0"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
             The output should include "Failed to find valid kubelet version for 1.99.0"
+            The error should include "Failed to query kubelet versions (non-retryable error):"
             The status should equal 1
+        End
+
+        It 'retries dnf list after a transient repo metadata GPG error'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf_makecache() { echo "dnf makecache"; }
+            sleep() { echo "sleep $1"; }
+            dnfListCallsFile="$RPM_PACKAGE_CACHE_BASE_DIR/dnf-list-calls"
+            echo 0 > "$dnfListCallsFile"
+            dnf() {
+                if [ "$1" = "clean" ]; then
+                    echo "dnf clean $2"
+                    return 0
+                fi
+
+                if [ "$1" = "list" ]; then
+                    dnfListCalls=$(cat "$dnfListCallsFile")
+                    dnfListCalls=$((dnfListCalls + 1))
+                    echo "$dnfListCalls" > "$dnfListCallsFile"
+                    if [ "$dnfListCalls" -eq 1 ]; then
+                        echo "Error: Failed to download metadata for repo 'azurelinux-official-cloud-native': repomd.xml GPG signature verification error: Bad GPG signature"
+                        return 1
+                    fi
+                    echo "kubelet.x86_64 1.34.8-2.azl3 azurelinux-official-cloud-native"
+                    return 0
+                fi
+            }
+            desiredVersion="1.34.8"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-2.azl3.x86_64.rpm"
+            downloadPkgFromVersion() { touch "$kubeletRpm"; }
+
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+
+            The output should include "sleep 10"
+            The error should include "repo metadata error"
+            The error should include "dnf clean metadata"
+            The error should include "dnf makecache"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
+            The status should equal 0
         End
     End
 
