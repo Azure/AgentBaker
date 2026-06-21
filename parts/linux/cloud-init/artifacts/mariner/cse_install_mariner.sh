@@ -590,8 +590,8 @@ getLatestRPMPackageVersion() {
             return 1
         fi
 
-        dnf clean metadata >&2 || true
-        dnf_makecache >&2 || true
+        dnf clean metadata >&2 || echo "Warning: dnf clean metadata failed" >&2
+        dnf_makecache >&2 || echo "Warning: dnf_makecache failed" >&2
         sleep "${waitSleep}"
     done
 
