@@ -512,7 +512,7 @@ installRPMPackageFromFile() {
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         # e.g. 1.34.0-5.azl3
-        fullPackageVersion=$(dnf list ${packageName} --showduplicates | grep ${desiredVersion}- | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(getLatestRPMPackageVersion "${packageName}" "${desiredVersion}")
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${desiredVersion}"
             return 1
@@ -560,6 +560,40 @@ installPackageFromCache() {
     logs_to_events "AKS.CSE.install${packageName}.extractBinaryFromRPM" "extractBinaryFromRPM ${rpmFile} ${packageName} ${targetPath}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     rm -rf "${downloadDir}"
     rm -f /opt/bin/"${packageName}"-* &
+}
+
+getLatestRPMPackageVersion() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local retries="${3:-5}"
+    local waitSleep="${4:-10}"
+    local dnfListOutput=""
+    local fullPackageVersion=""
+
+    for i in $(seq 1 "${retries}"); do
+        dnfListOutput=$(dnf list "${packageName}" --showduplicates 2>&1)
+        fullPackageVersion=$(echo "${dnfListOutput}" | grep "${desiredVersion}-" | awk '{print $2}' | sort -V | tail -n 1)
+        if [ -n "${fullPackageVersion}" ]; then
+            echo "${fullPackageVersion}"
+            return 0
+        fi
+
+        if ! echo "${dnfListOutput}" | grep -qiE "Failed to download metadata|repomd\\.xml.*GPG signature|Bad GPG signature|GPG signature verification error|Cannot download repomd\\.xml"; then
+            return 1
+        fi
+
+        echo "Attempt ${i}/${retries}: failed to query ${packageName} versions due to repo metadata error" >&2
+        echo "${dnfListOutput}" >&2
+        if [ "${i}" -eq "${retries}" ]; then
+            return 1
+        fi
+
+        dnf clean metadata >&2 || true
+        dnf_makecache >&2 || true
+        sleep "${waitSleep}"
+    done
+
+    return 1
 }
 
 downloadPkgFromVersion() {
