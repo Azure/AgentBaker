@@ -572,7 +572,7 @@ getLatestRPMPackageVersion() {
 
     for i in $(seq 1 "${retries}"); do
         dnfListOutput=$(dnf list "${packageName}" --showduplicates 2>&1)
-        fullPackageVersion=$(echo "${dnfListOutput}" | grep "${desiredVersion}-" | awk '{print $2}' | sort -V | tail -n 1)
+        fullPackageVersion=$(printf '%s\n' "${dnfListOutput}" | awk -v dv="${desiredVersion}" 'index($2, dv "-")==1 {print $2}' | sort -V | tail -n 1)
         if [ -n "${fullPackageVersion}" ]; then
             echo "${fullPackageVersion}"
             return 0
