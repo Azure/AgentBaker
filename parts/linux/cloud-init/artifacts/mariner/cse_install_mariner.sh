@@ -579,7 +579,7 @@ getLatestRPMPackageVersion() {
             return 0
         fi
 
-        if ! echo "${dnfListOutput}" | grep -qiE "Failed to download metadata|repomd\\.xml.*GPG signature|Bad GPG signature|GPG signature verification error|Cannot download repomd\\.xml"; then
+        if ! printf '%s\n' "${dnfListOutput}" | grep -qiE "Failed to download metadata|repomd\\.xml.*GPG signature|Bad GPG signature|GPG signature verification error|Cannot download repomd\\.xml"; then
             echo "Failed to query ${packageName} versions (non-retryable error):" >&2
             echo "${dnfListOutput}" >&2
             return 1
