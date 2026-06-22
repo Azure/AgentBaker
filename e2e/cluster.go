@@ -387,10 +387,32 @@ func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.Manag
 	return &clusterResp.ManagedCluster, nil
 }
 
-// createNewAKSClusterWithRetry is a wrapper around createNewAKSCluster
-// that retries creating a cluster if it fails with a 409 Conflict error
-// clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
-// simple retry should be sufficient to avoid such conflicts
+// fallbackRegions is the ordered list of regions to try when AKS capacity is
+// exhausted in the primary region. The primary region (from config) is always
+// tried first and is not included here.
+var fallbackRegions = []string{
+	"eastus2",
+	"westus2",
+	"westus3",
+	"centralus",
+	"southcentralus",
+}
+
+// isCapacityError returns true if the error indicates AKS capacity exhaustion
+// in the target region, which is recoverable by trying a different region.
+func isCapacityError(err error) bool {
+	var respErr *azcore.ResponseError
+	if errors.As(err, &respErr) {
+		return respErr.ErrorCode == "AKSCapacityHeavyUsage" ||
+			respErr.ErrorCode == "OverconstrainedAllocationRequest" ||
+			respErr.ErrorCode == "AllocationFailed"
+	}
+	return false
+}
+
+// createNewAKSClusterWithRetry is a wrapper around createNewAKSCluster that
+// retries on 409 Conflict errors and falls back to alternate regions on
+// capacity exhaustion errors (AKSCapacityHeavyUsage).
 func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	maxRetries := 10
 	retryInterval := 30 * time.Second
@@ -405,7 +427,6 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 			return createdCluster, nil
 		}
 
-		// Check if the error is a 409 Conflict
 		var respErr *azcore.ResponseError
 		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
 			lastErr = err
@@ -413,17 +434,39 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 
 			select {
 			case <-time.After(retryInterval):
-				// Continue to next iteration
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context canceled while retrying cluster creation: %w", ctx.Err())
 			}
+		} else if isCapacityError(err) {
+			lastErr = err
+			nextRegion := pickFallbackRegion(*cluster.Location)
+			if nextRegion == "" {
+				return nil, fmt.Errorf("capacity exhausted in %s and no more fallback regions available: %w", *cluster.Location, err)
+			}
+			toolkit.Logf(ctx, "Attempt %d failed with capacity error in %s: %v. Falling back to region %s...",
+				attempt+1, *cluster.Location, err, nextRegion)
+
+			if _, rgErr := ensureResourceGroup(ctx, nextRegion); rgErr != nil {
+				return nil, fmt.Errorf("failed to ensure resource group in fallback region %s: %w", nextRegion, rgErr)
+			}
+			cluster.Location = to.Ptr(nextRegion)
 		} else {
-			// If it's not a 409 error, return immediately
 			return nil, fmt.Errorf("failed to create cluster: %w", err)
 		}
 	}
 
-	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("failed to create cluster after %d attempts: %w", maxRetries, lastErr)
+}
+
+// pickFallbackRegion returns the next fallback region that differs from the
+// current region, or empty string if none are available.
+func pickFallbackRegion(currentRegion string) string {
+	for _, r := range fallbackRegions {
+		if !strings.EqualFold(r, currentRegion) {
+			return r
+		}
+	}
+	return ""
 }
 
 func ensureMaintenanceConfiguration(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {

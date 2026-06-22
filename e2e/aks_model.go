@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
@@ -385,12 +386,40 @@ func addFirewallRules(
 	toolkit.Logf(ctx, "Created public IP with ID: %s", publicIPID)
 
 	firewallName := "abe2e-fw"
+
+	// Check if the firewall already exists and is ready — Azure Firewall
+	// provisioning takes 5-15 minutes so reusing an existing one saves time.
+	existingFW, fwGetErr := config.Azure.AzureFirewall.Get(ctx, rg, firewallName, nil)
+	if fwGetErr == nil && existingFW.Properties != nil && existingFW.Properties.ProvisioningState != nil &&
+		*existingFW.Properties.ProvisioningState == armnetwork.ProvisioningStateSucceeded {
+		toolkit.Logf(ctx, "Firewall %q already exists and is Succeeded, reusing", firewallName)
+		fwResp := existingFW.AzureFirewall
+		// Get the firewall's private IP address
+		var firewallPrivateIP string
+		if fwResp.Properties != nil && fwResp.Properties.IPConfigurations != nil && len(fwResp.Properties.IPConfigurations) > 0 {
+			if fwResp.Properties.IPConfigurations[0].Properties != nil && fwResp.Properties.IPConfigurations[0].Properties.PrivateIPAddress != nil {
+				firewallPrivateIP = *fwResp.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+				toolkit.Logf(ctx, "Firewall private IP: %s", firewallPrivateIP)
+			}
+		}
+		if firewallPrivateIP == "" {
+			return fmt.Errorf("existing firewall has no private IP address")
+		}
+		return addFirewallRoutes(ctx, rg, aksRTName, firewallPrivateIP)
+	}
+
 	firewall := getFirewall(ctx, location, firewallSubnetID, publicIPID)
+	toolkit.Logf(ctx, "Starting Firewall creation %q (this typically takes 5-15 minutes)", firewallName)
 	fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, firewallName, *firewall, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start Firewall creation: %w", err)
 	}
-	fwResp, err := fwPoller.PollUntilDone(ctx, nil)
+	// Use a dedicated 20-minute timeout for firewall polling — the parent context's
+	// remaining budget may be insufficient since cluster + bastion creation already
+	// consumed part of the shared TestTimeoutCluster window.
+	fwPollCtx, fwPollCancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Minute)
+	defer fwPollCancel()
+	fwResp, err := fwPoller.PollUntilDone(fwPollCtx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create Firewall: %w", err)
 	}
@@ -408,10 +437,14 @@ func addFirewallRules(
 		return fmt.Errorf("failed to get firewall private IP address")
 	}
 
-	// Add firewall routes to the existing AKS route table using individual
-	// route operations. This avoids replacing the entire table (which would
-	// race with cloud-provider-azure pod route updates) and preserves the
-	// subnet association so pod CIDR routes remain active.
+	return addFirewallRoutes(ctx, rg, aksRTName, firewallPrivateIP)
+}
+
+// addFirewallRoutes adds firewall routes to the existing AKS route table using
+// individual route operations. This avoids replacing the entire table (which
+// would race with cloud-provider-azure pod route updates) and preserves the
+// subnet association so pod CIDR routes remain active.
+func addFirewallRoutes(ctx context.Context, rg, aksRTName, firewallPrivateIP string) error {
 	firewallRoutes := []armnetwork.Route{
 		{
 			Name: to.Ptr("vnet-local"),
