@@ -99,6 +99,28 @@ Describe 'cse_install_mariner.sh'
             The status should equal 1
         End
 
+        It 'strips RPM epoch before matching and downloading package version'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf() {
+                echo "kubelet.x86_64 1:1.34.8-2.azl3 azurelinux-official-cloud-native"
+                return 0
+            }
+            desiredVersion="1.34.8"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-2.azl3.x86_64.rpm"
+            downloadPkgFromVersion() {
+                echo "downloadPkgFromVersion $1 $2 $3"
+                touch "$kubeletRpm"
+            }
+
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+
+            The output should include "downloadPkgFromVersion kubelet 1.34.8-2.azl3 $rpmDir"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
+            The output should not include "1:1.34.8-2.azl3"
+            The status should equal 0
+        End
+
         It 'retries dnf list after a transient repo metadata GPG error'
             fallbackToKubeBinaryInstall() { return 1; }
             dnf_makecache() { echo "dnf makecache"; }
