@@ -19,8 +19,8 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # Since ig-gadgets is NOT in components.json (no Renovate coverage), its version
 # must still be updated manually here whenever ig moves to a new upstream
 # release. testInspektorGadgetAssets should catch any mismatch.
-IG_GADGETS_DEB_VERSION="0.52.0-ubuntu20.04u1"
-IG_GADGETS_RPM_VERSION="0.52.0-1.azl3"
+IG_GADGETS_DEB_VERSION="0.53.2-ubuntu20.04u1"
+IG_GADGETS_RPM_VERSION="0.53.2-1.azl3"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)
