@@ -101,8 +101,36 @@ Describe 'Get-PackageNameAndVersionFromCniUrl' {
         $result.Version | Should -Be 'v1.6.1-hotfix20241024ApipaGW'
     }
 
+    It 'Should parse Windows single-tenancy package names' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.6.20.zip'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni-singletenancy-overlay'
+        $result.Version | Should -Be 'v1.6.20'
+    }
+
+    It 'Should parse package name and version when URL has a query string' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip?sv=2024-11-04&sig=example'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PackageName | Should -Be 'azure-vnet-cni'
+        $result.Version | Should -Be 'v1.6.20'
+    }
+
     It 'Should return null for invalid URL format' {
         $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-linux-amd64-v1.6.20.tar.gz'
+
+        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
+
+        $result | Should -Be $null
+    }
+
+    It 'Should return null when package name includes a path separator' {
+        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/foo/azure-vnet-cni-windows-amd64-v1.6.20.zip'
 
         $result = Get-PackageNameAndVersionFromCniUrl -Url $url
 
@@ -185,6 +213,28 @@ Describe 'Install-VnetPlugins ORAS path' {
             }
         }
 
+        It 'Should strip scheme and trailing slash from BootstrapProfileContainerRegistryServer in ORAS reference' {
+            $global:BootstrapProfileContainerRegistryServer = "https://myregistry.azurecr.io/"
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
+
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/aks/packages/azure/azure-vnet-cni:v1.6.20"
+            }
+        }
+
+        It 'Should preserve repo prefix in BootstrapProfileContainerRegistryServer when constructing ORAS reference' {
+            $global:BootstrapProfileContainerRegistryServer = "https://myregistry.azurecr.io/some/prefix/"
+
+            Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip"
+
+            Assert-MockCalled -CommandName "DownloadFileWithOras" -Exactly -Times 1 -ParameterFilter {
+                $Reference -eq "myregistry.azurecr.io/some/prefix/aks/packages/azure/azure-vnet-cni:v1.6.20"
+            }
+        }
+
         It 'Should pass correct destination path to DownloadFileWithOras' {
             $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
 
@@ -206,7 +256,7 @@ Describe 'Install-VnetPlugins ORAS path' {
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/invalid-linux-amd64-v1.6.20.tar.gz" } | Should -Throw "*Failed to extract*"
 
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE
             }
         }
     }
@@ -222,7 +272,35 @@ Describe 'Install-VnetPlugins ORAS path' {
                 -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip" } | Should -Throw "*Exhausted retries*"
 
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
-                $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE
+            }
+        }
+    }
+
+    Context 'BootstrapProfileContainerRegistryServer is set but ORAS helpers are not available' {
+        BeforeEach {
+            $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+        }
+
+        It 'Should call Set-ExitCode when DownloadFileWithOras function is not available' {
+            Mock Get-Command -MockWith { return $null } -ParameterFilter { $Name -eq 'DownloadFileWithOras' }
+
+            { Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip" } | Should -Throw "*DownloadFileWithOras function is not available*"
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE
+            }
+        }
+
+        It 'Should call Set-ExitCode when Get-FileNameFromUrl function is not available' {
+            Mock Get-Command -MockWith { return $null } -ParameterFilter { $Name -eq 'Get-FileNameFromUrl' }
+
+            { Install-VnetPlugins -AzureCNIConfDir "$TestDrive\cniconf" -AzureCNIBinDir "$TestDrive\cnibin" `
+                -VNetCNIPluginsURL "https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip" } | Should -Throw "*Get-FileNameFromUrl function is not available*"
+
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_ORAS_PULL_PACKAGE
             }
         }
     }
