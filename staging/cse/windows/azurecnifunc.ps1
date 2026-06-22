@@ -67,9 +67,8 @@ function Get-PackageNameAndVersionFromCniUrl {
 
     # Expected format:
     # https://packages.aks.azure.com/azure-cni/vX.Y.Z/binaries/<package-name>-windows-amd64-vX.Y.Z[-suffix].zip
-    $urlWithoutQuery = ($Url -split '\?', 2)[0]
-    $pattern = '/binaries/(?<PackageName>[A-Za-z0-9._-]+)-windows-amd64-(?<Version>v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9._-]+)?)\.zip$'
-    if ($urlWithoutQuery -match $pattern) {
+    $pattern = '/binaries/(?<PackageName>.+)-windows-amd64-(?<Version>v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9._-]+)?)\.zip$'
+    if ($Url -match $pattern) {
         return [PSCustomObject]@{
             PackageName = $matches['PackageName']
             Version     = $matches['Version']

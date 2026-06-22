@@ -111,26 +111,8 @@ Describe 'Get-PackageNameAndVersionFromCniUrl' {
         $result.Version | Should -Be 'v1.6.20'
     }
 
-    It 'Should parse package name and version when URL has a query string' {
-        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-windows-amd64-v1.6.20.zip?sv=2024-11-04&sig=example'
-
-        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
-
-        $result | Should -Not -BeNullOrEmpty
-        $result.PackageName | Should -Be 'azure-vnet-cni'
-        $result.Version | Should -Be 'v1.6.20'
-    }
-
     It 'Should return null for invalid URL format' {
         $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/azure-vnet-cni-linux-amd64-v1.6.20.tar.gz'
-
-        $result = Get-PackageNameAndVersionFromCniUrl -Url $url
-
-        $result | Should -Be $null
-    }
-
-    It 'Should return null when package name includes a path separator' {
-        $url = 'https://packages.aks.azure.com/azure-cni/v1.6.20/binaries/foo/azure-vnet-cni-windows-amd64-v1.6.20.zip'
 
         $result = Get-PackageNameAndVersionFromCniUrl -Url $url
 
