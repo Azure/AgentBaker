@@ -418,7 +418,10 @@ function DownloadFileWithOras {
     $orasArgString = "pull `"$Reference`" --platform=`"$Platform`" --registry-config=`"$($global:OrasRegistryConfigFile)`" --output `"$tempDir`""
     $process = Start-Process -FilePath $global:OrasPath -ArgumentList $orasArgString -NoNewWindow -Wait:$false -PassThru
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-        try { $process.Kill() } catch { }
+        try {
+            $process.Kill()
+            [void]$process.WaitForExit(5000)
+        } catch { }
         $downloadTimer.Stop()
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
         throw "oras pull timed out after ${TimeoutSeconds}s for $Reference"

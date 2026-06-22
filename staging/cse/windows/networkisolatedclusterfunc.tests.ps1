@@ -467,10 +467,11 @@ Describe "DownloadFileWithOras" {
   }
 
   It "should throw when oras pull times out" {
+    $script:MockOrasKilled = $false
     Mock Start-Process -MockWith {
       $mockProcess = [PSCustomObject]@{ ExitCode = 0 }
       $mockProcess | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($ms) return $false }
-      $mockProcess | Add-Member -MemberType ScriptMethod -Name Kill -Value {}
+      $mockProcess | Add-Member -MemberType ScriptMethod -Name Kill -Value { $script:MockOrasKilled = $true }
       return $mockProcess
     }
 
@@ -478,6 +479,7 @@ Describe "DownloadFileWithOras" {
     $destPath = "c:\k.zip"
 
     { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -TimeoutSeconds 5 } | Should -Throw "*oras pull timed out*"
+    $script:MockOrasKilled | Should -BeTrue
   }
 
   It "should throw when no file is found after oras pull" {
