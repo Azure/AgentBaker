@@ -29,6 +29,7 @@ jobs:
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: v2.8.0
+          install-mode: goinstall
           working-directory: ${{ matrix.dirs }}
 
           # Optional: working directory, useful for monorepos
