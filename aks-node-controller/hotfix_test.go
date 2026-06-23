@@ -53,7 +53,7 @@ func TestReadHotfixVersion(t *testing.T) {
 
 	t.Run("file has extra fields (forward compat)", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "cse_version":"202604.01.0", "sha256": "abc123"}`), 0644))
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "target_version":"202604.01.0", "sha256": "abc123"}`), 0644))
 		version, err := readHotfixVersion(path)
 		assert.NoError(t, err)
 		assert.Equal(t, "1.0.0", version)
@@ -120,7 +120,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    {"version":"202604.01.1","cse_version":"202604.01.1"}
+    {"version":"202604.01.1","target_version":"202604.01.1"}
 `), 0o644))
 
 	tt := NewTestApp(t, TestAppConfig{})
@@ -402,7 +402,7 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 	}
 }
 
-func TestShouldApplyCSEHotfix(t *testing.T) {
+func TestShouldApplyTargetVersion(t *testing.T) {
 	tests := []struct {
 		name    string
 		current string
@@ -416,7 +416,7 @@ func TestShouldApplyCSEHotfix(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, shouldApplyCSEHotfix(tc.current, tc.target))
+			assert.Equal(t, tc.want, shouldApplyTargetVersion(tc.current, tc.target))
 		})
 	}
 }

@@ -80,7 +80,7 @@ write_files:
 	assert.Equal(t, "0", result.ExitCode)
 }
 
-func TestApplyNodeCustomDataWithHotfixConfig_CSEVersionMismatchSkipsScriptHotfixBlock(t *testing.T) {
+func TestApplyNodeCustomDataWithHotfixConfig_TargetVersionMismatchSkipsScriptHotfixBlock(t *testing.T) {
 	tempDir := t.TempDir()
 	normalPath := filepath.Join(tempDir, "normal.txt")
 	hotfixPath := filepath.Join(tempDir, "hotfix.txt")
@@ -103,7 +103,7 @@ write_files:
 `, normalPath, hotfixPath)
 	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
 
-	err := applyNodeCustomDataWithHotfixConfig(renderedPath, hotfixConfig{CSEVersion: "209901.01.0"})
+	err := applyNodeCustomDataWithHotfixConfig(renderedPath, hotfixConfig{TargetVersion: "209901.01.0"})
 	require.NoError(t, err)
 
 	normalData, err := os.ReadFile(normalPath)

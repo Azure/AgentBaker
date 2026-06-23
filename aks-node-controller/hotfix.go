@@ -88,8 +88,8 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 // hotfixConfig is the JSON structure of the hotfix configuration file.
 // Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
 type hotfixConfig struct {
-	Version    string `json:"version"`
-	CSEVersion string `json:"cse_version"`
+	Version       string `json:"version"`
+	TargetVersion string `json:"target_version"`
 }
 
 // readHotfixVersion reads and parses the JSON hotfix config from the given path.
@@ -115,16 +115,16 @@ func readHotfixConfig(path string) (hotfixConfig, error) {
 		return hotfixConfig{}, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
 	cfg.Version = strings.TrimSpace(cfg.Version)
-	cfg.CSEVersion = strings.TrimSpace(cfg.CSEVersion)
+	cfg.TargetVersion = strings.TrimSpace(cfg.TargetVersion)
 	return cfg, nil
 }
 
-func shouldApplyCSEHotfix(currentCSEVersion, targetCSEVersion string) bool {
-	target := strings.TrimSpace(targetCSEVersion)
+func shouldApplyTargetVersion(currentVersion, targetVersion string) bool {
+	target := strings.TrimSpace(targetVersion)
 	if target == "" {
 		return true
 	}
-	return strings.TrimSpace(currentCSEVersion) == target
+	return strings.TrimSpace(currentVersion) == target
 }
 
 // packageManager represents a supported system package manager.

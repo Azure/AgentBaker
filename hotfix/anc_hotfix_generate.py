@@ -43,19 +43,19 @@ def read_hotfix_config():
         sys.exit(1)
 
     version = data.get("version", "").strip()
-    cse_version = data.get("cse_version", "").strip()
-    if not version and not cse_version:
-        print(f"{VERSION_FILE} has no version/cse_version set. Nothing to do.")
+    target_version = data.get("target_version", "").strip()
+    if not version and not target_version:
+        print(f"{VERSION_FILE} has no version/target_version set. Nothing to do.")
         return None
 
     _validate_version(version, "version")
-    _validate_version(cse_version, "cse_version")
+    _validate_version(target_version, "target_version")
 
     payload = {}
     if version:
         payload["version"] = version
-    if cse_version:
-        payload["cse_version"] = cse_version
+    if target_version:
+        payload["target_version"] = target_version
     return payload
 
 
