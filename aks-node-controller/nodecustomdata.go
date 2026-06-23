@@ -127,7 +127,9 @@ func stripScriptHotfixBlock(content string) string {
 	if !ok {
 		return content
 	}
-	if start > 0 && content[start-1] == '\n' {
+	// Trim the newline before the hotfix marker only when it's an actual blank
+	// separator line (double newline), so we don't join adjacent YAML lines.
+	if start > 1 && content[start-1] == '\n' && content[start-2] == '\n' {
 		start--
 	}
 	return content[:start] + content[end:]

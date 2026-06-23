@@ -84,6 +84,7 @@ func TestApplyNodeCustomDataWithHotfixConfig_TargetVersionMismatchSkipsScriptHot
 	tempDir := t.TempDir()
 	normalPath := filepath.Join(tempDir, "normal.txt")
 	hotfixPath := filepath.Join(tempDir, "hotfix.txt")
+	afterPath := filepath.Join(tempDir, "after.txt")
 	renderedPath := filepath.Join(tempDir, "nodecustomdata.yml")
 
 	rendered := fmt.Sprintf(`#cloud-config
@@ -100,7 +101,12 @@ write_files:
   content: |
     hotfix-content
 # ---- end hotfix ----
-`, normalPath, hotfixPath)
+- path: %s
+  permissions: "0644"
+  owner: root
+  content: |
+    after-content
+`, normalPath, hotfixPath, afterPath)
 	require.NoError(t, os.WriteFile(renderedPath, []byte(rendered), 0o600))
 
 	err := applyNodeCustomDataWithHotfixConfig(renderedPath, hotfixConfig{TargetVersion: "209901.01.0"})
@@ -108,10 +114,14 @@ write_files:
 
 	normalData, err := os.ReadFile(normalPath)
 	require.NoError(t, err)
-	assert.Equal(t, "normal-content", string(normalData))
+	assert.Equal(t, "normal-content\n", string(normalData))
 
 	_, err = os.Stat(hotfixPath)
 	assert.True(t, os.IsNotExist(err))
+
+	afterData, err := os.ReadFile(afterPath)
+	require.NoError(t, err)
+	assert.Equal(t, "after-content\n", string(afterData))
 }
 
 func TestApplyScriptHotfixWriteFiles_AppliesOnlyHotfixBlockOnMatch(t *testing.T) {
