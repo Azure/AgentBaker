@@ -48,7 +48,7 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 
 	hotfixCfg, err := readHotfixConfig(hotfixPath)
 	if err != nil {
-		return fmt.Errorf("read hotfix version from %s: %w", hotfixPath, err)
+		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
 	}
 	hotfixVersion := hotfixCfg.Version
 

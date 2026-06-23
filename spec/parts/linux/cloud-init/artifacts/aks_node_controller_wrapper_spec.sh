@@ -45,6 +45,7 @@ EOF
     create_fake_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+printf '%s\n' "$1" >>"${TEST_DIR}/commands"
 printf '%s\n' "$@" >"${TEST_DIR}/args"
 exit 0
 EOF
@@ -58,6 +59,7 @@ EOF
         When run bash "$SCRIPT"
         The status should be success
         The output should include "Gracefully exit aks-node-controller without provision config or nbc cmd"
+        The output should not include "Running ANC download-hotfix pre-check"
         The output should not include "Spawned aks-node-controller"
     End
 
@@ -67,8 +69,13 @@ EOF
 
         When run bash "$SCRIPT"
         The status should be success
+        The output should include "Running ANC download-hotfix pre-check"
         The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
         The output should include "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
+        firstCommand=$(sed -n '1p' "${TEST_DIR}/commands")
+        secondCommand=$(sed -n '2p' "${TEST_DIR}/commands")
+        The variable firstCommand should eq "download-hotfix"
+        The variable secondCommand should eq "provision"
         firstArg=$(sed -n '1p' "${TEST_DIR}/args")
         secondArg=$(sed -n '2p' "${TEST_DIR}/args")
         thirdArg=$(sed -n '3p' "${TEST_DIR}/args")
@@ -83,8 +90,13 @@ EOF
 
         When run bash "$SCRIPT"
         The status should be success
+        The output should include "Running ANC download-hotfix pre-check"
         The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
         The output should not include "Launching aks-node-controller with nbc cmd"
+        firstCommand=$(sed -n '1p' "${TEST_DIR}/commands")
+        secondCommand=$(sed -n '2p' "${TEST_DIR}/commands")
+        The variable firstCommand should eq "download-hotfix"
+        The variable secondCommand should eq "provision"
         firstArg=$(sed -n '1p' "${TEST_DIR}/args")
         secondArg=$(sed -n '2p' "${TEST_DIR}/args")
         thirdArg=$(sed -n '3p' "${TEST_DIR}/args")
@@ -99,8 +111,13 @@ EOF
 
         When run bash "$SCRIPT"
         The status should be success
+        The output should include "Running ANC download-hotfix pre-check"
         The output should not include "Launching aks-node-controller with config"
         The output should include "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
+        firstCommand=$(sed -n '1p' "${TEST_DIR}/commands")
+        secondCommand=$(sed -n '2p' "${TEST_DIR}/commands")
+        The variable firstCommand should eq "download-hotfix"
+        The variable secondCommand should eq "provision"
         firstArg=$(sed -n '1p' "${TEST_DIR}/args")
         secondArg=$(sed -n '2p' "${TEST_DIR}/args")
         thirdArg=$(sed -n '3p' "${TEST_DIR}/args")
