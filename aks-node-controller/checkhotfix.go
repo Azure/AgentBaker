@@ -83,6 +83,9 @@ const (
 	outcomeCustomDataFallback checkHotfixOutcome = "customDataFallback"
 	// outcomeFailed: everything failed; nothing was staged. Provisioning still proceeds (exit 0).
 	outcomeFailed checkHotfixOutcome = "failed"
+	// outcomeDisabled: the AKSNodeConfig enable_provisioning_hotfix field is not true (false/unset),
+	// so check-hotfix no-ops without any remote hotfix call. Provisioning proceeds (exit 0).
+	outcomeDisabled checkHotfixOutcome = "disabled"
 )
 
 // lpsUnavailableError marks a benign LPS response that means "no hotfix is available for this
@@ -133,6 +136,14 @@ func (a *App) runCheckHotfixCommand(ctx context.Context) error {
 // checkHotfix performs the fetch/parse/stage workflow and reports a telemetry outcome.
 // It is fail-open by contract: the only caller (runCheckHotfixCommand) swallows the error.
 func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
+	// Single source of truth: the enable_provisioning_hotfix contract field on the AKSNodeConfig.
+	// When it is not true (false or unset), no-op without any remote hotfix call. The wrapper
+	// calls check-hotfix unconditionally, so this Go gate is what keeps disabled nodes inert.
+	if !a.provisioningHotfixEnabled() {
+		slog.Info("check-hotfix disabled: enable_provisioning_hotfix is not true; skipping hotfix pointer fetch")
+		return outcomeDisabled, nil
+	}
+
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
@@ -463,6 +474,27 @@ func writeHotfixConfig(path string, cfg hotfixConfig) error {
 	}
 	slog.Info("staged hotfix pointer for download-hotfix", "path", path)
 	return nil
+}
+
+// provisioningHotfixEnabled reports whether the AKSNodeConfig enable_provisioning_hotfix
+// contract field is explicitly true. It is the single source of truth for whether
+// check-hotfix does any work. Any read/parse problem yields false (default-off, fail-open):
+// a node that cannot prove the feature is on is treated as off, and provisioning still
+// proceeds because the caller swallows all errors.
+func (a *App) provisioningHotfixEnabled() bool {
+	path := a.getNodeConfigPath()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		slog.Info("check-hotfix gate: cannot read node config, treating as disabled", "path", path, "error", err)
+		return false
+	}
+	cfg, err := nodeconfigutils.UnmarshalConfigurationV1(raw)
+	if err != nil {
+		// Forward-compatible parse: unknown fields are discarded. A non-nil error means the
+		// document was unusable, so fall back to disabled.
+		slog.Info("check-hotfix gate: node config parsed with errors, evaluating partial config", "error", err)
+	}
+	return cfg.GetEnableProvisioningHotfix()
 }
 
 // getNodeConfigPath returns the injectable node-config path, defaulting to the standard

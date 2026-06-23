@@ -29,18 +29,17 @@ fi
 
 # check-hotfix reads the hotfix pointer from the LPS endpoint (IMDS-attested) and refreshes
 # $HOTFIX_JSON, which the download-hotfix block below consumes, so it must run first.
-# Gated default-off behind ENABLE_PROVISIONING_HOTFIX so existing VHDs behave exactly as
-# before; only the literal string "true" enables it. This env var is the on-node terminal
-# of the EnableProvisioningHotfix aks-rp region toggle (toggle -> absvc -> ANC), so regions
-# where the toggle is off see no behavior change. The command is fail-open (always exits 0),
-# but we still wrap it defensively so it can never block provisioning.
-if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
-    log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
-    if "$BIN_PATH" check-hotfix; then
-        log "ANC check-hotfix completed; hotfix pointer refresh attempted"
-    else
-        log "ANC check-hotfix failed; continuing (fail-open)"
-    fi
+# It is called unconditionally and is fail-open (always exits 0); the aks-node-controller
+# binary self-gates on the enable_provisioning_hotfix AKSNodeConfig contract field (single
+# source of truth), no-opping without any remote hotfix call when the feature is off. This
+# replaces the earlier ENABLE_PROVISIONING_HOTFIX env gate so absvc sets one contract field
+# instead of an env var plus a field. We still wrap it defensively so it can never block
+# provisioning.
+log "running check-hotfix to refresh hotfix pointer (self-gated on the node config contract field)"
+if "$BIN_PATH" check-hotfix; then
+    log "ANC check-hotfix completed; hotfix pointer refresh attempted"
+else
+    log "ANC check-hotfix failed; continuing (fail-open)"
 fi
 
 if [ -f "$HOTFIX_JSON" ]; then

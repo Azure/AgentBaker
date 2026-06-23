@@ -42,7 +42,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON CHECK_HOTFIX_EXIT
     }
 
     create_fake_aks_node_controller() {
@@ -127,35 +127,13 @@ EOF
         The variable thirdArg should eq ""
     End
 
-    It 'does not call check-hotfix when ENABLE_PROVISIONING_HOTFIX is unset'
-        touch "$CONFIG_PATH"
-        create_recording_aks_node_controller
-
-        When run bash "$SCRIPT"
-        The status should be success
-        The output should not include "running check-hotfix"
-        The path "${TEST_DIR}/calls" should be exist
-        # Only provision should have been recorded; no check-hotfix line.
-        calls=$(cat "${TEST_DIR}/calls")
-        The variable calls should eq "provision"
-    End
-
-    It 'treats a non-true ENABLE_PROVISIONING_HOTFIX value as disabled'
-        touch "$CONFIG_PATH"
-        create_recording_aks_node_controller
-        export ENABLE_PROVISIONING_HOTFIX="1"
-
-        When run bash "$SCRIPT"
-        The status should be success
-        The output should not include "running check-hotfix"
-        calls=$(cat "${TEST_DIR}/calls")
-        The variable calls should eq "provision"
-    End
-
-    It 'runs check-hotfix before download-hotfix when ENABLE_PROVISIONING_HOTFIX is true'
+    # check-hotfix is now called UNCONDITIONALLY (2.1d). The wrapper no longer reads the
+    # ENABLE_PROVISIONING_HOTFIX env gate; the aks-node-controller binary self-gates on the
+    # enable_provisioning_hotfix AKSNodeConfig contract field (single source of truth) and
+    # no-ops when the feature is off. So the wrapper always invokes it and stays fail-open.
+    It 'always runs check-hotfix before download-hotfix and provision'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         create_recording_aks_node_controller
-        export ENABLE_PROVISIONING_HOTFIX="true"
 
         When run bash "$SCRIPT"
         The status should be success
@@ -169,13 +147,25 @@ EOF
         The variable thirdCall should eq "provision"
     End
 
-    # Fail-open also covers the backward-compat case where ENABLE_PROVISIONING_HOTFIX=true reaches
-    # a node whose VHD-baked binary predates 2.1b: `check-hotfix` is an unknown subcommand
-    # there and exits non-zero, which the wrapper tolerates so provisioning still proceeds.
+    It 'runs check-hotfix even with no hotfix pointer present (binary self-gates)'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "running check-hotfix"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        lastCall=$(tail -n 1 "${TEST_DIR}/calls")
+        The variable firstCall should eq "check-hotfix"
+        The variable lastCall should eq "provision"
+    End
+
+    # Fail-open also covers the backward-compat case where check-hotfix reaches a node whose
+    # VHD-baked binary predates 2.1b: `check-hotfix` is an unknown subcommand there and exits
+    # non-zero, which the wrapper tolerates so provisioning still proceeds.
     It 'proceeds to provision when check-hotfix fails (fail-open)'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
-        export ENABLE_PROVISIONING_HOTFIX="true"
         export CHECK_HOTFIX_EXIT="1"
 
         When run bash "$SCRIPT"
