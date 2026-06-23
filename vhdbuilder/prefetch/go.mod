@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/vhdbuilder/prefetch
 
-go 1.26.4
+go 1.25.11
 
 require github.com/stretchr/testify v1.9.0
 

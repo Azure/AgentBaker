@@ -14,7 +14,7 @@ jobs:
         if: success()
         uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: '1.25'
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Run unit tests
