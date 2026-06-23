@@ -50,10 +50,14 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
 	}
+
+	if err := applyScriptHotfixWriteFiles(a.getNodeCustomDataPath(), hotfixCfg); err != nil {
+		return fmt.Errorf("apply script hotfix write_files: %w", err)
+	}
 	hotfixVersion := hotfixCfg.Version
 
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a version, skipping download", "path", hotfixPath)
+		slog.Info("hotfix config does not request ANC version, skipping ANC binary download", "path", hotfixPath)
 		return nil
 	}
 

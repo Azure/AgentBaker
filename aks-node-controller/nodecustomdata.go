@@ -57,6 +57,41 @@ func applyNodeCustomDataWithHotfixConfig(path string, hotfixCfg hotfixConfig) er
 	return applyNodeCustomDataWithFilter(path, shouldApplyScriptHotfix, nil)
 }
 
+func applyScriptHotfixWriteFiles(path string, hotfixCfg hotfixConfig) error {
+	if !shouldApplyTargetVersion(Version, hotfixCfg.TargetVersion) {
+		if strings.TrimSpace(hotfixCfg.TargetVersion) != "" {
+			slog.Info("skipping script hotfix write_files in download-hotfix due to target_version mismatch",
+				"current", Version, "target", hotfixCfg.TargetVersion)
+		}
+		return nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read nodecustomdata %s: %w", path, err)
+	}
+
+	hotfixBlock, found := extractScriptHotfixBlock(string(data))
+	if !found {
+		return nil
+	}
+
+	var customData nodeCustomData
+	if err := yaml.Unmarshal([]byte("write_files:\n"+hotfixBlock), &customData); err != nil {
+		return fmt.Errorf("unmarshal script hotfix write_files from %s: %w", path, err)
+	}
+
+	for _, file := range customData.WriteFiles {
+		if err := applyNodeCustomDataWriteFile(file); err != nil {
+			return fmt.Errorf("apply script hotfix write file %s: %w", file.Path, err)
+		}
+	}
+	return nil
+}
+
 func applyNodeCustomDataWithFilter(path string, shouldApplyScriptHotfix bool, predicate func(nodeCustomDataWriteFile) bool) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -88,22 +123,44 @@ func applyNodeCustomDataWithFilter(path string, shouldApplyScriptHotfix bool, pr
 }
 
 func stripScriptHotfixBlock(content string) string {
-	start := strings.Index(content, scriptHotfixBeginMarker)
-	if start == -1 {
+	_, start, _, end, ok := findScriptHotfixBlockBounds(content)
+	if !ok {
 		return content
-	}
-	endOffset := strings.Index(content[start:], scriptHotfixEndMarker)
-	if endOffset == -1 {
-		return content
-	}
-	end := start + endOffset + len(scriptHotfixEndMarker)
-	if end < len(content) && content[end] == '\n' {
-		end++
 	}
 	if start > 0 && content[start-1] == '\n' {
 		start--
 	}
 	return content[:start] + content[end:]
+}
+
+func extractScriptHotfixBlock(content string) (string, bool) {
+	contentStart, _, endMarkerStart, _, ok := findScriptHotfixBlockBounds(content)
+	if !ok {
+		return "", false
+	}
+	return content[contentStart:endMarkerStart], true
+}
+
+func findScriptHotfixBlockBounds(content string) (int, int, int, int, bool) {
+	start := strings.Index(content, scriptHotfixBeginMarker)
+	if start == -1 {
+		return 0, 0, 0, 0, false
+	}
+	beginLineEndOffset := strings.Index(content[start:], "\n")
+	if beginLineEndOffset == -1 {
+		return 0, 0, 0, 0, false
+	}
+	contentStart := start + beginLineEndOffset + 1
+	endMarkerOffset := strings.Index(content[contentStart:], scriptHotfixEndMarker)
+	if endMarkerOffset == -1 {
+		return 0, 0, 0, 0, false
+	}
+	endMarkerStart := contentStart + endMarkerOffset
+	end := endMarkerStart + len(scriptHotfixEndMarker)
+	if end < len(content) && content[end] == '\n' {
+		end++
+	}
+	return contentStart, start, endMarkerStart, end, true
 }
 
 func applyNodeCustomDataWriteFile(file nodeCustomDataWriteFile) error {
