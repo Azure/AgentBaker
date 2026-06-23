@@ -7,7 +7,6 @@ done
 
 BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
-HOTFIX_JSON="/opt/azure/containers/aks-node-controller-hotfix.json"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
@@ -27,13 +26,11 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-if [ -f "$HOTFIX_JSON" ]; then
-    log "Found ANC hotfix config at ${HOTFIX_JSON}; running download-hotfix"
-    if "$BIN_PATH" download-hotfix; then
-        log "ANC download-hotfix completed; binary selection follows"
-    else
-        log "ANC download-hotfix failed; binary selection follows"
-    fi
+log "Running ANC download-hotfix pre-check"
+if "$BIN_PATH" download-hotfix; then
+    log "ANC download-hotfix completed; binary selection follows"
+else
+    log "ANC download-hotfix failed; binary selection follows"
 fi
 
 if [ -x "$HOTFIX_BIN" ]; then

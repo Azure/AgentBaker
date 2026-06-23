@@ -22,8 +22,16 @@ BEGIN_MARKER = "# ---- anc-hotfix: auto-generated ----"
 END_MARKER = "# ---- end anc-hotfix ----"
 
 
-def read_hotfix_version():
-    """Read and validate the hotfix version from the version file."""
+def _validate_version(value, key):
+    """Validate YYYYMM.DD.PATCH format."""
+    if value and not re.match(r'^\d{6}\.\d{2}\.\d+$', value):
+        print(f"ERROR: invalid {key} format '{value}', "
+              f"expected YYYYMM.DD.PATCH (e.g., 202604.01.1)", file=sys.stderr)
+        sys.exit(1)
+
+
+def read_hotfix_config():
+    """Read and validate the hotfix config from the version file."""
     try:
         with open(VERSION_FILE) as f:
             data = json.load(f)
@@ -35,22 +43,25 @@ def read_hotfix_version():
         sys.exit(1)
 
     version = data.get("version", "").strip()
-    if not version:
-        print(f"{VERSION_FILE} has no version set. Nothing to do.")
+    cse_version = data.get("cse_version", "").strip()
+    if not version and not cse_version:
+        print(f"{VERSION_FILE} has no version/cse_version set. Nothing to do.")
         return None
 
-    # Validate YYYYMM.DD.PATCH format
-    if not re.match(r'^\d{6}\.\d{2}\.\d+$', version):
-        print(f"ERROR: invalid version format '{version}', "
-              f"expected YYYYMM.DD.PATCH (e.g., 202604.01.1)", file=sys.stderr)
-        sys.exit(1)
+    _validate_version(version, "version")
+    _validate_version(cse_version, "cse_version")
 
-    return version
+    payload = {}
+    if version:
+        payload["version"] = version
+    if cse_version:
+        payload["cse_version"] = cse_version
+    return payload
 
 
-def build_hotfix_entry(version):
+def build_hotfix_entry(payload):
     """Build the write_files YAML lines for the hotfix JSON config."""
-    hotfix_json = json.dumps({"version": version}, separators=(',', ':'))
+    hotfix_json = json.dumps(payload, separators=(',', ':'))
     return [
         f"\n",
         f"{BEGIN_MARKER}\n",
@@ -63,7 +74,7 @@ def build_hotfix_entry(version):
     ]
 
 
-def inject(version):
+def inject(payload):
     """Inject or update the ANC hotfix entry in the scriptless section of nodecustomdata.yml."""
     with open(TEMPLATE) as f:
         content = f.read()
@@ -91,7 +102,7 @@ def inject(version):
               "in template", file=sys.stderr)
         sys.exit(1)
 
-    entry_lines = build_hotfix_entry(version)
+    entry_lines = build_hotfix_entry(payload)
 
     # Insert just before the {{- else}} line
     final = lines[:else_idx] + entry_lines + lines[else_idx:]
@@ -99,7 +110,7 @@ def inject(version):
     with open(TEMPLATE, 'w') as f:
         f.writelines(final)
 
-    print(f"Injected ANC hotfix version {version} into {TEMPLATE}", file=sys.stderr)
+    print(f"Injected ANC hotfix config {payload} into {TEMPLATE}", file=sys.stderr)
     return True
 
 
@@ -122,10 +133,10 @@ def remove_hotfix():
 
 
 def main():
-    version = read_hotfix_version()
-    if version:
-        inject(version)
-        print(f"\nDone. Injected ANC hotfix version {version}.")
+    payload = read_hotfix_config()
+    if payload:
+        inject(payload)
+        print(f"\nDone. Injected ANC hotfix config {payload}.")
     else:
         # No version set — remove any stale hotfix entry
         if remove_hotfix():

@@ -53,7 +53,7 @@ func TestReadHotfixVersion(t *testing.T) {
 
 	t.Run("file has extra fields (forward compat)", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "sha256": "abc123"}`), 0644))
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "cse_version":"202604.01.0", "sha256": "abc123"}`), 0644))
 		version, err := readHotfixVersion(path)
 		assert.NoError(t, err)
 		assert.Equal(t, "1.0.0", version)
@@ -103,6 +103,34 @@ func TestDownloadHotfix_NoHotfixFile(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "nonexistent")
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+}
+
+func TestDownloadHotfix_MaterializesHotfixConfigFromNodeCustomData(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	hotfixPath := filepath.Join(dir, "hotfix-config.json")
+	nodeCustomDataPath := filepath.Join(dir, "nodecustomdata.yml")
+	require.NoError(t, os.WriteFile(nodeCustomDataPath, []byte(
+		`#cloud-config
+write_files:
+- path: `+hotfixPath+`
+  permissions: "0644"
+  owner: root
+  content: |
+    {"version":"202604.01.1","cse_version":"202604.01.1"}
+`), 0o644))
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = hotfixPath
+	tt.App.nodeCustomDataPath = nodeCustomDataPath
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	data, err := os.ReadFile(hotfixPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"version":"202604.01.1"`)
 }
 
 func TestDownloadHotfix_VersionMatch(t *testing.T) {
@@ -360,6 +388,7 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 		{"empty current", "", "202604.01.1", false, true},
 		{"empty hotfix", "202604.01.0", "", false, true},
 	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := shouldUpgradeToHotfix(tc.current, tc.hotfix)
@@ -369,6 +398,25 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tc.want, got, "current=%s hotfix=%s", tc.current, tc.hotfix)
 			}
+		})
+	}
+}
+
+func TestShouldApplyCSEHotfix(t *testing.T) {
+	tests := []struct {
+		name    string
+		current string
+		target  string
+		want    bool
+	}{
+		{"target omitted applies", "202604.01.1", "", true},
+		{"exact match applies", "202604.01.1", "202604.01.1", true},
+		{"trimmed exact match applies", " 202604.01.1 ", "202604.01.1", true},
+		{"mismatch skips", "202604.01.1", "202604.01.0", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, shouldApplyCSEHotfix(tc.current, tc.target))
 		})
 	}
 }

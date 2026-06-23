@@ -36,10 +36,21 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	hotfixVersion, err := readHotfixVersion(hotfixPath)
+
+	// In scriptless --nbc-cmd mode, nodecustomdata.yml is written by boothook and
+	// its write_files are materialized by ANC. Materialize only the hotfix config
+	// file first so download-hotfix can run before provision applies all write_files.
+	if err := applyNodeCustomDataWriteFiles(a.getNodeCustomDataPath(), func(file nodeCustomDataWriteFile) bool {
+		return file.Path == hotfixPath
+	}); err != nil {
+		return fmt.Errorf("materialize hotfix config from nodecustomdata: %w", err)
+	}
+
+	hotfixCfg, err := readHotfixConfig(hotfixPath)
 	if err != nil {
 		return fmt.Errorf("read hotfix version from %s: %w", hotfixPath, err)
 	}
+	hotfixVersion := hotfixCfg.Version
 
 	if hotfixVersion == "" {
 		slog.Info("hotfix config does not request a version, skipping download", "path", hotfixPath)
@@ -77,27 +88,43 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 // hotfixConfig is the JSON structure of the hotfix configuration file.
 // Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
 type hotfixConfig struct {
-	Version string `json:"version"`
+	Version    string `json:"version"`
+	CSEVersion string `json:"cse_version"`
 }
 
 // readHotfixVersion reads and parses the JSON hotfix config from the given path.
 // Returns empty string if the file doesn't exist or contains an empty version.
 func readHotfixVersion(path string) (string, error) {
+	cfg, err := readHotfixConfig(path)
+	return cfg.Version, err
+}
+
+func readHotfixConfig(path string) (hotfixConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return hotfixConfig{}, nil
 		}
-		return "", err
+		return hotfixConfig{}, err
 	}
 	if len(strings.TrimSpace(string(data))) == 0 {
-		return "", nil
+		return hotfixConfig{}, nil
 	}
 	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "", fmt.Errorf("parsing hotfix config %s: %w", path, err)
+		return hotfixConfig{}, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
-	return strings.TrimSpace(cfg.Version), nil
+	cfg.Version = strings.TrimSpace(cfg.Version)
+	cfg.CSEVersion = strings.TrimSpace(cfg.CSEVersion)
+	return cfg, nil
+}
+
+func shouldApplyCSEHotfix(currentCSEVersion, targetCSEVersion string) bool {
+	target := strings.TrimSpace(targetCSEVersion)
+	if target == "" {
+		return true
+	}
+	return strings.TrimSpace(currentCSEVersion) == target
 }
 
 // packageManager represents a supported system package manager.
