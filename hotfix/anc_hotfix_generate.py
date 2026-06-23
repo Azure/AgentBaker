@@ -22,11 +22,17 @@ BEGIN_MARKER = "# ---- anc-hotfix: auto-generated ----"
 END_MARKER = "# ---- end anc-hotfix ----"
 
 
-def _validate_version(value, key):
-    """Validate YYYYMM.DD.PATCH format."""
-    if value and not re.match(r'^\d{6}\.\d{2}\.\d+$', value):
-        print(f"ERROR: invalid {key} format '{value}', "
-              f"expected YYYYMM.DD.PATCH (e.g., 202604.01.1)", file=sys.stderr)
+def _validate_version(value, key, allow_base=False):
+    """Validate version formats used by ANC hotfix config."""
+    if not value:
+        return
+    pattern = r'^\d{6}\.\d{2}\.\d+$'
+    expected = "YYYYMM.DD.PATCH (e.g., 202604.01.1)"
+    if allow_base:
+        pattern = r'^\d{6}\.\d{2}(?:\.\d+)?$'
+        expected = "YYYYMM.DD or YYYYMM.DD.PATCH (e.g., 202604.01 or 202604.01.1)"
+    if not re.match(pattern, value):
+        print(f"ERROR: invalid {key} format '{value}', expected {expected}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -49,7 +55,7 @@ def read_hotfix_config():
         return None
 
     _validate_version(version, "version")
-    _validate_version(target_version, "target_version")
+    _validate_version(target_version, "target_version", allow_base=True)
 
     payload = {}
     if version:

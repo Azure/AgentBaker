@@ -124,7 +124,28 @@ func shouldApplyTargetVersion(currentVersion, targetVersion string) bool {
 	if target == "" {
 		return true
 	}
-	return strings.TrimSpace(currentVersion) == target
+	current := strings.TrimSpace(currentVersion)
+	cv, err := semver.NewVersion(current)
+	if err != nil {
+		return false
+	}
+
+	switch strings.Count(target, ".") {
+	case 1:
+		tv, err := semver.NewVersion(target + ".0")
+		if err != nil {
+			return false
+		}
+		return cv.Major() == tv.Major() && cv.Minor() == tv.Minor()
+	case 2:
+		tv, err := semver.NewVersion(target)
+		if err != nil {
+			return false
+		}
+		return cv.Equal(tv)
+	default:
+		return false
+	}
 }
 
 // packageManager represents a supported system package manager.
