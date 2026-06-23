@@ -621,7 +621,9 @@ ensurePodInfraContainerImage() {
     base_name="${pod_infra_container_image%:*}"
     tag="local"
 
-    image="${pod_infra_container_image//mcr.microsoft.com/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
+    MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+    image="${pod_infra_container_image//${MCR_REPOSITORY_BASE}/${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}}"
     acr_url=$(echo "$image" | cut -d/ -f1)
 
     mkdir -p ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
@@ -1313,12 +1315,17 @@ ensureGPUDrivers() {
 }
 
 # Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
-# Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
-dnf_install_amd_ama_core() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+dnf_install_amd_ama_core_package() {
+    ver=$1; retries=$2; wait_sleep=$3; timeout=$4; shift && shift && shift && shift
+    # Currently version 1.5.0 is supported.  Add more versions as they become available.
+    if [ "$ver" = "1.5.0" ]; then
+        AMD_AMA_CORE_PACKAGE="https://download.microsoft.com/download/f030c57a-a582-4bcc-9c7c-593c9a486814/amd-ama-core_1.5.0-20260424092403.x86_64.rpm"
+    else
+        return 1
+    fi
     for i in $(seq 1 $retries); do
         # RPM_FRONTEND env variable needed to disable license agreement prompt
-        RPM_FRONTEND=noninteractive dnf install -y https://download.microsoft.com/download/16b04fa7-883e-4a94-88c2-801881a47b28/amd-ama-core_1.3.0-2503242033-amd64.rpm && break || \
+        RPM_FRONTEND=noninteractive dnf install -y $AMD_AMA_CORE_PACKAGE && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -1336,18 +1343,35 @@ setupAmdAma() {
         return
     fi
 
-    if isMarinerOrAzureLinux "$OS"; then
-        # Install driver - currently version 1.3.0 is supported
+    if isAzureLinux "$OS"; then
+        # Install MA35D packages - currently version 1.5 and above are supported
+        # This install script will extract the driver version/build number to find
+        # the corresponding core/FW packages
+
+        # Get driver package name from internal AMD repo
         if ! dnf_install 30 1 600 azurelinux-repos-amd; then
           echo "Unable to install Azure Linux AMD package repo, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-1.3.0*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
+        AMD_AMA_DRIVER_PACKAGE=$(dnf repoquery -y --available "amd-ama-driver-*" | grep -E "amd-ama-driver-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
         if [ -z "$AMD_AMA_DRIVER_PACKAGE" ]; then
             echo "Unable to find AMD AMA driver package for current kernel version, exiting..."
             exit $ERR_AMDAMA_DRIVER_NOT_FOUND
         fi
+
+        # Install FW package
+        AMD_AMA_FIRMWARE_PACKAGE="${AMD_AMA_DRIVER_PACKAGE/driver/firmware}"
+        if [ -z "$AMD_AMA_FIRMWARE_PACKAGE" ] || [ "$AMD_AMA_FIRMWARE_PACKAGE" = "$AMD_AMA_DRIVER_PACKAGE" ]; then
+            echo "Unable to find AMD AMA firmware package for current kernel version, exiting..."
+            exit $ERR_AMDAMA_DRIVER_NOT_FOUND
+        fi
+        if ! dnf_install 30 1 600 $AMD_AMA_FIRMWARE_PACKAGE; then
+          echo "Unable to install AMD AMA FW package, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
+
+        # Install driver package
         if ! dnf_install 30 1 600 $AMD_AMA_DRIVER_PACKAGE; then
           echo "Unable to install AMD AMA driver package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
@@ -1358,7 +1382,8 @@ setupAmdAma() {
           echo "Unable to install Azure Linux packages required for AMD AMA core package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
-        if ! dnf_install_amd_ama_core 30 1 600; then
+        TMP="${AMD_AMA_DRIVER_PACKAGE#amd-ama-driver-*:}"; AMD_AMA_DRIVER_VERSION="${TMP%%_*}"
+        if ! dnf_install_amd_ama_core_package $AMD_AMA_DRIVER_VERSION 30 1 600; then
           echo "Unable to install AMD AMA core package, exiting..."
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
@@ -1485,6 +1510,8 @@ providers:
 EOF
     elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         echo "configure credential provider for network isolated cluster"
+        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+        MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
         tee "${config_file_path}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
@@ -1495,12 +1522,12 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
-      - "mcr.microsoft.com"
+      - "${MCR_REPOSITORY_BASE}"
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1${ib_token_attributes}
     args:
       - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
+      - --registry-mirror=${MCR_REPOSITORY_BASE}:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER${ib_args}
 EOF
     else
         echo "configure credential provider with default settings"

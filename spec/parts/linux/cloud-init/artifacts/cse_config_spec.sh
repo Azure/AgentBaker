@@ -2121,4 +2121,90 @@ SETUP_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
         End
     End
+
+    Describe 'ensurePodInfraContainerImage'
+        waitForContainerdReady() { return 0; }
+        ctr() { echo ""; return 0; }
+        mkdir() { echo "mkdir $@"; }
+        tar() { echo "tar $@"; return 0; }
+        rm() { echo "rm $@"; }
+        labelContainerImage() { echo "labelContainerImage $@"; }
+        retrycmd_cp_oci_layout_with_oras() { echo "retrycmd_cp_oci_layout_with_oras $@"; return 0; }
+        ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
+
+        It 'should use MCR_REPOSITORY_BASE for image replacement when set'
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE="mcr.microsoft.us"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'should fall back to mcr.microsoft.com when MCR_REPOSITORY_BASE is unset'
+            get_sandbox_image() { echo "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE=""
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+
+        It 'should handle MCR_REPOSITORY_BASE with trailing slash'
+            get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"; }
+            MCR_REPOSITORY_BASE="mcr.microsoft.us/"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+
+            When call ensurePodInfraContainerImage
+
+            The status should be success
+            The output should include "Pulling with authentication for myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+        End
+    End
+
+    Describe "setupAmdAma"
+
+        uname() {
+            echo "6.6.139.1-1.azl3"
+        }
+
+        dnf_install() {
+            return 0
+        }
+
+        dnf_install_amd_ama_core_package() {
+            return 0
+        }
+
+        systemctl() {
+            return 0
+        }
+
+        sh() {
+            return 0
+        }
+
+        BeforeEach 'OS=AZURELINUX'
+
+        It "selects the newest matching AMD AMA driver package"
+            dnf() {
+                cat <<EOF
+amd-ama-driver-0:1.4.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.4.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+EOF
+            }
+
+            When call setupAmdAma
+
+            The status should be success
+            The variable AMD_AMA_DRIVER_PACKAGE should equal \
+                "amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
+            The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
+        End
+    End
 End

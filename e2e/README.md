@@ -188,7 +188,7 @@ sequenceDiagram
 ## Running Locally
 
 **Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you
-should first run `make generate` from the root of the AgentBaker repository.**
+should set `DISABLE_SCRIPTLESS=true` in `.env`. Otherwise scriptless provisioning only uses scripts that are built into VHD.**
 
 To run the E2E test suite locally, use `e2e-local.sh`. This script sets up the `go test` command.
 

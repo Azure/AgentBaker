@@ -69,6 +69,7 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204TLGen2,
 		Gallery: imageGalleryLinux,
 	}
+
 	VHDUbuntu2004FIPSContainerd = &Image{
 		Name:                  "2004fipscontainerd",
 		OS:                    OSUbuntu,
@@ -77,6 +78,16 @@ var (
 		Gallery:               imageGalleryLinux,
 		UnsupportedLocalDns:   true,
 		UnsupportedGen2:       true,
+		SkipOldVHDValidations: true,
+	}
+
+	VHDUbuntu2004FIPSGen2Containerd = &Image{
+		Name:                  "2004gen2fipscontainerd",
+		OS:                    OSUbuntu,
+		Arch:                  "amd64",
+		Distro:                datamodel.AKSUbuntuFipsContainerd2004Gen2,
+		Gallery:               imageGalleryLinux,
+		UnsupportedLocalDns:   true,
 		SkipOldVHDValidations: true,
 	}
 
