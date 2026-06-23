@@ -120,6 +120,10 @@ func readHotfixConfig(path string) (hotfixConfig, error) {
 }
 
 func shouldApplyTargetVersion(currentVersion, targetVersion string) bool {
+	// target_version supports:
+	// - YYYYMM.DD       => match any patch under the same base
+	// - YYYYMM.DD.PATCH => exact match
+	// Empty target_version means no scoping (applies to all versions).
 	target := strings.TrimSpace(targetVersion)
 	if target == "" {
 		return true
