@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker
 
-go 1.25.10
+go 1.26.4
 
 require (
 	github.com/Azure/go-autorest/autorest/to v0.4.1
