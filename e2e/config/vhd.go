@@ -289,7 +289,7 @@ var (
 		Name:    "windows-2025-gen2-tl",
 		OS:      OSWindows,
 		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2025Gen2,
+		Distro:  datamodel.AKSWindows2025Gen2TL,
 		Gallery: imageGalleryWindows,
 	}
 )
