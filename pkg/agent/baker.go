@@ -70,7 +70,9 @@ systemctl start --no-block aks-node-controller.service
 	// aksNodeConfigBlock is appended to the boothook when AKSNodeConfig is provided.
 	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script
 	// can pass --provision-config alongside --nbc-cmd for env comparison.
-	aksNodeConfigBlockFmt = `
+	// gzipFileBlockFmt writes a gzipped+base64-encoded file to disk. It is general-purpose
+	// and reused for any boothook payload that is gzip-compressed (AKSNodeConfig, hotfix files).
+	gzipFileBlockFmt = `
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
 EOF
@@ -105,10 +107,24 @@ chmod 0600 %[1]s
        "mode": 384,
        "contents": { "source": "data:;base64,%s" }
        }`
+	// flatcarHotfixFilesEntry is an Ignition file entry appended when a script hotfix is
+	// active. It carries the gzipped+base64-encoded write_files payload that download-hotfix
+	// applies when the running version is targeted by scripts_version.
+	flatcarHotfixFilesEntry = `,
+	   {
+       "path": "/opt/azure/containers/anc-scripts-hotfix-files.yml",
+       "mode": 384,
+       "contents": { "compression": "gzip","source": "data:;base64,%s" }
+       }`
 	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
 	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 	aksNodeConfigPath  = "/opt/azure/containers/aks-node-controller-config.json"
 	hotfixConfigPath   = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	// hotfixFilesPath is where the script-hotfix write_files payload is written. It is only
+	// present when a script hotfix is active; download-hotfix applies it (gated by scripts_version).
+	hotfixFilesPath = "/opt/azure/containers/anc-scripts-hotfix-files.yml"
+	// hotfixFilesTemplatePath is the embedded source template for the script hotfix payload.
+	hotfixFilesTemplatePath = "hotfix/anc-scripts-hotfix-files.yml"
 	// hotfixConfigBlockFmt writes a plain base64-encoded JSON file (no gzip — hotfix.json is small).
 	hotfixConfigBlockFmt = `
 cat <<'EOF' | base64 -d >%[1]s
@@ -163,18 +179,24 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	} else if hotfixJSON != "" {
 		encodedHotfixConfig = base64.StdEncoding.EncodeToString([]byte(hotfixJSON))
 	}
+	var encodedHotfixFiles string
+	if hotfixFiles, err := t.getLinuxNodeHotfixFilesPayload(config); err != nil {
+		panic(err)
+	} else if hotfixFiles != "" {
+		encodedHotfixFiles = getBase64EncodedGzippedCustomScriptFromStr(hotfixFiles)
+	}
 
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
-		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig)
+		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig, encodedHotfixFiles)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig)
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig, encodedHotfixFiles)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
-func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig string) string {
+func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig, encodedHotfixFiles string) string {
 	var flatcarAKSNodeConfigBlock string
 	if encodedAKSNodeConfig != "" {
 		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
@@ -183,16 +205,23 @@ func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enco
 	if encodedHotfixConfig != "" {
 		flatcarHotfixConfigBlock = fmt.Sprintf(flatcarHotfixConfigEntry, encodedHotfixConfig)
 	}
-	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock+flatcarHotfixConfigBlock)
+	var flatcarHotfixFilesBlock string
+	if encodedHotfixFiles != "" {
+		flatcarHotfixFilesBlock = fmt.Sprintf(flatcarHotfixFilesEntry, encodedHotfixFiles)
+	}
+	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock+flatcarHotfixConfigBlock+flatcarHotfixFilesBlock)
 }
 
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig string) string {
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig, encodedHotfixFiles string) string {
 	var extraBlocks string
 	if encodedAKSNodeConfig != "" {
-		extraBlocks += fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+		extraBlocks += fmt.Sprintf(gzipFileBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
 	}
 	if encodedHotfixConfig != "" {
 		extraBlocks += fmt.Sprintf(hotfixConfigBlockFmt, hotfixConfigPath, encodedHotfixConfig)
+	}
+	if encodedHotfixFiles != "" {
+		extraBlocks += fmt.Sprintf(gzipFileBlockFmt, hotfixFilesPath, encodedHotfixFiles)
 	}
 	return fmt.Sprintf(
 		boothookTemplate,
@@ -218,6 +247,34 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	}
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+}
+
+// getLinuxNodeHotfixFilesPayload renders the script-hotfix write_files payload from the
+// embedded template, using the same func map/variables as nodecustomdata.yml so the
+// GetVariableProperty references resolve to the node's script contents. It returns "" when
+// there is no active script hotfix (the template carries no write_files entries), in which
+// case baker ships nothing and download-hotfix is a no-op.
+func (t *TemplateGenerator) getLinuxNodeHotfixFilesPayload(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	raw, err := parts.Templates.ReadFile(hotfixFilesTemplatePath)
+	if err != nil {
+		return "", fmt.Errorf("read embedded hotfix files payload: %w", err)
+	}
+	// Fast path: the default placeholder has no write_files entries, so skip rendering.
+	if !strings.Contains(string(raw), "- path:") {
+		return "", nil
+	}
+
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	rendered, err := t.getSingleLine(hotfixFilesTemplatePath, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
+	if err != nil {
+		return "", err
+	}
+	// After rendering, conditionals may have elided all entries for this distro.
+	if !strings.Contains(rendered, "- path:") {
+		return "", nil
+	}
+	return rendered, nil
 }
 
 // loadHotfixConfigJSON reads the embedded hotfix version config and returns

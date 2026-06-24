@@ -74,16 +74,16 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          FILE="parts/linux/cloud-init/nodecustomdata.yml"
+          FILE="parts/hotfix/anc-scripts-hotfix-files.yml"
           if git diff --quiet "$FILE"; then
-            echo "No template changes needed."
+            echo "No hotfix payload changes needed."
             exit 0
           fi
           CONTENT=$(base64 -w 0 "$FILE")
           SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha')
           gh api "repos/${{ github.repository }}/contents/${FILE}" \
             -X PUT \
-            -f message="chore: auto-generate hotfix template entries" \
+            -f message="chore: auto-generate hotfix script payload" \
             -f content="$CONTENT" \
             -f branch="${{ github.head_ref }}" \
             -f sha="$SHA"

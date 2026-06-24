@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,6 +201,79 @@ func TestDownloadHotfix_UnreadableFile(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
 	require.Error(t, tt.App.downloadHotfix(context.Background()))
+}
+
+func writeHotfixFilesPayload(t *testing.T, path, targetPath string) {
+	t.Helper()
+	payload := fmt.Sprintf(`#cloud-config
+write_files:
+- path: %s
+  permissions: "0644"
+  owner: root
+  content: |
+    hotfixed
+`, targetPath)
+	require.NoError(t, os.WriteFile(path, []byte(payload), 0o644))
+}
+
+func TestDownloadHotfix_AppliesScriptHotfixWhenScriptsVersionMatches(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"scripts_version":"202604.01"}`), 0o644))
+
+	target := filepath.Join(dir, "hotfixed-script.sh")
+	filesPath := filepath.Join(dir, "hotfix-files.yml")
+	writeHotfixFilesPayload(t, filesPath, target)
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = cfgPath
+	tt.App.hotfixFilesPath = filesPath
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	got, err := os.ReadFile(target)
+	require.NoError(t, err)
+	assert.Equal(t, "hotfixed\n", string(got))
+}
+
+func TestDownloadHotfix_SkipsScriptHotfixWhenScriptsVersionMismatches(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"scripts_version":"209901.01"}`), 0o644))
+
+	target := filepath.Join(dir, "hotfixed-script.sh")
+	filesPath := filepath.Join(dir, "hotfix-files.yml")
+	writeHotfixFilesPayload(t, filesPath, target)
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = cfgPath
+	tt.App.hotfixFilesPath = filesPath
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	_, err := os.Stat(target)
+	assert.True(t, os.IsNotExist(err), "script hotfix must not be applied on scripts_version mismatch")
+}
+
+func TestDownloadHotfix_ScriptHotfixMissingFileNoop(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"scripts_version":"202604.01"}`), 0o644))
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = cfgPath
+	tt.App.hotfixFilesPath = filepath.Join(dir, "nonexistent.yml")
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 }
 
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {

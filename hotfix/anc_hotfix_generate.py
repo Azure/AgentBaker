@@ -52,6 +52,9 @@ def read_hotfix_config():
     _validate_version(version, "version")
     _validate_version(scripts_version, "scripts_version", allow_base=True)
 
+    # JSON schema:
+    #   version: ANC binary hotfix version to download/install.
+    #   scripts_version: ANC/VHD version base that should receive the script hotfix write_files.
     payload = {}
     if version:
         payload["version"] = version

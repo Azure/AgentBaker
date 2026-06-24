@@ -16,7 +16,11 @@ import (
 
 const (
 	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
-	maxInstallRetries        = 5
+	// defaultHotfixFilesPath is the script-hotfix write_files payload shipped by the
+	// boothook only when a script hotfix is active. download-hotfix applies it when the
+	// running ANC/VHD version is targeted by scripts_version.
+	defaultHotfixFilesPath = "/opt/azure/containers/anc-scripts-hotfix-files.yml"
+	maxInstallRetries      = 5
 	retryBackoff             = 3 * time.Second
 	commandTimeout           = 60 * time.Second
 	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
@@ -29,8 +33,13 @@ const (
 	pkgBinaryPath = "/usr/bin/aks-node-controller"
 )
 
-// downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
-// The wrapper script decides which binary to execute after this command returns.
+// downloadHotfix applies any active hotfix for the running ANC/VHD version. It is the
+// single place where version-gated remediation happens:
+//   - the ANC binary hotfix (gated by `version`), staged alongside the VHD-baked binary
+//   - the script hotfix write_files (gated by `scripts_version`), materialized to disk
+//
+// Running both here means that by the time `provision` runs, the correct binary and the
+// correct scripts are already in place — no marker-based stripping of nodecustomdata.yml.
 func (a *App) downloadHotfix(ctx context.Context) error {
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
@@ -45,10 +54,20 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 		return nil
 	}
 
+	if err := a.downloadHotfixBinary(ctx, hotfixCfg); err != nil {
+		return err
+	}
+	return a.applyScriptHotfix(hotfixCfg)
+}
+
+// downloadHotfixBinary installs the requested ANC binary hotfix and stages it alongside
+// the VHD-baked binary. The wrapper script decides which binary to execute afterwards.
+// It is a no-op when no binary version is requested or the running version isn't targeted.
+func (a *App) downloadHotfixBinary(ctx context.Context, hotfixCfg hotfixConfig) error {
 	hotfixVersion := hotfixCfg.Version
 
 	if hotfixVersion == "" {
-		slog.Debug("hotfix config does not request ANC version, skipping ANC binary download", "path", hotfixPath)
+		slog.Debug("hotfix config does not request ANC version, skipping ANC binary download")
 		return nil
 	}
 
@@ -80,11 +99,34 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	return nil
 }
 
+// applyScriptHotfix materializes the script hotfix write_files when the running ANC/VHD
+// version is targeted by scripts_version. The payload file is shipped by the boothook only
+// when a script hotfix is active, so a missing file is a no-op.
+func (a *App) applyScriptHotfix(hotfixCfg hotfixConfig) error {
+	filesPath := a.hotfixFilesPath
+	if filesPath == "" {
+		filesPath = defaultHotfixFilesPath
+	}
+
+	if !shouldApplyScriptsVersion(Version, hotfixCfg.ScriptsVersion) {
+		if _, err := os.Stat(filesPath); err == nil {
+			slog.Info("skipping script hotfix due to scripts_version mismatch",
+				"current", Version, "target", hotfixCfg.ScriptsVersion)
+		}
+		return nil
+	}
+
+	if err := applyWriteFiles(filesPath); err != nil {
+		return fmt.Errorf("apply script hotfix write files: %w", err)
+	}
+	return nil
+}
+
 // hotfixConfig is the JSON structure of the hotfix configuration file.
 // Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
 type hotfixConfig struct {
-	Version        string `json:"version"`
-	ScriptsVersion string `json:"scripts_version"`
+	Version        string `json:"version"`         // ANC binary hotfix version to download/install.
+	ScriptsVersion string `json:"scripts_version"` // ANC/VHD version base that should receive the script hotfix write_files.
 }
 
 // readHotfixVersion reads and parses the JSON hotfix config from the given path.

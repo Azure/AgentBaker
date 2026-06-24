@@ -48,6 +48,8 @@ type App struct {
 	aptSourcesDir string
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
+	// hotfixFilesPath overrides the default script-hotfix write_files payload path for testing.
+	hotfixFilesPath string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.

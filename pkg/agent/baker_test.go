@@ -1505,11 +1505,26 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	})
 
 	It("should include hotfix.json in flatcar scriptless custom data", func() {
-		customData := buildFlatcarScriptlessCustomData("encoded-nbc", "encoded-node", "encoded-config", "encoded-hotfix")
+		customData := buildFlatcarScriptlessCustomData("encoded-nbc", "encoded-node", "encoded-config", "encoded-hotfix", "")
 
 		Expect(customData).To(ContainSubstring(hotfixConfigPath))
 		Expect(customData).To(ContainSubstring("encoded-hotfix"))
 		Expect(customData).To(ContainSubstring(aksNodeConfigPath))
+	})
+
+	It("should include the script hotfix files payload in scriptless custom data when active", func() {
+		boothook := buildBoothookScriptlessCustomData("encoded-nbc", "encoded-node", "", "", "encoded-hotfix-files")
+		Expect(boothook).To(ContainSubstring(hotfixFilesPath))
+		Expect(boothook).To(ContainSubstring("encoded-hotfix-files"))
+
+		flatcar := buildFlatcarScriptlessCustomData("encoded-nbc", "encoded-node", "", "", "encoded-hotfix-files")
+		Expect(flatcar).To(ContainSubstring(hotfixFilesPath))
+		Expect(flatcar).To(ContainSubstring("encoded-hotfix-files"))
+	})
+
+	It("should omit the script hotfix files payload when there is no active script hotfix", func() {
+		boothook := buildBoothookScriptlessCustomData("encoded-nbc", "encoded-node", "", "", "")
+		Expect(boothook).NotTo(ContainSubstring(hotfixFilesPath))
 	})
 
 	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
