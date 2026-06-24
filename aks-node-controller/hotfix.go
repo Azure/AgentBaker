@@ -51,8 +51,8 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
 	}
 
-	if err := applyScriptHotfixWriteFiles(a.getNodeCustomDataPath(), hotfixCfg); err != nil {
-		return fmt.Errorf("apply script hotfix write_files: %w", err)
+	if applyErr := applyScriptHotfixWriteFiles(a.getNodeCustomDataPath(), hotfixCfg); applyErr != nil {
+		return fmt.Errorf("apply script hotfix write_files: %w", applyErr)
 	}
 	hotfixVersion := hotfixCfg.Version
 
