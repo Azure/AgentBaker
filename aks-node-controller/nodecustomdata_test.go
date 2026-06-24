@@ -81,6 +81,10 @@ write_files:
 }
 
 func TestApplyNodeCustomDataWithHotfixConfig_TargetVersionMismatchSkipsScriptHotfixBlock(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
 	tempDir := t.TempDir()
 	normalPath := filepath.Join(tempDir, "normal.txt")
 	hotfixPath := filepath.Join(tempDir, "hotfix.txt")

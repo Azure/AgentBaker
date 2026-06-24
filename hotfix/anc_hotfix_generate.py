@@ -144,7 +144,7 @@ def main():
         inject(payload)
         print(f"\nDone. Injected ANC hotfix config {payload}.")
     else:
-        # No version set — remove any stale hotfix entry
+        # No version/target_version set — remove any stale hotfix entry
         if remove_hotfix():
             print("\nDone. Removed stale ANC hotfix entry.")
         else:
