@@ -68,7 +68,7 @@ jobs:
 
       - name: Detect changed scripts and update template
         run: |
-          python3 hack/hotfix_generate.py "origin/${{ github.base_ref }}"
+          python3 hotfix/hotfix_generate.py "origin/${{ github.base_ref }}"
 
       - name: Commit changes via API
         env:
