@@ -61,7 +61,6 @@ parameters:
   - name: enableTrustedLaunch
     type: boolean
     displayName: Enable Trusted Launch on the SIG image definition.
-    default: False
 
 steps:
   - bash: |
