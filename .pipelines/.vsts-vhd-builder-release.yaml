@@ -1026,3 +1026,103 @@ stages:
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
+
+  # ── ACL Results Callback ─────────────────────────────────────────────────
+  # Notifies the ACL org pipeline with build results
+  # Runs only when ACL builds were requested.
+  - stage: acl_notify
+    displayName: 'ACL Results Callback'
+    dependsOn:
+      - build
+      - e2e
+    condition: |
+      and(
+        always(),
+        or(
+          eq('${{ parameters.buildacltlgen2 }}', true),
+          eq('${{ parameters.buildaclarm64tlgen2 }}', true),
+          eq('${{ parameters.buildaclfipstlgen2 }}', true),
+          eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
+        )
+      )
+    jobs:
+      - job: notify_acl
+        displayName: 'Notify ACL Results Pipeline'
+        timeoutInMinutes: 5
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - bash: |
+              set -euo pipefail
+
+              # Determine overall status from stage outcomes
+              BUILD_RESULT="${BUILD_STAGE_RESULT:-Unknown}"
+              E2E_RESULT="${E2E_STAGE_RESULT:-Skipped}"
+
+              if [[ "${BUILD_RESULT}" == "Succeeded" && "${E2E_RESULT}" == "Succeeded" ]]; then
+                STATUS="Succeeded"
+              elif [[ "${BUILD_RESULT}" == "Succeeded" && "${E2E_RESULT}" == "Skipped" ]]; then
+                STATUS="Succeeded"
+              elif [[ "${BUILD_RESULT}" == "SucceededWithIssues" ]]; then
+                STATUS="PartiallySucceeded"
+              else
+                STATUS="Failed"
+              fi
+
+              RUN_URL="${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECT}/_build/results?buildId=${BUILD_BUILDID}"
+              AUTH_HEADER="Basic $(printf ':%s' "${ACL_CALLBACK_PAT}" | base64 -w 0)"
+
+              echo "ACL Build Status: ${STATUS}"
+              echo "Run URL: ${RUN_URL}"
+              echo "ACL AMD64 Version: ${{ parameters.aclImageVersion }}"
+              echo "ACL ARM64 Version: ${{ coalesce(parameters.aclArm64ImageVersion, parameters.aclImageVersion) }}"
+
+              # ── Trigger ACL Results Collector pipeline ───────────────────
+              # The Results Collector will fetch test results/artifacts from
+              # this run using the AGENTBAKER_PAT passed from the Daily pipeline.
+              PAYLOAD=$(python3 -c "
+              import json
+              print(json.dumps({
+                  'resources': {
+                      'repositories': {
+                          'self': {'refName': 'refs/heads/mayansingh/trigger_daily_aks_build'}
+                      }
+                  },
+                  'templateParameters': {
+                      'sourceRunId': '${BUILD_BUILDID}',
+                      'sourceRunUrl': '${RUN_URL}',
+                      'status': '${STATUS}',
+                      'aclAmd64Version': '${{ parameters.aclImageVersion }}',
+                      'aclArm64Version': '${{ coalesce(parameters.aclArm64ImageVersion, parameters.aclImageVersion) }}',
+                      'adoOrg': '${SYSTEM_COLLECTIONURI%/}',
+                      'adoProject': '${SYSTEM_TEAMPROJECT}',
+                  }
+              }))
+              ")
+
+              echo "Calling ACL Results Collector pipeline..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" \
+                -X POST \
+                -H "Content-Type: application/json" \
+                -H "Authorization: ${AUTH_HEADER}" \
+                -d "${PAYLOAD}" \
+                "${ACL_CALLBACK_URL}")
+
+              HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+              BODY=$(echo "$RESPONSE" | sed '$d')
+
+              if [[ "${HTTP_CODE}" -ge 200 && "${HTTP_CODE}" -lt 300 ]]; then
+                echo "Successfully triggered ACL Results Collector (HTTP ${HTTP_CODE})"
+                echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Triggered run: {d.get(\"_links\",{}).get(\"web\",{}).get(\"href\",\"N/A\")}')" 2>/dev/null || true
+              else
+                echo "##[warning]Failed to notify ACL pipeline (HTTP ${HTTP_CODE}): ${BODY}"
+              fi
+            displayName: 'Callback to ACL Results Pipeline'
+            env:
+              ACL_CALLBACK_PAT: $(ACL_CALLBACK_PAT)
+              ACL_CALLBACK_URL: $(ACL_CALLBACK_URL)
+              BUILD_STAGE_RESULT: $[stageDependencies.build.buildacltlgen2.result]
+              E2E_STAGE_RESULT: $[stageDependencies.e2e.result]
+              SYSTEM_COLLECTIONURI: $(System.CollectionUri)
+              SYSTEM_TEAMPROJECT: $(System.TeamProject)
+              BUILD_BUILDID: $(Build.BuildId)
