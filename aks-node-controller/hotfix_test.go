@@ -203,7 +203,7 @@ func TestDownloadHotfix_UnreadableFile(t *testing.T) {
 	require.Error(t, tt.App.downloadHotfix(context.Background()))
 }
 
-func writeHotfixFilesPayload(t *testing.T, path, targetPath string) {
+func writeScriptsHotfixFilesPayload(t *testing.T, path, targetPath string) {
 	t.Helper()
 	payload := fmt.Sprintf(`#cloud-config
 write_files:
@@ -227,11 +227,11 @@ func TestDownloadHotfix_AppliesScriptHotfixWhenScriptsVersionMatches(t *testing.
 
 	target := filepath.Join(dir, "hotfixed-script.sh")
 	filesPath := filepath.Join(dir, "hotfix-files.yml")
-	writeHotfixFilesPayload(t, filesPath, target)
+	writeScriptsHotfixFilesPayload(t, filesPath, target)
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = cfgPath
-	tt.App.hotfixFilesPath = filesPath
+	tt.App.scriptsHotfixFilesPath = filesPath
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 
 	got, err := os.ReadFile(target)
@@ -250,11 +250,11 @@ func TestDownloadHotfix_SkipsScriptHotfixWhenScriptsVersionMismatches(t *testing
 
 	target := filepath.Join(dir, "hotfixed-script.sh")
 	filesPath := filepath.Join(dir, "hotfix-files.yml")
-	writeHotfixFilesPayload(t, filesPath, target)
+	writeScriptsHotfixFilesPayload(t, filesPath, target)
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = cfgPath
-	tt.App.hotfixFilesPath = filesPath
+	tt.App.scriptsHotfixFilesPath = filesPath
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 
 	_, err := os.Stat(target)
@@ -272,7 +272,7 @@ func TestDownloadHotfix_ScriptHotfixMissingFileNoop(t *testing.T) {
 
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = cfgPath
-	tt.App.hotfixFilesPath = filepath.Join(dir, "nonexistent.yml")
+	tt.App.scriptsHotfixFilesPath = filepath.Join(dir, "nonexistent.yml")
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 }
 

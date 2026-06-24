@@ -16,14 +16,14 @@ import (
 
 const (
 	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
-	// defaultHotfixFilesPath is the script-hotfix write_files payload shipped by the
+	// defaultScriptsHotfixFilesPath is the script-hotfix write_files payload shipped by the
 	// boothook only when a script hotfix is active. download-hotfix applies it when the
 	// running ANC/VHD version is targeted by scripts_version.
-	defaultHotfixFilesPath = "/opt/azure/containers/anc-scripts-hotfix-files.yml"
-	maxInstallRetries      = 5
-	retryBackoff             = 3 * time.Second
-	commandTimeout           = 60 * time.Second
-	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
+	defaultScriptsHotfixFilesPath = "/opt/azure/containers/anc-scripts-hotfix-files.yml"
+	maxInstallRetries             = 5
+	retryBackoff                  = 3 * time.Second
+	commandTimeout                = 60 * time.Second
+	defaultAptSourcesDir          = "/etc/apt/sources.list.d"
 	// vhdBinaryPath is where packer installs the VHD-baked binary.
 	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
 	// hotfixBinaryPath is where the hotfix binary is placed alongside the VHD-baked binary.
@@ -103,9 +103,9 @@ func (a *App) downloadHotfixBinary(ctx context.Context, hotfixCfg hotfixConfig) 
 // version is targeted by scripts_version. The payload file is shipped by the boothook only
 // when a script hotfix is active, so a missing file is a no-op.
 func (a *App) applyScriptHotfix(hotfixCfg hotfixConfig) error {
-	filesPath := a.hotfixFilesPath
+	filesPath := a.scriptsHotfixFilesPath
 	if filesPath == "" {
-		filesPath = defaultHotfixFilesPath
+		filesPath = defaultScriptsHotfixFilesPath
 	}
 
 	if !shouldApplyScriptsVersion(Version, hotfixCfg.ScriptsVersion) {
