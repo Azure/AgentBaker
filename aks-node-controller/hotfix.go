@@ -111,7 +111,7 @@ func readHotfixConfig(path string) (hotfixConfig, error) {
 	return cfg, nil
 }
 
-func shouldApplyTargetVersion(currentVersion, targetVersion string) bool {
+func shouldApplyScriptsVersion(currentVersion, targetVersion string) bool {
 	// scripts_version supports:
 	// - YYYYMM.DD       => match any patch under the same base
 	// - YYYYMM.DD.PATCH => exact match

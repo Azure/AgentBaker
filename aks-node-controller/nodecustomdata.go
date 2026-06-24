@@ -40,7 +40,7 @@ func applyNodeCustomData(path string) error {
 	if err != nil {
 		return fmt.Errorf("read hotfix config for nodecustomdata apply: %w", err)
 	}
-	shouldApplyScriptHotfix := shouldApplyTargetVersion(Version, hotfixCfg.ScriptsVersion)
+	shouldApplyScriptHotfix := shouldApplyScriptsVersion(Version, hotfixCfg.ScriptsVersion)
 	if !shouldApplyScriptHotfix && strings.TrimSpace(hotfixCfg.ScriptsVersion) != "" {
 		slog.Info("skipping script hotfix entries due to scripts_version mismatch",
 			"current", Version, "target", hotfixCfg.ScriptsVersion)
@@ -53,7 +53,7 @@ func applyNodeCustomDataWriteFiles(path string, predicate func(nodeCustomDataWri
 }
 
 func applyNodeCustomDataWithHotfixConfig(path string, hotfixCfg hotfixConfig) error {
-	shouldApplyScriptHotfix := shouldApplyTargetVersion(Version, hotfixCfg.ScriptsVersion)
+	shouldApplyScriptHotfix := shouldApplyScriptsVersion(Version, hotfixCfg.ScriptsVersion)
 	return applyNodeCustomDataWithFilter(path, shouldApplyScriptHotfix, nil)
 }
 

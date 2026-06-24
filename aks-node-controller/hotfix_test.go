@@ -374,7 +374,7 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 	}
 }
 
-func TestShouldApplyTargetVersion(t *testing.T) {
+func TestShouldApplyScriptsVersion(t *testing.T) {
 	tests := []struct {
 		name    string
 		current string
@@ -393,7 +393,7 @@ func TestShouldApplyTargetVersion(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, shouldApplyTargetVersion(tc.current, tc.target))
+			assert.Equal(t, tc.want, shouldApplyScriptsVersion(tc.current, tc.target))
 		})
 	}
 }
