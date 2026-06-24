@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Reads the ANC hotfix version from hotfix/anc-hotfix-version.json and writes
-it to parts/hotfix/anc-hotfix-version.json so baker.go can embed it into the
+it to parts/hotfix/aks-node-controller-hotfix.json so baker.go can embed it into the
 boothook, which writes hotfix.json directly to disk at provisioning time.
 
 Usage: python3 hotfix/anc_hotfix_generate.py
@@ -14,7 +14,7 @@ import re
 import sys
 
 SOURCE_FILE = "hotfix/anc-hotfix-version.json"
-EMBED_FILE = "parts/hotfix/anc-hotfix-version.json"
+EMBED_FILE = "parts/hotfix/aks-node-controller-hotfix.json"
 
 
 def _validate_version(value, key, allow_base=False):
@@ -37,8 +37,8 @@ def read_hotfix_config():
         with open(SOURCE_FILE) as f:
             data = json.load(f)
     except FileNotFoundError:
-        print(f"{SOURCE_FILE} not found. Nothing to do.")
-        return None
+        print(f"ERROR: {SOURCE_FILE} not found", file=sys.stderr)
+        sys.exit(1)
     except json.JSONDecodeError as e:
         print(f"ERROR: {SOURCE_FILE} contains invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)

@@ -1504,6 +1504,14 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
+	It("should include hotfix.json in flatcar scriptless custom data", func() {
+		customData := buildFlatcarScriptlessCustomData("encoded-nbc", "encoded-node", "encoded-config", "encoded-hotfix")
+
+		Expect(customData).To(ContainSubstring(hotfixConfigPath))
+		Expect(customData).To(ContainSubstring("encoded-hotfix"))
+		Expect(customData).To(ContainSubstring(aksNodeConfigPath))
+	})
+
 	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
