@@ -80,7 +80,7 @@ write_files:
 	assert.Equal(t, "0", result.ExitCode)
 }
 
-func TestApplyNodeCustomDataWithHotfixConfig_TargetVersionMismatchSkipsScriptHotfixBlock(t *testing.T) {
+func TestApplyNodeCustomDataWithHotfixConfig_ScriptsVersionMismatchSkipsScriptHotfixBlock(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.1"
 	defer func() { Version = origVersion }()

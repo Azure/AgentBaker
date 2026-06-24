@@ -37,15 +37,18 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 		hotfixPath = defaultHotfixVersionPath
 	}
 
-	hotfixCfg, err := readHotfixConfig(hotfixPath)
+	hotfixCfg, exists, err := readHotfixConfig(hotfixPath)
 	if err != nil {
 		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
+	}
+	if !exists {
+		return nil
 	}
 
 	hotfixVersion := hotfixCfg.Version
 
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request ANC version, skipping ANC binary download", "path", hotfixPath)
+		slog.Debug("hotfix config does not request ANC version, skipping ANC binary download", "path", hotfixPath)
 		return nil
 	}
 
@@ -87,28 +90,28 @@ type hotfixConfig struct {
 // readHotfixVersion reads and parses the JSON hotfix config from the given path.
 // Returns empty string if the file doesn't exist or contains an empty version.
 func readHotfixVersion(path string) (string, error) {
-	cfg, err := readHotfixConfig(path)
+	cfg, _, err := readHotfixConfig(path)
 	return cfg.Version, err
 }
 
-func readHotfixConfig(path string) (hotfixConfig, error) {
+func readHotfixConfig(path string) (hotfixConfig, bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return hotfixConfig{}, nil
+			return hotfixConfig{}, false, nil
 		}
-		return hotfixConfig{}, err
+		return hotfixConfig{}, false, err
 	}
 	if len(strings.TrimSpace(string(data))) == 0 {
-		return hotfixConfig{}, nil
+		return hotfixConfig{}, true, nil
 	}
 	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return hotfixConfig{}, fmt.Errorf("parsing hotfix config %s: %w", path, err)
+		return hotfixConfig{}, true, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
 	cfg.Version = strings.TrimSpace(cfg.Version)
 	cfg.ScriptsVersion = strings.TrimSpace(cfg.ScriptsVersion)
-	return cfg, nil
+	return cfg, true, nil
 }
 
 func shouldApplyScriptsVersion(currentVersion, targetVersion string) bool {

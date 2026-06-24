@@ -158,7 +158,9 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 	var encodedHotfixConfig string
-	if hotfixJSON := loadHotfixConfigJSON(); hotfixJSON != "" {
+	if hotfixJSON, err := loadHotfixConfigJSON(); err != nil {
+		panic(err)
+	} else if hotfixJSON != "" {
 		encodedHotfixConfig = base64.StdEncoding.EncodeToString([]byte(hotfixJSON))
 	}
 
@@ -221,22 +223,25 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 // loadHotfixConfigJSON reads the embedded hotfix version config and returns
 // the raw JSON if a hotfix is active (version or scripts_version is set).
 // Returns an empty string when no hotfix is active.
-func loadHotfixConfigJSON() string {
+func loadHotfixConfigJSON() (string, error) {
 	data, err := parts.Templates.ReadFile("hotfix/aks-node-controller-hotfix.json")
-	if err != nil || strings.TrimSpace(string(data)) == "{}" || len(strings.TrimSpace(string(data))) == 0 {
-		return ""
+	if err != nil {
+		return "", fmt.Errorf("read embedded hotfix config: %w", err)
 	}
 	var cfg struct {
 		Version        string `json:"version"`
 		ScriptsVersion string `json:"scripts_version"`
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return ""
+		return "", fmt.Errorf("parse embedded hotfix config: %w", err)
+	}
+	if strings.TrimSpace(string(data)) == "{}" || len(strings.TrimSpace(string(data))) == 0 {
+		return "", nil
 	}
 	if strings.TrimSpace(cfg.Version) == "" && strings.TrimSpace(cfg.ScriptsVersion) == "" {
-		return ""
+		return "", nil
 	}
-	return strings.TrimSpace(string(data))
+	return strings.TrimSpace(string(data)), nil
 }
 
 const (

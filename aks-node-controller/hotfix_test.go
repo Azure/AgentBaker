@@ -99,7 +99,7 @@ func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
 	})
 }
 
-func TestDownloadHotfix_NoHotfixFile(t *testing.T) {
+func TestDownloadHotfix_NoHotfixConfigSilentNoop(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "nonexistent")
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))

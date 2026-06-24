@@ -36,7 +36,7 @@ type nodeCustomData struct {
 }
 
 func applyNodeCustomData(path string) error {
-	hotfixCfg, err := readHotfixConfig(defaultHotfixVersionPath)
+	hotfixCfg, _, err := readHotfixConfig(defaultHotfixVersionPath)
 	if err != nil {
 		return fmt.Errorf("read hotfix config for nodecustomdata apply: %w", err)
 	}
@@ -46,10 +46,6 @@ func applyNodeCustomData(path string) error {
 			"current", Version, "target", hotfixCfg.ScriptsVersion)
 	}
 	return applyNodeCustomDataWithFilter(path, shouldApplyScriptHotfix, nil)
-}
-
-func applyNodeCustomDataWriteFiles(path string, predicate func(nodeCustomDataWriteFile) bool) error {
-	return applyNodeCustomDataWithFilter(path, true, predicate)
 }
 
 func applyNodeCustomDataWithHotfixConfig(path string, hotfixCfg hotfixConfig) error {
