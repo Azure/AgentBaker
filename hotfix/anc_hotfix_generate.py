@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Reads the ANC hotfix version from hotfix/anc-hotfix-version.json and injects
-(or updates) the aks-node-controller-hotfix.json write_files entry into the
-EnableScriptlessCSECmd section of nodecustomdata.yml.
+Reads the ANC hotfix version from hotfix/anc-hotfix-version.json and writes
+it to parts/hotfix/anc-hotfix-version.json so baker.go can embed it into the
+boothook, which writes hotfix.json directly to disk at provisioning time.
 
 Usage: python3 hotfix/anc_hotfix_generate.py
 
@@ -13,13 +13,8 @@ import json
 import re
 import sys
 
-TEMPLATE = "parts/linux/cloud-init/nodecustomdata.yml"
-VERSION_FILE = "hotfix/anc-hotfix-version.json"
-HOTFIX_PATH = "/opt/azure/containers/aks-node-controller-hotfix.json"
-
-# Marker comments for idempotent injection
-BEGIN_MARKER = "# ---- anc-hotfix: auto-generated ----"
-END_MARKER = "# ---- end anc-hotfix ----"
+SOURCE_FILE = "hotfix/anc-hotfix-version.json"
+EMBED_FILE = "parts/hotfix/anc-hotfix-version.json"
 
 
 def _validate_version(value, key, allow_base=False):
@@ -37,118 +32,45 @@ def _validate_version(value, key, allow_base=False):
 
 
 def read_hotfix_config():
-    """Read and validate the hotfix config from the version file."""
+    """Read and validate the hotfix config from the source version file."""
     try:
-        with open(VERSION_FILE) as f:
+        with open(SOURCE_FILE) as f:
             data = json.load(f)
     except FileNotFoundError:
-        print(f"{VERSION_FILE} not found. Nothing to do.")
+        print(f"{SOURCE_FILE} not found. Nothing to do.")
         return None
     except json.JSONDecodeError as e:
-        print(f"ERROR: {VERSION_FILE} contains invalid JSON: {e}", file=sys.stderr)
+        print(f"ERROR: {SOURCE_FILE} contains invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
 
     version = data.get("version", "").strip()
-    target_version = data.get("target_version", "").strip()
-    if not version and not target_version:
-        print(f"{VERSION_FILE} has no version/target_version set. Nothing to do.")
+    scripts_version = data.get("scripts_version", "").strip()
+    if not version and not scripts_version:
+        print(f"{SOURCE_FILE} has no version/scripts_version set. Nothing to do.")
         return None
 
     _validate_version(version, "version")
-    _validate_version(target_version, "target_version", allow_base=True)
+    _validate_version(scripts_version, "scripts_version", allow_base=True)
 
     payload = {}
     if version:
         payload["version"] = version
-    if target_version:
-        payload["target_version"] = target_version
+    if scripts_version:
+        payload["scripts_version"] = scripts_version
     return payload
-
-
-def build_hotfix_entry(payload):
-    """Build the write_files YAML lines for the hotfix JSON config."""
-    hotfix_json = json.dumps(payload, separators=(',', ':'))
-    return [
-        f"\n",
-        f"{BEGIN_MARKER}\n",
-        f"- path: {HOTFIX_PATH}\n",
-        f"  permissions: \"0644\"\n",
-        f"  owner: root\n",
-        f"  content: |\n",
-        f"    {hotfix_json}\n",
-        f"{END_MARKER}\n",
-    ]
-
-
-def inject(payload):
-    """Inject or update the ANC hotfix entry in the scriptless section of nodecustomdata.yml."""
-    with open(TEMPLATE) as f:
-        content = f.read()
-
-    # Remove any previous ANC hotfix entry (idempotent)
-    content = re.sub(
-        rf'\n?{re.escape(BEGIN_MARKER)}\n.*?{re.escape(END_MARKER)}\n',
-        '', content, flags=re.DOTALL,
-    )
-
-    lines = content.splitlines(keepends=True)
-
-    # Find the EnableScriptlessCSECmd block and its {{- else}} boundary
-    scriptless_start = None
-    else_idx = None
-    for i, line in enumerate(lines):
-        if '{{if EnableScriptlessCSECmd}}' in line:
-            scriptless_start = i
-        if scriptless_start is not None and else_idx is None:
-            if line.strip().startswith('{{- else'):
-                else_idx = i
-
-    if scriptless_start is None or else_idx is None:
-        print("ERROR: could not find EnableScriptlessCSECmd / {{- else}} boundary "
-              "in template", file=sys.stderr)
-        sys.exit(1)
-
-    entry_lines = build_hotfix_entry(payload)
-
-    # Insert just before the {{- else}} line
-    final = lines[:else_idx] + entry_lines + lines[else_idx:]
-
-    with open(TEMPLATE, 'w') as f:
-        f.writelines(final)
-
-    print(f"Injected ANC hotfix config {payload} into {TEMPLATE}", file=sys.stderr)
-    return True
-
-
-def remove_hotfix():
-    """Remove any existing ANC hotfix entry from the template."""
-    with open(TEMPLATE) as f:
-        content = f.read()
-
-    new_content = re.sub(
-        rf'\n?{re.escape(BEGIN_MARKER)}\n.*?{re.escape(END_MARKER)}\n',
-        '', content, flags=re.DOTALL,
-    )
-
-    if new_content != content:
-        with open(TEMPLATE, 'w') as f:
-            f.write(new_content)
-        print(f"Removed previous ANC hotfix entry from {TEMPLATE}", file=sys.stderr)
-        return True
-    return False
 
 
 def main():
     payload = read_hotfix_config()
     if payload:
-        inject(payload)
-        print(f"\nDone. Injected ANC hotfix config {payload}.")
+        with open(EMBED_FILE, 'w') as f:
+            json.dump(payload, f, separators=(',', ':'))
+        print(f"\nDone. Wrote hotfix config {payload} to {EMBED_FILE}.")
     else:
-        # No version/target_version set — remove any stale hotfix entry
-        if remove_hotfix():
-            print("\nDone. Removed stale ANC hotfix entry.")
-        else:
-            print("\nNothing to do.")
+        # No version/scripts_version set — clear the embed file
+        with open(EMBED_FILE, 'w') as f:
+            f.write("{}")
+        print(f"\nDone. Cleared {EMBED_FILE}.")
 
 
 if __name__ == '__main__':

@@ -37,23 +37,11 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 		hotfixPath = defaultHotfixVersionPath
 	}
 
-	// In scriptless --nbc-cmd mode, nodecustomdata.yml is written by boothook and
-	// its write_files are materialized by ANC. Materialize only the hotfix config
-	// file first so download-hotfix can run before provision applies all write_files.
-	if err := applyNodeCustomDataWriteFiles(a.getNodeCustomDataPath(), func(file nodeCustomDataWriteFile) bool {
-		return file.Path == hotfixPath
-	}); err != nil {
-		return fmt.Errorf("materialize hotfix config from nodecustomdata: %w", err)
-	}
-
 	hotfixCfg, err := readHotfixConfig(hotfixPath)
 	if err != nil {
 		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
 	}
 
-	if applyErr := applyScriptHotfixWriteFiles(a.getNodeCustomDataPath(), hotfixCfg); applyErr != nil {
-		return fmt.Errorf("apply script hotfix write_files: %w", applyErr)
-	}
 	hotfixVersion := hotfixCfg.Version
 
 	if hotfixVersion == "" {
@@ -92,8 +80,8 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 // hotfixConfig is the JSON structure of the hotfix configuration file.
 // Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
 type hotfixConfig struct {
-	Version       string `json:"version"`
-	TargetVersion string `json:"target_version"`
+	Version        string `json:"version"`
+	ScriptsVersion string `json:"scripts_version"`
 }
 
 // readHotfixVersion reads and parses the JSON hotfix config from the given path.
@@ -119,15 +107,15 @@ func readHotfixConfig(path string) (hotfixConfig, error) {
 		return hotfixConfig{}, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
 	cfg.Version = strings.TrimSpace(cfg.Version)
-	cfg.TargetVersion = strings.TrimSpace(cfg.TargetVersion)
+	cfg.ScriptsVersion = strings.TrimSpace(cfg.ScriptsVersion)
 	return cfg, nil
 }
 
 func shouldApplyTargetVersion(currentVersion, targetVersion string) bool {
-	// target_version supports:
+	// scripts_version supports:
 	// - YYYYMM.DD       => match any patch under the same base
 	// - YYYYMM.DD.PATCH => exact match
-	// Empty target_version means no scoping (applies to all versions).
+	// Empty scripts_version means no scoping (applies to all versions).
 	target := strings.TrimSpace(targetVersion)
 	if target == "" {
 		return true

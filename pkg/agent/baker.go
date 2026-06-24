@@ -102,6 +102,14 @@ chmod 0600 %[1]s
 	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
 	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 	aksNodeConfigPath  = "/opt/azure/containers/aks-node-controller-config.json"
+	hotfixConfigPath   = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	// hotfixConfigBlockFmt writes a plain base64-encoded JSON file (no gzip — hotfix.json is small).
+	hotfixConfigBlockFmt = `
+cat <<'EOF' | base64 -d >%[1]s
+%[2]s
+EOF
+chmod 0644 %[1]s
+`
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -143,12 +151,16 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	if config.AKSNodeConfigJSON != "" {
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
+	var encodedHotfixConfig string
+	if hotfixJSON := loadHotfixConfigJSON(); hotfixJSON != "" {
+		encodedHotfixConfig = base64.StdEncoding.EncodeToString([]byte(hotfixJSON))
+	}
 
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
 		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
@@ -162,10 +174,13 @@ func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enco
 	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
 }
 
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
-	var aksNodeConfigBlock string
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, encodedHotfixConfig string) string {
+	var extraBlocks string
 	if encodedAKSNodeConfig != "" {
-		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+		extraBlocks += fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+	}
+	if encodedHotfixConfig != "" {
+		extraBlocks += fmt.Sprintf(hotfixConfigBlockFmt, hotfixConfigPath, encodedHotfixConfig)
 	}
 	return fmt.Sprintf(
 		boothookTemplate,
@@ -173,7 +188,7 @@ func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enc
 		encodedNodeCustomData,
 		nbcCmdFilePath,
 		encodedNBCCMD,
-		aksNodeConfigBlock,
+		extraBlocks,
 	)
 }
 
@@ -191,6 +206,24 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	}
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+}
+
+// loadHotfixConfigJSON reads the embedded hotfix version config and returns
+// the raw JSON if a hotfix is active (version or scripts_version is set).
+// Returns an empty string when no hotfix is active.
+func loadHotfixConfigJSON() string {
+	data, err := parts.Templates.ReadFile("hotfix/anc-hotfix-version.json")
+	if err != nil || strings.TrimSpace(string(data)) == "{}" || len(strings.TrimSpace(string(data))) == 0 {
+		return ""
+	}
+	var cfg map[string]string
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return ""
+	}
+	if cfg["version"] == "" && cfg["scripts_version"] == "" {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 const (

@@ -40,10 +40,10 @@ func applyNodeCustomData(path string) error {
 	if err != nil {
 		return fmt.Errorf("read hotfix config for nodecustomdata apply: %w", err)
 	}
-	shouldApplyScriptHotfix := shouldApplyTargetVersion(Version, hotfixCfg.TargetVersion)
-	if !shouldApplyScriptHotfix && strings.TrimSpace(hotfixCfg.TargetVersion) != "" {
-		slog.Info("skipping script hotfix entries due to target_version mismatch",
-			"current", Version, "target", hotfixCfg.TargetVersion)
+	shouldApplyScriptHotfix := shouldApplyTargetVersion(Version, hotfixCfg.ScriptsVersion)
+	if !shouldApplyScriptHotfix && strings.TrimSpace(hotfixCfg.ScriptsVersion) != "" {
+		slog.Info("skipping script hotfix entries due to scripts_version mismatch",
+			"current", Version, "target", hotfixCfg.ScriptsVersion)
 	}
 	return applyNodeCustomDataWithFilter(path, shouldApplyScriptHotfix, nil)
 }
@@ -53,43 +53,8 @@ func applyNodeCustomDataWriteFiles(path string, predicate func(nodeCustomDataWri
 }
 
 func applyNodeCustomDataWithHotfixConfig(path string, hotfixCfg hotfixConfig) error {
-	shouldApplyScriptHotfix := shouldApplyTargetVersion(Version, hotfixCfg.TargetVersion)
+	shouldApplyScriptHotfix := shouldApplyTargetVersion(Version, hotfixCfg.ScriptsVersion)
 	return applyNodeCustomDataWithFilter(path, shouldApplyScriptHotfix, nil)
-}
-
-func applyScriptHotfixWriteFiles(path string, hotfixCfg hotfixConfig) error {
-	if !shouldApplyTargetVersion(Version, hotfixCfg.TargetVersion) {
-		if strings.TrimSpace(hotfixCfg.TargetVersion) != "" {
-			slog.Info("skipping script hotfix write_files in download-hotfix due to target_version mismatch",
-				"current", Version, "target", hotfixCfg.TargetVersion)
-		}
-		return nil
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("read nodecustomdata %s: %w", path, err)
-	}
-
-	hotfixBlock, found := extractScriptHotfixBlock(string(data))
-	if !found {
-		return nil
-	}
-
-	var customData nodeCustomData
-	if err := yaml.Unmarshal([]byte("write_files:\n"+hotfixBlock), &customData); err != nil {
-		return fmt.Errorf("unmarshal script hotfix write_files from %s: %w", path, err)
-	}
-
-	for _, file := range customData.WriteFiles {
-		if err := applyNodeCustomDataWriteFile(file); err != nil {
-			return fmt.Errorf("apply script hotfix write file %s: %w", file.Path, err)
-		}
-	}
-	return nil
 }
 
 func applyNodeCustomDataWithFilter(path string, shouldApplyScriptHotfix bool, predicate func(nodeCustomDataWriteFile) bool) error {
@@ -133,14 +98,6 @@ func stripScriptHotfixBlock(content string) string {
 		start--
 	}
 	return content[:start] + content[end:]
-}
-
-func extractScriptHotfixBlock(content string) (string, bool) {
-	contentStart, _, endMarkerStart, _, ok := findScriptHotfixBlockBounds(content)
-	if !ok {
-		return "", false
-	}
-	return content[contentStart:endMarkerStart], true
 }
 
 func findScriptHotfixBlockBounds(content string) (int, int, int, int, bool) {
