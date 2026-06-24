@@ -69,11 +69,9 @@ chmod 0600 %[3]s
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
-	// aksNodeConfigBlock is appended to the boothook when AKSNodeConfig is provided.
-	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script
-	// can pass --provision-config alongside --nbc-cmd for env comparison.
-	// gzipFileBlockFmt writes a gzipped+base64-encoded file to disk. It is general-purpose
-	// and reused for any boothook payload that is gzip-compressed (AKSNodeConfig, hotfix files).
+	// gzipFileBlockFmt writes a gzipped+base64-encoded file to disk (%[1]s = path,
+	// %[2]s = encoded contents). It is general-purpose and reused for every boothook
+	// payload: AKSNodeConfig, the hotfix config JSON, and the script hotfix files.
 	gzipFileBlockFmt = `
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
@@ -107,7 +105,7 @@ chmod 0600 %[1]s
 	   {
        "path": "/opt/azure/containers/aks-node-controller-hotfix.json",
        "mode": 384,
-       "contents": { "source": "data:;base64,%s" }
+       "contents": { "compression": "gzip","source": "data:;base64,%s" }
        }`
 	// flatcarScriptsHotfixFilesEntry is an Ignition file entry appended when a script hotfix is
 	// active. It carries the gzipped+base64-encoded write_files payload that download-hotfix
@@ -127,13 +125,6 @@ chmod 0600 %[1]s
 	scriptsHotfixFilesPath = "/opt/azure/containers/anc-scripts-hotfix-files.yml"
 	// scriptsHotfixFilesTemplatePath is the embedded source template for the script hotfix payload.
 	scriptsHotfixFilesTemplatePath = "hotfix/anc-scripts-hotfix-files.yml"
-	// hotfixConfigBlockFmt writes a plain base64-encoded JSON file (no gzip — hotfix.json is small).
-	hotfixConfigBlockFmt = `
-cat <<'EOF' | base64 -d >%[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
-`
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -179,7 +170,7 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 	if hotfixJSON, err := loadHotfixConfigJSON(); err != nil {
 		panic(err)
 	} else if hotfixJSON != "" {
-		encodedHotfixConfig = base64.StdEncoding.EncodeToString([]byte(hotfixJSON))
+		encodedHotfixConfig = getBase64EncodedGzippedCustomScriptFromStr(hotfixJSON)
 	}
 	var encodedScriptsHotfixFiles string
 	if scriptsHotfixFiles, err := t.getLinuxNodeScriptsHotfixFilesPayload(config); err != nil {
@@ -220,7 +211,7 @@ func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enc
 		extraBlocks += fmt.Sprintf(gzipFileBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
 	}
 	if encodedHotfixConfig != "" {
-		extraBlocks += fmt.Sprintf(hotfixConfigBlockFmt, hotfixConfigPath, encodedHotfixConfig)
+		extraBlocks += fmt.Sprintf(gzipFileBlockFmt, hotfixConfigPath, encodedHotfixConfig)
 	}
 	if encodedScriptsHotfixFiles != "" {
 		extraBlocks += fmt.Sprintf(gzipFileBlockFmt, scriptsHotfixFilesPath, encodedScriptsHotfixFiles)
