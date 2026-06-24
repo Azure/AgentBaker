@@ -351,6 +351,10 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return &existingCluster.ManagedCluster, nil
 		}
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s has deleting or missing node resource group %s, deleting cluster", clusterName, *existingCluster.Properties.NodeResourceGroup)
+		nodeResourceGroup := *existingCluster.Properties.NodeResourceGroup
+		if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *existingCluster.Location, *existingCluster.Name, nodeResourceGroup); cleanupErr != nil {
+			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+		}
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
 			return nil, err
 		}
@@ -362,8 +366,12 @@ func getExistingCluster(ctx context.Context, location, clusterName string) (*arm
 			return nil, fmt.Errorf("failed waiting for cluster deletion: %w", err)
 		}
 		return nil, nil
-	case "Failed":
+	case "Failed", "Deleting":
 		toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s in Failed state, deleting", clusterName)
+		nodeResourceGroup := *existingCluster.Properties.NodeResourceGroup
+		if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *existingCluster.Location, *existingCluster.Name, nodeResourceGroup); cleanupErr != nil {
+			toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+		}
 		if err := deleteCluster(ctx, clusterName, resourceGroupName); err != nil {
 			return nil, err
 		}
@@ -457,6 +465,10 @@ func waitUntilClusterReady(ctx context.Context, name, location string) (*armcont
 			return nil, err
 		}
 		if !nodeRGExists {
+			nodeResourceGroup := *cluster.ManagedCluster.Properties.NodeResourceGroup
+			if cleanupErr := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, *cluster.Location, *cluster.Name, nodeResourceGroup); cleanupErr != nil {
+				toolkit.Logf(ctx, "warning: failed to detach subnet references for deleting node resource group %q: %v", nodeResourceGroup, cleanupErr)
+			}
 			resourceGroupName := config.ResourceGroupName(location)
 			toolkit.Logf(ctx, "##vso[task.logissue type=warning;]Cluster %s became ready with deleting or missing node resource group %s, deleting cluster", name, *cluster.ManagedCluster.Properties.NodeResourceGroup)
 			if err := deleteCluster(ctx, name, resourceGroupName); err != nil {
@@ -615,7 +627,13 @@ func isRetryableClusterError(err error) bool {
 
 func isResourceGroupBeingDeletedError(err error) bool {
 	var respErr *azcore.ResponseError
-	return errors.As(err, &respErr) && respErr.StatusCode == http.StatusConflict && respErr.ErrorCode == "ResourceGroupBeingDeleted"
+	if !errors.As(err, &respErr) {
+		return false
+	}
+	if respErr.ErrorCode == "ResourceGroupBeingDeleted" || respErr.ErrorCode == "ResourceGroupDeletionBlocked" {
+		return true
+	}
+	return false
 }
 
 func isClusterCreateOperationInProgressError(err error) bool {
