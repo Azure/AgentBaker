@@ -10,6 +10,7 @@ This script is called by the anc-hotfix-generate GH Action.
 """
 
 import json
+import os
 import re
 import sys
 
@@ -66,14 +67,19 @@ def read_hotfix_config():
 def main():
     payload = read_hotfix_config()
     if payload:
+        os.makedirs(os.path.dirname(EMBED_FILE), exist_ok=True)
         with open(EMBED_FILE, 'w') as f:
             json.dump(payload, f, separators=(',', ':'))
         print(f"\nDone. Wrote hotfix config {payload} to {EMBED_FILE}.")
     else:
-        # No version/scripts_version set — clear the embed file
-        with open(EMBED_FILE, 'w') as f:
-            f.write("{}")
-        print(f"\nDone. Cleared {EMBED_FILE}.")
+        # No version/scripts_version set — the embed file must not exist on normal
+        # builds. baker.go treats a missing file as "no active hotfix", so remove it
+        # if a previous run left one behind.
+        if os.path.exists(EMBED_FILE):
+            os.remove(EMBED_FILE)
+            print(f"\nDone. Removed {EMBED_FILE} (no active hotfix).")
+        else:
+            print(f"\nDone. No hotfix and {EMBED_FILE} absent. Nothing to do.")
 
 
 if __name__ == '__main__':

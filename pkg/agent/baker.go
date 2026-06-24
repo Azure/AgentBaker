@@ -9,7 +9,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"reflect"
 	"strconv"
 	"strings"
@@ -257,6 +259,11 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 func (t *TemplateGenerator) getLinuxNodeScriptsHotfixFilesPayload(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	raw, err := parts.Templates.ReadFile(scriptsHotfixFilesTemplatePath)
 	if err != nil {
+		// The payload file is only committed on official/* hotfix branches. On normal
+		// (main) builds it is absent, which means no active script hotfix: ship nothing.
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", nil
+		}
 		return "", fmt.Errorf("read embedded hotfix files payload: %w", err)
 	}
 	// Fast path: the default placeholder has no write_files entries, so skip rendering.
@@ -283,6 +290,11 @@ func (t *TemplateGenerator) getLinuxNodeScriptsHotfixFilesPayload(config *datamo
 func loadHotfixConfigJSON() (string, error) {
 	data, err := parts.Templates.ReadFile("hotfix/aks-node-controller-hotfix.json")
 	if err != nil {
+		// The config file is only committed on official/* hotfix branches. On normal
+		// (main) builds it is absent, which means no active hotfix.
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", nil
+		}
 		return "", fmt.Errorf("read embedded hotfix config: %w", err)
 	}
 	var cfg struct {
