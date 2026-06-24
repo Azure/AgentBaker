@@ -460,7 +460,6 @@ func TestShouldApplyScriptsVersion(t *testing.T) {
 		{"base target applies patch zero", "202604.01.0", "202604.01", true},
 		{"base target mismatch skips", "202604.02.1", "202604.01", false},
 		{"exact match applies", "202604.01.1", "202604.01.1", true},
-		{"trimmed exact match applies", " 202604.01.1 ", "202604.01.1", true},
 		{"mismatch skips", "202604.01.1", "202604.01.0", false},
 		{"invalid target skips", "202604.01.1", "202604", false},
 		{"invalid current skips", "dev", "202604.01", false},

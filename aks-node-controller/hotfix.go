@@ -144,15 +144,13 @@ func readHotfixConfig(path string) (hotfixConfig, bool, error) {
 		}
 		return hotfixConfig{}, false, err
 	}
-	if len(strings.TrimSpace(string(data))) == 0 {
+	if len(data) == 0 {
 		return hotfixConfig{}, true, nil
 	}
 	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return hotfixConfig{}, true, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
-	cfg.Version = strings.TrimSpace(cfg.Version)
-	cfg.ScriptsVersion = strings.TrimSpace(cfg.ScriptsVersion)
 	return cfg, true, nil
 }
 
@@ -161,25 +159,23 @@ func shouldApplyScriptsVersion(currentVersion, targetVersion string) bool {
 	// - YYYYMM.DD       => match any patch under the same base
 	// - YYYYMM.DD.PATCH => exact match
 	// Empty scripts_version means no scoping (applies to all versions).
-	target := strings.TrimSpace(targetVersion)
-	if target == "" {
+	if targetVersion == "" {
 		return true
 	}
-	current := strings.TrimSpace(currentVersion)
-	cv, err := semver.NewVersion(current)
+	cv, err := semver.NewVersion(currentVersion)
 	if err != nil {
 		return false
 	}
 
-	switch strings.Count(target, ".") {
+	switch strings.Count(targetVersion, ".") {
 	case 1:
-		tv, err := semver.NewVersion(target + ".0")
+		tv, err := semver.NewVersion(targetVersion + ".0")
 		if err != nil {
 			return false
 		}
 		return cv.Major() == tv.Major() && cv.Minor() == tv.Minor()
 	case 2:
-		tv, err := semver.NewVersion(target)
+		tv, err := semver.NewVersion(targetVersion)
 		if err != nil {
 			return false
 		}
@@ -391,11 +387,11 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 //   - Same version is skipped — already at hotfix
 //   - Unparseable versions (e.g. "dev") return an error — caller should skip
 func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
-	cv, err := semver.NewVersion(strings.TrimSpace(current))
+	cv, err := semver.NewVersion(current)
 	if err != nil {
 		return false, fmt.Errorf("parsing current version %q: %w", current, err)
 	}
-	hv, err := semver.NewVersion(strings.TrimSpace(hotfix))
+	hv, err := semver.NewVersion(hotfix)
 	if err != nil {
 		return false, fmt.Errorf("parsing hotfix version %q: %w", hotfix, err)
 	}
