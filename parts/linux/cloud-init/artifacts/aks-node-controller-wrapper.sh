@@ -9,6 +9,7 @@ BIN_PATH="${BIN_PATH:-/opt/azure/containers/aks-node-controller}"
 HOTFIX_BIN="${BIN_PATH}-hotfix"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
+HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
 log() {
@@ -26,11 +27,17 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-log "Running ANC download-hotfix pre-check"
-if "$BIN_PATH" download-hotfix; then
-    log "ANC download-hotfix completed; binary selection follows"
+# Only invoke download-hotfix when a hotfix config is present. This avoids spawning the
+# ANC binary on every boot just to have it no-op when no hotfix is configured.
+if [ -f "$HOTFIX_JSON" ]; then
+    log "Running ANC download-hotfix pre-check"
+    if "$BIN_PATH" download-hotfix; then
+        log "ANC download-hotfix completed; binary selection follows"
+    else
+        log "ANC download-hotfix failed; binary selection follows"
+    fi
 else
-    log "ANC download-hotfix failed; binary selection follows"
+    log "No hotfix config at ${HOTFIX_JSON}; skipping download-hotfix"
 fi
 
 if [ -x "$HOTFIX_BIN" ]; then

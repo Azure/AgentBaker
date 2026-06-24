@@ -35,11 +35,12 @@ EOF
         export BIN_PATH="${TEST_DIR}/aks-node-controller"
         export CONFIG_PATH="${TEST_DIR}/aks-node-controller-config.json"
         export NBC_CMD_PATH="${TEST_DIR}/aks-node-controller-nbc-cmd.sh"
+        export HOTFIX_JSON="${TEST_DIR}/aks-node-controller-hotfix.json"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH HOTFIX_JSON TEST_DIR BIN_DIR
     }
 
     create_fake_aks_node_controller() {
@@ -64,7 +65,7 @@ EOF
     End
 
     It 'passes both provision config and nbc cmd when both files are present'
-        touch "$CONFIG_PATH" "$NBC_CMD_PATH"
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$HOTFIX_JSON"
         create_fake_aks_node_controller
 
         When run bash "$SCRIPT"
@@ -85,7 +86,7 @@ EOF
     End
 
     It 'passes only provision config when nbc cmd is absent'
-        touch "$CONFIG_PATH"
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
         create_fake_aks_node_controller
 
         When run bash "$SCRIPT"
@@ -106,7 +107,7 @@ EOF
     End
 
     It 'passes only nbc cmd when provision config is absent'
-        touch "$NBC_CMD_PATH"
+        touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
         create_fake_aks_node_controller
 
         When run bash "$SCRIPT"
@@ -124,5 +125,17 @@ EOF
         The variable firstArg should eq "provision"
         The variable secondArg should eq "--nbc-cmd=${NBC_CMD_PATH}"
         The variable thirdArg should eq ""
+    End
+
+    It 'skips download-hotfix when no hotfix config is present'
+        touch "$CONFIG_PATH"
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should not include "Running ANC download-hotfix pre-check"
+        The output should include "No hotfix config at ${HOTFIX_JSON}; skipping download-hotfix"
+        firstCommand=$(sed -n '1p' "${TEST_DIR}/commands")
+        The variable firstCommand should eq "provision"
     End
 End
