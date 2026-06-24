@@ -108,7 +108,7 @@ chmod 0600 %[1]s
 cat <<'EOF' | base64 -d >%[1]s
 %[2]s
 EOF
-chmod 0644 %[1]s
+chmod 0600 %[1]s
 `
 )
 
