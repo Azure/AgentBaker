@@ -32,6 +32,12 @@ type nodeCustomData struct {
 }
 
 func applyNodeCustomData(path string) error {
+	// nodecustomdata.yml is required input for the NBCCmd provisioning path, so a missing
+	// file must be a hard error. applyWriteFiles itself treats absence as a no-op for
+	// optional payloads (e.g. the script hotfix), so guard existence here before delegating.
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("read nodecustomdata %s: %w", path, err)
+	}
 	return applyWriteFiles(path)
 }
 

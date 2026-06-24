@@ -257,8 +257,9 @@ func (t *TemplateGenerator) getLinuxNodeScriptsHotfixFilesPayload(config *datamo
 		}
 		return "", fmt.Errorf("read embedded hotfix files payload: %w", err)
 	}
-	// Fast path: the default placeholder has no write_files entries, so skip rendering.
-	if !strings.Contains(string(raw), "- path:") {
+	// Fast path: skip rendering when the raw template has no write_files entries (no active
+	// script hotfix).
+	if !hasWriteFileEntries(string(raw)) {
 		return "", nil
 	}
 
@@ -269,10 +270,22 @@ func (t *TemplateGenerator) getLinuxNodeScriptsHotfixFilesPayload(config *datamo
 		return "", err
 	}
 	// After rendering, conditionals may have elided all entries for this distro.
-	if !strings.Contains(rendered, "- path:") {
+	if !hasWriteFileEntries(rendered) {
 		return "", nil
 	}
 	return rendered, nil
+}
+
+// hasWriteFileEntries reports whether a #cloud-config write_files document contains at least
+// one entry, i.e. a line whose first non-space token is "- path:". It is line-anchored so a
+// stray "- path:" inside a comment or inside a file's content does not count as an entry.
+func hasWriteFileEntries(doc string) bool {
+	for _, line := range strings.Split(doc, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "- path:") {
+			return true
+		}
+	}
+	return false
 }
 
 // loadHotfixConfigJSON reads the embedded hotfix config and returns the raw JSON when a
