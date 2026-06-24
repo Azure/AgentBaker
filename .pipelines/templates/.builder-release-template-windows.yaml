@@ -59,9 +59,9 @@ parameters:
     type: string
     displayName: CSE package filename.
   - name: enableTrustedLaunch
-    type: string
-    displayName: Enable Trusted Launch (True/False) on the SIG image definition.
-    default: "False"
+    type: boolean
+    displayName: Enable Trusted Launch on the SIG image definition.
+    default: False
 
 steps:
   - bash: |
