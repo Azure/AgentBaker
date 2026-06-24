@@ -275,17 +275,16 @@ func (t *TemplateGenerator) getLinuxNodeScriptsHotfixFilesPayload(config *datamo
 	return rendered, nil
 }
 
-// loadHotfixConfigJSON reads the embedded hotfix version config and returns
-// the raw JSON if a hotfix is active (version or scripts_version is set).
-// Returns an empty string when no hotfix is active.
+// loadHotfixConfigJSON reads the embedded hotfix config and returns the raw JSON when a
+// hotfix is active. The file is only committed on official/* hotfix branches, so an absent
+// file (normal builds) or an empty config (neither version nor scripts_version set) means
+// "no active hotfix" and returns "".
 func loadHotfixConfigJSON() (string, error) {
 	data, err := parts.Templates.ReadFile("hotfix/aks-node-controller-hotfix.json")
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
 	if err != nil {
-		// The config file is only committed on official/* hotfix branches. On normal
-		// (main) builds it is absent, which means no active hotfix.
-		if errors.Is(err, fs.ErrNotExist) {
-			return "", nil
-		}
 		return "", fmt.Errorf("read embedded hotfix config: %w", err)
 	}
 	var cfg struct {
@@ -295,13 +294,10 @@ func loadHotfixConfigJSON() (string, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return "", fmt.Errorf("parse embedded hotfix config: %w", err)
 	}
-	if strings.TrimSpace(string(data)) == "{}" || len(strings.TrimSpace(string(data))) == 0 {
+	if cfg.Version == "" && cfg.ScriptsVersion == "" {
 		return "", nil
 	}
-	if strings.TrimSpace(cfg.Version) == "" && strings.TrimSpace(cfg.ScriptsVersion) == "" {
-		return "", nil
-	}
-	return strings.TrimSpace(string(data)), nil
+	return string(data), nil
 }
 
 const (
