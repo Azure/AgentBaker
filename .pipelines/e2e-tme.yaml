@@ -1,4 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+parameters:
+  - name: subscriptionId
+    type: string
+    displayName: Subscription ID to use for E2E tests
+    default: $(E2E_SUBSCRIPTION_ID)
 variables:
   SKIP_E2E_TESTS: false
 
@@ -8,4 +13,5 @@ jobs:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
       variableGroup: ab-e2e-tme
+      subscriptionId: ${{ parameters.subscriptionId }}
 
