@@ -59,6 +59,22 @@ func TestReadHotfixVersion(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "1.0.0", version)
 	})
+
+	t.Run("file is whitespace only", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte("  \n\t\n"), 0644))
+		version, err := readHotfixVersion(path)
+		assert.NoError(t, err)
+		assert.Equal(t, "", version)
+	})
+
+	t.Run("version field is trimmed", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "  1.0.0  "}`), 0644))
+		version, err := readHotfixVersion(path)
+		assert.NoError(t, err)
+		assert.Equal(t, "1.0.0", version)
+	})
 }
 
 func TestDetectPackageManager(t *testing.T) {
