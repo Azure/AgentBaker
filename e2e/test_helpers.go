@@ -926,7 +926,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
-		SubscriptionID:    s.GetSubscriptionID(),
+		SubscriptionID:    config.Config.SubscriptionID,
 		ResourceGroupName: rg,
 		Name:              *gallery.Name,
 	}

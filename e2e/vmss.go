@@ -434,13 +434,13 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	if config.Config.IsLocalBuild() {
 		s.T.Logf(
 			"VMSS portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/overview",
-			s.GetSubscriptionID(),
+			config.Config.SubscriptionID,
 			*cluster.Model.Properties.NodeResourceGroup,
 			s.Runtime.VMSSName,
 		)
 		s.T.Logf(
 			"Managed cluster portal link: https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",
-			s.GetSubscriptionID(),
+			config.Config.SubscriptionID,
 			*cluster.Model.Properties.NodeResourceGroup,
 			*cluster.Model.Name,
 		)
@@ -452,8 +452,8 @@ func createVMSSModel(ctx context.Context, s *Scenario) armcompute.VirtualMachine
 	model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 		Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 		UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-			*s.Runtime.Cluster.KubeletIdentity.ResourceID: {},
-			s.GetVMIdentityResourceID():                   {},
+			*s.Runtime.Cluster.KubeletIdentity.ResourceID:  {},
+			config.Config.VMIdentityResourceID(s.Location): {},
 		},
 	}
 
@@ -656,7 +656,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 			}
 			s.T.Logf("WARNING: platform auto-injected RCV1P opt-in tag %q=%s on VMSS — "+
 				"PlatformSettingsOverride feature flag may be causing auto-injection on subscription %s",
-				rcv1pTagKey, val, s.GetSubscriptionID())
+				rcv1pTagKey, val, config.Config.SubscriptionID)
 			if s.Tags.RCV1PCertMode && strings.EqualFold(val, "true") {
 				s.T.Logf("WARNING: auto-injected tag value is 'true' — negative (NotOptedIn) tests will be "+
 					"INVALID on this subscription because wireserver will serve certificates regardless of our intent")
@@ -1568,7 +1568,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															s.GetSubscriptionID(),
+															config.Config.SubscriptionID,
 															*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 														),
 													),
