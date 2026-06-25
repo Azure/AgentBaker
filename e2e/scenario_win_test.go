@@ -215,6 +215,33 @@ func Test_Windows2025Gen2(t *testing.T) {
 	})
 }
 
+func Test_Windows2025Gen2TrustedLaunch(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 Gen2 Trusted Launch (Secure Boot + vTPM)",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDWindows2025Gen2TL,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			},
+			BootstrapConfigMutator: func(_ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) {
+				Windows2025BootstrapConfigMutator(t, configuration)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2-tl")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateDotnetNotInstalledWindows(ctx, s)
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s)
+				ValidateCollectWindowsLogsScript(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Windows2025Gen2_WindowsCiliumNetworking(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2025 Gen2 with Windows Cilium Networking (WCN) enabled",
