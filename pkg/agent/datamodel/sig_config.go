@@ -352,6 +352,7 @@ var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows23H2Gen2,
 	AKSWindows2025,
 	AKSWindows2025Gen2,
+	AKSWindows2025Gen2TL,
 	CustomizedWindowsOSImage,
 }
 
@@ -846,6 +847,12 @@ var (
 		Definition:    "windows-2025-gen2",
 		Version:       Windows2025SIGImageVersion,
 	}
+	SIGWindows2025Gen2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2025-gen2-tl",
+		Version:       Windows2025SIGImageVersion,
+	}
 )
 
 // GomegaString provides a custom string representation for Gomega assertions to avoid truncation when comparing large maps or structs.
@@ -961,6 +968,7 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows23H2Gen2:           SIGWindows23H2Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2025:               SIGWindows2025ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2025Gen2:           SIGWindows2025Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2025Gen2TL:         SIGWindows2025Gen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

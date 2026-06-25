@@ -72,7 +72,7 @@ else
   TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
 
-if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
