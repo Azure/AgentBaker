@@ -762,9 +762,9 @@ EOF
     # setup and the wave1 OFED packages; nvidia-peermem (built by the driver DKMS below) links
     # against the inbox ib_core instead of OFED's.
 
-    # Disable the staged DOCA/MLNX apt repo (packer_source.sh writes doca-net.list -> the DOCA
-    # 'latest' repo, whose MLNX rdma-core/ibverbs-providers out-version the distro ones) so the
-    # RDMA userspace resolves to the distro/inbox packages, not MLNX_OFED.
+    # Defensively remove any DOCA apt repo (its staging is gated off in packer_source.sh for this
+    # experiment) so apt-get update stays clean and RDMA userspace resolves to the distro/inbox
+    # packages, not MLNX_OFED.
     rm -f /etc/apt/sources.list.d/doca-net.list
     apt-get update
 

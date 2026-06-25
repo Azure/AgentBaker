@@ -548,13 +548,18 @@ copyPackerFiles() {
       CONTAINERD_NVIDIA_TOML_DEST=/etc/containerd/config.toml
       cpAndMode $CONTAINERD_NVIDIA_TOML_SRC $CONTAINERD_NVIDIA_TOML_DEST 644
 
-      DOCA_LIST_SRC=/home/packer/doca.list
-      DOCA_LIST_DEST=/etc/apt/sources.list.d/doca-net.list
-      cpAndMode $DOCA_LIST_SRC $DOCA_LIST_DEST 644
-
-      DOCA_PUB_SRC=/home/packer/doca.pub
-      DOCA_PUB_DEST=/etc/apt/keyrings/doca-net.pub
-      cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
+      # EXPERIMENT (wave1 drop / inbox RDMA): do NOT stage the DOCA apt repo. We don't install
+      # OFED here, and the doca 'latest' repo is signed with a key that isn't in the shipped
+      # keyring, so leaving it active makes every apt-get update emit a GPG W:/E: that the
+      # retry-wrapped apt_get_update helper treats as fatal (-> exit 99, build failure). The
+      # kernel's inbox mlx5/ib drivers + distro rdma-core provide RDMA, so the repo is unneeded.
+      # DOCA_LIST_SRC=/home/packer/doca.list
+      # DOCA_LIST_DEST=/etc/apt/sources.list.d/doca-net.list
+      # cpAndMode $DOCA_LIST_SRC $DOCA_LIST_DEST 644
+      #
+      # DOCA_PUB_SRC=/home/packer/doca.pub
+      # DOCA_PUB_DEST=/etc/apt/keyrings/doca-net.pub
+      # cpAndMode $DOCA_PUB_SRC $DOCA_PUB_DEST 644
 
       NVIDIA_MODPROBE_PARAMETERS_SRC=/home/packer/modprobe-nvidia-parameters.conf
       NVIDIA_MODPROBE_PARAMETERS_DEST=/etc/modprobe.d/nvidia.conf
