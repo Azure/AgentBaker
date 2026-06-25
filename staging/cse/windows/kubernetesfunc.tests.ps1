@@ -58,6 +58,11 @@ BeforeAll {
 
     . $helperScriptPath
     . $scriptUnderTestPath
+
+    function Set-ExitCode {
+        param($ExitCode, $ErrorMessage)
+        throw "Unexpected Set-ExitCode: $ExitCode $ErrorMessage"
+    }
 }
 
 Describe 'Get-CustomCloudCertEndpointModeFromLocation' {
