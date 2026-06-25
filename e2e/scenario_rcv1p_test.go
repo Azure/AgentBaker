@@ -231,9 +231,15 @@ func buildAndUploadCSEZip(ctx context.Context) (string, error) {
 		if err != nil {
 			return fmt.Errorf("open %s: %w", path, err)
 		}
-		defer f.Close()
-		_, err = io.Copy(w, f)
-		return err
+		_, copyErr := io.Copy(w, f)
+		closeErr := f.Close()
+		if copyErr != nil {
+			return fmt.Errorf("copy %s: %w", path, copyErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close %s: %w", path, closeErr)
+		}
+		return nil
 	})
 	if err != nil {
 		return "", fmt.Errorf("build zip: %w", err)
