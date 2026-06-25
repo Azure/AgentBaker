@@ -205,8 +205,8 @@ function retrieve_legacy_certs {
 
     IFS_backup=$IFS
     IFS=$'\r\n'
-    cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-    cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
+    cert_names=($(echo "$certs" | grep -oP '(?<=Name\": \")[^\"]*'))
+    cert_bodies=($(echo "$certs" | grep -oP '(?<=CertBody\": \")[^\"]*'))
     for i in ${!cert_bodies[@]}; do
         echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${cert_names[$i]} | sed 's/.cer/.crt/g')"
     done
@@ -236,6 +236,16 @@ function process_cert_operations {
     local saved_count=0
     for cert_filename in "${cert_filenames[@]}"; do
         echo "Processing certificate file: $cert_filename"
+
+        # Defense-in-depth: sanitize filename to a basename to prevent path traversal
+        # if wireserver ever returns a value containing path separators.
+        local sanitized_filename
+        sanitized_filename=$(basename "$cert_filename")
+        if [ "$sanitized_filename" != "$cert_filename" ]; then
+            echo "Warning: rejecting certificate filename with path separators: $cert_filename"
+            continue
+        fi
+        cert_filename="$sanitized_filename"
 
         local filename="${cert_filename%.*}"
         local extension="${cert_filename##*.}"
