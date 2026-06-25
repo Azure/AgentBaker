@@ -167,10 +167,6 @@ type Scenario struct {
 	// When nil, config.Azure is used.
 	AzureClient *config.AzureClient
 
-	// SubscriptionID overrides the default config.Config.SubscriptionID for this scenario.
-	// When empty, config.Config.SubscriptionID is used.
-	SubscriptionID string
-
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
 	T       testing.TB
@@ -506,20 +502,7 @@ func (s *Scenario) GetAzure() *config.AzureClient {
 	return config.Azure
 }
 
-// GetSubscriptionID returns the subscription ID for this scenario, falling back to config.Config.SubscriptionID.
-func (s *Scenario) GetSubscriptionID() string {
-	if s.SubscriptionID != "" {
-		return s.SubscriptionID
-	}
-	return config.Config.SubscriptionID
-}
-
 // GetResourceGroupName returns the resource group name for this scenario's location.
 func (s *Scenario) GetResourceGroupName() string {
 	return config.ResourceGroupName(s.Location)
-}
-
-// GetVMIdentityResourceID returns the VM identity resource ID for this scenario.
-func (s *Scenario) GetVMIdentityResourceID() string {
-	return config.Config.VMIdentityResourceID(s.Location)
 }
