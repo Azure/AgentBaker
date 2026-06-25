@@ -24,6 +24,11 @@ jobs:
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
+      # Override E2E_SUBSCRIPTION_ID from the variable group with the per-run parameter
+      # so callers (e.g. aks-rp orchestrator passing --subscription-id) can target a
+      # different subscription (e.g. RCV1P) than the variable group's default.
+      - name: E2E_SUBSCRIPTION_ID
+        value: ${{parameters.subscriptionId}}
     pool:
       name: $(E2E_POOL_NAME)
     timeoutInMinutes: 90
@@ -45,7 +50,6 @@ jobs:
             bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_SUBSCRIPTION_ID: ${{parameters.subscriptionId}}
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
