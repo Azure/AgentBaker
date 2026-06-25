@@ -3182,7 +3182,9 @@ func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 	ValidateFileHasContent(ctx, s, "C:\\AzureData\\CustomDataSetupScript.log",
 		"IsOptedInForRootCerts wireserver response:")
 
-	// Validate CA certificates were installed to the Windows certificate store
+	// Validate CA certificate files exist in C:\ca (the on-disk drop location).
+	// Note: this does not verify import into the Windows certificate store
+	// (Cert:\LocalMachine\Root); see scenario_rcv1p_win_test.go header.
 	command := []string{
 		"$ErrorActionPreference = 'Stop'",
 		"$caFolder = 'C:\\ca'",
