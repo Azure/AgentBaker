@@ -342,7 +342,11 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
         if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
             cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
             emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
-            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
+            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
+                echo "ERROR: failed to install rcv1p CA certificates into trust store" >&2
+                emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install rcv1p CA certificates" "Error"
+                exit 1
+            }
         else
             echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
             emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
