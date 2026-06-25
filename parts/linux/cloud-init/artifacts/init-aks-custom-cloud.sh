@@ -383,7 +383,7 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
         # wrong for ussec/usnat legacy environments.
         new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
         existing=$(crontab -l 2>/dev/null || true)
-        filtered=$(printf '%s\n' "$existing" | grep -v "\"$scriptPath\" ca-refresh" || true)
+        filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
         if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
             echo "Failed to install ca-refresh cron job via crontab" >&2
         fi
