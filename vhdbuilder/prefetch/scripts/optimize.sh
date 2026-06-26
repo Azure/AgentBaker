@@ -18,6 +18,7 @@ set -uxo pipefail
 [ -z "${HYPERV_GENERATION:-}" ] && echo "HYPERV_GENERATION is not set" && exit 1
 [ -z "${FEATURE_FLAGS:-}" ] && echo "FEATURE_FLAGS is not set" && exit 1
 [ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
+[ -z "${WORKLOAD_OPTIMIZATION_SCRIPT_URL:-}" ] && echo "WORKLOAD_OPTIMIZATION_SCRIPT_URL is not set" && exit 1
 
 IMAGE_BUILDER_API_VERSION="2024-02-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
@@ -87,6 +88,7 @@ run_image_builder_template() {
         prepare_source || return $?
         sed -e "s#<LOCATION>#${LOCATION}#g" \
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
+            -e "s#<WORKLOAD_OPTIMIZATION_SCRIPT_URL>#${WORKLOAD_OPTIMIZATION_SCRIPT_URL}#g" \
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \

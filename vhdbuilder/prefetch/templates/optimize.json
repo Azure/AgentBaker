@@ -1,6 +1,6 @@
 {
     "type": "Microsoft.VirtualMachineImages",
-    "apiVersion": "2024-02-01",
+    "apiVersion": "2025-10-01",
     "location": "<LOCATION>",
     "identity": {
         "type": "UserAssigned",
@@ -25,6 +25,10 @@
         "optimize": {
             "vmBoot": {
                 "state": "Enabled"
+            },
+            "workload": {
+                "state": "Enabled",
+                "scriptUri": "<WORKLOAD_OPTIMIZATION_SCRIPT_URL>"
             }
         },
         "distribute": [
