@@ -49,7 +49,7 @@ installMinimalBuildDeps() {
     holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list+=(rsyslog)
+    pkg_list+=(rsyslog gpg)
 
     # Batch install all packages in a single apt_get_install call instead of
     # looping one-by-one. On failure, fall back to individual installs for
