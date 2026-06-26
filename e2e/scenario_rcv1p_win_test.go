@@ -18,8 +18,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 )
 
-// Test_RCV1P_Windows2022 validates RCV1P cert download and Windows certificate store
-// installation on Windows Server 2022.
+// Test_RCV1P_Windows2022 validates RCV1P cert download to C:\ca and scheduled task
+// registration on Windows Server 2022. Does not validate import into the Windows
+// certificate store (Cert:\LocalMachine\Root); see ValidateRCV1PCertModeWindows.
 func Test_RCV1P_Windows2022(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
@@ -66,8 +67,10 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 	})
 }
 
-// Test_RCV1P_Windows2022Gen2 validates RCV1P cert download and Windows certificate store
-// installation on Windows Server 2022 Gen2. Covers the gen2 pipeline job.
+// Test_RCV1P_Windows2022Gen2 validates RCV1P cert download to C:\ca and scheduled task
+// registration on Windows Server 2022 Gen2. Covers the gen2 pipeline job. Does not
+// validate import into the Windows certificate store (Cert:\LocalMachine\Root);
+// see ValidateRCV1PCertModeWindows.
 func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // TODO(rcv1p): remove once RCV1P ships in published CSE package
