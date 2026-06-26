@@ -442,6 +442,24 @@
     },
     {
       "matchPackageNames": [
+        "dra-driver-nvidia-gpu"
+      ],
+      "groupName": "dra-driver-nvidia-gpu",
+      "assignees": [
+        "runzhen",
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ],
+      "reviewers": [
+        "runzhen",
+        "djsly",
+        "ganeshkumarashok",
+        "surajssd"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "aks-secure-tls-bootstrap-client"
       ],
       "groupName": "aks-secure-tls-bootstrap-client",
