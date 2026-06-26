@@ -20,7 +20,7 @@ set -uxo pipefail
 [ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
 [ -z "${WORKLOAD_OPTIMIZATION_SCRIPT_URL:-}" ] && echo "WORKLOAD_OPTIMIZATION_SCRIPT_URL is not set" && exit 1
 
-IMAGE_BUILDER_API_VERSION="2024-02-01"
+IMAGE_BUILDER_API_VERSION="2025-10-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
 
 IMAGE_BUILDER_TEMPLATE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
