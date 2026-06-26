@@ -20,9 +20,11 @@ echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 # Map E2E_SUBSCRIPTION_ID to SUBSCRIPTION_ID which the Go test framework reads
 export SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID}"
 
-# When the orchestrator routes e2e-tme.yaml to the RCV1P testing subscription via
-# --subscription-id, override settings that are otherwise tied to the regular TME
-# variable group (ab-e2e-tme):
+# When the aks-rp orchestrator routes e2e-tme.yaml to the RCV1P testing subscription
+# via --subscription-id, the variables inherited from variable group ab-e2e-tme are
+# incompatible with the RCV1P sub. The variable group exposes E2E_SUBSCRIPTION_ID_RCV1P
+# as the canonical ID of the RCV1P testing subscription; if the active subscription
+# matches it, apply RCV1P-specific overrides:
 #   * BLOB_STORAGE_ACCOUNT_PREFIX must yield a globally-unique storage account name
 #     (the default "abe2etme" prefix is already taken by another subscription, so
 #     account creation in the RCV1P sub fails with StorageAccountAlreadyTaken).
@@ -32,9 +34,11 @@ export SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID}"
 #   * IGNORE_SCENARIOS_WITH_MISSING_VHD must be true: the Linux orchestrator only
 #     publishes Linux VHDs, so Windows RCV1P scenarios should skip (not fail) when
 #     the matching Windows image is absent from the gallery.
-RCV1P_SUBSCRIPTION_ID="38d77129-fc18-4f21-9ce1-79dd1fe50fc6"
-if [ "${E2E_SUBSCRIPTION_ID}" = "${RCV1P_SUBSCRIPTION_ID}" ]; then
-  echo "Detected RCV1P testing subscription; applying RCV1P-specific overrides"
+# In the default MSFT-tenant E2E path, E2E_SUBSCRIPTION_ID_RCV1P is either unset or
+# does not match the active subscription, so this block is a no-op and the existing
+# auto-injection / shared storage account behavior is preserved.
+if [ -n "${E2E_SUBSCRIPTION_ID_RCV1P:-}" ] && [ "${E2E_SUBSCRIPTION_ID}" = "${E2E_SUBSCRIPTION_ID_RCV1P}" ]; then
+  echo "Active subscription matches E2E_SUBSCRIPTION_ID_RCV1P; applying RCV1P-specific overrides"
   export BLOB_STORAGE_ACCOUNT_PREFIX="abe2etmercv1p"
   export RCV1P_TAGS_AUTO_INJECTED="false"
   export IGNORE_SCENARIOS_WITH_MISSING_VHD="true"
