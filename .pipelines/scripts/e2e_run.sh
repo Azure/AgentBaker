@@ -20,6 +20,29 @@ echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 # Map E2E_SUBSCRIPTION_ID to SUBSCRIPTION_ID which the Go test framework reads
 export SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID}"
 
+# When the orchestrator routes e2e-tme.yaml to the RCV1P testing subscription via
+# --subscription-id, override settings that are otherwise tied to the regular TME
+# variable group (ab-e2e-tme):
+#   * BLOB_STORAGE_ACCOUNT_PREFIX must yield a globally-unique storage account name
+#     (the default "abe2etme" prefix is already taken by another subscription, so
+#     account creation in the RCV1P sub fails with StorageAccountAlreadyTaken).
+#   * RCV1P_TAGS_AUTO_INJECTED must be false: the RCV1P testing subscription does
+#     not have platform auto-injection enabled, so the framework must explicitly
+#     stamp opt-in tags on each VMSS.
+#   * IGNORE_SCENARIOS_WITH_MISSING_VHD must be true: the Linux orchestrator only
+#     publishes Linux VHDs, so Windows RCV1P scenarios should skip (not fail) when
+#     the matching Windows image is absent from the gallery.
+RCV1P_SUBSCRIPTION_ID="38d77129-fc18-4f21-9ce1-79dd1fe50fc6"
+if [ "${E2E_SUBSCRIPTION_ID}" = "${RCV1P_SUBSCRIPTION_ID}" ]; then
+  echo "Detected RCV1P testing subscription; applying RCV1P-specific overrides"
+  export BLOB_STORAGE_ACCOUNT_PREFIX="abe2etmercv1p"
+  export RCV1P_TAGS_AUTO_INJECTED="false"
+  export IGNORE_SCENARIOS_WITH_MISSING_VHD="true"
+  echo "  BLOB_STORAGE_ACCOUNT_PREFIX=${BLOB_STORAGE_ACCOUNT_PREFIX}"
+  echo "  RCV1P_TAGS_AUTO_INJECTED=${RCV1P_TAGS_AUTO_INJECTED}"
+  echo "  IGNORE_SCENARIOS_WITH_MISSING_VHD=${IGNORE_SCENARIOS_WITH_MISSING_VHD}"
+fi
+
 # Setup go
 export GOPATH="$(go env GOPATH)"
 go version
