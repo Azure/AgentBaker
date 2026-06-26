@@ -40,6 +40,40 @@ blobfuseFallbackPackages() {
     fi
 }
 
+# Used to install dependencies within pre-install-dependencies.sh on Ubuntu minimal images (currently only 26.04)
+installMinimalBuildDeps() {
+    wait_for_apt_locks
+    retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+
+    holdWALinuxAgent hold
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+
+    pkg_list+=(rsyslog)
+
+    # Batch install all packages in a single apt_get_install call instead of
+    # looping one-by-one. On failure, fall back to individual installs for
+    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -55,11 +89,11 @@ installDeps() {
         [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
     done < <(blobfuseFallbackPackages "${OSVERSION}")
 
-    if [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=(irqbalance)
     fi
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=("aznfs=3.0.14")
     fi
 
@@ -85,7 +119,7 @@ installDeps() {
         done
     fi
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
         systemctl disable aznfswatchdog
         systemctl stop aznfswatchdog

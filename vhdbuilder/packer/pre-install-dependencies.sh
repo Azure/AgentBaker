@@ -36,6 +36,11 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
 
+# Install minimal build dependencies as needed (currently only needed on 26.04)
+if [ "${OS_RELEASE}" = "26.04" ]; then
+  installMinimalBuildDeps
+fi
+
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
 if isMarinerOrAzureLinux "$OS"; then
