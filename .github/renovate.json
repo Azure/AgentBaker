@@ -392,7 +392,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -409,7 +410,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -793,6 +795,17 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update ig-gadgets versions in install-ig.sh from PMC",
+      "managerFilePatterns": [
+        "/install-ig\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*IG_GADGETS_[A-Z_]+_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\""
       ]
     },
     {
