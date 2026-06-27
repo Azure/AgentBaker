@@ -214,7 +214,7 @@ var ClusterRCV1PKubenet = cachedFunc(clusterRCV1PKubenet)
 
 // clusterRCV1PKubenet creates a kubenet cluster for RCV1P cert mode testing.
 func clusterRCV1PKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getKubenetClusterModel("abe2e-rcv1p-kubenet-v1", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, getKubenetClusterModel("abe2e-rcv1p-kubenet-v2", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 var ClusterRCV1PAzureNetwork = cachedFunc(clusterRCV1PAzureNetwork)
@@ -223,7 +223,7 @@ var ClusterRCV1PAzureNetwork = cachedFunc(clusterRCV1PAzureNetwork)
 // Windows tests require Azure CNI (not kubenet) because baseTemplateWindows() configures the NBC for
 // Azure CNI overlay mode.
 func clusterRCV1PAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-rcv1p-azure-v1", request.Location, request.K8sSystemPoolSKU), false, false)
+	return prepareCluster(ctx, getAzureNetworkClusterModel("abe2e-rcv1p-azure-v2", request.Location, request.K8sSystemPoolSKU), false, false)
 }
 
 // isNotFoundErr checks if an error represents a "not found" response from Azure API
