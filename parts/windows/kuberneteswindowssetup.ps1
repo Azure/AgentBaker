@@ -674,22 +674,6 @@ catch
     Resolve-Error
     # Set-ExitCode will exit with the specified ExitCode immediately and not be caught by this catch block
     # Ideally all exceptions will be handled and no exception will be thrown.
-    #
-    # DIAGNOSTIC PATCH (may be reverted): Set-ExitCode calls `exit`, which
-    # skips the `finally` block below, so provision.complete is never written
-    # and csecmd.ps1 surfaces only the opaque exit 50. Write the completion
-    # file here first so the real inner ExitCode/ErrorMessage propagates.
-    try {
-        $global:ExitCode = $global:WINDOWS_CSE_ERROR_UNKNOWN
-        $global:ErrorMessage = ("$_" -replace '\|', '%7C')
-        $completionFilePath = if ($PreProvisionOnly) { "C:\AzureData\base_prep.complete" } else { $CSEResultFilePath }
-        $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
-        $truncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
-        Set-Content -Path $completionFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$truncatedErrorMessage|" -Force
-    } catch {
-        # Best-effort; do not mask the original error.
-        Write-Log "DIAGNOSTIC: failed to pre-write provision.complete in catch: $_"
-    }
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UNKNOWN -ErrorMessage $_
 }
 finally
