@@ -123,7 +123,20 @@ func (c *Configuration) BlobStorageAccount() string {
 	// location. While everything else for running AB tests is sharded per
 	// location, but we continue to use the same storage account for all
 	// locations.
-	return c.BlobStorageAccountPrefix + c.DefaultLocation + subscriptionSuffix(c.SubscriptionID)
+	suffix := subscriptionSuffix(c.SubscriptionID)
+	base := c.BlobStorageAccountPrefix + c.DefaultLocation
+	// Azure storage account names are limited to 24 chars (lowercase alphanumeric).
+	// Truncate the base portion if a long region name + prefix would otherwise
+	// overflow once the deterministic suffix is appended. The suffix is kept whole
+	// so two subscriptions never collide; truncation is deterministic too, so the
+	// same (prefix, location, sub) always resolves to the same account name.
+	if maxBase := 24 - len(suffix); len(base) > maxBase {
+		if maxBase < 0 {
+			maxBase = 0
+		}
+		base = base[:maxBase]
+	}
+	return base + suffix
 }
 
 // subscriptionSuffix returns a short, deterministic suffix derived from the
