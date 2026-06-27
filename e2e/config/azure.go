@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -410,6 +412,9 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context, identityLocat
 	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
 		return "", err
 	}
+	if err := a.assignBlobContributorToCurrentPrincipal(ctx); err != nil {
+		return "", err
+	}
 	return *identity.Properties.ClientID, nil
 }
 
@@ -478,6 +483,73 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 		return fmt.Errorf("assign Storage Blob Data Contributor role: %w", err)
 	}
 	return nil
+}
+
+// assignBlobContributorToCurrentPrincipal grants "Storage Blob Data Contributor" on the
+// e2e blob storage account to the principal currently authenticated against ARM (the
+// test runner: ADO service-connection SP in pipelines, or the developer's user
+// identity locally). Required because the per-subscription storage account naming scheme
+// produces a fresh account per E2E_SUBSCRIPTION_ID, and that fresh account inherits no
+// data-plane RBAC even though the runner has management-plane Contributor.
+// Idempotent: a pre-existing role assignment returns 409 Conflict which is swallowed.
+func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Context) error {
+	principalID, principalType, err := getCurrentPrincipalIDAndType(ctx, a.Credential)
+	if err != nil {
+		return fmt.Errorf("resolve current principal: %w", err)
+	}
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s",
+		Config.SubscriptionID, ResourceGroupName(Config.DefaultLocation), Config.BlobStorageAccount())
+	uid := uuid.New().String()
+	_, err = a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			PrincipalID:      to.Ptr(principalID),
+			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
+			PrincipalType:    to.Ptr(principalType),
+		},
+	}, nil)
+	var respError *azcore.ResponseError
+	if err != nil {
+		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
+			return nil
+		}
+		return fmt.Errorf("assign Storage Blob Data Contributor role to current principal %s: %w", principalID, err)
+	}
+	return nil
+}
+
+// getCurrentPrincipalIDAndType extracts the object ID and principal type of the identity
+// behind the provided credential by acquiring an ARM access token and decoding the JWT.
+// Uses the "oid" claim (stable object ID) and "idtyp" to distinguish app vs user.
+func getCurrentPrincipalIDAndType(ctx context.Context, cred azcore.TokenCredential) (string, armauthorization.PrincipalType, error) {
+	tok, err := cred.GetToken(ctx, policy.TokenRequestOptions{
+		Scopes: []string{"https://management.azure.com/.default"},
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("get ARM token: %w", err)
+	}
+	parts := strings.Split(tok.Token, ".")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("malformed JWT: expected 3 segments, got %d", len(parts))
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", "", fmt.Errorf("decode JWT payload: %w", err)
+	}
+	var claims struct {
+		Oid   string `json:"oid"`
+		Idtyp string `json:"idtyp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "", "", fmt.Errorf("parse JWT claims: %w", err)
+	}
+	if claims.Oid == "" {
+		return "", "", fmt.Errorf("JWT has no oid claim")
+	}
+	pt := armauthorization.PrincipalTypeUser
+	if claims.Idtyp == "app" {
+		pt = armauthorization.PrincipalTypeServicePrincipal
+	}
+	return claims.Oid, pt, nil
 }
 
 func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue, location string) (VHDResourceID, error) {
