@@ -62,10 +62,10 @@ function check_url {
     echo "Checking url: $url"
 
     # Use curl to check the URL and capture both stdout and stderr
-    curl_exit_code=$(curl -s --head --request GET $url)
+    curl_output=$(curl -s --head --request GET "$url")
+    curl_status=$?
     # Check the exit status of curl
-    # shellcheck disable=SC3010
-    if [[ $? -ne 0 ]] || echo "$curl_exit_code" | grep -E "404 Not Found" > /dev/null; then
+    if [ $curl_status -ne 0 ] || echo "$curl_output" | grep -Eq "404 Not Found"; then
         echo "ERROR: $url is not available. Please manually check if the url is valid before re-running script"
         exit 1
     fi
