@@ -253,12 +253,6 @@ try {
 
 $global:OperationId = New-Guid
 
-# diag(windows): wrap CSE script resolution + dot-source in a try/catch so a pre-try-block
-# crash (download, expand, parse-time failure in any dot-sourced .ps1) surfaces a real
-# provision.complete file instead of the opaque WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG (exit 50).
-# Without this, any throw between here and the main try at line ~632 leaves the VM with no
-# provision.complete and CSE returns the unhelpful "C:\AzureData\provision.complete is not generated".
-try {
 if (-not (Test-Path "C:\AzureData\windows\azurecnifunc.ps1")) {
     # CSEScriptsPackage is cached on VHD. Previously the cse package version was managed in components.json, whereas RP set the package URL which is a storage account.
     # From 2025-06 The CSE packages is released on the VHD. RP can use fully qualified URL to download CSE scripts package when required out of VHD release cycle.
@@ -341,16 +335,6 @@ if (Test-Path -Path 'c:\AzureData\windows\networkisolatedclusterfunc.ps1') {
     . c:\AzureData\windows\networkisolatedclusterfunc.ps1
 } else {
     Write-Log "Network Isolated Cluster function script not found, skipping dot-source"
-}
-} catch {
-    # Surface preamble (download / expand / dot-source) failures as a real provision.complete
-    # instead of letting CSE exit silently before reaching the main try/catch at line ~632.
-    $preambleError = ($_ | Out-String) -replace '\|', '%7C'
-    $preambleError = $preambleError.Substring(0, [Math]::Min(180, $preambleError.Length))
-    try { Write-Log "Preamble failure before main try-block: $preambleError" } catch { }
-    $resultPath = if ($CSEResultFilePath) { $CSEResultFilePath } else { "C:\AzureData\provision.complete" }
-    Set-Content -Path $resultPath -Value "ExitCode: |76|, Output: |WINDOWS_CSE_ERROR_PREAMBLE_FAILED|, Error: |$preambleError|" -Force
-    exit 76
 }
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
