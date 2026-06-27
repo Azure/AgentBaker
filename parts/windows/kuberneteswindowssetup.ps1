@@ -36,46 +36,6 @@ param(
     $CSEResultFilePath
 )
 
-# =============================================================================
-# DIAGNOSTIC: pre-write placeholder provision.complete (REVERT ME after debug)
-# =============================================================================
-# Rationale: when CSE crashes before reaching the main try/finally block (line
-# ~645) the finally block never writes provision.complete, so csecmd.ps1's
-# wrapper check throws the opaque "WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG"
-# (exit 50) with NO indication of what actually went wrong. Azure also refuses
-# to run a follow-up RunCommand once the CSE extension is in failed state, so
-# we cannot fetch CustomDataSetupScript.log after the fact.
-#
-# Workaround: write a placeholder provision.complete now containing a marker
-# exit code (99) plus the current line/marker. If CSE crashes before the real
-# finally executes, csecmd.ps1's `$result -ne '0'` check throws our marker
-# message instead of "no log generated", giving us the actual crash context
-# in the Azure-visible CSE extension status (which is captured into
-# windows-cse-output.log via test_helpers.go:511 even on failure).
-#
-# If CSE completes normally, the finally block at line ~645 overwrites this
-# file with the real exit code, so production behavior is unchanged on success.
-#
-# REVERT this block (and the trap below) once the RCV1P regression is fixed.
-# =============================================================================
-try {
-    if (-not (Test-Path "C:\AzureData")) {
-        New-Item -ItemType Directory -Path "C:\AzureData" -Force | Out-Null
-    }
-    Set-Content -Path $CSEResultFilePath -Value "ExitCode: |99|, Output: |WINDOWS_CSE_ERROR_DIAGNOSTIC|, Error: |CSE crashed before reaching main try/finally - marker=top-of-script|" -Force -ErrorAction SilentlyContinue
-} catch { }
-
-# DIAGNOSTIC (REVERT ME): top-level trap to capture and persist the actual error
-# before any nested Set-ExitCode `exit` call bypasses the main try/finally.
-trap {
-    try {
-        $diagMsg = ("trap: $($_.Exception.Message) at $($_.InvocationInfo.ScriptLineNumber):$($_.InvocationInfo.OffsetInLine)" -replace '\|', '%7C')
-        if ($diagMsg.Length -gt 180) { $diagMsg = $diagMsg.Substring(0, 180) }
-        Set-Content -Path $CSEResultFilePath -Value "ExitCode: |99|, Output: |WINDOWS_CSE_ERROR_DIAGNOSTIC|, Error: |$diagMsg|" -Force -ErrorAction SilentlyContinue
-    } catch { }
-    continue
-}
-
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
 # https://learn.microsoft.com/en-gb/troubleshoot/windows-client/shell-experience/command-line-string-limitation
 
