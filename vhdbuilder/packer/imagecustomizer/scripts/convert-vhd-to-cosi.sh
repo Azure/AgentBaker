@@ -8,7 +8,6 @@ required_env_vars=(
     "DESTINATION_STORAGE_CONTAINER"
     "CAPTURED_SIG_VERSION"
     "IMG_CUSTOMIZER_CONTAINER"
-    "IMG_CUSTOMIZER_VERSION"
 )
 
 for v in "${required_env_vars[@]}"
@@ -19,9 +18,10 @@ do
     fi
 done
 
-# Optional GHCR fallback: when the MCR ImageCustomizer image for the requested
-# version is unavailable, optionally fall back to pulling the published GitHub
-# Container Registry image (IMG_CUSTOMIZER_CONTAINER_FALLBACK). Gated by the
+# Optional GHCR fallback: when the MCR ImageCustomizer image
+# (IMG_CUSTOMIZER_CONTAINER, including its tag) is unavailable, optionally fall
+# back to pulling the published GitHub Container Registry image
+# (IMG_CUSTOMIZER_CONTAINER_FALLBACK, also including its tag). Gated by the
 # first script argument and defaults to "false" so the fallback is opt-in.
 ALLOW_GHCR_FALLBACK="${1:-false}"
 
@@ -65,7 +65,7 @@ if ! azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
 fi
 echo "Downloaded VHD to ${LOCAL_VHD}"
 
-IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER}:${IMG_CUSTOMIZER_VERSION}"
+IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER}"
 
 echo "Pulling ImageCustomizer image ${IMG_CUSTOMIZER_REF}"
 if ! docker pull "${IMG_CUSTOMIZER_REF}"; then
@@ -79,15 +79,7 @@ if ! docker pull "${IMG_CUSTOMIZER_REF}"; then
         exit 1
     fi
 
-    # GHCR only publishes fully-qualified semver tags (e.g. 1.5.0), whereas MCR
-    # exposes moving minor tags (e.g. 1.5). Normalize a major.minor version to
-    # major.minor.0 so the fallback tag resolves correctly.
-    FALLBACK_VERSION="${IMG_CUSTOMIZER_VERSION}"
-    if [[ "${FALLBACK_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]; then
-        FALLBACK_VERSION="${FALLBACK_VERSION}.0"
-    fi
-
-    IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER_FALLBACK}:${FALLBACK_VERSION}"
+    IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER_FALLBACK}"
     echo "MCR image unavailable; falling back to ${IMG_CUSTOMIZER_REF}"
     if ! docker pull "${IMG_CUSTOMIZER_REF}"; then
         echo "##vso[task.logissue type=error]Failed to pull ImageCustomizer fallback image ${IMG_CUSTOMIZER_REF}"
