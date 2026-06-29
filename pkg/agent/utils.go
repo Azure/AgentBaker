@@ -577,23 +577,23 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	if kc == nil {
 		return ""
 	}
-	// translate simple values.
-	kubeletConfig := getAKSKubeletConfiguration(kc)
+	// Build flag-derived config first.
+	flagConfig := getAKSKubeletConfiguration(kc)
 
 	// Authentication.
-	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
+	flagConfig.Authentication = datamodel.KubeletAuthentication{}
 	if ca := kc["--client-ca-file"]; ca != "" {
-		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
+		flagConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
 			ClientCAFile: ca,
 		}
 	}
 	if aw := kc["--authentication-token-webhook"]; aw != "" {
-		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
+		flagConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
 			Enabled: strToBool(aw),
 		}
 	}
 	if aa := kc["--anonymous-auth"]; aa != "" {
-		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
+		flagConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
 			Enabled: strToBool(aa),
 		}
 	}
@@ -601,37 +601,41 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// EvictionHard.
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = filterEvictionSignals(strKeyValToMap(eh, "<"))
+		flagConfig.EvictionHard = filterEvictionSignals(strKeyValToMap(eh, "<"))
 	}
 
 	// EvictionSoft (e.g. "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%").
 	if es, ok := kc["--eviction-soft"]; ok && es != "" {
-		kubeletConfig.EvictionSoft = filterEvictionSignals(strKeyValToMap(es, "<"))
+		flagConfig.EvictionSoft = filterEvictionSignals(strKeyValToMap(es, "<"))
 	}
 
 	// EvictionSoftGracePeriod (e.g. "memory.available=30s,nodefs.available=2m,imagefs.available=2m").
 	if esg, ok := kc["--eviction-soft-grace-period"]; ok && esg != "" {
-		kubeletConfig.EvictionSoftGracePeriod = filterEvictionSignals(strKeyValToMap(esg, "="))
+		flagConfig.EvictionSoftGracePeriod = filterEvictionSignals(strKeyValToMap(esg, "="))
 	}
 
 	// EvictionMaxPodGracePeriod (integer seconds, e.g. "60").
 	if v, ok := kc["--eviction-max-pod-grace-period"]; ok && v != "" {
-		kubeletConfig.EvictionMaxPodGracePeriod = strToInt32(v)
+		flagConfig.EvictionMaxPodGracePeriod = strToInt32(v)
 	}
 
 	// feature gates.
 	// look like "f1=true,f2=true".
-	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+	flagConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
 
 	// system reserve and kube reserve.
 	// looks like "cpu=100m,memory=1638Mi".
-	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], "=")
-	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], "=")
+	flagConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], "=")
+	flagConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], "=")
 
-	// Settings from customKubeletConfig, only take if it's set.
-	setCustomKubeletConfig(customKc, kubeletConfig)
+	// Apply CustomKubeletConfig on top of flag-derived config.
+	// CustomKubeletConfig (user-specified values) takes precedence over flag defaults.
+	setCustomKubeletConfig(customKc, flagConfig)
 
-	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
+	configStringByte, err := json.MarshalIndent(flagConfig, "", "    ")
+	if err != nil {
+		return ""
+	}
 	return string(configStringByte)
 }
 
