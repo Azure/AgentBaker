@@ -1888,6 +1888,57 @@ SETUP_EOF
         End
     End
 
+    Describe 'configGPUDrivers'
+        # Mock everything the Ubuntu path touches so the test exercises only the
+        # marker -> aks-gpu action selection (install vs install-skip-build), including the
+        # driver_kind guard (a CUDA-baked marker on a GRID node must NOT skip the build).
+        # logs_to_events is mocked to faithfully dispatch the wrapped command (dropping the
+        # event-name arg) so the real installGPUDriverImage runs and surfaces the action.
+        logs_to_events() { shift; $@; }
+        waitForContainerdReady() { return 0; }
+        mkdir() { :; }
+        ctr() { echo "ctr $*"; }
+        nvidia-modprobe() { return 0; }
+        nvidia-smi() { return 0; }
+        ldconfig() { return 0; }
+        isMarinerOrAzureLinux() { return 1; }
+        isAzureLinuxOSGuard() { return 1; }
+        isACL() { return 1; }
+        systemctlEnableAndStart() { return 0; }
+        systemctl() { return 0; }
+        # Capture the action passed to the install container.
+        retrycmd_if_failure() { shift 3; echo "INSTALL_CMD: $*"; return 0; }
+
+        BeforeEach 'OS="$UBUNTU_OS_NAME"; NVIDIA_GPU_DRIVER_TYPE="cuda"; NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"; NVIDIA_DRIVER_IMAGE_TAG="580.0.0"; CTR_GPU_INSTALL_CMD="ctr-run"; GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "$GPU_DKMS_MARKER_FILE"'
+
+        It 'uses the full install action when no prebake marker is present'
+            When call configGPUDrivers
+            The output should include "/entrypoint.sh install"
+            The output should not include "install-skip-build"
+        End
+
+        It 'uses install-skip-build when the prebake marker matches the node driver kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            When call configGPUDrivers
+            The output should include "/entrypoint.sh install-skip-build"
+            rm -f "$marker"
+        End
+
+        It 'falls back to full install when the marker driver_kind does not match the node (CUDA marker on GRID node)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-grid"
+            When call configGPUDrivers
+            The output should include "/entrypoint.sh install"
+            The output should not include "install-skip-build"
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureManagedGPUExperience'
         # Mock the helper functions
         logs_to_events() {
