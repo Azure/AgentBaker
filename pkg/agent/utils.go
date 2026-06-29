@@ -634,7 +634,8 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 
 	configStringByte, err := json.MarshalIndent(flagConfig, "", "    ")
 	if err != nil {
-		return ""
+		// Avoid writing an empty kubelet config file when CSE enables --config.
+		return `{"apiVersion":"kubelet.config.k8s.io/v1beta1","kind":"KubeletConfiguration"}`
 	}
 	return string(configStringByte)
 }
