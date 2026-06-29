@@ -18,6 +18,39 @@ Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
+    Describe 'logGPUDriverPrebakeReadiness'
+        It 'reports marker_present=false when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="/tmp/aks-gpu-readiness-absent-$$"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "AKS_GPU_PREBAKE event=managed_gpu"
+            The output should include "marker_present=false"
+            The output should include "driver_kind_match=false"
+        End
+
+        It 'reports marker_present=true driver_kind_match=true when the marker matches the node driver kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=true"
+            rm -f "$marker"
+        End
+
+        It 'reports driver_kind_match=false when a CUDA marker is on a GRID node (not skip-ready)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=false"
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"

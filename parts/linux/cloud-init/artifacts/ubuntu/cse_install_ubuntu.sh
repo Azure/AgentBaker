@@ -223,12 +223,63 @@ removeNvidiaRepos() {
     fi
 }
 
+# cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
+# NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
+# skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
+# skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
+# patch) and, on an opted-out GPU node, unused attack surface. The module is never loaded on these
+# nodes (ensureGPUDrivers doesn't run), so deregistration is safe. No-op unless the marker exists.
+cleanUpPrebakedGPUDriver() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    if [ ! -f "${marker}" ]; then
+        return 0
+    fi
+    echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
+    local dkms_before=false
+    [ -d /var/lib/dkms/nvidia ] && dkms_before=true
+
+    # Deregister the nvidia DKMS module by removing its source tree (avoids the slow `dkms remove
+    # --all`, ~35s). The module isn't loaded here, so no depmod/initramfs refresh is needed.
+    rm -rf /var/lib/dkms/nvidia || true
+    rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
+    # The prebake stages libs under the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh),
+    # NOT this script's GPU_DEST=/usr/local/nvidia -- so clear /usr/bin.
+    rm -rf /usr/bin/lib64 || true
+    # Remove the driver binaries too (same /usr/bin) so the node is genuinely driver-free -- else
+    # e.g. nvidia-smi stays on PATH but errors once its libs are gone.
+    for nvidiaBin in nvidia-smi nvidia-debugdump nvidia-persistenced nvidia-cuda-mps-control \
+                     nvidia-cuda-mps-server nvidia-modprobe nvidia-bug-report.sh nvidia-powerd \
+                     nvidia-ngx-updater nvidia-sleep.sh; do
+        rm -f "/usr/bin/${nvidiaBin}" || true
+    done
+    rm -f /etc/ld.so.conf.d/nvidia.conf || true
+    ldconfig || true
+    rm -f "${marker}" || true
+
+    # Stage-1 observability: confirm the prebaked driver is actually gone. status=incomplete means a
+    # setuid nvidia binary / DKMS registration lingered (a security-coverage gap to investigate);
+    # status=cleaned counts toward fleet-wide coverage. Greppable prefix AKS_GPU_PREBAKE.
+    local marker_after=false dkms_after=false status=cleaned
+    [ -f "${marker}" ] && marker_after=true
+    [ -d /var/lib/dkms/nvidia ] && dkms_after=true
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ]; then
+        status=incomplete
+    fi
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} marker_after=${marker_after} dkms_after=${dkms_after}"
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
+
+    # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
+    # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
+    # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
+    # No-op on VHDs without the aks-gpu prebake marker.
+    cleanUpPrebakedGPUDriver
 }
 
 installCriCtlPackage() {
