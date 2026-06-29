@@ -737,6 +737,33 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+
+  # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
+  # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
+  # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
+  # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
+  # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
+  # when that marker matches, running only the device-dependent steps.
+  # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
+  # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
+  # Dropping the image is a separate, deferred size optimization.
+  if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
+    echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
+    # nvidia-installer compiles the kernel module and needs the libc development headers (libc6-dev),
+    # which the standard (non-GPU) VHD builder image does not ship by default (gcc/make are present
+    # but libc6-dev is not). Ensure the kernel-module build toolchain before the bake; the boot-time
+    # fallback path already gets these via installDeps, so the runtime recompile stays intact.
+    apt_get_install 10 2 300 gcc make libc6-dev || exit 1
+    CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+    retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
+    if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
+      echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
+      exit 1
+    fi
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
+EOF
+  fi
 fi
 
 if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
