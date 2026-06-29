@@ -664,17 +664,221 @@ func marshalToJSON(v any) ([]byte, error) {
 }
 
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+// When KubeletFlags contains translated flags whose corresponding KubeletConfigFileConfig field is
+// unset, those flag values are synced into the config file to prevent kubelet from falling back to
+// v1beta1 defaults. Existing KubeletConfigFileConfig values are never overwritten.
 func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
 		return ""
 	}
 	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
+	syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
 	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
 	}
 	return string(kubeletConfigFileConfigByte)
+}
+
+// syncTranslatedFlagsToConfigFile backfills KubeletConfigFileConfig fields from KubeletFlags
+// for any translated flag whose config file field is nil/zero/empty. This ensures backward
+// compatibility during the RP migration period where flags may not yet be fully reflected
+// in the structured config file proto.
+//
+//nolint:gocognit,cyclop
+func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfig, flags map[string]string) {
+	if cfg == nil || len(flags) == 0 {
+		return
+	}
+
+	// String fields — backfill if empty.
+	backfillString := func(flag string, field *string) {
+		if *field == "" {
+			if v, ok := flags[flag]; ok && v != "" {
+				*field = v
+			}
+		}
+	}
+	backfillString("--address", &cfg.Address)
+	backfillString("--pod-manifest-path", &cfg.StaticPodPath)
+	backfillString("--cluster-domain", &cfg.ClusterDomain)
+	backfillString("--resolv-conf", &cfg.ResolvConf)
+	backfillString("--tls-cert-file", &cfg.TlsCertFile)
+	backfillString("--tls-private-key-file", &cfg.TlsPrivateKeyFile)
+	backfillString("--cpu-manager-policy", &cfg.CpuManagerPolicy)
+	backfillString("--cpu-cfs-quota-period", &cfg.CpuCfsQuotaPeriod)
+	backfillString("--topology-manager-policy", &cfg.TopologyManagerPolicy)
+	backfillString("--container-log-max-size", &cfg.ContainerLogMaxSize)
+	backfillString("--streaming-connection-idle-timeout", &cfg.StreamingConnectionIdleTimeout)
+	backfillString("--node-status-update-frequency", &cfg.NodeStatusUpdateFrequency)
+	backfillString("--node-status-report-frequency", &cfg.NodeStatusReportFrequency)
+	backfillString("--kube-reserved-cgroup", &cfg.KubeReservedCgroup)
+	backfillString("--system-reserved-cgroup", &cfg.SystemReservedCgroup)
+
+	// Optional *int32 fields — backfill if nil.
+	backfillInt32Ptr := func(flag string, field **int32) {
+		if *field == nil {
+			if v, ok := flags[flag]; ok && v != "" {
+				if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+					val := int32(n)
+					*field = &val
+				}
+			}
+		}
+	}
+	backfillInt32Ptr("--event-qps", &cfg.EventRecordQps)
+	backfillInt32Ptr("--image-gc-high-threshold", &cfg.ImageGcHighThresholdPercent)
+	backfillInt32Ptr("--image-gc-low-threshold", &cfg.ImageGcLowThresholdPercent)
+	backfillInt32Ptr("--max-pods", &cfg.MaxPods)
+	backfillInt32Ptr("--pod-max-pids", &cfg.PodPidsLimit)
+	backfillInt32Ptr("--container-log-max-files", &cfg.ContainerLogMaxFiles)
+
+	// Non-optional int32 fields — backfill if zero.
+	backfillInt32 := func(flag string, field *int32) {
+		if *field == 0 {
+			if v, ok := flags[flag]; ok && v != "" {
+				if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+					*field = int32(n)
+				}
+			}
+		}
+	}
+	backfillInt32("--read-only-port", &cfg.ReadOnlyPort)
+	backfillInt32("--eviction-max-pod-grace-period", &cfg.EvictionMaxPodGracePeriod)
+
+	// Optional *bool fields — backfill if nil.
+	backfillBoolPtr := func(flag string, field **bool) {
+		if *field == nil {
+			if v, ok := flags[flag]; ok && v != "" {
+				b, err := strconv.ParseBool(v)
+				if err == nil {
+					*field = &b
+				}
+			}
+		}
+	}
+	backfillBoolPtr("--cgroups-per-qos", &cfg.CgroupsPerQos)
+	backfillBoolPtr("--cpu-cfs-quota", &cfg.CpuCfsQuota)
+	backfillBoolPtr("--fail-swap-on", &cfg.FailSwapOn)
+	backfillBoolPtr("--serialize-image-pulls", &cfg.SerializeImagePulls)
+
+	// Non-optional bool fields — backfill if false and flag is "true".
+	backfillBool := func(flag string, field *bool) {
+		if !*field {
+			if v, ok := flags[flag]; ok && v != "" {
+				if b, err := strconv.ParseBool(v); err == nil {
+					*field = b
+				}
+			}
+		}
+	}
+	backfillBool("--rotate-certificates", &cfg.RotateCertificates)
+	backfillBool("--rotate-server-certificates", &cfg.ServerTlsBootstrap)
+	backfillBool("--protect-kernel-defaults", &cfg.ProtectKernelDefaults)
+
+	// String slice fields — backfill if nil or empty.
+	backfillStringSlice := func(flag string, field *[]string) {
+		if len(*field) == 0 {
+			if v, ok := flags[flag]; ok && v != "" {
+				*field = strings.Split(v, ",")
+			}
+		}
+	}
+	backfillStringSlice("--cluster-dns", &cfg.ClusterDns)
+	backfillStringSlice("--tls-cipher-suites", &cfg.TlsCipherSuites)
+	backfillStringSlice("--enforce-node-allocatable", &cfg.EnforceNodeAllocatable)
+	backfillStringSlice("--allowed-unsafe-sysctls", &cfg.AllowedUnsafeSysctls)
+
+	// Map[string]string fields — backfill if nil or empty.
+	backfillMapString := func(flag string, field *map[string]string, sep string) {
+		if len(*field) == 0 {
+			if v, ok := flags[flag]; ok && v != "" {
+				*field = parseKeyValuePairs(v, sep)
+			}
+		}
+	}
+	backfillMapString("--eviction-hard", &cfg.EvictionHard, "<")
+	backfillMapString("--eviction-soft", &cfg.EvictionSoft, "<")
+	backfillMapString("--eviction-soft-grace-period", &cfg.EvictionSoftGracePeriod, "=")
+	backfillMapString("--system-reserved", &cfg.SystemReserved, "=")
+	backfillMapString("--kube-reserved", &cfg.KubeReserved, "=")
+
+	// Map[string]bool fields (feature gates) — backfill if nil or empty.
+	if len(cfg.FeatureGates) == 0 {
+		if v, ok := flags["--feature-gates"]; ok && v != "" {
+			cfg.FeatureGates = parseKeyValuePairsBool(v)
+		}
+	}
+
+	// Nested authentication fields.
+	if cfg.Authentication == nil {
+		cfg.Authentication = &aksnodeconfigv1.KubeletAuthentication{}
+	}
+	if cfg.Authentication.X509 == nil {
+		cfg.Authentication.X509 = &aksnodeconfigv1.KubeletX509Authentication{}
+	}
+	if cfg.Authentication.X509.ClientCaFile == "" {
+		if v, ok := flags["--client-ca-file"]; ok && v != "" {
+			cfg.Authentication.X509.ClientCaFile = v
+		}
+	}
+	if cfg.Authentication.Webhook == nil {
+		cfg.Authentication.Webhook = &aksnodeconfigv1.KubeletWebhookAuthentication{}
+	}
+	if !cfg.Authentication.Webhook.Enabled {
+		if v, ok := flags["--authentication-token-webhook"]; ok && v != "" {
+			if b, err := strconv.ParseBool(v); err == nil {
+				cfg.Authentication.Webhook.Enabled = b
+			}
+		}
+	}
+	if cfg.Authentication.Anonymous == nil {
+		cfg.Authentication.Anonymous = &aksnodeconfigv1.KubeletAnonymousAuthentication{}
+	}
+	if !cfg.Authentication.Anonymous.Enabled {
+		if v, ok := flags["--anonymous-auth"]; ok && v != "" {
+			if b, err := strconv.ParseBool(v); err == nil {
+				cfg.Authentication.Anonymous.Enabled = b
+			}
+		}
+	}
+
+	// Nested authorization fields.
+	if cfg.Authorization == nil {
+		cfg.Authorization = &aksnodeconfigv1.KubeletAuthorization{}
+	}
+	if cfg.Authorization.Mode == "" {
+		if v, ok := flags["--authorization-mode"]; ok && v != "" {
+			cfg.Authorization.Mode = v
+		}
+	}
+}
+
+// parseKeyValuePairs parses "key<sep>value,key<sep>value" into a map.
+func parseKeyValuePairs(s, sep string) map[string]string {
+	result := make(map[string]string)
+	for _, pair := range strings.Split(s, ",") {
+		parts := strings.SplitN(pair, sep, 2)
+		if len(parts) == 2 {
+			result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	return result
+}
+
+// parseKeyValuePairsBool parses "key=true,key=false" into a map[string]bool.
+func parseKeyValuePairsBool(s string) map[string]bool {
+	result := make(map[string]bool)
+	for _, pair := range strings.Split(s, ",") {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) == 2 {
+			if b, err := strconv.ParseBool(strings.TrimSpace(parts[1])); err == nil {
+				result[strings.TrimSpace(parts[0])] = b
+			}
+		}
+	}
+	return result
 }
 
 func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
