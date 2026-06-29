@@ -102,10 +102,10 @@ func TestGetKubeletConfigFileContent_MergesFlagsWithoutOverwritingContent(t *tes
 	}
 }
 
-// TestGetKubeletConfigFileContent_PrecedenceRules validates precedence between CustomKubeletConfig and KubeletConfig flags:
-//
-//	Priority 1 (highest): CustomKubeletConfig — user-specified values via AKS API
-//	Priority 2: KubeletConfig flags — RP-provided defaults, backfills fields not set by CustomKC
+// TestGetKubeletConfigFileContent_PrecedenceRules validates precedence when generating kubelet config file content:
+// Priority 1 (highest): CustomKubeletConfig — user-specified values via AKS API.
+// Priority 2: KubeletConfig flags — RP-provided defaults, backfills fields not set by CustomKC.
+// Priority 3: kubelet v1beta1 defaults — applied by kubelet for remaining unset fields.
 func TestGetKubeletConfigFileContent_PrecedenceRules(t *testing.T) {
 	kc := map[string]string{
 		"--image-gc-high-threshold": "85",

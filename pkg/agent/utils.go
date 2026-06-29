@@ -632,11 +632,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// CustomKubeletConfig (user-specified values) takes precedence over flag defaults.
 	setCustomKubeletConfig(customKc, flagConfig)
 
-	configStringByte, err := json.MarshalIndent(flagConfig, "", "    ")
-	if err != nil {
-		// Avoid writing an empty kubelet config file when CSE enables --config.
-		return `{"apiVersion":"kubelet.config.k8s.io/v1beta1","kind":"KubeletConfiguration"}`
-	}
+	configStringByte, _ := json.MarshalIndent(flagConfig, "", "    ")
 	return string(configStringByte)
 }
 
