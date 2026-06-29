@@ -1449,6 +1449,244 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 	}
 }
 
+func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
+	cfg := &aksnodeconfigv1.KubeletConfigFileConfig{}
+	flags := map[string]string{
+		// string
+		"--address":        "0.0.0.0",
+		"--cluster-domain": "cluster.local",
+		// *int32
+		"--event-qps":               "0",
+		"--image-gc-high-threshold": "85",
+		"--max-pods":                "110",
+		// *bool
+		"--cgroups-per-qos": "true",
+		"--fail-swap-on":    "false",
+		// bool
+		"--rotate-certificates":     "true",
+		"--protect-kernel-defaults": "true",
+		// []string
+		"--cluster-dns":              "10.0.0.10,10.0.0.11",
+		"--enforce-node-allocatable": "pods",
+		// map[string]string
+		"--eviction-hard":   "memory.available<750Mi,nodefs.available<10%",
+		"--system-reserved": "cpu=100m,memory=1Gi",
+		// map[string]bool
+		"--feature-gates": "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
+		// nested
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+	}
+
+	syncTranslatedFlagsToConfigFile(cfg, flags)
+
+	// String fields.
+	if cfg.Address != "0.0.0.0" {
+		t.Errorf("expected address=0.0.0.0, got %s", cfg.Address)
+	}
+	if cfg.ClusterDomain != "cluster.local" {
+		t.Errorf("expected clusterDomain=cluster.local, got %s", cfg.ClusterDomain)
+	}
+
+	// *int32 fields.
+	if cfg.EventRecordQps == nil || *cfg.EventRecordQps != 0 {
+		t.Errorf("expected eventRecordQps=0, got %v", cfg.EventRecordQps)
+	}
+	if cfg.ImageGcHighThresholdPercent == nil || *cfg.ImageGcHighThresholdPercent != 85 {
+		t.Errorf("expected imageGcHighThresholdPercent=85, got %v", cfg.ImageGcHighThresholdPercent)
+	}
+	if cfg.MaxPods == nil || *cfg.MaxPods != 110 {
+		t.Errorf("expected maxPods=110, got %v", cfg.MaxPods)
+	}
+
+	// *bool fields.
+	if cfg.CgroupsPerQos == nil || *cfg.CgroupsPerQos != true {
+		t.Errorf("expected cgroupsPerQos=true, got %v", cfg.CgroupsPerQos)
+	}
+	if cfg.FailSwapOn == nil || *cfg.FailSwapOn != false {
+		t.Errorf("expected failSwapOn=false, got %v", cfg.FailSwapOn)
+	}
+
+	// bool fields.
+	if !cfg.RotateCertificates {
+		t.Errorf("expected rotateCertificates=true")
+	}
+	if !cfg.ProtectKernelDefaults {
+		t.Errorf("expected protectKernelDefaults=true")
+	}
+
+	// []string fields.
+	if len(cfg.ClusterDns) != 2 || cfg.ClusterDns[0] != "10.0.0.10" {
+		t.Errorf("expected clusterDns=[10.0.0.10,10.0.0.11], got %v", cfg.ClusterDns)
+	}
+	if len(cfg.EnforceNodeAllocatable) != 1 || cfg.EnforceNodeAllocatable[0] != "pods" {
+		t.Errorf("expected enforceNodeAllocatable=[pods], got %v", cfg.EnforceNodeAllocatable)
+	}
+
+	// map[string]string fields.
+	if cfg.EvictionHard == nil || cfg.EvictionHard["memory.available"] != "750Mi" {
+		t.Errorf("expected evictionHard[memory.available]=750Mi, got %v", cfg.EvictionHard)
+	}
+	if cfg.SystemReserved == nil || cfg.SystemReserved["cpu"] != "100m" {
+		t.Errorf("expected systemReserved[cpu]=100m, got %v", cfg.SystemReserved)
+	}
+
+	// map[string]bool fields.
+	if cfg.FeatureGates == nil || cfg.FeatureGates["RotateKubeletServerCertificate"] != true {
+		t.Errorf("expected featureGates[RotateKubeletServerCertificate]=true, got %v", cfg.FeatureGates)
+	}
+	if cfg.FeatureGates["DynamicKubeletConfig"] != false {
+		t.Errorf("expected featureGates[DynamicKubeletConfig]=false, got %v", cfg.FeatureGates)
+	}
+
+	// Nested auth fields.
+	if cfg.Authentication == nil || cfg.Authentication.X509 == nil || cfg.Authentication.X509.ClientCaFile != "/etc/kubernetes/certs/ca.crt" {
+		t.Errorf("expected authentication.x509.clientCaFile, got %v", cfg.Authentication)
+	}
+	if cfg.Authentication.Webhook == nil || !cfg.Authentication.Webhook.Enabled {
+		t.Errorf("expected authentication.webhook.enabled=true")
+	}
+	if cfg.Authorization == nil || cfg.Authorization.Mode != "Webhook" {
+		t.Errorf("expected authorization.mode=Webhook, got %v", cfg.Authorization)
+	}
+}
+
+func Test_syncTranslatedFlagsToConfigFile_DoesNotOverrideExistingValues(t *testing.T) {
+	cfg := &aksnodeconfigv1.KubeletConfigFileConfig{
+		Address:               "1.2.3.4",
+		EventRecordQps:        to.Ptr(int32(7)),
+		MaxPods:               to.Ptr(int32(250)),
+		CgroupsPerQos:         to.Ptr(true),
+		RotateCertificates:    true,
+		ClusterDns:            []string{"192.168.0.1"},
+		EvictionHard:          map[string]string{"memory.available": "500Mi"},
+		FeatureGates:          map[string]bool{"Foo": true},
+		ProtectKernelDefaults: true,
+		Authentication: &aksnodeconfigv1.KubeletAuthentication{
+			X509:    &aksnodeconfigv1.KubeletX509Authentication{ClientCaFile: "/my/ca.crt"},
+			Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{Enabled: true},
+		},
+		Authorization: &aksnodeconfigv1.KubeletAuthorization{Mode: "AlwaysAllow"},
+	}
+	flags := map[string]string{
+		"--address":                      "0.0.0.0",
+		"--event-qps":                    "0",
+		"--max-pods":                     "110",
+		"--cgroups-per-qos":              "false",
+		"--rotate-certificates":          "false",
+		"--protect-kernel-defaults":      "false",
+		"--cluster-dns":                  "10.0.0.10",
+		"--eviction-hard":                "memory.available<750Mi",
+		"--feature-gates":                "Bar=true",
+		"--client-ca-file":               "/other/ca.crt",
+		"--authentication-token-webhook": "false",
+		"--authorization-mode":           "Webhook",
+	}
+
+	syncTranslatedFlagsToConfigFile(cfg, flags)
+
+	// All existing values should be preserved.
+	if cfg.Address != "1.2.3.4" {
+		t.Errorf("address should not be overwritten, got %s", cfg.Address)
+	}
+	if *cfg.EventRecordQps != 7 {
+		t.Errorf("eventRecordQps should not be overwritten, got %d", *cfg.EventRecordQps)
+	}
+	if *cfg.MaxPods != 250 {
+		t.Errorf("maxPods should not be overwritten, got %d", *cfg.MaxPods)
+	}
+	if *cfg.CgroupsPerQos != true {
+		t.Errorf("cgroupsPerQos should not be overwritten")
+	}
+	if !cfg.RotateCertificates {
+		t.Errorf("rotateCertificates should not be overwritten")
+	}
+	if !cfg.ProtectKernelDefaults {
+		t.Errorf("protectKernelDefaults should not be overwritten")
+	}
+	if cfg.ClusterDns[0] != "192.168.0.1" {
+		t.Errorf("clusterDns should not be overwritten, got %v", cfg.ClusterDns)
+	}
+	if cfg.EvictionHard["memory.available"] != "500Mi" {
+		t.Errorf("evictionHard should not be overwritten, got %v", cfg.EvictionHard)
+	}
+	if _, ok := cfg.FeatureGates["Bar"]; ok {
+		t.Errorf("featureGates should not be overwritten")
+	}
+	if cfg.Authentication.X509.ClientCaFile != "/my/ca.crt" {
+		t.Errorf("clientCaFile should not be overwritten")
+	}
+	if cfg.Authorization.Mode != "AlwaysAllow" {
+		t.Errorf("authorization.mode should not be overwritten, got %s", cfg.Authorization.Mode)
+	}
+}
+
+func Test_syncTranslatedFlagsToConfigFile_NilAndEmptyFlags(t *testing.T) {
+	cfg := &aksnodeconfigv1.KubeletConfigFileConfig{
+		Address: "1.2.3.4",
+	}
+
+	// nil flags — should not panic or change anything.
+	syncTranslatedFlagsToConfigFile(cfg, nil)
+	if cfg.Address != "1.2.3.4" {
+		t.Errorf("nil flags should not change cfg")
+	}
+
+	// empty flags — same.
+	syncTranslatedFlagsToConfigFile(cfg, map[string]string{})
+	if cfg.Address != "1.2.3.4" {
+		t.Errorf("empty flags should not change cfg")
+	}
+
+	// nil cfg — should not panic.
+	syncTranslatedFlagsToConfigFile(nil, map[string]string{"--address": "0.0.0.0"})
+}
+
+func Test_getKubeletConfigFileContent_IntegratesSync(t *testing.T) {
+	kubeletConfig := &aksnodeconfigv1.KubeletConfig{
+		KubeletFlags: map[string]string{
+			"--event-qps":   "0",
+			"--max-pods":    "110",
+			"--cluster-dns": "172.16.0.10",
+		},
+		KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+			Kind:       "KubeletConfiguration",
+			ApiVersion: "kubelet.config.k8s.io/v1beta1",
+			// EventRecordQps intentionally nil — should be backfilled from flags.
+			// MaxPods intentionally nil — should be backfilled.
+		},
+	}
+
+	content := getKubeletConfigFileContent(kubeletConfig)
+
+	var got map[string]any
+	if err := json.Unmarshal([]byte(content), &got); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if v, ok := got["eventRecordQPS"]; !ok {
+		t.Fatalf("expected eventRecordQPS in output, got: %s", content)
+	} else if int32(v.(float64)) != 0 {
+		t.Fatalf("expected eventRecordQPS=0, got %v", v)
+	}
+
+	if v, ok := got["maxPods"]; !ok {
+		t.Fatalf("expected maxPods in output, got: %s", content)
+	} else if int32(v.(float64)) != 110 {
+		t.Fatalf("expected maxPods=110, got %v", v)
+	}
+
+	if v, ok := got["clusterDNS"]; !ok {
+		t.Fatalf("expected clusterDNS in output, got: %s", content)
+	} else {
+		dns := v.([]any)
+		if len(dns) == 0 || dns[0].(string) != "172.16.0.10" {
+			t.Fatalf("expected clusterDNS=[172.16.0.10], got %v", v)
+		}
+	}
+}
+
 func Test_getKubeletFlags(t *testing.T) {
 	type args struct {
 		kubeletConfig *aksnodeconfigv1.KubeletConfig
