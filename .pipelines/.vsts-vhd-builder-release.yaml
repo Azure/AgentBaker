@@ -991,6 +991,8 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: "os=windows"
+      # VHD already contains the binary under test; skip the compile+download hack.
+      DISABLE_SCRIPTLESS_COMPILATION: true
     jobs:
       - template: ./templates/e2e-template.yaml
         parameters:
