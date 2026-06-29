@@ -398,6 +398,32 @@ providers:
       - $azureConfigFile
 "@
     }
+    elseif (![string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
+        $mcrRegistry = if ((Test-Path variable:global:MCRRepositoryBase) -and
+            -not [string]::IsNullOrEmpty($global:MCRRepositoryBase)) {
+            ([string]$global:MCRRepositoryBase).TrimEnd("/")
+        }
+        else {
+            "mcr.microsoft.com"
+        }
+        $credentialProviderConfig = @"
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+        - "*.azurecr.io"
+        - "*.azurecr.cn"
+        - "*.azurecr.de"
+        - "*.azurecr.us"
+        - "${mcrRegistry}"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+        - $azureConfigFile
+        - --registry-mirror=${mcrRegistry}:{$global:BootstrapProfileContainerRegistryServer}
+"@
+    }
     $credentialProviderConfig | Out-File -encoding ASCII -filepath "$CredentialProviderConfPATH"
 }
 
