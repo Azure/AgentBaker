@@ -1004,3 +1004,12 @@ stages:
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
+          cosiArtifactNames:
+            - ${{ if eq(parameters.buildacltlgen2, true) }}:
+              - 'cosi-publishing-info-acl-tl-gen2'
+            - ${{ if eq(parameters.buildaclarm64tlgen2, true) }}:
+              - 'cosi-publishing-info-acl-arm64-tl-gen2'
+            - ${{ if eq(parameters.buildaclfipstlgen2, true) }}:
+              - 'cosi-publishing-info-acl-fips-tl-gen2'
+            - ${{ if eq(parameters.buildaclarm64fipstlgen2, true) }}:
+              - 'cosi-publishing-info-acl-arm64-fips-tl-gen2'

@@ -1073,6 +1073,42 @@ func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	})
 }
 
+func Test_ACL_COSI(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-tl-gen2, skipping")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
+}
+
+func Test_ACL_COSI_ARM64(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-arm64-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-arm64-tl-gen2, skipping")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
+}
+
+func Test_ACL_COSI_FIPS(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-fips-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-fips-tl-gen2, skipping")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
+}
+
+func Test_ACL_COSI_ARM64_FIPS(t *testing.T) {
+	cosiURL := loadCOSIURL(t, "cosi-publishing-info-acl-arm64-fips-tl-gen2")
+	if cosiURL == "" {
+		t.Skip("COSI artifact not available for acl-arm64-fips-tl-gen2, skipping")
+	}
+	t.Parallel()
+	ValidateACLCOSI(t, cosiURL)
+}
+
 func Test_ACL_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using ACL VHD with network isolated cluster enabled",
