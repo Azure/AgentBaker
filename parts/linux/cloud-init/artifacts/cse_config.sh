@@ -1227,8 +1227,8 @@ configGPUDrivers() {
         # install-skip-build and would fail to stage its userspace files (e.g. /opt/gpu/config.sh).
         # aks-gpu still independently re-validates the marker (kernel + driver_version +
         # driver_kind) and falls back to a full build on any remaining mismatch (e.g. kernel drift).
-        GPU_INSTALL_ACTION="install"
-        GPU_DKMS_MARKER="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+        local GPU_INSTALL_ACTION="install"
+        local GPU_DKMS_MARKER="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
         if [ -f "$GPU_DKMS_MARKER" ] && \
            [ "$(sed -n 's/^driver_kind=//p' "$GPU_DKMS_MARKER" | head -n1)" = "$NVIDIA_GPU_DRIVER_TYPE" ]; then
             GPU_INSTALL_ACTION="install-skip-build"

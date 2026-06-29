@@ -247,9 +247,11 @@ cleanUpPrebakedGPUDriver() {
     # depmod/initramfs refresh is required.
     rm -rf /var/lib/dkms/nvidia || true
     rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
-    # aks-gpu relocates the userspace libs under GPU_DEST/lib64; on Ubuntu GPU_DEST=/usr/bin.
+    # aks-gpu stages the driver userspace libs under its container's GPU_DEST/lib64. NOTE: that is
+    # the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh), NOT this CSE script's
+    # GPU_DEST=/usr/local/nvidia -- the prebake writes to /usr/bin, so the teardown clears /usr/bin.
     rm -rf /usr/bin/lib64 || true
-    # nvidia-installer also drops driver userspace BINARIES under GPU_DEST (=/usr/bin on Ubuntu).
+    # nvidia-installer likewise drops the driver userspace BINARIES under that same /usr/bin.
     # Remove them too so a non-GPU node looks genuinely driver-free: otherwise e.g. `nvidia-smi`
     # remains on PATH and, with its libs (lib64) gone, errors instead of being "command not found".
     for nvidiaBin in nvidia-smi nvidia-debugdump nvidia-persistenced nvidia-cuda-mps-control \

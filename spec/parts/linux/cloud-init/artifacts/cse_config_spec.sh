@@ -1909,7 +1909,7 @@ SETUP_EOF
         # Capture the action passed to the install container.
         retrycmd_if_failure() { shift 3; echo "INSTALL_CMD: $*"; return 0; }
 
-        BeforeEach 'OS="$UBUNTU_OS_NAME"; NVIDIA_GPU_DRIVER_TYPE="cuda"; NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"; NVIDIA_DRIVER_IMAGE_TAG="580.0.0"; CTR_GPU_INSTALL_CMD="ctr-run"; GPU_DKMS_MARKER_FILE="$(mktemp -u)"'
+        BeforeEach 'OS="$UBUNTU_OS_NAME"; NVIDIA_GPU_DRIVER_TYPE="cuda"; NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"; NVIDIA_DRIVER_IMAGE_TAG="580.0.0"; CTR_GPU_INSTALL_CMD="ctr-run"; GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "$GPU_DKMS_MARKER_FILE"'
 
         It 'uses the full install action when no prebake marker is present'
             When call configGPUDrivers
