@@ -302,8 +302,13 @@ function install_certs_to_trust_store {
         cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/ || rc=$?
         [ $rc -eq 0 ] && { update-ca-certificates || rc=$?; }
 
-        # This copies the updated bundle to the location used by OpenSSL which is commonly used
-        [ $rc -eq 0 ] && { cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem || rc=$?; }
+        # This copies the updated bundle to the location used by OpenSSL which is commonly used.
+        # On Ubuntu 24.04, /usr/lib/ssl/cert.pem is already a symlink to
+        # /etc/ssl/certs/ca-certificates.crt; skip the cp in that case to avoid a
+        # "same file" error that would falsely fail trust-store installation.
+        if [ $rc -eq 0 ] && [ ! /etc/ssl/certs/ca-certificates.crt -ef /usr/lib/ssl/cert.pem ]; then
+            cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem || rc=$?
+        fi
     fi
 
     debug_print_trust_store "after"

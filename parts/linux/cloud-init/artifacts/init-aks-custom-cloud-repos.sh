@@ -14,10 +14,17 @@ function init_ubuntu_main_repo_depot {
     # Initialize directory for keys
     mkdir -p /etc/apt/keyrings
 
-    # This copies the updated bundle to the location used by OpenSSL which is commonly used
-    echo "Copying updated bundle to OpenSSL .pem file..."
-    cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
-    echo "Updated bundle copied."
+    # This copies the updated bundle to the location used by OpenSSL which is commonly used.
+    # On Ubuntu 24.04, /usr/lib/ssl/cert.pem is already a symlink to
+    # /etc/ssl/certs/ca-certificates.crt; skip the cp in that case to avoid a
+    # "same file" error.
+    if [ ! /etc/ssl/certs/ca-certificates.crt -ef /usr/lib/ssl/cert.pem ]; then
+        echo "Copying updated bundle to OpenSSL .pem file..."
+        cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+        echo "Updated bundle copied."
+    else
+        echo "/usr/lib/ssl/cert.pem already refers to /etc/ssl/certs/ca-certificates.crt; skipping copy."
+    fi
 
     # Back up sources.list and sources.list.d contents
     mkdir -p /etc/apt/backup/
