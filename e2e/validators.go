@@ -28,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 	certv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -3110,4 +3112,95 @@ func ValidateSecondaryNICDualStack(ctx context.Context, s *Scenario, ifaceName s
 		"expected interface %s to have an IPv6 address, got:\n%s", ifaceName, result.stdout)
 	require.Contains(s.T, result.stdout, "scope global",
 		"expected interface %s to have a global IPv6 address (not just link-local), got:\n%s", ifaceName, result.stdout)
+}
+
+func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating DRA driver NVIDIA GPU systemd service is running")
+
+	command := []string{
+		"set -ex",
+		"systemctl is-active dra-driver-nvidia-gpu.service",
+		"systemctl is-enabled dra-driver-nvidia-gpu.service",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "DRA driver NVIDIA GPU systemd service should be active and enabled")
+}
+
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	s.T.Logf("validating that DRA workloads can be scheduled")
+
+	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
+
+	deviceClassName := "gpu.nvidia.com"
+	claimName := "single-gpu"
+	podClaimRefName := "gpu-claim"
+
+	_, err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deviceClassName,
+		},
+		Spec: resourcev1.DeviceClassSpec{},
+	}, metav1.CreateOptions{})
+	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err)
+
+	_, err = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: "default",
+		},
+		Spec: resourcev1.ResourceClaimSpec{
+			Devices: resourcev1.DeviceClaim{
+				Requests: []resourcev1.DeviceRequest{
+					{
+						Name: "gpu",
+						Exactly: &resourcev1.ExactDeviceRequest{
+							DeviceClassName: deviceClassName,
+						},
+					},
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err)
+
+	// Create a DRA test pod that consumes the ResourceClaim.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-dra-test", s.Runtime.VM.KubeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			ResourceClaims: []corev1.PodResourceClaim{
+				{
+					Name:              podClaimRefName,
+					ResourceClaimName: &claimName,
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "dra-test-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Claims: []corev1.ResourceClaim{
+							{
+								Name: podClaimRefName,
+							},
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.VM.KubeName,
+			},
+		},
+	}
+	truncatePodName(s.T, pod)
+
+	ValidatePodRunning(ctx, s, pod)
+
+	s.T.Logf("GPU workload is schedulable and runs successfully")
 }

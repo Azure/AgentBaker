@@ -583,6 +583,11 @@ function nodePrep {
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
+    # defer starting managed GPU experience services after kubelet.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ] || [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+    fi
+
     if systemctl cat aks-log-collector.timer &>/dev/null; then
         systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
     else

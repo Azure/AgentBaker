@@ -1754,6 +1754,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
+	EnableManagedGPUDRA             bool
 	MigStrategy                     string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
