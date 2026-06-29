@@ -106,6 +106,7 @@ var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 }
 
+//nolint:gochecknoglobals
 var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuArm64MinimalContainerd2604Gen2,
