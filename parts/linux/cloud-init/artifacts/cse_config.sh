@@ -1246,7 +1246,7 @@ EOF
 [Unit]
 StartLimitIntervalSec=0
 EOF
-    systemctl daemon-reload || true
+    systemctl daemon-reload
 }
 
 configGPUDrivers() {
