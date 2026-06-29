@@ -412,6 +412,15 @@ function Get-CACertificates {
                     continue
                 }
 
+                # Defense-in-depth: sanitize filename to a basename to prevent path
+                # traversal if wireserver ever returns a value containing path separators.
+                $sanitizedFileName = [IO.Path]::GetFileName($resourceFileName)
+                if ($sanitizedFileName -ne $resourceFileName) {
+                    Write-Log "Warning: rejecting certificate filename with path separators: $resourceFileName"
+                    continue
+                }
+                $resourceFileName = $sanitizedFileName
+
                 $resourceType = [IO.Path]::GetFileNameWithoutExtension($resourceFileName)
                 $resourceExt = [IO.Path]::GetExtension($resourceFileName).TrimStart('.')
                 $resourceUri = "http://168.63.129.16/machine?comp=acmspackage&type=$resourceType&ext=$resourceExt"
