@@ -10,6 +10,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -293,40 +294,24 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
-	for _, distro := range AKSDistrosAvailableOnVHD {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2404Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2404Distros, d)
+}
+
+func (d Distro) Is2604VHDDistro() bool {
+	return slices.Contains(AvailableUbuntu2604Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
-	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
 func (d Distro) IsKataDistro() bool {
@@ -334,30 +319,15 @@ func (d Distro) IsKataDistro() bool {
 }
 
 func (d Distro) IsFlatcarDistro() bool {
-	for _, distro := range AvailableFlatcarDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableFlatcarDistros, d)
 }
 
 func (d Distro) IsACLDistro() bool {
-	for _, distro := range AvailableACLDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableACLDistros, d)
 }
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
-	for _, distro := range AvailableAzureLinuxOSGuardDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
 }
 
 /*
