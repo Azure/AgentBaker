@@ -67,6 +67,7 @@ function check_url {
     # Check the exit status of curl
     if [ $curl_status -ne 0 ] || echo "$curl_output" | grep -Eq "404 Not Found"; then
         echo "ERROR: $url is not available. Please manually check if the url is valid before re-running script"
+        emit_event "CustomCloudRepoInit" "check_url failed: $url not reachable" "Error"
         exit 1
     fi
 }
@@ -129,6 +130,7 @@ function aptget_update {
     echo "note: depending on how many sources have been added this may take a couple minutes..."
     if apt-get update | grep -q "404 Not Found"; then
         echo "ERROR: apt-get update failed to find all sources. Please validate the sources or remove bad sources from your sources and try again."
+        emit_event "CustomCloudRepoInit" "apt-get update returned 404 for one or more sources" "Error"
         exit 1
     else
         echo "apt-get update complete!"
@@ -245,11 +247,11 @@ elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
         if [ "$IS_MARINER" -eq 1 ]; then
             echo "Initializing Mariner repo depot settings..."
             init_mariner_repo_depot ${marinerRepoDepotEndpoint}
-            dnf_makecache || exit 1
+            dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Mariner)"; emit_event "CustomCloudRepoInit" "dnf_makecache failed after retries (Mariner)" "Error"; exit 1; }
         else
             echo "Initializing Azure Linux repo depot settings..."
             init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
-            dnf_makecache || exit 1
+            dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Azure Linux)"; emit_event "CustomCloudRepoInit" "dnf_makecache failed after retries (Azure Linux)" "Error"; exit 1; }
         fi
     fi
 fi
