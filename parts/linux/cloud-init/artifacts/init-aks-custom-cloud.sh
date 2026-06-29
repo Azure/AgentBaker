@@ -279,25 +279,35 @@ function install_certs_to_trust_store {
 
     debug_print_trust_store "before"
 
+    # Guard against empty glob: if no *.crt files exist, bash leaves the literal
+    # '*.crt', which would silently fail cp and could mask the failure since
+    # debug_print_trust_store below always returns 0.
+    if ! compgen -G "/root/AzureCACertificates/*.crt" > /dev/null; then
+        echo "ERROR: no *.crt files in /root/AzureCACertificates to install" >&2
+        return 1
+    fi
+
+    local rc=0
     if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-        cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
-        update-ca-trust
+        cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/ || rc=$?
+        [ $rc -eq 0 ] && { update-ca-trust || rc=$?; }
     elif [ "$IS_FLATCAR" -eq 1 ]; then
         for cert in /root/AzureCACertificates/*.crt; do
             destcert="${cert##*/}"
             destcert="${destcert%.*}.pem"
-            cp "$cert" /etc/ssl/certs/"$destcert"
+            cp "$cert" /etc/ssl/certs/"$destcert" || { rc=$?; break; }
         done
-        update-ca-certificates
+        [ $rc -eq 0 ] && { update-ca-certificates || rc=$?; }
     else
-        cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
-        update-ca-certificates
+        cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/ || rc=$?
+        [ $rc -eq 0 ] && { update-ca-certificates || rc=$?; }
 
         # This copies the updated bundle to the location used by OpenSSL which is commonly used
-        cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+        [ $rc -eq 0 ] && { cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem || rc=$?; }
     fi
 
     debug_print_trust_store "after"
+    return $rc
 }
 
 # Certificate refresh behavior summary:
