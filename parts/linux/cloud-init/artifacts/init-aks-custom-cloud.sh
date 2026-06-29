@@ -161,8 +161,7 @@ function is_opted_in_for_root_certs {
         return 2
     fi
 
-    # Wireserver may return JSON ({"IsOptedInForRootCerts":true}) or key=value
-    # (IsOptedInForRootCerts=true). Use jq for proper JSON parsing.
+    # Wireserver returns JSON ({"IsOptedInForRootCerts":true}) — use jq for proper parsing.
     if echo "$opt_in_response" | jq -e '.IsOptedInForRootCerts == true' > /dev/null 2>&1; then
         echo "IsOptedInForRootCerts=true"
         return 0
