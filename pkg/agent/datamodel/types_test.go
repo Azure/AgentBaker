@@ -1019,37 +1019,47 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
 	cases := []struct {
 		name     string
-		distro   Distro
+		ap       AgentPoolProfile
 		expected bool
 	}{
 		{
-			name:     "26.04 minimal Gen2 VHD distro",
-			distro:   AKSUbuntuMinimalContainerd2604Gen2,
+			name: "26.04 minimal Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuMinimalContainerd2604Gen2,
+			},
 			expected: true,
 		},
 		{
-			name:     "26.04 ARM64 minimal Gen2 VHD distro",
-			distro:   AKSUbuntuArm64MinimalContainerd2604Gen2,
+			name: "26.04 ARM64 minimal Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuArm64MinimalContainerd2604Gen2,
+			},
 			expected: true,
 		},
 		{
-			name:     "24.04 VHD distro is not a 2604 distro",
-			distro:   AKSUbuntuContainerd2404,
+			name: "24.04 VHD distro is not a 2604 distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404,
+			},
 			expected: false,
 		},
 		{
-			name:     "22.04 VHD distro is not a 2604 distro",
-			distro:   AKSUbuntuContainerd2204,
+			name: "22.04 VHD distro is not a 2604 distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204,
+			},
 			expected: false,
 		},
 		{
-			name:     "Azure Linux V3 distro is not a 2604 distro",
-			distro:   AKSAzureLinuxV3,
+			name: "Azure Linux V3 distro is not a 2604 distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
 			expected: false,
 		},
 		{
 			name:     "empty distro is not a 2604 distro",
-			distro:   "",
+			ap:       AgentPoolProfile{},
 			expected: false,
 		},
 	}
@@ -1057,8 +1067,8 @@ func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			if c.expected != c.distro.Is2604VHDDistro() {
-				t.Fatalf("Got unexpected Distro.Is2604VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.distro.Is2604VHDDistro())
+			if c.expected != c.ap.Is2604VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.Is2604VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2604VHDDistro())
 			}
 		})
 	}
