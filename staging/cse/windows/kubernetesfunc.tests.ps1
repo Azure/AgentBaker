@@ -13,11 +13,6 @@ BeforeAll {
         Write-Host "$TaskName $TaskMessage"
     }
 
-    function Set-ExitCode {
-        param($ExitCode, $ErrorMessage)
-        throw "Unexpected Set-ExitCode: $ExitCode $ErrorMessage"
-    }
-
     function Create-Directory {
         param($FullPath, $DirectoryUsage)
         if (-not (Test-Path $FullPath)) {
