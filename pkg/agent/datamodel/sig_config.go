@@ -91,8 +91,6 @@ var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
-	AKSUbuntuMinimalContainerd2204,
-	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuFipsContainerd2204TLGen2,
@@ -106,6 +104,11 @@ var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuArm64GB200Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
 	AKSUbuntuContainerd2404TLGen2,
+}
+
+var AvailableUbuntu2604Distros = []Distro{
+	AKSUbuntuMinimalContainerd2604Gen2,
+	AKSUbuntuArm64MinimalContainerd2604Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -155,13 +158,13 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
-	AKSUbuntuMinimalContainerd2204,
-	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuContainerd2404TLGen2,
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
+	AKSUbuntuMinimalContainerd2604Gen2,
+	AKSUbuntuArm64MinimalContainerd2604Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -177,9 +180,10 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
-	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSUbuntuMinimalContainerd2604Gen2,
+	AKSUbuntuArm64MinimalContainerd2604Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -526,20 +530,6 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuMinimalContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204minimalcontainerd",
-		Version:       "202401.12.0",
-	}
-
-	SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2minimalcontainerd",
-		Version:       "202401.12.0",
-	}
-
 	SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -565,6 +555,20 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2TLcontainerd",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2604minimalgen2containerd",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuArm64MinimalContainerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2604minimalgen2arm64containerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -889,25 +893,25 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSUbuntuFipsContainerd2004:           SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2004Gen2:       SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2204:           SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2204Gen2:       SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2204TLGen2:     SIGUbuntuFipsContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2204:               SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2204Gen2:           SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2004CVMGen2:        SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64Containerd2204Gen2:      SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64Containerd2404Gen2:      SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64GB200Containerd2404Gen2: SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2404CVMGen2:        SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2204TLGen2:         SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuMinimalContainerd2204:        SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuMinimalContainerd2204Gen2:    SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEgressContainerd2204Gen2:     SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2404:               SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2404Gen2:           SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2404TLGen2:         SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2004:             SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2004Gen2:         SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204:             SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204Gen2:         SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204TLGen2:       SIGUbuntuFipsContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204:                 SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204Gen2:             SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004CVMGen2:          SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64Containerd2204Gen2:        SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64Containerd2404Gen2:        SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64GB200Containerd2404Gen2:   SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404CVMGen2:          SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204TLGen2:           SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEgressContainerd2204Gen2:       SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404:                 SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404Gen2:             SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64MinimalContainerd2604Gen2: SIGUbuntuArm64MinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
