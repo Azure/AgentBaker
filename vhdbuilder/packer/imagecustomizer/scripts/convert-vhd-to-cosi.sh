@@ -19,6 +19,12 @@ do
     fi
 done
 
+# Optional GHCR fallback: when the MCR ImageCustomizer image for the requested
+# version is unavailable, optionally fall back to pulling the published GitHub
+# Container Registry image (IMG_CUSTOMIZER_CONTAINER_FALLBACK). Gated by the
+# first script argument and defaults to "false" so the fallback is opt-in.
+ALLOW_GHCR_FALLBACK="${1:-false}"
+
 WORK_DIR="$(pwd)/cosi-convert"
 mkdir -p "$WORK_DIR/build" "$WORK_DIR/out"
 
@@ -59,14 +65,44 @@ if ! azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
 fi
 echo "Downloaded VHD to ${LOCAL_VHD}"
 
-echo "Converting VHD to COSI using ImageCustomizer ${IMG_CUSTOMIZER_CONTAINER}:${IMG_CUSTOMIZER_VERSION}"
+IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER}:${IMG_CUSTOMIZER_VERSION}"
+
+echo "Pulling ImageCustomizer image ${IMG_CUSTOMIZER_REF}"
+if ! docker pull "${IMG_CUSTOMIZER_REF}"; then
+    if [ "${ALLOW_GHCR_FALLBACK,,}" != "true" ]; then
+        echo "##vso[task.logissue type=error]Failed to pull ImageCustomizer image ${IMG_CUSTOMIZER_REF} and GHCR fallback is disabled"
+        exit 1
+    fi
+
+    if [ -z "${IMG_CUSTOMIZER_CONTAINER_FALLBACK:-}" ]; then
+        echo "##vso[task.logissue type=error]GHCR fallback is enabled but IMG_CUSTOMIZER_CONTAINER_FALLBACK is not set"
+        exit 1
+    fi
+
+    # GHCR only publishes fully-qualified semver tags (e.g. 1.5.0), whereas MCR
+    # exposes moving minor tags (e.g. 1.5). Normalize a major.minor version to
+    # major.minor.0 so the fallback tag resolves correctly.
+    FALLBACK_VERSION="${IMG_CUSTOMIZER_VERSION}"
+    if [[ "${FALLBACK_VERSION}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+        FALLBACK_VERSION="${FALLBACK_VERSION}.0"
+    fi
+
+    IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER_FALLBACK}:${FALLBACK_VERSION}"
+    echo "MCR image unavailable; falling back to ${IMG_CUSTOMIZER_REF}"
+    if ! docker pull "${IMG_CUSTOMIZER_REF}"; then
+        echo "##vso[task.logissue type=error]Failed to pull ImageCustomizer fallback image ${IMG_CUSTOMIZER_REF}"
+        exit 1
+    fi
+fi
+
+echo "Converting VHD to COSI using ImageCustomizer ${IMG_CUSTOMIZER_REF}"
 docker run \
     --rm \
     --interactive \
     --privileged=true \
     -v "$WORK_DIR:/convert" \
     -v /dev:/dev \
-    "${IMG_CUSTOMIZER_CONTAINER}:${IMG_CUSTOMIZER_VERSION}" \
+    "${IMG_CUSTOMIZER_REF}" \
     convert \
         --log-level "debug" \
         --build-dir /convert/build \

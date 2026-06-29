@@ -413,6 +413,7 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
+      IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
 
   - task: PublishPipelineArtifact@1
     condition: |
