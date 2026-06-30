@@ -656,12 +656,6 @@ installAndConfigureArtifactStreaming() {
   rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
-  /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  /opt/acr/tools/overlaybd/enable-http-auth.sh
-  /opt/acr/tools/overlaybd/config.sh download.enable false
-  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
   rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
