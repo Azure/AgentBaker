@@ -223,12 +223,58 @@ removeNvidiaRepos() {
     fi
 }
 
+# cleanUpPrebakedGPUDriver tears down a CUDA driver that was pre-baked into a shared Ubuntu VHD
+# when this node is NOT a GPU node. On a non-GPU node the installed driver is dead weight: it
+# wastes disk and, because it stays DKMS-registered, forces an nvidia.ko rebuild on every kernel
+# patch. The nvidia module is never loaded on a non-GPU node, so deregistration cannot hit
+# "module in use". It is a no-op unless the aks-gpu prebake marker is present, so today's
+# non-prebaked VHDs are completely unaffected. Idempotent and safe to re-run.
+# NOTE: this runs synchronously on the (non-GPU) provisioning path; the teardown is light
+# (deregister + rm + ldconfig, no initramfs rebuild). To move it fully off the critical path it
+# can be launched via a transient systemd unit (systemd-run --no-block) instead -- see the PR
+# description for that variant and its trade-offs.
+cleanUpPrebakedGPUDriver() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    if [ ! -f "${marker}" ]; then
+        return 0
+    fi
+    echo "Removing pre-baked NVIDIA driver inherited from shared VHD on non-GPU node"
+
+    # Deregister the nvidia DKMS module so future kernel upgrades stop rebuilding it, WITHOUT the
+    # slow `dkms remove --all` (it dominated CSE duration on the non-GPU provisioning path, ~35s).
+    # Removing the DKMS source tree deregisters it (dkms autoinstall iterates /var/lib/dkms/*), and
+    # removing the built module reclaims disk. The module is never loaded on a non-GPU node, so no
+    # depmod/initramfs refresh is required.
+    rm -rf /var/lib/dkms/nvidia || true
+    rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
+    # aks-gpu stages the driver userspace libs under its container's GPU_DEST/lib64. NOTE: that is
+    # the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh), NOT this CSE script's
+    # GPU_DEST=/usr/local/nvidia -- the prebake writes to /usr/bin, so the teardown clears /usr/bin.
+    rm -rf /usr/bin/lib64 || true
+    # nvidia-installer likewise drops the driver userspace BINARIES under that same /usr/bin.
+    # Remove them too so a non-GPU node looks genuinely driver-free: otherwise e.g. `nvidia-smi`
+    # remains on PATH and, with its libs (lib64) gone, errors instead of being "command not found".
+    for nvidiaBin in nvidia-smi nvidia-debugdump nvidia-persistenced nvidia-cuda-mps-control \
+                     nvidia-cuda-mps-server nvidia-modprobe nvidia-bug-report.sh nvidia-powerd \
+                     nvidia-ngx-updater nvidia-sleep.sh; do
+        rm -f "/usr/bin/${nvidiaBin}" || true
+    done
+    rm -f /etc/ld.so.conf.d/nvidia.conf || true
+    ldconfig || true
+    rm -f "${marker}" || true
+}
+
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
+
+    # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a non-GPU node, and while
+    # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
+    # No-op on VHDs without the aks-gpu prebake marker.
+    cleanUpPrebakedGPUDriver
 }
 
 installCriCtlPackage() {
