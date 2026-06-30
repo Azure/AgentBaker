@@ -1832,13 +1832,6 @@ configureManagedGPUExperience() {
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
-    else
-        # EnableManagedGPUExperience is mutable, so services may have been
-        # installed on a previous CSE run. Stop them if they exist.
-        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
-        logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
-        logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
-        rm -f "${managed_gpu_marker}"
     fi
 
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
@@ -1847,9 +1840,14 @@ configureManagedGPUExperience() {
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
-    else
+    fi
+
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "false" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "false" ]; then
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
+        # systemctlDisableAndStop check if the service exists before attempting to stop it,
+        # so this is safe to call even if the services were never installed.
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
