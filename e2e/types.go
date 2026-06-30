@@ -259,6 +259,15 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t testing.TB, vmss *arm
 		s.VMConfigMutator(vmss)
 	}
 
+	// Enable AutomaticOSUpgrade on the VMSS upgrade policy.
+	// This is required when the VHD image comes from an official 1P gallery.
+	if vmss.Properties.UpgradePolicy == nil {
+		vmss.Properties.UpgradePolicy = &armcompute.UpgradePolicy{}
+	}
+	vmss.Properties.UpgradePolicy.AutomaticOSUpgradePolicy = &armcompute.AutomaticOSUpgradePolicy{
+		EnableAutomaticOSUpgrade: to.Ptr(true),
+	}
+
 	if vmss.Properties.VirtualMachineProfile == nil {
 		vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
 	}

@@ -357,13 +357,11 @@ function prepare_windows_vhd() {
 			fi
 
 			windows_sigmode_direct_shared_gallery_image_id="/SharedGalleries/${sig_source_gallery_name}/Images/${sig_image_name}/Versions/${WINDOWS_IMAGE_VERSION}"
-			# Clear marketplace and raw VHD source fields — packer requires exactly one source type
+			# Clear VHD import fields — they conflict with gallery source.
+			# Keep marketplace fields (publisher/offer/sku/version) populated: Packer's ARM
+			# template validation still references them even when using direct_shared_gallery_image_id.
 			WINDOWS_IMAGE_URL=""
 			WINDOWS_BASE_IMAGE_URL=""
-			WINDOWS_IMAGE_PUBLISHER=""
-			WINDOWS_IMAGE_OFFER=""
-			WINDOWS_IMAGE_SKU=""
-			WINDOWS_IMAGE_VERSION=""
 			echo "Using direct shared gallery source:"
 			echo "  ID: ${windows_sigmode_direct_shared_gallery_image_id}"
 
