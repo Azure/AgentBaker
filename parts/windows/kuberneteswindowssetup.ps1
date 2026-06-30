@@ -373,12 +373,6 @@ function BasePrep {
     Get-ProvisioningScripts
     Get-LogCollectionScripts
 
-    # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
-    # to mutate both kubelet config args and kubelet node labels.
-    Configure-KubeletServingCertificateRotation
-
-    Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-
     # oras initialization, including install and login, must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
     if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and
     -not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) {
@@ -412,42 +406,6 @@ function BasePrep {
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
 
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
-
-    # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
-    Write-AzureConfig `
-        -KubeDir $global:KubeDir `
-        -AADClientId $AADClientId `
-        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
-        -TenantId $global:TenantId `
-        -SubscriptionId $global:SubscriptionId `
-        -ResourceGroup $global:ResourceGroup `
-        -Location $Location `
-        -VmType $global:VmType `
-        -SubnetName $global:SubnetName `
-        -SecurityGroupName $global:SecurityGroupName `
-        -VNetName $global:VNetName `
-        -RouteTableName $global:RouteTableName `
-        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `
-        -PrimaryScaleSetName $global:PrimaryScaleSetName `
-        -UseManagedIdentityExtension $global:UseManagedIdentityExtension `
-        -UserAssignedClientID $UserAssignedClientID `
-        -UseInstanceMetadata $global:UseInstanceMetadata `
-        -LoadBalancerSku $global:LoadBalancerSku `
-        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}}
-
-    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud.
-    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json
-    {{if IsAKSCustomCloud}}
-    $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
-    $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
-    [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
-
-    Get-CACertificates
-    {{end}}
-
-    Write-CACert -CACertificate $global:CACertificate `
-        -KubeDir $global:KubeDir
 
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
@@ -518,6 +476,48 @@ function NodePrep {
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
+
+    # Write cluster-specific configuration files from live CustomData.
+    # PIS images are reusable across clusters, so these files must not be baked
+    # into the VHD during BasePrep.
+    #
+    # NOTE: Configure-KubeletServingCertificateRotation MUST run before
+    # Write-KubeClusterConfig (it mutates kubelet config args and node labels).
+    Configure-KubeletServingCertificateRotation
+    Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    Write-AzureConfig `
+        -KubeDir $global:KubeDir `
+        -AADClientId $AADClientId `
+        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
+        -TenantId $global:TenantId `
+        -SubscriptionId $global:SubscriptionId `
+        -ResourceGroup $global:ResourceGroup `
+        -Location $Location `
+        -VmType $global:VmType `
+        -SubnetName $global:SubnetName `
+        -SecurityGroupName $global:SecurityGroupName `
+        -VNetName $global:VNetName `
+        -RouteTableName $global:RouteTableName `
+        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `
+        -PrimaryScaleSetName $global:PrimaryScaleSetName `
+        -UseManagedIdentityExtension $global:UseManagedIdentityExtension `
+        -UserAssignedClientID $UserAssignedClientID `
+        -UseInstanceMetadata $global:UseInstanceMetadata `
+        -LoadBalancerSku $global:LoadBalancerSku `
+        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
+        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}}
+
+    {{if IsAKSCustomCloud}}
+    $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
+    $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
+    [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
+
+    Get-CACertificates
+    {{end}}
+
+    Write-CACert -CACertificate $global:CACertificate `
+        -KubeDir $global:KubeDir
 
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
