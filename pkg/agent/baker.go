@@ -740,9 +740,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSecureTLSBootstrappingGetCredentialTimeout": func() string {
 			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
 		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
-		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
