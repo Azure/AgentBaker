@@ -115,6 +115,9 @@ convert-sig-to-classic-storage-account-blob: az-login
 convert-vhd-to-cosi: az-login
 	@./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh "$${IMG_CUSTOMIZER_ALLOW_FALLBACK:-false}"
 
+upload-cosi-to-pmc:
+	@./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
+
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
