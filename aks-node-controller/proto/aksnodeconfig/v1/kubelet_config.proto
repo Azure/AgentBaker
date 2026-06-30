@@ -37,12 +37,12 @@ enum KubeletDisk {
 
 message KubeletConfigFileConfig {
   /* Kind is a string value representing the REST resource this object represents.
-     Servers may infer this from the endpoint the client submits requests to.
-     Cannot be updated.
-     In CamelCase.
-     More info:
-     https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds.
-     +optional.*/
+   Servers may infer this from the endpoint the client submits requests to.
+   Cannot be updated.
+   In CamelCase.
+   More info:
+   https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds.
+   +optional.*/
   string kind = 1;
 
   /* APIVersion defines the versioned schema of this representation of an object.
@@ -53,64 +53,64 @@ message KubeletConfigFileConfig {
   string api_version = 2;
 
   /* staticPodPath is the path to the directory containing local (static) pods to
-     run, or the path to a single static pod file.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     the set of static pods specified at the new path may be different than the
-     ones the Kubelet initially started with, and this may disrupt your node.
-     Default: ""
-     +optional.*/
+   run, or the path to a single static pod file.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   the set of static pods specified at the new path may be different than the
+   ones the Kubelet initially started with, and this may disrupt your node.
+   Default: ""
+   +optional.*/
   string static_pod_path = 3;
 
   /* address is the IP address for the Kubelet to serve on (set to 0.0.0.0
-     for all interfaces).
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Default: "0.0.0.0"
-     +optional. */
+   for all interfaces).
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Default: "0.0.0.0"
+   +optional. */
   string address = 4;
 
   /* readOnlyPort is the read-only port for the Kubelet to serve on with
-     no authentication/authorization.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Default: 0 (disabled)
-     +optional. */
+   no authentication/authorization.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Default: 0 (disabled)
+   +optional. */
   int32 read_only_port = 5;
 
   /* tlsCertFile is the file containing x509 Certificate for HTTPS. (CA cert,
-     if any, concatenated after server cert). If tlsCertFile and
-     tlsPrivateKeyFile are not provided, a self-signed certificate
-     and key are generated for the public address and saved to the directory
-     passed to the Kubelet's --cert-dir flag.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Default: ""
-     +optional. */
+   if any, concatenated after server cert). If tlsCertFile and
+   tlsPrivateKeyFile are not provided, a self-signed certificate
+   and key are generated for the public address and saved to the directory
+   passed to the Kubelet's --cert-dir flag.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Default: ""
+   +optional. */
   string tls_cert_file = 6;
 
   /* tlsPrivateKeyFile is the file containing x509 private key matching tlsCertFile
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Default: ""
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Default: ""
+   +optional. */
   string tls_private_key_file = 7;
 
   /* TLSCipherSuites is the list of allowed cipher suites for the server.
-     Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants).
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Default: nil
-     +optional. */
+   Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants).
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Default: nil
+   +optional. */
   repeated string tls_cipher_suites = 8;
 
   /* rotateCertificates enables client certificate rotation. The Kubelet will request a
-     new certificate from the certificates.k8s.io API. This requires an approver to approve the
-     certificate signing requests.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     disabling it may disrupt the Kubelet's ability to authenticate with the API server
-     after the current certificate expires.
-     Default: false
-     +optional. */
+   new certificate from the certificates.k8s.io API. This requires an approver to approve the
+   certificate signing requests.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   disabling it may disrupt the Kubelet's ability to authenticate with the API server
+   after the current certificate expires.
+   Default: false
+   +optional. */
   bool rotate_certificates = 9;
 
   // serverTLSBootstrap enables server certificate bootstrap. Instead of self
@@ -123,198 +123,198 @@ message KubeletConfigFileConfig {
   bool server_tls_bootstrap = 10 [json_name = "serverTLSBootstrap"];
 
   /* authentication specifies how requests to the Kubelet's server are authenticated
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Defaults:
-       anonymous:
-         enabled: false
-       webhook:
-         enabled: true
-         cacheTTL: "2m"
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Defaults:
+   anonymous:
+   enabled: false
+   webhook:
+   enabled: true
+   cacheTTL: "2m"
+   +optional. */
   KubeletAuthentication authentication = 11;
 
   /* authorization specifies how requests to the Kubelet's server are authorized
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may disrupt components that interact with the Kubelet server.
-     Defaults:
-       mode: Webhook
-       webhook:
-         cacheAuthorizedTTL: "5m"
-         cacheUnauthorizedTTL: "30s"
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may disrupt components that interact with the Kubelet server.
+   Defaults:
+   mode: Webhook
+   webhook:
+   cacheAuthorizedTTL: "5m"
+   cacheUnauthorizedTTL: "30s"
+   +optional. */
   KubeletAuthorization authorization = 12;
 
   /* eventRecordQPS is the maximum event creations per second. If 0, there
-     is no limit enforced.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may impact scalability by changing the amount of traffic produced by
-     event creations.
-     Default: 5
-     +optional. */
+   is no limit enforced.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may impact scalability by changing the amount of traffic produced by
+   event creations.
+   Default: 5
+   +optional. */
   optional int32 event_record_qps = 13 [json_name = "eventRecordQPS"];
 
   /* clusterDomain is the DNS domain for this cluster. If set, kubelet will
-     configure all containers to search this domain in addition to the
-     host's search domains.
-     Dynamic Kubelet Config (beta): Dynamically updating this field is not recommended,
-     as it should be kept in sync with the rest of the cluster.
-     Default: ""
-     +optional. */
+   configure all containers to search this domain in addition to the
+   host's search domains.
+   Dynamic Kubelet Config (beta): Dynamically updating this field is not recommended,
+   as it should be kept in sync with the rest of the cluster.
+   Default: ""
+   +optional. */
   string cluster_domain = 14;
 
   /* clusterDNS is a list of IP addresses for the cluster DNS server. If set,
-     kubelet will configure all containers to use this for DNS resolution
-     instead of the host's DNS servers.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     changes will only take effect on Pods created after the update. Draining
-     the node is recommended before changing this field.
-     Default: nil
-     +optional. */
+   kubelet will configure all containers to use this for DNS resolution
+   instead of the host's DNS servers.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   changes will only take effect on Pods created after the update. Draining
+   the node is recommended before changing this field.
+   Default: nil
+   +optional. */
   repeated string cluster_dns = 15 [json_name = "clusterDNS"];
 
   /* streamingConnectionIdleTimeout is the maximum time a streaming connection
-     can be idle before the connection is automatically closed.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may impact components that rely on infrequent updates over streaming
-     connections to the Kubelet server.
-     Default: "4h"
-     +optional. */
+   can be idle before the connection is automatically closed.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may impact components that rely on infrequent updates over streaming
+   connections to the Kubelet server.
+   Default: "4h"
+   +optional. */
   string streaming_connection_idle_timeout = 16;
 
   /* nodeStatusUpdateFrequency is the frequency that kubelet computes node
-     status. If node lease feature is not enabled, it is also the frequency that
-     kubelet posts node status to master.
-     Note: When node lease feature is not enabled, be cautious when changing the
-     constant, it must work with nodeMonitorGracePeriod in nodecontroller.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may impact node scalability, and also that the node controller's
-     nodeMonitorGracePeriod must be set to N*NodeStatusUpdateFrequency,
-     where N is the number of retries before the node controller marks
-     the node unhealthy.
-     Default: "10s"
-     +optional. */
+   status. If node lease feature is not enabled, it is also the frequency that
+   kubelet posts node status to master.
+   Note: When node lease feature is not enabled, be cautious when changing the
+   constant, it must work with nodeMonitorGracePeriod in nodecontroller.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may impact node scalability, and also that the node controller's
+   nodeMonitorGracePeriod must be set to N*NodeStatusUpdateFrequency,
+   where N is the number of retries before the node controller marks
+   the node unhealthy.
+   Default: "10s"
+   +optional. */
   string node_status_update_frequency = 17;
 
   /* nodeStatusReportFrequency is the frequency that kubelet posts node
-     status to master if node status does not change. Kubelet will ignore this
-     frequency and post node status immediately if any change is detected. It is
-     only used when node lease feature is enabled. nodeStatusReportFrequency's
-     default value is 5m. But if nodeStatusUpdateFrequency is set explicitly,
-     nodeStatusReportFrequency's default value will be set to
-     nodeStatusUpdateFrequency for backward compatibility.
-     Default: "5m"
-     +optional. */
+   status to master if node status does not change. Kubelet will ignore this
+   frequency and post node status immediately if any change is detected. It is
+   only used when node lease feature is enabled. nodeStatusReportFrequency's
+   default value is 5m. But if nodeStatusUpdateFrequency is set explicitly,
+   nodeStatusReportFrequency's default value will be set to
+   nodeStatusUpdateFrequency for backward compatibility.
+   Default: "5m"
+   +optional. */
   string node_status_report_frequency = 18;
 
   /* imageGCHighThresholdPercent is the percent of disk usage after which
-     image garbage collection is always run. The percent is calculated as
-     this field value out of 100.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may trigger or delay garbage collection, and may change the image overhead
-     on the node.
-     Default: 85
-     +optional. */
+   image garbage collection is always run. The percent is calculated as
+   this field value out of 100.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may trigger or delay garbage collection, and may change the image overhead
+   on the node.
+   Default: 85
+   +optional. */
   optional int32 image_gc_high_threshold_percent = 19 [json_name = "imageGCHighThresholdPercent"];
 
   /* imageGCLowThresholdPercent is the percent of disk usage before which
-     image garbage collection is never run. Lowest disk usage to garbage
-     collect to. The percent is calculated as this field value out of 100.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may trigger or delay garbage collection, and may change the image overhead
-     on the node.
-     Default: 80
-     +optional. */
+   image garbage collection is never run. Lowest disk usage to garbage
+   collect to. The percent is calculated as this field value out of 100.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may trigger or delay garbage collection, and may change the image overhead
+   on the node.
+   Default: 80
+   +optional. */
   optional int32 image_gc_low_threshold_percent = 20 [json_name = "imageGCLowThresholdPercent"];
 
   /* Enable QoS based Cgroup hierarchy: top level cgroups for QoS Classes
-     And all Burstable and BestEffort pods are brought up under their
-     specific top level QoS cgroup.
-     Dynamic Kubelet Config (beta): This field should not be updated without a full node
-     reboot. It is safest to keep this value the same as the local config.
-     Default: true
-     +optional. */
+   And all Burstable and BestEffort pods are brought up under their
+   specific top level QoS cgroup.
+   Dynamic Kubelet Config (beta): This field should not be updated without a full node
+   reboot. It is safest to keep this value the same as the local config.
+   Default: true
+   +optional. */
   optional bool cgroups_per_qos = 21 [json_name = "cgroupsPerQOS"];
 
   /* CPUManagerPolicy is the name of the policy to use.
-     Requires the CPUManager feature gate to be enabled.
-     Dynamic Kubelet Config (beta): This field should not be updated without a full node
-     reboot. It is safest to keep this value the same as the local config.
-     Default: "none"
-     +optional. */
+   Requires the CPUManager feature gate to be enabled.
+   Dynamic Kubelet Config (beta): This field should not be updated without a full node
+   reboot. It is safest to keep this value the same as the local config.
+   Default: "none"
+   +optional. */
   string cpu_manager_policy = 22;
 
   /* TopologyManagerPolicy is the name of the policy to use.
-     Policies other than "none" require the TopologyManager feature gate to be enabled.
-     Dynamic Kubelet Config (beta): This field should not be updated without a full node
-     reboot. It is safest to keep this value the same as the local config.
-     Default: "none"
-     +optional. */
+   Policies other than "none" require the TopologyManager feature gate to be enabled.
+   Dynamic Kubelet Config (beta): This field should not be updated without a full node
+   reboot. It is safest to keep this value the same as the local config.
+   Default: "none"
+   +optional. */
   string topology_manager_policy = 23;
 
   /* maxPods is the number of pods that can run on this Kubelet.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     changes may cause Pods to fail admission on Kubelet restart, and may change
-     the value reported in Node.Status.Capacity[v1.ResourcePods], thus affecting
-     future scheduling decisions. Increasing this value may also decrease performance,
-     as more Pods can be packed into a single node.
-     Default: 110
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   changes may cause Pods to fail admission on Kubelet restart, and may change
+   the value reported in Node.Status.Capacity[v1.ResourcePods], thus affecting
+   future scheduling decisions. Increasing this value may also decrease performance,
+   as more Pods can be packed into a single node.
+   Default: 110
+   +optional. */
   optional int32 max_pods = 24;
 
   /* PodPidsLimit is the maximum number of pids in any pod.
-     Requires the SupportPodPidsLimit feature gate to be enabled.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     lowering it may prevent container processes from forking after the change.
-     Default: -1
-     +optional. */
+   Requires the SupportPodPidsLimit feature gate to be enabled.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   lowering it may prevent container processes from forking after the change.
+   Default: -1
+   +optional. */
   optional int32 pod_pids_limit = 25;
 
   /* ResolvConf is the resolver configuration file used as the basis
-     for the container DNS resolution configuration.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     changes will only take effect on Pods created after the update. Draining
-     the node is recommended before changing this field.
-     Default: "/etc/resolv.conf"
-     +optional. */
+   for the container DNS resolution configuration.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   changes will only take effect on Pods created after the update. Draining
+   the node is recommended before changing this field.
+   Default: "/etc/resolv.conf"
+   +optional. */
   string resolv_conf = 26;
 
   /* cpuCFSQuota enables CPU CFS quota enforcement for containers that
-     specify CPU limits.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     disabling it may reduce node stability.
-     Default: true
-     +optional. */
+   specify CPU limits.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   disabling it may reduce node stability.
+   Default: true
+   +optional. */
   optional bool cpu_cfs_quota = 27 [json_name = "cpuCFSQuota"];
 
   /* CPUCFSQuotaPeriod is the CPU CFS quota period value, cpu.cfs_period_us.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     limits set for containers will result in different cpu.cfs_quota settings. This
-     will trigger container restarts on the node being reconfigured.
-     Default: "100ms"
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   limits set for containers will result in different cpu.cfs_quota settings. This
+   will trigger container restarts on the node being reconfigured.
+   Default: "100ms"
+   +optional. */
   string cpu_cfs_quota_period = 28 [json_name = "cpuCFSQuotaPeriod"];
 
   /* Map of signal names to quantities that defines hard eviction thresholds. For example: {"memory.available": "300Mi"}.
-     To explicitly disable, pass a 0% or 100% threshold on an arbitrary resource.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may trigger or delay Pod evictions.
-     Default:
-       memory.available:  "100Mi"
-       nodefs.available:  "10%"
-       nodefs.inodesFree: "5%"
-       imagefs.available: "15%"
-     +optional. */
+   To explicitly disable, pass a 0% or 100% threshold on an arbitrary resource.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may trigger or delay Pod evictions.
+   Default:
+   memory.available:  "100Mi"
+   nodefs.available:  "10%"
+   nodefs.inodesFree: "5%"
+   imagefs.available: "15%"
+   +optional. */
   map<string, string> eviction_hard = 29;
 
   /* protectKernelDefaults, if true, causes the Kubelet to error if kernel
-     flags are not as it expects. Otherwise the Kubelet will attempt to modify
-     kernel flags to match its expectation.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     enabling it may cause the Kubelet to crash-loop if the Kernel is not configured as
-     Kubelet expects.
-     Default: false
-     +optional. */
+   flags are not as it expects. Otherwise the Kubelet will attempt to modify
+   kernel flags to match its expectation.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   enabling it may cause the Kubelet to crash-loop if the Kernel is not configured as
+   Kubelet expects.
+   Default: false
+   +optional. */
   bool protect_kernel_defaults = 30;
 
   /* featureGates is a map of feature names to bools that enable or disable alpha/experimental
@@ -330,51 +330,51 @@ message KubeletConfigFileConfig {
   map<string, bool> feature_gates = 31;
 
   /* failSwapOn tells the Kubelet to fail to start if swap is enabled on the node.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     setting it to true will cause the Kubelet to crash-loop if swap is enabled.
-     Default: true
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   setting it to true will cause the Kubelet to crash-loop if swap is enabled.
+   Default: true
+   +optional. */
   optional bool fail_swap_on = 32;
 
   /* A quantity defines the maximum size of the container log file before it is rotated.
-     For example: "5Mi" or "256Ki".
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may trigger log rotation.
-     Default: "10Mi"
-     +optional. */
+   For example: "5Mi" or "256Ki".
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may trigger log rotation.
+   Default: "10Mi"
+   +optional. */
   string container_log_max_size = 33;
 
   /* Maximum number of container log files that can be present for a container.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     lowering it may cause log files to be deleted.
-     Default: 5
-     +optional. */
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   lowering it may cause log files to be deleted.
+   Default: 5
+   +optional. */
   optional int32 container_log_max_files = 34;
 
   /* the following fields are meant for Node Allocatable */
 
   /* systemReserved is a set of ResourceName=ResourceQuantity (e.g. cpu=200m,memory=150G)
-     pairs that describe resources reserved for non-kubernetes components.
-     Currently only cpu and memory are supported.
-     See http://kubernetes.io/docs/user-guide/compute-resources for more detail.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may not be possible to increase the reserved resources, because this
-     requires resizing cgroups. Always look for a NodeAllocatableEnforced event
-     after updating this field to ensure that the update was successful.
-     Default: nil
-     +optional. */
+   pairs that describe resources reserved for non-kubernetes components.
+   Currently only cpu and memory are supported.
+   See http://kubernetes.io/docs/user-guide/compute-resources for more detail.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may not be possible to increase the reserved resources, because this
+   requires resizing cgroups. Always look for a NodeAllocatableEnforced event
+   after updating this field to ensure that the update was successful.
+   Default: nil
+   +optional. */
   map<string, string> system_reserved = 35;
 
   /* A set of ResourceName=ResourceQuantity (e.g. cpu=200m,memory=150G) pairs
-     that describe resources reserved for kubernetes system components.
-     Currently cpu, memory and local storage for root file system are supported.
-     See http://kubernetes.io/docs/user-guide/compute-resources for more detail.
-     Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-     it may not be possible to increase the reserved resources, because this
-     requires resizing cgroups. Always look for a NodeAllocatableEnforced event
-     after updating this field to ensure that the update was successful.
-     Default: nil
-     +optional. */
+   that describe resources reserved for kubernetes system components.
+   Currently cpu, memory and local storage for root file system are supported.
+   See http://kubernetes.io/docs/user-guide/compute-resources for more detail.
+   Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
+   it may not be possible to increase the reserved resources, because this
+   requires resizing cgroups. Always look for a NodeAllocatableEnforced event
+   after updating this field to ensure that the update was successful.
+   Default: nil
+   +optional. */
   map<string, string> kube_reserved = 36;
 
   /* This flag specifies the various Node Allocatable enforcements that Kubelet needs to perform.
@@ -394,46 +394,46 @@ message KubeletConfigFileConfig {
   repeated string enforce_node_allocatable = 37;
 
   /* evictionSoft is a map of signal names to quantities that defines soft eviction thresholds.
-     Each signal listed here must also have a corresponding entry in evictionSoftGracePeriod.
-     Soft eviction terminates pods gracefully (respecting terminationGracePeriodSeconds, capped by
-     evictionMaxPodGracePeriod) once the threshold is breached for the configured grace period.
-     Used by AKS Node Memory Hardening (F2/F5).
-     +optional. */
+   Each signal listed here must also have a corresponding entry in evictionSoftGracePeriod.
+   Soft eviction terminates pods gracefully (respecting terminationGracePeriodSeconds, capped by
+   evictionMaxPodGracePeriod) once the threshold is breached for the configured grace period.
+   Used by AKS Node Memory Hardening (F2/F5).
+   +optional. */
   map<string, string> eviction_soft = 41;
 
   /* evictionSoftGracePeriod is a map of signal names to durations defining how long the soft
-     eviction threshold must be breached before triggering eviction. Each entry must correspond
-     to a signal listed in evictionSoft. Used by AKS Node Memory Hardening (F2/F5).
-     +optional. */
+   eviction threshold must be breached before triggering eviction. Each entry must correspond
+   to a signal listed in evictionSoft. Used by AKS Node Memory Hardening (F2/F5).
+   +optional. */
   map<string, string> eviction_soft_grace_period = 42;
 
   /* evictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when
-     terminating pods in response to a soft eviction threshold being met. Setting this value
-     caps the pod's terminationGracePeriodSeconds during soft eviction. Used by AKS Node
-     Memory Hardening (F2/F5).
-     +optional. */
+   terminating pods in response to a soft eviction threshold being met. Setting this value
+   caps the pod's terminationGracePeriodSeconds during soft eviction. Used by AKS Node
+   Memory Hardening (F2/F5).
+   +optional. */
   int32 eviction_max_pod_grace_period = 43;
 
   /* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
-     kube-reserved compute resources. When enforce-node-allocatable contains "kube-reserved",
-     this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
-     Used by AKS Node Memory Hardening (F2/F5).
-     +optional. */
+   kube-reserved compute resources. When enforce-node-allocatable contains "kube-reserved",
+   this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+   Used by AKS Node Memory Hardening (F2/F5).
+   +optional. */
   string kube_reserved_cgroup = 44;
 
   /* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage for the
-     system-reserved compute resources. When enforce-node-allocatable contains "system-reserved",
-     this cgroup must exist before kubelet starts. Example: "/system.slice".
-     Used by AKS Node Memory Hardening (F2/F5).
-     +optional. */
+   system-reserved compute resources. When enforce-node-allocatable contains "system-reserved",
+   this cgroup must exist before kubelet starts. Example: "/system.slice".
+   Used by AKS Node Memory Hardening (F2/F5).
+   +optional. */
   string system_reserved_cgroup = 45;
 
   /* A comma separated whitelist of unsafe sysctls or sysctl patterns (ending in *).
-     Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
-     These sysctls are namespaced but not allowed by default.
-     For example: "kernel.msg*,net.ipv4.route.min_pmtu"
-     Default: []
-     +optional. */
+   Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
+   These sysctls are namespaced but not allowed by default.
+   For example: "kernel.msg*,net.ipv4.route.min_pmtu"
+   Default: []
+   +optional. */
   repeated string allowed_unsafe_sysctls = 38;
 
   // serializeImagePulls when enabled, tells the Kubelet to pull images one
@@ -466,9 +466,9 @@ message KubeletAuthentication {
 
 message KubeletX509Authentication {
   /* clientCAFile is the path to a PEM-encoded certificate bundle. If set, any request presenting a client certificate
-     signed by one of the authorities in the bundle is authenticated with a username corresponding to the CommonName,
-     and groups corresponding to the Organization in the client certificate.
-     +optional. */
+   signed by one of the authorities in the bundle is authenticated with a username corresponding to the CommonName,
+   and groups corresponding to the Organization in the client certificate.
+   +optional. */
   string client_ca_file = 1 [json_name = "clientCAFile"];
 }
 
