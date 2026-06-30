@@ -373,6 +373,14 @@ function BasePrep {
     Get-ProvisioningScripts
     Get-LogCollectionScripts
 
+    # kubeclusterconfig.json must exist before Install-Containerd-Based-On-Kubernetes-Version
+    # runs below: the CSE scripts package cached on the VHD (e.g. v0.0.52) reads the pause image
+    # from this file while configuring containerd during BasePrep. The cluster-specific values
+    # written here are only placeholders for the bake/non-cached containerd read - NodePrep
+    # rewrites this file from live CustomData on every provision (including PIS/VHD-cached nodes
+    # where BasePrep is skipped), so the runtime always sees fresh values.
+    Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
     # oras initialization, including install and login, must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
     if ((Test-Path variable:global:BootstrapProfileContainerRegistryServer) -and
     -not [string]::IsNullOrWhiteSpace($global:BootstrapProfileContainerRegistryServer)) {
@@ -483,6 +491,10 @@ function NodePrep {
     #
     # NOTE: Configure-KubeletServingCertificateRotation MUST run before
     # Write-KubeClusterConfig (it mutates kubelet config args and node labels).
+    # Write-KubeClusterConfig also runs in BasePrep (the cached CSE scripts read
+    # the pause image from it while configuring containerd); we rewrite it here so
+    # cluster-specific values are refreshed on every provision, including
+    # PIS/VHD-cached nodes where BasePrep is skipped.
     Configure-KubeletServingCertificateRotation
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
