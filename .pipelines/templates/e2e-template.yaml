@@ -12,14 +12,24 @@ parameters:
     default: ab-e2e
   - name: subscriptionId
     type: string
-    displayName: Subscription ID to use for E2E tests
-    default: $(E2E_SUBSCRIPTION_ID)
+    displayName: Subscription ID to use for E2E tests (empty = use variable group default)
+    default: ""
+  - name: rcv1pTagsAutoInjected
+    type: string
+    displayName: Whether the platform auto-injects RCV1P opt-in tags on all VMSSes
+    default: "true"
 
 jobs:
   - job: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
+      # When a caller (e.g. aks-rp orchestrator) explicitly passes subscriptionId,
+      # override E2E_SUBSCRIPTION_ID from the variable group so the run targets the
+      # requested subscription (e.g. RCV1P). When empty, keep the variable group default.
+      - ${{ if ne(parameters.subscriptionId, '') }}:
+        - name: E2E_SUBSCRIPTION_ID
+          value: ${{parameters.subscriptionId}}
     pool:
       name: $(E2E_POOL_NAME)
     timeoutInMinutes: 90
@@ -41,13 +51,13 @@ jobs:
             bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
-          E2E_SUBSCRIPTION_ID: ${{parameters.subscriptionId}}
           SYS_SSH_PUBLIC_KEY: $(SYS_SSH_PUBLIC_KEY)
           SYS_SSH_PRIVATE_KEY_B64: $(SYS_SSH_PRIVATE_KEY_B64)
           BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
 
       - task: PublishTestResults@2
         displayName: Upload test results

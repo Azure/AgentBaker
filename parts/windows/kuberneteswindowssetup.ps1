@@ -443,8 +443,9 @@ function BasePrep {
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
 
-    Get-CACertificates
     {{end}}
+
+    Get-CACertificates -Location $Location -FailOnError
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
@@ -485,6 +486,16 @@ function BasePrep {
     PREPROVISION_EXTENSION
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
+    # Guard against older CSE packages that do not yet export Should-InstallCACertificatesRefreshTask.
+    # If the function is absent (old package), fall back to the previous unconditional behaviour so
+    # that legacy/ussec/usnat clusters continue to register the refresh task.
+    if (Get-Command -Name Should-InstallCACertificatesRefreshTask -ErrorAction Ignore) {
+        if (Should-InstallCACertificatesRefreshTask -Location $Location) {
+            Register-CACertificatesRefreshTask -Location $Location
+        }
+    } elseif (Get-Command -Name Register-CACertificatesRefreshTask -ErrorAction Ignore) {
+        Register-CACertificatesRefreshTask -Location $Location
+    }
 
     Update-DefenderPreferences
 

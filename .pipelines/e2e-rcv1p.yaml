@@ -1,0 +1,16 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_RUN: "rcv1pcertmode=true"
+  SKIP_E2E_TESTS: false
+  E2E_GO_TEST_TIMEOUT: "75m"
+trigger: none
+pr: none
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: RCV1P Cert Mode Tests
+      IgnoreScenariosWithMissingVhd: false
+      variableGroup: ab-e2e-tme-rcv1p
+      # The RCV1P testing subscription does not have platform auto-injection enabled,
+      # so the E2E framework explicitly injects opt-in tags on each VMSS.
+      rcv1pTagsAutoInjected: "false"

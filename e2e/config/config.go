@@ -73,6 +73,7 @@ type Configuration struct {
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                               bool          `env:"KEEP_VMSS"`
+	RCV1PTagsAutoInjected                  bool          `env:"RCV1P_TAGS_AUTO_INJECTED"`
 	NetworkIsolatedNSGName                 string        `env:"NETWORK_ISOLATED_NSG_NAME" envDefault:"abe2e-networkisolated-securityGroup"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/main"`
@@ -93,12 +94,67 @@ type Configuration struct {
 }
 
 func (c *Configuration) BlobStorageAccount() string {
+	// Storage account names are GLOBALLY unique in Azure (not per-subscription).
+	// Two subscriptions cannot own an account with the same name; the second
+	// one to call BeginCreate fails with StorageAccountAlreadyTaken even
+	// though BeginCreate is otherwise idempotent within a single sub.
+	//
+	// This bites whenever a pipeline that normally targets subscription A
+	// (with BLOB_STORAGE_ACCOUNT_PREFIX baked into a variable group) is
+	// redirected at runtime to subscription B — for example when the aks-rp
+	// orchestrator routes the RCV1P phase to its dedicated testing sub via
+	// --subscription-id. The prefix was chosen for sub A, the account
+	// "<prefix><location>" already exists in sub A, and creation in sub B
+	// fails before any test can run.
+	//
+	// Embedding a deterministic subscription-derived suffix in the account
+	// name guarantees a globally-unique name per subscription with zero
+	// per-environment configuration: every new sub gets its own account
+	// the first time it runs and reuses it thereafter. The framework stays
+	// completely agnostic to which subscription is "special" — there is no
+	// subscription identity check anywhere in this repo.
+	//
+	// DefaultLocation is included for the historical reason captured below
+	// (the blob client is keyed off the storage account URL, which is per
+	// location, even though tests run across multiple locations).
+	//
 	// Here DefaultLocation is used because the azure blob client requires the
 	// full URL to the storage account, which means creating a new client per
 	// location. While everything else for running AB tests is sharded per
 	// location, but we continue to use the same storage account for all
 	// locations.
-	return c.BlobStorageAccountPrefix + c.DefaultLocation
+	suffix := subscriptionSuffix(c.SubscriptionID)
+	base := c.BlobStorageAccountPrefix + c.DefaultLocation
+	// Azure storage account names are limited to 24 chars (lowercase alphanumeric).
+	// Truncate the base portion if a long region name + prefix would otherwise
+	// overflow once the deterministic suffix is appended. The suffix is kept whole
+	// so two subscriptions never collide; truncation is deterministic too, so the
+	// same (prefix, location, sub) always resolves to the same account name.
+	if maxBase := 24 - len(suffix); len(base) > maxBase {
+		if maxBase < 0 {
+			maxBase = 0
+		}
+		base = base[:maxBase]
+	}
+	return base + suffix
+}
+
+// subscriptionSuffix returns a short, deterministic suffix derived from the
+// subscription ID, suitable for embedding in resource names that have
+// global-uniqueness constraints (e.g. storage accounts). It takes the first
+// 6 hex characters of the subscription UUID after stripping hyphens, which
+// keeps the resulting name within the Azure storage account length limit
+// (3-24 chars) while giving ~16M-way collision resistance — sufficient for
+// the handful of subscriptions this test framework will ever run against.
+//
+// Lowercase hex is also valid for storage account names (lowercase
+// alphanumeric only), so no further sanitization is required.
+func subscriptionSuffix(subscriptionID string) string {
+	cleaned := strings.ToLower(strings.ReplaceAll(subscriptionID, "-", ""))
+	if len(cleaned) < 6 {
+		return cleaned
+	}
+	return cleaned[:6]
 }
 
 func (c *Configuration) IsLocalBuild() bool {

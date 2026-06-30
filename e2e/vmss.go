@@ -530,11 +530,32 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*ScenarioVM, error) {
 	defer toolkit.LogStepCtxf(ctx, "creating VMSS %s", s.Runtime.VMSSName)()
 	vm := &ScenarioVM{}
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+
+	model := createVMSSModel(ctx, s)
+
+	// Record whether the outgoing VMSS model includes the RCV1P opt-in tag.
+	// This is used after creation to detect platform auto-injection vs tags we set.
+	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+	_, requestedRCV1PTag := model.Tags[rcv1pTagKey]
+
+	// E2E-specific: For scenarios that need VM instance tags (e.g., RCV1P), we must apply tags
+	// before CSE runs because wireserver checks per-VM-instance tags. The only
+	// working method for Uniform VMSS is BeginUpdate (full PUT), which takes ~108s.
+	// To avoid the race, we strip the CSE extension before creation, apply tags
+	// via BeginUpdate, then re-add the extension in a second update.
+	// In production, AKS RP handles tag application and CSE sequencing through CRP.
+	var deferredExtensionProfile *armcompute.VirtualMachineScaleSetExtensionProfile
+	if len(s.Config.VMInstanceTags) > 0 && model.Properties.VirtualMachineProfile.ExtensionProfile != nil {
+		deferredExtensionProfile = model.Properties.VirtualMachineProfile.ExtensionProfile
+		model.Properties.VirtualMachineProfile.ExtensionProfile = nil
+		toolkit.Logf(ctx, "deferring CSE extension until VM instance tags are applied")
+	}
+
+	operation, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
-		createVMSSModel(ctx, s),
+		model,
 		nil,
 	)
 	if err != nil {
@@ -547,15 +568,52 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to wait for VMSS VM: %w", err)
 	}
 
-	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
-	if err != nil {
-		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
-	}
-
+	// Register cleanup early so the VMSS is always deleted even if subsequent steps
+	// (tag update, IP lookup, etc.) fail — preventing orphaned VMSS resources.
 	s.T.Cleanup(func() {
 		defer cleanupBastionTunnel(vm.SSHClient)
 		cleanupVMSS(ctx, s, vm)
 	})
+
+	// Wait for initial VMSS creation to fully complete before applying tags.
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return vm, fmt.Errorf("failed to create VMSS: %w", err)
+	}
+
+	// Apply VM instance tags via BeginUpdate (full PUT) and then re-add CSE.
+	// This is needed for features like RCV1P where wireserver checks tags on
+	// the individual VM instance, not the VMSS resource-level tags.
+	if len(s.Config.VMInstanceTags) > 0 {
+		if err := updateVMInstanceTags(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID, s.Config.VMInstanceTags); err != nil {
+			return vm, fmt.Errorf("failed to update VM instance tags: %w", err)
+		}
+
+		// Re-add CSE extension now that tags are in place.
+		if deferredExtensionProfile != nil {
+			toolkit.Logf(ctx, "re-adding CSE extension after tags are applied")
+			vmssResp.VirtualMachineScaleSet.Properties.VirtualMachineProfile.ExtensionProfile = deferredExtensionProfile
+			cseOp, err := s.GetAzure().VMSS.BeginCreateOrUpdate(
+				ctx,
+				resourceGroupName,
+				s.Runtime.VMSSName,
+				vmssResp.VirtualMachineScaleSet,
+				nil,
+			)
+			if err != nil {
+				return vm, fmt.Errorf("failed to begin adding CSE extension: %w", err)
+			}
+			vmssResp, err = cseOp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+			if err != nil {
+				return vm, fmt.Errorf("failed to add CSE extension: %w", err)
+			}
+		}
+	}
+
+	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, s, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
+	if err != nil {
+		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
+	}
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
@@ -567,7 +625,50 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
 	s.T.Log(result)
 
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	// Log VMSS tags for diagnostics (visible in test-log.json via gotestsum --jsonfile).
+	// For RCV1P tests, compares request tags vs response tags to detect platform auto-injection.
+	vmssID := "<unknown>"
+	if vmssResp.ID != nil {
+		vmssID = *vmssResp.ID
+	}
+	if vmssResp.Tags != nil {
+		s.T.Logf("VMSS %s (id: %s) tags (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
+		for k, v := range vmssResp.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			if k == rcv1pTagKey {
+				if requestedRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — set by us in VMSS request]", k, val)
+				} else {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — AUTO-INJECTED by platform, NOT in our VMSS request]", k, val)
+				}
+			} else {
+				s.T.Logf("  tag: %s = %s", k, val)
+			}
+		}
+		// Detect platform auto-injection: tag appeared in response but was NOT in our request.
+		if respVal, hasTag := vmssResp.Tags[rcv1pTagKey]; hasTag && !requestedRCV1PTag {
+			val := "<nil>"
+			if respVal != nil {
+				val = *respVal
+			}
+			s.T.Logf("WARNING: platform auto-injected RCV1P opt-in tag %q=%s on VMSS — "+
+				"PlatformSettingsOverride feature flag may be causing auto-injection on subscription %s",
+				rcv1pTagKey, val, config.Config.SubscriptionID)
+			if s.Tags.RCV1PCertMode && strings.EqualFold(val, "true") {
+				s.T.Logf("WARNING: auto-injected tag value is 'true' — negative (NotOptedIn) tests will be "+
+					"INVALID on this subscription because wireserver will serve certificates regardless of our intent")
+			}
+		}
+		if _, hasTag := vmssResp.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+			s.T.Logf("  RCV1P opt-in tag %q NOT present on VMSS (not in request, not auto-injected) — "+
+				"wireserver should report IsOptedInForRootCerts=false", rcv1pTagKey)
+		}
+	} else {
+		s.T.Logf("VMSS %s (id: %s) has no tags", s.Runtime.VMSSName, vmssID)
+	}
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -575,14 +676,40 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 			return vm, fmt.Errorf("failed to start bastion tunnel: %w", bastErr)
 		}
 	}
-	if err != nil {
-		return vm, err
-	}
 
 	// Wait for VM to be in "Running" power state before proceeding
 	err = waitForVMRunningState(ctx, s, vm.VM)
 	if err != nil {
 		return vm, fmt.Errorf("failed to wait for VM to reach running state: %w", err)
+	}
+
+	// Log VM instance tags for diagnostics (visible in test-log.json via gotestsum --jsonfile)
+	vmInstanceID := "<unknown>"
+	if vm.VM.ID != nil {
+		vmInstanceID = *vm.VM.ID
+	}
+	if vm.VM.Tags != nil {
+		s.T.Logf("VM instance %s (id: %s) tags (%d):", *vm.VM.InstanceID, vmInstanceID, len(vm.VM.Tags))
+		for k, v := range vm.VM.Tags {
+			val := "<nil>"
+			if v != nil {
+				val = *v
+			}
+			if k == rcv1pTagKey {
+				if requestedRCV1PTag {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, set by us]", k, val)
+				} else {
+					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, AUTO-INJECTED by platform]", k, val)
+				}
+			} else {
+				s.T.Logf("  tag: %s = %s", k, val)
+			}
+		}
+		if _, hasTag := vm.VM.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VM instance — this is expected for negative tests]", rcv1pTagKey)
+		}
+	} else {
+		s.T.Logf("VM instance %s (id: %s) has no tags", *vm.VM.InstanceID, vmInstanceID)
 	}
 
 	return &ScenarioVM{
@@ -592,6 +719,41 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		SSHClient: vm.SSHClient,
 	}, nil
 }
+
+// updateVMInstanceTags uses BeginUpdate (full PUT) to set tags on a VMSS VM instance.
+// This is the only method that works for Uniform mode VMSS — PATCH and Microsoft.Resources/tags
+// API both return 405 at this scope. The operation takes ~108s as it triggers full VM model
+// reconciliation. This is acceptable for E2E tests where we defer CSE until tags are in place.
+func updateVMInstanceTags(ctx context.Context, s *Scenario, resourceGroupName, vmssName, instanceID string, tags map[string]*string) error {
+	defer toolkit.LogStepCtxf(ctx, "updating VM instance %s/%s/%s tags via BeginUpdate", resourceGroupName, vmssName, instanceID)()
+
+	// Get current VM instance to preserve existing state
+	currentVM, err := s.GetAzure().VMSSVM.Get(ctx, resourceGroupName, vmssName, instanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get current VM instance: %w", err)
+	}
+
+	// Merge new tags with any existing tags
+	if currentVM.Tags == nil {
+		currentVM.Tags = make(map[string]*string)
+	}
+	for k, v := range tags {
+		currentVM.Tags[k] = v
+	}
+
+	poller, err := s.GetAzure().VMSSVM.BeginUpdate(ctx, resourceGroupName, vmssName, instanceID, currentVM.VirtualMachineScaleSetVM, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin VM instance tag update: %w", err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to complete VM instance tag update: %w", err)
+	}
+
+	return nil
+}
+
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
 func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.VirtualMachineScaleSetVM) error {
@@ -604,7 +766,7 @@ func waitForVMRunningState(ctx context.Context, s *Scenario, vmssVM *armcompute.
 	var lastErr error
 	for {
 		// Get the updated VM with instance view to check power state
-		vm, err := config.Azure.VMSSVM.Get(ctxTimeout, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmssVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+		vm, err := s.GetAzure().VMSSVM.Get(ctxTimeout, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmssVM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
 			Expand: to.Ptr(armcompute.InstanceViewTypesInstanceView),
 		})
 
@@ -647,7 +809,7 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 
 	var lastErr error
 	for {
-		pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
 			Expand: to.Ptr("instanceView"),
 		})
 
@@ -677,9 +839,14 @@ func waitForVMSSVM(ctx context.Context, s *Scenario) (*armcompute.VirtualMachine
 }
 
 // getPrivateIPFromVMSSVM extracts the private IP address from a VMSS VM by querying its network interfaces.
-func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instanceID string) (string, error) {
+func getPrivateIPFromVMSSVM(ctx context.Context, s *Scenario, resourceGroup, vmssName, instanceID string) (string, error) {
+	return getPrivateIPFromVMSSVMWithClient(ctx, s.GetAzure(), resourceGroup, vmssName, instanceID)
+}
+
+// getPrivateIPFromVMSSVMWithClient extracts the private IP using the given Azure client.
+func getPrivateIPFromVMSSVMWithClient(ctx context.Context, azure *config.AzureClient, resourceGroup, vmssName, instanceID string) (string, error) {
 	// Query the network interface to get the IP configuration
-	pager := config.Azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
+	pager := azure.NetworkInterfaces.NewListVirtualMachineScaleSetVMNetworkInterfacesPager(
 		resourceGroup,
 		vmssName,
 		instanceID,
@@ -763,7 +930,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
-	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -772,7 +939,7 @@ func extractBootDiagnostics(ctx context.Context, s *Scenario) error {
 
 		for _, vmInstance := range page.Value {
 			// Get boot diagnostics data
-			bootDiagResp, err := config.Azure.VMSSVM.RetrieveBootDiagnosticsData(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
+			bootDiagResp, err := s.GetAzure().VMSSVM.RetrieveBootDiagnosticsData(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
 			if err != nil {
 				return fmt.Errorf("failed to get boot diagnostics for VM %s: %v", *vmInstance.InstanceID, err)
 			}
@@ -906,13 +1073,12 @@ hnsdiag list endpoints >> network_config.txt
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	if !s.T.Failed() {
-		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
-	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	pager := s.GetAzure().VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
 		s.T.Logf("failed to list VMSS instances: %s", err)
@@ -927,7 +1093,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
 
-	client := config.Azure.VMSSVMRunCommands
+	client := s.GetAzure().VMSSVMRunCommands
 
 	// Invoke the RunCommand on the VMSS instance
 	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
@@ -1032,7 +1198,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) {
 		}
 		return
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	_, err := s.GetAzure().VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
