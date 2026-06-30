@@ -3198,8 +3198,6 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 			},
 		},
 	}
-	truncatePodName(s.T, pod)
-
 	ValidatePodRunning(ctx, s, pod)
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
