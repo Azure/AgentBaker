@@ -492,19 +492,10 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
-    # Write the cluster-specific kubeconfigs here (NodePrep), not in BasePrep.
-    # BasePrep is skipped on PIS/VHD-cached nodes (base_prep.complete marker), so
-    # anything cluster-specific written there is baked into the VHD with bake-time
-    # values and never refreshed on the real node. Both kubeconfigs are only ever
-    # consumed in NodePrep, so they must be (re)written here from the live values
-    # on every real provision, before their consumers run:
-    #   - bootstrap-config (token, $global:TLSBootstrapToken): consumed by kubelet,
-    #     installed/started by Install-KubernetesServices below. A stale baked token
-    #     makes the apiserver reject the kubelet CSR as Unauthorized.
-    #   - config (cert-based, from Write-KubeConfig): consumed by Calico's
-    #     GetCalicoKubeConfig (Start-InstallCalico) to reach the API server, and in
-    #     the legacy cert-auth mode it is kubelet's own kubeconfig. In either
-    #     bootstrapping mode it is temporary and removed after Calico installs.
+    # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
+    # PIS/VHD-cached nodes, so anything written there is baked with stale
+    # bake-time values. Both are only consumed in NodePrep, so write them from
+    # live values on every provision before their consumers run below.
     if ($global:TLSBootstrapToken) {
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
