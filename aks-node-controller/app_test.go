@@ -100,11 +100,17 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 		runFunc = func(*exec.Cmd) error { return nil }
 	}
 	eventLogger := helpers.NewEventLogger(eventsDir)
+	// nodecustomdata.yml is required by the NBCCmd provisioning path (applyNodeCustomData
+	// errors on absence), so provide a minimal empty-write_files document for tests. In
+	// production this file is written by the boothook before provision runs.
+	nodeCustomDataPath := filepath.Join(t.TempDir(), "nodecustomdata.yml")
+	require.NoError(t, os.WriteFile(nodeCustomDataPath, []byte("#cloud-config\nwrite_files: []\n"), 0o600))
 	return &TestApp{
 		eventLogger: eventLogger,
 		App: &App{
-			cmdRun:      runFunc,
-			eventLogger: eventLogger,
+			cmdRun:             runFunc,
+			eventLogger:        eventLogger,
+			nodeCustomDataPath: nodeCustomDataPath,
 		},
 	}
 }
@@ -309,9 +315,13 @@ func TestApp_Provision(t *testing.T) {
 		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
 		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned after panic\n"), 0o600))
 
+		nodeCustomDataPath := filepath.Join(t.TempDir(), "nodecustomdata.yml")
+		require.NoError(t, os.WriteFile(nodeCustomDataPath, []byte("#cloud-config\nwrite_files: []\n"), 0o600))
+
 		app := &App{
-			cmdRun:      cmdRunner,
-			eventLogger: nil, // nil to trigger panic inside compareEnvs
+			cmdRun:             cmdRunner,
+			eventLogger:        nil, // nil to trigger panic inside compareEnvs
+			nodeCustomDataPath: nodeCustomDataPath,
 		}
 		result, err := app.Provision(context.Background(), ProvisionFlags{
 			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",

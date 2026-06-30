@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,7 +54,23 @@ func TestReadHotfixVersion(t *testing.T) {
 
 	t.Run("file has extra fields (forward compat)", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "hotfix-config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "sha256": "abc123"}`), 0644))
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "1.0.0", "scripts_version":"202604.01.0", "sha256": "abc123"}`), 0644))
+		version, err := readHotfixVersion(path)
+		assert.NoError(t, err)
+		assert.Equal(t, "1.0.0", version)
+	})
+
+	t.Run("file is whitespace only", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte("  \n\t\n"), 0644))
+		version, err := readHotfixVersion(path)
+		assert.NoError(t, err)
+		assert.Equal(t, "", version)
+	})
+
+	t.Run("version field is trimmed", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"version": "  1.0.0  "}`), 0644))
 		version, err := readHotfixVersion(path)
 		assert.NoError(t, err)
 		assert.Equal(t, "1.0.0", version)
@@ -99,7 +116,7 @@ func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
 	})
 }
 
-func TestDownloadHotfix_NoHotfixFile(t *testing.T) {
+func TestDownloadHotfix_NoHotfixConfigSilentNoop(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "nonexistent")
 	require.NoError(t, tt.App.downloadHotfix(context.Background()))
@@ -200,6 +217,79 @@ func TestDownloadHotfix_UnreadableFile(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	tt.App.hotfixVersionPath = path
 	require.Error(t, tt.App.downloadHotfix(context.Background()))
+}
+
+func writeScriptsHotfixFilesPayload(t *testing.T, path, targetPath string) {
+	t.Helper()
+	payload := fmt.Sprintf(`#cloud-config
+write_files:
+- path: %s
+  permissions: "0644"
+  owner: root
+  content: |
+    hotfixed
+`, targetPath)
+	require.NoError(t, os.WriteFile(path, []byte(payload), 0o644))
+}
+
+func TestDownloadHotfix_AppliesScriptHotfixWhenScriptsVersionMatches(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"scripts_version":"202604.01"}`), 0o644))
+
+	target := filepath.Join(dir, "hotfixed-script.sh")
+	filesPath := filepath.Join(dir, "hotfix-files.yml")
+	writeScriptsHotfixFilesPayload(t, filesPath, target)
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = cfgPath
+	tt.App.scriptsHotfixFilesPath = filesPath
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	got, err := os.ReadFile(target)
+	require.NoError(t, err)
+	assert.Equal(t, "hotfixed\n", string(got))
+}
+
+func TestDownloadHotfix_SkipsScriptHotfixWhenScriptsVersionMismatches(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"scripts_version":"209901.01"}`), 0o644))
+
+	target := filepath.Join(dir, "hotfixed-script.sh")
+	filesPath := filepath.Join(dir, "hotfix-files.yml")
+	writeScriptsHotfixFilesPayload(t, filesPath, target)
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = cfgPath
+	tt.App.scriptsHotfixFilesPath = filesPath
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
+
+	_, err := os.Stat(target)
+	assert.True(t, os.IsNotExist(err), "script hotfix must not be applied on scripts_version mismatch")
+}
+
+func TestDownloadHotfix_ScriptHotfixMissingFileNoop(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.1"
+	defer func() { Version = origVersion }()
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "hotfix-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"scripts_version":"202604.01"}`), 0o644))
+
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.hotfixVersionPath = cfgPath
+	tt.App.scriptsHotfixFilesPath = filepath.Join(dir, "nonexistent.yml")
+	require.NoError(t, tt.App.downloadHotfix(context.Background()))
 }
 
 func TestRetryCommand_SuccessOnFirstAttempt(t *testing.T) {
@@ -360,6 +450,7 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 		{"empty current", "", "202604.01.1", false, true},
 		{"empty hotfix", "202604.01.0", "", false, true},
 	}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := shouldUpgradeToHotfix(tc.current, tc.hotfix)
@@ -369,6 +460,29 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tc.want, got, "current=%s hotfix=%s", tc.current, tc.hotfix)
 			}
+		})
+	}
+}
+
+func TestShouldApplyScriptsVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		current string
+		target  string
+		want    bool
+	}{
+		{"target omitted applies", "202604.01.1", "", true},
+		{"base target applies any patch", "202604.01.1", "202604.01", true},
+		{"base target applies patch zero", "202604.01.0", "202604.01", true},
+		{"base target mismatch skips", "202604.02.1", "202604.01", false},
+		{"exact match applies", "202604.01.1", "202604.01.1", true},
+		{"mismatch skips", "202604.01.1", "202604.01.0", false},
+		{"invalid target skips", "202604.01.1", "202604", false},
+		{"invalid current skips", "dev", "202604.01", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, shouldApplyScriptsVersion(tc.current, tc.target))
 		})
 	}
 }

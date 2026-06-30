@@ -68,22 +68,41 @@ jobs:
 
       - name: Detect changed scripts and update template
         run: |
-          python3 hack/hotfix_generate.py "origin/${{ github.base_ref }}"
+          python3 hotfix/hotfix_generate.py "origin/${{ github.base_ref }}"
 
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          FILE="parts/linux/cloud-init/nodecustomdata.yml"
-          if git diff --quiet "$FILE"; then
-            echo "No template changes needed."
-            exit 0
+          set -euo pipefail
+          FILE="parts/hotfix/anc-scripts-hotfix-files.yml"
+          REPO="${{ github.repository }}"
+          BRANCH="${{ github.head_ref }}"
+          MSG="chore: auto-generate hotfix script payload"
+
+          # Current blob sha of the file on the branch (empty if it does not exist).
+          REMOTE_SHA=$(gh api "repos/${REPO}/contents/${FILE}?ref=${BRANCH}" --jq '.sha' 2>/dev/null || echo "")
+
+          if [ -f "$FILE" ]; then
+            # An active script hotfix — create or update the payload file.
+            if [ -n "$REMOTE_SHA" ]; then
+              REMOTE_RAW=$(gh api "repos/${REPO}/contents/${FILE}?ref=${BRANCH}" -H "Accept: application/vnd.github.raw" 2>/dev/null || echo "")
+              if [ "$REMOTE_RAW" = "$(cat "$FILE")" ]; then
+                echo "No hotfix payload changes needed."
+                exit 0
+              fi
+              gh api "repos/${REPO}/contents/${FILE}" -X PUT \
+                -f message="$MSG" -f content="$(base64 -w 0 "$FILE")" -f branch="$BRANCH" -f sha="$REMOTE_SHA"
+            else
+              gh api "repos/${REPO}/contents/${FILE}" -X PUT \
+                -f message="$MSG" -f content="$(base64 -w 0 "$FILE")" -f branch="$BRANCH"
+            fi
+          else
+            # No active script hotfix — the file must not be committed. Delete it if present.
+            if [ -n "$REMOTE_SHA" ]; then
+              gh api "repos/${REPO}/contents/${FILE}" -X DELETE \
+                -f message="chore: remove hotfix script payload (no active hotfix)" -f branch="$BRANCH" -f sha="$REMOTE_SHA"
+            else
+              echo "No hotfix payload and none committed. Nothing to do."
+            fi
           fi
-          CONTENT=$(base64 -w 0 "$FILE")
-          SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha')
-          gh api "repos/${{ github.repository }}/contents/${FILE}" \
-            -X PUT \
-            -f message="chore: auto-generate hotfix template entries" \
-            -f content="$CONTENT" \
-            -f branch="${{ github.head_ref }}" \
-            -f sha="$SHA"

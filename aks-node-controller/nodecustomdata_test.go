@@ -53,6 +53,15 @@ write_files:
 	assert.Equal(t, "gzip-content", string(gzipContent))
 }
 
+func TestApplyNodeCustomDataMissingFileErrors(t *testing.T) {
+	// nodecustomdata.yml is required for the NBCCmd path, so a missing file must error
+	// (unlike applyWriteFiles, which no-ops on absence for optional payloads).
+	missingPath := filepath.Join(t.TempDir(), "does-not-exist.yml")
+
+	require.Error(t, applyNodeCustomData(missingPath))
+	require.NoError(t, applyWriteFiles(missingPath))
+}
+
 func TestProvisionAppliesRenderedWriteFilesBeforeNBCCmd(t *testing.T) {
 	tempDir := t.TempDir()
 	markerPath := filepath.Join(tempDir, "marker.txt")

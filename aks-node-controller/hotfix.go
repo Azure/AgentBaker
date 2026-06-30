@@ -16,10 +16,14 @@ import (
 
 const (
 	defaultHotfixVersionPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
-	maxInstallRetries        = 5
-	retryBackoff             = 3 * time.Second
-	commandTimeout           = 60 * time.Second
-	defaultAptSourcesDir     = "/etc/apt/sources.list.d"
+	// defaultScriptsHotfixFilesPath is the script-hotfix write_files payload shipped by the
+	// boothook only when a script hotfix is active. download-hotfix applies it when the
+	// running ANC/VHD version is targeted by scripts_version.
+	defaultScriptsHotfixFilesPath = "/opt/azure/containers/anc-scripts-hotfix-files.yml"
+	maxInstallRetries             = 5
+	retryBackoff                  = 3 * time.Second
+	commandTimeout                = 60 * time.Second
+	defaultAptSourcesDir          = "/etc/apt/sources.list.d"
 	// vhdBinaryPath is where packer installs the VHD-baked binary.
 	vhdBinaryPath = "/opt/azure/containers/aks-node-controller"
 	// hotfixBinaryPath is where the hotfix binary is placed alongside the VHD-baked binary.
@@ -29,20 +33,41 @@ const (
 	pkgBinaryPath = "/usr/bin/aks-node-controller"
 )
 
-// downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
-// The wrapper script decides which binary to execute after this command returns.
+// downloadHotfix applies any active hotfix for the running ANC/VHD version. It is the
+// single place where version-gated remediation happens:
+//   - the ANC binary hotfix (gated by `version`), staged alongside the VHD-baked binary
+//   - the script hotfix write_files (gated by `scripts_version`), materialized to disk
+//
+// Running both here means that by the time `provision` runs, the correct binary and the
+// correct scripts are already in place — no marker-based stripping of nodecustomdata.yml.
 func (a *App) downloadHotfix(ctx context.Context) error {
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
-	hotfixVersion, err := readHotfixVersion(hotfixPath)
+
+	hotfixCfg, exists, err := readHotfixConfig(hotfixPath)
 	if err != nil {
-		return fmt.Errorf("read hotfix version from %s: %w", hotfixPath, err)
+		return fmt.Errorf("read hotfix config from %s: %w", hotfixPath, err)
+	}
+	if !exists {
+		return nil
 	}
 
+	if err := a.downloadHotfixBinary(ctx, hotfixCfg); err != nil {
+		return err
+	}
+	return a.applyScriptHotfix(hotfixCfg)
+}
+
+// downloadHotfixBinary installs the requested ANC binary hotfix and stages it alongside
+// the VHD-baked binary. The wrapper script decides which binary to execute afterwards.
+// It is a no-op when no binary version is requested or the running version isn't targeted.
+func (a *App) downloadHotfixBinary(ctx context.Context, hotfixCfg hotfixConfig) error {
+	hotfixVersion := hotfixCfg.Version
+
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a version, skipping download", "path", hotfixPath)
+		slog.Debug("hotfix config does not request ANC version, skipping ANC binary download")
 		return nil
 	}
 
@@ -74,30 +99,96 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 	return nil
 }
 
+// applyScriptHotfix materializes the script hotfix write_files when the running ANC/VHD
+// version is targeted by scripts_version. The payload file is shipped by the boothook only
+// when a script hotfix is active, so a missing file is a no-op.
+func (a *App) applyScriptHotfix(hotfixCfg hotfixConfig) error {
+	filesPath := a.scriptsHotfixFilesPath
+	if filesPath == "" {
+		filesPath = defaultScriptsHotfixFilesPath
+	}
+
+	if !shouldApplyScriptsVersion(Version, hotfixCfg.ScriptsVersion) {
+		if _, err := os.Stat(filesPath); err == nil {
+			slog.Info("skipping script hotfix due to scripts_version mismatch",
+				"current", Version, "target", hotfixCfg.ScriptsVersion)
+		}
+		return nil
+	}
+
+	if err := applyWriteFiles(filesPath); err != nil {
+		return fmt.Errorf("apply script hotfix write files: %w", err)
+	}
+	return nil
+}
+
 // hotfixConfig is the JSON structure of the hotfix configuration file.
 // Using JSON allows future extension (e.g., adding checksum, source URL) without format changes.
 type hotfixConfig struct {
-	Version string `json:"version"`
+	Version        string `json:"version"`         // ANC binary hotfix version to download/install.
+	ScriptsVersion string `json:"scripts_version"` // ANC/VHD version base that should receive the script hotfix write_files.
 }
 
 // readHotfixVersion reads and parses the JSON hotfix config from the given path.
 // Returns empty string if the file doesn't exist or contains an empty version.
 func readHotfixVersion(path string) (string, error) {
+	cfg, _, err := readHotfixConfig(path)
+	return cfg.Version, err
+}
+
+func readHotfixConfig(path string) (hotfixConfig, bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return hotfixConfig{}, false, nil
 		}
-		return "", err
+		return hotfixConfig{}, false, err
 	}
 	if len(strings.TrimSpace(string(data))) == 0 {
-		return "", nil
+		return hotfixConfig{}, true, nil
 	}
 	var cfg hotfixConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "", fmt.Errorf("parsing hotfix config %s: %w", path, err)
+		return hotfixConfig{}, true, fmt.Errorf("parsing hotfix config %s: %w", path, err)
 	}
-	return strings.TrimSpace(cfg.Version), nil
+	// Normalize once at this boundary so downstream comparisons (shouldUpgradeToHotfix,
+	// shouldApplyScriptsVersion) can trust the values without re-trimming. The config is
+	// generated by our tooling, but an operator-edited source could leave incidental
+	// whitespace inside a quoted value.
+	cfg.Version = strings.TrimSpace(cfg.Version)
+	cfg.ScriptsVersion = strings.TrimSpace(cfg.ScriptsVersion)
+	return cfg, true, nil
+}
+
+func shouldApplyScriptsVersion(currentVersion, targetVersion string) bool {
+	// scripts_version supports:
+	// - YYYYMM.DD       => match any patch under the same base
+	// - YYYYMM.DD.PATCH => exact match
+	// Empty scripts_version means no scoping (applies to all versions).
+	if targetVersion == "" {
+		return true
+	}
+	cv, err := semver.NewVersion(currentVersion)
+	if err != nil {
+		return false
+	}
+
+	switch strings.Count(targetVersion, ".") {
+	case 1:
+		tv, err := semver.NewVersion(targetVersion + ".0")
+		if err != nil {
+			return false
+		}
+		return cv.Major() == tv.Major() && cv.Minor() == tv.Minor()
+	case 2:
+		tv, err := semver.NewVersion(targetVersion)
+		if err != nil {
+			return false
+		}
+		return cv.Equal(tv)
+	default:
+		return false
+	}
 }
 
 // packageManager represents a supported system package manager.
@@ -302,11 +393,11 @@ func copyBinaryAlongside(src, dst, refPath string) error {
 //   - Same version is skipped — already at hotfix
 //   - Unparseable versions (e.g. "dev") return an error — caller should skip
 func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
-	cv, err := semver.NewVersion(strings.TrimSpace(current))
+	cv, err := semver.NewVersion(current)
 	if err != nil {
 		return false, fmt.Errorf("parsing current version %q: %w", current, err)
 	}
-	hv, err := semver.NewVersion(strings.TrimSpace(hotfix))
+	hv, err := semver.NewVersion(hotfix)
 	if err != nil {
 		return false, fmt.Errorf("parsing hotfix version %q: %w", hotfix, err)
 	}
