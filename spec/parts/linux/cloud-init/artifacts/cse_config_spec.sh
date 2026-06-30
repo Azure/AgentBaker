@@ -2207,4 +2207,49 @@ EOF
             The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
         End
     End
+
+    Describe 'managedGPUPackageList on Ubuntu'
+        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
+        End
+    End
 End
