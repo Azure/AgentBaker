@@ -665,8 +665,8 @@ func marshalToJSON(v any) ([]byte, error) {
 
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 // When KubeletFlags contains translated flags whose corresponding KubeletConfigFileConfig field is
-// unset, those flag values are synced into the config file to prevent kubelet from falling back to
-// v1beta1 defaults. Existing KubeletConfigFileConfig values are never overwritten.
+// empty/nil/zero, those flag values are synced into the config file to prevent kubelet from falling back to
+// v1beta1 defaults (for proto3 scalars, false/0 is treated as "unset").
 func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
 		return ""
