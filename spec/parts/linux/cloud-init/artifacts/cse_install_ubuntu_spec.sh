@@ -5,7 +5,7 @@ Describe 'cse_install_ubuntu.sh'
 
     Describe 'cleanUpPrebakedGPUDriver'
         It 'is a no-op when the prebake marker is absent'
-            GPU_DKMS_MARKER_FILE="/tmp/aks-gpu-marker-absent-$$"
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should equal ""

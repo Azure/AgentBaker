@@ -20,7 +20,7 @@ Describe 'cse_config.sh'
 
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
-            GPU_DKMS_MARKER_FILE="/tmp/aks-gpu-readiness-absent-$$"
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
             NVIDIA_GPU_DRIVER_TYPE="cuda"
             When call logGPUDriverPrebakeReadiness
             The output should include "AKS_GPU_PREBAKE event=managed_gpu"
