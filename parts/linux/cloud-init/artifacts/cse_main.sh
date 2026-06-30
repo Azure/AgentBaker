@@ -591,7 +591,7 @@ function nodePrep {
 
     # defer starting DRA driver services after kubelet.
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
-        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $?
     fi
 
     if systemctl cat aks-log-collector.timer &>/dev/null; then
