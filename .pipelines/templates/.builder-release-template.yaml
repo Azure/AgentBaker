@@ -416,9 +416,12 @@ steps:
       AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
       COSI_CONTAINER: $(COSI_CONTAINER)
 
+  # Service connection referenced by literal name: $() macro refs fail ADO's
+  # compile-time service-connection authorization. Revert to a variable/parameter
+  # once a non-PoC, per-environment SC is wired.
   - task: AzureCLI@2
     inputs:
-      azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+      azureSubscription: aks-acl-cosi-tme-write-sc
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
