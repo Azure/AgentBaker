@@ -1,18 +1,20 @@
 #!/bin/bash
 set -euo pipefail
 
-# Converts an ACL VHD from blob storage to COSI format using ImageCustomizer,
-# then uploads the COSI file back to blob storage.
+# Converts an ACL VHD to COSI and stages it for the separate "Upload COSI to PMC"
+# task (which runs under PMC's service connection).
 
 required_env_vars=(
     "DESTINATION_STORAGE_CONTAINER"
     "CAPTURED_SIG_VERSION"
     "IMG_CUSTOMIZER_CONTAINER"
+    "AFD_DOWNLOAD_HOSTNAME"
+    "COSI_CONTAINER"
 )
 
 for v in "${required_env_vars[@]}"
 do
-    if [ -z "${!v}" ]; then
+    if [ -z "${!v:-}" ]; then
         echo "$v was not set!"
         exit 1
     fi
@@ -38,6 +40,9 @@ VHD_BLOB_URL="${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
 LOCAL_VHD="$WORK_DIR/${CAPTURED_SIG_VERSION}.vhd"
 LOCAL_COSI="$WORK_DIR/out/${CAPTURED_SIG_VERSION}.cosi"
 
+COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
+COSI_DOWNLOAD_URL="https://${AFD_DOWNLOAD_HOSTNAME}/${COSI_CONTAINER}/${COSI_NAME}"
+
 echo "Setting azcopy environment variables"
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
@@ -47,7 +52,9 @@ mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 echo "Downloading VHD from ${VHD_BLOB_URL}"
-if ! azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
+if azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
+    echo "Downloaded VHD to ${LOCAL_VHD}"
+else
     azExitCode=$?
     shopt -s nullglob
     for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
@@ -61,9 +68,8 @@ if ! azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
     done
     shopt -u nullglob
     echo "Failed to download VHD, exiting with code $azExitCode"
-    exit $azExitCode
+    exit "$azExitCode"
 fi
-echo "Downloaded VHD to ${LOCAL_VHD}"
 
 IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER}"
 
@@ -107,36 +113,23 @@ if [ ! -f "$LOCAL_COSI" ]; then
     exit 1
 fi
 
-echo "Uploading COSI to ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi"
-if ! azcopy copy "$LOCAL_COSI" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi" --recursive=true; then
-    azExitCode=$?
-    shopt -s nullglob
-    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-        echo "Azcopy log file: $f"
-        echo "##vso[build.uploadlog]$f"
-        if grep -q '"level":"Error"' "$f"; then
-            echo "log file $f contains errors"
-            echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-            cat "$f"
-        fi
-    done
-    shopt -u nullglob
-    echo "Failed to upload COSI, exiting with code $azExitCode"
-    exit $azExitCode
-fi
+# Move out of WORK_DIR (removed by the cleanup trap) so the upload task can find it.
+STAGED_COSI="$(pwd)/${COSI_NAME}"
+mv "$LOCAL_COSI" "$STAGED_COSI"
+echo "Staged COSI for upload at ${STAGED_COSI}"
 
-echo "Successfully converted and uploaded COSI: ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi"
+# cosi-publishing-info.json for aks-rp 'cosi register' (needs both sha256 and sha1).
+COSI_SHA256=$(sha256sum "$STAGED_COSI" | awk '{print $1}')
+COSI_SHA1=$(sha1sum "$STAGED_COSI" | awk '{print $1}')
+COSI_SIZE=$(stat -c%s "$STAGED_COSI")
 
-# Generate cosi-publishing-info.json for downstream consumption
-COSI_SHA256=$(sha256sum "$LOCAL_COSI" | awk '{print $1}')
-COSI_SIZE=$(stat -c%s "$LOCAL_COSI")
-
-if [ -z "$IMAGE_VERSION" ]; then
+if [ -z "${IMAGE_VERSION:-}" ]; then
     IMAGE_VERSION=$(date +%Y%m.%d.0)
     echo "IMAGE_VERSION was not set, defaulting to ${IMAGE_VERSION}"
 fi
 
-if [ "${ARCHITECTURE,,}" = "arm64" ]; then
+ARCH_LOWER="${ARCHITECTURE:-}"
+if [ "${ARCH_LOWER,,}" = "arm64" ]; then
     IMAGE_ARCH="Arm64"
 else
     IMAGE_ARCH="x64"
@@ -145,18 +138,16 @@ fi
 # OS_NAME is always Linux for ACL COSI artifacts
 OS_NAME="Linux"
 
-COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
-cosi_url="${STORAGE_ACCT_BLOB_URL}/${COSI_NAME}"
-
 cat <<EOF > cosi-publishing-info.json
 {
-    "cosi_url": "$cosi_url",
+    "cosi_url": "${COSI_DOWNLOAD_URL}",
     "sha256": "${COSI_SHA256}",
+    "sha1": "${COSI_SHA1}",
     "size_bytes": ${COSI_SIZE},
     "os_name": "$OS_NAME",
-    "sku_name": "$SKU_NAME",
-    "offer_name": "$OFFER_NAME",
-    "hyperv_generation": "${HYPERV_GENERATION}",
+    "sku_name": "${SKU_NAME:-}",
+    "offer_name": "${OFFER_NAME:-}",
+    "hyperv_generation": "${HYPERV_GENERATION:-}",
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}"
 }
