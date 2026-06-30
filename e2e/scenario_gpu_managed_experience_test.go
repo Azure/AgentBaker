@@ -816,6 +816,7 @@ func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
 				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
+				ValidateDRAWorkloadSchedulable(ctx, s)
 			},
 		},
 	})
