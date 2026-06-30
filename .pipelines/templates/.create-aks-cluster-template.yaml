@@ -75,34 +75,45 @@ jobs:
           scriptType: 'bash'
           scriptLocation: 'inlineScript'
           inlineScript: |
-            group_exists=$(az group exists -n $(setvar.CLUSTER_RG))
-            if [[ "$group_exists" == "true" ]]; then
-              echo "Resource group $(setvar.CLUSTER_RG) already exists, please delete it before proceeding further"
-              exit -1
-            else
-              creation_time=$(date +"%Y-%m-%dT%H:%M:%S+00:00")
-              az group create -n $(setvar.CLUSTER_RG) -l $(AZURE_BUILD_LOCATION) --tags "createdtime=$creation_time"
-            fi
-        displayName: Create Resource Group
-      - task: AzureCLI@2
-        inputs:
-          azureSubscription: 'AgentbakerPool'
-          scriptType: 'bash'
-          scriptLocation: 'inlineScript'
-          inlineScript: |
-            provisioning_state=$(az aks show -n testcluster -g $(setvar.CLUSTER_RG) --query provisioningState -o tsv)
-            if [[ "$provisioning_state" == "Succeeded" ]]; then
-              echo "AKS cluster existing with provisioning state: $provisioning_state"
-              echo "##vso[task.setvariable variable=NO_CREATE;isOutput=true]true"
-            else
-              echo "##vso[task.setvariable variable=NO_CREATE;isOutput=true]false"
-              if [ "default" != "${NETWORK_POLICY}" ]; then
-                echo "AKS cluster creating with network policy ${NETWORK_POLICY}"
+            set -euo pipefail
 
+            FALLBACK_REGIONS=("$(AZURE_BUILD_LOCATION)" "eastus2" "westus2" "westus3" "centralus" "southcentralus")
+            FALLBACK_VM_SIZES=("standard_d4s_v3" "standard_d4ds_v5" "standard_d4as_v5" "standard_d4s_v5" "standard_d4_v5")
+            BASE_RG="$(setvar.CLUSTER_RG)"
+            CLUSTER_NAME="testcluster"
+            MAX_ATTEMPTS=10
+
+            create_cluster_in_region() {
+              local location="$1"
+              local vm_size="$2"
+              local rg="$3"
+
+              # Ensure resource group exists in this region
+              group_exists=$(az group exists -n "$rg")
+              if [[ "$group_exists" != "true" ]]; then
+                creation_time=$(date +"%Y-%m-%dT%H:%M:%S+00:00")
+                az group create -n "$rg" -l "$location" --tags "createdtime=$creation_time" -o none
+                echo "Created resource group $rg in $location"
+              fi
+
+              # Check if cluster already exists and is healthy
+              provisioning_state=$(az aks show -n "$CLUSTER_NAME" -g "$rg" --query provisioningState -o tsv 2>/dev/null || echo "NotFound")
+              if [[ "$provisioning_state" == "Succeeded" ]]; then
+                echo "AKS cluster already exists with provisioning state: $provisioning_state"
+                echo "##vso[task.setvariable variable=NO_CREATE;isOutput=true]true"
+                echo "##vso[task.setvariable variable=CLUSTER_RG;isOutput=true]${rg}"
+                return 0
+              fi
+
+              echo "##vso[task.setvariable variable=NO_CREATE;isOutput=true]false"
+
+              # Create the cluster
+              if [ "default" != "${NETWORK_POLICY}" ]; then
+                echo "Creating AKS cluster in $location with VM size $vm_size and network policy ${NETWORK_POLICY}"
                 az aks create \
-                --resource-group $(setvar.CLUSTER_RG) \
-                --name testcluster \
-                --node-vm-size standard_d4s_v3 \
+                --resource-group "$rg" \
+                --name "$CLUSTER_NAME" \
+                --node-vm-size "$vm_size" \
                 --enable-addons monitoring \
                 --network-plugin azure \
                 --network-policy ${NETWORK_POLICY} \
@@ -112,13 +123,14 @@ jobs:
                 --assign-identity  $(AZURE_MSI_RESOURCE_STRING) \
                 --assign-kubelet-identity $(AZURE_MSI_RESOURCE_STRING) \
                 --generate-ssh-keys \
-                --kubernetes-version $(K8s_VERSION)
+                --kubernetes-version $(K8s_VERSION) \
+                --location "$location"
               else
-                echo "AKS cluster creating with default network policy"
+                echo "Creating AKS cluster in $location with VM size $vm_size (default network policy)"
                 az aks create \
-                --resource-group $(setvar.CLUSTER_RG) \
-                --name testcluster \
-                --node-vm-size standard_d4s_v3 \
+                --resource-group "$rg" \
+                --name "$CLUSTER_NAME" \
+                --node-vm-size "$vm_size" \
                 --enable-addons monitoring \
                 --network-plugin azure \
                 --vm-set-type VirtualMachineScaleSets \
@@ -127,11 +139,75 @@ jobs:
                 --assign-identity  $(AZURE_MSI_RESOURCE_STRING) \
                 --assign-kubelet-identity $(AZURE_MSI_RESOURCE_STRING) \
                 --generate-ssh-keys \
-                --kubernetes-version $(K8s_VERSION)
+                --kubernetes-version $(K8s_VERSION) \
+                --location "$location"
               fi
-            fi
+            }
+
+            # Main retry loop with region and VM size fallback
+            region_idx=0
+            vm_size_idx=0
+            attempt=0
+
+            while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
+              location="${FALLBACK_REGIONS[$region_idx]}"
+              vm_size="${FALLBACK_VM_SIZES[$vm_size_idx]}"
+
+              # Use a region-suffixed RG name for fallback regions
+              if [[ $region_idx -eq 0 ]]; then
+                rg="$BASE_RG"
+              else
+                rg="${BASE_RG}-${location}"
+              fi
+
+              echo "Attempt $((attempt+1)): region=$location, vm_size=$vm_size, rg=$rg"
+
+              set +e
+              output=$(create_cluster_in_region "$location" "$vm_size" "$rg" 2>&1)
+              exit_code=$?
+              set -e
+
+              echo "$output"
+
+              if [[ $exit_code -eq 0 ]]; then
+                echo "##vso[task.setvariable variable=CLUSTER_RG;isOutput=true]${rg}"
+                echo "Cluster created successfully in $location with VM size $vm_size"
+                exit 0
+              fi
+
+              # Check error type and decide fallback strategy
+              if echo "$output" | grep -qi "AKSCapacityHeavyUsage\|OverconstrainedAllocationRequest\|AllocationFailed"; then
+                echo "Capacity error in $location. Trying next region..."
+                region_idx=$((region_idx + 1))
+                vm_size_idx=0  # reset VM size for new region
+                if [[ $region_idx -ge ${#FALLBACK_REGIONS[@]} ]]; then
+                  echo "All fallback regions exhausted."
+                  exit 1
+                fi
+              elif echo "$output" | grep -qi "vm size.*is not allowed\|VMSizeNotSupported\|The VM size"; then
+                echo "VM size $vm_size not available in $location. Trying next VM size..."
+                vm_size_idx=$((vm_size_idx + 1))
+                if [[ $vm_size_idx -ge ${#FALLBACK_VM_SIZES[@]} ]]; then
+                  echo "All fallback VM sizes exhausted in $location. Trying next region..."
+                  region_idx=$((region_idx + 1))
+                  vm_size_idx=0
+                  if [[ $region_idx -ge ${#FALLBACK_REGIONS[@]} ]]; then
+                    echo "All fallback regions and VM sizes exhausted."
+                    exit 1
+                  fi
+                fi
+              else
+                echo "Unrecoverable error. Exiting."
+                exit 1
+              fi
+
+              attempt=$((attempt + 1))
+            done
+
+            echo "Failed to create cluster after $MAX_ATTEMPTS attempts."
+            exit 1
         name: createcluster
-        displayName: Create AKS Cluster
+        displayName: Create Resource Group and AKS Cluster
       - task: AzureCLI@2
         inputs:
           azureSubscription: 'AgentbakerPool'
@@ -142,7 +218,7 @@ jobs:
             echo "Add windows node pool with generated image"
 
             az aks nodepool add \
-            --resource-group $(setvar.CLUSTER_RG) \
+            --resource-group $(createcluster.CLUSTER_RG) \
             --cluster-name testcluster \
             --node-vm-size Standard_D8s_v3 \
             --node-osdisk-size 256 \
@@ -172,21 +248,21 @@ jobs:
             mkdir -p $(System.DefaultWorkingDirectory)/kubeconfig
 
             az aks get-credentials \
-            --resource-group $(setvar.CLUSTER_RG) \
+            --resource-group $(createcluster.CLUSTER_RG) \
             --name testcluster \
-            --file $(System.DefaultWorkingDirectory)/kubeconfig/$(setvar.CLUSTER_RG).kubeconfig
+            --file $(System.DefaultWorkingDirectory)/kubeconfig/$(createcluster.CLUSTER_RG).kubeconfig
         displayName: Get Kubeconfig
       - task: PublishPipelineArtifact@1
         inputs:
           targetPath: '$(System.DefaultWorkingDirectory)/kubeconfig'
-          artifactName: '$(setvar.CLUSTER_RG)-kubeconfig'
+          artifactName: '$(createcluster.CLUSTER_RG)-kubeconfig'
 
   - job: deploy_monagent
     timeoutInMinutes: 60
     dependsOn:
       - create
     variables:
-      cluster_RG: $[ dependencies.create.outputs['setvar.CLUSTER_RG'] ]
+      cluster_RG: $[ dependencies.create.outputs['createcluster.CLUSTER_RG'] ]
     pool:
       name:  $(POOL_NAME)
     steps:
