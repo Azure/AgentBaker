@@ -147,11 +147,18 @@ func runScenarioWithPreProvision(t *testing.T, original *Scenario) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 		}
 	}
-	if original.BootstrapConfigMutator != nil {
+	if original.BootstrapConfigMutator != nil || original.PreProvisionBootstrapConfigMutator != nil {
 		firstStage.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			original.BootstrapConfigMutator(cluster, nbc)
+			if original.BootstrapConfigMutator != nil {
+				original.BootstrapConfigMutator(cluster, nbc)
+			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
+			// Bake-stage-only mutation: lets a scenario deliberately diverge bake-time
+			// state from provision-time state (e.g. a stale sentinel bootstrap token).
+			if original.PreProvisionBootstrapConfigMutator != nil {
+				original.PreProvisionBootstrapConfigMutator(cluster, nbc)
+			}
 		}
 	}
 	if original.AKSNodeConfigMutator != nil {
