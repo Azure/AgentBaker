@@ -506,7 +506,7 @@ function NodePrep {
 
     if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
         # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
-        # This kubeconfig will deleted after calico installation.
+        # This kubeconfig will be deleted after calico installation.
         Write-Log "Write temporary kube config"
     } else {
         Write-Log "Write kube config"
