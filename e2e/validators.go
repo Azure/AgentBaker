@@ -3132,8 +3132,13 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
-	deviceClassName := "gpu.nvidia.com"
-	claimName := "single-gpu"
+	baseName := strings.ToLower(s.Runtime.VM.KubeName)
+	if len(baseName) > 40 {
+		baseName = baseName[:40]
+	}
+	baseName = strings.TrimRight(baseName, "-")
+	deviceClassName := fmt.Sprintf("gpu-nvidia-%s", baseName)
+	claimName := fmt.Sprintf("single-gpu-%s", baseName)
 	podClaimRefName := "gpu-claim"
 
 	_, err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Create(ctx, &resourcev1.DeviceClass{
