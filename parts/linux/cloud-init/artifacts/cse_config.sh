@@ -1301,10 +1301,13 @@ validateGPUDrivers() {
 # before enabling consume. Observability only; no behavior change.
 logGPUDriverPrebakeReadiness() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    local marker_present=false driver_kind_match=false
+    local marker_present=false driver_kind_match=false m_kind
     if [ -f "${marker}" ]; then
         marker_present=true
-        if [ "$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)" = "${NVIDIA_GPU_DRIVER_TYPE}" ]; then
+        m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+        # require both sides non-empty so a marker missing driver_kind= (or an unset
+        # NVIDIA_GPU_DRIVER_TYPE) does not falsely report a match (empty = empty).
+        if [ -n "${m_kind}" ] && [ -n "${NVIDIA_GPU_DRIVER_TYPE}" ] && [ "${m_kind}" = "${NVIDIA_GPU_DRIVER_TYPE}" ]; then
             driver_kind_match=true
         fi
     fi

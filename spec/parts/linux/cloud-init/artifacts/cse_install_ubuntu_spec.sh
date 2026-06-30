@@ -44,6 +44,8 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "AKS_GPU_PREBAKE event=teardown"
             The output should include "status=cleaned"
             The output should include "marker_after=false"
+            # the setuid nvidia-modprobe is part of the security-coverage check
+            The output should include "modprobe_after=false"
         End
     End
 End

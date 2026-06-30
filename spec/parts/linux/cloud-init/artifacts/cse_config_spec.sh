@@ -49,6 +49,17 @@ Describe 'cse_config.sh'
             The output should include "driver_kind_match=false"
             rm -f "$marker"
         End
+
+        It 'does not false-positive when the marker lacks driver_kind and the driver type is unset (both empty)'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE=""
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=false"
+            rm -f "$marker"
+        End
     End
 
     Describe 'configureAzureJson'

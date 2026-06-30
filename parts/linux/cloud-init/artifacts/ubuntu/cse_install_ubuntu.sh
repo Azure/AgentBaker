@@ -256,16 +256,17 @@ cleanUpPrebakedGPUDriver() {
     ldconfig || true
     rm -f "${marker}" || true
 
-    # Stage-1 observability: confirm the prebaked driver is actually gone. status=incomplete means a
-    # setuid nvidia binary / DKMS registration lingered (a security-coverage gap to investigate);
-    # status=cleaned counts toward fleet-wide coverage. Greppable prefix AKS_GPU_PREBAKE.
-    local marker_after=false dkms_after=false status=cleaned
+    # Stage-1 observability: confirm the prebaked driver is actually gone. status=incomplete means the
+    # marker, the DKMS registration, or the setuid nvidia-modprobe binary lingered (a security-coverage
+    # gap to investigate); status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
+    local marker_after=false dkms_after=false modprobe_after=false status=cleaned
     [ -f "${marker}" ] && marker_after=true
     [ -d /var/lib/dkms/nvidia ] && dkms_after=true
-    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ]; then
+    [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ]; then
         status=incomplete
     fi
-    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} marker_after=${marker_after} dkms_after=${dkms_after}"
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
 }
 
 cleanUpGPUDrivers() {
