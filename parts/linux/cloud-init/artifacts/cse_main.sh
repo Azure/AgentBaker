@@ -589,8 +589,8 @@ function nodePrep {
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
-    # defer starting managed GPU experience services after kubelet.
-    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ] || [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+    # defer starting DRA driver services after kubelet.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
     fi
 
