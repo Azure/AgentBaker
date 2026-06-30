@@ -453,21 +453,6 @@ function BasePrep {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
-        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
-        # This kubeconfig will deleted after calico installation.
-        Write-Log "Write temporary kube config"
-    } else {
-        Write-Log "Write kube config"
-    }
-
-    Write-KubeConfig -CACertificate $global:CACertificate `
-        -KubeDir $global:KubeDir `
-        -MasterFQDNPrefix $MasterFQDNPrefix `
-        -MasterIP $MasterIP `
-        -AgentKey $AgentKey `
-        -AgentCertificate $global:AgentCertificate
-
     if ($global:EnableHostsConfigAgent) {
         New-HostsConfigService
     }
@@ -507,12 +492,19 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
-    # Write the TLS bootstrap kubeconfig here (NodePrep), not in BasePrep. BasePrep
-    # is skipped on PIS/VHD-cached nodes (base_prep.complete marker), so writing
-    # bootstrap-config there would leave the stale bake-time token baked into the
-    # VHD. kubelet (installed/started by Install-KubernetesServices below) is the
-    # only consumer of bootstrap-config, so it must be written from the live
-    # $global:TLSBootstrapToken on every real provision, before kubelet starts.
+    # Write the cluster-specific kubeconfigs here (NodePrep), not in BasePrep.
+    # BasePrep is skipped on PIS/VHD-cached nodes (base_prep.complete marker), so
+    # anything cluster-specific written there is baked into the VHD with bake-time
+    # values and never refreshed on the real node. Both kubeconfigs are only ever
+    # consumed in NodePrep, so they must be (re)written here from the live values
+    # on every real provision, before their consumers run:
+    #   - bootstrap-config (token, $global:TLSBootstrapToken): consumed by kubelet,
+    #     installed/started by Install-KubernetesServices below. A stale baked token
+    #     makes the apiserver reject the kubelet CSR as Unauthorized.
+    #   - config (cert-based, from Write-KubeConfig): consumed by Calico's
+    #     GetCalicoKubeConfig (Start-InstallCalico) to reach the API server, and in
+    #     the legacy cert-auth mode it is kubelet's own kubeconfig. In either
+    #     bootstrapping mode it is temporary and removed after Calico installs.
     if ($global:TLSBootstrapToken) {
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
@@ -520,6 +512,21 @@ function NodePrep {
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
     }
+
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
+        # This kubeconfig will deleted after calico installation.
+        Write-Log "Write temporary kube config"
+    } else {
+        Write-Log "Write kube config"
+    }
+
+    Write-KubeConfig -CACertificate $global:CACertificate `
+        -KubeDir $global:KubeDir `
+        -MasterFQDNPrefix $MasterFQDNPrefix `
+        -MasterIP $MasterIP `
+        -AgentKey $AgentKey `
+        -AgentCertificate $global:AgentCertificate
 
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
