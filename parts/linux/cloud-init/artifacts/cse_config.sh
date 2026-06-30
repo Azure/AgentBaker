@@ -1295,6 +1295,25 @@ validateGPUDrivers() {
     fi
 }
 
+# logGPUDriverPrebakeReadiness emits a stage-1 observability signal on a managed GPU node: whether
+# the aks-gpu prebake marker is present and matches this node's driver kind -- i.e. whether stage-2
+# (skip-build) would take the fast path. Lets the rollout confirm managed CUDA GPU nodes are ready
+# before enabling consume. Observability only; no behavior change.
+logGPUDriverPrebakeReadiness() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local marker_present=false driver_kind_match=false m_kind
+    if [ -f "${marker}" ]; then
+        marker_present=true
+        m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+        # require both sides non-empty so a marker missing driver_kind= (or an unset
+        # NVIDIA_GPU_DRIVER_TYPE) does not falsely report a match (empty = empty).
+        if [ -n "${m_kind}" ] && [ -n "${NVIDIA_GPU_DRIVER_TYPE}" ] && [ "${m_kind}" = "${NVIDIA_GPU_DRIVER_TYPE}" ]; then
+            driver_kind_match=true
+        fi
+    fi
+    echo "AKS_GPU_PREBAKE event=managed_gpu driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_present=${marker_present} driver_kind_match=${driver_kind_match}"
+}
+
 ensureGPUDrivers() {
     if [ "$(isARM64)" -eq 1 ]; then
         return
@@ -1307,6 +1326,7 @@ ensureGPUDrivers() {
     fi
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logGPUDriverPrebakeReadiness
     fi
 }
 
