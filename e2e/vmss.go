@@ -479,24 +479,26 @@ func enableScriptlessCompilation(s *Scenario) bool {
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	delay := 5 * time.Second
-	retryOn := func(err error) bool {
+	classify := func(err error) (retry bool, isGalleryImageMissing bool) {
 		var respErr *azcore.ResponseError
 		// only retry on Azure API errors with specific error codes
 		if !errors.As(err, &respErr) {
-			return false
+			return false, false
 		}
-		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-		// It's not a quota issue
+		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps.
+		// It's not a quota issue.
 		if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
-			return true
+			return true, false
 		}
-		// GalleryImageNotFound can happen transiently after image replication completes
-		// due to Azure eventual consistency - the gallery API reports success but the
-		// compute fabric in the target region hasn't fully propagated the image yet
+		// GalleryImageNotFound: gallery image version exists and the parent provisioningState is Succeeded,
+		// but the regional replica is not yet serving traffic. ensureReplication SHOULD have caught this before
+		// we got here; if we're seeing it on VMSS create, it's either fabric-level eventual consistency (very
+		// short window) or a regression in the wait. Either way, classify it specially so we can fail fast on
+		// terminal Failed states instead of burning 10 retries.
 		if respErr.StatusCode == 404 && respErr.ErrorCode == "GalleryImageNotFound" {
-			return true
+			return true, true
 		}
-		return false
+		return false, false
 	}
 
 	maxAttempts := 10
@@ -509,9 +511,26 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, nil
 		}
 
-		// not a retryable error
-		if !retryOn(err) {
+		retry, isGalleryImageMissing := classify(err)
+		if !retry {
 			return vm, err
+		}
+
+		// For GalleryImageNotFound, defer to the canonical replication-state poller in
+		// the config package. This either:
+		//   - returns quickly when the regional state is already Completed (fabric-level race;
+		//     fall through to a normal retry), or
+		//   - blocks until the region transitions to Completed (then retry once on success), or
+		//   - fails fast with a clear error if the region is in a terminal Failed state.
+		if isGalleryImageMissing && s.VHD != nil && s.Runtime != nil && s.Runtime.Cluster != nil && s.Runtime.Cluster.Model != nil && s.Runtime.Cluster.Model.Location != nil {
+			location := *s.Runtime.Cluster.Model.Location
+			toolkit.Logf(ctx, "GalleryImageNotFound on VMSS create in %s; consulting regional replication status before retrying", location)
+			if waitErr := config.Azure.WaitForImageVersionReplicatedToRegion(ctx, s.VHD, location); waitErr != nil {
+				// Surface the precise infra cause instead of a generic "failed after N retries".
+				return vm, fmt.Errorf("VMSS create returned GalleryImageNotFound and regional replication is not usable: %w (original error: %v)", waitErr, err)
+			}
+			toolkit.Logf(ctx, "Regional replication confirmed Completed; retrying VMSS create immediately")
+			continue
 		}
 
 		if attempt >= maxAttempts {
