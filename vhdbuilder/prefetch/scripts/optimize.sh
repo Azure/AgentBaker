@@ -30,6 +30,15 @@ IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER
 IMAGE_BUILDER_TEMPLATE_NAME="${IMAGE_BUILDER_TEMPLATE_NAME:0:64}"
 VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${VHD_NAME}"
 
+# the image builder template distributes the prefetch-optimized image as a managed image into the
+# temporary image builder resource group. we then convert that managed image into a VHD blob within
+# the target storage account ourselves, which avoids the slow multi-copy VHD distribution performed
+# by image builder when distributing directly to a VHD blob.
+DISTRIBUTE_MANAGED_IMAGE_NAME="${CAPTURED_SIG_VERSION}-optimized"
+DISTRIBUTE_MANAGED_IMAGE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/images/${DISTRIBUTE_MANAGED_IMAGE_NAME}"
+OPTIMIZED_DISK_NAME="${CAPTURED_SIG_VERSION}-optimized"
+OPTIMIZED_DISK_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${OPTIMIZED_DISK_NAME}"
+
 main() {
     # for idempotency, check to see if the VHD we're trying to create already exists.
     # if it's already in the expected state, this will cause the script to exit early.
@@ -37,41 +46,31 @@ main() {
     # optimization + conversion flow
     check_for_existing_vhd
 
-    # attempt to perform prefetch optimization and VHD conversion
+    # attempt to perform prefetch optimization, distributing the optimized image as a managed image,
+    # then convert that managed image into a VHD blob within the target storage account
     ensure_image_builder_rg || exit $?
     run_image_builder_template || exit $?
+    convert_managed_image_to_vhd || exit $?
 }
 
 check_for_existing_vhd() {
     vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
-    if [ -n "${vhd_info}" ]; then
-        echo "VHD already exists at: ${VHD_URI}"
-        image_builder_source="$(jq -r '.metadata.VMImageBuilderSource' <<< "${vhd_info}")"
-        if [ -n "${image_builder_source}" ] && [ "${image_builder_source}" != "null" ]; then
-            echo "VHD ${VHD_URI} has already been produced by a previous image builder template run"
-            copy_status="$(jq -r '.properties.copy.status' <<< "${vhd_info}")"
-            if [ "${copy_status,,}" = "success" ]; then
-                echo "VHD ${VHD_URI} has been successfully copied from image builder storage, nothing to do"
-                exit 0
-            fi
-            if [ "${copy_status,,}" = "pending" ]; then
-                echo "echo VHD ${VHD_URI} is currently being copied from image builder storage, will wait for copy completion"
-                if wait_for_vhd_copy; then
-                    exit 0
-                fi
-                echo "pending copy operation was not successful, will delete existing blob and attempt to retry optimization and VHD creation"
-                delete_vhd || exit $?
-            else
-                echo "VHD ${VHD_URI} has a bad copy state: ${copy_status}, will delete it and recreate"
-                delete_vhd || exit $?
-            fi
-        else
-            echo "VHD ${VHD_URI} exists but was not produced by an image builder template run, will delete before proceeding"
-            delete_vhd || exit $?
-        fi
-    else
+    if [ -z "${vhd_info}" ]; then
         echo "no existing VHD was found at: ${VHD_URI}, will proceed with optimization and VHD creation"
+        return 0
     fi
+    echo "VHD already exists at: ${VHD_URI}"
+
+    # we mark the VHD with the prefetchOptimized metadata flag only after the optimized managed image
+    # has been fully copied into the target storage account. if the flag is present, the VHD is complete
+    # and there is nothing left to do. otherwise, the blob is left over from an incomplete run and must
+    # be deleted before retrying the optimization + conversion flow.
+    if [ "$(jq -r '.metadata.prefetchOptimized' <<< "${vhd_info}")" = "true" ]; then
+        echo "VHD ${VHD_URI} was fully produced by a previous prefetch optimization run, nothing to do"
+        exit 0
+    fi
+    echo "VHD ${VHD_URI} exists but was not produced by a prefetch optimization run, will delete before proceeding"
+    delete_vhd || exit $?
 }
 
 ensure_image_builder_rg() {
@@ -92,7 +91,7 @@ run_image_builder_template() {
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \
-            -e "s#<VHD_URI>#${VHD_URI}#g" \
+            -e "s#<DISTRIBUTE_MANAGED_IMAGE_ID>#${DISTRIBUTE_MANAGED_IMAGE_ID}#g" \
             "${IMAGE_BUILDER_TEMPLATE_PATH}" > input.json || return $?
 
         if [ ! -f "input.json" ]; then
@@ -126,7 +125,7 @@ run_image_builder_template() {
         return 1
     fi
 
-    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, VHD has been published to: ${VHD_URI}"
+    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, optimized managed image has been published to: ${DISTRIBUTE_MANAGED_IMAGE_ID}"
 }
 
 need_new_template() {
@@ -275,18 +274,89 @@ create_temp_storage() {
     TEMP_VHD_URI="${temp_vhd_uri}"
 }
 
-wait_for_vhd_copy() {
-    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
-    while [ "${copy_status,,}" = "pending" ]; do
-        echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
+wait_for_managed_image() {
+    # the managed image distributed by the image builder template should exist once the run succeeds,
+    # but the underlying ARM resource can take a brief moment to become visible after the run completes.
+    managed_image_id=""
+    attempts=0
+    while [ "${attempts}" -lt 10 ]; do
+        managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${DISTRIBUTE_MANAGED_IMAGE_NAME}" 2>/dev/null | jq -r '.id')"
+        if [ -n "${managed_image_id}" ] && [ "${managed_image_id,,}" != "null" ]; then
+            echo "found optimized managed image: ${managed_image_id}"
+            return 0
+        fi
+        echo "optimized managed image ${DISTRIBUTE_MANAGED_IMAGE_NAME} not yet visible in ${IMAGE_BUILDER_RG_NAME}, will wait 30s before checking again"
         sleep 30s
-        copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
+        attempts=$((attempts + 1))
     done
-    if [ "${copy_status,,}" != "success" ]; then
-        echo "VHD copy over ${VHD_URI} finished with unexpected status: ${copy_status}"
+    echo "expected optimized managed image ${DISTRIBUTE_MANAGED_IMAGE_NAME} does not exist in ${IMAGE_BUILDER_RG_NAME}"
+    return 1
+}
+
+# convert_managed_image_to_vhd converts the prefetch-optimized managed image produced by the image
+# builder template into a VHD blob within the target storage account. This replaces distributing a
+# VHD directly from the image builder template, which performed multiple slow blob copies. The steps:
+# 1. Create a managed disk in the image builder resource group from the optimized managed image
+# 2. Grant temporary read (SAS) access to the disk
+# 3. azcopy the disk directly into the target VHD blob in a single copy operation
+# 4. Mark the VHD blob complete so retries of this step are idempotent
+convert_managed_image_to_vhd() {
+    wait_for_managed_image || return $?
+
+    if [ -z "$(az disk show --ids "${OPTIMIZED_DISK_ID}" | jq -r '.id')" ]; then
+        # CVM and TrustedLaunch images must carry their security type onto the managed disk, otherwise
+        # the disk cannot be created from the optimized managed image. Standard images get no security profile.
+        security_profile=""
+        if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+            echo "optimized image is a TrustedLaunch flavor, will create managed disk with TrustedLaunch security type"
+            security_profile="\"securityProfile\": { \"securityType\": \"TrustedLaunch\" }, "
+        elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+            echo "optimized image is a CVM flavor, will create managed disk with ConfidentialVM security type"
+            security_profile="\"securityProfile\": { \"securityType\": \"ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey\" }, "
+        fi
+        echo "creating managed disk ${OPTIMIZED_DISK_NAME} from optimized managed image ${DISTRIBUTE_MANAGED_IMAGE_ID}"
+        az resource create --id "${OPTIMIZED_DISK_ID}" --api-version "${MANAGED_DISK_API_VERSION}" --is-full-object --location "$LOCATION" --properties "{\"location\": \"$LOCATION\", \
+            \"properties\": { \
+                \"osType\": \"Linux\", \
+                ${security_profile}\
+                \"creationData\": { \
+                    \"createOption\": \"FromImage\", \
+                    \"imageReference\": { \
+                        \"id\": \"${DISTRIBUTE_MANAGED_IMAGE_ID}\" \
+                    } \
+                } \
+            } \
+        }" || return $?
+        echo "created managed disk ${OPTIMIZED_DISK_ID} from optimized managed image"
+    fi
+
+    set +x
+    # revoke any lingering access from a prior interrupted run so grant-access does not fail
+    az disk revoke-access --ids "${OPTIMIZED_DISK_ID}" >/dev/null 2>&1 || true
+    disk_sas_url=$(az disk grant-access --ids "${OPTIMIZED_DISK_ID}" --duration-in-seconds 1800 | jq -r '.accessSAS')
+    if [ -z "${disk_sas_url}" ] || [ "${disk_sas_url,,}" = "null" ] || [ "${disk_sas_url,,}" = "none" ]; then
+        echo "generated SAS URL for optimized managed disk is empty, cannot continue"
         return 1
     fi
-    echo "pending copy operation over ${VHD_URI} has completed successfully"
+    echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
+    export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+    export AZCOPY_CONCURRENCY_VALUE="AUTO"
+    echo "copying optimized disk ${OPTIMIZED_DISK_ID} to ${VHD_URI}"
+    azcopy copy "${disk_sas_url}" "${VHD_URI}" --recursive=true
+    azcopy_exit_code=$?
+    set -x
+
+    az disk revoke-access --ids "${OPTIMIZED_DISK_ID}" || echo "unable to revoke access to ${OPTIMIZED_DISK_ID}, will proceed"
+
+    if [ "${azcopy_exit_code}" -ne 0 ]; then
+        echo "failed to copy optimized disk ${OPTIMIZED_DISK_ID} to ${VHD_URI}"
+        return "${azcopy_exit_code}"
+    fi
+
+    # mark the VHD as fully produced by prefetch optimization so retries of this step exit early
+    az storage blob metadata update --blob-url "${VHD_URI}" --auth-mode login --metadata prefetchOptimized=true || return $?
+
+    echo "optimized VHD has been published to: ${VHD_URI}"
 }
 
 delete_vhd() {
