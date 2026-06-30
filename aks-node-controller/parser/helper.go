@@ -686,7 +686,7 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 // compatibility during the RP migration period where flags may not yet be fully reflected
 // in the structured config file proto.
 //
-//nolint:gocognit,cyclop
+//nolint:gocognit,cyclop,gocyclo
 func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfig, flags map[string]string) {
 	if cfg == nil || len(flags) == 0 {
 		return
