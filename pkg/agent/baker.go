@@ -1023,6 +1023,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return ""
 		},
 		"GetKubenetTemplate": func() string {
+			// On Ubuntu 24.04+ (kernel 6.8+), promiscuous mode no longer implicitly
+			// enables hairpin forwarding in the bridge. Use explicit hairpinMode instead.
+			if profile.Is2404VHDDistro() {
+				return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplateHairpin))
+			}
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
@@ -1697,6 +1702,38 @@ const kubenetCniTemplate = `{
 		"capabilities": {"portMappings": true},
 		"externalSetMarkChain": "KUBE-MARK-MASQ"
 	}]
+}
+`
+
+// kubenetCniTemplateHairpin is the kubenet CNI template for Ubuntu 24.04+ (kernel 6.8+).
+// On kernel 6.8+, the bridge forwarding path strictly checks BR_HAIRPIN_MODE in should_deliver()
+// and promiscuous mode no longer implicitly enables hairpin forwarding. This template uses
+// explicit hairpinMode instead of promiscMode to fix service hairpin traffic
+// (pod -> own ClusterIP -> same pod).
+const kubenetCniTemplateHairpin = `
+{
+    "cniVersion": "0.3.1",
+    "name": "kubenet",
+    "plugins": [{
+    "type": "bridge",
+    "bridge": "cbr0",
+    "mtu": 1500,
+    "addIf": "eth0",
+    "isGateway": true,
+    "ipMasq": false,
+    "promiscMode": false,
+    "hairpinMode": true,
+    "ipam": {
+        "type": "host-local",
+        "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],
+        "routes": [{{range $i, $route := .Routes}}{{if $i}}, {{end}}{"dst": "{{$route}}"}{{end}}]
+    }
+    },
+    {
+    "type": "portmap",
+    "capabilities": {"portMappings": true},
+    "externalSetMarkChain": "KUBE-MARK-MASQ"
+    }]
 }
 `
 
