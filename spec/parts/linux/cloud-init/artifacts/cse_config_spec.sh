@@ -2024,7 +2024,7 @@ SETUP_EOF
             echo "systemctl $@"
         }
 
-        BeforeEach 'MIG_NODE="false"'
+        BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
 
         It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
             When call startNvidiaManagedExpServices
