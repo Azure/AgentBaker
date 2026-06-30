@@ -453,13 +453,6 @@ function BasePrep {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
-        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
-            -KubeDir $global:KubeDir `
-            -MasterFQDNPrefix $MasterFQDNPrefix `
-            -MasterIP $MasterIP `
-            -TLSBootstrapToken $global:TLSBootstrapToken
-    }
     if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
         # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
         # This kubeconfig will deleted after calico installation.
@@ -514,6 +507,20 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    # Write the TLS bootstrap kubeconfig here (NodePrep), not in BasePrep. BasePrep
+    # is skipped on PIS/VHD-cached nodes (base_prep.complete marker), so writing
+    # bootstrap-config there would leave the stale bake-time token baked into the
+    # VHD. kubelet (installed/started by Install-KubernetesServices below) is the
+    # only consumer of bootstrap-config, so it must be written from the live
+    # $global:TLSBootstrapToken on every real provision, before kubelet starts.
+    if ($global:TLSBootstrapToken) {
+        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
+            -KubeDir $global:KubeDir `
+            -MasterFQDNPrefix $MasterFQDNPrefix `
+            -MasterIP $MasterIP `
+            -TLSBootstrapToken $global:TLSBootstrapToken
+    }
+
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
 
