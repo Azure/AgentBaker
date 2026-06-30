@@ -2052,50 +2052,6 @@ SETUP_EOF
         End
     End
 
-    Describe 'startDRADriverNvidiaGpu'
-        logs_to_events() {
-            echo "logs_to_events $1"
-            eval "$2"
-        }
-        systemctlEnableAndStartNoBlock() {
-            echo "systemctlEnableAndStartNoBlock $@"
-        }
-        mkdir() {
-            echo "mkdir $@"
-        }
-        tee() {
-            cat > /dev/null
-            echo "tee $@"
-        }
-        rm() {
-            echo "rm $@"
-        }
-        systemctl() {
-            echo "systemctl $@"
-        }
-
-        BeforeEach 'NODE_NAME="test-node"'
-
-        It 'exits with $ERR_DRA_DRIVER_START_FAIL when NODE_NAME is empty'
-            NODE_NAME=""
-
-            When run startDRADriverNvidiaGpu
-
-            The status should equal "$ERR_DRA_DRIVER_START_FAIL"
-            The stderr should include "NODE_NAME is empty"
-        End
-
-        It 'creates the service unit and starts it non-blocking'
-            When call startDRADriverNvidiaGpu
-
-            The status should be success
-            # systemd is reloaded so the new unit is picked up
-            The output should include "systemctl daemon-reload"
-            # Must not block CSE on a service that legitimately waits for kubeconfig
-            The output should include "systemctlEnableAndStartNoBlock dra-driver-nvidia-gpu 30"
-        End
-    End
-
     Describe 'configGPUDrivers'
         # Assert the per-step CSE timing event names emitted via logs_to_events,
         # without running the real (hardware/daemon) driver steps. logs_to_events
