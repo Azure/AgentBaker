@@ -1125,6 +1125,33 @@ removeKubeletNodeLabel() {
     fi
 }
 
+# For Harvest VMs (and potentially other oversubscribed SKUs), the sku-cpu label set by the RP
+# reflects the nominal vCPU count from the CRP SKU API, but the guest OS may see more cores.
+# This function detects the mismatch by comparing the label value against nproc output and
+# corrects the label to match the actual core count visible to the OS, which is what kubelet
+# reports as capacity.cpu.
+fixSkuCpuLabel() {
+    local actual_cores
+    actual_cores=$(nproc 2>/dev/null)
+    if [ -z "$actual_cores" ] || [ "$actual_cores" -eq 0 ]; then
+        echo "WARNING: could not detect actual CPU cores via nproc, skipping sku-cpu fix"
+        return 0
+    fi
+
+    # Extract current sku-cpu value from labels
+    local current_value
+    current_value=$(echo "$KUBELET_NODE_LABELS" | grep -oP 'kubernetes\.azure\.com/sku-cpu=\K[^,]*' || true)
+    if [ -z "$current_value" ]; then
+        # Label not present — nothing to fix
+        return 0
+    fi
+
+    if [ "$current_value" != "$actual_cores" ]; then
+        echo "Correcting sku-cpu label from ${current_value} to ${actual_cores} (actual cores from nproc)"
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS//kubernetes.azure.com\/sku-cpu=${current_value}/kubernetes.azure.com\/sku-cpu=${actual_cores}}"
+    fi
+}
+
 # generate kubenode binary registry url from acs-mirror url
 updateKubeBinaryRegistryURL() {
     # if rp already passes registry url, then directly use the registry url that rp passes
