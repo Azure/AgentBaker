@@ -1611,6 +1611,36 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	assert.Contains(s.T, execResult.stdout, fmt.Sprintf("SERVER: %s", server))
 }
 
+// ValidateLocalDNSIptablesRules checks that the NOTRACK iptables rules for localdns are correctly
+// applied in the raw table. These rules skip connection tracking for DNS traffic to localdns IPs
+// to prevent conntrack table exhaustion on busy nodes.
+func ValidateLocalDNSIptablesRules(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	script := `set -euo pipefail
+failed=0
+# Check each rule individually to avoid multiline grep issues
+for chain in OUTPUT PREROUTING; do
+    for proto in tcp udp; do
+        rule=$(sudo iptables -w -t raw -S "$chain" | tr -d '\r' | grep -m1 -- "-p ${proto}.*localdns: skip conntrack.*--dport 53.*NOTRACK" || true)
+        if [ -n "$rule" ]; then
+            echo "OK: $chain/$proto: $rule"
+        else
+            echo "FAIL: missing NOTRACK rule for $proto in $chain chain"
+            failed=1
+        fi
+    done
+done
+
+if [ "$failed" -ne 0 ]; then
+    echo "Dumping all raw table rules for debugging:"
+    sudo iptables -w -t raw -S | tr -d '\r'
+    exit 1
+fi
+	echo "PASS: all localdns NOTRACK iptables rules present"
+`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns iptables NOTRACK rules validation failed")
+}
+
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
