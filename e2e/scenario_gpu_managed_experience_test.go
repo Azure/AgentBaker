@@ -257,7 +257,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc // capture range variable for parallel execution
 		t.Run(tc.name, func(t *testing.T) {
-			RunScenario(t, &Scenario{
+			RunScenarioSequential(t, &Scenario{
 				Description: tc.description,
 				Config: Config{
 					Cluster:                ClusterKubenet,
@@ -305,7 +305,7 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenarioSequential(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 24.04 GPU nodes",
 		Tags: Tags{
 			GPU: true,
@@ -383,7 +383,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenarioSequential(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",
 		Tags: Tags{
 			GPU: true,
@@ -460,7 +460,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenarioSequential(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Azure Linux v3 GPU nodes",
 		Tags: Tags{
 			GPU: true,
@@ -534,7 +534,7 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 }
 
 func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenarioSequential(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
 		Location:    "westus2",
 		Tags: Tags{
@@ -613,7 +613,7 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG(t *testing.T) {
 }
 
 func Test_Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag(t *testing.T) {
-	RunScenario(t, &Scenario{
+	RunScenarioSequential(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
 		Tags: Tags{
 			GPU: true,
