@@ -1984,8 +1984,7 @@ func ValidateLocalDNSHostsPluginColdStart(ctx context.Context, s *Scenario) {
 	script := `#!/bin/bash
 set -euo pipefail
 hosts_file="/etc/localdns/hosts"
-canary_fqdn="canary.localdns.test"
-canary_ip="192.0.2.99"
+critical_fqdn="mcr.microsoft.com"
 localdns_ip="169.254.10.10"
 resolv_conf="/run/systemd/resolve/resolv.conf"
 
@@ -2121,7 +2120,6 @@ echo ""
 # Step 2: Verify DNS resolves via fallthrough with empty hosts file
 echo "Step 2: Verifying DNS resolves via fallthrough after cold start..."
 
-critical_fqdn="mcr.microsoft.com"
 critical_result=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=5 +tries=2 2>&1 || true)
 echo "Critical FQDN ($critical_fqdn): '$critical_result'"
 if ! has_valid_ip "$critical_result"; then
@@ -2146,39 +2144,65 @@ fi
 echo "✓ Non-critical FQDN resolves via fallthrough"
 echo ""
 
-# Step 3: Populate hosts file with canary (simulates aks-localdns-hosts-setup completing)
-echo "Step 3: Populating hosts file with original content + canary entry..."
-{ echo "$saved_content"; echo "${canary_ip} ${canary_fqdn}"; } | sudo tee "$hosts_file" > /dev/null
+# Step 3: Repopulate hosts file using the product writer.
+echo "Step 3: Repopulating hosts file with aks-localdns-hosts-setup.service..."
+if ! sudo systemctl start aks-localdns-hosts-setup.service; then
+    echo "ERROR: aks-localdns-hosts-setup.service failed to repopulate hosts file"
+    sudo systemctl status aks-localdns-hosts-setup.service --no-pager 2>&1 || true
+    sudo journalctl -u aks-localdns-hosts-setup.service --no-pager -n 50 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    restart_localdns_cleanly "restore after hosts setup service failure" || true
+    exit 1
+fi
+
+expected_ip=""
+for i in $(seq 1 30); do
+    expected_ip=$(awk -v fqdn="$critical_fqdn" '$0 !~ /^#/ { for (i = 2; i <= NF; i++) { if ($i == fqdn) { print $1; exit } } }' "$hosts_file")
+    if has_valid_ip "$expected_ip"; then
+        echo "hosts file contains $critical_fqdn -> $expected_ip after ${i}s"
+        break
+    fi
+    sleep 1
+done
+
+if ! has_valid_ip "$expected_ip"; then
+    echo "ERROR: aks-localdns-hosts-setup.service did not write $critical_fqdn to $hosts_file"
+    echo "--- $hosts_file ---"
+    sudo cat "$hosts_file" 2>&1 || true
+    echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
+    restart_localdns_cleanly "restore after hosts file repopulation failure" || true
+    exit 1
+fi
 echo ""
 
-# Step 4: Wait for hosts plugin reload then verify canary resolves
+# Step 4: Wait for hosts plugin reload then verify generated hosts entry resolves.
 # IMPORTANT: We must wait for the hosts plugin to reload (configured with "reload 5s")
-# BEFORE making the first canary query. If we query too early, the hosts plugin hasn't
-# picked up the new file yet and the query falls through to the forward plugin, which
-# returns NXDOMAIN. The cache plugin then caches that NXDOMAIN for the SOA TTL (can be
-# minutes/hours), making all subsequent queries return NXDOMAIN even after the hosts
-# plugin reloads — the cached negative response shadows the hosts entry.
+# BEFORE making the first query for the generated entry. If we query too early, the
+# hosts plugin may not have picked up the regenerated file yet and the query can fall
+# through to the forward plugin, caching a negative response.
 echo "Step 4: Waiting 15s for hosts plugin reload (5s cycle + safety margin)..."
 sleep 15
-echo "Polling for canary resolution (up to 60s)..."
-canary_resolved=false
+echo "Polling for $critical_fqdn to resolve from regenerated hosts file (up to 60s)..."
+hosts_entry_resolved=false
 for i in $(seq 1 30); do
-    canary_result=$(dig "$canary_fqdn" @169.254.10.10 -t A +short +timeout=2 +tries=1 2>&1 || true)
-    if [ "$canary_result" = "$canary_ip" ]; then
-        echo "✓ Canary resolves after 15s+${i}x2s — CoreDNS picked up the hosts file after cold start"
-        canary_resolved=true
+    resolved_ips=$(dig "$critical_fqdn" @169.254.10.10 -t A +short +timeout=2 +tries=1 2>&1 || true)
+    if echo "$resolved_ips" | grep -qxF "$expected_ip"; then
+        echo "✓ $critical_fqdn resolves to $expected_ip after 15s+${i}x2s — CoreDNS picked up the regenerated hosts file after cold start"
+        hosts_entry_resolved=true
         break
     fi
     sleep 2
 done
 
-if [ "$canary_resolved" != "true" ]; then
-    echo "ERROR: Canary did not resolve after 60s — hot-reload after cold start broken"
-    echo "Expected: $canary_ip"
-    echo "Last dig result: '$canary_result'"
+if [ "$hosts_entry_resolved" != "true" ]; then
+    echo "ERROR: $critical_fqdn did not resolve to regenerated hosts entry after 60s — hot-reload after cold start broken"
+    echo "Expected: $expected_ip"
+    echo "Last dig result: '$resolved_ips'"
+    echo "--- $hosts_file ---"
+    sudo cat "$hosts_file" 2>&1 || true
     dump_localdns_diagnostics
     echo "$saved_content" | sudo tee "$hosts_file" > /dev/null
-    restart_localdns_cleanly "restore after canary failure" || true
+    restart_localdns_cleanly "restore after generated hosts entry failure" || true
     exit 1
 fi
 echo ""
@@ -2205,7 +2229,7 @@ done
 echo "=== SUCCESS ==="
 echo "localdns cold start with empty hosts file verified:"
 echo "  1. Start with empty hosts file: DNS resolves via fallthrough"
-echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
+echo "  2. Hosts file regenerated later by aks-localdns-hosts-setup.service: CoreDNS picks it up via reload"
 `
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
