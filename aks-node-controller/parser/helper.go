@@ -734,18 +734,11 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	backfillInt32Ptr("--pod-max-pids", &cfg.PodPidsLimit)
 	backfillInt32Ptr("--container-log-max-files", &cfg.ContainerLogMaxFiles)
 
-	// Non-optional int32 fields — backfill if zero.
-	backfillInt32 := func(flag string, field *int32) {
-		if *field == 0 {
-			if v, ok := flags[flag]; ok && v != "" {
-				if n, err := strconv.ParseInt(v, 10, 32); err == nil {
-					*field = int32(n)
-				}
-			}
-		}
-	}
-	backfillInt32("--read-only-port", &cfg.ReadOnlyPort)
-	backfillInt32("--eviction-max-pod-grace-period", &cfg.EvictionMaxPodGracePeriod)
+	// Non-optional int32 fields (ReadOnlyPort, EvictionMaxPodGracePeriod):
+	// NOT backfilled. Proto3 non-optional int32 uses 0 as zero value, making it
+	// impossible to distinguish "explicitly set to 0" from "never set". Backfilling
+	// would violate the precedence model (e.g., ReadOnlyPort=0 means "disabled",
+	// but backfill would overwrite it with a non-zero flag value).
 
 	// Optional *bool fields — backfill if nil.
 	backfillBoolPtr := func(flag string, field **bool) {
@@ -763,19 +756,11 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	backfillBoolPtr("--fail-swap-on", &cfg.FailSwapOn)
 	backfillBoolPtr("--serialize-image-pulls", &cfg.SerializeImagePulls)
 
-	// Non-optional bool fields — backfill if false and flag is "true".
-	backfillBool := func(flag string, field *bool) {
-		if !*field {
-			if v, ok := flags[flag]; ok && v != "" {
-				if b, err := strconv.ParseBool(v); err == nil {
-					*field = b
-				}
-			}
-		}
-	}
-	backfillBool("--rotate-certificates", &cfg.RotateCertificates)
-	backfillBool("--rotate-server-certificates", &cfg.ServerTlsBootstrap)
-	backfillBool("--protect-kernel-defaults", &cfg.ProtectKernelDefaults)
+	// Non-optional bool fields (RotateCertificates, ServerTlsBootstrap, ProtectKernelDefaults):
+	// NOT backfilled. Proto3 non-optional bool uses false as zero value, making it
+	// impossible to distinguish "explicitly set to false" from "never set". Backfilling
+	// would violate the precedence model (e.g., RotateCertificates=false is a valid
+	// explicit choice that should not be overwritten by a flag value of true).
 
 	// String slice fields — backfill if nil or empty.
 	backfillStringSlice := func(flag string, field *[]string) {

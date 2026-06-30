@@ -1508,12 +1508,14 @@ func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
 		t.Errorf("expected failSwapOn=false, got %v", cfg.FailSwapOn)
 	}
 
-	// bool fields.
-	if !cfg.RotateCertificates {
-		t.Errorf("expected rotateCertificates=true")
+	// Non-optional bool fields — NOT backfilled (zero value ambiguity).
+	// RotateCertificates and ProtectKernelDefaults remain at their zero value (false)
+	// because we cannot distinguish "explicitly false" from "never set".
+	if cfg.RotateCertificates {
+		t.Errorf("expected rotateCertificates to remain false (not backfilled)")
 	}
-	if !cfg.ProtectKernelDefaults {
-		t.Errorf("expected protectKernelDefaults=true")
+	if cfg.ProtectKernelDefaults {
+		t.Errorf("expected protectKernelDefaults to remain false (not backfilled)")
 	}
 
 	// []string fields.
