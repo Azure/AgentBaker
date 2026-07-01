@@ -373,10 +373,12 @@ function BasePrep {
     Get-ProvisioningScripts
     Get-LogCollectionScripts
 
-    # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
-    # to mutate both kubelet config args and kubelet node labels.
-    Configure-KubeletServingCertificateRotation
-
+    # kubeclusterconfig.json must exist before Install-Containerd-Based-On-Kubernetes-Version
+    # runs below: the CSE scripts package cached on the VHD (e.g. v0.0.52) reads the pause image
+    # from this file while configuring containerd during BasePrep. The cluster-specific values
+    # written here are only placeholders for the bake/non-cached containerd read - NodePrep
+    # rewrites this file from live CustomData on every provision (including PIS/VHD-cached nodes
+    # where BasePrep is skipped), so the runtime always sees fresh values.
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
     # oras initialization, including install and login, must be in front of Install-CredentialProvider, Get-KubePackage and Install-Containerd-Based-On-Kubernetes-Version
@@ -413,67 +415,9 @@ function BasePrep {
 
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 
-    # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
-    Write-AzureConfig `
-        -KubeDir $global:KubeDir `
-        -AADClientId $AADClientId `
-        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
-        -TenantId $global:TenantId `
-        -SubscriptionId $global:SubscriptionId `
-        -ResourceGroup $global:ResourceGroup `
-        -Location $Location `
-        -VmType $global:VmType `
-        -SubnetName $global:SubnetName `
-        -SecurityGroupName $global:SecurityGroupName `
-        -VNetName $global:VNetName `
-        -RouteTableName $global:RouteTableName `
-        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `
-        -PrimaryScaleSetName $global:PrimaryScaleSetName `
-        -UseManagedIdentityExtension $global:UseManagedIdentityExtension `
-        -UserAssignedClientID $UserAssignedClientID `
-        -UseInstanceMetadata $global:UseInstanceMetadata `
-        -LoadBalancerSku $global:LoadBalancerSku `
-        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}}
-
-    # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud.
-    # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json
-    {{if IsAKSCustomCloud}}
-    $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
-    $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
-    [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
-
-    Get-CACertificates
-    {{end}}
-
-    Write-CACert -CACertificate $global:CACertificate `
-        -KubeDir $global:KubeDir
-
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
-
-    if ($global:TLSBootstrapToken) {
-        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
-            -KubeDir $global:KubeDir `
-            -MasterFQDNPrefix $MasterFQDNPrefix `
-            -MasterIP $MasterIP `
-            -TLSBootstrapToken $global:TLSBootstrapToken
-    }
-    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
-        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
-        # This kubeconfig will deleted after calico installation.
-        Write-Log "Write temporary kube config"
-    } else {
-        Write-Log "Write kube config"
-    }
-
-    Write-KubeConfig -CACertificate $global:CACertificate `
-        -KubeDir $global:KubeDir `
-        -MasterFQDNPrefix $MasterFQDNPrefix `
-        -MasterIP $MasterIP `
-        -AgentKey $AgentKey `
-        -AgentCertificate $global:AgentCertificate
 
     if ($global:EnableHostsConfigAgent) {
         New-HostsConfigService
@@ -514,6 +458,79 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
+    # PIS/VHD-cached nodes, so anything written there is baked with stale
+    # bake-time values. Both are only consumed in NodePrep, so write them from
+    # live values on every provision before their consumers run below.
+    if ($global:TLSBootstrapToken) {
+        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
+            -KubeDir $global:KubeDir `
+            -MasterFQDNPrefix $MasterFQDNPrefix `
+            -MasterIP $MasterIP `
+            -TLSBootstrapToken $global:TLSBootstrapToken
+    }
+
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        # NOTE: we need kubeconfig to setup calico even if vanilla/secure TLS bootstrapping is enabled
+        # This kubeconfig will be deleted after calico installation.
+        Write-Log "Write temporary kube config"
+    } else {
+        Write-Log "Write kube config"
+    }
+
+    Write-KubeConfig -CACertificate $global:CACertificate `
+        -KubeDir $global:KubeDir `
+        -MasterFQDNPrefix $MasterFQDNPrefix `
+        -MasterIP $MasterIP `
+        -AgentKey $AgentKey `
+        -AgentCertificate $global:AgentCertificate
+
+    # Write cluster-specific configuration files from live CustomData.
+    # PIS images are reusable across clusters, so these files must not be baked
+    # into the VHD during BasePrep.
+    #
+    # NOTE: Configure-KubeletServingCertificateRotation MUST run before
+    # Write-KubeClusterConfig (it mutates kubelet config args and node labels).
+    # Write-KubeClusterConfig also runs in BasePrep (the cached CSE scripts read
+    # the pause image from it while configuring containerd); we rewrite it here so
+    # cluster-specific values are refreshed on every provision, including
+    # PIS/VHD-cached nodes where BasePrep is skipped.
+    Configure-KubeletServingCertificateRotation
+    Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+
+    Write-AzureConfig `
+        -KubeDir $global:KubeDir `
+        -AADClientId $AADClientId `
+        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
+        -TenantId $global:TenantId `
+        -SubscriptionId $global:SubscriptionId `
+        -ResourceGroup $global:ResourceGroup `
+        -Location $Location `
+        -VmType $global:VmType `
+        -SubnetName $global:SubnetName `
+        -SecurityGroupName $global:SecurityGroupName `
+        -VNetName $global:VNetName `
+        -RouteTableName $global:RouteTableName `
+        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `
+        -PrimaryScaleSetName $global:PrimaryScaleSetName `
+        -UseManagedIdentityExtension $global:UseManagedIdentityExtension `
+        -UserAssignedClientID $UserAssignedClientID `
+        -UseInstanceMetadata $global:UseInstanceMetadata `
+        -LoadBalancerSku $global:LoadBalancerSku `
+        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
+        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}}
+
+    {{if IsAKSCustomCloud}}
+    $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
+    $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
+    [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
+
+    Get-CACertificates
+    {{end}}
+
+    Write-CACert -CACertificate $global:CACertificate `
+        -KubeDir $global:KubeDir
+
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
 
