@@ -221,10 +221,14 @@
         "oss/v2/azure/ip-masq-agent-v2"
       ],
       "reviewers": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ],
       "assignees": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ]
     },
     {
