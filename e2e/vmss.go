@@ -93,10 +93,18 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		// retries and exits ERR_OUTBOUND_CONN_FAIL (50) before kubelet starts. Recreate the
 		// node a bounded number of times to reduce PR-gate noise without masking real
 		// regressions, which fail consistently and survive the retry budget.
-		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS || !isTransientOutboundCSEFailure(err) {
+		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS {
 			break
 		}
-		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", cseExitCodeOutboundConnFail, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
+		// The VMExtensionProvisioningError returned by the create operation does not reliably
+		// embed the CSE status JSON, so classify the failure from the extension instance view
+		// (the same source getCustomScriptExtensionStatus parses) rather than string-matching
+		// the ARM error. Only the outbound preflight exit code is treated as retryable.
+		exitCode, ok := getLinuxCSEExitCode(ctx, s)
+		if !ok || exitCode != cseExitCodeOutboundConnFail {
+			break
+		}
+		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
 		deleteVMSSAndWait(ctx, s)
 	}
 
@@ -105,12 +113,41 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	return vm, err
 }
 
-// isTransientOutboundCSEFailure reports whether a failed provisioning attempt was caused by
-// the Linux CSE exiting with ERR_OUTBOUND_CONN_FAIL. Azure embeds the full CSE status
-// (including "ExitCode": "50") in the VMExtensionProvisioningError returned by the VMSS
-// create operation, so we match it directly rather than re-querying the instance view.
-func isTransientOutboundCSEFailure(err error) bool {
-	return err != nil && strings.Contains(err.Error(), `"ExitCode": "`+cseExitCodeOutboundConnFail+`"`)
+// getLinuxCSEExitCode queries the VMSS instance view and returns the Linux CSE exit code
+// parsed from the CustomScript extension status. It reports ok=false when no parseable CSE
+// exit code is available (e.g. Windows, a non-CSE failure, or the instance view is not yet
+// populated). This is the reliable source of the exit code because the ARM provisioning
+// error does not consistently carry the full CSE status payload.
+func getLinuxCSEExitCode(ctx context.Context, s *Scenario) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		Expand: to.Ptr("instanceView"),
+	})
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", false
+		}
+		for _, vmssVM := range page.Value {
+			if vmssVM.Properties == nil || vmssVM.Properties.InstanceView == nil {
+				continue
+			}
+			for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+				for _, status := range extension.Statuses {
+					if status == nil {
+						continue
+					}
+					cseStatus, err := parseLinuxCSEMessage(*status)
+					if err != nil || cseStatus == nil || cseStatus.ExitCode == "" {
+						continue
+					}
+					return cseStatus.ExitCode, true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 // deleteVMSSAndWait synchronously deletes the scenario's VMSS so the same name can be
