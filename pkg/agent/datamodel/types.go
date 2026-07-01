@@ -1906,13 +1906,6 @@ type SecureTLSBootstrappingConfig struct {
 	// GetCredentialTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
 	GetCredentialTimeout string `json:"secureTLSBootstrappingGetCredentialTimeout,omitempty"`
-
-	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
-	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
-	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
-	//
-	// Deprecated: Use individual RPC timeouts instead.
-	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
@@ -1983,13 +1976,6 @@ func (c *SecureTLSBootstrappingConfig) GetGetCredentialTimeout() string {
 		return ""
 	}
 	return c.GetCredentialTimeout
-}
-
-func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
-	if c == nil {
-		return ""
-	}
-	return c.Deadline
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.

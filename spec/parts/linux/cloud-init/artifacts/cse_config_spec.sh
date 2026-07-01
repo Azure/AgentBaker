@@ -1641,7 +1641,6 @@ SETUP_EOF
             SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT="custom-get-nonce-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT="custom-get-attested-data-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT="custom-get-credential-timeout"
-            SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
             When call configureAndEnableSecureTLSBootstrapping
@@ -1655,7 +1654,7 @@ SETUP_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "EnvironmentFile=default/secure-tls-bootstrap"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
-            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline'
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout'
             The status should be success
         End
     End

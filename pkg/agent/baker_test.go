@@ -1163,7 +1163,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 			GetNonceTimeout:           "custom-get-nonce-timeout",
 			GetAttestedDataTimeout:    "custom-get-attested-data-timeout",
 			GetCredentialTimeout:      "custom-get-credential-timeout",
-			Deadline:                  "custom-deadline",
 		}
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
@@ -1181,7 +1180,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT", "custom-get-nonce-timeout"))
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "custom-get-attested-data-timeout"))
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "custom-get-credential-timeout"))
-		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_DEADLINE", "custom-deadline"))
 		Expect(vars).To(HaveKeyWithValue("CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL", "custom-client-download-url"))
 	})
 

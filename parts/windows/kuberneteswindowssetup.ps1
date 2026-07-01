@@ -190,7 +190,6 @@ $global:SecureTLSBootstrappingGetInstanceDataTimeout = "{{GetSecureTLSBootstrapp
 $global:SecureTLSBootstrappingGetNonceTimeout = "{{GetSecureTLSBootstrappingGetNonceTimeout}}";
 $global:SecureTLSBootstrappingGetAttestedDataTimeout = "{{GetSecureTLSBootstrappingGetAttestedDataTimeout}}";
 $global:SecureTLSBootstrappingGetCredentialTimeout = "{{GetSecureTLSBootstrappingGetCredentialTimeout}}";
-$global:SecureTLSBootstrappingDeadline = "{{GetSecureTLSBootstrappingDeadline}}";
 
 # uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
 # this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
