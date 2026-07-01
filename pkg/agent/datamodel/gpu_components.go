@@ -62,7 +62,7 @@ func LoadConfig() error {
 		// repos sharing a prefix (e.g. "aks-gpu-grid" vs "aks-gpu-grid-v20") are not
 		// confused by substring matching.
 		switch gpuImageRepo(image.DownloadURL) {
-		case "aks-gpu-cuda":
+		case "aks-gpu-cuda-lts":
 			NvidiaCudaDriverVersion = version
 			AKSGPUCudaVersionSuffix = suffix
 		case "aks-gpu-grid":

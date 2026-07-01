@@ -1525,6 +1525,12 @@ func GetAKSGPUImageSHA(size string) string {
 	return datamodel.AKSGPUCudaVersionSuffix
 }
 
+// GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
+// The value becomes NVIDIA_GPU_DRIVER_TYPE at provision time, which selects the container image
+// mcr.microsoft.com/aks/aks-gpu-<type>. Modern CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
+// use the R580 LTS image (aks-gpu-cuda-lts): it retains Volta/V100 support that the newer aks-gpu-cuda
+// R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
+// against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
 func GetGPUDriverType(size string) string {
 	if useGridV20Drivers(size) {
 		return "grid-v20"
@@ -1532,7 +1538,10 @@ func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
 	}
-	return "cuda"
+	if isStandardNCv1(size) {
+		return "cuda"
+	}
+	return "cuda-lts"
 }
 
 func GPUNeedsFabricManager(size string) bool {
