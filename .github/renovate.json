@@ -572,11 +572,11 @@
     },
     {
       "matchPackageNames": [
-        "aks/aks-gpu-cuda"
+        "aks/aks-gpu-cuda-lts"
       ],
-      "groupName": "nvidia-gpu-cuda",
+      "groupName": "nvidia-gpu-cuda-lts",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": true,
+      "automerge": false,
       "enabled": true,
       "ignoreUnstable": false
     },
