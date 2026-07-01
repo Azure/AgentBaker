@@ -115,7 +115,10 @@ convert-sig-to-classic-storage-account-blob: az-login
 convert-vhd-to-cosi: az-login
 	@./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh "$${IMG_CUSTOMIZER_ALLOW_FALLBACK:-false}"
 
-upload-cosi-to-pmc:
+build-cosi-upload: setup-golang
+	@go build -o bin/cosi-upload ./cmd/cosi-upload
+
+upload-cosi-to-pmc: build-cosi-upload
 	@./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
 
 scanning-vhd: az-login
