@@ -1,9 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Uploads the COSI staged by convert-vhd-to-cosi.sh to PMC's AFD upload endpoint,
-# under PMC's service connection. No az-login dep (azcopy's data-plane token needs
-# no active subscription, and 'az account set' would fail under PMC's identity).
+# Uploads the COSI staged by convert-vhd-to-cosi.sh to PMC's AFD upload endpoint
+# under PMC's service connection, via a direct Blob REST PUT authenticated with an
+# AAD storage-scoped token. AFD forwards the Bearer token to the blob origin, so
+# azcopy is not used (it cannot infer the service type for a custom *.azurefd.net host).
 
 required_env_vars=(
     "CAPTURED_SIG_VERSION"
@@ -29,30 +30,23 @@ if [ ! -f "$STAGED_COSI" ]; then
     exit 1
 fi
 
-echo "Setting azcopy environment variables"
-export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
-export AZCOPY_CONCURRENCY_VALUE="AUTO"
-export AZCOPY_LOG_LOCATION="${COSI_WORK_DIR}/azcopy-cosi-upload-log-files/"
-export AZCOPY_JOB_PLAN_LOCATION="${COSI_WORK_DIR}/azcopy-cosi-upload-job-plan-files/"
-mkdir -p "${AZCOPY_LOG_LOCATION}"
-mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
+RESP_FILE="${COSI_WORK_DIR}/cosi-afd-upload-response.txt"
 
 echo "Uploading COSI to ${COSI_UPLOAD_URL}"
-if azcopy copy "$STAGED_COSI" "$COSI_UPLOAD_URL" --from-to=LocalBlob; then
-    echo "Successfully uploaded COSI to ${COSI_UPLOAD_URL}"
+STORAGE_TOKEN="$(az account get-access-token --resource https://storage.azure.com --query accessToken -o tsv)"
+HTTP_CODE="$(curl -sS -o "${RESP_FILE}" -w '%{http_code}' \
+    -X PUT \
+    -H "Authorization: Bearer ${STORAGE_TOKEN}" \
+    -H "x-ms-blob-type: BlockBlob" \
+    -H "x-ms-version: 2020-10-02" \
+    -H "Content-Type: application/octet-stream" \
+    -T "${STAGED_COSI}" \
+    "${COSI_UPLOAD_URL}")"
+
+if [ "${HTTP_CODE}" = "201" ]; then
+    echo "Successfully uploaded COSI to ${COSI_UPLOAD_URL} (HTTP ${HTTP_CODE})"
 else
-    azExitCode=$?
-    shopt -s nullglob
-    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-        echo "Azcopy log file: $f"
-        echo "##vso[build.uploadlog]$f"
-        if grep -q '"level":"Error"' "$f"; then
-            echo "log file $f contains errors"
-            echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-            cat "$f"
-        fi
-    done
-    shopt -u nullglob
-    echo "Failed to upload COSI, exiting with code $azExitCode"
-    exit "$azExitCode"
+    echo "##vso[task.logissue type=error]COSI upload to ${COSI_UPLOAD_URL} failed with HTTP ${HTTP_CODE}"
+    cat "${RESP_FILE}" || true
+    exit 1
 fi
