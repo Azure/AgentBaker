@@ -811,22 +811,10 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	if cfg.Authentication.Webhook == nil {
 		cfg.Authentication.Webhook = &aksnodeconfigv1.KubeletWebhookAuthentication{}
 	}
-	if !cfg.Authentication.Webhook.Enabled {
-		if v, ok := flags["--authentication-token-webhook"]; ok && v != "" {
-			if b, err := strconv.ParseBool(v); err == nil {
-				cfg.Authentication.Webhook.Enabled = b
-			}
-		}
-	}
+	// Webhook.Enabled is a non-optional proto3 bool — NOT backfilled.
+	// Cannot distinguish "explicitly false" from "never set". Same for Anonymous.Enabled.
 	if cfg.Authentication.Anonymous == nil {
 		cfg.Authentication.Anonymous = &aksnodeconfigv1.KubeletAnonymousAuthentication{}
-	}
-	if !cfg.Authentication.Anonymous.Enabled {
-		if v, ok := flags["--anonymous-auth"]; ok && v != "" {
-			if b, err := strconv.ParseBool(v); err == nil {
-				cfg.Authentication.Anonymous.Enabled = b
-			}
-		}
 	}
 
 	// Nested authorization fields.
