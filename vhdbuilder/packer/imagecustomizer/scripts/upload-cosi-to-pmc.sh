@@ -38,7 +38,7 @@ mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 echo "Uploading COSI to ${COSI_UPLOAD_URL}"
-if azcopy copy "$STAGED_COSI" "$COSI_UPLOAD_URL" --recursive=true; then
+if azcopy copy "$STAGED_COSI" "$COSI_UPLOAD_URL" --from-to=LocalBlob; then
     echo "Successfully uploaded COSI to ${COSI_UPLOAD_URL}"
 else
     azExitCode=$?
