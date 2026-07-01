@@ -28,16 +28,16 @@ CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 IMAGE_BUILDER_TEMPLATE_NAME="${IMAGE_BUILDER_TEMPLATE_NAME:0:64}"
+IMAGE_BUILDER_TEMPLATE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.VirtualMachineImages/imageTemplates/${IMAGE_BUILDER_TEMPLATE_NAME}"
 VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${VHD_NAME}"
 
-# the image builder template distributes the prefetch-optimized image as a managed image into the
-# temporary image builder resource group. we then convert that managed image into a VHD blob within
-# the target storage account ourselves, which avoids the slow multi-copy VHD distribution performed
-# by image builder when distributing directly to a VHD blob.
-DISTRIBUTE_MANAGED_IMAGE_NAME="${CAPTURED_SIG_VERSION}-optimized"
-DISTRIBUTE_MANAGED_IMAGE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/images/${DISTRIBUTE_MANAGED_IMAGE_NAME}"
-OPTIMIZED_DISK_NAME="${CAPTURED_SIG_VERSION}-optimized"
-OPTIMIZED_DISK_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${OPTIMIZED_DISK_NAME}"
+# the image builder template distributes the prefetch-optimized image as a VHD without specifying a
+# target uri, which causes image builder to publish the VHD to a storage account within its own
+# staging resource group. we then copy that staging VHD directly into the target storage account
+# ourselves via azcopy, which avoids the slow second copy image builder performs when distributing
+# directly to an external target storage account. the name of the run output is used to look up the
+# resulting blob (artifactUri) after the template run completes.
+DISTRIBUTE_RUN_OUTPUT_NAME="VHD"
 
 main() {
     # for idempotency, check to see if the VHD we're trying to create already exists.
@@ -46,11 +46,11 @@ main() {
     # optimization + conversion flow
     check_for_existing_vhd
 
-    # attempt to perform prefetch optimization, distributing the optimized image as a managed image,
-    # then convert that managed image into a VHD blob within the target storage account
+    # attempt to perform prefetch optimization, distributing the optimized image as a VHD into the
+    # image builder staging storage account, then copy that VHD into the target storage account
     ensure_image_builder_rg || exit $?
     run_image_builder_template || exit $?
-    convert_managed_image_to_vhd || exit $?
+    copy_optimized_vhd || exit $?
 }
 
 check_for_existing_vhd() {
@@ -91,7 +91,6 @@ run_image_builder_template() {
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \
-            -e "s#<DISTRIBUTE_MANAGED_IMAGE_ID>#${DISTRIBUTE_MANAGED_IMAGE_ID}#g" \
             "${IMAGE_BUILDER_TEMPLATE_PATH}" > input.json || return $?
 
         if [ ! -f "input.json" ]; then
@@ -125,7 +124,7 @@ run_image_builder_template() {
         return 1
     fi
 
-    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, optimized managed image has been published to: ${DISTRIBUTE_MANAGED_IMAGE_ID}"
+    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, optimized VHD has been published to image builder staging storage"
 }
 
 need_new_template() {
@@ -274,82 +273,28 @@ create_temp_storage() {
     TEMP_VHD_URI="${temp_vhd_uri}"
 }
 
-wait_for_managed_image() {
-    # the managed image distributed by the image builder template should exist once the run succeeds,
-    # but the underlying ARM resource can take a brief moment to become visible after the run completes.
-    managed_image_id=""
-    attempts=0
-    while [ "${attempts}" -lt 10 ]; do
-        managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${DISTRIBUTE_MANAGED_IMAGE_NAME}" 2>/dev/null | jq -r '.id')"
-        if [ -n "${managed_image_id}" ] && [ "${managed_image_id,,}" != "null" ]; then
-            echo "found optimized managed image: ${managed_image_id}"
-            return 0
-        fi
-        echo "optimized managed image ${DISTRIBUTE_MANAGED_IMAGE_NAME} not yet visible in ${IMAGE_BUILDER_RG_NAME}, will wait 30s before checking again"
-        sleep 30s
-        attempts=$((attempts + 1))
-    done
-    echo "expected optimized managed image ${DISTRIBUTE_MANAGED_IMAGE_NAME} does not exist in ${IMAGE_BUILDER_RG_NAME}"
-    return 1
-}
-
-# convert_managed_image_to_vhd converts the prefetch-optimized managed image produced by the image
-# builder template into a VHD blob within the target storage account. This replaces distributing a
-# VHD directly from the image builder template, which performed multiple slow blob copies. The steps:
-# 1. Create a managed disk in the image builder resource group from the optimized managed image
-# 2. Grant temporary read (SAS) access to the disk
-# 3. azcopy the disk directly into the target VHD blob in a single copy operation
-# 4. Mark the VHD blob complete so retries of this step are idempotent
-convert_managed_image_to_vhd() {
-    wait_for_managed_image || return $?
-
-    if [ -z "$(az disk show --ids "${OPTIMIZED_DISK_ID}" | jq -r '.id')" ]; then
-        # CVM and TrustedLaunch images must carry their security type onto the managed disk, otherwise
-        # the disk cannot be created from the optimized managed image. Standard images get no security profile.
-        security_profile=""
-        if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-            echo "optimized image is a TrustedLaunch flavor, will create managed disk with TrustedLaunch security type"
-            security_profile="\"securityProfile\": { \"securityType\": \"TrustedLaunch\" }, "
-        elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-            echo "optimized image is a CVM flavor, will create managed disk with ConfidentialVM security type"
-            security_profile="\"securityProfile\": { \"securityType\": \"ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey\" }, "
-        fi
-        echo "creating managed disk ${OPTIMIZED_DISK_NAME} from optimized managed image ${DISTRIBUTE_MANAGED_IMAGE_ID}"
-        az resource create --id "${OPTIMIZED_DISK_ID}" --api-version "${MANAGED_DISK_API_VERSION}" --is-full-object --location "$LOCATION" --properties "{\"location\": \"$LOCATION\", \
-            \"properties\": { \
-                \"osType\": \"Linux\", \
-                ${security_profile}\
-                \"creationData\": { \
-                    \"createOption\": \"FromImage\", \
-                    \"imageReference\": { \
-                        \"id\": \"${DISTRIBUTE_MANAGED_IMAGE_ID}\" \
-                    } \
-                } \
-            } \
-        }" || return $?
-        echo "created managed disk ${OPTIMIZED_DISK_ID} from optimized managed image"
-    fi
-
-    set +x
-    # revoke any lingering access from a prior interrupted run so grant-access does not fail
-    az disk revoke-access --ids "${OPTIMIZED_DISK_ID}" >/dev/null 2>&1 || true
-    disk_sas_url=$(az disk grant-access --ids "${OPTIMIZED_DISK_ID}" --duration-in-seconds 1800 | jq -r '.accessSAS')
-    if [ -z "${disk_sas_url}" ] || [ "${disk_sas_url,,}" = "null" ] || [ "${disk_sas_url,,}" = "none" ]; then
-        echo "generated SAS URL for optimized managed disk is empty, cannot continue"
+# copy_optimized_vhd copies the prefetch-optimized VHD that the image builder template published to its
+# staging storage account directly into the target storage account. Because the template distributes a
+# VHD without specifying a target uri, image builder publishes the blob to a storage account within its
+# own staging resource group and exposes its location via the run output's artifactUri. We copy that
+# blob into the target storage account ourselves with a single azcopy, then mark it complete so retries
+# of this step are idempotent.
+copy_optimized_vhd() {
+    artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv 2>/dev/null)"
+    if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
+        set -x
+        echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
         return 1
     fi
     echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
     export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
     export AZCOPY_CONCURRENCY_VALUE="AUTO"
-    echo "copying optimized disk ${OPTIMIZED_DISK_ID} to ${VHD_URI}"
-    azcopy copy "${disk_sas_url}" "${VHD_URI}" --recursive=true
+    echo "copying optimized VHD from image builder staging storage to ${VHD_URI}"
+    azcopy copy "${artifact_uri}" "${VHD_URI}" --recursive=true
     azcopy_exit_code=$?
-    set -x
-
-    az disk revoke-access --ids "${OPTIMIZED_DISK_ID}" || echo "unable to revoke access to ${OPTIMIZED_DISK_ID}, will proceed"
 
     if [ "${azcopy_exit_code}" -ne 0 ]; then
-        echo "failed to copy optimized disk ${OPTIMIZED_DISK_ID} to ${VHD_URI}"
+        echo "failed to copy optimized VHD to ${VHD_URI}"
         return "${azcopy_exit_code}"
     fi
 
