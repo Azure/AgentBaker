@@ -405,7 +405,7 @@ func Test_ACL_DisableSSH(t *testing.T) {
 }
 
 func Test_ACL_GPUNC(t *testing.T) {
-	runScenarioACLGPU(t, "Standard_NC6s_v3", config.Config.DefaultLocation)
+	runScenarioACLGPU(t, "Standard_NC4as_T4_v3", "westus2")
 }
 
 func Test_ACL_GPUA100(t *testing.T) {
@@ -1658,7 +1658,7 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3", config.Config.DefaultLocation)
+	runScenarioUbuntu2204GPU(t, "Standard_NC4as_T4_v3", "westus2")
 }
 
 func Test_Ubuntu2204_GPUA100(t *testing.T) {
@@ -1795,6 +1795,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -1802,7 +1803,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -1812,7 +1813,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
 					"SkipGPUDriverInstall": to.Ptr("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
@@ -1824,6 +1825,7 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -1831,13 +1833,13 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.VmSize = "Standard_NC6s_v3"
+				config.VmSize = "Standard_NC4as_T4_v3"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
 				config.GpuConfig.EnableNvidia = to.Ptr(true)
@@ -1848,7 +1850,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
 					"SkipGPUDriverInstall": to.Ptr("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
@@ -2244,6 +2246,7 @@ func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 func Test_AzureLinuxV3_GPU(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -2252,13 +2255,13 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 			VHD:               config.VHDAzureLinuxV3Gen2,
 			SkipScriptlessNBC: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -2302,6 +2305,7 @@ func Test_AzureLinuxV3_GPUA10(t *testing.T) {
 func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -2311,13 +2315,13 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -2328,6 +2332,7 @@ func Test_AzureLinuxV3_GPUAzureCNI(t *testing.T) {
 func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V3 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -2337,20 +2342,20 @@ func Test_AzureLinuxV3_GPUAzureCNI_Scriptless(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
-				config.VmSize = "Standard_NC6s_v3"
+				config.VmSize = "Standard_NC4as_T4_v3"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
 				config.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
@@ -2514,6 +2519,7 @@ func Test_Ubuntu2404_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T
 func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -2521,7 +2527,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -2531,7 +2537,7 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
 					"SkipGPUDriverInstall": to.Ptr("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
