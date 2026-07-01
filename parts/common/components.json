@@ -1993,7 +1993,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.4.0-ubuntu24.04u2"
+                "latestVersion": "25.12.0-ubuntu24.04u2"
               }
             ]
           },
@@ -2001,7 +2001,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.4.0-ubuntu22.04u1"
+                "latestVersion": "25.12.0-ubuntu22.04u2"
               }
             ]
           }
