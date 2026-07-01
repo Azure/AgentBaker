@@ -1270,3 +1270,55 @@ func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 			script, string(output), err)
 	}
 }
+
+func TestValidateAndSetLinuxNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) {
+	testCases := []struct {
+		name          string
+		version       string
+		expectRemoved bool
+	}{
+		{
+			name:          "k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			expectRemoved: false,
+		},
+		{
+			name:          "k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			expectRemoved: true,
+		},
+		{
+			name:          "k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			expectRemoved: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &datamodel.NodeBootstrappingConfiguration{
+				ContainerService: &datamodel.ContainerService{
+					Properties: &datamodel.Properties{
+						OrchestratorProfile: &datamodel.OrchestratorProfile{
+							OrchestratorVersion: tc.version,
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--streaming-connection-idle-timeout": "4h0m0s",
+					"--feature-gates":                    "",
+				},
+			}
+
+			ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+
+			_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+			if tc.expectRemoved && exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be removed for k8s %s", tc.version)
+			}
+			if !tc.expectRemoved && !exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be kept for k8s %s", tc.version)
+			}
+		})
+	}
+}

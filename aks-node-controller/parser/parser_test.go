@@ -415,6 +415,64 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
+	testCases := []struct {
+		name            string
+		k8sVersion      string
+		expectInConfig  bool
+	}{
+		{
+			name:           "k8s 1.33 keeps streamingConnectionIdleTimeout in config file",
+			k8sVersion:     "1.33.0",
+			expectInConfig: true,
+		},
+		{
+			name:           "k8s 1.34.0 removes streamingConnectionIdleTimeout from config file",
+			k8sVersion:     "1.34.0",
+			expectInConfig: false,
+		},
+		{
+			name:           "k8s 1.35.0 removes streamingConnectionIdleTimeout from config file",
+			k8sVersion:     "1.35.0",
+			expectInConfig: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &aksnodeconfigv1.Configuration{
+				KubernetesVersion: tc.k8sVersion,
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: true,
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						StreamingConnectionIdleTimeout: "4h",
+						ClusterDomain:                  "cluster.local",
+					},
+				},
+			}
+
+			cmd, err := BuildCSECmd(context.TODO(), config)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			configContent := vars["KUBELET_CONFIG_FILE_CONTENT"]
+			require.NotEmpty(t, configContent, "KUBELET_CONFIG_FILE_CONTENT should not be empty")
+
+			decoded, err := base64.StdEncoding.DecodeString(configContent)
+			require.NoError(t, err)
+
+			configJSON := string(decoded)
+			if tc.expectInConfig {
+				assert.Contains(t, configJSON, "streamingConnectionIdleTimeout",
+					"expected streamingConnectionIdleTimeout in config file for k8s %s", tc.k8sVersion)
+			} else {
+				assert.NotContains(t, configJSON, "streamingConnectionIdleTimeout",
+					"expected streamingConnectionIdleTimeout to be absent from config file for k8s %s", tc.k8sVersion)
+			}
+		})
+	}
+}
+
 func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 	tests := []struct {
 		name      string

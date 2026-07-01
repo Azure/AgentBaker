@@ -397,6 +397,49 @@ func TestValidateAndSetLinuxKubeletFlags_FeatureGatesByVersion(t *testing.T) {
 	}
 }
 
+func TestValidateAndSetLinuxKubeletFlags_StreamingConnectionIdleTimeout(t *testing.T) {
+	testCases := []struct {
+		name        string
+		version     string
+		expectRemoved bool
+	}{
+		{
+			name:          "k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			expectRemoved: false,
+		},
+		{
+			name:          "k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			expectRemoved: true,
+		},
+		{
+			name:          "k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			expectRemoved: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			kubeletFlags := map[string]string{
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--feature-gates":                    "",
+			}
+
+			ValidateAndSetLinuxKubeletFlags(kubeletFlags, newTestContainerService(tc.version), &datamodel.AgentPoolProfile{})
+
+			_, exists := kubeletFlags["--streaming-connection-idle-timeout"]
+			if tc.expectRemoved && exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be removed for k8s %s", tc.version)
+			}
+			if !tc.expectRemoved && !exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be kept for k8s %s", tc.version)
+			}
+		})
+	}
+}
+
 func newTestContainerService(version string) *datamodel.ContainerService {
 	return &datamodel.ContainerService{
 		Properties: &datamodel.Properties{
