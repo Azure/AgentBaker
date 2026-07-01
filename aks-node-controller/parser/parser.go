@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 )
 
@@ -31,6 +32,14 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 
 //nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// Clear it so it doesn't appear in the marshaled config file JSON.
+	if helpers.IsKubernetesVersionGe(config.GetKubernetesVersion(), "1.34.0") {
+		if kcfg := config.GetKubeletConfig().GetKubeletConfigFileConfig(); kcfg != nil {
+			kcfg.StreamingConnectionIdleTimeout = ""
+		}
+	}
+
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",

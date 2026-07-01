@@ -227,6 +227,12 @@ func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamod
 		!IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
+
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// It must not appear on the command line or in the config file for those versions.
+	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+		delete(kubeletFlags, "--streaming-connection-idle-timeout")
+	}
 }
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
