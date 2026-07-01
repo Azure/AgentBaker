@@ -736,10 +736,10 @@
   ],
   "GPUContainerImages": [
     {
-      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
+      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda-lts:*",
       "gpuVersion": {
-        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-        "latestVersion": "580.126.09-20260126030251"
+        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda-lts",
+        "latestVersion": "580.159.04-20260629214430"
       }
     },
     {

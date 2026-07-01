@@ -39,6 +39,18 @@ Describe 'cse_config.sh'
             rm -f "$marker"
         End
 
+        It 'matches a cuda marker for a cuda-lts (R580 LTS) node: driver-type maps to the aks-gpu driver_kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=true"
+            The output should include "driver_type=cuda-lts"
+            rm -f "$marker"
+        End
+
         It 'reports driver_kind_match=false when a CUDA marker is on a GRID node (not skip-ready)'
             marker="$(mktemp)"
             printf 'driver_kind=cuda\n' > "$marker"

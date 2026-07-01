@@ -1301,13 +1301,20 @@ validateGPUDrivers() {
 # before enabling consume. Observability only; no behavior change.
 logGPUDriverPrebakeReadiness() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    local marker_present=false driver_kind_match=false m_kind
+    local marker_present=false driver_kind_match=false m_kind node_kind
+    # Map the AgentBaker driver-type to the aks-gpu marker's driver_kind (the container's DRIVER_KIND
+    # build arg): image variants "cuda-lts" and "grid-v20" bake markers as "cuda"/"grid" respectively.
+    case "${NVIDIA_GPU_DRIVER_TYPE}" in
+        cuda*) node_kind=cuda ;;
+        grid*) node_kind=grid ;;
+        *) node_kind="${NVIDIA_GPU_DRIVER_TYPE}" ;;
+    esac
     if [ -f "${marker}" ]; then
         marker_present=true
         m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
         # require both sides non-empty so a marker missing driver_kind= (or an unset
         # NVIDIA_GPU_DRIVER_TYPE) does not falsely report a match (empty = empty).
-        if [ -n "${m_kind}" ] && [ -n "${NVIDIA_GPU_DRIVER_TYPE}" ] && [ "${m_kind}" = "${NVIDIA_GPU_DRIVER_TYPE}" ]; then
+        if [ -n "${m_kind}" ] && [ -n "${node_kind}" ] && [ "${m_kind}" = "${node_kind}" ]; then
             driver_kind_match=true
         fi
     fi

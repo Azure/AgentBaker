@@ -71,7 +71,7 @@ func TestLoadConfig(t *testing.T) {
 // LoadConfig switch that maps each repo to its own driver version/suffix.
 func TestGPUImageRepo(t *testing.T) {
 	cases := map[string]string{
-		"mcr.microsoft.com/aks/aks-gpu-cuda:*":               "aks-gpu-cuda",
+		"mcr.microsoft.com/aks/aks-gpu-cuda-lts:*":           "aks-gpu-cuda-lts",
 		"mcr.microsoft.com/aks/aks-gpu-grid:*":               "aks-gpu-grid",
 		"mcr.microsoft.com/aks/aks-gpu-grid-v20:*":           "aks-gpu-grid-v20",
 		"mcr.microsoft.com/aks/aks-gpu-grid-v20:595.58.03-1": "aks-gpu-grid-v20",
