@@ -77,6 +77,81 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 }
 
+func TestGetKubeletConfigFileContent_MergesFlagsWithoutOverwritingContent(t *testing.T) {
+	kc := map[string]string{
+		"--image-gc-high-threshold": "85",
+		"--max-pods":                "110",
+	}
+	customKc := &datamodel.CustomKubeletConfig{
+		ImageGcHighThreshold: to.Int32Ptr(90),
+	}
+
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+
+	var merged datamodel.AKSKubeletConfiguration
+	err := json.Unmarshal([]byte(configFileStr), &merged)
+	if err != nil {
+		t.Fatalf("failed to parse generated kubelet config json: %v", err)
+	}
+
+	if merged.ImageGCHighThresholdPercent == nil || *merged.ImageGCHighThresholdPercent != 90 {
+		t.Fatalf("expected content value to win for imageGCHighThresholdPercent, got %v", merged.ImageGCHighThresholdPercent)
+	}
+	if merged.MaxPods != 110 {
+		t.Fatalf("expected missing content field maxPods to be backfilled from flags, got %v", merged.MaxPods)
+	}
+}
+
+// TestGetKubeletConfigFileContent_PrecedenceRules validates precedence when generating kubelet config file content:
+// Priority 1 (highest): CustomKubeletConfig — user-specified values via AKS API.
+// Priority 2: KubeletConfig flags — RP-provided defaults, backfills fields not set by CustomKC.
+// Priority 3: kubelet v1beta1 defaults — applied by kubelet for remaining unset fields.
+func TestGetKubeletConfigFileContent_PrecedenceRules(t *testing.T) {
+	kc := map[string]string{
+		"--image-gc-high-threshold": "85",
+		"--image-gc-low-threshold":  "80",
+		"--max-pods":                "110",
+		"--event-qps":               "0",
+		"--cluster-dns":             "172.16.0.10",
+		"--eviction-hard":           "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+	}
+	customKc := &datamodel.CustomKubeletConfig{
+		ImageGcHighThreshold: to.Int32Ptr(90), // conflicts with flag value 85
+		ImageGcLowThreshold:  to.Int32Ptr(70), // conflicts with flag value 80
+		// maxPods, eventRecordQPS, clusterDNS, evictionHard NOT set — must come from flags
+	}
+
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+
+	var merged datamodel.AKSKubeletConfiguration
+	err := json.Unmarshal([]byte(configFileStr), &merged)
+	if err != nil {
+		t.Fatalf("failed to parse generated kubelet config json: %v", err)
+	}
+
+	// Priority 1: CustomKC wins over flags when both set the same field.
+	if merged.ImageGCHighThresholdPercent == nil || *merged.ImageGCHighThresholdPercent != 90 {
+		t.Errorf("Priority 1 violated: expected imageGCHighThresholdPercent=90 (CustomKC), got %v", merged.ImageGCHighThresholdPercent)
+	}
+	if merged.ImageGCLowThresholdPercent == nil || *merged.ImageGCLowThresholdPercent != 70 {
+		t.Errorf("Priority 1 violated: expected imageGCLowThresholdPercent=70 (CustomKC), got %v", merged.ImageGCLowThresholdPercent)
+	}
+
+	// Priority 2: Flags backfill fields not set by CustomKC.
+	if merged.MaxPods != 110 {
+		t.Errorf("Priority 2 violated: expected maxPods=110 (from flags), got %v", merged.MaxPods)
+	}
+	if merged.EventRecordQPS == nil || *merged.EventRecordQPS != 0 {
+		t.Errorf("Priority 2 violated: expected eventRecordQPS=0 (from flags), got %v", merged.EventRecordQPS)
+	}
+	if len(merged.ClusterDNS) == 0 || merged.ClusterDNS[0] != "172.16.0.10" {
+		t.Errorf("Priority 2 violated: expected clusterDNS=[172.16.0.10] (from flags), got %v", merged.ClusterDNS)
+	}
+	if merged.EvictionHard == nil || merged.EvictionHard["memory.available"] != "750Mi" {
+		t.Errorf("Priority 2 violated: expected evictionHard to be backfilled from flags, got %v", merged.EvictionHard)
+	}
+}
+
 func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 	kc := map[string]string{
 		"--address":                           "0.0.0.0",
