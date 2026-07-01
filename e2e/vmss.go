@@ -74,11 +74,98 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 	return f, nil
 }
 
+// maxOutboundCSERetries bounds how many times node provisioning is retried when the
+// CSE outbound connectivity preflight check fails (ERR_OUTBOUND_CONN_FAIL / exit 50).
+// This is a known transient e2e-infrastructure flake; a genuine product regression
+// fails on every attempt and still surfaces once the budget is exhausted.
+const maxOutboundCSERetries = 2
+
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	vm, err := CreateVMSSWithRetry(ctx, s)
+	var vm *ScenarioVM
+	var err error
+	for attempt := 0; ; attempt++ {
+		vm, err = CreateVMSSWithRetry(ctx, s)
+		if err == nil {
+			break
+		}
+		// Known transient e2e-infra flake: the CSE outbound connectivity preflight check
+		// (curl mcr.microsoft.com, optionally via the e2e proxy) intermittently fails all
+		// retries and exits ERR_OUTBOUND_CONN_FAIL (50) before kubelet starts. Recreate the
+		// node a bounded number of times to reduce PR-gate noise without masking real
+		// regressions, which fail consistently and survive the retry budget.
+		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS {
+			break
+		}
+		// The VMExtensionProvisioningError returned by the create operation does not reliably
+		// embed the CSE status JSON, so classify the failure from the extension instance view
+		// (the same source getCustomScriptExtensionStatus parses) rather than string-matching
+		// the ARM error. Only the outbound preflight exit code is treated as retryable.
+		exitCode, ok := getLinuxCSEExitCode(ctx, s)
+		if !ok || exitCode != cseExitCodeOutboundConnFail {
+			break
+		}
+		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
+		deleteVMSSAndWait(ctx, s)
+	}
+
 	skipTestIfSKUNotAvailableErr(s.T, err)
 
 	return vm, err
+}
+
+// getLinuxCSEExitCode queries the VMSS instance view and returns the Linux CSE exit code
+// parsed from the CustomScript extension status. It reports ok=false when no parseable CSE
+// exit code is available (e.g. Windows, a non-CSE failure, or the instance view is not yet
+// populated). This is the reliable source of the exit code because the ARM provisioning
+// error does not consistently carry the full CSE status payload.
+func getLinuxCSEExitCode(ctx context.Context, s *Scenario) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
+		Expand: to.Ptr("instanceView"),
+	})
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", false
+		}
+		for _, vmssVM := range page.Value {
+			if vmssVM.Properties == nil || vmssVM.Properties.InstanceView == nil {
+				continue
+			}
+			for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+				for _, status := range extension.Statuses {
+					if status == nil {
+						continue
+					}
+					cseStatus, err := parseLinuxCSEMessage(*status)
+					if err != nil || cseStatus == nil || cseStatus.ExitCode == "" {
+						continue
+					}
+					return cseStatus.ExitCode, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// deleteVMSSAndWait synchronously deletes the scenario's VMSS so the same name can be
+// safely reused on the next provisioning attempt. Unlike deleteVMSS (fire-and-forget at
+// test cleanup), this waits for the delete to complete to avoid a create/delete conflict.
+func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+	poller, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+		ForceDeletion: to.Ptr(true),
+	})
+	if err != nil {
+		s.T.Logf("failed to begin delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+		return
+	}
+	if _, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		s.T.Logf("failed to wait for delete of vmss %q for retry: %s", s.Runtime.VMSSName, err)
+	}
 }
 
 // CustomDataWithHack is similar to nodeconfigutils.CustomData, but it uses a hack to run new aks-node-controller binary.
