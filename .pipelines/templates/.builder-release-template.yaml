@@ -286,7 +286,7 @@ steps:
         eq(variables.PREFETCH_COMPATIBLE, 'True')
       )
     displayName: Run Prefetch Optimization and Convert to VHD blob
-    retryCountOnTaskFailure: 10
+    retryCountOnTaskFailure: 3
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       LOCATION: $(PACKER_BUILD_LOCATION)

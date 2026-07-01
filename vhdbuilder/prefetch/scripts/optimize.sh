@@ -24,6 +24,12 @@ set -uxo pipefail
 IMAGE_BUILDER_API_VERSION="2025-10-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
 
+# image builder rejects new template creations and runs when too many tasks from a single subscription
+# are running or waiting (TooManyRequests). This limit clears slowly, so we back off heavily and retry a
+# large number of times before giving up.
+RATE_LIMIT_MAX_ATTEMPTS=15
+RATE_LIMIT_RETRY_DELAY_SECONDS=180
+
 IMAGE_BUILDER_TEMPLATE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
 CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
@@ -118,7 +124,7 @@ run_image_builder_template() {
         fi
 
         echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME}"
-        az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
+        retry_on_rate_limit az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
             --properties @input.json \
             --is-full-object \
             --api-version "${IMAGE_BUILDER_API_VERSION}" \
@@ -126,11 +132,11 @@ run_image_builder_template() {
             --resource-group "${IMAGE_BUILDER_RG_NAME}" || return $?
 
         echo "image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} has been created, starting run..."
-        az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
+        retry_on_rate_limit az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
     else
         if [ "$(az image builder show -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" | jq -r '.lastRunStatus')" = "null" ]; then
             echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has no lastRunStatus, will attempt to run..."
-            az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
+            retry_on_rate_limit az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
         else
             echo "will attempt to wait for image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} to finish its last run..."
             az image builder wait -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" --custom "lastRunStatus.runState!='Running'"
@@ -371,6 +377,36 @@ delete_staging_vhd() {
         sleep 30s
     done
     echo "${STAGING_VHD_URI} has been deleted"
+}
+
+# retry_on_rate_limit runs the provided command, retrying only when it fails because image builder has
+# rate limited us (TooManyRequests - image builder rejects new work when too many tasks from a single
+# subscription are running or waiting). Because this limit clears slowly, we back off heavily between
+# attempts. Any other (non rate limit) failure is returned immediately without retrying.
+retry_on_rate_limit() {
+    local attempt=1
+    local exit_code
+    local logfile
+    set +x
+    logfile="$(mktemp)"
+    while true; do
+        # stream the command output live via tee while also capturing it so we can inspect it for the
+        # rate limit error; PIPESTATUS[0] preserves the wrapped command's exit code (not tee's).
+        "$@" 2>&1 | tee "${logfile}"
+        exit_code="${PIPESTATUS[0]}"
+        if [ "${exit_code}" -eq 0 ]; then
+            rm -f "${logfile}"
+            return 0
+        fi
+        if ! grep -qi "TooManyRequests" "${logfile}" || [ "${attempt}" -ge "${RATE_LIMIT_MAX_ATTEMPTS}" ]; then
+            rm -f "${logfile}"
+            return "${exit_code}"
+        fi
+        echo "command was rate limited by image builder (attempt ${attempt}/${RATE_LIMIT_MAX_ATTEMPTS}), waiting ${RATE_LIMIT_RETRY_DELAY_SECONDS}s before retrying..."
+        sleep "${RATE_LIMIT_RETRY_DELAY_SECONDS}"
+        attempt=$((attempt + 1))
+    done
+    set -x
 }
 
 main "$@"
