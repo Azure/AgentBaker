@@ -783,18 +783,24 @@ EOF
     # 2. install drivers
     BOM_PATH="gb-mai-bom.json"
 
-    # Install a custom repository if a doca-custom-repo is specified
-    DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
-    if [ -n "$DOCA_CUSTOM_REPO" ]; then
-      mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
-      echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
-      apt-get update
-    fi
+    # EXPERIMENT (wave1 drop / inbox RDMA): do NOT install DOCA/OFED. linux-azure-nvidia 6.14
+    # ships the Data Direct GPUDirect-RDMA drivers inbox (verified in mlx5_ib), so the kernel RDMA
+    # stack (mlx5_core/mlx5_ib/ib_core) comes from the kernel itself. We skip the doca-custom-repo
+    # setup and the wave1 OFED packages; nvidia-peermem (built by the driver DKMS below) links
+    # against the inbox ib_core instead of OFED's.
 
-    # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
-    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
-    # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+    # Defensively remove any DOCA apt repo (its staging is gated off in packer_source.sh for this
+    # experiment) so apt-get update stays clean and RDMA userspace resolves to the distro/inbox
+    # packages, not MLNX_OFED.
+    rm -f /etc/apt/sources.list.d/doca-net.list
+    apt-get update
+
+    # Userspace RDMA verbs/tools from the distro (inbox rdma-core) for ib tools / NCCL.
+    sudo apt-get install -y rdma-core ibverbs-providers ibverbs-utils
+
+    # nvidia-dkms-580-open cannot share an apt transaction with the CUDA toolkit (CUDA puts an old
+    # gcc on the PATH that breaks the DKMS build), so install the GPU driver and its dependencies
+    # (wave2) before the downstream reverse-dependencies (wave3).
     sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
     sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
 
@@ -818,7 +824,7 @@ EOF
     systemctl enable nvidia-dcgm
     systemctl enable nvidia-dcgm-exporter
     systemctl enable nvidia-device-plugin
-    systemctl enable openibd
+    # (no openibd: OFED is not installed; the inbox mlx5/ib modules autoload via udev)
 
     # One additional request from MAI: signal that NPD is pre-installed on the VHD.
     # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
