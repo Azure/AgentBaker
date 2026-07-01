@@ -491,6 +491,12 @@ function nodePrep {
             ENABLE_MANAGED_GPU_EXPERIENCE="true"
         fi
 
+        if [ "${ENABLE_MANAGED_GPU_DRA,,}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+        fi
+
+        echo "Fully Managed GPU device plugin mode: ${ENABLE_MANAGED_GPU_EXPERIENCE}, DRA mode: ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
+
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
@@ -582,6 +588,11 @@ function nodePrep {
     fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
+
+    # defer starting DRA driver services after kubelet.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $?
+    fi
 
     if systemctl cat aks-log-collector.timer &>/dev/null; then
         systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
