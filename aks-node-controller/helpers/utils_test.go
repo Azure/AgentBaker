@@ -399,8 +399,8 @@ func TestValidateAndSetLinuxKubeletFlags_FeatureGatesByVersion(t *testing.T) {
 
 func TestValidateAndSetLinuxKubeletFlags_StreamingConnectionIdleTimeout(t *testing.T) {
 	testCases := []struct {
-		name        string
-		version     string
+		name          string
+		version       string
 		expectRemoved bool
 	}{
 		{
@@ -424,7 +424,7 @@ func TestValidateAndSetLinuxKubeletFlags_StreamingConnectionIdleTimeout(t *testi
 		t.Run(tc.name, func(t *testing.T) {
 			kubeletFlags := map[string]string{
 				"--streaming-connection-idle-timeout": "4h0m0s",
-				"--feature-gates":                    "",
+				"--feature-gates":                     "",
 			}
 
 			ValidateAndSetLinuxKubeletFlags(kubeletFlags, newTestContainerService(tc.version), &datamodel.AgentPoolProfile{})

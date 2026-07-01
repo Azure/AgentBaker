@@ -417,9 +417,9 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 	testCases := []struct {
-		name            string
-		k8sVersion      string
-		expectInConfig  bool
+		name           string
+		k8sVersion     string
+		expectInConfig bool
 	}{
 		{
 			name:           "k8s 1.33 keeps streamingConnectionIdleTimeout in config file",

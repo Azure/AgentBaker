@@ -1306,7 +1306,7 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_StreamingConnectionId
 				},
 				KubeletConfig: map[string]string{
 					"--streaming-connection-idle-timeout": "4h0m0s",
-					"--feature-gates":                    "",
+					"--feature-gates":                     "",
 				},
 			}
 
