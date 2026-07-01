@@ -2241,6 +2241,72 @@ func Test_AzureLinuxV3_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2204_Scriptless_CustomKC_TranslatedFlagSync validates two behaviors of
+// syncTranslatedFlagsToConfigFile on a real node:
+//
+//  1. CustomKC values in KubeletConfigFileConfig are NOT overwritten by flags (even if flags differ).
+//  2. Nil config file fields ARE backfilled from KubeletFlags.
+//
+// NOTE: Under current RP logic, scenario (1) cannot naturally occur — when enableKCF=true,
+// translated flags are stripped from KubeletFlags by filterKubeletFlags, so they never coexist
+// with differing config file values. We inject them here purely as a defensive check against
+// future RP changes. Scenario (2) also cannot naturally occur because both sides are derived
+// from the same flag map, but we test it by manually nil-ing a config file field.
+func Test_Ubuntu2204_Scriptless_CustomKC_TranslatedFlagSync(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
+		Description: "tests that CustomKC values are preserved and nil config file fields are backfilled from KubeletFlags by syncTranslatedFlagsToConfigFile",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					ImageGcHighThreshold: to.Ptr(int32(90)),
+					ImageGcLowThreshold:  to.Ptr(int32(70)),
+					FailSwapOn:           to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				// Simulate RP pre-merging CustomKC into KubeletConfigFileConfig (step 2b):
+				config.KubeletConfig.KubeletConfigFileConfig.ImageGcHighThresholdPercent = to.Ptr(int32(90))
+				config.KubeletConfig.KubeletConfigFileConfig.ImageGcLowThresholdPercent = to.Ptr(int32(70))
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
+
+				// Intentionally nil out EventRecordQps to test backfill from flags.
+				// In production this can happen when RP's CreateAKSNodeConfig path forgets
+				// to populate a config file field but does include the corresponding flag.
+				config.KubeletConfig.KubeletConfigFileConfig.EventRecordQps = nil
+
+				// Inject the translated flag that should backfill the nil field above.
+				// Normally enableKCF=true means translated flags are stripped, but we're
+				// simulating the edge case where RP leaves one behind.
+				config.KubeletConfig.KubeletFlags["--event-qps"] = "0"
+
+				// Also inject flags that DIFFER from CustomKC values to verify no override:
+				config.KubeletConfig.KubeletFlags["--image-gc-high-threshold"] = "85"
+				config.KubeletConfig.KubeletFlags["--image-gc-low-threshold"] = "80"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+				// (1) CustomKC values must be preserved — NOT overwritten by flags
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"imageGCHighThresholdPercent": 90`)
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"imageGCLowThresholdPercent": 70`)
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"failSwapOn": true`)
+				// (2) Nil field must be backfilled from flag
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"eventRecordQPS": 0`)
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_GPU(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV3 (CgroupV2) VHD can be properly bootstrapped",

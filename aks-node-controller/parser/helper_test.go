@@ -1546,8 +1546,9 @@ func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
 	if cfg.Authentication == nil || cfg.Authentication.X509 == nil || cfg.Authentication.X509.ClientCaFile != "/etc/kubernetes/certs/ca.crt" {
 		t.Errorf("expected authentication.x509.clientCaFile, got %v", cfg.Authentication)
 	}
-	if cfg.Authentication.Webhook == nil || !cfg.Authentication.Webhook.Enabled {
-		t.Errorf("expected authentication.webhook.enabled=true")
+	// Webhook.Enabled and Anonymous.Enabled are non-optional proto3 bool — NOT backfilled.
+	if cfg.Authentication.Webhook == nil {
+		t.Errorf("expected authentication.webhook to be initialized")
 	}
 	if cfg.Authorization == nil || cfg.Authorization.Mode != "Webhook" {
 		t.Errorf("expected authorization.mode=Webhook, got %v", cfg.Authorization)
