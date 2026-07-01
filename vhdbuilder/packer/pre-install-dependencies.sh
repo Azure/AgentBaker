@@ -1,7 +1,7 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
-OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -35,6 +35,11 @@ installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will no
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
+
+# Install minimal build dependencies as needed (currently only needed on Ubuntu 26.04)
+if [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+  installMinimalBuildDeps
+fi
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
