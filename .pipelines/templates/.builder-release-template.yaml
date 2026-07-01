@@ -402,6 +402,63 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
+        make -f packer.mk convert-vhd-to-cosi
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables['OS_SKU'], 'AzureContainerLinux')
+      )
+    displayName: Convert ACL VHD to COSI
+    env:
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
+      OFFER_NAME: $(OS_SKU)
+      IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
+
+  - task: PublishPipelineArtifact@1
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables['OS_SKU'], 'AzureContainerLinux')
+      )
+    displayName: Publish COSI Publishing Info
+    inputs:
+      artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'cosi-publishing-info.json'
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi to immutable storage container"
+        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+        export AZCOPY_CONCURRENCY_VALUE="AUTO"
+        az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.cosi" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi" --auth-mode login || exit 1
+        echo "Successfully copied COSI to immutable container"
+        azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.cosi" --recursive=true
+    condition: |
+      and(
+        succeeded(),
+        eq(variables.ENVIRONMENT, 'tme'),
+        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        eq(variables['OS_SKU'], 'AzureContainerLinux'),
+        or(
+          eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+          eq(variables.PREFETCH_COMPATIBLE, 'False')
+        )
+      )
+    displayName: Copy COSI to Immutable Storage Container
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
         echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
         export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
         export AZCOPY_CONCURRENCY_VALUE="AUTO"

@@ -112,6 +112,9 @@ generate-publishing-info: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
+convert-vhd-to-cosi: az-login
+	@./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh "$${IMG_CUSTOMIZER_ALLOW_FALLBACK:-false}"
+
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 

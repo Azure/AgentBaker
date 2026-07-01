@@ -887,6 +887,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -912,6 +914,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -937,6 +941,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -962,6 +968,8 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
+              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
