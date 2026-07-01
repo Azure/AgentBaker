@@ -52,10 +52,10 @@ DESTINATION_CONTAINER_NAME="${STORAGE_ACCOUNT_BLOB_URL##*/}"
 STAGING_VHD_URI="${STORAGE_ACCOUNT_BLOB_URL_STAGING}/${VHD_NAME}"
 
 main() {
-    # for idempotency, check to see if the VHD we're trying to create already exists.
-    # if it's already in the expected state, this will cause the script to exit early.
-    # otherwise, we delete any existing VHD in an unexpected state and retry the whole
-    # optimization + conversion flow
+    # for idempotency, check whether the target VHD already exists. If a previous run already produced it
+    # successfully, exit early; if a server-side copy is still in progress, wait for it to finish. Because
+    # the destination container may be immutable, a VHD left in a bad state cannot be deleted and recreated
+    # and is treated as fatal.
     check_for_existing_vhd
 
     # attempt to perform prefetch optimization, distributing the optimized image as a VHD into the
@@ -66,18 +66,16 @@ main() {
 }
 
 check_for_existing_vhd() {
-    vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
-    if [ -z "${vhd_info}" ]; then
+    if [ "$(az storage blob exists --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "false" ]; then
         echo "no existing VHD was found at: ${VHD_URI}, will proceed with optimization and VHD creation"
         return 0
     fi
     echo "VHD already exists at: ${VHD_URI}"
 
-    # the VHD is produced by a server-side blob copy from the staging container, so its copy status tells
-    # us whether a previous run already completed. A successful copy means there is nothing to do; a
-    # pending copy just needs to be waited on. Any other state means the blob is in a bad state and must
-    # be recreated.
-    copy_status="$(jq -r '.properties.copy.status' <<< "${vhd_info}")"
+    # the VHD in a potentially immutable container is produced by a server-side blob copy, so its copy status
+    # tells us whether a previous run already completed. Because the container may have an immutability policy,
+    # a VHD in a bad state cannot be deleted and recreated, so any non-success terminal state is fatal.
+    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
     if [ "${copy_status,,}" = "success" ]; then
         echo "VHD ${VHD_URI} was already produced by a previous prefetch optimization run, nothing to do"
         exit 0
@@ -87,11 +85,11 @@ check_for_existing_vhd() {
         if wait_for_vhd_copy; then
             exit 0
         fi
-        echo "pending copy over ${VHD_URI} did not complete successfully, will delete existing blob and retry"
-    else
-        echo "VHD ${VHD_URI} exists in an unexpected copy state: '${copy_status}', will delete before proceeding"
     fi
-    delete_vhd || exit $?
+    # the VHD exists in a non-success state within the immutable container. It cannot be deleted due to
+    # the immutability policy, so there is nothing we can do to recover - fail the script.
+    echo "VHD ${VHD_URI} exists in an unrecoverable copy state: '${copy_status}'"
+    exit 1
 }
 
 ensure_image_builder_rg() {
@@ -197,7 +195,7 @@ prepare_source() {
 # 4. Create a new managed image in the build location from the temporary VHD blob, which will be used as the source image of the image builder template
 convert_specialized_sig_version_to_managed_image() {
     managed_image_name="${CAPTURED_SIG_VERSION}-template-source"
-    managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" | jq -r '.id')"
+    managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" | jq -r '.id // empty')"
     if [ -n "${managed_image_id}" ]; then
         echo "managed image source already exists: ${managed_image_id}"
         SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
@@ -288,7 +286,6 @@ create_temp_storage() {
         echo "creating container \"${storage_container_name}\" within temporary storage account ${storage_account_name}"
         az storage container create --name "${storage_container_name}" --account-name "${storage_account_name}" --auth-mode login || return $?
     fi
-
     temp_vhd_uri="https://${storage_account_name}.blob.core.windows.net/${storage_container_name}/${VHD_NAME}"
     echo "temp VHD URI is ${temp_vhd_uri}"
     TEMP_VHD_URI="${temp_vhd_uri}"
@@ -302,21 +299,40 @@ create_temp_storage() {
 # 1. azcopy the optimized VHD into the staging container (STORAGE_ACCOUNT_BLOB_URL_STAGING)
 # 2. perform a single server-side blob copy from the staging container into the immutable vhd container
 copy_optimized_vhd() {
-    artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv 2>/dev/null)"
-    if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
-        echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
-        return 1
-    fi
-    echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
-    export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
-    export AZCOPY_CONCURRENCY_VALUE="AUTO"
-    echo "copying optimized VHD from image builder staging storage to ${STAGING_VHD_URI}"
-    azcopy copy "${artifact_uri}" "${STAGING_VHD_URI}" --recursive=true
-    azcopy_exit_code=$?
+    # The staging container should never have an immutability policy, so copying from image builder staging storage is
+    # fully retriable. If a previous run already produced a complete staging blob (marked with the
+    # prefetched metadata flag) but failed before finishing the server-side copy into the
+    # immutable vhd container, reuse that staging blob and skip re-copying. An incomplete staging blob
+    # left over from an interrupted copy is deleted and recreated.
+    staging_info="$(az storage blob show --blob-url "${STAGING_VHD_URI}" --auth-mode login 2>/dev/null)"
+    staging_blob_name="$(jq -r '.name // empty' <<< "${staging_info}" 2>/dev/null)"
+    if [ -n "${staging_blob_name}" ] && [ "$(jq -r '.metadata.prefetched' <<< "${staging_info}")" = "true" ]; then
+        echo "optimized VHD is already present and complete in staging at ${STAGING_VHD_URI}, skipping copy from image builder staging storage"
+    else
+        if [ -n "${staging_blob_name}" ]; then
+            echo "found an incomplete staging VHD at ${STAGING_VHD_URI} from a previous run, will delete it before recopying"
+            delete_staging_vhd || return $?
+        fi
 
-    if [ "${azcopy_exit_code}" -ne 0 ]; then
-        echo "failed to copy optimized VHD to staging location ${STAGING_VHD_URI}"
-        return "${azcopy_exit_code}"
+        artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv 2>/dev/null)"
+        if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
+            echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
+            return 1
+        fi
+        echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
+        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+        export AZCOPY_CONCURRENCY_VALUE="AUTO"
+        echo "copying optimized VHD from image builder staging storage to ${STAGING_VHD_URI}"
+        azcopy copy "${artifact_uri}" "${STAGING_VHD_URI}" --recursive=true
+        azcopy_exit_code=$?
+        if [ "${azcopy_exit_code}" -ne 0 ]; then
+            echo "failed to copy optimized VHD to staging location ${STAGING_VHD_URI}"
+            return "${azcopy_exit_code}"
+        fi
+
+        # mark the staging blob complete so a later retry that failed before finishing the server-side
+        # copy can detect it and skip re-copying from image builder staging storage.
+        az storage blob metadata update --blob-url "${STAGING_VHD_URI}" --auth-mode login --metadata prefetched=true || return $?
     fi
 
     # server-side copy the VHD from the staging container into the immutable vhd container. This creates
@@ -348,13 +364,13 @@ wait_for_vhd_copy() {
     echo "server-side copy to ${VHD_URI} completed successfully"
 }
 
-delete_vhd() {
-    az storage blob delete --blob-url "${VHD_URI}" --auth-mode login || return $?
-    while [ -n "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.name')" ]; do
-        echo "VHD ${VHD_URI} has yet to be deleted, will wait 30s before checking again"
+delete_staging_vhd() {
+    az storage blob delete --blob-url "${STAGING_VHD_URI}" --auth-mode login || return $?
+    while [ -n "$(az storage blob show --blob-url "${STAGING_VHD_URI}" --auth-mode login 2>/dev/null | jq -r '.name // empty')" ]; do
+        echo "staging VHD ${STAGING_VHD_URI} has yet to be deleted, will wait 30s before checking again"
         sleep 30s
     done
-    echo "${VHD_URI} has been deleted"
+    echo "${STAGING_VHD_URI} has been deleted"
 }
 
 main "$@"
