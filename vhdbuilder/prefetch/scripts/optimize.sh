@@ -396,17 +396,18 @@ retry_on_rate_limit() {
         exit_code="${PIPESTATUS[0]}"
         if [ "${exit_code}" -eq 0 ]; then
             rm -f "${logfile}"
+            set -x
             return 0
         fi
         if ! grep -qi "TooManyRequests" "${logfile}" || [ "${attempt}" -ge "${RATE_LIMIT_MAX_ATTEMPTS}" ]; then
             rm -f "${logfile}"
+            set -x
             return "${exit_code}"
         fi
         echo "command was rate limited by image builder (attempt ${attempt}/${RATE_LIMIT_MAX_ATTEMPTS}), waiting ${RATE_LIMIT_RETRY_DELAY_SECONDS}s before retrying..."
         sleep "${RATE_LIMIT_RETRY_DELAY_SECONDS}"
         attempt=$((attempt + 1))
     done
-    set -x
 }
 
 main "$@"
