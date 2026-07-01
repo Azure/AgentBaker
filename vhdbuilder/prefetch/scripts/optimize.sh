@@ -353,6 +353,11 @@ copy_optimized_vhd() {
 
     wait_for_vhd_copy || return $?
 
+    # the optimized VHD is now safely in the immutable vhd container, so the staging copy is no longer
+    # needed - delete it as best-effort cleanup so staging blobs do not accumulate in the destination account.
+    # Use no-wait since we don't need to wait for the blob to be deleted in this case.
+    delete_staging_vhd true || echo "unable to delete staging VHD ${STAGING_VHD_URI}, will proceed"
+
     echo "optimized VHD has been published to: ${VHD_URI}"
 }
 
@@ -371,7 +376,13 @@ wait_for_vhd_copy() {
 }
 
 delete_staging_vhd() {
+    # when no_wait is true, issue the delete and return immediately without polling for the blob to disappear.
+    local no_wait="${1:-false}"
     az storage blob delete --blob-url "${STAGING_VHD_URI}" --auth-mode login || return $?
+    if [ "${no_wait,,}" = "true" ]; then
+        echo "issued delete for staging VHD ${STAGING_VHD_URI} without waiting for completion"
+        return 0
+    fi
     while [ -n "$(az storage blob show --blob-url "${STAGING_VHD_URI}" --auth-mode login 2>/dev/null | jq -r '.name // empty')" ]; do
         echo "staging VHD ${STAGING_VHD_URI} has yet to be deleted, will wait 30s before checking again"
         sleep 30s
