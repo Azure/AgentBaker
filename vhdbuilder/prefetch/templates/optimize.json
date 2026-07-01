@@ -34,7 +34,6 @@
         "distribute": [
             {
                 "type": "VHD",
-                "uri": "<VHD_URI>",
                 "runOutputName": "VHD"
             }
         ]
