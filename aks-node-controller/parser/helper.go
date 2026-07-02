@@ -798,7 +798,7 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	backfillMapString("--kube-reserved", &cfg.KubeReserved, "=")
 
 	// Map[string]bool fields (feature gates) — backfill if nil or empty.
-	if cfg.FeatureGates == nil {
+	if len(cfg.FeatureGates) == 0 {
 		if v, ok := flags["--feature-gates"]; ok && v != "" {
 			cfg.FeatureGates = parseKeyValuePairsBool(v)
 		}
