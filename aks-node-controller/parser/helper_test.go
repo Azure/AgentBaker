@@ -1451,7 +1451,7 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 	}
 }
 
-func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
+func Test_syncTranslatedFlagsToConfigFile_BackfillsSupportedFieldTypes(t *testing.T) {
 	cfg := &aksnodeconfigv1.KubeletConfigFileConfig{}
 	flags := map[string]string{
 		// string
