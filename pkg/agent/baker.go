@@ -1494,15 +1494,7 @@ func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.NvidiaGridDriverVersion
 	}
-	if isStandardNCv1(size) {
-		return datamodel.Nvidia470CudaDriverVersion
-	}
 	return datamodel.NvidiaCudaDriverVersion
-}
-
-func isStandardNCv1(size string) bool {
-	tmp := strings.ToLower(size)
-	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
 }
 
 func useGridDrivers(size string) bool {
@@ -1527,19 +1519,21 @@ func GetAKSGPUImageSHA(size string) string {
 
 // GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
 // The value becomes NVIDIA_GPU_DRIVER_TYPE at provision time, which selects the container image
-// mcr.microsoft.com/aks/aks-gpu-<type>. Modern CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
+// mcr.microsoft.com/aks/aks-gpu-<type>. All CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
 // use the R580 LTS image (aks-gpu-cuda-lts): it retains Volta/V100 support that the newer aks-gpu-cuda
 // R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
-// against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
+// against.
+//
+// Legacy NCv1 (K80, Kepler) is intentionally NOT special-cased. NVIDIA R470 was the last branch to
+// support Kepler data-center GPUs, and AKS never published an aks-gpu-cuda R470 image (that tag always
+// 404'd), so no managed driver can actually run a K80. NCv1 therefore falls through to the default
+// cuda-lts path like any other compute SKU. The hardware is EOL and effectively unused on AKS.
 func GetGPUDriverType(size string) string {
 	if useGridV20Drivers(size) {
 		return "grid-v20"
 	}
 	if useGridDrivers(size) {
 		return "grid"
-	}
-	if isStandardNCv1(size) {
-		return "cuda"
 	}
 	return "cuda-lts"
 }

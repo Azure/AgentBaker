@@ -939,8 +939,11 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 })
 
 var _ = Describe("GetGPUDriverVersion", func() {
-	It("should use 470 with nc v1", func() {
-		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
+	// NCv1 (K80, Kepler) is EOL: R470 was the last branch to support it and AKS never published an
+	// R470 image, so it is no longer special-cased and falls through to the default CUDA (cuda-lts)
+	// version like any other compute SKU.
+	It("should fall through to cuda-lts version for legacy nc v1 (K80)", func() {
+		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.NvidiaCudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
 		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaDriverVersion))
@@ -967,8 +970,9 @@ var _ = Describe("GetGPUDriverType", func() {
 	It("should use cuda-lts with nc v3", func() {
 		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
 	})
-	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
-		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
+	// NCv1 (K80, Kepler) is EOL and no longer special-cased; it falls through to cuda-lts.
+	It("should fall through to cuda-lts for legacy nc v1 (K80)", func() {
+		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda-lts"))
 	})
 	It("should use grid with nv v5", func() {
 		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))

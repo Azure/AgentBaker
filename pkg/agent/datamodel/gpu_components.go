@@ -8,8 +8,6 @@ import (
 	"github.com/Azure/agentbaker/parts"
 )
 
-const Nvidia470CudaDriverVersion = "cuda-470.82.01"
-
 //nolint:gochecknoglobals
 var (
 	NvidiaCudaDriverVersion    string

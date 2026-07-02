@@ -175,8 +175,9 @@ installGPUDriverSysext() {
     #
     # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
     # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
-    # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
-    # NCv1 gets "cuda". Only grid vs non-grid matters here, so both take the CUDA path below.
+    # "grid-v20" (Ubuntu-only, rejected below); all other CUDA SKUs (including legacy
+    # NCv1/K80) get "cuda-lts". Only grid vs non-grid matters here, so the CUDA path
+    # below handles every non-grid SKU.
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     local vm_sku
     vm_sku=$(get_compute_sku)
