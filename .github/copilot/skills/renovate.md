@@ -40,14 +40,18 @@ The `renovateTag` field in `components.json` tells Renovate how to find and upda
 - **Container images**: `"renovateTag": "registry=https://mcr.microsoft.com, name=<image-path>"`
   - Example: `"registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer"`
   - `name` has no leading slash
-- **Ubuntu packages**: `"renovateTag": "name=<pkg-name>, os=ubuntu, release=<version>"`
-  - Example: `"name=moby-containerd, os=ubuntu, release=22.04"`
+- **Ubuntu packages**: `"renovateTag": "name=<pkg-name>, repository=<repo>, os=ubuntu, release=<version>"`
+  - Example: `"name=moby-containerd, repository=production, os=ubuntu, release=22.04"`
+  - `repository` is typically `production` for most packages
 - **OCI artifacts (MAR)**: `"renovateTag": "OCI_registry=https://mcr.microsoft.com, name=<artifact-path>"`
   - Example: `"OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node"`
-- **Azure Linux RPM packages**: `"renovateTag": "name=<pkg-name>, os=azurelinux, release=3.0"`
+- **Azure Linux RPM packages**: `"renovateTag": "RPM_registry=<repodata-url>, name=<pkg-name>, os=azurelinux, release=3.0"`
+  - Example: `"RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=containernetworking-plugins, os=azurelinux, release=3.0"`
+  - The `RPM_registry` URL varies by package category (`base`, `cloud-native`, `ms-oss`)
+  - For Mariner 2.0: replace `azurelinux/3.0` with `cbl-mariner/2.0` in the URL
 - **Disabled**: `"renovateTag": "<DO_NOT_UPDATE>"` — Renovate ignores this entry
 
-**Critical rule**: `renovateTag` must be exactly one line before `latestVersion`. The regex parser depends on this positioning.
+**Critical rule**: `renovateTag` must immediately precede `latestVersion` with no intervening keys. The regex parser depends on this adjacency.
 
 ### Version Schema
 
@@ -262,13 +266,14 @@ Output MUST follow this format:
 4. Test: set `latestVersion` to a known older version, run `npx renovate --platform=local --dry-run=true`
 
 ### Ubuntu Packages (PMC)
-1. Add to `components.json` under appropriate OS releases with `renovateTag`: `"name=<pkg>, os=ubuntu, release=<ver>"`
+1. Add to `components.json` under appropriate OS releases with `renovateTag`: `"name=<pkg>, repository=production, os=ubuntu, release=<ver>"`
 2. Separate entries needed per release (r2004, r2204, r2404) — each has its own PMC datasource URL
 3. Existing custom managers cover Ubuntu; no `renovate.json` change needed unless new datasource required
 4. Add assignee rule in `packageRules`
 
 ### Azure Linux RPM Packages
-1. Add to `components.json` with `renovateTag`: `"name=<pkg>, os=azurelinux, release=3.0"`
+1. Add to `components.json` with `renovateTag`: `"RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/<category>/x86_64/repodata, name=<pkg>, os=azurelinux, release=3.0"`
+   - Replace `<category>` with the appropriate repo section: `base`, `cloud-native`, or `ms-oss`
 2. May need `"ignoreUnstable": false` package rule if minor updates desired (AzureLinux suffixes like `-1.azl3` are classified unstable)
 3. Ensure the RPM datasource URL covers the package
 
@@ -294,12 +299,12 @@ This lets you iterate quickly without risking the production Renovate configurat
 
 ### "Why isn't Renovate creating a PR?"
 
-1. **Check `renovateTag`** — must match expected format exactly (order matters: `registry=`, `name=` for containers; `name=`, `os=`, `release=` for packages)
+1. **Check `renovateTag`** — must match expected format exactly (order matters: `registry=`, `name=` for containers; `name=`, `repository=`, `os=`, `release=` for Ubuntu packages; `RPM_registry=`, `name=`, `os=`, `release=` for Azure Linux RPMs)
 2. **Run locally**: `npx renovate --platform=local --dry-run=true` with `$Env:LOG_LEVEL='trace'`
 3. **Check stability**: RPM/deb versions with suffixes may be classified unstable — add `"ignoreUnstable": false`
 4. **Check package rules**: a broader rule may be disabling the update type (specific-to-generic ordering matters)
 5. **Verify datasource**: confirm the package exists in the datasource URL (check PMC endpoint, MCR tags list)
-6. **Check matchStrings regex**: the `renovateTag` line must be exactly one line before `latestVersion`
+6. **Check matchStrings regex**: `renovateTag` must immediately precede `latestVersion` with no intervening keys
 
 ### Common Issues
 - **Minor updates not appearing**: Default `minor` disabled. Need explicit `packageRules` with `"matchUpdateTypes": ["minor"], "enabled": true` scoped to the component.
