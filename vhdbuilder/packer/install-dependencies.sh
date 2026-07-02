@@ -880,7 +880,16 @@ while IFS= read -r imageToBePulled; do
   done
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-wait ${image_pids[@]}
+while [ "$(jobs -p | wc -l)" -gt 0 ]; do
+  wait -n || {
+    ret=$?
+    echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+    for pid in "${image_pids[@]}"; do
+      kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+    done
+    exit "${ret}"
+  }
+done
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 retagAKSNodeCAWatcher() {
