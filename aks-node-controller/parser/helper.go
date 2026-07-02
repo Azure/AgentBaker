@@ -672,15 +672,15 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 	if kubeletConfig == nil {
 		return ""
 	}
-kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
-if kubeletConfigFileConfig == nil {
-	kubeletConfigFileConfig = &aksnodeconfigv1.KubeletConfigFileConfig{
-		Kind:       "KubeletConfiguration",
-		ApiVersion: "kubelet.config.k8s.io/v1beta1",
+	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
+	if kubeletConfigFileConfig == nil {
+		kubeletConfigFileConfig = &aksnodeconfigv1.KubeletConfigFileConfig{
+			Kind:       "KubeletConfiguration",
+			ApiVersion: "kubelet.config.k8s.io/v1beta1",
+		}
 	}
-}
-syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
-kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
+	syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
+	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
@@ -769,11 +769,11 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	// would violate the precedence model (e.g., RotateCertificates=false is a valid
 	// explicit choice that should not be overwritten by a flag value of true).
 
-// String slice fields — backfill only when nil.
-backfillStringSlice := func(flag string, field *[]string) {
-	if *field != nil {
-		return
-	}
+	// String slice fields — backfill only when nil.
+	backfillStringSlice := func(flag string, field *[]string) {
+		if *field != nil {
+			return
+		}
 		v, ok := flags[flag]
 		if !ok || v == "" {
 			return
