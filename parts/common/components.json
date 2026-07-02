@@ -2219,28 +2219,28 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0+169074536"
+                "latestVersion": "1.0.0"
               }
             ],
-            "downloadURL": "https://acrmirrordev.z5.web.core.windows.net/${version}/acr-mirror-2004.deb"
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2004.deb"
           },
           "r2204": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0+169074536"
+                "latestVersion": "1.0.0"
               }
             ],
-            "downloadURL": "https://acrmirrordev.z5.web.core.windows.net/${version}/acr-mirror-2204.deb"
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2204.deb"
           },
           "r2404": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0+169074536"
+                "latestVersion": "1.0.0"
               }
             ],
-            "downloadURL": "https://acrmirrordev.z5.web.core.windows.net/${version}/acr-mirror-2404.deb"
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-2404.deb"
           }
         },
         "azurelinux": {
@@ -2248,10 +2248,10 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0+169074536"
+                "latestVersion": "1.0.0"
               }
             ],
-            "downloadURL": "https://acrmirrordev.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
           },
           "OSGUARD/v3.0": {
             "versionsV2": [
