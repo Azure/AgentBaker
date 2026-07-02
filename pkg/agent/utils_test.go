@@ -41,7 +41,6 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--event-qps":                         "0",
 		"--pod-max-pids":                      "-1",
 		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
 		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
@@ -95,7 +94,6 @@ func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 		"--event-qps":                         "0",
 		"--pod-max-pids":                      "-1",
 		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
@@ -129,7 +127,6 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--event-qps":                         "0",
 		"--pod-max-pids":                      "-1",
 		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
 		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
@@ -186,7 +183,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -267,7 +263,6 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "nodeStatusReportFrequency": "5m0s",
     "imageGCHighThresholdPercent": 90,
@@ -347,7 +342,6 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -746,9 +740,8 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
 							"kubelet": {
 								Config: map[string]string{
-									"--node-status-update-frequency":      "20s",
-									"--streaming-connection-idle-timeout": "4h0m0s",
-									"--seccomp-default":                   "true",
+									"--node-status-update-frequency": "20s",
+									"--seccomp-default":              "true",
 								},
 							},
 						},
@@ -759,7 +752,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s"
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true"
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
@@ -1271,25 +1264,47 @@ func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 	}
 }
 
-func TestValidateAndSetLinuxNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) {
+func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) {
 	testCases := []struct {
 		name          string
 		version       string
+		isWindows     bool
 		expectRemoved bool
 	}{
 		{
-			name:          "k8s 1.33 keeps streaming-connection-idle-timeout",
+			name:          "linux k8s 1.33 keeps streaming-connection-idle-timeout",
 			version:       "1.33.0",
+			isWindows:     false,
 			expectRemoved: false,
 		},
 		{
-			name:          "k8s 1.34.0 removes streaming-connection-idle-timeout",
+			name:          "linux k8s 1.34.0 removes streaming-connection-idle-timeout",
 			version:       "1.34.0",
+			isWindows:     false,
 			expectRemoved: true,
 		},
 		{
-			name:          "k8s 1.35.0 removes streaming-connection-idle-timeout",
+			name:          "linux k8s 1.35.0 removes streaming-connection-idle-timeout",
 			version:       "1.35.0",
+			isWindows:     false,
+			expectRemoved: true,
+		},
+		{
+			name:          "windows k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			isWindows:     true,
+			expectRemoved: false,
+		},
+		{
+			name:          "windows k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			isWindows:     true,
+			expectRemoved: true,
+		},
+		{
+			name:          "windows k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			isWindows:     true,
 			expectRemoved: true,
 		},
 	}
@@ -1310,21 +1325,25 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_StreamingConnectionId
 				},
 			}
 
-			ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+			if tc.isWindows {
+				validateAndSetWindowsNodeBootstrappingConfiguration(config)
+			} else {
+				ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+			}
 
 			_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
 			if tc.expectRemoved && exists {
-				t.Fatalf("expected --streaming-connection-idle-timeout to be removed for k8s %s", tc.version)
+				t.Fatalf("expected --streaming-connection-idle-timeout to be removed for k8s %s (%s)", tc.version, map[bool]string{true: "windows", false: "linux"}[tc.isWindows])
 			}
 			if !tc.expectRemoved && !exists {
-				t.Fatalf("expected --streaming-connection-idle-timeout to be kept for k8s %s", tc.version)
+				t.Fatalf("expected --streaming-connection-idle-timeout to be kept for k8s %s (%s)", tc.version, map[bool]string{true: "windows", false: "linux"}[tc.isWindows])
 			}
 		})
 	}
 
 	// Verify that when RP already omits the flag (>= 1.34 behavior),
 	// AgentBaker does not re-introduce it.
-	t.Run("k8s 1.34 with flag absent from input - AgentBaker does not add it back", func(t *testing.T) {
+	t.Run("linux k8s 1.34 with flag absent from input - not re-introduced", func(t *testing.T) {
 		config := &datamodel.NodeBootstrappingConfiguration{
 			ContainerService: &datamodel.ContainerService{
 				Properties: &datamodel.Properties{
@@ -1340,6 +1359,29 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_StreamingConnectionId
 		}
 
 		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+
+		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+		if exists {
+			t.Fatalf("AgentBaker should not re-introduce --streaming-connection-idle-timeout when RP already omits it")
+		}
+	})
+
+	t.Run("windows k8s 1.34 with flag absent from input - not re-introduced", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+				},
+			},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 
 		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
 		if exists {
