@@ -766,7 +766,15 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	backfillStringSlice := func(flag string, field *[]string) {
 		if len(*field) == 0 {
 			if v, ok := flags[flag]; ok && v != "" {
-				*field = strings.Split(v, ",")
+				parts := strings.Split(v, ",")
+				out := make([]string, 0, len(parts))
+				for _, p := range parts {
+					p = strings.TrimSpace(p)
+					if p != "" {
+						out = append(out, p)
+					}
+				}
+				*field = out
 			}
 		}
 	}
@@ -797,32 +805,25 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	}
 
 	// Nested authentication fields.
-	if cfg.Authentication == nil {
-		cfg.Authentication = &aksnodeconfigv1.KubeletAuthentication{}
-	}
-	if cfg.Authentication.X509 == nil {
-		cfg.Authentication.X509 = &aksnodeconfigv1.KubeletX509Authentication{}
-	}
-	if cfg.Authentication.X509.ClientCaFile == "" {
-		if v, ok := flags["--client-ca-file"]; ok && v != "" {
+	if v, ok := flags["--client-ca-file"]; ok && v != "" {
+		if cfg.Authentication == nil {
+			cfg.Authentication = &aksnodeconfigv1.KubeletAuthentication{}
+		}
+		if cfg.Authentication.X509 == nil {
+			cfg.Authentication.X509 = &aksnodeconfigv1.KubeletX509Authentication{}
+		}
+		if cfg.Authentication.X509.ClientCaFile == "" {
 			cfg.Authentication.X509.ClientCaFile = v
 		}
 	}
-	if cfg.Authentication.Webhook == nil {
-		cfg.Authentication.Webhook = &aksnodeconfigv1.KubeletWebhookAuthentication{}
-	}
-	// Webhook.Enabled is a non-optional proto3 bool — NOT backfilled.
-	// Cannot distinguish "explicitly false" from "never set". Same for Anonymous.Enabled.
-	if cfg.Authentication.Anonymous == nil {
-		cfg.Authentication.Anonymous = &aksnodeconfigv1.KubeletAnonymousAuthentication{}
-	}
+	// Webhook.Enabled and Anonymous.Enabled are non-optional proto3 bools — not backfilled.
 
 	// Nested authorization fields.
-	if cfg.Authorization == nil {
-		cfg.Authorization = &aksnodeconfigv1.KubeletAuthorization{}
-	}
-	if cfg.Authorization.Mode == "" {
-		if v, ok := flags["--authorization-mode"]; ok && v != "" {
+	if v, ok := flags["--authorization-mode"]; ok && v != "" {
+		if cfg.Authorization == nil {
+			cfg.Authorization = &aksnodeconfigv1.KubeletAuthorization{}
+		}
+		if cfg.Authorization.Mode == "" {
 			cfg.Authorization.Mode = v
 		}
 	}
