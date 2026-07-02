@@ -1450,6 +1450,7 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 	}
 }
 
+//nolint:gocognit
 func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
 	cfg := &aksnodeconfigv1.KubeletConfigFileConfig{}
 	flags := map[string]string{
