@@ -1512,10 +1512,10 @@ func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
 	assert.True(t, cfg.FeatureGates["RotateKubeletServerCertificate"])
 	assert.False(t, cfg.FeatureGates["DynamicKubeletConfig"])
 
-	// Nested auth fields.
+	// Nested auth/authz fields.
 	assert.Equal(t, "/etc/kubernetes/certs/ca.crt", cfg.Authentication.X509.ClientCaFile)
-	// Webhook and Anonymous structs are not initialized — their Enabled fields are
-	// non-optional proto3 bools that cannot be safely backfilled.
+	assert.NotNil(t, cfg.Authentication.Webhook)
+	assert.True(t, cfg.Authentication.Webhook.Enabled)
 	assert.Equal(t, "Webhook", cfg.Authorization.Mode)
 }
 

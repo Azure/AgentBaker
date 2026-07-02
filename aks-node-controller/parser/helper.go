@@ -666,7 +666,7 @@ func marshalToJSON(v any) ([]byte, error) {
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 // When KubeletFlags contains translated flags whose corresponding KubeletConfigFileConfig field is
 // empty/nil, those flag values are synced into the config file to reduce reliance on kubelet v1beta1 defaults.
-// For proto3 scalar fields without presence (e.g., non-optional bool/int32), sync is intentionally skipped.
+// For proto3 scalars without field-level presence (e.g., non-optional bool/int32), sync is skipped unless presence is provided by a containing message (e.g., authentication.webhook/authentication.anonymous).
 func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
 		return ""
@@ -764,7 +764,7 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 
 	// String slice fields — backfill if nil or empty.
 	backfillStringSlice := func(flag string, field *[]string) {
-		if len(*field) == 0 {
+		if *field == nil {
 			if v, ok := flags[flag]; ok && v != "" {
 				parts := strings.Split(v, ",")
 				out := make([]string, 0, len(parts))
@@ -785,7 +785,7 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 
 	// Map[string]string fields — backfill if nil or empty.
 	backfillMapString := func(flag string, field *map[string]string, sep string) {
-		if len(*field) == 0 {
+		if *field == nil {
 			if v, ok := flags[flag]; ok && v != "" {
 				*field = parseKeyValuePairs(v, sep)
 			}
@@ -798,7 +798,7 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	backfillMapString("--kube-reserved", &cfg.KubeReserved, "=")
 
 	// Map[string]bool fields (feature gates) — backfill if nil or empty.
-	if len(cfg.FeatureGates) == 0 {
+	if cfg.FeatureGates == nil {
 		if v, ok := flags["--feature-gates"]; ok && v != "" {
 			cfg.FeatureGates = parseKeyValuePairsBool(v)
 		}
