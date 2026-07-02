@@ -51,6 +51,18 @@ var (
 	containerdConfigNoGPUTemplate = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
+	//go:embed  templates/containerd_v2.toml.gtpl
+	containerdV2ConfigTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigTemplate = template.Must(
+		template.New("containerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigTemplateText),
+	)
+	//go:embed  templates/containerd_v2_no_GPU.toml.gtpl
+	containerdV2ConfigNoGPUTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigNoGPUTemplate = template.Must(
+		template.New("nogpucontainerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigNoGPUTemplateText),
+	)
 
 	//go:embed templates/localdns.toml.gtpl
 	localDnsCorefileTemplateText string
@@ -181,11 +193,20 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
-	// TODO: add containerdv2 support
-	// the containerd config template is different based on whether the node is with GPU or not.
-	_template := containerdConfigTemplate
-	if noGPU {
-		_template = containerdConfigNoGPUTemplate
+	// Select the appropriate containerd config template based on version and GPU presence.
+	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
+	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
+	var _template *template.Template
+	if isContainerdV2(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
+		_template = containerdV2ConfigTemplate
+		if noGPU {
+			_template = containerdV2ConfigNoGPUTemplate
+		}
+	} else {
+		_template = containerdConfigTemplate
+		if noGPU {
+			_template = containerdConfigNoGPUTemplate
+		}
 	}
 
 	var buffer bytes.Buffer
@@ -194,6 +215,16 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	}
 
 	return buffer.String(), nil
+}
+
+// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
+// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
+// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
+func isContainerdV2(version string) bool {
+	if version == "" {
+		return false
+	}
+	return helpers.IsKubernetesVersionGe(version, "2.0.0")
 }
 
 func getIsMIGNode(gpuInstanceProfile string) bool {
