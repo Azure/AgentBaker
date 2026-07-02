@@ -29,6 +29,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -1450,7 +1451,6 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 	}
 }
 
-//nolint:gocognit
 func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
 	cfg := &aksnodeconfigv1.KubeletConfigFileConfig{}
 	flags := map[string]string{
@@ -1484,77 +1484,39 @@ func Test_syncTranslatedFlagsToConfigFile_BackfillsAllFieldTypes(t *testing.T) {
 	syncTranslatedFlagsToConfigFile(cfg, flags)
 
 	// String fields.
-	if cfg.Address != "0.0.0.0" {
-		t.Errorf("expected address=0.0.0.0, got %s", cfg.Address)
-	}
-	if cfg.ClusterDomain != "cluster.local" {
-		t.Errorf("expected clusterDomain=cluster.local, got %s", cfg.ClusterDomain)
-	}
+	assert.Equal(t, "0.0.0.0", cfg.Address)
+	assert.Equal(t, "cluster.local", cfg.ClusterDomain)
 
 	// *int32 fields.
-	if cfg.EventRecordQps == nil || *cfg.EventRecordQps != 0 {
-		t.Errorf("expected eventRecordQps=0, got %v", cfg.EventRecordQps)
-	}
-	if cfg.ImageGcHighThresholdPercent == nil || *cfg.ImageGcHighThresholdPercent != 85 {
-		t.Errorf("expected imageGcHighThresholdPercent=85, got %v", cfg.ImageGcHighThresholdPercent)
-	}
-	if cfg.MaxPods == nil || *cfg.MaxPods != 110 {
-		t.Errorf("expected maxPods=110, got %v", cfg.MaxPods)
-	}
+	assert.Equal(t, to.Ptr(int32(0)), cfg.EventRecordQps)
+	assert.Equal(t, to.Ptr(int32(85)), cfg.ImageGcHighThresholdPercent)
+	assert.Equal(t, to.Ptr(int32(110)), cfg.MaxPods)
 
 	// *bool fields.
-	if cfg.CgroupsPerQos == nil || *cfg.CgroupsPerQos != true {
-		t.Errorf("expected cgroupsPerQos=true, got %v", cfg.CgroupsPerQos)
-	}
-	if cfg.FailSwapOn == nil || *cfg.FailSwapOn != false {
-		t.Errorf("expected failSwapOn=false, got %v", cfg.FailSwapOn)
-	}
+	assert.Equal(t, to.Ptr(true), cfg.CgroupsPerQos)
+	assert.Equal(t, to.Ptr(false), cfg.FailSwapOn)
 
 	// Non-optional bool fields — NOT backfilled (zero value ambiguity).
-	// RotateCertificates and ProtectKernelDefaults remain at their zero value (false)
-	// because we cannot distinguish "explicitly false" from "never set".
-	if cfg.RotateCertificates {
-		t.Errorf("expected rotateCertificates to remain false (not backfilled)")
-	}
-	if cfg.ProtectKernelDefaults {
-		t.Errorf("expected protectKernelDefaults to remain false (not backfilled)")
-	}
+	assert.False(t, cfg.RotateCertificates, "rotateCertificates should not be backfilled")
+	assert.False(t, cfg.ProtectKernelDefaults, "protectKernelDefaults should not be backfilled")
 
 	// []string fields.
-	if len(cfg.ClusterDns) != 2 || cfg.ClusterDns[0] != "10.0.0.10" {
-		t.Errorf("expected clusterDns=[10.0.0.10,10.0.0.11], got %v", cfg.ClusterDns)
-	}
-	if len(cfg.EnforceNodeAllocatable) != 1 || cfg.EnforceNodeAllocatable[0] != "pods" {
-		t.Errorf("expected enforceNodeAllocatable=[pods], got %v", cfg.EnforceNodeAllocatable)
-	}
+	assert.Equal(t, []string{"10.0.0.10", "10.0.0.11"}, cfg.ClusterDns)
+	assert.Equal(t, []string{"pods"}, cfg.EnforceNodeAllocatable)
 
 	// map[string]string fields.
-	if cfg.EvictionHard == nil || cfg.EvictionHard["memory.available"] != "750Mi" {
-		t.Errorf("expected evictionHard[memory.available]=750Mi, got %v", cfg.EvictionHard)
-	}
-	if cfg.SystemReserved == nil || cfg.SystemReserved["cpu"] != "100m" {
-		t.Errorf("expected systemReserved[cpu]=100m, got %v", cfg.SystemReserved)
-	}
+	assert.Equal(t, "750Mi", cfg.EvictionHard["memory.available"])
+	assert.Equal(t, "100m", cfg.SystemReserved["cpu"])
 
 	// map[string]bool fields.
-	if cfg.FeatureGates == nil || cfg.FeatureGates["RotateKubeletServerCertificate"] != true {
-		t.Errorf("expected featureGates[RotateKubeletServerCertificate]=true, got %v", cfg.FeatureGates)
-	}
-	if cfg.FeatureGates["DynamicKubeletConfig"] != false {
-		t.Errorf("expected featureGates[DynamicKubeletConfig]=false, got %v", cfg.FeatureGates)
-	}
+	assert.True(t, cfg.FeatureGates["RotateKubeletServerCertificate"])
+	assert.False(t, cfg.FeatureGates["DynamicKubeletConfig"])
 
 	// Nested auth fields.
-	if cfg.Authentication == nil || cfg.Authentication.X509 == nil || cfg.Authentication.X509.ClientCaFile != "/etc/kubernetes/certs/ca.crt" {
-		t.Errorf("expected authentication.x509.clientCaFile, got %v", cfg.Authentication)
-	}
-	// Webhook.Enabled and Anonymous.Enabled are non-optional proto3 bool — NOT backfilled.
-	if cfg.Authentication.Webhook == nil {
-		t.Errorf("expected authentication.webhook to be initialized")
-	}
-	if cfg.Authorization == nil || cfg.Authorization.Mode != "Webhook" {
-		t.Errorf("expected authorization.mode=Webhook, got %v", cfg.Authorization)
-	}
+	assert.Equal(t, "/etc/kubernetes/certs/ca.crt", cfg.Authentication.X509.ClientCaFile)
+	// Webhook and Anonymous structs are not initialized — their Enabled fields are
+	// non-optional proto3 bools that cannot be safely backfilled.
+	assert.Equal(t, "Webhook", cfg.Authorization.Mode)
 }
 
 func Test_syncTranslatedFlagsToConfigFile_DoesNotOverrideExistingValues(t *testing.T) {
