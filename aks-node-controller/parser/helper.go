@@ -785,7 +785,7 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 
 	// Map[string]string fields — backfill if nil or empty.
 	backfillMapString := func(flag string, field *map[string]string, sep string) {
-		if *field == nil {
+		if len(*field) == 0 {
 			if v, ok := flags[flag]; ok && v != "" {
 				*field = parseKeyValuePairs(v, sep)
 			}
