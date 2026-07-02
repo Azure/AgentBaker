@@ -1321,4 +1321,29 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_StreamingConnectionId
 			}
 		})
 	}
+
+	// Verify that when RP already omits the flag (>= 1.34 behavior),
+	// AgentBaker does not re-introduce it.
+	t.Run("k8s 1.34 with flag absent from input - AgentBaker does not add it back", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+				},
+			},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+
+		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+		if exists {
+			t.Fatalf("AgentBaker should not re-introduce --streaming-connection-idle-timeout when RP already omits it")
+		}
+	})
 }
