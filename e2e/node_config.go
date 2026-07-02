@@ -1078,12 +1078,19 @@ func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBoots
 	if err != nil {
 		return nil, err
 	}
-	constraint, err := semver.NewConstraint(">= 1.30.0")
+	constraint130, err := semver.NewConstraint(">= 1.30.0")
 	if err != nil {
 		return nil, err
 	}
-	if constraint.Check(version) {
+	if constraint130.Check(version) {
 		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
+	}
+	constraint134, err := semver.NewConstraint(">= 1.34.0")
+	if err != nil {
+		return nil, err
+	}
+	if constraint134.Check(version) {
+		delete(datamodel.KubeletConfig, "--streaming-connection-idle-timeout")
 	}
 	return datamodel, nil
 }

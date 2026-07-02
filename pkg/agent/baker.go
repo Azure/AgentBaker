@@ -638,6 +638,12 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
+
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	// It must not appear on the command line or in the config file for those versions.
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+		delete(kubeletFlags, "--streaming-connection-idle-timeout")
+	}
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
@@ -662,6 +668,11 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		}
+
+		// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			delete(kubeletFlags, "--streaming-connection-idle-timeout")
 		}
 	}
 }

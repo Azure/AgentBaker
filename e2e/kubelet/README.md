@@ -166,7 +166,7 @@ map[string]string{
   "--storage-driver-secure": "\"false\"",
   "--storage-driver-table": "\"stats\"",
   "--storage-driver-user": "\"root\"",
-  "--streaming-connection-idle-timeout": "\"4h0m0s\"",
+  "--streaming-connection-idle-timeout": "\"4h0m0s\"", // deprecated since k8s 1.25, removed from KubeletConfiguration in k8s 1.34
   "--sync-frequency": "\"1m0s\"",
   "--system-cgroups": "\"\"",
   "--system-reserved": "\"\"",
