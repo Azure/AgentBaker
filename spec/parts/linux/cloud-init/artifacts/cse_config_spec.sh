@@ -2146,6 +2146,25 @@ SETUP_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
         End
 
+        It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # Run the wrapped command so pullGPUDriverImage's failure propagates through the guard;
+            # the default logs_to_events mock only echoes the event name and never runs the command.
+            logs_to_events() { shift; "$@"; }
+            # ctr images ls returns empty -> cache miss -> pull path taken. The pull fails; install
+            # would otherwise succeed, so a missing guard would let INSTALL_RAN leak into the output.
+            pullGPUDriverImage() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
+        End
+
         It 'times the driver download and toolkit install on Mariner/AzureLinux'
             OS="AZURELINUX"
             isMarinerOrAzureLinux() { return 0; }
