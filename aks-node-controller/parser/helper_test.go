@@ -29,6 +29,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var expectedKubeletConfigFlags = "--address=0.0.0.0" +
@@ -1663,30 +1664,19 @@ func Test_getKubeletConfigFileContent_IntegratesSync(t *testing.T) {
 
 	content := getKubeletConfigFileContent(kubeletConfig)
 
-	var got map[string]any
-	if err := json.Unmarshal([]byte(content), &got); err != nil {
+	got := &aksnodeconfigv1.KubeletConfigFileConfig{}
+	if err := protojson.Unmarshal([]byte(content), got); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if v, ok := got["eventRecordQPS"]; !ok {
-		t.Fatalf("expected eventRecordQPS in output, got: %s", content)
-	} else if int32(v.(float64)) != 0 {
-		t.Fatalf("expected eventRecordQPS=0, got %v", v)
+	if got.EventRecordQps == nil || *got.EventRecordQps != 0 {
+		t.Fatalf("expected eventRecordQPS=0, got %v", got.EventRecordQps)
 	}
-
-	if v, ok := got["maxPods"]; !ok {
-		t.Fatalf("expected maxPods in output, got: %s", content)
-	} else if int32(v.(float64)) != 110 {
-		t.Fatalf("expected maxPods=110, got %v", v)
+	if got.MaxPods == nil || *got.MaxPods != 110 {
+		t.Fatalf("expected maxPods=110, got %v", got.MaxPods)
 	}
-
-	if v, ok := got["clusterDNS"]; !ok {
-		t.Fatalf("expected clusterDNS in output, got: %s", content)
-	} else {
-		dns := v.([]any)
-		if len(dns) == 0 || dns[0].(string) != "172.16.0.10" {
-			t.Fatalf("expected clusterDNS=[172.16.0.10], got %v", v)
-		}
+	if len(got.ClusterDns) == 0 || got.ClusterDns[0] != "172.16.0.10" {
+		t.Fatalf("expected clusterDNS=[172.16.0.10], got %v", got.ClusterDns)
 	}
 }
 
