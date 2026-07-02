@@ -673,11 +673,12 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 		return ""
 	}
 	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
-	if kubeletConfigFileConfig == nil {
+	if kubeletConfig.GetEnableKubeletConfigFile() && kubeletConfigFileConfig == nil {
 		kubeletConfigFileConfig = &aksnodeconfigv1.KubeletConfigFileConfig{
 			Kind:       "KubeletConfiguration",
 			ApiVersion: "kubelet.config.k8s.io/v1beta1",
 		}
+		kubeletConfig.KubeletConfigFileConfig = kubeletConfigFileConfig
 	}
 	syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
 	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
