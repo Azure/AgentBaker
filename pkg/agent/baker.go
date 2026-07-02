@@ -669,6 +669,11 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
 		}
+
+		// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+			delete(kubeletFlags, "--streaming-connection-idle-timeout")
+		}
 	}
 }
 
