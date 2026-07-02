@@ -11,6 +11,10 @@ ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
 ERR_UA_ESM_HOOK_CLEANUP=188 {{/* Error removing the apt ESM hook for Ubuntu Pro */}}
 ERR_UA_MASK_UNIT=189 {{/* Error stopping/disabling/masking an Ubuntu Pro background unit */}}
 ERR_UA_TOKEN_CLEANUP=190 {{/* Error removing the baked-in Ubuntu Pro machine token state */}}
+ERR_AMD_ROCM_UNSUPPORTED_OS=191 {{/* AMD ROCm prebake is only supported on Ubuntu 24.04 amd64 */}}
+ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT=192 {{/* Timeout waiting for AMD ROCm GPG key download */}}
+ERR_AMD_ROCM_INSTALL_TIMEOUT=193 {{/* Timeout waiting for AMD ROCm package install */}}
+ERR_AMD_ROCM_VALIDATE_FAIL=194 {{/* AMD ROCm prebake validation failed */}}
 
 ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
 ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
@@ -218,6 +222,120 @@ relinkResolvConf() {
 
 listInstalledPackages() {
     apt list --installed
+}
+
+setupAmdRocmAptRepos() {
+    local rocm_version="${1}"
+    local amdgpu_repo_version="${2}"
+    local rocm_gpg_keyring_path="/etc/apt/keyrings/rocm.gpg"
+    local rocm_gpg_key_download_path="/tmp/rocm.gpg.key"
+    local ubuntu_codename="${UBUNTU_CODENAME:-noble}"
+
+    if ! command -v gpg >/dev/null 2>&1; then
+        apt_get_install 30 1 300 gnupg || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+    fi
+
+    mkdir -p "$(dirname "${rocm_gpg_keyring_path}")"
+    retrycmd_curl_file 120 5 25 "${rocm_gpg_key_download_path}" "https://repo.radeon.com/rocm/rocm.gpg.key" 300 || exit $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor --yes -o "${rocm_gpg_keyring_path}" "${rocm_gpg_key_download_path}" || exit $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
+    rm -f "${rocm_gpg_key_download_path}"
+
+    cat > /etc/apt/sources.list.d/rocm.list <<EOF
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/rocm/apt/${rocm_version} ${ubuntu_codename} main
+deb [arch=amd64,i386 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/graphics/${rocm_version}/ubuntu ${ubuntu_codename} main
+EOF
+
+    cat > /etc/apt/sources.list.d/amdgpu.list <<EOF
+deb [arch=amd64,i386 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/amdgpu/${amdgpu_repo_version}/ubuntu ${ubuntu_codename} main
+EOF
+
+    cat > /etc/apt/preferences.d/repo-radeon-pin-600 <<EOF
+Package: *
+Pin: release o=repo.radeon.com
+Pin-Priority: 600
+EOF
+
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+removeAmdRocmAptRepos() {
+    rm -f /etc/apt/sources.list.d/rocm.list
+    rm -f /etc/apt/sources.list.d/amdgpu.list
+    rm -f /etc/apt/sources.list.d/amdgpu-proprietary.list
+    rm -f /etc/apt/preferences.d/repo-radeon-pin-600
+    rm -f /etc/apt/keyrings/rocm.gpg
+    rm -f /var/lib/apt/lists/*repo.radeon.com*
+}
+
+ensureAmdRocmModuleAutoload() {
+    mkdir -p /etc/modules-load.d
+    for modprobe_conf in /etc/modprobe.d/*.conf; do
+        [ -f "${modprobe_conf}" ] || continue
+        sed -i '/^[[:space:]]*blacklist[[:space:]]\+amdgpu\([[:space:]]\|$\)/d' "${modprobe_conf}"
+        sed -i '/^[[:space:]]*install[[:space:]]\+amdgpu[[:space:]]\+\/bin\/false\([[:space:]]\|$\)/d' "${modprobe_conf}"
+    done
+    printf '%s\n' amdgpu > /etc/modules-load.d/amdgpu.conf
+}
+
+validateAmdRocmPrebake() {
+    local marker_path="/opt/azure/amd-rocm/version"
+    local kernel_version
+    kernel_version="$(uname -r)"
+
+    for package_name in amdgpu-dkms libdrm-amdgpu-dev rocm-core rocminfo rocm-smi-lib; do
+        dpkg-query -W "${package_name}" >/dev/null || return 1
+    done
+
+    dkms status amdgpu | grep -q "${kernel_version}.*installed" || return 1
+    modinfo amdgpu >/dev/null || return 1
+    ! grep -qsE '^[[:space:]]*(blacklist[[:space:]]+amdgpu|install[[:space:]]+amdgpu[[:space:]]+/bin/false)([[:space:]]|$)' /etc/modprobe.d/*.conf 2>/dev/null || return 1
+    grep -qx amdgpu /etc/modules-load.d/amdgpu.conf || return 1
+    command -v rocminfo >/dev/null || return 1
+    command -v rocm-smi >/dev/null || return 1
+    [ -f "${marker_path}" ] || return 1
+}
+
+installAmdRocmPrebake() {
+    local rocm_version="${AMD_ROCM_VERSION:-7.2.4}"
+    local amdgpu_repo_version="${AMD_ROCM_AMDGPU_REPO_VERSION:-30.30.4}"
+    local amdgpu_dkms_version="${AMD_ROCM_AMDGPU_DKMS_VERSION:-1:6.16.13.30300400-2341068.24.04}"
+    local libdrm_amdgpu_dev_version="${AMD_ROCM_LIBDRM_AMDGPU_DEV_VERSION:-1:2.4.125.07020400-2341098.24.04}"
+    local rocm_package_version="${AMD_ROCM_PACKAGE_VERSION:-7.2.4.70204-93~24.04}"
+    local rocminfo_package_version="${AMD_ROCM_ROCMINFO_VERSION:-1.0.0.70204-93~24.04}"
+    local rocm_smi_lib_package_version="${AMD_ROCM_SMI_LIB_VERSION:-7.8.0.70204-93~24.04}"
+    local kernel_version
+    kernel_version="$(uname -r)"
+
+    if [ "${UBUNTU_RELEASE}" != "24.04" ] || [ "$(isARM64)" -eq 1 ]; then
+        echo "AMD ROCm prebake is only supported on Ubuntu 24.04 amd64. Found Ubuntu ${UBUNTU_RELEASE}, CPU_ARCH=$(getCPUArch)."
+        exit $ERR_AMD_ROCM_UNSUPPORTED_OS
+    fi
+
+    ensureAmdRocmModuleAutoload
+    setupAmdRocmAptRepos "${rocm_version}" "${amdgpu_repo_version}"
+
+    apt_get_install 30 1 600 "linux-headers-${kernel_version}" "linux-modules-extra-${kernel_version}" || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+    apt_get_install 30 1 1800 \
+        "amdgpu-dkms=${amdgpu_dkms_version}" \
+        "libdrm-amdgpu-dev=${libdrm_amdgpu_dev_version}" \
+        "rocm-core=${rocm_package_version}" \
+        "rocminfo=${rocminfo_package_version}" \
+        "rocm-smi-lib=${rocm_smi_lib_package_version}" || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+
+    mkdir -p /opt/azure/amd-rocm
+    cat > /opt/azure/amd-rocm/version <<EOF
+rocm_version=${rocm_version}
+amdgpu_repo_version=${amdgpu_repo_version}
+amdgpu_dkms_version=${amdgpu_dkms_version}
+libdrm_amdgpu_dev_version=${libdrm_amdgpu_dev_version}
+package_set=minimal-host
+kernel=${kernel_version}
+built_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+EOF
+    chmod 644 /opt/azure/amd-rocm/version
+
+    validateAmdRocmPrebake || exit $ERR_AMD_ROCM_VALIDATE_FAIL
+    removeAmdRocmAptRepos
 }
 
 attachUA() {

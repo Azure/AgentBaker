@@ -663,6 +663,18 @@ var _ = Describe("Windows CSE variables check", func() {
 		Expect(vars["configGPUDriverIfNeeded"]).To(Equal(false))
 	})
 
+	It("sets amdGpuNode to true", func() {
+		config.EnableAMDGPU = true
+		vars := getCSECommandVariables(config)
+		Expect(vars["amdGpuNode"]).To(Equal("true"))
+	})
+
+	It("sets amdGpuNode to false", func() {
+		config.EnableAMDGPU = false
+		vars := getCSECommandVariables(config)
+		Expect(vars["amdGpuNode"]).To(Equal("false"))
+	})
+
 	It("sets windowsSecureTlsEnabled to true", func() {
 		value := true
 		config.ContainerService.Properties.WindowsProfile.WindowsSecureTlsEnabled = &value

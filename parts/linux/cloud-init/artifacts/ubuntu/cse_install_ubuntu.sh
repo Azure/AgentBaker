@@ -223,6 +223,186 @@ removeNvidiaRepos() {
     fi
 }
 
+amdRocmUbuntuRelease() {
+    if [ -n "${UBUNTU_RELEASE:-}" ]; then
+        echo "${UBUNTU_RELEASE}"
+        return 0
+    fi
+    . /etc/os-release
+    echo "${VERSION_ID}"
+}
+
+amdRocmUbuntuCodename() {
+    if [ -n "${UBUNTU_CODENAME:-}" ]; then
+        echo "${UBUNTU_CODENAME}"
+        return 0
+    fi
+    . /etc/os-release
+    echo "${VERSION_CODENAME}"
+}
+
+isAmdRocmSupportedSku() {
+    local vm_sku
+    vm_sku="$(get_compute_sku 2>/dev/null || true)"
+    case "${vm_sku,,}" in
+        standard_nd96isr_mi300x_v5|standard_nd96is_mi300x_v5)
+            return 0
+            ;;
+    esac
+    echo "AMD ROCm CSE install is not supported for VM SKU '${vm_sku}'"
+    return 1
+}
+
+setupAmdRocmAptRepos() {
+    local rocm_version="${1}"
+    local amdgpu_repo_version="${2}"
+    local rocm_gpg_keyring_path="/etc/apt/keyrings/rocm.gpg"
+    local rocm_gpg_key_download_path="/tmp/rocm.gpg.key"
+    local ubuntu_codename
+    ubuntu_codename="$(amdRocmUbuntuCodename)"
+
+    if [ -n "${PROXY_VARS}" ]; then
+        eval "${PROXY_VARS}"
+    fi
+
+    if ! command -v gpg >/dev/null 2>&1; then
+        apt_get_install 30 1 300 gnupg || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+    fi
+
+    mkdir -p "$(dirname "${rocm_gpg_keyring_path}")"
+    retrycmd_curl_file 120 5 25 "${rocm_gpg_key_download_path}" "https://repo.radeon.com/rocm/rocm.gpg.key" 300 || exit $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor --yes -o "${rocm_gpg_keyring_path}" "${rocm_gpg_key_download_path}" || exit $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
+    rm -f "${rocm_gpg_key_download_path}"
+
+    cat > /etc/apt/sources.list.d/rocm.list <<EOF
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/rocm/apt/${rocm_version} ${ubuntu_codename} main
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/graphics/${rocm_version}/ubuntu ${ubuntu_codename} main
+EOF
+
+    cat > /etc/apt/sources.list.d/amdgpu.list <<EOF
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/amdgpu/${amdgpu_repo_version}/ubuntu ${ubuntu_codename} main
+EOF
+
+    cat > /etc/apt/preferences.d/repo-radeon-pin-600 <<EOF
+Package: *
+Pin: release o=repo.radeon.com
+Pin-Priority: 600
+EOF
+
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+}
+
+removeAmdRocmAptRepos() {
+    rm -f /etc/apt/sources.list.d/rocm.list
+    rm -f /etc/apt/sources.list.d/amdgpu.list
+    rm -f /etc/apt/sources.list.d/amdgpu-proprietary.list
+    rm -f /etc/apt/preferences.d/repo-radeon-pin-600
+    rm -f /etc/apt/keyrings/rocm.gpg
+    rm -f /var/lib/apt/lists/*repo.radeon.com*
+}
+
+amdRocmBinaryPath() {
+    local binary_name="${1}"
+    if command -v "${binary_name}" >/dev/null 2>&1; then
+        command -v "${binary_name}"
+        return 0
+    fi
+    if [ -x "/opt/rocm/bin/${binary_name}" ]; then
+        echo "/opt/rocm/bin/${binary_name}"
+        return 0
+    fi
+    return 1
+}
+
+ensureAmdRocmModuleAutoload() {
+    mkdir -p /etc/modules-load.d
+    for modprobe_conf in /etc/modprobe.d/*.conf; do
+        [ -f "${modprobe_conf}" ] || continue
+        sed -i '/^[[:space:]]*blacklist[[:space:]]\+amdgpu\([[:space:]]\|$\)/d' "${modprobe_conf}"
+        sed -i '/^[[:space:]]*install[[:space:]]\+amdgpu[[:space:]]\+\/bin\/false\([[:space:]]\|$\)/d' "${modprobe_conf}"
+    done
+    printf '%s\n' amdgpu > /etc/modules-load.d/amdgpu.conf
+}
+
+validateAmdRocmDriver() {
+    local kernel_version
+    local rocminfo_bin
+    local rocm_smi_bin
+    kernel_version="$(uname -r)"
+
+    for package_name in amdgpu-dkms libdrm-amdgpu-dev rocm-core rocminfo rocm-smi-lib; do
+        dpkg-query -W "${package_name}" >/dev/null 2>&1 || return 1
+    done
+
+    dkms status amdgpu | grep -q "${kernel_version}.*installed" || return 1
+    modinfo amdgpu >/dev/null 2>&1 || return 1
+    ! grep -qsE '^[[:space:]]*(blacklist[[:space:]]+amdgpu|install[[:space:]]+amdgpu[[:space:]]+/bin/false)([[:space:]]|$)' /etc/modprobe.d/*.conf 2>/dev/null || return 1
+    grep -qx amdgpu /etc/modules-load.d/amdgpu.conf || return 1
+    retrycmd_if_failure 12 5 30 modprobe amdgpu || return 1
+    retrycmd_if_failure 12 5 5 test -e /dev/kfd || return 1
+    retrycmd_if_failure 12 5 5 bash -c "find /dev/dri -maxdepth 1 -name 'renderD*' -print -quit | grep -q ." || return 1
+
+    rocminfo_bin="$(amdRocmBinaryPath rocminfo)" || return 1
+    rocm_smi_bin="$(amdRocmBinaryPath rocm-smi)" || return 1
+    timeout 60 "${rocminfo_bin}" >/tmp/amd-rocminfo.out 2>&1 || return 1
+    grep -q "gfx942" /tmp/amd-rocminfo.out || return 1
+    timeout 60 "${rocm_smi_bin}" --showproductname >/tmp/amd-rocm-smi.out 2>&1 || return 1
+    grep -q "AMD Instinct MI300X VF" /tmp/amd-rocm-smi.out || return 1
+}
+
+ensureAmdGpuDrivers() {
+    local rocm_version="${AMD_ROCM_VERSION:-7.2.4}"
+    local amdgpu_repo_version="${AMD_ROCM_AMDGPU_REPO_VERSION:-30.30.4}"
+    local amdgpu_dkms_version="${AMD_ROCM_AMDGPU_DKMS_VERSION:-1:6.16.13.30300400-2341068.24.04}"
+    local libdrm_amdgpu_dev_version="${AMD_ROCM_LIBDRM_AMDGPU_DEV_VERSION:-1:2.4.125.07020400-2341098.24.04}"
+    local rocm_package_version="${AMD_ROCM_PACKAGE_VERSION:-7.2.4.70204-93~24.04}"
+    local rocminfo_package_version="${AMD_ROCM_ROCMINFO_VERSION:-1.0.0.70204-93~24.04}"
+    local rocm_smi_lib_package_version="${AMD_ROCM_SMI_LIB_VERSION:-7.8.0.70204-93~24.04}"
+    local kernel_version
+    local ubuntu_release
+    kernel_version="$(uname -r)"
+    ubuntu_release="$(amdRocmUbuntuRelease)"
+
+    if [ "${OS}" != "${UBUNTU_OS_NAME}" ] || [ "${ubuntu_release}" != "24.04" ] || [ "$(isARM64)" -eq 1 ]; then
+        echo "AMD ROCm CSE install is only supported on Ubuntu 24.04 amd64. Found OS=${OS}, Ubuntu=${ubuntu_release}, CPU_ARCH=$(getCPUArch)."
+        exit $ERR_AMD_ROCM_UNSUPPORTED_OS
+    fi
+    isAmdRocmSupportedSku || exit $ERR_AMD_ROCM_UNSUPPORTED_OS
+    ensureAmdRocmModuleAutoload
+
+    if [ -f /opt/azure/amd-rocm/version ] && validateAmdRocmDriver; then
+        echo "AMD ROCm driver is already installed and validated"
+        return 0
+    fi
+
+    setupAmdRocmAptRepos "${rocm_version}" "${amdgpu_repo_version}"
+
+    apt_get_install 30 1 600 "linux-headers-${kernel_version}" "linux-modules-extra-${kernel_version}" || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+    apt_get_install 30 1 2400 \
+        "amdgpu-dkms=${amdgpu_dkms_version}" \
+        "libdrm-amdgpu-dev=${libdrm_amdgpu_dev_version}" \
+        "rocm-core=${rocm_package_version}" \
+        "rocminfo=${rocminfo_package_version}" \
+        "rocm-smi-lib=${rocm_smi_lib_package_version}" || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+    ldconfig || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+
+    mkdir -p /opt/azure/amd-rocm
+    cat > /opt/azure/amd-rocm/version <<EOF
+install_mode=cse
+package_set=minimal-host
+rocm_version=${rocm_version}
+amdgpu_repo_version=${amdgpu_repo_version}
+amdgpu_dkms_version=${amdgpu_dkms_version}
+libdrm_amdgpu_dev_version=${libdrm_amdgpu_dev_version}
+kernel=${kernel_version}
+installed_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+EOF
+    chmod 644 /opt/azure/amd-rocm/version
+
+    validateAmdRocmDriver || exit $ERR_AMD_ROCM_VALIDATE_FAIL
+    removeAmdRocmAptRepos
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the

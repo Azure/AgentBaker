@@ -40,6 +40,7 @@ func TestBuildCSECmd(t *testing.T) {
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assert.Equal(t, "false", vars["GPU_NODE"])
+				assert.Equal(t, "false", vars["AMD_GPU_NODE"])
 				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
@@ -67,6 +68,21 @@ oom_score = -999
   address = "0.0.0.0:10257"
 `
 				require.Equal(t, expectedShimConfig, containerdConfigFileContent)
+			},
+		},
+		{
+			name:       "AKSUbuntu2204 containerd with AMD GPU",
+			folder:     "AKSUbuntu2204+Containerd+MIG",
+			k8sVersion: "1.19.13",
+			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(false)
+				aksNodeConfig.GpuConfig.EnableAmdGpu = to.Ptr(true)
+				aksNodeConfig.VmSize = "Standard_ND96isr_MI300X_v5"
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "false", vars["GPU_NODE"])
+				assert.Equal(t, "true", vars["AMD_GPU_NODE"])
 			},
 		},
 		{
@@ -452,6 +468,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NETWORK_PLUGIN", "")
 				assertHasKeyWithValue(t, vars, "VNET_CNI_PLUGINS_URL", "")
 				assertHasKeyWithValue(t, vars, "GPU_NODE", "false")
+				assertHasKeyWithValue(t, vars, "AMD_GPU_NODE", "false")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "")
 				assertHasKeyWithValue(t, vars, "CUSTOM_CA_TRUST_COUNT", "0")
 				assertHasKeyWithValue(t, vars, "SHOULD_CONFIGURE_CUSTOM_CA_TRUST", "false")
