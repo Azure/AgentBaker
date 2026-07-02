@@ -880,9 +880,14 @@ func parseKeyValuePairs(s, sep string) map[string]string {
 	result := make(map[string]string)
 	for _, pair := range strings.Split(s, ",") {
 		parts := strings.SplitN(pair, sep, 2)
-		if len(parts) == 2 {
-			result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		if len(parts) != 2 {
+			continue
 		}
+		key := strings.TrimSpace(parts[0])
+		if key == "" {
+			continue
+		}
+		result[key] = strings.TrimSpace(parts[1])
 	}
 	return result
 }
@@ -892,10 +897,15 @@ func parseKeyValuePairsBool(s string) map[string]bool {
 	result := make(map[string]bool)
 	for _, pair := range strings.Split(s, ",") {
 		parts := strings.SplitN(pair, "=", 2)
-		if len(parts) == 2 {
-			if b, err := strconv.ParseBool(strings.TrimSpace(parts[1])); err == nil {
-				result[strings.TrimSpace(parts[0])] = b
-			}
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		if key == "" {
+			continue
+		}
+		if b, err := strconv.ParseBool(strings.TrimSpace(parts[1])); err == nil {
+			result[key] = b
 		}
 	}
 	return result
