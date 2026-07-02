@@ -33,10 +33,14 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 //nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
-	// Clear it so it doesn't appear in the marshaled config file JSON.
+	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
+	// on the command line or in the marshaled config file JSON.
 	if helpers.IsKubernetesVersionGe(config.GetKubernetesVersion(), "1.34.0") {
-		if kcfg := config.GetKubeletConfig().GetKubeletConfigFileConfig(); kcfg != nil {
-			kcfg.StreamingConnectionIdleTimeout = ""
+		if kc := config.GetKubeletConfig(); kc != nil {
+			delete(kc.KubeletFlags, "--streaming-connection-idle-timeout")
+			if kcfg := kc.GetKubeletConfigFileConfig(); kcfg != nil {
+				kcfg.StreamingConnectionIdleTimeout = ""
+			}
 		}
 	}
 
