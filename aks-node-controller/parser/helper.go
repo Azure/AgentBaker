@@ -764,7 +764,7 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 
 	// String slice fields — backfill if nil or empty.
 	backfillStringSlice := func(flag string, field *[]string) {
-		if *field == nil {
+		if len(*field) == 0 {
 			if v, ok := flags[flag]; ok && v != "" {
 				parts := strings.Split(v, ",")
 				out := make([]string, 0, len(parts))
