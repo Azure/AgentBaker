@@ -672,9 +672,15 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 	if kubeletConfig == nil {
 		return ""
 	}
-	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
-	syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
-	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
+kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
+if kubeletConfigFileConfig == nil {
+	kubeletConfigFileConfig = &aksnodeconfigv1.KubeletConfigFileConfig{
+		Kind:       "KubeletConfiguration",
+		ApiVersion: "kubelet.config.k8s.io/v1beta1",
+	}
+}
+syncTranslatedFlagsToConfigFile(kubeletConfigFileConfig, kubeletConfig.GetKubeletFlags())
+kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
@@ -763,11 +769,11 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	// would violate the precedence model (e.g., RotateCertificates=false is a valid
 	// explicit choice that should not be overwritten by a flag value of true).
 
-	// String slice fields — backfill if nil or empty.
-	backfillStringSlice := func(flag string, field *[]string) {
-		if len(*field) != 0 {
-			return
-		}
+// String slice fields — backfill only when nil.
+backfillStringSlice := func(flag string, field *[]string) {
+	if *field != nil {
+		return
+	}
 		v, ok := flags[flag]
 		if !ok || v == "" {
 			return
@@ -789,25 +795,25 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	backfillStringSlice("--enforce-node-allocatable", &cfg.EnforceNodeAllocatable)
 	backfillStringSlice("--allowed-unsafe-sysctls", &cfg.AllowedUnsafeSysctls)
 	// Map[string]string fields — backfill if nil or empty.
-	backfillMapString := func(flag string, field *map[string]string, sep string) {
-		if len(*field) == 0 {
-			if v, ok := flags[flag]; ok && v != "" {
-				*field = parseKeyValuePairs(v, sep)
-			}
+backfillMapString := func(flag string, field *map[string]string, sep string) {
+	if *field == nil {
+		if v, ok := flags[flag]; ok && v != "" {
+			*field = parseKeyValuePairs(v, sep)
 		}
 	}
+}
 	backfillMapString("--eviction-hard", &cfg.EvictionHard, "<")
 	backfillMapString("--eviction-soft", &cfg.EvictionSoft, "<")
 	backfillMapString("--eviction-soft-grace-period", &cfg.EvictionSoftGracePeriod, "=")
 	backfillMapString("--system-reserved", &cfg.SystemReserved, "=")
 	backfillMapString("--kube-reserved", &cfg.KubeReserved, "=")
 
-	// Map[string]bool fields (feature gates) — backfill if nil or empty.
-	if len(cfg.FeatureGates) == 0 {
-		if v, ok := flags["--feature-gates"]; ok && v != "" {
-			cfg.FeatureGates = parseKeyValuePairsBool(v)
-		}
+// Map[string]bool fields (feature gates) — backfill only when nil.
+if cfg.FeatureGates == nil {
+	if v, ok := flags["--feature-gates"]; ok && v != "" {
+		cfg.FeatureGates = parseKeyValuePairsBool(v)
 	}
+}
 
 	// Nested authentication fields.
 	if v, ok := flags["--client-ca-file"]; ok && v != "" {
