@@ -794,26 +794,37 @@ backfillStringSlice := func(flag string, field *[]string) {
 	backfillStringSlice("--tls-cipher-suites", &cfg.TlsCipherSuites)
 	backfillStringSlice("--enforce-node-allocatable", &cfg.EnforceNodeAllocatable)
 	backfillStringSlice("--allowed-unsafe-sysctls", &cfg.AllowedUnsafeSysctls)
-	// Map[string]string fields — backfill if nil or empty.
-backfillMapString := func(flag string, field *map[string]string, sep string) {
-	if *field == nil {
-		if v, ok := flags[flag]; ok && v != "" {
-			*field = parseKeyValuePairs(v, sep)
+
+	// Map[string]string fields — backfill if nil.
+	backfillMapString := func(flag string, field *map[string]string, sep string) {
+		if *field != nil {
+			return
 		}
+		v, ok := flags[flag]
+		if !ok || v == "" {
+			return
+		}
+		parsed := parseKeyValuePairs(v, sep)
+		if len(parsed) == 0 {
+			return
+		}
+		*field = parsed
 	}
-}
 	backfillMapString("--eviction-hard", &cfg.EvictionHard, "<")
 	backfillMapString("--eviction-soft", &cfg.EvictionSoft, "<")
 	backfillMapString("--eviction-soft-grace-period", &cfg.EvictionSoftGracePeriod, "=")
 	backfillMapString("--system-reserved", &cfg.SystemReserved, "=")
 	backfillMapString("--kube-reserved", &cfg.KubeReserved, "=")
 
-// Map[string]bool fields (feature gates) — backfill only when nil.
-if cfg.FeatureGates == nil {
-	if v, ok := flags["--feature-gates"]; ok && v != "" {
-		cfg.FeatureGates = parseKeyValuePairsBool(v)
+	// Map[string]bool fields (feature gates) — backfill if nil.
+	if len(cfg.FeatureGates) == 0 {
+		if v, ok := flags["--feature-gates"]; ok && v != "" {
+			parsed := parseKeyValuePairsBool(v)
+			if len(parsed) != 0 {
+				cfg.FeatureGates = parsed
+			}
+		}
 	}
-}
 
 	// Nested authentication fields.
 	if v, ok := flags["--client-ca-file"]; ok && v != "" {
