@@ -1497,7 +1497,7 @@ func GetGPUDriverVersion(size string) string {
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.NvidiaCudaDriverVersion
+	return datamodel.NvidiaCudaLTSDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
@@ -1522,7 +1522,7 @@ func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridVersionSuffix
 	}
-	return datamodel.AKSGPUCudaVersionSuffix
+	return datamodel.AKSGPUCudaLTSVersionSuffix
 }
 
 // GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.

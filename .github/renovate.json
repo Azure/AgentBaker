@@ -582,6 +582,17 @@
     },
     {
       "matchPackageNames": [
+        "aks/aks-gpu-cuda"
+      ],
+      "groupName": "nvidia-gpu-cuda-legacy",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^580\\./",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
         "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu-grid",
