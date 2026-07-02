@@ -765,25 +765,29 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 
 	// String slice fields — backfill if nil or empty.
 	backfillStringSlice := func(flag string, field *[]string) {
-		if len(*field) == 0 {
-			if v, ok := flags[flag]; ok && v != "" {
-				parts := strings.Split(v, ",")
-				out := make([]string, 0, len(parts))
-				for _, p := range parts {
-					p = strings.TrimSpace(p)
-					if p != "" {
-						out = append(out, p)
-					}
-				}
-				*field = out
+		if len(*field) != 0 {
+			return
+		}
+		v, ok := flags[flag]
+		if !ok || v == "" {
+			return
+		}
+		parts := strings.Split(v, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				out = append(out, p)
 			}
+		}
+		if len(out) != 0 {
+			*field = out
 		}
 	}
 	backfillStringSlice("--cluster-dns", &cfg.ClusterDns)
 	backfillStringSlice("--tls-cipher-suites", &cfg.TlsCipherSuites)
 	backfillStringSlice("--enforce-node-allocatable", &cfg.EnforceNodeAllocatable)
 	backfillStringSlice("--allowed-unsafe-sysctls", &cfg.AllowedUnsafeSysctls)
-
 	// Map[string]string fields — backfill if nil or empty.
 	backfillMapString := func(flag string, field *map[string]string, sep string) {
 		if len(*field) == 0 {
