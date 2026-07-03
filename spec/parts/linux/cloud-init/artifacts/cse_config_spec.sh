@@ -71,15 +71,26 @@ Describe 'cse_config.sh'
             The output should include "marker_present=true"
             The output should include "driver_kind_match=false"
             rm -f "$marker"
+        End
+    End
+
     Describe 'ensureArtifactStreaming'
         # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
         # runs the version-appropriate enablement path:
-        #   - acr-mirror 1.0.0+ -> /opt/acr/tools/mirror/setup.sh aks
-        #   - older packages    -> /opt/acr/bin/acr-config --enable-containerd
-        # The absolute paths cannot be stubbed with shell functions, so real stub
-        # executables are created at those paths and removed after each example.
-        ACR_MIRROR_SETUP="/opt/acr/tools/mirror/setup.sh"
-        ACR_CONFIG_BIN="/opt/acr/bin/acr-config"
+        #   - acr-mirror 1.0.0+ -> setup.sh aks
+        #   - older packages    -> acr-config --enable-containerd
+        # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
+        # ACR_CONFIG_BIN), so the stubs live in a temp dir instead of mutating /opt.
+        setup_streaming() {
+            TEST_ACR_DIR="$(mktemp -d)"
+            ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
+            ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+        }
+        cleanup_streaming() {
+            rm -rf "${TEST_ACR_DIR}"
+        }
+        BeforeEach 'setup_streaming'
+        AfterEach 'cleanup_streaming'
 
         waitForContainerdReady() {
             return 0
@@ -93,19 +104,13 @@ Describe 'cse_config.sh'
         }
 
         install_setup_sh() {
-            mkdir -p "$(dirname "$ACR_MIRROR_SETUP")"
-            printf '#!/bin/sh\necho "setup.sh $@"\n' > "$ACR_MIRROR_SETUP"
-            chmod +x "$ACR_MIRROR_SETUP"
+            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
         }
         install_acr_config() {
-            mkdir -p "$(dirname "$ACR_CONFIG_BIN")"
-            printf '#!/bin/sh\necho "acr-config $@"\n' > "$ACR_CONFIG_BIN"
-            chmod +x "$ACR_CONFIG_BIN"
+            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            chmod +x "${ACR_CONFIG_BIN}"
         }
-        cleanup_stubs() {
-            rm -f "$ACR_MIRROR_SETUP" "$ACR_CONFIG_BIN"
-        }
-        AfterEach 'cleanup_stubs'
 
         It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
             install_setup_sh
