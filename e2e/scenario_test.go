@@ -3075,3 +3075,81 @@ func Test_ACL_SecondaryNIC_DualStack(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2404_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			MANA:                true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
+				enableAcceleratedNetworking(vmss)
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateMANA(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			MANA:                true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
+				enableAcceleratedNetworking(vmss)
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateMANA(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV3_MANA(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6 SKU",
+		Tags: Tags{
+			VMSeriesCoverageTest: true,
+			MANA:                true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV3Gen2,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
+				enableAcceleratedNetworking(vmss)
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateMANA(ctx, s)
+			},
+		},
+	})
+}

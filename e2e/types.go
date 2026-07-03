@@ -37,6 +37,7 @@ type Tags struct {
 	MockAzureChinaCloud    bool
 	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
+	MANA                   bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.

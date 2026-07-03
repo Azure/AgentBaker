@@ -22,6 +22,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
@@ -2818,6 +2819,99 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 
 	// Validate network interface settings match expected default
 	ValidateNetworkInterfaceConfig(ctx, s, customNicConfig)
+}
+
+// ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
+// MANA hardware is identified by Microsoft Corporation Device 00ba in lspci output.
+func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
+	cmd := "lspci | grep -i 'Microsoft Corporation'"
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"lspci did not find any Microsoft Corporation PCI devices — MANA hardware may not be present")
+	require.Contains(s.T, result.stdout, "00ba",
+		"expected MANA PCI device (Device 00ba) in lspci output, got:\n%s", result.stdout)
+}
+
+// ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana.ko) is available
+// in the running kernel, either as a built-in or a loadable module.
+func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA kernel driver is loaded")()
+	cmd := `grep -q '/mana' /lib/modules/$(uname -r)/modules.builtin 2>/dev/null || find /lib/modules/$(uname -r)/kernel -name 'mana*.ko*' 2>/dev/null | grep -q .`
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA kernel driver (mana.ko) not found as built-in or loadable module")
+}
+
+// ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
+// and is properly bonded to the primary eth0 interface.
+// When Accelerated Networking is enabled with MANA, a VF interface should appear
+// as a subordinate (SLAVE) of eth0. The VF name varies by VM generation:
+// - V5: enP* (e.g., enP30832p0s0)
+// - V6+: ens1 or enp0s0
+func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating MANA VF is bonded to eth0")()
+	// Look for any interface that has "master eth0" in ip link output,
+	// indicating it is bonded as a VF to the primary synthetic NIC.
+	cmd := `ip link show | grep 'master eth0'`
+	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"no VF interface found bonded to eth0 — accelerated networking may not be working")
+	s.T.Logf("MANA VF bonding: %s", strings.TrimSpace(result.stdout))
+}
+
+// ValidateMANATrafficFlowing checks that network traffic is actually flowing through
+// the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
+// It sends a known number of ICMP packets from a pod on the node and verifies
+// that the VF packet counters increase by at least that amount.
+func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
+
+	const pingCount = 10
+	getVFRxPackets := `ethtool -S eth0 | grep -E '^\s+vf_rx_packets:' | awk '{print $2}'`
+
+	// Read VF rx counter before generating traffic
+	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFRxPackets, 0,
+		"could not read VF rx packet counter from ethtool -S eth0")
+	countBefore, err := strconv.Atoi(strings.TrimSpace(resultBefore.stdout))
+	require.NoError(s.T, err, "failed to parse vf_rx_packets before value %q", resultBefore.stdout)
+	s.T.Logf("MANA VF rx packets before: %d", countBefore)
+
+	// Send a known number of ICMP packets from a pod on this node
+	pingCmd := fmt.Sprintf("ping -c %d -W 2 168.63.129.16", pingCount)
+	execOnVMForScenarioOnUnprivilegedPod(ctx, s, pingCmd)
+
+	// Read VF rx counter after generating traffic
+	resultAfter := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFRxPackets, 0,
+		"could not read VF rx packet counter from ethtool -S eth0")
+	countAfter, err := strconv.Atoi(strings.TrimSpace(resultAfter.stdout))
+	require.NoError(s.T, err, "failed to parse vf_rx_packets after value %q", resultAfter.stdout)
+
+	delta := countAfter - countBefore
+	s.T.Logf("MANA VF rx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, pingCount)
+
+	require.GreaterOrEqual(s.T, delta, pingCount,
+		"vf_rx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, pingCount)
+}
+
+// ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
+// It verifies that the MANA PCI device is present, the kernel driver is loaded,
+// the VF interface is bonded to eth0, and traffic is flowing through the VF.
+func ValidateMANA(ctx context.Context, s *Scenario) {
+	s.T.Helper()
+	ValidateMANAPCIDevice(ctx, s)
+	ValidateMANADriverLoaded(ctx, s)
+	ValidateMANAVFBonded(ctx, s)
+	ValidateMANATrafficFlowing(ctx, s)
+}
+
+// hasMANAHardware checks if the VM has MANA PCI hardware available.
+// Returns true if the MANA device (00ba) is found in lspci output.
+// This is used to conditionally run MANA validations on VMs that support it.
+func hasMANAHardware(ctx context.Context, s *Scenario) bool {
+	result := execScriptOnVMForScenario(ctx, s, "lspci 2>/dev/null | grep -q '00ba'")
+	return result.exitCode == "0"
 }
 
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:

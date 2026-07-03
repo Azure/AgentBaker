@@ -1286,6 +1286,17 @@ func addSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
 	)
 }
 
+// enableAcceleratedNetworking explicitly enables Accelerated Networking on the
+// primary NIC of the VMSS. This ensures MANA (Microsoft Azure Network Adapter)
+// is active on the VM, which is required for V5+ VM series.
+func enableAcceleratedNetworking(vmss *armcompute.VirtualMachineScaleSet) {
+	primaryNIC, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		panic(fmt.Sprintf("enableAcceleratedNetworking: unable to get primary NIC config: %v", err))
+	}
+	primaryNIC.Properties.EnableAcceleratedNetworking = to.Ptr(true)
+}
+
 // addDualStackSecondaryNIC appends a secondary (non-primary) NIC with both IPv4 and IPv6
 // IP configurations to the VMSS model, using the same subnet as the primary NIC.
 func addDualStackSecondaryNIC(vmss *armcompute.VirtualMachineScaleSet) {
