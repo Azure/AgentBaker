@@ -71,6 +71,65 @@ Describe 'cse_config.sh'
             The output should include "marker_present=true"
             The output should include "driver_kind_match=false"
             rm -f "$marker"
+    Describe 'ensureArtifactStreaming'
+        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
+        # runs the version-appropriate enablement path:
+        #   - acr-mirror 1.0.0+ -> /opt/acr/tools/mirror/setup.sh aks
+        #   - older packages    -> /opt/acr/bin/acr-config --enable-containerd
+        # The absolute paths cannot be stubbed with shell functions, so real stub
+        # executables are created at those paths and removed after each example.
+        ACR_MIRROR_SETUP="/opt/acr/tools/mirror/setup.sh"
+        ACR_CONFIG_BIN="/opt/acr/bin/acr-config"
+
+        waitForContainerdReady() {
+            return 0
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            return "${RETRYCMD_RC:-0}"
+        }
+
+        install_setup_sh() {
+            mkdir -p "$(dirname "$ACR_MIRROR_SETUP")"
+            printf '#!/bin/sh\necho "setup.sh $@"\n' > "$ACR_MIRROR_SETUP"
+            chmod +x "$ACR_MIRROR_SETUP"
+        }
+        install_acr_config() {
+            mkdir -p "$(dirname "$ACR_CONFIG_BIN")"
+            printf '#!/bin/sh\necho "acr-config $@"\n' > "$ACR_CONFIG_BIN"
+            chmod +x "$ACR_CONFIG_BIN"
+        }
+        cleanup_stubs() {
+            rm -f "$ACR_MIRROR_SETUP" "$ACR_CONFIG_BIN"
+        }
+        AfterEach 'cleanup_stubs'
+
+        It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should not include "Older acr-mirror package"
+            The status should be success
+        End
+
+        It 'falls back to acr-config enablement when setup.sh is absent (older package)'
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "Older acr-mirror package is detected"
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The status should be success
+        End
+
+        It 'fails fast when enabling the streaming services fails'
+            RETRYCMD_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "retrycmd_if_failure"
+            The output should not include "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
         End
     End
 
