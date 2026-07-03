@@ -2826,9 +2826,10 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
-	cmd := "lspci | grep -i 'Microsoft Corporation'"
+	cmd := `command -v lspci >/dev/null 2>&1 || { echo "lspci not found (install pciutils)"; exit 127; }
+lspci | grep -i 'Microsoft Corporation'`
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"lspci did not find any Microsoft Corporation PCI devices — MANA hardware may not be present")
+		"failed to query PCI devices for MANA (ensure lspci/pciutils is installed and MANA hardware is present)")
 	require.Contains(s.T, result.stdout, "00ba",
 		"expected MANA PCI device (Device 00ba) in lspci output, got:\n%s", result.stdout)
 }
