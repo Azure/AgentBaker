@@ -427,7 +427,7 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureArtifactStreaming() {
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
 
   if [ -x /opt/acr/tools/mirror/setup.sh ]; then
     /opt/acr/tools/mirror/setup.sh aks
