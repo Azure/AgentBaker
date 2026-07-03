@@ -2822,16 +2822,13 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 }
 
 // ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
-// MANA hardware is identified by Microsoft Corporation Device 00ba in lspci output.
+// MANA hardware is identified by PCI vendor:device ID 1414:00ba.
 func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
-	cmd := `command -v lspci >/dev/null 2>&1 || { echo "lspci not found (install pciutils)"; exit 127; }
-lspci | grep -i 'Microsoft Corporation'`
-	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"failed to query PCI devices for MANA (ensure lspci/pciutils is installed and MANA hardware is present)")
-	require.Contains(s.T, strings.ToLower(result.stdout), "00ba",
-		"expected MANA PCI device (Device 00ba) in lspci output, got:\n%s", result.stdout)
+	cmd := "lspci -nn | grep -qi '1414:00ba'"
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
+		"MANA PCI device [1414:00ba] not found in lspci output")
 }
 
 // ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana) is loaded
@@ -2871,7 +2868,7 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
 
 	const pingCount = 10
-	getVFRxPackets := "sudo ethtool -S eth0 | awk -F': *' '/^[[:space:]]*vf_rx_packets:/{print $2; exit}'"
+	getVFRxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_rx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_rx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
 	// Read VF rx counter before generating traffic
 	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFRxPackets, 0,
 		"could not read VF rx packet counter from ethtool -S eth0")
@@ -2912,7 +2909,7 @@ func ValidateMANA(ctx context.Context, s *Scenario) {
 // Returns true if the MANA device (00ba) is found in lspci output.
 // This is used to conditionally run MANA validations on VMs that support it.
 func hasMANAHardware(ctx context.Context, s *Scenario) bool {
-	result := execScriptOnVMForScenario(ctx, s, "lspci 2>/dev/null | grep -q '00ba'")
+	result := execScriptOnVMForScenario(ctx, s, "lspci 2>/dev/null | grep -qi '00ba'")
 	return result.exitCode == "0"
 }
 
