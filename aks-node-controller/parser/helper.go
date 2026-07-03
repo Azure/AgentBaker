@@ -769,6 +769,10 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 	// impossible to distinguish "explicitly set to false" from "never set". Backfilling
 	// would violate the precedence model (e.g., RotateCertificates=false is a valid
 	// explicit choice that should not be overwritten by a flag value of true).
+	//
+	// TODO: convert these proto fields to optional bool so we can safely backfill when
+	// unset (nil) without risking overwrite of an explicit false. Same applies to
+	// non-optional int32 fields (ReadOnlyPort, EvictionMaxPodGracePeriod).
 
 	// String slice fields — backfill only when nil.
 	backfillStringSlice := func(flag string, field *[]string) {
