@@ -2834,14 +2834,15 @@ lspci | grep -i 'Microsoft Corporation'`
 		"expected MANA PCI device (Device 00ba) in lspci output, got:\n%s", result.stdout)
 }
 
-// ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana.ko) is available
-// in the running kernel, either as a built-in or a loadable module.
+// ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana) is loaded
+// in the running kernel. For built-in drivers they appear in modules.builtin;
+// for loadable modules they must be present in lsmod.
 func ValidateMANADriverLoaded(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating MANA kernel driver is loaded")()
-	cmd := `grep -q '/mana' /lib/modules/$(uname -r)/modules.builtin 2>/dev/null || find /lib/modules/$(uname -r)/kernel -name 'mana*.ko*' 2>/dev/null | grep -q .`
+	cmd := `lsmod | grep -q '^mana ' || grep -q '/mana\.ko' /lib/modules/$(uname -r)/modules.builtin`
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"MANA kernel driver (mana.ko) not found as built-in or loadable module")
+		"MANA kernel driver (mana) not found in lsmod or modules.builtin")
 }
 
 // ValidateMANAVFBonded checks that the MANA Virtual Function (VF) interface exists
