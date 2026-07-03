@@ -838,26 +838,6 @@ func Test_Ubuntu2204FIPS(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2004FIPS(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen1 VHD can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2004FIPSContainerd,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0])
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0])
-				ValidateSSHServiceEnabled(ctx, s)
-				ValidateFIPSProvider(ctx, s)
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2004 FIPS Gen2 VHD can be properly bootstrapped",
@@ -865,6 +845,7 @@ func Test_Ubuntu2004Gen2FIPS(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2004FIPSGen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			},
@@ -2800,8 +2781,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled(t *testing.T) {
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled:           true,
@@ -2836,8 +2817,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled(t *testing.T) {
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Explicitly disable ServiceAccountImagePullProfile
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled: false,
@@ -2867,8 +2848,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_EnabledWithoutDefaultIDs(t *te
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile without default client/tenant IDs
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled:           true,
@@ -2907,8 +2888,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_NetworkIsolated(t *testing.T) 
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile with test values
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -2952,7 +2933,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled:           true,
 					DefaultClientID:   "test-client-id-12345",
@@ -2963,8 +2944,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Enabled_Scriptless(t *testing.
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				aksConfig.KubernetesVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				aksConfig.KubernetesVersion = "1.34.8"
 				// Enable ServiceAccountImagePullProfile with test values
 				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
 					Enabled:           true,
@@ -3008,7 +2989,7 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 			Cluster: ClusterLatestKubernetesVersion,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.0"
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.8"
 				nbc.ContainerService.Properties.ServiceAccountImagePullProfile = &datamodel.ServiceAccountImagePullProfile{
 					Enabled:           false,
 					DefaultClientID:   "should-not-appear-client-id",
@@ -3019,8 +3000,8 @@ func Test_Ubuntu2204Gen2_ImagePullIdentityBinding_Disabled_Scriptless(t *testing
 				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, aksConfig *aksnodeconfigv1.Configuration) {
-				// Enforce Kubernetes 1.34.0 for ServiceAccountImagePullProfile testing
-				aksConfig.KubernetesVersion = "1.34.0"
+				// Enforce Kubernetes 1.34.8 for ServiceAccountImagePullProfile testing
+				aksConfig.KubernetesVersion = "1.34.8"
 				// Disable ServiceAccountImagePullProfile
 				aksConfig.ServiceAccountImagePullProfile = &aksnodeconfigv1.ServiceAccountImagePullProfile{
 					Enabled:           false,
