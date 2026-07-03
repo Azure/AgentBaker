@@ -2870,8 +2870,7 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
 
 	const pingCount = 10
-	getVFRxPackets := `ethtool -S eth0 | grep -E '^\s+vf_rx_packets:' | awk '{print $2}'`
-
+	getVFRxPackets := "sudo ethtool -S eth0 | awk -F': *' '/^[[:space:]]*vf_rx_packets:/{print $2; exit}'"
 	// Read VF rx counter before generating traffic
 	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFRxPackets, 0,
 		"could not read VF rx packet counter from ethtool -S eth0")
