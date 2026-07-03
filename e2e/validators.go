@@ -2830,7 +2830,7 @@ func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
 lspci | grep -i 'Microsoft Corporation'`
 	result := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
 		"failed to query PCI devices for MANA (ensure lspci/pciutils is installed and MANA hardware is present)")
-	require.Contains(s.T, result.stdout, "00ba",
+	require.Contains(s.T, strings.ToLower(result.stdout), "00ba",
 		"expected MANA PCI device (Device 00ba) in lspci output, got:\n%s", result.stdout)
 }
 
