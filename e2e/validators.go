@@ -2881,7 +2881,8 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 
 	// Send a known number of ICMP packets from a pod on this node
 	pingCmd := fmt.Sprintf("ping -c %d -W 2 168.63.129.16", pingCount)
-	execOnVMForScenarioOnUnprivilegedPod(ctx, s, pingCmd)
+	pingResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, pingCmd)
+	require.Equalf(s.T, "0", pingResult.exitCode, "failed to execute ping from debug pod (exit %s):\n%s", pingResult.exitCode, pingResult.String())
 
 	// Read VF rx counter after generating traffic
 	resultAfter := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFRxPackets, 0,
