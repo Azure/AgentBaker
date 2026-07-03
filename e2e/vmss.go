@@ -1294,6 +1294,9 @@ func enableAcceleratedNetworking(vmss *armcompute.VirtualMachineScaleSet) {
 	if err != nil {
 		panic(fmt.Sprintf("enableAcceleratedNetworking: unable to get primary NIC config: %v", err))
 	}
+	if primaryNIC.Properties == nil {
+		primaryNIC.Properties = &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{}
+	}
 	primaryNIC.Properties.EnableAcceleratedNetworking = to.Ptr(true)
 }
 
