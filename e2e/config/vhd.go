@@ -180,26 +180,6 @@ var (
 		Gallery: imageGalleryLinux,
 	}
 
-	VHDFlatcarGen2 = &Image{
-		Name:         "flatcargen2",
-		OS:           OSFlatcar,
-		Arch:         "amd64",
-		Distro:       datamodel.AKSFlatcarGen2,
-		Gallery:      imageGalleryLinux,
-		Flatcar:      true,
-		OSDiskSizeGB: 60,
-	}
-
-	VHDFlatcarGen2Arm64 = &Image{
-		Name:         "flatcargen2arm64",
-		OS:           OSFlatcar,
-		Arch:         "arm64",
-		Distro:       datamodel.AKSFlatcarArm64Gen2,
-		Gallery:      imageGalleryLinux,
-		Flatcar:      true,
-		OSDiskSizeGB: 60,
-	}
-
 	VHDAzureLinuxV3Gen2Arm64 = &Image{
 		Name:         "azurelinuxv3gen2arm64",
 		OS:           OSAzureLinux,

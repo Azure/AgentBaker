@@ -36,66 +36,6 @@ func Test_AzureLinux3OSGuard(t *testing.T) {
 	})
 }
 
-func Test_Flatcar(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar VHD can be properly bootstrapped and custom CA was correctly added",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{
-						encodedTestCert,
-					},
-				}
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/protocols", "protocols definition file")
-				ValidateFileIsRegularFile(ctx, s, "/etc/ssl/certs/ca-certificates.crt")
-				ValidateNonEmptyDirectory(ctx, s, "/opt/certs")
-				// openssl x509 -hash of input cert
-				ValidateFileExists(ctx, s, "/etc/ssl/certs/5c3b39ed.0")
-			},
-		},
-	})
-}
-
-func Test_Flatcar_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar and the self-contained installer can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-			},
-		},
-	})
-}
-
-func Test_Flatcar_ARM64(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2Arm64,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.IsARM64 = true
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV3_ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
@@ -115,25 +55,6 @@ func Test_AzureLinuxV3_ARM64(t *testing.T) {
 	})
 }
 
-func Test_Flatcar_AzureCNI(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-			},
-		},
-	})
-}
-
 func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Ubuntu 22.04 scenario on a cluster configured with Azure CNI",
@@ -147,48 +68,6 @@ func Test_Ubuntu2204_AzureCNI(t *testing.T) {
 				nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/nodenetwork-vnetguid"] = c.VNetResourceGUID
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-			},
-		},
-	})
-}
-
-func Test_Flatcar_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Test Flatcar scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
-				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
-			},
-		},
-	})
-}
-
-func Test_Flatcar_SecureTLSBootstrapping_BootstrapToken_Fallback(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a Flatcar Gen2 VHD can be properly bootstrapped even if secure TLS bootstrapping fails",
-		Tags: Tags{
-			BootstrapTokenFallback: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
-					Enabled:                true,
-					GetAccessTokenTimeout:  (10 * time.Second).String(),
-					UserAssignedIdentityID: "invalid", // use an unexpected user-assigned identity ID to force a secure TLS bootstrapping failure
-				}
 			},
 		},
 	})
@@ -1016,58 +895,6 @@ func Test_Ubuntu2204_DisableSSH(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// Validate SSH daemon is disabled via RunCommand
 				ValidateSSHServiceDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Flatcar_DisableSSH(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using Flatcar VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.SSHStatus = datamodel.SSHOff
-			},
-			SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
-			SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
-			Validator: func(ctx context.Context, s *Scenario) {
-				// Validate SSH daemon is disabled via RunCommand
-				ValidateSSHServiceDisabled(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Flatcar_NetworkIsolatedCluster_NonAnonymousACR(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using Flatcar VHD with network isolated cluster enabled",
-		Tags: Tags{
-			NetworkIsolated: true,
-			NonAnonymousACR: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetworkIsolated,
-			VHD:     config.VHDFlatcarGen2,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:                 true,
-						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation)),
-					},
-				}
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
-				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
-					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
-					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})

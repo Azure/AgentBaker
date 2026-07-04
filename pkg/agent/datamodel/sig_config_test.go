@@ -36,8 +36,6 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3Gen2TL:                   SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3CVMGen2:                  SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3OSGuardGen2FIPSTL:        SIGAzureLinuxV3OSGuardGen2FIPSTLImageConfigTemplate.WithOptions(),
-			AKSFlatcarGen2:                          SIGFlatcarGen2ImageConfigTemplate.WithOptions(),
-			AKSFlatcarArm64Gen2:                     SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(),
 			AKSACLGen2TL:                            SIGACLGen2TLImageConfigTemplate.WithOptions(),
 			AKSACLArm64Gen2TL:                       SIGACLArm64Gen2TLImageConfigTemplate.WithOptions(),
 			AKSACLGen2FIPSTL:                        SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(),

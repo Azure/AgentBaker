@@ -402,6 +402,9 @@ const (
 	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
 	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
 
+	// Flatcar is deprecated on June 8th.
+	FrozenFlatcarSIGImageVersion string = "202607.02.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -752,14 +755,14 @@ var (
 		ResourceGroup: AKSFlatcarResourceGroup,
 		Gallery:       AKSFlatcarGalleryName,
 		Definition:    "flatcargen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenFlatcarSIGImageVersion,
 	}
 
 	SIGFlatcarArm64Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSFlatcarResourceGroup,
 		Gallery:       AKSFlatcarGalleryName,
 		Definition:    "flatcargen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenFlatcarSIGImageVersion,
 	}
 
 	SIGACLGen2TLImageConfigTemplate = SigImageConfigTemplate{
