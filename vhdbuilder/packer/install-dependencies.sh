@@ -239,11 +239,8 @@ retagAKSNodeCAWatcher() {
   # may be intercepted by an untrusted TLS MITM firewall.
   watcherStaticImg=${watcherBaseImg//\*/static}
 
-  # can't use $cliTool variable because crictl doesn't support retagging.
   retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 }
-retagAKSNodeCAWatcher
-capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
 pinPodSandboxImages() {
   # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
@@ -313,7 +310,6 @@ cacheKubePackageFromPrivateUrl() {
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
 
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
-    azExitCode=$?
     # loop through azcopy log files
     shopt -s nullglob
     for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
@@ -330,6 +326,38 @@ cacheKubePackageFromPrivateUrl() {
     done
     shopt -u nullglob
     exit $ERR_PRIVATE_K8S_PKG_ERR
+  fi
+}
+
+starteBPFToolsInstallation() {
+  installBpftrace
+  echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+
+  PRESENT_DIR=$(pwd)
+  # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+  (
+    cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+    installBcc
+    exit $?
+  ) > /var/log/bcc_installation.log 2>&1 &
+
+  BCC_PID=$!
+}
+
+finisheBPFToolsInstallation() {
+  wait $BCC_PID
+  BCC_EXIT_CODE=$?
+  chmod 644 /var/log/bcc_installation.log
+
+  if [ "$BCC_EXIT_CODE" -eq 0 ]; then
+    echo "Bcc tools successfully installed."
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+  else
+    echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
+    exit $BCC_EXIT_CODE
   fi
 }
 
@@ -395,6 +423,70 @@ configureLsmWithBpf() {
   else
     echo "BPF LSM already configured, skipping"
   fi
+}
+
+setUdevRules() {
+  # set udev rules
+  echo "set read ahead size to 15380 KB"
+  AWK_PATH=$(command -v awk)
+  cat > /etc/udev/rules.d/99-nfs.rules <<EOF
+SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1} {if (\$4 == bdi){ret=0}} END{exit ret}' /proc/fs/nfsfs/volumes", ATTR{read_ahead_kb}="15380"
+EOF
+
+  echo "install udev rules for v6 vm sku"
+  cat > /etc/udev/rules.d/80-azure-disk.rules <<EOF
+ACTION!="add|change", GOTO="azure_disk_end"
+SUBSYSTEM!="block", GOTO="azure_disk_end"
+
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk", GOTO="azure_disk_nvme_direct_v1"
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk v2", GOTO="azure_disk_nvme_direct_v2"
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="MSFT NVMe Accelerator v1.0", GOTO="azure_disk_nvme_remote_v1"
+ENV{ID_VENDOR}=="Msft", ENV{ID_MODEL}=="Virtual_Disk", GOTO="azure_disk_scsi"
+GOTO="azure_disk_end"
+
+LABEL="azure_disk_scsi"
+ATTRS{device_id}=="?00000000-0000-*", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_symlink"
+ENV{DEVTYPE}=="partition", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/../device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
+ENV{DEVTYPE}=="disk", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
+ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="0", ENV{AZURE_DISK_TYPE}="os", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781b-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781c-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781d-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+
+# Use "resource" type for local SCSI because some VM skus offer NVMe local disks in addition to a SCSI resource disk, e.g. LSv3 family.
+# This logic is already in walinuxagent rules but we duplicate it here to avoid an unnecessary dependency for anyone requiring it.
+ATTRS{device_id}=="?00000000-0001-*", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="1", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+GOTO="azure_disk_end"
+
+LABEL="azure_disk_nvme_direct_v1"
+LABEL="azure_disk_nvme_direct_v2"
+ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="local", ENV{AZURE_DISK_SERIAL}="\$env{ID_SERIAL_SHORT}"
+GOTO="azure_disk_nvme_id"
+
+LABEL="azure_disk_nvme_remote_v1"
+ATTRS{nsid}=="1", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_nvme_id"
+ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="data", PROGRAM="/bin/sh -ec 'echo \$\$((%s{nsid}-2))'", ENV{AZURE_DISK_LUN}="\$result"
+
+LABEL="azure_disk_nvme_id"
+ATTRS{nsid}=="?*", IMPORT{program}="/usr/sbin/azure-nvme-id --udev"
+
+LABEL="azure_disk_symlink"
+# systemd v254 ships an updated 60-persistent-storage.rules that would allow
+# these to be deduplicated using \$env{.PART_SUFFIX}
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
+LABEL="azure_disk_end"
+EOF
+  udevadm control --reload
 }
 
 cachePackageAndBinaryComponents() {
@@ -606,7 +698,12 @@ cachePackageAndBinaryComponents() {
         fi
         ;;
       "acr-mirror")
-        # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+        # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
+        # OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
+        done
         ;;
       "aznfs")
         for version in ${PACKAGE_VERSIONS[@]}; do
@@ -646,6 +743,19 @@ cachePackageAndBinaryComponents() {
 
 cacheContainerImageComponents() {
   # Download/cache all declared container images within components.json that apply to the respective OS SKU
+
+  # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
+  # Account for possibility that number of cores is 3 or less
+  num_proc=$(nproc)
+  if [ "$num_proc" -gt 3 ]; then
+    parallel_container_image_pull_limit=$(nproc --ignore=2)
+  else
+    parallel_container_image_pull_limit=1
+  fi
+  echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
+
+  declare -a image_pids=()
+
   ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
   while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -664,7 +774,7 @@ cacheContainerImageComponents() {
 
     for version in ${versions}; do
       CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-      pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
+      pullContainerImage "ctr" "${CONTAINER_IMAGE}" &
       image_pids+=($!)
       echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
       while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
@@ -690,6 +800,159 @@ cacheContainerImageComponents() {
       exit "${ret}"
     }
   done
+}
+
+cacheGPUContainerImageComponents() {
+  # Download/install GPU container image components
+  GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
+
+  NVIDIA_DRIVER_IMAGE=""
+  NVIDIA_DRIVER_IMAGE_TAG=""
+  NVIDIA_GRID_DRIVER_VERSION=""
+
+  # Extract GRID driver version for release notes (applicable to all Linux distributions)
+  while IFS= read -r imageToBePulled; do
+    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+    # shellcheck disable=SC2001
+    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
+      NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+      # Continue to extract CUDA driver info as well
+    fi
+  done <<< "$GPUContainerImages"
+
+  # For Ubuntu, pre-pull the CUDA driver image
+  if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+    gpu_action="copy"
+
+    while IFS= read -r imageToBePulled; do
+      downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+      # shellcheck disable=SC2001
+      imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+      if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda-lts" ]; then
+        latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+        NVIDIA_DRIVER_IMAGE="$imageName"
+        NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
+        break  # Exit the loop once we find the image
+      fi
+    done <<< "$GPUContainerImages"
+
+    # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
+    if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
+      echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
+      exit 1
+    fi
+
+    mkdir -p /opt/{actions,gpu}
+
+    /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+
+      cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
+EOF
+
+    # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
+    # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
+    # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
+    # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
+    # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
+    # when that marker matches, running only the device-dependent steps.
+    # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
+    # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
+    # Dropping the image is a separate, deferred size optimization.
+    if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
+      echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
+      # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
+      # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
+      # build-essential -> libc6-dev (release-notes manifests) -- the toolchain baseline GPU nodes compile
+      # with at boot (installDeps runs apt --no-install-recommends, so gcc alone doesn't pull libc6-dev).
+      apt_get_install 10 2 300 gcc make libc6-dev || exit 1
+      CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+      retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
+      if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
+        echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
+        exit 1
+      fi
+      cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
+EOF
+    fi
+  fi
+
+  # Add a separate section for runtime-installed components
+  # This clearly distinguishes components installed during CSE from VHD build-time components
+  # Only add for Ubuntu
+  if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
+  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
+EOF
+  fi
+}
+
+configureGraceBlackwell() {
+  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    # NVIDIA GB setup is only supported on arm64 Ubuntu 24.04.
+    if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+      # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
+      # aks-gpu is designed to run at node boot/join time, whereas the NVIDIA GB VHD is set up
+      # to have all drivers installed at VHD build time.
+
+      # 1. Blacklist nouveau driver
+      cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+      update-initramfs -u
+
+      # 2. install drivers
+      BOM_PATH="gb-mai-bom.json"
+
+      # Install a custom repository if a doca-custom-repo is specified
+      DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
+      if [ -n "$DOCA_CUSTOM_REPO" ]; then
+        mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
+        echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
+        apt-get update
+      fi
+
+      # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
+      # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
+      # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
+      sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+
+      # 3. Add char device symlinks for NVIDIA devices
+      mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
+      cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+      # Create systemd drop-in to override nvidia-device-plugin dependencies
+      mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
+      cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
+[Unit]
+After=kubelet.service
+
+[Service]
+ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
+EOF
+
+      # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
+      systemctl enable nvidia-dcgm
+      systemctl enable nvidia-dcgm-exporter
+      systemctl enable nvidia-device-plugin
+      systemctl enable openibd
+
+      # One additional request from MAI: signal that NPD is pre-installed on the VHD.
+      # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
+      mkdir -p /etc/node-problem-detector.d/
+      touch /etc/node-problem-detector.d/skip_vhd_npd
+    fi
+  fi
 }
 
 # This function extracts CoreDNS binary from cached coredns images (latest version)
@@ -840,6 +1103,7 @@ fi
 #   updateAptWithMicrosoftPkg
 # fi
 
+# TODO: confirm if this is right
 updateAptWithMicrosoftPkg
 installDeps
 
@@ -918,66 +1182,7 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
 capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
 
-echo "set read ahead size to 15380 KB"
-AWK_PATH=$(command -v awk)
-cat > /etc/udev/rules.d/99-nfs.rules <<EOF
-SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1} {if (\$4 == bdi){ret=0}} END{exit ret}' /proc/fs/nfsfs/volumes", ATTR{read_ahead_kb}="15380"
-EOF
-
-echo "install udev rules for v6 vm sku"
-cat > /etc/udev/rules.d/80-azure-disk.rules <<EOF
-ACTION!="add|change", GOTO="azure_disk_end"
-SUBSYSTEM!="block", GOTO="azure_disk_end"
-
-KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk", GOTO="azure_disk_nvme_direct_v1"
-KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk v2", GOTO="azure_disk_nvme_direct_v2"
-KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="MSFT NVMe Accelerator v1.0", GOTO="azure_disk_nvme_remote_v1"
-ENV{ID_VENDOR}=="Msft", ENV{ID_MODEL}=="Virtual_Disk", GOTO="azure_disk_scsi"
-GOTO="azure_disk_end"
-
-LABEL="azure_disk_scsi"
-ATTRS{device_id}=="?00000000-0000-*", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_symlink"
-ENV{DEVTYPE}=="partition", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/../device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
-ENV{DEVTYPE}=="disk", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
-ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="0", ENV{AZURE_DISK_TYPE}="os", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
-ATTRS{device_id}=="{f8b3781b-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
-ATTRS{device_id}=="{f8b3781c-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
-ATTRS{device_id}=="{f8b3781d-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
-
-# Use "resource" type for local SCSI because some VM skus offer NVMe local disks in addition to a SCSI resource disk, e.g. LSv3 family.
-# This logic is already in walinuxagent rules but we duplicate it here to avoid an unnecessary dependency for anyone requiring it.
-ATTRS{device_id}=="?00000000-0001-*", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
-ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="1", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
-GOTO="azure_disk_end"
-
-LABEL="azure_disk_nvme_direct_v1"
-LABEL="azure_disk_nvme_direct_v2"
-ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="local", ENV{AZURE_DISK_SERIAL}="\$env{ID_SERIAL_SHORT}"
-GOTO="azure_disk_nvme_id"
-
-LABEL="azure_disk_nvme_remote_v1"
-ATTRS{nsid}=="1", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_nvme_id"
-ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="data", PROGRAM="/bin/sh -ec 'echo \$\$((%s{nsid}-2))'", ENV{AZURE_DISK_LUN}="\$result"
-
-LABEL="azure_disk_nvme_id"
-ATTRS{nsid}=="?*", IMPORT{program}="/usr/sbin/azure-nvme-id --udev"
-
-LABEL="azure_disk_symlink"
-# systemd v254 ships an updated 60-persistent-storage.rules that would allow
-# these to be deduplicated using \$env{.PART_SUFFIX}
-ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}"
-ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}"
-ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}"
-ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}"
-ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}"
-ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}-part%n"
-ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}-part%n"
-ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}-part%n"
-ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}-part%n"
-ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
-LABEL="azure_disk_end"
-EOF
-udevadm control --reload
+setUdevRules
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
 if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
@@ -1007,212 +1212,29 @@ capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 echo "VHD will be built with containerd as the container runtime"
 
 # Cache packages and binaries declared within components.json
+# TODO: uncomment once able
 # cachePackageAndBinaryComponents
 
-# Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
-# OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
-acrMirrorPackage=$(echo "${packages}" | jq -c 'select(.name == "acr-mirror")')
-updatePackageVersions "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
-updatePackageDownloadURL "${acrMirrorPackage}" "${OS}" "${OS_VERSION}" "${OS_VARIANT}"
-if [ "${#PACKAGE_VERSIONS[@]}" -gt 0 ] && [ "${PACKAGE_VERSIONS[0]}" != "<SKIP>" ]; then
-  for version in ${PACKAGE_VERSIONS[@]}; do
-    evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-    installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
-  done
-fi
-capture_benchmark "${SCRIPT_NAME}_install_artifact_streaming"
+starteBPFToolsInstallation
+capture_benchmark "${SCRIPT_NAME}_start_install_ebpf_tools"
 
+# Cache container images declared within components.json
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
-cliTool="ctr"
+echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
+# TODO: uncomment once able
+# cacheContainerImageComponents
+# cacheGPUContainerImageComponents
+capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
-INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_install_crictl"
-
-GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
-
-NVIDIA_DRIVER_IMAGE=""
-NVIDIA_DRIVER_IMAGE_TAG=""
-NVIDIA_GRID_DRIVER_VERSION=""
-
-# Extract GRID driver version for release notes (applicable to all Linux distributions)
-while IFS= read -r imageToBePulled; do
-  downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
-  # shellcheck disable=SC2001
-  imageName=$(echo "$downloadURL" | sed 's/:.*$//')
-
-  if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
-    NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
-    # Continue to extract CUDA driver info as well
-  fi
-done <<< "$GPUContainerImages"
-
-# For Ubuntu, pre-pull the CUDA driver image
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
-  gpu_action="copy"
-
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
-    # shellcheck disable=SC2001
-    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
-
-    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda-lts" ]; then
-      latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
-      NVIDIA_DRIVER_IMAGE="$imageName"
-      NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
-      break  # Exit the loop once we find the image
-    fi
-  done <<< "$GPUContainerImages"
-
-  # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
-  if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
-    echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
-    exit 1
-  fi
-
-  mkdir -p /opt/{actions,gpu}
-
-  /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
-
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
-
-  # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
-  # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
-  # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
-  # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
-  # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
-  # when that marker matches, running only the device-dependent steps.
-  # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
-  # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
-  # Dropping the image is a separate, deferred size optimization.
-  if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
-    echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
-    # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
-    # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
-    # build-essential -> libc6-dev (release-notes manifests) -- the toolchain baseline GPU nodes compile
-    # with at boot (installDeps runs apt --no-install-recommends, so gcc alone doesn't pull libc6-dev).
-    apt_get_install 10 2 300 gcc make libc6-dev || exit 1
-    CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
-    retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
-    if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
-      echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
-      exit 1
-    fi
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
-EOF
-  fi
-fi
-
-if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-  # NVIDIA GB setup is only supported on arm64 Ubuntu 24.04.
-  if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
-    # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
-    # aks-gpu is designed to run at node boot/join time, whereas the NVIDIA GB VHD is set up
-    # to have all drivers installed at VHD build time.
-
-    # 1. Blacklist nouveau driver
-    cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
-blacklist nouveau
-options nouveau modeset=0
-EOF
-    update-initramfs -u
-
-    # 2. install drivers
-    BOM_PATH="gb-mai-bom.json"
-
-    # Install a custom repository if a doca-custom-repo is specified
-    DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
-    if [ -n "$DOCA_CUSTOM_REPO" ]; then
-      mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
-      echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
-      apt-get update
-    fi
-
-    # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
-    # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
-    # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-    sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
-
-    # 3. Add char device symlinks for NVIDIA devices
-    mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
-    cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
-ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
-EOF
-
-    # Create systemd drop-in to override nvidia-device-plugin dependencies
-    mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
-    cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
-[Unit]
-After=kubelet.service
-
-[Service]
-ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
-EOF
-
-    # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
-    systemctl enable nvidia-dcgm
-    systemctl enable nvidia-dcgm-exporter
-    systemctl enable nvidia-device-plugin
-    systemctl enable openibd
-
-    # One additional request from MAI: signal that NPD is pre-installed on the VHD.
-    # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
-    mkdir -p /etc/node-problem-detector.d/
-    touch /etc/node-problem-detector.d/skip_vhd_npd
-  fi
-fi
-
+configureGraceBlackwell
 if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 fi
 
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-PRESENT_DIR=$(pwd)
-# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-(
-  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-  installBcc
-  exit $?
-) > /var/log/bcc_installation.log 2>&1 &
-
-BCC_PID=$!
-
-# Add a separate section for runtime-installed components
-# This clearly distinguishes components installed during CSE from VHD build-time components
-# Only add for Ubuntu
-if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
-  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
-EOF
-fi
-
-echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
-
-# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-# Account for possibility that number of cores is 3 or less
-num_proc=$(nproc)
-if [ "$num_proc" -gt 3 ]; then
-  parallel_container_image_pull_limit=$(nproc --ignore=2)
-else
-  parallel_container_image_pull_limit=1
-fi
-echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-
-declare -a image_pids=()
-
-# Cache container images declared within components.json
-cacheContainerImageComponents
-capture_benchmark "${SCRIPT_NAME}_caching_container_images"
+# TODO: uncomment once able
+# retagAKSNodeCAWatcher
+capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
 pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
@@ -1261,20 +1283,7 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
-wait $BCC_PID
-BCC_EXIT_CODE=$?
-chmod 644 /var/log/bcc_installation.log
-
-if [ "$BCC_EXIT_CODE" -eq 0 ]; then
-  echo "Bcc tools successfully installed."
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
-else
-  echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
-  exit $BCC_EXIT_CODE
-fi
+finisheBPFToolsInstallation
 capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 configureLsmWithBpf
@@ -1291,7 +1300,8 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
 fi
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
-extractAndCacheCoreDnsBinary
+# TODO: uncomment once able
+# extractAndCacheCoreDnsBinary
 
 collect_grid_compatibility_data
 
