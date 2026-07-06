@@ -1853,7 +1853,7 @@ configureManagedGPUExperience() {
 }
 
 startNvidiaManagedExpServices() {
-    # 1. Start the nvidia-device-plugin service.
+    # 1. Start the nvidia-device-plugin service or dra-driver-nvidia-gpu service.
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         # Create systemd override directory to configure device plugin
         NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
@@ -1894,10 +1894,7 @@ EOF
         systemctl daemon-reload
 
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-    fi
-
-    # 2. Start the dra-driver-nvidia-gpu service.
-    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
         DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
         mkdir -p "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}"
 
@@ -1916,12 +1913,12 @@ EOF
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
     fi
 
-    # 3. Start the nvidia-dcgm service.
+    # 2. Start the nvidia-dcgm service.
     # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without
     # blocking node provisioning and treat a slow/failed start as non-fatal.
     logs_to_events "AKS.CSE.start.nvidia-dcgm" "systemctlEnableAndStartNoBlock nvidia-dcgm 30" || echo "warning: nvidia-dcgm could not be enqueued; GPU monitoring will start asynchronously"
 
-    # 4. Start the nvidia-dcgm-exporter service.
+    # 3. Start the nvidia-dcgm-exporter service.
     # Create systemd drop-in directory for nvidia-dcgm-exporter service
     DCGM_EXPORTER_OVERRIDE_DIR="/etc/systemd/system/nvidia-dcgm-exporter.service.d"
     mkdir -p "${DCGM_EXPORTER_OVERRIDE_DIR}"
