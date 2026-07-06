@@ -1507,6 +1507,25 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
+	It("should move the operation-requests custom cloud init script to the path used by ANC", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom",
+		}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		expectedMoveCommand := fmt.Sprintf(
+			`if [ "%[1]s" != "%[2]s" ] && [ -f "%[1]s" ]; then mv -f "%[1]s" "%[2]s"; fi`,
+			initAKSCustomCloudOperationRequestsFilepath,
+			initAKSCustomCloudFilepath,
+		)
+		Expect(string(decodedPayload)).To(ContainSubstring(expectedMoveCommand))
+	})
+
 	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)

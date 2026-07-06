@@ -64,6 +64,7 @@ cat <<'EOF' | base64 -d | gzip -d >%[3]s
 EOF
 chmod 0600 %[3]s
 %[5]s
+if [ "%[6]s" != "%[7]s" ] && [ -f "%[6]s" ]; then mv -f "%[6]s" "%[7]s"; fi
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
@@ -144,11 +145,17 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 
+	var aksCustomCloudFilePath string
+	if datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USNatCloud {
+		aksCustomCloudFilePath = initAKSCustomCloudFilepath
+	} else {
+		aksCustomCloudFilePath = initAKSCustomCloudOperationRequestsFilepath
+	}
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
 		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
@@ -162,11 +169,12 @@ func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enco
 	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
 }
 
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
 	var aksNodeConfigBlock string
 	if encodedAKSNodeConfig != "" {
 		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
 	}
+
 	return fmt.Sprintf(
 		boothookTemplate,
 		nodeCustomDataPath,
@@ -174,6 +182,8 @@ func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enc
 		nbcCmdFilePath,
 		encodedNBCCMD,
 		aksNodeConfigBlock,
+		aksCustomCloudFilePath,
+		initAKSCustomCloudFilepath,
 	)
 }
 
