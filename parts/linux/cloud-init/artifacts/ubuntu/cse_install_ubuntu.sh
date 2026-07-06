@@ -187,7 +187,7 @@ managedGPUPackageList() {
 
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE:-false}" = "true" ]; then
         packages+=(nvidia-device-plugin)
-    elif[ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
         packages+=(dra-driver-nvidia-gpu)
     fi
 
