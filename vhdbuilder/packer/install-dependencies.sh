@@ -1104,7 +1104,7 @@ fi
 # fi
 
 # TODO: confirm if this is right
-updateAptWithMicrosoftPkg
+# updateAptWithMicrosoftPkg
 installDeps
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
