@@ -431,6 +431,9 @@ func daemonsetDebug(ctx context.Context, deploymentName string, nodeSelector map
 							Command: []string{"sleep", "infinity"},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: to.Ptr(true),
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"SYS_PTRACE", "SYS_RAWIO"},
+								},
 							},
 						},
 					},

@@ -2867,7 +2867,7 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
 
-	const pingCount = 10
+	const requestCount = 10
 	getVFRxPackets := `val=$(sudo ethtool -S eth0 | awk '/^[[:space:]]*vf_rx_packets:/{print $2; exit}'); [ -n "$val" ] && echo "$val" || { echo "vf_rx_packets not found in ethtool -S eth0 output" >&2; exit 1; }`
 	// Read VF rx counter before generating traffic
 	resultBefore := execScriptOnVMForScenarioValidateExitCode(ctx, s, getVFRxPackets, 0,
@@ -2876,8 +2876,10 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to parse vf_rx_packets before value %q", resultBefore.stdout)
 	s.T.Logf("MANA VF rx packets before: %d", countBefore)
 
-	// Send a known number of ICMP packets from a pod on this node
-	pingCmd := fmt.Sprintf("ping -c %d -W 2 168.63.129.16", pingCount)
+	// Generate traffic from a pod on this node using ping.
+	// Install iputils if not already present (minimal Mariner image may lack it),
+	// then send a known number of ICMP packets to the wireserver.
+	pingCmd := fmt.Sprintf("command -v ping >/dev/null 2>&1 || tdnf install -y -q iputils && ping -c %d -W 2 168.63.129.16", requestCount)
 	pingResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, pingCmd)
 	require.Equalf(s.T, "0", pingResult.exitCode, "failed to execute ping from debug pod (exit %s):\n%s", pingResult.exitCode, pingResult.String())
 
@@ -2888,10 +2890,10 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to parse vf_rx_packets after value %q", resultAfter.stdout)
 
 	delta := countAfter - countBefore
-	s.T.Logf("MANA VF rx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, pingCount)
+	s.T.Logf("MANA VF rx packets after: %d (delta: %d, expected >= %d)", countAfter, delta, requestCount)
 
-	require.GreaterOrEqual(s.T, delta, pingCount,
-		"vf_rx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, pingCount)
+	require.GreaterOrEqual(s.T, delta, requestCount,
+		"vf_rx_packets increased by %d but expected at least %d \u2014 traffic may not be flowing through the MANA VF", delta, requestCount)
 }
 
 // ValidateMANA runs all MANA (Microsoft Azure Network Adapter) checks.
