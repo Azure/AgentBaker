@@ -793,6 +793,14 @@ collect_grid_compatibility_data() {
   chmod 755 "${GRID_COMPATIBILITY_DATA_FILE}"
 }
 
+# --------------------------------------------------------- INSTALL DEPENDENCIES START ---------------------------------------------------------
+
+# check if COMPONENTS_FILEPATH exists
+if [ ! -f "$COMPONENTS_FILEPATH" ]; then
+  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
+  exit 1
+fi
+
 resolve_packages_source_url
 
 echo ""
@@ -824,13 +832,16 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-# If the IMG_SKU does not contain "minimal", installDeps normally
-# shellcheck disable=SC3010
-if [[ "$IMG_SKU" != *"minimal"* ]]; then
-  installDeps
-else
-  updateAptWithMicrosoftPkg
-fi
+# # If the IMG_SKU does not contain "minimal", installDeps normally
+# # shellcheck disable=SC3010
+# if [[ "$IMG_SKU" != *"minimal"* ]]; then
+#   installDeps
+# else
+#   updateAptWithMicrosoftPkg
+# fi
+
+updateAptWithMicrosoftPkg
+installDeps
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
 
@@ -994,11 +1005,6 @@ fi
 capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
 echo "VHD will be built with containerd as the container runtime"
-# check if COMPONENTS_FILEPATH exists
-if [ ! -f "$COMPONENTS_FILEPATH" ]; then
-  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
-  exit 1
-fi
 
 # Cache packages and binaries declared within components.json
 # cachePackageAndBinaryComponents
@@ -1287,8 +1293,6 @@ rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
 extractAndCacheCoreDnsBinary
 
-echo "install-dependencies step completed successfully"
-
 collect_grid_compatibility_data
 
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
@@ -1296,6 +1300,10 @@ collect_grid_compatibility_data
 # to install extra packages required for the managed gpu experience.
 removeNvidiaRepos
 capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
+
+echo "install-dependencies step completed successfully"
+
+# --------------------------------------------------------- INSTALL DEPENDENCIES END ---------------------------------------------------------
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
