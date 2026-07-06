@@ -190,6 +190,13 @@ type Config struct {
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
+	// PreProvisionBootstrapConfigMutator, when set, mutates the NodeBootstrappingConfig for the
+	// BAKE (pre-provision) stage ONLY of a VHDCaching/TestPreProvision two-stage run. It runs after
+	// BootstrapConfigMutator (and after PreProvisionOnly is set). Use it to deliberately make
+	// bake-time state differ from provision-time state - e.g. inject a sentinel TLS bootstrap token -
+	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
+	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
+
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 

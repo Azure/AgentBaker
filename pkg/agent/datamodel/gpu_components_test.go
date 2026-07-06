@@ -63,6 +63,16 @@ func TestLoadConfig(t *testing.T) {
 	if !suffixPattern.MatchString(AKSGPUGridV20VersionSuffix) {
 		t.Errorf("AKSGPUGridV20VersionSuffix '%s' does not match expected format", AKSGPUGridV20VersionSuffix)
 	}
+
+	// aks-gpu-cuda-lts drives the render, so its version/suffix must be loaded. aks-gpu-cuda
+	// (NvidiaCudaDriverVersion / AKSGPUCudaVersionSuffix, checked above) is the recognized pre-LTS
+	// image, available if a SKU is routed to the "cuda" image in CSE later.
+	if !versionPattern.MatchString(NvidiaCudaLTSDriverVersion) {
+		t.Errorf("NvidiaCudaLTSDriverVersion '%s' does not match expected format", NvidiaCudaLTSDriverVersion)
+	}
+	if !suffixPattern.MatchString(AKSGPUCudaLTSVersionSuffix) {
+		t.Errorf("AKSGPUCudaLTSVersionSuffix '%s' does not match expected format", AKSGPUCudaLTSVersionSuffix)
+	}
 }
 
 // TestGPUImageRepo verifies that the bare repo name is extracted via exact final
@@ -71,7 +81,7 @@ func TestLoadConfig(t *testing.T) {
 // LoadConfig switch that maps each repo to its own driver version/suffix.
 func TestGPUImageRepo(t *testing.T) {
 	cases := map[string]string{
-		"mcr.microsoft.com/aks/aks-gpu-cuda:*":               "aks-gpu-cuda",
+		"mcr.microsoft.com/aks/aks-gpu-cuda-lts:*":           "aks-gpu-cuda-lts",
 		"mcr.microsoft.com/aks/aks-gpu-grid:*":               "aks-gpu-grid",
 		"mcr.microsoft.com/aks/aks-gpu-grid-v20:*":           "aks-gpu-grid-v20",
 		"mcr.microsoft.com/aks/aks-gpu-grid-v20:595.58.03-1": "aks-gpu-grid-v20",

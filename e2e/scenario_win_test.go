@@ -390,7 +390,19 @@ func Test_Windows2025Gen2_VHDCaching(t *testing.T) {
 // to use the legacy bootstrap-token path. Catches regressions in the two-stage
 // CSE flow that only surface when no secure-tls-bootstrap client is around to
 // overwrite the temporary kubeconfig.
+//
+// It also positively guards the BasePrep->NodePrep kubeconfig fix: a stale
+// sentinel bootstrap token is baked during the pre-provision (BasePrep) stage,
+// while the real cluster token is used at provision time. If bootstrap-config
+// were written in BasePrep (the buggy behaviour), the cached VHD would carry the
+// stale token and the node would fail to register; because it is written in
+// NodePrep, the live token wins and the sentinel must never reach the node.
 func Test_Windows2022_VHDCaching_LegacyTLSBootstrap(t *testing.T) {
+	// Deliberately bogus but correctly-formatted ([a-z0-9]{6}.[a-z0-9]{16}) token.
+	// Baked into the VHD at BasePrep time only; must be overwritten by the live
+	// token in NodePrep. The bake stage is PreProvisionOnly (no kubelet start), so
+	// this bogus value never breaks stage 1.
+	const staleBakeTimeToken = "baketk.000000000000bake"
 	RunScenario(t, &Scenario{
 		Description: "VHD Caching with secure TLS bootstrap disabled",
 		Config: Config{
@@ -405,6 +417,17 @@ func Test_Windows2022_VHDCaching_LegacyTLSBootstrap(t *testing.T) {
 					nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
 				}
 				nbc.SecureTLSBootstrappingConfig.Enabled = false
+			},
+			// Bake stage only: inject the stale sentinel token so the provision-stage
+			// validator can prove bootstrap-config is (re)written from the live token.
+			PreProvisionBootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletClientTLSBootstrapToken = to.Ptr(staleBakeTimeToken)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// The provisioned node must use the live token written in NodePrep,
+				// never the stale token baked during VHD creation.
+				ValidateFileHasContent(ctx, s, "C:\\k\\bootstrap-config", s.GetTLSBootstrapToken())
+				ValidateFileExcludesContent(ctx, s, "C:\\k\\bootstrap-config", staleBakeTimeToken)
 			},
 		},
 	})

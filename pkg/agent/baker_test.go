@@ -943,7 +943,7 @@ var _ = Describe("GetGPUDriverVersion", func() {
 		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
-		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaLTSDriverVersion))
 	})
 	It("should use grid with nv v5", func() {
 		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.NvidiaGridDriverVersion))
@@ -958,14 +958,17 @@ var _ = Describe("GetGPUDriverVersion", func() {
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaLTSDriverVersion))
 	})
 })
 
 var _ = Describe("GetGPUDriverType", func() {
 
-	It("should use cuda with nc v3", func() {
-		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+	It("should use cuda-lts with nc v3", func() {
+		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
+	})
+	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
+		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
 		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
@@ -979,8 +982,8 @@ var _ = Describe("GetGPUDriverType", func() {
 		Expect(GetGPUDriverType("Standard_NC320lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
-	It("should use cuda with nv v1", func() {
-		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
+	It("should use cuda-lts with nv v1", func() {
+		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda-lts"))
 	})
 })
 
@@ -992,8 +995,8 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
 		Expect(GetAKSGPUImageSHA("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
 	})
-	It("should use newest AKSGPUCudaVersionSuffix with non grid SKU", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
+	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
+		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
 	})
 })
 
@@ -1118,7 +1121,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
-		Expect(vars).To(HaveKeyWithValue("GPU_DRIVER_TYPE", "cuda"))
+		Expect(vars).To(HaveKeyWithValue("GPU_DRIVER_TYPE", "cuda-lts"))
 	})
 
 	It("should handle custom cloud environment", func() {

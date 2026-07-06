@@ -10,6 +10,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -142,60 +143,60 @@ type Distro string
 
 // Distro string consts.
 const (
-	Ubuntu                                Distro = "ubuntu"
-	AKSCBLMarinerV1                       Distro = "aks-cblmariner-v1"
-	AKSCBLMarinerV2                       Distro = "aks-cblmariner-v2"
-	AKSAzureLinuxV2                       Distro = "aks-azurelinux-v2"
-	AKSAzureLinuxV3                       Distro = "aks-azurelinux-v3"
-	AKSCBLMarinerV2Gen2                   Distro = "aks-cblmariner-v2-gen2"
-	AKSAzureLinuxV2Gen2                   Distro = "aks-azurelinux-v2-gen2"
-	AKSAzureLinuxV3Gen2                   Distro = "aks-azurelinux-v3-gen2"
-	AKSCBLMarinerV2FIPS                   Distro = "aks-cblmariner-v2-fips"
-	AKSAzureLinuxV2FIPS                   Distro = "aks-azurelinux-v2-fips"
-	AKSAzureLinuxV3FIPS                   Distro = "aks-azurelinux-v3-fips"
-	AKSCBLMarinerV2Gen2FIPS               Distro = "aks-cblmariner-v2-gen2-fips"
-	AKSAzureLinuxV2Gen2FIPS               Distro = "aks-azurelinux-v2-gen2-fips"
-	AKSAzureLinuxV3Gen2FIPS               Distro = "aks-azurelinux-v3-gen2-fips"
-	AKSCBLMarinerV2Gen2Kata               Distro = "aks-cblmariner-v2-gen2-kata"
-	AKSAzureLinuxV2Gen2Kata               Distro = "aks-azurelinux-v2-gen2-kata"
-	AKSAzureLinuxV3Gen2Kata               Distro = "aks-azurelinux-v3-gen2-kata"
-	AKSCBLMarinerV2Gen2TL                 Distro = "aks-cblmariner-v2-gen2-tl"
-	AKSAzureLinuxV2Gen2TL                 Distro = "aks-azurelinux-v2-gen2-tl"
-	AKSAzureLinuxV3Gen2TL                 Distro = "aks-azurelinux-v3-gen2-tl"
-	AKSAzureLinuxV3OSGuardGen2FIPSTL      Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
-	AKSCBLMarinerV2KataGen2TL             Distro = "aks-cblmariner-v2-kata-gen2-tl"
-	AKSUbuntuFipsContainerd2004           Distro = "aks-ubuntu-fips-containerd-20.04"
-	AKSUbuntuFipsContainerd2004Gen2       Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsContainerd2204           Distro = "aks-ubuntu-fips-containerd-22.04"
-	AKSUbuntuFipsContainerd2204Gen2       Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
-	AKSUbuntuFipsContainerd2204TLGen2     Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
-	AKSUbuntuEdgeZoneContainerd2204       Distro = "aks-ubuntu-edgezone-containerd-22.04"
-	AKSUbuntuEdgeZoneContainerd2204Gen2   Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
-	AKSUbuntuContainerd2204               Distro = "aks-ubuntu-containerd-22.04"
-	AKSUbuntuContainerd2204Gen2           Distro = "aks-ubuntu-containerd-22.04-gen2"
-	AKSUbuntuContainerd2004CVMGen2        Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
-	AKSUbuntuArm64Containerd2204Gen2      Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-	AKSUbuntuArm64Containerd2404Gen2      Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
-	AKSUbuntuArm64GB200Containerd2404Gen2 Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
-	AKSUbuntuContainerd2404CVMGen2        Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
-	AKSCBLMarinerV2Arm64Gen2              Distro = "aks-cblmariner-v2-arm64-gen2"
-	AKSAzureLinuxV2Arm64Gen2              Distro = "aks-azurelinux-v2-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2              Distro = "aks-azurelinux-v3-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2FIPS          Distro = "aks-azurelinux-v3-arm64-gen2-fips"
-	AKSUbuntuContainerd2204TLGen2         Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	AKSUbuntuMinimalContainerd2204        Distro = "aks-ubuntu-minimal-containerd-22.04"
-	AKSUbuntuMinimalContainerd2204Gen2    Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
-	AKSUbuntuEgressContainerd2204Gen2     Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
-	AKSUbuntuContainerd2404               Distro = "aks-ubuntu-containerd-24.04"
-	AKSUbuntuContainerd2404Gen2           Distro = "aks-ubuntu-containerd-24.04-gen2"
-	AKSAzureLinuxV3CVMGen2                Distro = "aks-azurelinux-v3-cvm-gen2"
-	AKSUbuntuContainerd2404TLGen2         Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
-	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
-	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
-	AKSACLGen2TL                          Distro = "aks-acl-gen2-tl"
-	AKSACLArm64Gen2TL                     Distro = "aks-acl-arm64-gen2-tl"
-	AKSACLGen2FIPSTL                      Distro = "aks-acl-gen2-fips-tl"
-	AKSACLArm64Gen2FIPSTL                 Distro = "aks-acl-arm64-gen2-fips-tl"
+	Ubuntu                                  Distro = "ubuntu"
+	AKSCBLMarinerV1                         Distro = "aks-cblmariner-v1"
+	AKSCBLMarinerV2                         Distro = "aks-cblmariner-v2"
+	AKSAzureLinuxV2                         Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                         Distro = "aks-azurelinux-v3"
+	AKSCBLMarinerV2Gen2                     Distro = "aks-cblmariner-v2-gen2"
+	AKSAzureLinuxV2Gen2                     Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                     Distro = "aks-azurelinux-v3-gen2"
+	AKSCBLMarinerV2FIPS                     Distro = "aks-cblmariner-v2-fips"
+	AKSAzureLinuxV2FIPS                     Distro = "aks-azurelinux-v2-fips"
+	AKSAzureLinuxV3FIPS                     Distro = "aks-azurelinux-v3-fips"
+	AKSCBLMarinerV2Gen2FIPS                 Distro = "aks-cblmariner-v2-gen2-fips"
+	AKSAzureLinuxV2Gen2FIPS                 Distro = "aks-azurelinux-v2-gen2-fips"
+	AKSAzureLinuxV3Gen2FIPS                 Distro = "aks-azurelinux-v3-gen2-fips"
+	AKSCBLMarinerV2Gen2Kata                 Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSAzureLinuxV2Gen2Kata                 Distro = "aks-azurelinux-v2-gen2-kata"
+	AKSAzureLinuxV3Gen2Kata                 Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSCBLMarinerV2Gen2TL                   Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSAzureLinuxV2Gen2TL                   Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL                   Distro = "aks-azurelinux-v3-gen2-tl"
+	AKSAzureLinuxV3OSGuardGen2FIPSTL        Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
+	AKSCBLMarinerV2KataGen2TL               Distro = "aks-cblmariner-v2-kata-gen2-tl"
+	AKSUbuntuFipsContainerd2004             Distro = "aks-ubuntu-fips-containerd-20.04"
+	AKSUbuntuFipsContainerd2004Gen2         Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	AKSUbuntuFipsContainerd2204             Distro = "aks-ubuntu-fips-containerd-22.04"
+	AKSUbuntuFipsContainerd2204Gen2         Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
+	AKSUbuntuFipsContainerd2204TLGen2       Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
+	AKSUbuntuEdgeZoneContainerd2204         Distro = "aks-ubuntu-edgezone-containerd-22.04"
+	AKSUbuntuEdgeZoneContainerd2204Gen2     Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
+	AKSUbuntuContainerd2204                 Distro = "aks-ubuntu-containerd-22.04"
+	AKSUbuntuContainerd2204Gen2             Distro = "aks-ubuntu-containerd-22.04-gen2"
+	AKSUbuntuContainerd2004CVMGen2          Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
+	AKSUbuntuArm64Containerd2204Gen2        Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSUbuntuArm64Containerd2404Gen2        Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
+	AKSUbuntuArm64GB200Containerd2404Gen2   Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
+	AKSUbuntuContainerd2404CVMGen2          Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
+	AKSCBLMarinerV2Arm64Gen2                Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSAzureLinuxV2Arm64Gen2                Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2                Distro = "aks-azurelinux-v3-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2FIPS            Distro = "aks-azurelinux-v3-arm64-gen2-fips"
+	AKSUbuntuContainerd2204TLGen2           Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
+	AKSUbuntuEgressContainerd2204Gen2       Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404                 Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
+	AKSUbuntuArm64MinimalContainerd2604Gen2 Distro = "aks-ubuntu-arm64-minimal-containerd-26.04-gen2"
+	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
+	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
+	AKSFlatcarArm64Gen2                     Distro = "aks-flatcar-arm64-gen2"
+	AKSACLGen2TL                            Distro = "aks-acl-gen2-tl"
+	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
+	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
+	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -272,11 +273,11 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuMinimalContainerd2204,
-	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSUbuntuMinimalContainerd2604Gen2,
+	AKSUbuntuArm64MinimalContainerd2604Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -293,40 +294,24 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
-	for _, distro := range AKSDistrosAvailableOnVHD {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2404Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2404Distros, d)
+}
+
+func (d Distro) Is2604VHDDistro() bool {
+	return slices.Contains(AvailableUbuntu2604Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
-	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
 func (d Distro) IsKataDistro() bool {
@@ -334,30 +319,15 @@ func (d Distro) IsKataDistro() bool {
 }
 
 func (d Distro) IsFlatcarDistro() bool {
-	for _, distro := range AvailableFlatcarDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableFlatcarDistros, d)
 }
 
 func (d Distro) IsACLDistro() bool {
-	for _, distro := range AvailableACLDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableACLDistros, d)
 }
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
-	for _, distro := range AvailableAzureLinuxOSGuardDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
 }
 
 /*
@@ -1207,6 +1177,11 @@ func (a *AgentPoolProfile) Is2204VHDDistro() bool {
 // Is2404VHDDistro returns true if the distro uses 2404 VHD.
 func (a *AgentPoolProfile) Is2404VHDDistro() bool {
 	return a.Distro.Is2404VHDDistro()
+}
+
+// Is2604VHDDistro returns true if the distro uses 2604 VHD.
+func (a *AgentPoolProfile) Is2604VHDDistro() bool {
+	return a.Distro.Is2604VHDDistro()
 }
 
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.

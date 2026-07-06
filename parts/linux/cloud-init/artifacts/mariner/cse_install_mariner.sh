@@ -115,7 +115,8 @@ downloadGPUDrivers() {
     #
     # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
     # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
-    # "grid-v20" (Ubuntu-only, rejected below); all others get "cuda".
+    # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
+    # NCv1 gets "cuda". Only grid vs non-grid matters here, so both take the CUDA path below.
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     VM_SKU=$(get_compute_sku)
