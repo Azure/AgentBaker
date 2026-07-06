@@ -84,7 +84,7 @@ via packages, ACL delivers them as **sysexts pulled from OCI registries via ORAS
 | aks-secure-tls-bootstrap-client | `mcr.microsoft.com/aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext` | Tagged by version |
 | GPU drivers (NVIDIA) | `mcr.microsoft.com/azurelinux/<major.minor>/azure-container-linux/<sysext-name>` | Tagged by `VERSION_ID` from `/etc/os-release` |
 
-After sysext merge, symlinks are created (e.g., `/usr/bin/kubelet` → `/opt/bin/kubelet`).
+After sysext merge, symlinks are created (e.g., `/opt/bin/kubelet` → `/usr/bin/kubelet`).
 
 **Network-isolated clusters:** When `BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER`
 is set, ACR cache rules don't support ORAS repo tag listing. The code falls back
