@@ -1825,7 +1825,10 @@ configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
     fi
-    # RP validator ensures that only one of ENABLE_MANAGED_GPU_EXPERIENCE and ENABLE_MANAGED_GPU_EXPERIENCE_DRA is true at a time.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        echo "Error: ENABLE_MANAGED_GPU_EXPERIENCE and ENABLE_MANAGED_GPU_EXPERIENCE_DRA cannot both be true"
+        exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
+    fi
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
