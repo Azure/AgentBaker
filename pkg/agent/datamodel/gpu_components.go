@@ -173,11 +173,12 @@ var FabricManagerGPUSizes = map[string]bool{
 
 // IMEXGPUSizes lists the Grace-Blackwell NVL (GB200/GB300) sizes. Unlike HGX A100/H100/H200 (which
 // have an on-board NVSwitch and need host Fabric Manager), GB has NO on-board NVSwitch -- the switch
-// trays live in the rack (NVOS), so host FM is NOT used (GB is intentionally absent from
-// FabricManagerGPUSizes). GB's host-side fabric piece is IMEX instead: it authorizes cross-node GPU
-// memory access over the rack NVLink domain. On these sizes CSE installs + enables nvidia-imex and
-// creates the IMEX channel after the GPU driver is up. The per-domain peer list is written at runtime
-// (GPU Operator ComputeDomains), not by CSE.
+// trays live in the rack (NVOS), so host FM is NOT used (GB is set to false in FabricManagerGPUSizes --
+// explicitly, so starting fabricmanager never fails provisioning). GB's host-side fabric piece is IMEX
+// instead: it authorizes cross-node GPU memory access over the rack NVLink domain. On these sizes CSE
+// installs nvidia-imex and creates the IMEX channel after the GPU driver is up, but leaves the daemon
+// DISABLED -- the per-domain peer list and the daemon are owned at runtime by the GPU Operator
+// ComputeDomains, not by CSE.
 //
 //nolint:gochecknoglobals
 var IMEXGPUSizes = map[string]bool{

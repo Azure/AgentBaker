@@ -48,4 +48,39 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "modprobe_after=false"
         End
     End
+
+    Describe 'installNvidiaIMEX'
+        # nvidia-smi is only used for an informational log line; stub it so the function does not need a GPU.
+        nvidia_smi_stub() { echo "580.159.04"; }
+
+        It 'fails when no nvidia-imex deb was baked into the cache'
+            nvidia-smi() { nvidia_smi_stub; }
+            # empty find output => no cached deb
+            find() { :; }
+            When call installNvidiaIMEX
+            The status should be failure
+            The output should include "no cached nvidia-imex deb"
+        End
+
+        It 'installs from the cache, creates the channel, cleans the cache, and leaves the daemon disabled'
+            nvidia-smi() { nvidia_smi_stub; }
+            find() { echo "/opt/nvidia-imex/downloads/nvidia-imex_580.159.04-1ubuntu1_arm64.deb"; }
+            dpkg() { echo "mock dpkg $*"; }
+            rm() { echo "mock rm $*"; }
+            systemctl() { echo "mock systemctl $*"; }
+            When call installNvidiaIMEX
+            The status should be success
+            # installed from the baked cache (no runtime download)
+            The output should include "mock dpkg -i /opt/nvidia-imex/downloads/nvidia-imex"
+            # cache removed after install
+            The output should include "mock rm -rf /opt/nvidia-imex"
+            # daemon deliberately NOT started: the unit is disabled
+            The output should include "mock systemctl disable nvidia-imex"
+            # channel created + reboot flagged; final message proves we reached the end
+            The output should include "channel pending reboot"
+            The variable REBOOTREQUIRED should eq "true"
+            # the channel modprobe option was written
+            The contents of file "/etc/modprobe.d/nvidia-imex.conf" should include "NVreg_CreateImexChannel0=1"
+        End
+    End
 End

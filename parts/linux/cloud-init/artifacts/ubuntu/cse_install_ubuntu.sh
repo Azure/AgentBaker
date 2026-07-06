@@ -223,7 +223,7 @@ removeNvidiaRepos() {
     fi
 }
 
-# installNvidiaIMEX installs + enables nvidia-imex for Grace-Blackwell NVL (GB200/GB300). Called from
+# installNvidiaIMEX installs nvidia-imex (daemon left DISABLED) for Grace-Blackwell NVL (GB200/GB300). Called from
 # cse_main.sh only for IMEXGPUSizes, AFTER the GPU driver is installed by aks-gpu (.run installer).
 # GB has no on-board NVSwitch (so no host Fabric Manager); IMEX is its host-side fabric piece for
 # cross-node NVLink. This step only (a) installs the nvidia-imex binary and (b) creates the IMEX channel

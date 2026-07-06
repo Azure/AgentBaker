@@ -8,7 +8,7 @@ import (
 )
 
 // This file holds validators specific to Grace-Blackwell (GB200/GB300) nodes. The GB fabric model is
-// "ND - Fabric Manager + IMEX": GB has NO on-board NVSwitch (the switch trays live in the rack, run by
+// "ND minus Fabric Manager, plus IMEX": GB has NO on-board NVSwitch (the switch trays live in the rack, run by
 // NVOS), so host Fabric Manager must stay OFF, and cross-node NVLink is set up via IMEX instead. On the
 // host, CSE installs nvidia-imex + creates the IMEX channel, but deliberately does NOT start the daemon
 // (the per-domain peer list is owned at runtime by the GPU Operator ComputeDomains). These validators
