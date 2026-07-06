@@ -38,8 +38,761 @@ CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
+
+string_replace() {
+  echo ${1//\*/$2}
+}
+
+# doing this at vhd allows CSE to be faster with just mv
+unpackTgzToCNIDownloadsDIR() {
+  local download_dir=${1}
+  local url=${2}
+  local cni_tgz_tmp=${url##*/}
+  local cni_dir_tmp=${cni_tgz_tmp%.tgz}
+  mkdir -p "${download_dir}/${cni_dir_tmp}"
+  extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
+  rm -rf "${download_dir:?}/${cni_tgz_tmp}"
+  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
+
+cacheVersionedKubernetesPackageBinary() {
+  local package_name=${1}
+  local package_version=${2}
+  local download_dir=${3}
+  local version_no_epoch
+  local k8s_version
+  local binary_path="/opt/bin/${package_name}"
+
+  version_no_epoch="${package_version#*:}"
+  k8s_version="${version_no_epoch%%-*}"
+  binary_path="${binary_path}-${k8s_version}"
+
+  mkdir -p /opt/bin
+
+  if isUbuntu "$OS"; then
+    local deb_file
+    local tmp_dir
+
+    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_${version_no_epoch}*" -print -quit 2>/dev/null) || deb_file=""
+    if [ -z "${deb_file}" ]; then
+      echo "Failed to locate cached ${package_name} deb for ${package_version}"
+      return 1
+    fi
+
+    tmp_dir=$(mktemp -d)
+    if ! dpkg-deb -x "${deb_file}" "${tmp_dir}"; then
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    if [ ! -f "${tmp_dir}/usr/bin/${package_name}" ]; then
+      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    install -m0755 "${tmp_dir}/usr/bin/${package_name}" "${binary_path}"
+    rm -rf "${tmp_dir}"
+  elif isMarinerOrAzureLinux "$OS"; then
+    local rpm_file
+
+    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-${version_no_epoch}*" -print -quit 2>/dev/null) || rpm_file=""
+    if [ -z "${rpm_file}" ]; then
+      echo "Failed to locate cached ${package_name} rpm for ${package_version}"
+      return 1
+    fi
+
+    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${package_name}" "./usr/local/bin/${package_name}" | install -m0755 /dev/stdin "${binary_path}"
+  else
+    echo "Skipping versioned binary extraction for unsupported OS ${OS}"
+    return 0
+  fi
+
+  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
+}
+
+# this is for the old package not coming from Dalec, currently fixed at 1.6.2.
+# The binary is expected to be present during bootstrapping, no dynamic download logic exists for this one
+downloadCNIPlugins() {
+    local download_dir=${1}
+    mkdir -p "${download_dir}"
+    local cni_plugins_url=${2}
+    local cni_tgz_tmp=${cni_plugins_url##*/}
+    retrycmd_get_tarball 120 5 "${download_dir}/${cni_tgz_tmp}" "${cni_plugins_url}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
+installCNI() {
+    downloadDir=${1}
+    evaluatedURL=${2}
+    version=${3}
+
+    echo "installing containernetworking-plugins version ${version}"
+
+    # Create CNI_BIN_DIR for all installation methods
+    mkdir -p "$CNI_BIN_DIR"
+    chown -R root:root "$CNI_BIN_DIR"
+
+    # if downloadDir and evaluatedURL are not empty, download and extract tarball (for flatcar/osguard)
+    if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
+        mkdir -p "${downloadDir}"
+        chown -R root:root "${downloadDir}"
+
+        echo "Downloading CNI plugins from ${evaluatedURL}"
+        retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
+        rm -f "${downloadDir}/cni-plugins.tar.gz"
+        return 0
+    fi
+
+    # Package manager installation (for Ubuntu/Mariner/AzureLinux)
+    if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+        packageName="containernetworking-plugins=${version}"
+        echo "Installing ${packageName} with apt-get"
+        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    elif isMarinerOrAzureLinux "$OS"; then
+        packageName="containernetworking-plugins-${version}"
+        echo "Installing ${packageName} with dnf"
+        dnf_install 10 2 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    else
+        echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+}
+
+downloadAndInstallCriTools() {
+  downloadDir=${1}
+  evaluatedURL=${2}
+  version=${3}
+
+  # if downloadDir and evaluatedURL are not empty, download and install crictl by this override, which is the old way to install
+  if [ ! -z "${downloadDir}" ] && [ ! -z "${evaluatedURL}" ]; then
+    downloadCrictl "${downloadDir}" "${evaluatedURL}"
+    echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
+    # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
+    # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
+    CRICTL_VERSION=${version}
+    KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    return 0
+  fi
+
+  # this will call installCriCtlPackage function defined in cse_install_<OS>.sh based on the OS
+  installCriCtlPackage "${version}"
+}
+
+installAndConfigureArtifactStreaming() {
+  local downloadURL="$1"
+  local version="$2"
+  # The arm64 packages have "-arm64" inserted before the file extension,
+  # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
+  if [ "$(isARM64)" -eq 1 ]; then
+    downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
+  fi
+  local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  case "$downloadURL" in
+    *.deb)
+      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *.rpm)
+      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      ;;
+    *)
+      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+      ;;
+  esac
+  rm "$MIRROR_DOWNLOAD_PATH"
+
+  /opt/acr/tools/overlaybd/install.sh
+  /opt/acr/tools/overlaybd/config-user-agent.sh azure
+  /opt/acr/tools/overlaybd/enable-http-auth.sh
+  /opt/acr/tools/overlaybd/config.sh download.enable false
+  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
+  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
+  echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
+}
+
+retagAKSNodeCAWatcher() {
+  # This function retags the aks-node-ca-watcher image to a static tag
+  # The static tag is used to bootstrap custom CA trust when MCR egress may be intercepted by an untrusted TLS MITM firewall.
+  # The image is never pulled, it is only retagged.
+
+  watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+  watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+  watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
+  watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+
+  # this image will never get pulled, the tag must be the same across different SHAs.
+  # it will only ever be upgraded via node image changes.
+  # we do this because the image is used to bootstrap custom CA trust when MCR egress
+  # may be intercepted by an untrusted TLS MITM firewall.
+  watcherStaticImg=${watcherBaseImg//\*/static}
+
+  # can't use $cliTool variable because crictl doesn't support retagging.
+  retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+}
+retagAKSNodeCAWatcher
+capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
+
+pinPodSandboxImages() {
+  # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
+  # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
+  # These images are critical for pod startup and aren't supported with private ACR since containerd won't be using azure-acr-credential to fetch them.
+
+  # Get all pause images as individual JSON objects
+  local pause_images
+  pause_images=$(jq -c '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
+
+  if [ -z "$pause_images" ]; then
+    echo "Warning: No pause images found in components.json"
+    return 0
+  fi
+
+  # Process each pause image separately
+  while IFS= read -r podSandbox; do
+    if [ -z "$podSandbox" ]; then
+      continue
+    fi
+
+    local podSandboxBaseImg
+    local podSandboxVersion
+    local podSandboxFullImg
+
+    podSandboxBaseImg=$(echo "$podSandbox" | jq -r '.downloadURL')
+    podSandboxVersion=$(echo "$podSandbox" | jq -r '.multiArchVersionsV2[0].latestVersion')
+
+    # Skip if we couldn't extract the required information
+    if [ "$podSandboxBaseImg" = "null" ] || [ "$podSandboxVersion" = "null" ]; then
+      echo "Warning: Could not extract downloadURL or latestVersion from pause image: $podSandbox"
+      continue
+    fi
+
+    podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+    echo "Pinning pause image: $podSandboxFullImg"
+    labelContainerImage "${podSandboxFullImg}" "io.cri-containerd.pinned" "pinned"
+
+  done <<< "$pause_images"
+}
+
+# download kubernetes package from the given URL using azcopy
+# if it is a kube-proxy package, extract image from the downloaded package
+cacheKubePackageFromPrivateUrl() {
+  local kube_private_binary_url="$1"
+
+  echo "process private package url: $kube_private_binary_url"
+
+  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+
+  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+  local k8s_tgz_name
+  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+
+  # use azcopy instead of curl to download packages
+  getAzCopyCurrentPath
+
+  export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+  export AZCOPY_CONCURRENCY_VALUE="AUTO"
+  export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+  export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+  mkdir -p "${AZCOPY_LOG_LOCATION}"
+  mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
+
+  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
+  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+
+  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+    azExitCode=$?
+    # loop through azcopy log files
+    shopt -s nullglob
+    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+      echo "Azcopy log file: $f"
+      # upload the log file as an attachment to vso
+      echo "##vso[build.uploadlog]$f"
+      # check if the log file contains any errors
+      if grep -q '"level":"Error"' "$f"; then
+ 	 	echo "log file $f contains errors"
+        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+        # print the log file
+        cat "$f"
+      fi
+    done
+    shopt -u nullglob
+    exit $ERR_PRIVATE_K8S_PKG_ERR
+  fi
+}
+
+# Configure LSM modules to include BPF
+configureLsmWithBpf() {
+  echo "Configuring LSM modules to include BPF..."
+
+  # Read current LSM modules
+  if [ ! -f /sys/kernel/security/lsm ]; then
+    echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
+    return 0
+  fi
+
+  local current_lsm
+  current_lsm=$(cat /sys/kernel/security/lsm)
+  echo "Current LSM modules: $current_lsm"
+
+  # Prepend bpf to the LSM list if not already present
+  if ! echo "$current_lsm" | grep -q bpf; then
+    if [ "$IS_KATA" = "true" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+      echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
+      return 0
+    fi
+
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
+      return 0
+    fi
+
+    local new_lsm="bpf,$current_lsm"
+    echo "New LSM configuration: $new_lsm"
+
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
+      local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
+      if [ -f "$grub_cfg" ]; then
+        if grep -q "lsm=" "$grub_cfg"; then
+          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" "$grub_cfg"
+        else
+          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
+        fi
+        echo "Updating GRUB configuration for Ubuntu 24.04..."
+        update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+      else
+        echo "Warning: $grub_cfg not found, skipping LSM configuration"
+      fi
+    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
+      if [ -f /etc/default/grub ]; then
+        if grep -q "lsm=" /etc/default/grub; then
+          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
+        else
+          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
+        fi
+        echo "Updating GRUB configuration for Azure Linux 3.0..."
+        grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+      else
+        echo "Warning: /etc/default/grub not found, skipping LSM configuration"
+      fi
+    else
+      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
+    fi
+
+    echo "LSM configuration update completed"
+  else
+    echo "BPF LSM already configured, skipping"
+  fi
+}
+
+cachePackageAndBinaryComponents() {
+  # Download/cache all declared packages and binaries within components.json that apply to the respective OS SKU
+  packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+  # Iterate over each element in the packages array
+  while IFS= read -r p; do
+    #getting metadata for each package
+    name=$(echo "${p}" | jq .name -r)
+    os=${OS}
+    # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
+    # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
+    if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
+      # This is temporary for kata-cc because it uses a modified version of containerd and
+      # name is referenced in parts/common.json marinerkata.
+      os=${MARINER_KATA_OS_NAME}
+    fi
+    if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+      # This is temporary for kata-cc because it uses a modified version of containerd and
+      # name is referenced in parts/common.json azurelinuxkata.
+      os=${AZURELINUX_KATA_OS_NAME}
+    fi
+    updatePackageVersions "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
+    updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
+    echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+
+    # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
+    if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
+      echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
+      continue
+    fi
+    downloadDir=$(echo "${p}" | jq .downloadLocation -r)
+    #download the package
+    case $name in
+      "kubernetes-cri-tools")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"
+        done
+        ;;
+      "azure-cni")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
+          unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
+          echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "cni-plugins")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadCNIPlugins "${downloadDir}" "${evaluatedURL}"
+          unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
+          echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "containernetworking-plugins")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          installCNI "${downloadDir}" "${evaluatedURL}" "${version}"
+          echo "  - containernetworking-plugins version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "runc")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
+          echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "containerd")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+            installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+          elif isMarinerOrAzureLinux "$OS"; then
+            installStandaloneContainerd "${version}"
+          fi
+          echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "oras")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "aks-secure-tls-bootstrap-client")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          # removed at provisioning time if secure TLS bootstrapping is disabled
+          if isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
+          elif isMarinerOrAzureLinux; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+            installSecureTLSBootstrapClientSysext "${version}" || exit $?
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "azure-acr-credential-provider")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
+          echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
+          # ORAS will be used to install other packages for network isolated clusters, it must go first.
+        done
+        ;;
+      "inspektor-gadget")
+        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
+          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+        else
+          ig_version="${PACKAGE_VERSIONS[0]}"
+          if isUbuntu "$OS"; then
+            # Ubuntu: download ig deb via apt; ig_install_deb_stack expects it at downloadDir
+            downloadPkgFromVersion "ig" "${ig_version}" "${downloadDir}"
+            installIG "${ig_version}" "${downloadDir}"
+          elif isAzureLinux "$OS"; then
+            # Azure Linux 3.0: ig_install_rpm_stack handles its own RPM downloads
+            installIG "${ig_version}" "${downloadDir}"
+          fi
+        fi
+        ;;
+      "kubernetes-binaries")
+        # kubelet and kubectl
+        # need to cover previously supported version for VMAS scale up scenario
+        # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+        # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+        # Please do not use the .1 suffix, because that's only for the base image patches
+        # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+          echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      azure-acr-credential-provider-pmc)
+        name=${name%-pmc}
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if isMarinerOrAzureLinux || isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      kubelet|kubectl)
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if isMarinerOrAzureLinux || isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_K8S_INSTALL_ERR
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "${K8S_DEVICE_PLUGIN_PKG}")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+            downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
+          fi
+          echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "dra-driver-nvidia-gpu")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
+            downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
+          fi
+          echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "datacenter-gpu-manager-4-core")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
+          echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "datacenter-gpu-manager-4-proprietary")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
+          echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "dcgm-exporter")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
+          echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "node-exporter")
+        # Skipping is handled by empty versionsV2 arrays in components.json
+        # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
+        if [ "${IS_KATA}" = "true" ]; then
+          echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
+        else
+          # Download and install node-exporter-kubernetes at VHD build time.
+          # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+          installNodeExporter "${PACKAGE_VERSIONS[0]}"
+        fi
+        ;;
+      "acr-mirror")
+        # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
+        ;;
+      "aznfs")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
+          mkdir -p "${downloadDir}"
+          aznfsFilename=$(basename "${evaluatedURL}")
+          echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
+          retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT
+          echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
+        ;;
+      "blobfuse"|"blobfuse2")
+        for version in "${PACKAGE_VERSIONS[@]}"; do
+          if isUbuntu "$OS"; then
+            if ! apt_get_install 10 2 120 "${name}=${version}"; then
+              journalctl --no-pager -u "${name}" || true
+              tail -n 200 /var/log/apt/term.log || true
+              tail -n 200 /var/log/dpkg.log || true
+              exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+            echo "  - ${name} version ${version}" >> "${VHD_LOGS_FILEPATH}"
+          else
+            echo "  - ${name} installation skipped for ${OS}" >> "${VHD_LOGS_FILEPATH}"
+          fi
+        done
+        ;;
+      *)
+        echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
+        # We can add a common function to download a generic package here.
+        # However, installation could be different for different packages.
+        ;;
+    esac
+    capture_benchmark "${SCRIPT_NAME}_download_${name}"
+  done <<< "$packages"
+}
+
+cacheContainerImageComponents() {
+  # Download/cache all declared container images within components.json that apply to the respective OS SKU
+  ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+  while IFS= read -r imageToBePulled; do
+    downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
+    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
+    updateMultiArchVersions "${imageToBePulled}"
+    amd64OnlyVersions=""
+    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
+      amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
+    fi
+
+    if [ "$(isARM64)" -eq 1 ]; then
+      versions="${MULTI_ARCH_VERSIONS[*]}"
+    else
+      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
+    fi
+
+    for version in ${versions}; do
+      CONTAINER_IMAGE=$(string_replace $downloadURL $version)
+      pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
+      image_pids+=($!)
+      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+      while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
+        wait -n || {
+          ret=$?
+          echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
+          for pid in "${image_pids[@]}"; do
+            kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+          done
+          exit "${ret}"
+      }
+      done
+    done
+  done <<< "$ContainerImages"
+  echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
+  while [ "$(jobs -p | wc -l)" -gt 0 ]; do
+    wait -n || {
+      ret=$?
+      echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+      for pid in "${image_pids[@]}"; do
+        kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+      done
+      exit "${ret}"
+    }
+  done
+}
+
+# This function extracts CoreDNS binary from cached coredns images (latest version)
+# and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# The binary is later used by localdns systemd unit.
+# The function also handles the cleanup of temporary directories and unmounting of images.
+extractAndCacheCoreDnsBinary() {
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+  if [ "${#coredns_image_list[@]}" -eq 0 ]; then
+    echo "Error: No coredns images found."
+    exit 1
+  fi
+
+  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
+  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
+
+  cleanup_coredns_imports() {
+    set +e
+    if [ -n "${ctr_temp}" ]; then
+      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+      rm -rf "${ctr_temp}"
+    fi
+  }
+  trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version.
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+
+  # Extract the CoreDNS binary for the latest version.
+  for coredns_image_url in "${coredns_image_list[@]}"; do
+    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
+      continue
+    fi
+
+    ctr_temp="$(mktemp -d)"
+    local max_retries=3
+    local retry_count=0
+    while [ $retry_count -lt $max_retries ]; do
+      if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
+        break
+      fi
+      echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
+      sleep 2
+      ((retry_count++))
+    done
+
+    if [ "$retry_count" -eq "$max_retries" ]; then
+      echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
+      exit 1
+    fi
+
+    local coredns_binary="${ctr_temp}/usr/bin/coredns"
+    if [ -f "${coredns_binary}" ]; then
+      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        exit 1
+      }
+      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+    else
+      echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
+    fi
+
+    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+    rm -rf "${ctr_temp}"
+  done
+
+  # Clear the trap.
+  trap - EXIT ABRT ERR INT PIPE QUIT TERM
+}
+
+# Collect grid compatibility data (placeholder for now - will be extended later)
+collect_grid_compatibility_data() {
+  if [ -z "${GRID_COMPATIBILITY_DATA_FILE}" ] ; then
+    return
+  fi
+
+  # Create basic grid compatibility data structure
+  # This is scaffolding - the actual Kusto query and analysis will be added later
+  local compatibility_data=$(jq -n \
+    --arg os "${OS}" \
+    --arg os_version "${OS_VERSION}" \
+    --arg cpu_arch "${CPU_ARCH}" \
+    --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg feature_flags "${FEATURE_FLAGS:-}" \
+    '{
+      "grid_compatibility_check": {
+        "timestamp": $timestamp,
+        "os": $os,
+        "os_version": $os_version,
+        "cpu_architecture": $cpu_arch,
+        "feature_flags": $feature_flags,
+        "compatibility_status": "data_collected",
+        "kusto_query_placeholder": "SELECT * FROM GridCompatibility WHERE timestamp > ago(1d)"
+      }
+    }')
+
+  echo "${compatibility_data}" > "${GRID_COMPATIBILITY_DATA_FILE}"
+  chmod 755 "${GRID_COMPATIBILITY_DATA_FILE}"
+}
+
 resolve_packages_source_url
 
 echo ""
@@ -240,146 +993,6 @@ elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
 
-# doing this at vhd allows CSE to be faster with just mv
-unpackTgzToCNIDownloadsDIR() {
-  local download_dir=${1}
-  local url=${2}
-  local cni_tgz_tmp=${url##*/}
-  local cni_dir_tmp=${cni_tgz_tmp%.tgz}
-  mkdir -p "${download_dir}/${cni_dir_tmp}"
-  extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
-  rm -rf "${download_dir:?}/${cni_tgz_tmp}"
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
-}
-
-cacheVersionedKubernetesPackageBinary() {
-  local package_name=${1}
-  local package_version=${2}
-  local download_dir=${3}
-  local version_no_epoch
-  local k8s_version
-  local binary_path="/opt/bin/${package_name}"
-
-  version_no_epoch="${package_version#*:}"
-  k8s_version="${version_no_epoch%%-*}"
-  binary_path="${binary_path}-${k8s_version}"
-
-  mkdir -p /opt/bin
-
-  if isUbuntu "$OS"; then
-    local deb_file
-    local tmp_dir
-
-    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_${version_no_epoch}*" -print -quit 2>/dev/null) || deb_file=""
-    if [ -z "${deb_file}" ]; then
-      echo "Failed to locate cached ${package_name} deb for ${package_version}"
-      return 1
-    fi
-
-    tmp_dir=$(mktemp -d)
-    if ! dpkg-deb -x "${deb_file}" "${tmp_dir}"; then
-      rm -rf "${tmp_dir}"
-      return 1
-    fi
-
-    if [ ! -f "${tmp_dir}/usr/bin/${package_name}" ]; then
-      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
-      rm -rf "${tmp_dir}"
-      return 1
-    fi
-
-    install -m0755 "${tmp_dir}/usr/bin/${package_name}" "${binary_path}"
-    rm -rf "${tmp_dir}"
-  elif isMarinerOrAzureLinux "$OS"; then
-    local rpm_file
-
-    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-${version_no_epoch}*" -print -quit 2>/dev/null) || rpm_file=""
-    if [ -z "${rpm_file}" ]; then
-      echo "Failed to locate cached ${package_name} rpm for ${package_version}"
-      return 1
-    fi
-
-    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${package_name}" "./usr/local/bin/${package_name}" | install -m0755 /dev/stdin "${binary_path}"
-  else
-    echo "Skipping versioned binary extraction for unsupported OS ${OS}"
-    return 0
-  fi
-
-  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
-}
-
-# this is for the old package not coming from Dalec, currently fixed at 1.6.2.
-# The binary is expected to be present during bootstrapping, no dynamic download logic exists for this one
-downloadCNIPlugins() {
-    local download_dir=${1}
-    mkdir -p "${download_dir}"
-    local cni_plugins_url=${2}
-    local cni_tgz_tmp=${cni_plugins_url##*/}
-    retrycmd_get_tarball 120 5 "${download_dir}/${cni_tgz_tmp}" "${cni_plugins_url}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-}
-
-# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
-# The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
-installCNI() {
-    downloadDir=${1}
-    evaluatedURL=${2}
-    version=${3}
-
-    echo "installing containernetworking-plugins version ${version}"
-
-    # Create CNI_BIN_DIR for all installation methods
-    mkdir -p "$CNI_BIN_DIR"
-    chown -R root:root "$CNI_BIN_DIR"
-
-    # if downloadDir and evaluatedURL are not empty, download and extract tarball (for flatcar/osguard)
-    if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
-        mkdir -p "${downloadDir}"
-        chown -R root:root "${downloadDir}"
-
-        echo "Downloading CNI plugins from ${evaluatedURL}"
-        retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-        extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
-        rm -f "${downloadDir}/cni-plugins.tar.gz"
-        return 0
-    fi
-
-    # Package manager installation (for Ubuntu/Mariner/AzureLinux)
-    if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-        packageName="containernetworking-plugins=${version}"
-        echo "Installing ${packageName} with apt-get"
-        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
-        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
-    elif isMarinerOrAzureLinux "$OS"; then
-        packageName="containernetworking-plugins-${version}"
-        echo "Installing ${packageName} with dnf"
-        dnf_install 10 2 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
-        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
-    else
-        echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
-        exit $ERR_CNI_VERSION_INVALID
-    fi
-}
-
-downloadAndInstallCriTools() {
-  downloadDir=${1}
-  evaluatedURL=${2}
-  version=${3}
-
-  # if downloadDir and evaluatedURL are not empty, download and install crictl by this override, which is the old way to install
-  if [ ! -z "${downloadDir}" ] && [ ! -z "${evaluatedURL}" ]; then
-    downloadCrictl "${downloadDir}" "${evaluatedURL}"
-    echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
-    # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
-    # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-    CRICTL_VERSION=${version}
-    KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
-    return 0
-  fi
-
-  # this will call installCriCtlPackage function defined in cse_install_<OS>.sh based on the OS
-  installCriCtlPackage "${version}"
-}
-
 echo "VHD will be built with containerd as the container runtime"
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f "$COMPONENTS_FILEPATH" ]; then
@@ -387,286 +1000,8 @@ if [ ! -f "$COMPONENTS_FILEPATH" ]; then
   exit 1
 fi
 
-packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-# Iterate over each element in the packages array
-while IFS= read -r p; do
-  #getting metadata for each package
-  name=$(echo "${p}" | jq .name -r)
-  os=${OS}
-  # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
-  # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
-  if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and
-    # name is referenced in parts/common.json marinerkata.
-    os=${MARINER_KATA_OS_NAME}
-  fi
-  if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
-    # This is temporary for kata-cc because it uses a modified version of containerd and
-    # name is referenced in parts/common.json azurelinuxkata.
-    os=${AZURELINUX_KATA_OS_NAME}
-  fi
-  updatePackageVersions "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
-  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
-  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
-
-  # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
-  if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
-    echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
-    continue
-  fi
-  downloadDir=$(echo "${p}" | jq .downloadLocation -r)
-  #download the package
-  case $name in
-    "kubernetes-cri-tools")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"
-      done
-      ;;
-    "azure-cni")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
-        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "cni-plugins")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCNIPlugins "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
-        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "containernetworking-plugins")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installCNI "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - containernetworking-plugins version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "runc")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
-        echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "containerd")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-          installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif isMarinerOrAzureLinux "$OS"; then
-          installStandaloneContainerd "${version}"
-        fi
-        echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "oras")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "aks-secure-tls-bootstrap-client")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        # removed at provisioning time if secure TLS bootstrapping is disabled
-        if isUbuntu; then
-          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-          installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
-        elif isMarinerOrAzureLinux; then
-          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-          installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
-        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
-          installSecureTLSBootstrapClientSysext "${version}" || exit $?
-        fi
-        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "azure-acr-credential-provider")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # ORAS will be used to install other packages for network isolated clusters, it must go first.
-      done
-      ;;
-    "inspektor-gadget")
-      if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
-        echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
-      else
-        ig_version="${PACKAGE_VERSIONS[0]}"
-        if isUbuntu "$OS"; then
-          # Ubuntu: download ig deb via apt; ig_install_deb_stack expects it at downloadDir
-          downloadPkgFromVersion "ig" "${ig_version}" "${downloadDir}"
-          installIG "${ig_version}" "${downloadDir}"
-        elif isAzureLinux "$OS"; then
-          # Azure Linux 3.0: ig_install_rpm_stack handles its own RPM downloads
-          installIG "${ig_version}" "${downloadDir}"
-        fi
-      fi
-      ;;
-    "kubernetes-binaries")
-      # kubelet and kubectl
-      # need to cover previously supported version for VMAS scale up scenario
-      # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-      # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-      # Please do not use the .1 suffix, because that's only for the base image patches
-      # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
-        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    azure-acr-credential-provider-pmc)
-      name=${name%-pmc}
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if isMarinerOrAzureLinux || isUbuntu; then
-          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
-        fi
-        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    kubelet|kubectl)
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if isMarinerOrAzureLinux || isUbuntu; then
-          downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-          cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_K8S_INSTALL_ERR
-        elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
-        fi
-        echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "${K8S_DEVICE_PLUGIN_PKG}")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
-          downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
-        fi
-        echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "dra-driver-nvidia-gpu")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
-          downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
-        fi
-        echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "datacenter-gpu-manager-4-core")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
-        echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "datacenter-gpu-manager-4-proprietary")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
-        echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "dcgm-exporter")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
-        echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "node-exporter")
-      # Skipping is handled by empty versionsV2 arrays in components.json
-      # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
-      if [ "${IS_KATA}" = "true" ]; then
-        echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
-      else
-        # Download and install node-exporter-kubernetes at VHD build time.
-        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
-        installNodeExporter "${PACKAGE_VERSIONS[0]}"
-      fi
-      ;;
-    "acr-mirror")
-      # acr-mirror is handled separately below via installAndConfigureArtifactStreaming.
-      ;;
-    "aznfs")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
-        mkdir -p "${downloadDir}"
-        aznfsFilename=$(basename "${evaluatedURL}")
-        echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
-        retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT
-        echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
-      ;;
-    "blobfuse"|"blobfuse2")
-      for version in "${PACKAGE_VERSIONS[@]}"; do
-        if isUbuntu "$OS"; then
-          if ! apt_get_install 10 2 120 "${name}=${version}"; then
-            journalctl --no-pager -u "${name}" || true
-            tail -n 200 /var/log/apt/term.log || true
-            tail -n 200 /var/log/dpkg.log || true
-            exit $ERR_APT_INSTALL_TIMEOUT
-          fi
-          echo "  - ${name} version ${version}" >> "${VHD_LOGS_FILEPATH}"
-        else
-          echo "  - ${name} installation skipped for ${OS}" >> "${VHD_LOGS_FILEPATH}"
-        fi
-      done
-      ;;
-    *)
-      echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
-      # We can add a common function to download a generic package here.
-      # However, installation could be different for different packages.
-      ;;
-  esac
-  capture_benchmark "${SCRIPT_NAME}_download_${name}"
-done <<< "$packages"
-
-installAndConfigureArtifactStreaming() {
-  local downloadURL="$1"
-  local version="$2"
-  # The arm64 packages have "-arm64" inserted before the file extension,
-  # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
-  if [ "$(isARM64)" -eq 1 ]; then
-    downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
-  fi
-  local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
-  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  case "$downloadURL" in
-    *.deb)
-      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-      ;;
-    *.rpm)
-      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-      ;;
-    *)
-      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
-      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-      ;;
-  esac
-  rm "$MIRROR_DOWNLOAD_PATH"
-
-  /opt/acr/tools/overlaybd/install.sh
-  /opt/acr/tools/overlaybd/config-user-agent.sh azure
-  /opt/acr/tools/overlaybd/enable-http-auth.sh
-  /opt/acr/tools/overlaybd/config.sh download.enable false
-  /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
-  systemctl link /opt/overlaybd/overlaybd-tcmu.service /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
-  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
-  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
-  echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
-}
+# Cache packages and binaries declared within components.json
+# cachePackageAndBinaryComponents
 
 # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
 # OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
@@ -857,10 +1192,6 @@ fi
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 
-string_replace() {
-  echo ${1//\*/$2}
-}
-
 # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
 # Account for possibility that number of cores is 3 or less
 num_proc=$(nproc)
@@ -873,114 +1204,10 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 
 declare -a image_pids=()
 
-ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-while IFS= read -r imageToBePulled; do
-  downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  updateMultiArchVersions "${imageToBePulled}"
-  amd64OnlyVersions=""
-  if [ "${amd64OnlyVersionsStr}" != "null" ]; then
-    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-  fi
-
-  if [ "$(isARM64)" -eq 1 ]; then
-    versions="${MULTI_ARCH_VERSIONS[*]}"
-  else
-    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
-  fi
-
-  for version in ${versions}; do
-    CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
-    image_pids+=($!)
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-      wait -n || {
-        ret=$?
-        echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
-        for pid in "${image_pids[@]}"; do
-          kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-        done
-        exit "${ret}"
-    }
-    done
-  done
-done <<< "$ContainerImages"
-echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-while [ "$(jobs -p | wc -l)" -gt 0 ]; do
-  wait -n || {
-    ret=$?
-    echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
-    for pid in "${image_pids[@]}"; do
-      kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-    done
-    exit "${ret}"
-  }
-done
+# Cache container images declared within components.json
+cacheContainerImageComponents
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
-retagAKSNodeCAWatcher() {
-  # This function retags the aks-node-ca-watcher image to a static tag
-  # The static tag is used to bootstrap custom CA trust when MCR egress may be intercepted by an untrusted TLS MITM firewall.
-  # The image is never pulled, it is only retagged.
-
-  watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
-  watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-  watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
-  watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
-
-  # this image will never get pulled, the tag must be the same across different SHAs.
-  # it will only ever be upgraded via node image changes.
-  # we do this because the image is used to bootstrap custom CA trust when MCR egress
-  # may be intercepted by an untrusted TLS MITM firewall.
-  watcherStaticImg=${watcherBaseImg//\*/static}
-
-  # can't use $cliTool variable because crictl doesn't support retagging.
-  retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-}
-retagAKSNodeCAWatcher
-capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
-
-pinPodSandboxImages() {
-  # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
-  # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
-  # These images are critical for pod startup and aren't supported with private ACR since containerd won't be using azure-acr-credential to fetch them.
-
-  # Get all pause images as individual JSON objects
-  local pause_images
-  pause_images=$(jq -c '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
-
-  if [ -z "$pause_images" ]; then
-    echo "Warning: No pause images found in components.json"
-    return 0
-  fi
-
-  # Process each pause image separately
-  while IFS= read -r podSandbox; do
-    if [ -z "$podSandbox" ]; then
-      continue
-    fi
-
-    local podSandboxBaseImg
-    local podSandboxVersion
-    local podSandboxFullImg
-
-    podSandboxBaseImg=$(echo "$podSandbox" | jq -r '.downloadURL')
-    podSandboxVersion=$(echo "$podSandbox" | jq -r '.multiArchVersionsV2[0].latestVersion')
-
-    # Skip if we couldn't extract the required information
-    if [ "$podSandboxBaseImg" = "null" ] || [ "$podSandboxVersion" = "null" ]; then
-      echo "Warning: Could not extract downloadURL or latestVersion from pause image: $podSandbox"
-      continue
-    fi
-
-    podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
-
-    echo "Pinning pause image: $podSandboxFullImg"
-    labelContainerImage "${podSandboxFullImg}" "io.cri-containerd.pinned" "pinned"
-
-  done <<< "$pause_images"
-}
 pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
@@ -1010,53 +1237,6 @@ if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ 
   rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
-
-# download kubernetes package from the given URL using azcopy
-# if it is a kube-proxy package, extract image from the downloaded package
-cacheKubePackageFromPrivateUrl() {
-  local kube_private_binary_url="$1"
-
-  echo "process private package url: $kube_private_binary_url"
-
-  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
-
-  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
-  local k8s_tgz_name
-  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
-
-  # use azcopy instead of curl to download packages
-  getAzCopyCurrentPath
-
-  export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
-  export AZCOPY_CONCURRENCY_VALUE="AUTO"
-  export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
-  export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
-  mkdir -p "${AZCOPY_LOG_LOCATION}"
-  mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
-
-  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
-  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
-
-  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
-    azExitCode=$?
-    # loop through azcopy log files
-    shopt -s nullglob
-    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-      echo "Azcopy log file: $f"
-      # upload the log file as an attachment to vso
-      echo "##vso[build.uploadlog]$f"
-      # check if the log file contains any errors
-      if grep -q '"level":"Error"' "$f"; then
- 	 	echo "log file $f contains errors"
-        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-        # print the log file
-        cat "$f"
-      fi
-    done
-    shopt -u nullglob
-    exit $ERR_PRIVATE_K8S_PKG_ERR
-  fi
-}
 
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
@@ -1091,70 +1271,6 @@ else
 fi
 capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
-# Configure LSM modules to include BPF
-configureLsmWithBpf() {
-  echo "Configuring LSM modules to include BPF..."
-
-  # Read current LSM modules
-  if [ ! -f /sys/kernel/security/lsm ]; then
-    echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
-    return 0
-  fi
-
-  local current_lsm
-  current_lsm=$(cat /sys/kernel/security/lsm)
-  echo "Current LSM modules: $current_lsm"
-
-  # Prepend bpf to the LSM list if not already present
-  if ! echo "$current_lsm" | grep -q bpf; then
-    if [ "$IS_KATA" = "true" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
-      echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
-      return 0
-    fi
-
-    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
-      return 0
-    fi
-
-    local new_lsm="bpf,$current_lsm"
-    echo "New LSM configuration: $new_lsm"
-
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
-      local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
-      if [ -f "$grub_cfg" ]; then
-        if grep -q "lsm=" "$grub_cfg"; then
-          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" "$grub_cfg"
-        else
-          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
-        fi
-        echo "Updating GRUB configuration for Ubuntu 24.04..."
-        update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
-      else
-        echo "Warning: $grub_cfg not found, skipping LSM configuration"
-      fi
-    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
-      if [ -f /etc/default/grub ]; then
-        if grep -q "lsm=" /etc/default/grub; then
-          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
-        else
-          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
-        fi
-        echo "Updating GRUB configuration for Azure Linux 3.0..."
-        grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
-      else
-        echo "Warning: /etc/default/grub not found, skipping LSM configuration"
-      fi
-    else
-      echo "LSM BPF configuration is only enabled for Ubuntu 24.04 and Azure Linux 3.0, skipping"
-    fi
-
-    echo "LSM configuration update completed"
-  else
-    echo "BPF LSM already configured, skipping"
-  fi
-}
-
 configureLsmWithBpf
 capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
 
@@ -1167,113 +1283,11 @@ if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
-
-LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
-# This function extracts CoreDNS binary from cached coredns images (latest version)
-# and copies it to - /opt/azure/containers/localdns/binary/coredns.
-# The binary is later used by localdns systemd unit.
-# The function also handles the cleanup of temporary directories and unmounting of images.
-extractAndCacheCoreDnsBinary() {
-  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
-  if [ "${#coredns_image_list[@]}" -eq 0 ]; then
-    echo "Error: No coredns images found."
-    exit 1
-  fi
-
-  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
-  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
-
-  cleanup_coredns_imports() {
-    set +e
-    if [ -n "${ctr_temp}" ]; then
-      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
-      rm -rf "${ctr_temp}"
-    fi
-  }
-  trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
-
-  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
-  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
-
-  # Determine latest version.
-  local latest_coredns_tag="${sorted_coredns_tags[0]}"
-
-  # Extract the CoreDNS binary for the latest version.
-  for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
-      continue
-    fi
-
-    ctr_temp="$(mktemp -d)"
-    local max_retries=3
-    local retry_count=0
-    while [ $retry_count -lt $max_retries ]; do
-      if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
-        break
-      fi
-      echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
-      sleep 2
-      ((retry_count++))
-    done
-
-    if [ "$retry_count" -eq "$max_retries" ]; then
-      echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
-      exit 1
-    fi
-
-    local coredns_binary="${ctr_temp}/usr/bin/coredns"
-    if [ -f "${coredns_binary}" ]; then
-      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
-        exit 1
-      }
-      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
-    else
-      echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
-    fi
-
-    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
-    rm -rf "${ctr_temp}"
-  done
-
-  # Clear the trap.
-  trap - EXIT ABRT ERR INT PIPE QUIT TERM
-}
+rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
 extractAndCacheCoreDnsBinary
 
-rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
-
-# Collect grid compatibility data (placeholder for now - will be extended later)
-collect_grid_compatibility_data() {
-  if [ -z "${GRID_COMPATIBILITY_DATA_FILE}" ] ; then
-    return
-  fi
-
-  # Create basic grid compatibility data structure
-  # This is scaffolding - the actual Kusto query and analysis will be added later
-  local compatibility_data=$(jq -n \
-    --arg os "${OS}" \
-    --arg os_version "${OS_VERSION}" \
-    --arg cpu_arch "${CPU_ARCH}" \
-    --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-    --arg feature_flags "${FEATURE_FLAGS:-}" \
-    '{
-      "grid_compatibility_check": {
-        "timestamp": $timestamp,
-        "os": $os,
-        "os_version": $os_version,
-        "cpu_architecture": $cpu_arch,
-        "feature_flags": $feature_flags,
-        "compatibility_status": "data_collected",
-        "kusto_query_placeholder": "SELECT * FROM GridCompatibility WHERE timestamp > ago(1d)"
-      }
-    }')
-
-  echo "${compatibility_data}" > "${GRID_COMPATIBILITY_DATA_FILE}"
-  chmod 755 "${GRID_COMPATIBILITY_DATA_FILE}"
-}
 
 collect_grid_compatibility_data
 
