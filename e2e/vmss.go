@@ -576,9 +576,8 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		vmssID = *vmssResp.ID
 	}
 	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
-	// Determine if we explicitly set the RCV1P tag (only when RCV1P_SUBSCRIPTION_ID is provided)
-	rcv1pSubID := config.Config.RCV1PSubscriptionID
-	weSetRCV1PTag := s.Tags.RCV1PCertMode && rcv1pSubID != "" && !strings.HasPrefix(rcv1pSubID, "$(")
+	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
+	weSetRCV1PTag := s.Tags.RCV1PCertMode
 	if vmssResp.Tags != nil {
 		s.T.Logf("VMSS %s (id: %s) tags after creation (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
 		for k, v := range vmssResp.Tags {

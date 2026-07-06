@@ -27,13 +27,11 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pWindowsCluster(),
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2022Containerd,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: cseMutator,
@@ -50,13 +48,11 @@ func Test_RCV1P_Windows23H2(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 23H2 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pWindowsCluster(),
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows23H2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: cseMutator,
@@ -73,13 +69,11 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pWindowsCluster(),
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2025,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -100,13 +94,11 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pWindowsCluster(),
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: cseMutator,
@@ -123,13 +115,11 @@ func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 23H2 Gen2 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                rcv1pWindowsCluster(),
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows23H2Gen2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: cseMutator,
@@ -146,13 +136,11 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         rcv1pWindowsCluster(),
+			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -178,13 +166,11 @@ func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterRCV1PAzureNetwork,
+			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2022Containerd,
 			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {

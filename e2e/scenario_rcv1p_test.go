@@ -8,14 +8,10 @@
 //   - The VMSS must have the tag "platformsettings.host_environment.service.platform_optedin_for_rootcerts=true".
 //     On subscriptions with the feature flag, the platform may auto-inject this tag on all VMSSes.
 //
-// RCV1P_SUBSCRIPTION_ID is optional. When set, a dedicated subscription is used and the tests
-// explicitly control VMSS tagging (enabling positive and negative test scenarios). When not set,
-// the default E2E subscription is used if it has the feature flag registered — in this case the
-// platform auto-injects the opt-in tag, so only positive tests can run.
-//
-// The positive tests (Test_RCV1P_<Distro>) verify that certificates are downloaded, installed into
-// the distro-specific trust store, and a refresh schedule is created. The negative tests
-// (Test_RCV1P_NotOptedIn) require RCV1P_SUBSCRIPTION_ID to explicitly control tagging.
+// RCV1P tests run against whichever subscription E2E_SUBSCRIPTION_ID points at; the RCV1P pipeline
+// job overrides this to an RCV1P-registered subscription. Positive tests always run and verify
+// cert installation. Negative tests are skipped when RCV1P_TAGS_AUTO_INJECTED=true (platform
+// auto-injects the opt-in tag, making the "no tag" scenario impossible to reproduce).
 package e2e
 
 import (
@@ -43,85 +39,28 @@ import (
 // if the subscription has the PlatformSettingsOverride feature registered.
 const rcv1pOptInTag = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
 
-// skipIfRCV1PNotConfigured skips the test when RCV1P is not available on the effective subscription.
-// It always checks and logs the feature flag status. When RCV1P_SUBSCRIPTION_ID is set, that
-// subscription is used with explicit tag control. When not set, the default E2E subscription
-// is used if it has the PlatformSettingsOverride feature flag registered.
+// skipIfRCV1PNotConfigured verifies the current E2E subscription has PlatformSettingsOverride
+// registered. The RCV1P pipeline job sets E2E_SUBSCRIPTION_ID to an RCV1P-registered subscription;
+// on any other subscription the test is skipped.
 func skipIfRCV1PNotConfigured(t *testing.T) {
 	t.Helper()
-	if hasExplicitRCV1PSubscription() {
-		// Explicit RCV1P subscription — verify its feature flag and use it
-		checkPlatformSettingsOverrideFeatureFlag(t, config.Config.RCV1PSubscriptionID, config.RCV1PAzure, true)
-		// Also log the default E2E subscription flag for diagnostics
-		logE2ESubscriptionFeatureFlag(t)
-		t.Logf("RCV1P mode: explicit subscription %s (we control VMSS tagging)", config.Config.RCV1PSubscriptionID)
-		return
-	}
-	// No explicit RCV1P subscription — check if default E2E subscription supports RCV1P
 	registered := logE2ESubscriptionFeatureFlag(t)
 	if !registered {
-		t.Skip("RCV1P_SUBSCRIPTION_ID not set and E2E subscription does not have PlatformSettingsOverride registered, skipping RCV1P test")
+		t.Skip("PlatformSettingsOverride feature flag not registered on E2E subscription, skipping RCV1P test")
 	}
-	t.Logf("RCV1P mode: auto-detected on default E2E subscription %s (platform auto-injects opt-in tag, we do NOT set it explicitly)", config.Config.SubscriptionID)
+	t.Logf("RCV1P mode: subscription %s (we set the VMSS opt-in tag explicitly)", config.Config.SubscriptionID)
 }
 
-// skipIfRCV1PNotExplicit skips the test when RCV1P_SUBSCRIPTION_ID is not explicitly provided.
-// Used for negative tests that require explicit control over VMSS tagging (the platform may
-// auto-inject the opt-in tag on subscriptions with the feature flag, making negative tests invalid).
+// skipIfRCV1PNotExplicit skips the test when the platform may auto-inject the RCV1P opt-in tag,
+// which invalidates negative tests. The pipeline sets RCV1P_TAGS_AUTO_INJECTED=true on
+// subscriptions where the platform injects the opt-in tag automatically.
 func skipIfRCV1PNotExplicit(t *testing.T) {
 	t.Helper()
-	logE2ESubscriptionFeatureFlag(t)
-	if !hasExplicitRCV1PSubscription() {
-		t.Skip("RCV1P_SUBSCRIPTION_ID not set, skipping negative RCV1P test (platform may auto-inject opt-in tag on default subscription)")
+	skipIfRCV1PNotConfigured(t)
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("RCV1P_TAGS_AUTO_INJECTED")), "true") {
+		t.Skip("RCV1P_TAGS_AUTO_INJECTED=true — platform auto-injects the opt-in tag on this subscription, skipping negative RCV1P test")
 	}
-	checkPlatformSettingsOverrideFeatureFlag(t, config.Config.RCV1PSubscriptionID, config.RCV1PAzure, true)
-	t.Logf("RCV1P negative test mode: explicit subscription %s (we control VMSS tagging — opt-in tag intentionally NOT set)", config.Config.RCV1PSubscriptionID)
-}
-
-// hasExplicitRCV1PSubscription returns true when RCV1P_SUBSCRIPTION_ID is set to a real value.
-func hasExplicitRCV1PSubscription() bool {
-	subID := strings.TrimSpace(config.Config.RCV1PSubscriptionID)
-	return subID != "" && !strings.HasPrefix(subID, "$(")
-}
-
-// rcv1pAzureClient returns the Azure client for RCV1P tests. When RCV1P_SUBSCRIPTION_ID is set,
-// returns config.RCV1PAzure. Otherwise returns nil (falls back to default via Scenario.GetAzure).
-func rcv1pAzureClient() *config.AzureClient {
-	if hasExplicitRCV1PSubscription() {
-		return config.RCV1PAzure
-	}
-	return nil
-}
-
-// rcv1pSubscriptionID returns the subscription ID for RCV1P tests. When RCV1P_SUBSCRIPTION_ID
-// is set, returns it. Otherwise returns "" (falls back to default via Scenario.GetSubscriptionID).
-func rcv1pSubscriptionID() string {
-	if hasExplicitRCV1PSubscription() {
-		return strings.TrimSpace(config.Config.RCV1PSubscriptionID)
-	}
-	return ""
-}
-
-// rcv1pCluster returns the cluster function for Linux RCV1P tests. When RCV1P_SUBSCRIPTION_ID
-// is set, uses a dedicated kubenet cluster in the RCV1P subscription. Otherwise uses the default
-// kubenet cluster (Linux tests don't have IP exhaustion issues on kubenet).
-func rcv1pCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	if hasExplicitRCV1PSubscription() {
-		return ClusterRCV1PKubenet
-	}
-	return ClusterKubenet
-}
-
-// rcv1pWindowsCluster returns the cluster function for Windows RCV1P tests. Windows tests must
-// use Azure CNI (not kubenet) because baseTemplateWindows() configures the NBC for Azure CNI
-// overlay mode — using kubenet causes azure-vnet plugin IP allocation failures. When
-// RCV1P_SUBSCRIPTION_ID is set, uses a dedicated Azure CNI cluster in the RCV1P subscription
-// to match the subscription used for VMSS operations.
-func rcv1pWindowsCluster() func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	if hasExplicitRCV1PSubscription() {
-		return ClusterRCV1PAzureNetwork
-	}
-	return ClusterAzureNetwork
+	t.Logf("RCV1P negative test mode: subscription %s (opt-in tag intentionally NOT set)", config.Config.SubscriptionID)
 }
 
 var (
@@ -211,14 +150,11 @@ func queryFeatureFlag(ctx context.Context, subscriptionID string, client *config
 	return result.Properties.State == "Registered", nil
 }
 
-// rcv1pVMConfigMutator returns the VMConfigMutator for RCV1P positive tests.
-// When RCV1P_SUBSCRIPTION_ID is set, we explicitly set the opt-in tag to control tagging.
-// When using auto-detection, the platform auto-injects the tag, so no mutator is needed.
+// rcv1pVMConfigMutator returns the VMConfigMutator for RCV1P positive tests. In the single-sub
+// model, we always set the opt-in tag explicitly (RCV1P_TAGS_AUTO_INJECTED subscriptions will
+// have both our tag and the platform's tag, which is idempotent).
 func rcv1pVMConfigMutator() func(*armcompute.VirtualMachineScaleSet) {
-	if hasExplicitRCV1PSubscription() {
-		return rcv1pOptInVMConfigMutator
-	}
-	return nil
+	return rcv1pOptInVMConfigMutator
 }
 
 // REVERT ME: build and upload a CSE zip from the branch's staging/cse/windows/ so that
@@ -369,13 +305,11 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Ubuntu 22.04 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         rcv1pCluster(),
+			Cluster:         ClusterKubenet,
 			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -394,13 +328,11 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Ubuntu 24.04 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         rcv1pCluster(),
+			Cluster:         ClusterKubenet,
 			VHD:             config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -419,13 +351,11 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Azure Linux V3 with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:         rcv1pCluster(),
+			Cluster:         ClusterKubenet,
 			VHD:             config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -444,13 +374,11 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on Flatcar with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: rcv1pCluster(),
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDFlatcarGen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -469,13 +397,11 @@ func Test_RCV1P_ACL(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode on ACL with VM opt-in tag",
-		AzureClient:    rcv1pAzureClient(),
-		SubscriptionID: rcv1pSubscriptionID(),
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: rcv1pCluster(),
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
@@ -503,13 +429,11 @@ func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotExplicit(t)
 	RunScenario(t, &Scenario{
 		Description:    "Tests RCV1P cert mode without VM opt-in tag; expects no cert installation",
-		AzureClient:    config.RCV1PAzure,
-		SubscriptionID: config.Config.RCV1PSubscriptionID,
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster: ClusterRCV1PKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},

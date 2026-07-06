@@ -219,24 +219,10 @@ func runScenario(t testing.TB, s *Scenario) error {
 	ctx := newTestCtx(t)
 	maybeSkipScenario(ctx, t, s)
 
-	if s.AzureClient != nil {
-		// RCV1P scenario: ensure RG and identity in the RCV1P subscription
-		_, err := CachedRCV1PEnsureResourceGroup(ctx, s.Location)
-		require.NoError(t, err)
-		_, err = CachedRCV1PCreateVMManagedIdentity(ctx, s.Location)
-		require.NoError(t, err)
-		// Also ensure default subscription infra (RG + identity + blob storage) is provisioned,
-		// since Windows log extraction on failure uploads to the default subscription's blob storage.
-		_, err = CachedEnsureResourceGroup(ctx, s.Location)
-		require.NoError(t, err)
-		_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
-		require.NoError(t, err)
-	} else {
-		_, err := CachedEnsureResourceGroup(ctx, s.Location)
-		require.NoError(t, err)
-		_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
-		require.NoError(t, err)
-	}
+	_, err := CachedEnsureResourceGroup(ctx, s.Location)
+	require.NoError(t, err)
+	_, err = CachedCreateVMManagedIdentity(ctx, s.Location)
+	require.NoError(t, err)
 	s.T = t
 	ctrruntimelog.SetLogger(zap.New())
 
