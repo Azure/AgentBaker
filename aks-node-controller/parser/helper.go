@@ -721,6 +721,10 @@ func getGPUNeedsFabricManager(vmSize string) bool {
 	return agent.GPUNeedsFabricManager(vmSize)
 }
 
+func getGPUNeedsIMEX(vmSize string) bool {
+	return agent.GPUNeedsIMEX(vmSize)
+}
+
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
 	if config.GpuConfig != nil && config.GpuConfig.EnableNvidia != nil {
 		return *config.GpuConfig.EnableNvidia

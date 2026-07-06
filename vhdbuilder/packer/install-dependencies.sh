@@ -582,6 +582,16 @@ while IFS= read -r p; do
         echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "nvidia-imex")
+      # Grace-Blackwell (GB200/GB300) only: cache the IMEX daemon into the VHD so CSE installs it from
+      # the cache at node boot (no runtime download). arm64-gated -- GB is the only IMEX consumer.
+      if [ "$(isARM64)" -eq 1 ]; then
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "nvidia-imex" "${version}" "${downloadDir}"
+          echo "  - nvidia-imex version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+      fi
+      ;;
     "node-exporter")
       # Skipping is handled by empty versionsV2 arrays in components.json
       # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
@@ -707,8 +717,12 @@ while IFS= read -r imageToBePulled; do
   fi
 done <<< "$GPUContainerImages"
 
-# For Ubuntu, pre-pull the CUDA driver image
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+# For Ubuntu, cache the aks-gpu-cuda-lts (R580) driver image so CSE installs the driver at node boot.
+# This already runs on every amd64 Ubuntu VHD (the general image used by GPU and non-GPU nodes alike;
+# CSE installs the driver only on GPU nodes). We now run it for arm64 too, bringing arm64 to parity so
+# a vanilla arm64 GB node (GB200/GB300) gets its open R580 driver from aks-gpu at boot -- no bespoke VHD.
+# Skip only the NVIDIA_GB custom-BOM image, which bakes its own driver via apt in the block below.
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && ! grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then  # incl. ARM64 (parity w/ amd64)
   gpu_action="copy"
 
   while IFS= read -r imageToBePulled; do

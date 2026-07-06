@@ -1284,6 +1284,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUNeedsFabricManager": func() bool {
 			return GPUNeedsFabricManager(profile.VMSize)
 		},
+		"GPUNeedsIMEX": func() bool {
+			return GPUNeedsIMEX(profile.VMSize)
+		},
 		"GPUDriverVersion": func() string {
 			return GetGPUDriverVersion(profile.VMSize)
 		},
@@ -1546,6 +1549,13 @@ func GetGPUDriverType(size string) string {
 
 func GPUNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
+}
+
+// GPUNeedsIMEX reports whether the VM size is a Grace-Blackwell NVL (GB200/GB300) SKU that needs
+// IMEX for cross-node NVLink (instead of Fabric Manager). Drives NVIDIA_GPU_NEEDS_IMEX at provision
+// time so CSE installs + enables nvidia-imex after the GPU driver is up.
+func GPUNeedsIMEX(size string) bool {
+	return datamodel.IMEXGPUSizes[strings.ToLower(size)]
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {

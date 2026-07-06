@@ -2121,6 +2121,22 @@
       }
     },
     {
+      "name": "nvidia-imex",
+      "downloadLocation": "/opt/nvidia-imex/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=nvidia-imex, repository=nvidia, os=ubuntu, release=24.04",
+                "latestVersion": "580.159.04-1ubuntu1"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "node-exporter",
       "downloadLocation": "/opt/node-exporter",
       "downloadURIs": {

@@ -101,6 +101,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"SHOULD_CONFIGURE_CUSTOM_CA_TRUST":                     fmt.Sprintf("%v", getCustomCACertsStatus(config.GetCustomCaCerts())),
 		"CUSTOM_CA_TRUST_COUNT":                                fmt.Sprintf("%v", len(config.GetCustomCaCerts())),
 		"GPU_NEEDS_FABRIC_MANAGER":                             fmt.Sprintf("%v", getGPUNeedsFabricManager(config.GetVmSize())),
+		"GPU_NEEDS_IMEX":                                       fmt.Sprintf("%v", getGPUNeedsIMEX(config.GetVmSize())),
 		"IPV6_DUAL_STACK_ENABLED":                              fmt.Sprintf("%v", config.GetIpv6DualStackEnabled()),
 		"OUTBOUND_COMMAND":                                     config.GetOutboundCommand(),
 		"ENABLE_UNATTENDED_UPGRADES":                           fmt.Sprintf("%v", config.GetEnableUnattendedUpgrade()),

@@ -460,6 +460,15 @@ function nodePrep {
             fi
         fi
 
+        # Install IMEX for Grace-Blackwell NVL (GB200/GB300). GB has no on-board NVSwitch (so no host
+        # Fabric Manager above), but needs IMEX for cross-node NVLink. Runs after the GPU driver is up
+        # (ensureGPUDrivers). Installs + enables nvidia-imex and creates the IMEX channel; the per-domain
+        # peer list (/etc/nvidia-imex/nodes_config.cfg) is written at runtime by the GPU Operator
+        # ComputeDomains, so the daemon is enabled but only becomes active once that list exists.
+        if [ "${GPU_NEEDS_IMEX}" = "true" ]; then
+            logs_to_events "AKS.CSE.installNvidiaIMEX" installNvidiaIMEX || exit $ERR_GPU_DRIVERS_START_FAIL
+        fi
+
         # Configure MIG partitions if needed
         # This will only be true for multi-instance capable VM sizes
         # for which the user has specified a partitioning profile.

@@ -223,6 +223,54 @@ removeNvidiaRepos() {
     fi
 }
 
+# installNvidiaIMEX installs + enables nvidia-imex for Grace-Blackwell NVL (GB200/GB300). Called from
+# cse_main.sh only for IMEXGPUSizes, AFTER the GPU driver is installed by aks-gpu (.run installer).
+# GB has no on-board NVSwitch (so no host Fabric Manager); IMEX is its host-side fabric piece for
+# cross-node NVLink. This step only (a) installs the nvidia-imex binary and (b) creates the IMEX channel
+# device (a driver/kernel thing pods cannot create). It does NOT run the daemon or write a peer list:
+# both are a runtime, topology-dependent concern owned by whatever brings up the NVLink domain --
+# ComputeDomains (nvidia-dra-driver-gpu, which runs its own imex daemons in pods) on Kubernetes, or a
+# manual `nodes_config.cfg` + `systemctl start` for hostNetwork/testing.
+# EXPERIMENT open question: with ComputeDomains running imex in pods, the host may only need the CHANNEL
+# -- confirm on GB HW whether the host nvidia-imex install is required or just the channel.
+# nvidia-imex is BAKED into the VHD (install-dependencies.sh caches it to /opt/nvidia-imex/downloads via
+# the components.json entry) -- CSE installs it from that cache, no runtime download.
+installNvidiaIMEX() {
+    # Sanity: the GPU driver must be up (aks-gpu ran ensureGPUDrivers before this). imex needs it.
+    local driver_version
+    driver_version="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -n1 | tr -d ' ')"
+    echo "installNvidiaIMEX: running NVIDIA driver '${driver_version:-unknown}'; installing baked nvidia-imex"
+
+    # Install nvidia-imex from the VHD cache. aks-gpu installs the driver via the .run installer (not
+    # apt), so the imex deb's apt driver deps are not registered even though the runtime libs are on
+    # disk -- fall back to --force-depends if plain dpkg -i complains about them.
+    local imex_dir="/opt/nvidia-imex/downloads"
+    local imex_deb
+    imex_deb="$(find "${imex_dir}" -maxdepth 1 -name 'nvidia-imex*.deb' -print -quit 2>/dev/null)"
+    if [ -z "${imex_deb}" ]; then
+        echo "installNvidiaIMEX: no cached nvidia-imex deb in ${imex_dir} (was it baked into the VHD?)"
+        return 1
+    fi
+    echo "installNvidiaIMEX: installing cached ${imex_deb}"
+    dpkg -i "${imex_deb}" || dpkg -i --force-depends "${imex_deb}" || { echo "installNvidiaIMEX: nvidia-imex install failed"; return 1; }
+    # Installed -- drop the cache (matches installNvidiaManagedExpPkgFromCache).
+    rm -rf /opt/nvidia-imex
+
+    # IMEX channel device: NVreg_CreateImexChannel0=1 is an nvidia module load-time parameter. aks-gpu
+    # already loaded the driver without it, so set the option and flag a reboot to re-init with the
+    # channel. (Baking this into the VHD would avoid the reboot, but that is the non-vanilla path.)
+    mkdir -p /etc/modprobe.d
+    echo "options nvidia NVreg_CreateImexChannel0=1" > /etc/modprobe.d/nvidia-imex.conf
+    REBOOTREQUIRED=true
+
+    # Do NOT auto-start the host daemon: nvidia-imex FAILS to start without /etc/nvidia-imex/nodes_config.cfg
+    # (the runtime, topology-dependent peer list). The domain owner runs the daemon (ComputeDomains in its
+    # own pods, or a manual start for hostNetwork/testing) -- not this step. Disable the unit so the deb's
+    # postinst can't leave it failing on every boot.
+    systemctl disable nvidia-imex 2>/dev/null || true
+    echo "installNvidiaIMEX: nvidia-imex installed; channel pending reboot; daemon start + peer list owned by ComputeDomains"
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
@@ -279,6 +327,10 @@ cleanUpGPUDrivers() {
     for packageName in $(managedGPUPackageList); do
         rm -rf "/opt/${packageName}"
     done
+
+    # nvidia-imex is baked (arm64) but only installed on GB SKUs; on any node that doesn't install the
+    # managed driver its cache is dead weight, so drop it here too. No-op if the dir doesn't exist.
+    rm -rf /opt/nvidia-imex
 
     # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
     # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
