@@ -65,6 +65,13 @@ func Test_Ubuntu2404Arm64_GB200_IMEX(t *testing.T) {
 // the only path that exercises the parser wiring. The IMEX channel modprobe sets REBOOTREQUIRED, so
 // WaitForSSHAfterReboot lets SSH validation ride out the provisioning reboot.
 func runGBIMEXScenario(t *testing.T, vmSize string) {
+	// GB200/GB300 is scarce, region-limited hardware that is NOT available in the default e2e
+	// subscription/region (westus3), where the VMSS create returns SkuNotAvailable. Skip unless
+	// explicitly opted in, so these run only in a GB-capable sub/region (RUN_GB_E2E=true), not in the
+	// automated VHD-build e2e pass.
+	if os.Getenv("RUN_GB_E2E") != "true" {
+		t.Skipf("skipping GB scenario (%s): set RUN_GB_E2E=true in a GB-capable sub/region to run (requires GB200/GB300 capacity)", vmSize)
+	}
 	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Grace-Blackwell %s on vanilla arm64: open R580 via aks-gpu, Fabric Manager OFF, IMEX installed + channel created (daemon disabled)", vmSize),
 		Tags: Tags{
