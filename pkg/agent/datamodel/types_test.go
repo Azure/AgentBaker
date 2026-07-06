@@ -162,7 +162,6 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.p.IsIPMasqAgentDisabled() != c.expectedDisabled {
@@ -401,7 +400,6 @@ func TestGenerateClusterID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetClusterID()
@@ -648,7 +646,6 @@ func TestGetSubnetName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetSubnetName()
@@ -688,7 +685,6 @@ func TestIsNextGenNetworkingEnabled(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.profile.IsNextGenNetworkingEnabled()
@@ -721,7 +717,6 @@ func TestGetNextGenNetworkingConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.profile.GetNextGenNetworkingConfig()
@@ -816,7 +811,6 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetVirtualNetworkName()
@@ -914,7 +908,6 @@ func TestAgentPoolProfileIsVHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.IsVHDDistro() {
@@ -961,7 +954,6 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.Is2204VHDDistro() {
@@ -1015,11 +1007,68 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.Is2404VHDDistro() {
 				t.Fatalf("Got unexpected AgentPoolProfile.Is2204VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2204VHDDistro())
+			}
+		})
+	}
+}
+
+func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "26.04 minimal Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuMinimalContainerd2604Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "26.04 ARM64 minimal Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuArm64MinimalContainerd2604Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 VHD distro is not a 2604 distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404,
+			},
+			expected: false,
+		},
+		{
+			name: "22.04 VHD distro is not a 2604 distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2204,
+			},
+			expected: false,
+		},
+		{
+			name: "Azure Linux V3 distro is not a 2604 distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
+			expected: false,
+		},
+		{
+			name:     "empty distro is not a 2604 distro",
+			ap:       AgentPoolProfile{},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.Is2604VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.Is2604VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2604VHDDistro())
 			}
 		})
 	}
@@ -1174,7 +1223,6 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.IsAzureLinuxCgroupV2VHDDistro() {
@@ -1221,7 +1269,6 @@ func TestAgentPoolProfileIsFlatcarVHDDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			isFlatcar := c.ap.IsFlatcar()
@@ -1290,7 +1337,6 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			isACL := c.ap.IsACL()
@@ -1367,7 +1413,6 @@ func TestFlatcarAndCustomDistro(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.nbc.AgentPoolProfile.Distro != c.nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro {
@@ -1523,7 +1568,6 @@ func TestNodeBootstrappingConfigurationIsACL(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			isACL := c.nbc.IsACL()
@@ -1595,7 +1639,6 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.GetKubernetesLabels() {
@@ -1819,7 +1862,6 @@ func TestHasStorageProfile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.p.OrchestratorProfile != nil && c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() != c.expectedPrivateJB {
@@ -2076,7 +2118,6 @@ func TestWindowsProfileCustomOS(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.w.HasCustomImage() != c.expectedURL {
@@ -2234,7 +2275,6 @@ func TestIsFeatureEnabled(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.flags.IsFeatureEnabled(test.feature)
@@ -2370,7 +2410,6 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -2498,7 +2537,6 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.k.IsIPMasqAgentDisabled() != c.expectedDisabled {
@@ -2713,7 +2751,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig) {
@@ -2898,7 +2935,6 @@ func TestGetOrderedKubeproxyConfigStringForPowershell(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.config.GetOrderedKubeproxyConfigStringForPowershell()
@@ -3008,7 +3044,6 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig)
@@ -3049,7 +3084,6 @@ func TestSecurityProfileGetProxyAddress(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.securityProfile.GetProxyAddress()
@@ -3090,7 +3124,6 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.securityProfile.GetPrivateEgressContainerRegistryServer()

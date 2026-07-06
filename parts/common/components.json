@@ -439,23 +439,23 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.33.14-1",
-          "previousLatestVersion": "v1.33.13-1"
+          "latestVersion": "v1.33.14-3",
+          "previousLatestVersion": "v1.33.14-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.34.11-1",
-          "previousLatestVersion": "v1.34.10-1"
+          "latestVersion": "v1.34.11-3",
+          "previousLatestVersion": "v1.34.11-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.35.6-1",
-          "previousLatestVersion": "v1.35.5-1"
+          "latestVersion": "v1.35.6-3",
+          "previousLatestVersion": "v1.35.6-1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.36.2-1",
-          "previousLatestVersion": "v1.36.1-1"
+          "latestVersion": "v1.36.2-3",
+          "previousLatestVersion": "v1.36.2-1"
         }
       ],
       "windowsVersions": [
@@ -502,8 +502,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.16-4",
-          "previousLatestVersion": "v0.1.16-2"
+          "latestVersion": "v0.1.16-10",
+          "previousLatestVersion": "v0.1.16-9"
         }
       ],
       "windowsVersions": []
@@ -709,7 +709,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.12.1-13"
+          "latestVersion": "v0.12.1-14"
         }
       ],
       "windowsVersions": []
@@ -736,10 +736,17 @@
   ],
   "GPUContainerImages": [
     {
+      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda-lts:*",
+      "gpuVersion": {
+        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda-lts",
+        "latestVersion": "580.159.04-20260629214430"
+      }
+    },
+    {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-        "latestVersion": "580.126.09-20260126030251"
+        "latestVersion": "580.126.09-20260430040408"
       }
     },
     {

@@ -24,7 +24,6 @@ $global:SecureTLSBootstrappingGetInstanceDataTimeout = $Global:ClusterConfigurat
 $global:SecureTLSBootstrappingGetNonceTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetNonceTimeout
 $global:SecureTLSBootstrappingGetAttestedDataTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetAttestedDataTimeout
 $global:SecureTLSBootstrappingGetCredentialTimeout = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.GetCredentialTimeout
-$global:SecureTLSBootstrappingDeadline = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Deadline
 
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
@@ -137,9 +136,6 @@ if ($global:EnableSecureTLSBootstrapping) {
     }
     if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingGetCredentialTimeout)) {
         $SecureTLSBootstrappingArgs["GetCredentialTimeout"] = "$global:SecureTLSBootstrappingGetCredentialTimeout"
-    }
-    if (![string]::IsNullOrEmpty($global:SecureTLSBootstrappingDeadline)) {
-        $SecureTLSBootstrappingArgs["Deadline"] = "$global:SecureTLSBootstrappingDeadline"
     }
     & "c:\k\securetlsbootstrap.ps1" @SecureTLSBootstrappingArgs
 }

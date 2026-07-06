@@ -108,7 +108,7 @@ cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
 set -euo pipefail
 mkdir -p /opt/azure/bin
-curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
 /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
@@ -151,7 +151,7 @@ write_files:
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL --retry 10 --retry-delay 2 "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
+    curl -fSL --retry 10 --retry-delay 2 --retry-connrefused "%[3]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
     /opt/azure/bin/aks-node-controller-hack provision --provision-config=%[1]s
 # Flatcar specific configuration. It supports only a subset of cloud-init features https://github.com/flatcar/coreos-cloudinit/blob/main/Documentation/cloud-config.md#coreos-parameters
@@ -282,7 +282,7 @@ write_files:
     #!/bin/bash
     set -euo pipefail
     mkdir -p /opt/azure/bin
-    curl -fSL --retry 10 --retry-delay 2 "%[2]s" -o /opt/azure/bin/aks-node-controller-hack
+    curl -fSL --retry 10 --retry-delay 2 --retry-connrefused "%[2]s" -o /opt/azure/bin/aks-node-controller-hack
     chmod +x /opt/azure/bin/aks-node-controller-hack
     /opt/azure/bin/aks-node-controller-hack provision %[3]s
 coreos:
@@ -325,7 +325,7 @@ cat <<'SCRIPT' > /opt/azure/bin/run-aks-node-controller-hack.sh
 #!/bin/bash
 set -euo pipefail
 mkdir -p /opt/azure/bin
-curl -fSL --retry 10 --retry-delay 2 "%s" -o /opt/azure/bin/aks-node-controller-hack
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused "%s" -o /opt/azure/bin/aks-node-controller-hack
 chmod +x /opt/azure/bin/aks-node-controller-hack
 
 /opt/azure/bin/aks-node-controller-hack provision %s

@@ -372,8 +372,10 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 		return "", fmt.Errorf("upload blob: %w", err)
 	}
 
+	// Link is cached and reused across the whole suite; 1h expired mid-run.
+	expiry := time.Now().Add(6 * time.Hour).UTC()
 	udc, err := a.Blob.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
-		Expiry: to.Ptr(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
+		Expiry: to.Ptr(expiry.Format(sas.TimeFormat)),
 		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
 	}, nil)
 	if err != nil {
@@ -382,7 +384,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 
 	sig, err := sas.BlobSignatureValues{
 		Protocol:      sas.ProtocolHTTPS,
-		ExpiryTime:    time.Now().Add(time.Hour).UTC(),
+		ExpiryTime:    expiry,
 		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
 		ContainerName: Config.BlobContainer,
 		BlobName:      blobName,

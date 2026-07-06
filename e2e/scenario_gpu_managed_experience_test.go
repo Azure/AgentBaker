@@ -462,6 +462,7 @@ func Test_Ubuntu2204_NvidiaDevicePluginRunning(t *testing.T) {
 func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Azure Linux v3 GPU nodes",
+		Location:    "westus2",
 		Tags: Tags{
 			GPU: true,
 		},
@@ -469,14 +470,14 @@ func Test_AzureLinux3_NvidiaDevicePluginRunning(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 				nbc.ManagedGPUExperienceAFECEnabled = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
 				}
