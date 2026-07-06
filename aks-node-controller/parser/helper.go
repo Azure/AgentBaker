@@ -731,6 +731,8 @@ func syncTranslatedFlagsToConfigFile(cfg *aksnodeconfigv1.KubeletConfigFileConfi
 				if n, err := strconv.ParseInt(v, 10, 32); err == nil {
 					val := int32(n)
 					*field = &val
+				} else {
+					log.Printf("warning: failed to parse flag %s value %q as int32: %v", flag, v, err)
 				}
 			}
 		}
