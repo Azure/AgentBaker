@@ -31,15 +31,11 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-# check-hotfix reads the hotfix pointer from the LPS endpoint (IMDS-attested) and refreshes
-# the on-disk hotfix pointer file (its own default path, which $HOTFIX_JSON mirrors) that the
-# download-hotfix block below consumes, so it must run first.
-# Gated default-off behind ENABLE_PROVISIONING_HOTFIX so existing VHDs behave exactly as
-# before; only the literal string "true" enables it. This env var is the on-node terminal
-# of the EnableProvisioningHotfix aks-rp region toggle (toggle -> absvc -> ANC), so regions
-# where the toggle is off see no behavior change. check-hotfix is designed to be fail-open
-# (its own error paths exit 0), but an older ANC binary that predates the subcommand exits
-# non-zero, so we still wrap the call defensively to guarantee it can never block provisioning.
+# check-hotfix refreshes the on-disk hotfix pointer (its own default path, mirrored by
+# $HOTFIX_JSON) that download-hotfix reads below, so it must run first. Gated default-off
+# behind ENABLE_PROVISIONING_HOTFIX (only the literal "true" enables it) - the on-node
+# terminal of the EnableProvisioningHotfix aks-rp region toggle. Wrapped defensively: it is
+# fail-open, but an older ANC binary predating the subcommand exits non-zero.
 if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
     log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
     if "$BIN_PATH" check-hotfix; then
