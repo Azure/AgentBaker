@@ -479,7 +479,7 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 	// so the extension status message could be empty or stale.
 	if vmssVM.InstanceID != nil {
 		ctx := context.Background()
-		freshVM, err := s.GetAzure().VMSSVM.Get(ctx,
+		freshVM, err := config.Azure.VMSSVM.Get(ctx,
 			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 			s.Runtime.VMSSName,
 			*vmssVM.InstanceID,
@@ -847,11 +847,11 @@ func CreateImage(ctx context.Context, s *Scenario) *config.Image {
 		require.NoErrorf(s.T, err, "failed to run sysprep on Windows VM for image creation")
 	}
 
-	vm, err := s.GetAzure().VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
+	vm, err := config.Azure.VMSSVM.Get(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, &armcompute.VirtualMachineScaleSetVMsClientGetOptions{})
 	require.NoError(s.T, err, "Failed to get VMSS VM for image creation")
 
 	s.T.Log("Deallocating VMSS VM...")
-	poll, err := s.GetAzure().VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
+	poll, err := config.Azure.VMSSVM.BeginDeallocate(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
 	require.NoError(s.T, err, "Failed to begin deallocate")
 	_, err = poll.PollUntilDone(ctx, nil)
 	require.NoError(s.T, err, "Failed to deallocate")
@@ -898,7 +898,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 
 	// Create the image version directly from the disk
 	s.T.Logf("Creating gallery image version: %s in %s", version, *image.ID)
-	createVersionOp, err := s.GetAzure().GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
+	createVersionOp, err := config.Azure.GalleryImageVersions.BeginCreateOrUpdate(ctx, rg, *gallery.Name, *image.Name, version, armcompute.GalleryImageVersion{
 		Location: to.Ptr(s.Location),
 		Properties: &armcompute.GalleryImageVersionProperties{
 			StorageProfile: &armcompute.GalleryImageVersionStorageProfile{
@@ -934,7 +934,7 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 	customVHD := *s.Config.VHD
 	customVHD.Name = *image.Name // Use the architecture-specific image name
 	customVHD.Gallery = &config.Gallery{
-		SubscriptionID:    s.GetSubscriptionID(),
+		SubscriptionID:    config.Config.SubscriptionID,
 		ResourceGroupName: rg,
 		Name:              *gallery.Name,
 	}

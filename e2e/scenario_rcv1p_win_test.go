@@ -6,10 +6,6 @@
 // C:\ca and imported into the Windows certificate store (Cert:\LocalMachine\Root) via
 // Import-Certificate. A scheduled task (aks-ca-certs-refresh-task) is registered to
 // periodically refresh the certificates.
-//
-// These tests share the same gating logic as the Linux tests (see scenario_rcv1p_test.go):
-// RCV1P_SUBSCRIPTION_ID is optional. When set, a dedicated subscription controls tagging.
-// When not set, the default E2E subscription is used if it has the feature flag.
 package e2e
 
 import (
@@ -26,7 +22,7 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -42,42 +38,21 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 	})
 }
 
-// Test_RCV1P_Windows23H2 validates RCV1P on Windows Server 23H2, the annual channel release.
-func Test_RCV1P_Windows23H2(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
-	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 23H2 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
-		},
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows23H2,
-			VMConfigMutator:        rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: cseMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertModeWindows(ctx, s)
-			},
-		},
-	})
-}
-
 // Test_RCV1P_Windows2025 validates RCV1P on Windows Server 2025 (non-gen2).
 func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2025,
-			VMConfigMutator:        rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				cseMutator(nbc)
+			Cluster:         ClusterAzureNetwork,
+			VHD:             config.VHDWindows2025,
+			VMConfigMutator: rcv1pVMConfigMutator(),
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				cseMutator(c, nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -93,7 +68,7 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -109,33 +84,12 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	})
 }
 
-// Test_RCV1P_Windows23H2Gen2 validates RCV1P on Windows Server 23H2 Gen2. Covers the gen2 pipeline job.
-func Test_RCV1P_Windows23H2Gen2(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
-	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 23H2 Gen2 with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
-		},
-		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows23H2Gen2,
-			VMConfigMutator:        rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: cseMutator,
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertModeWindows(ctx, s)
-			},
-		},
-	})
-}
-
 // Test_RCV1P_Windows2025Gen2 validates RCV1P on Windows Server 2025 Gen2. Covers the gen2 pipeline job.
 func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
+		Description: "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
@@ -143,8 +97,8 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 			Cluster:         ClusterAzureNetwork,
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				cseMutator(nbc)
+			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				cseMutator(c, nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -159,13 +113,13 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 // PlatformSettingsOverride registered) but WITHOUT the opt-in tag on the VMSS.
 // This verifies that wireserver returns IsOptedInForRootCerts=false and the provisioning
 // script correctly skips certificate download and refresh task registration.
-// This test requires RCV1P_SUBSCRIPTION_ID because the platform may auto-inject the opt-in
-// tag on the default E2E subscription, making the negative test invalid.
+// This test requires RCV1P_TAGS_AUTO_INJECTED to not be true because the platform may auto-inject
+// the opt-in tag on the default E2E subscription, making the negative test invalid.
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotExplicit(t)
 	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
+		Description: "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},

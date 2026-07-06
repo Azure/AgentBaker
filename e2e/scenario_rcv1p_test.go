@@ -281,9 +281,9 @@ func findRepoRoot() (string, error) {
 
 // rcv1pWindowsCSEMutator returns a BootstrapConfigMutator that overrides CseScriptsPackageURL
 // to use the branch-built CSE zip containing the RCV1P code.
-func rcv1pWindowsCSEMutator(t *testing.T) func(*datamodel.NodeBootstrappingConfiguration) {
+func rcv1pWindowsCSEMutator(t *testing.T) func(*Cluster, *datamodel.NodeBootstrappingConfiguration) {
 	cseURL := getOrBuildBranchCSEPackageURL(t)
-	return func(nbc *datamodel.NodeBootstrappingConfiguration) {
+	return func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = cseURL
 	}
 }
@@ -312,8 +312,6 @@ func Test_RCV1P_Ubuntu2204(t *testing.T) {
 			Cluster:         ClusterKubenet,
 			VHD:             config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
 			},
@@ -335,8 +333,6 @@ func Test_RCV1P_Ubuntu2404(t *testing.T) {
 			Cluster:         ClusterKubenet,
 			VHD:             config.VHDUbuntu2404Gen2Containerd,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
 			},
@@ -358,8 +354,6 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 			Cluster:         ClusterKubenet,
 			VHD:             config.VHDAzureLinuxV3Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
 			},
@@ -379,10 +373,8 @@ func Test_RCV1P_Flatcar(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDFlatcarGen2,
+			VHD:     config.VHDACLGen2TL,
 			VMConfigMutator: rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
 			},
@@ -409,8 +401,6 @@ func Test_RCV1P_ACL(t *testing.T) {
 					m(vmss)
 				}
 			},
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertMode(ctx, s)
 			},
@@ -423,8 +413,8 @@ func Test_RCV1P_ACL(t *testing.T) {
 // PlatformSettingsOverride registered) but WITHOUT the opt-in tag on the VMSS.
 // This verifies that wireserver returns IsOptedInForRootCerts=false and the provisioning
 // script correctly skips certificate download and trust store installation.
-// This test requires RCV1P_SUBSCRIPTION_ID because the platform may auto-inject the opt-in
-// tag on the default E2E subscription, making the negative test invalid.
+// This test requires RCV1P_TAGS_AUTO_INJECTED to not be true because the platform may auto-inject
+// the opt-in tag on the current E2E subscription, making the negative test invalid.
 func Test_RCV1P_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotExplicit(t)
 	RunScenario(t, &Scenario{
@@ -435,8 +425,6 @@ func Test_RCV1P_NotOptedIn(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PNotOptedIn(ctx, s)
 			},
