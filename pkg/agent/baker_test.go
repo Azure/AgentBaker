@@ -956,6 +956,9 @@ var _ = Describe("GetGPUDriverVersion", func() {
 		// lds (lower-memory) variants share the same GPU/driver
 		Expect(GetGPUDriverVersion("standard_nc144lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
 		Expect(GetGPUDriverVersion("Standard_NC288lds_xl_RTXPRO6000BSE_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		// smaller GA fractional-GPU sizes also use grid-v20
+		Expect(GetGPUDriverVersion("standard_nc36ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc24lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.NvidiaGridV20DriverVersion))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
