@@ -14,6 +14,15 @@ parameters:
     type: string
     displayName: Subscription ID to use for E2E tests
     default: $(E2E_SUBSCRIPTION_ID)
+  - name: rcv1pTagsAutoInjected
+    type: boolean
+    displayName: |
+      Set to true when the target subscription auto-injects the RCV1P opt-in VMSS tag
+      (platformsettings.host_environment.service.platform_optedin_for_rootcerts).
+      When true, RCV1P negative tests (e.g. Test_RCV1P_Windows_NotOptedIn) are skipped
+      because they cannot verify the not-opted-in behavior on such subscriptions.
+      Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
+    default: true
 
 jobs:
   - job: e2e
@@ -48,6 +57,7 @@ jobs:
           DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
+          RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
 
       - task: PublishTestResults@2
         displayName: Upload test results

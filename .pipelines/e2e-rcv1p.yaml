@@ -17,3 +17,6 @@ jobs:
     parameters:
       name: RCV1P Cert Mode Tests
       IgnoreScenariosWithMissingVhd: false
+      # RCV1P subscription does NOT auto-inject the opt-in VMSS tag, so negative tests
+      # (Test_RCV1P_*_NotOptedIn) can validate the not-opted-in behavior.
+      rcv1pTagsAutoInjected: false
