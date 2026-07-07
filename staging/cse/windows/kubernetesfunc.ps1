@@ -134,8 +134,7 @@ function Write-KubeClusterConfig {
                 GetInstanceDataTimeout    = $global:SecureTLSBootstrappingGetInstanceDataTimeout;
                 GetNonceTimeout           = $global:SecureTLSBootstrappingGetNonceTimeout;
                 GetAttestedDataTimeout    = $global:SecureTLSBootstrappingGetAttestedDataTimeout;
-                GetCredentialTimeout      = $global:SecureTLSBootstrappingGetCredentialTimeout;
-                Deadline                  = $global:SecureTLSBootstrappingDeadline
+                GetCredentialTimeout      = $global:SecureTLSBootstrappingGetCredentialTimeout
             };
         };
         Kubeproxy    = @{

@@ -40,6 +40,8 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSACLArm64Gen2TL:                       SIGACLArm64Gen2TLImageConfigTemplate.WithOptions(),
 			AKSACLGen2FIPSTL:                        SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSACLArm64Gen2FIPSTL:                   SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(),
+			AKSFlatcarGen2:                          SIGFlatcarGen2ImageConfigTemplate.WithOptions(),
+			AKSFlatcarArm64Gen2:                     SIGFlatcarArm64Gen2ImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		for distro, config := range expected {
