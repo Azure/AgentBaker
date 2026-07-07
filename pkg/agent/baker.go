@@ -64,7 +64,6 @@ cat <<'EOF' | base64 -d | gzip -d >%[3]s
 EOF
 chmod 0600 %[3]s
 %[5]s
-if [ "%[6]s" != "%[7]s" ] && [ -f "%[6]s" ]; then mv -f "%[6]s" "%[7]s"; fi
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
@@ -77,18 +76,6 @@ cat <<'EOF' | base64 -d | gzip -d >%[1]s
 EOF
 chmod 0600 %[1]s
 `
-	flatcarAKSCustomCloudRenameUnitContents = `[Unit]\n` +
-		`Description=Rename AKS custom cloud init script\n` +
-		`DefaultDependencies=no\n` +
-		`After=local-fs.target\n` +
-		`Before=aks-node-controller.service\n\n` +
-		`[Service]\n` +
-		`Type=oneshot\n` +
-		`ExecStart=/bin/sh -c 'if [ \"%[4]s\" != \"%[5]s\" ] && ` +
-		`[ -f \"%[4]s\" ]; then mv -f \"%[4]s\" \"%[5]s\"; fi'\n` +
-		`RemainAfterExit=yes\n\n` +
-		`[Install]\n` +
-		`WantedBy=multi-user.target`
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
      "storage": {
@@ -102,13 +89,6 @@ chmod 0600 %[1]s
         "mode": 384,
         "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
        }%[3]s]
-      },
-      "systemd": {
-       "units": [{
-        "name": "aks-custom-cloud-init-rename.service",
-        "enabled": true,
-        "contents": "` + flatcarAKSCustomCloudRenameUnitContents + `"
-       }]
       }
      }`
 	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
@@ -164,31 +144,25 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 
-	var aksCustomCloudFilePath string
-	if datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USNatCloud {
-		aksCustomCloudFilePath = initAKSCustomCloudFilepath
-	} else {
-		aksCustomCloudFilePath = initAKSCustomCloudOperationRequestsFilepath
-	}
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
-		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
+		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
-func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
+func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
 	var flatcarAKSNodeConfigBlock string
 	if encodedAKSNodeConfig != "" {
 		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
 	}
-	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock, aksCustomCloudFilePath, initAKSCustomCloudFilepath)
+	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
 }
 
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
 	var aksNodeConfigBlock string
 	if encodedAKSNodeConfig != "" {
 		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
@@ -201,8 +175,6 @@ func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enc
 		nbcCmdFilePath,
 		encodedNBCCMD,
 		aksNodeConfigBlock,
-		aksCustomCloudFilePath,
-		initAKSCustomCloudFilepath,
 	)
 }
 
