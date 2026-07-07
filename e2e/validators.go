@@ -2822,13 +2822,13 @@ func ValidateRxBufferDefault(ctx context.Context, s *Scenario) {
 }
 
 // ValidateMANAPCIDevice checks that the MANA PCI device is exposed to the VM.
-// MANA hardware is identified by PCI vendor:device ID 1414:00ba.
+// MANA hardware is identified by PCI device ID 0x00ba (Microsoft Corporation).
 func ValidateMANAPCIDevice(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating MANA PCI device is present")()
-	cmd := "lspci -nn | grep -qi '1414:00ba'"
+	cmd := "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null"
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-		"MANA PCI device [1414:00ba] not found in lspci output")
+		"MANA PCI device (0x00ba) not found in /sys/bus/pci/devices")
 }
 
 // ValidateMANADriverLoaded checks that the MANA Ethernet driver (mana) is loaded
@@ -2861,8 +2861,8 @@ func ValidateMANAVFBonded(ctx context.Context, s *Scenario) {
 
 // ValidateMANATrafficFlowing checks that network traffic is actually flowing through
 // the MANA Virtual Function rather than the slower synthetic (NetVSC) path.
-// It sends a known number of ICMP packets from a pod on the node and verifies
-// that the VF packet counters increase by at least that amount.
+// It sends HTTP requests from a pod to the node's default gateway and verifies
+// that the VF TX packet counters increase by at least that amount.
 func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 	defer toolkit.LogStep(s.T, "validating traffic is flowing through MANA VF")()
@@ -2916,10 +2916,10 @@ func ValidateMANA(ctx context.Context, s *Scenario) {
 }
 
 // hasMANAHardware checks if the VM has MANA PCI hardware available.
-// Returns true if the MANA device (00ba) is found in lspci output.
+// Returns true if the MANA device (0x00ba) is found in sysfs.
 // This is used to conditionally run MANA validations on VMs that support it.
 func hasMANAHardware(ctx context.Context, s *Scenario) bool {
-	result := execScriptOnVMForScenario(ctx, s, "lspci 2>/dev/null | grep -qi '00ba'")
+	result := execScriptOnVMForScenario(ctx, s, "grep -Rqi '^0x00ba$' /sys/bus/pci/devices/*/device 2>/dev/null")
 	return result.exitCode == "0"
 }
 
