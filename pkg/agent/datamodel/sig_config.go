@@ -109,7 +109,7 @@ var AvailableUbuntu2404Distros = []Distro{
 //nolint:gochecknoglobals
 var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -165,7 +165,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -184,7 +184,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -569,7 +569,7 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuArm64MinimalContainerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2604minimalgen2arm64containerd",
@@ -915,7 +915,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2404Gen2:             SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64MinimalContainerd2604Gen2: SIGUbuntuArm64MinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalArm64Containerd2604Gen2: SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
