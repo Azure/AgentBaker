@@ -572,11 +572,22 @@
     },
     {
       "matchPackageNames": [
+        "aks/aks-gpu-cuda-lts"
+      ],
+      "groupName": "nvidia-gpu-cuda-lts",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
         "aks/aks-gpu-cuda"
       ],
-      "groupName": "nvidia-gpu-cuda",
+      "groupName": "nvidia-gpu-cuda-legacy",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": true,
+      "allowedVersions": "/^580\\./",
+      "automerge": false,
       "enabled": true,
       "ignoreUnstable": false
     },

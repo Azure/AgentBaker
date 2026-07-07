@@ -64,6 +64,7 @@ cat <<'EOF' | base64 -d | gzip -d >%[3]s
 EOF
 chmod 0600 %[3]s
 %[5]s
+if [ "%[6]s" != "%[7]s" ] && [ -f "%[6]s" ]; then mv -f "%[6]s" "%[7]s"; fi
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
@@ -76,19 +77,38 @@ cat <<'EOF' | base64 -d | gzip -d >%[1]s
 EOF
 chmod 0600 %[1]s
 `
+	flatcarAKSCustomCloudRenameUnitContents = `[Unit]\n` +
+		`Description=Rename AKS custom cloud init script\n` +
+		`DefaultDependencies=no\n` +
+		`After=local-fs.target\n` +
+		`Before=aks-node-controller.service\n\n` +
+		`[Service]\n` +
+		`Type=oneshot\n` +
+		`ExecStart=/bin/sh -c 'if [ \"%[4]s\" != \"%[5]s\" ] && ` +
+		`[ -f \"%[4]s\" ]; then mv -f \"%[4]s\" \"%[5]s\"; fi'\n` +
+		`RemainAfterExit=yes\n\n` +
+		`[Install]\n` +
+		`WantedBy=multi-user.target`
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
      "storage": {
        "files": [{
         "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
         "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+        "contents": { "compression": "gzip","source": "data:;base64,%[1]s" }
        },
 	   {
         "path": "/opt/azure/containers/nodecustomdata.yml",
         "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%s" }
-       }%s]
+        "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
+       }%[3]s]
+      },
+      "systemd": {
+       "units": [{
+        "name": "aks-custom-cloud-init-rename.service",
+        "enabled": true,
+        "contents": "` + flatcarAKSCustomCloudRenameUnitContents + `"
+       }]
       }
      }`
 	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
@@ -144,29 +164,36 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 
+	var aksCustomCloudFilePath string
+	if datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(config.ContainerService.Location) == datamodel.USNatCloud {
+		aksCustomCloudFilePath = initAKSCustomCloudFilepath
+	} else {
+		aksCustomCloudFilePath = initAKSCustomCloudOperationRequestsFilepath
+	}
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
-		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
-func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
 	var flatcarAKSNodeConfigBlock string
 	if encodedAKSNodeConfig != "" {
 		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
 	}
-	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
+	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock, aksCustomCloudFilePath, initAKSCustomCloudFilepath)
 }
 
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
+func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig, aksCustomCloudFilePath string) string {
 	var aksNodeConfigBlock string
 	if encodedAKSNodeConfig != "" {
 		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
 	}
+
 	return fmt.Sprintf(
 		boothookTemplate,
 		nodeCustomDataPath,
@@ -174,6 +201,8 @@ func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enc
 		nbcCmdFilePath,
 		encodedNBCCMD,
 		aksNodeConfigBlock,
+		aksCustomCloudFilePath,
+		initAKSCustomCloudFilepath,
 	)
 }
 
@@ -739,9 +768,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetSecureTLSBootstrappingGetCredentialTimeout": func() string {
 			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
-		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -1497,7 +1523,7 @@ func GetGPUDriverVersion(size string) string {
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.NvidiaCudaDriverVersion
+	return datamodel.NvidiaCudaLTSDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
@@ -1522,9 +1548,15 @@ func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridVersionSuffix
 	}
-	return datamodel.AKSGPUCudaVersionSuffix
+	return datamodel.AKSGPUCudaLTSVersionSuffix
 }
 
+// GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
+// The value becomes NVIDIA_GPU_DRIVER_TYPE at provision time, which selects the container image
+// mcr.microsoft.com/aks/aks-gpu-<type>. Modern CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
+// use the R580 LTS image (aks-gpu-cuda-lts): it retains Volta/V100 support that the newer aks-gpu-cuda
+// R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
+// against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
 func GetGPUDriverType(size string) string {
 	if useGridV20Drivers(size) {
 		return "grid-v20"
@@ -1532,7 +1564,10 @@ func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
 	}
-	return "cuda"
+	if isStandardNCv1(size) {
+		return "cuda"
+	}
+	return "cuda-lts"
 }
 
 func GPUNeedsFabricManager(size string) bool {

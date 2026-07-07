@@ -544,9 +544,6 @@ configureAndEnableSecureTLSBootstrapping() {
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-credential-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}"
     fi
-    if [ -n "${SECURE_TLS_BOOTSTRAPPING_DEADLINE}" ]; then
-        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
-    fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
@@ -1209,7 +1206,10 @@ configAzurePolicyAddon() {
 # Wrapped as functions so logs_to_events can time each step; the install's
 # bash -c command can't be passed to logs_to_events inline (it word-splits args).
 pullGPUDriverImage() {
-    ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+    # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
+    # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
+    # also self-caps to the CSE budget, so this can't overrun provisioning.
+    retrycmd_if_failure 3 5 120 ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
 }
 
 installGPUDriverImage() {
@@ -1220,11 +1220,11 @@ configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
-        # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
-        # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
-        # Use containerd's native exact-name filter rather than text-matching `images ls` output.
+        # Normally the image is baked into the VHD; only pull on a cache miss (expected under VHD/CSE
+        # version skew). ctr run does not auto-pull, so a failed pull must exit here rather than
+        # resurface as an opaque install error. name== is an exact match, not an `images ls` substring.
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
-            logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage
+            logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
         fi
         logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage
         ret=$?
@@ -1301,13 +1301,20 @@ validateGPUDrivers() {
 # before enabling consume. Observability only; no behavior change.
 logGPUDriverPrebakeReadiness() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    local marker_present=false driver_kind_match=false m_kind
+    local marker_present=false driver_kind_match=false m_kind node_kind
+    # Map the AgentBaker driver-type to the aks-gpu marker's driver_kind (the container's DRIVER_KIND
+    # build arg): image variants "cuda-lts" and "grid-v20" bake markers as "cuda"/"grid" respectively.
+    case "${NVIDIA_GPU_DRIVER_TYPE}" in
+        cuda*) node_kind=cuda ;;
+        grid*) node_kind=grid ;;
+        *) node_kind="${NVIDIA_GPU_DRIVER_TYPE}" ;;
+    esac
     if [ -f "${marker}" ]; then
         marker_present=true
         m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
         # require both sides non-empty so a marker missing driver_kind= (or an unset
         # NVIDIA_GPU_DRIVER_TYPE) does not falsely report a match (empty = empty).
-        if [ -n "${m_kind}" ] && [ -n "${NVIDIA_GPU_DRIVER_TYPE}" ] && [ "${m_kind}" = "${NVIDIA_GPU_DRIVER_TYPE}" ]; then
+        if [ -n "${m_kind}" ] && [ -n "${node_kind}" ] && [ "${m_kind}" = "${node_kind}" ]; then
             driver_kind_match=true
         fi
     fi

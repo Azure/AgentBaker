@@ -716,7 +716,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
     # shellcheck disable=SC2001
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
-    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda" ]; then
+    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda-lts" ]; then
       latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
       NVIDIA_DRIVER_IMAGE="$imageName"
       NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
@@ -726,7 +726,7 @@ if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU wit
 
   # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
   if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
-    echo "Error: Unable to find aks-gpu-cuda image in components.json"
+    echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
     exit 1
   fi
 
@@ -907,7 +907,16 @@ while IFS= read -r imageToBePulled; do
   done
 done <<< "$ContainerImages"
 echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-wait ${image_pids[@]}
+while [ "$(jobs -p | wc -l)" -gt 0 ]; do
+  wait -n || {
+    ret=$?
+    echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+    for pid in "${image_pids[@]}"; do
+      kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+    done
+    exit "${ret}"
+  }
+done
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 retagAKSNodeCAWatcher() {

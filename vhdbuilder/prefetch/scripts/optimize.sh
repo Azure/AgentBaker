@@ -11,6 +11,7 @@ set -uxo pipefail
 [ -z "${SIG_IMAGE_NAME:-}" ] && echo "SIG_IMAGE_NAME is not set" && exit 1
 [ -z "${SKU_NAME:-}" ] && echo "SKU_NAME is not set" && exit 1
 [ -z "${STORAGE_ACCOUNT_BLOB_URL:-}" ] && echo "STORAGE_ACCOUNT_BLOB_URL is not set" && exit 1
+[ -z "${STORAGE_ACCOUNT_BLOB_URL_STAGING:-}" ] && echo "STORAGE_ACCOUNT_BLOB_URL_STAGING is not set" && exit 1
 [ -z "${VHD_NAME:-}" ] && echo "VHD_NAME is not set" && exit 1
 [ -z "${IMAGE_BUILDER_IDENTITY_ID:-}" ] && echo "IMAGE_BUILDER_IDENTITY_ID is not set" && exit 1
 [ -z "${BUILD_RUN_NUMBER:-}" ] && echo "BUILD_RUN_NUMBER is not set" && exit 1
@@ -23,55 +24,78 @@ set -uxo pipefail
 IMAGE_BUILDER_API_VERSION="2025-10-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
 
+# image builder rejects new template creations and runs when too many tasks from a single subscription
+# are running or waiting (TooManyRequests). This limit clears slowly, so we back off heavily and retry a
+# large number of times before giving up.
+RATE_LIMIT_MAX_ATTEMPTS=15
+RATE_LIMIT_RETRY_DELAY_SECONDS=180
+
 IMAGE_BUILDER_TEMPLATE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../templates/optimize.json"
 CAPTURED_SIG_VERSION_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${SIG_GALLERY_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
 IMAGE_BUILDER_RG_NAME="image-builder-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 IMAGE_BUILDER_TEMPLATE_NAME="template-${CAPTURED_SIG_VERSION}-${BUILD_RUN_NUMBER}"
 IMAGE_BUILDER_TEMPLATE_NAME="${IMAGE_BUILDER_TEMPLATE_NAME:0:64}"
+IMAGE_BUILDER_TEMPLATE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.VirtualMachineImages/imageTemplates/${IMAGE_BUILDER_TEMPLATE_NAME}"
 VHD_URI="${STORAGE_ACCOUNT_BLOB_URL}/${VHD_NAME}"
 
+# the image builder template distributes the prefetch-optimized image as a VHD without specifying a
+# target uri, which causes image builder to publish the VHD to a storage account within its own
+# staging resource group. we then copy that staging VHD into the target storage account ourselves,
+# which avoids the slow second copy image builder performs when distributing directly to an external
+# target storage account. the name of the run output is used to look up the resulting blob
+# (artifactUri) after the template run completes.
+DISTRIBUTE_RUN_OUTPUT_NAME="VHD"
+
+# the destination vhd container may have an immutability policy, which prevents azcopy from writing the VHD
+# into it directly (azcopy creates the page blob and then writes to it, which the policy rejects as a
+# modification of an existing blob). To work around this, we azcopy the VHD into the staging container
+# (STORAGE_ACCOUNT_BLOB_URL_STAGING, which has no immutability policy), then perform a single server-side
+# blob copy from the staging container into the immutable vhd container. The server-side copy creates the
+# destination blob in one atomic operation, which the immutability policy allows.
+DESTINATION_STORAGE_ACCOUNT_NAME="${STORAGE_ACCOUNT_BLOB_URL#*://}"
+DESTINATION_STORAGE_ACCOUNT_NAME="${DESTINATION_STORAGE_ACCOUNT_NAME%%.*}"
+DESTINATION_CONTAINER_NAME="${STORAGE_ACCOUNT_BLOB_URL##*/}"
+STAGING_VHD_URI="${STORAGE_ACCOUNT_BLOB_URL_STAGING}/${VHD_NAME}"
+
 main() {
-    # for idempotency, check to see if the VHD we're trying to create already exists.
-    # if it's already in the expected state, this will cause the script to exit early.
-    # otherwise, we delete any existing VHD in an unexpected state and retry the whole
-    # optimization + conversion flow
+    # for idempotency, check whether the target VHD already exists. If a previous run already produced it
+    # successfully, exit early; if a server-side copy is still in progress, wait for it to finish. Because
+    # the destination container may be immutable, a VHD left in a bad state cannot be deleted and recreated
+    # and is treated as fatal.
     check_for_existing_vhd
 
-    # attempt to perform prefetch optimization and VHD conversion
+    # attempt to perform prefetch optimization, distributing the optimized image as a VHD into the
+    # image builder staging storage account, then copy that VHD into the target storage account
     ensure_image_builder_rg || exit $?
     run_image_builder_template || exit $?
+    copy_optimized_vhd || exit $?
 }
 
 check_for_existing_vhd() {
-    vhd_info="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login)"
-    if [ -n "${vhd_info}" ]; then
-        echo "VHD already exists at: ${VHD_URI}"
-        image_builder_source="$(jq -r '.metadata.VMImageBuilderSource' <<< "${vhd_info}")"
-        if [ -n "${image_builder_source}" ] && [ "${image_builder_source}" != "null" ]; then
-            echo "VHD ${VHD_URI} has already been produced by a previous image builder template run"
-            copy_status="$(jq -r '.properties.copy.status' <<< "${vhd_info}")"
-            if [ "${copy_status,,}" = "success" ]; then
-                echo "VHD ${VHD_URI} has been successfully copied from image builder storage, nothing to do"
-                exit 0
-            fi
-            if [ "${copy_status,,}" = "pending" ]; then
-                echo "echo VHD ${VHD_URI} is currently being copied from image builder storage, will wait for copy completion"
-                if wait_for_vhd_copy; then
-                    exit 0
-                fi
-                echo "pending copy operation was not successful, will delete existing blob and attempt to retry optimization and VHD creation"
-                delete_vhd || exit $?
-            else
-                echo "VHD ${VHD_URI} has a bad copy state: ${copy_status}, will delete it and recreate"
-                delete_vhd || exit $?
-            fi
-        else
-            echo "VHD ${VHD_URI} exists but was not produced by an image builder template run, will delete before proceeding"
-            delete_vhd || exit $?
-        fi
-    else
+    if [ "$(az storage blob exists --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "false" ]; then
         echo "no existing VHD was found at: ${VHD_URI}, will proceed with optimization and VHD creation"
+        return 0
     fi
+    echo "VHD already exists at: ${VHD_URI}"
+
+    # the VHD in a potentially immutable container is produced by a server-side blob copy, so its copy status
+    # tells us whether a previous run already completed. Because the container may have an immutability policy,
+    # a VHD in a bad state cannot be deleted and recreated, so any non-success terminal state is fatal.
+    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
+    if [ "${copy_status,,}" = "success" ]; then
+        echo "VHD ${VHD_URI} was already produced by a previous prefetch optimization run, nothing to do"
+        exit 0
+    fi
+    if [ "${copy_status,,}" = "pending" ]; then
+        echo "VHD ${VHD_URI} is currently being copied by a previous prefetch optimization run, will wait for completion"
+        if wait_for_vhd_copy; then
+            exit 0
+        fi
+    fi
+    # the VHD exists in a non-success state within the immutable container. It cannot be deleted due to
+    # the immutability policy, so there is nothing we can do to recover - fail the script.
+    echo "VHD ${VHD_URI} exists in an unrecoverable copy state: '${copy_status}'"
+    exit 1
 }
 
 ensure_image_builder_rg() {
@@ -92,7 +116,6 @@ run_image_builder_template() {
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \
-            -e "s#<VHD_URI>#${VHD_URI}#g" \
             "${IMAGE_BUILDER_TEMPLATE_PATH}" > input.json || return $?
 
         if [ ! -f "input.json" ]; then
@@ -101,7 +124,7 @@ run_image_builder_template() {
         fi
 
         echo "creating image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} in resource group ${IMAGE_BUILDER_RG_NAME}"
-        az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
+        retry_on_rate_limit az resource create -n "${IMAGE_BUILDER_TEMPLATE_NAME}" \
             --properties @input.json \
             --is-full-object \
             --api-version "${IMAGE_BUILDER_API_VERSION}" \
@@ -109,11 +132,11 @@ run_image_builder_template() {
             --resource-group "${IMAGE_BUILDER_RG_NAME}" || return $?
 
         echo "image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} has been created, starting run..."
-        az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
+        retry_on_rate_limit az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
     else
         if [ "$(az image builder show -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" | jq -r '.lastRunStatus')" = "null" ]; then
             echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has no lastRunStatus, will attempt to run..."
-            az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
+            retry_on_rate_limit az image builder run -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}"
         else
             echo "will attempt to wait for image builder template ${IMAGE_BUILDER_TEMPLATE_NAME} to finish its last run..."
             az image builder wait -n "${IMAGE_BUILDER_TEMPLATE_NAME}" -g "${IMAGE_BUILDER_RG_NAME}" --custom "lastRunStatus.runState!='Running'"
@@ -126,7 +149,7 @@ run_image_builder_template() {
         return 1
     fi
 
-    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, VHD has been published to: ${VHD_URI}"
+    echo "template ${IMAGE_BUILDER_TEMPLATE_NAME} has ran to completion, optimized VHD has been published to image builder staging storage"
 }
 
 need_new_template() {
@@ -178,7 +201,7 @@ prepare_source() {
 # 4. Create a new managed image in the build location from the temporary VHD blob, which will be used as the source image of the image builder template
 convert_specialized_sig_version_to_managed_image() {
     managed_image_name="${CAPTURED_SIG_VERSION}-template-source"
-    managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" | jq -r '.id')"
+    managed_image_id="$(az image show -g "${IMAGE_BUILDER_RG_NAME}" -n "${managed_image_name}" | jq -r '.id // empty')"
     if [ -n "${managed_image_id}" ]; then
         echo "managed image source already exists: ${managed_image_id}"
         SOURCE_MANAGED_IMAGE_ID="${managed_image_id}"
@@ -269,33 +292,133 @@ create_temp_storage() {
         echo "creating container \"${storage_container_name}\" within temporary storage account ${storage_account_name}"
         az storage container create --name "${storage_container_name}" --account-name "${storage_account_name}" --auth-mode login || return $?
     fi
-
     temp_vhd_uri="https://${storage_account_name}.blob.core.windows.net/${storage_container_name}/${VHD_NAME}"
     echo "temp VHD URI is ${temp_vhd_uri}"
     TEMP_VHD_URI="${temp_vhd_uri}"
 }
 
+# copy_optimized_vhd copies the prefetch-optimized VHD that the image builder template published to its
+# staging storage account into the target storage account. Because the template distributes a VHD
+# without specifying a target uri, image builder publishes the blob to a storage account within its own
+# staging resource group and exposes its location via the run output's artifactUri. The destination vhd
+# container may have an immutability policy that blocks azcopy from writing to it directly, so we:
+# 1. azcopy the optimized VHD into the staging container (STORAGE_ACCOUNT_BLOB_URL_STAGING)
+# 2. perform a single server-side blob copy from the staging container into the immutable vhd container
+copy_optimized_vhd() {
+    # The staging container should never have an immutability policy, so copying from image builder staging storage is
+    # fully retriable. If a previous run already produced a complete staging blob (marked with the
+    # prefetched metadata flag) but failed before finishing the server-side copy into the
+    # immutable vhd container, reuse that staging blob and skip re-copying. An incomplete staging blob
+    # left over from an interrupted copy is deleted and recreated.
+    staging_info="$(az storage blob show --blob-url "${STAGING_VHD_URI}" --auth-mode login 2>/dev/null)"
+    staging_blob_name="$(jq -r '.name // empty' <<< "${staging_info}" 2>/dev/null)"
+    if [ -n "${staging_blob_name}" ] && [ "$(jq -r '.metadata.prefetched' <<< "${staging_info}")" = "true" ]; then
+        echo "optimized VHD is already present and complete in staging at ${STAGING_VHD_URI}, skipping copy from image builder staging storage"
+    else
+        if [ -n "${staging_blob_name}" ]; then
+            echo "found an incomplete staging VHD at ${STAGING_VHD_URI} from a previous run, will delete it before recopying"
+            delete_staging_vhd || return $?
+        fi
+
+        artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv 2>/dev/null)"
+        if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
+            echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
+            return 1
+        fi
+        echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
+        export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+        export AZCOPY_CONCURRENCY_VALUE="AUTO"
+        echo "copying optimized VHD from image builder staging storage to ${STAGING_VHD_URI}"
+        azcopy copy "${artifact_uri}" "${STAGING_VHD_URI}" --recursive=true
+        azcopy_exit_code=$?
+        if [ "${azcopy_exit_code}" -ne 0 ]; then
+            echo "failed to copy optimized VHD to staging location ${STAGING_VHD_URI}"
+            return "${azcopy_exit_code}"
+        fi
+
+        # mark the staging blob complete so a later retry that failed before finishing the server-side
+        # copy can detect it and skip re-copying from image builder staging storage.
+        az storage blob metadata update --blob-url "${STAGING_VHD_URI}" --auth-mode login --metadata prefetched=true || return $?
+    fi
+
+    # server-side copy the VHD from the staging container into the immutable vhd container. This creates
+    # the destination blob in a single operation, which is permitted by the container's immutability policy.
+    echo "starting server-side copy of ${STAGING_VHD_URI} to ${VHD_URI}"
+    az storage blob copy start \
+        --account-name "${DESTINATION_STORAGE_ACCOUNT_NAME}" \
+        --auth-mode login \
+        --destination-container "${DESTINATION_CONTAINER_NAME}" \
+        --destination-blob "${VHD_NAME}" \
+        --source-uri "${STAGING_VHD_URI}" || return $?
+
+    wait_for_vhd_copy || return $?
+
+    # the optimized VHD is now safely in the immutable vhd container, so the staging copy is no longer
+    # needed - delete it as best-effort cleanup so staging blobs do not accumulate in the destination account.
+    # Use no-wait since we don't need to wait for the blob to be deleted in this case.
+    delete_staging_vhd true || echo "unable to delete staging VHD ${STAGING_VHD_URI}, will proceed"
+
+    echo "optimized VHD has been published to: ${VHD_URI}"
+}
+
 wait_for_vhd_copy() {
     copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
     while [ "${copy_status,,}" = "pending" ]; do
-        echo "VHD ${VHD_URI} is still undergoing a pending copy operation"
+        echo "server-side copy to ${VHD_URI} is still pending, will wait 30s before checking again"
         sleep 30s
         copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
     done
     if [ "${copy_status,,}" != "success" ]; then
-        echo "VHD copy over ${VHD_URI} finished with unexpected status: ${copy_status}"
+        echo "server-side copy to ${VHD_URI} finished with unexpected status: ${copy_status}"
         return 1
     fi
-    echo "pending copy operation over ${VHD_URI} has completed successfully"
+    echo "server-side copy to ${VHD_URI} completed successfully"
 }
 
-delete_vhd() {
-    az storage blob delete --blob-url "${VHD_URI}" --auth-mode login || return $?
-    while [ -n "$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.name')" ]; do
-        echo "VHD ${VHD_URI} has yet to be deleted, will wait 30s before checking again"
+delete_staging_vhd() {
+    # when no_wait is true, issue the delete and return immediately without polling for the blob to disappear.
+    local no_wait="${1:-false}"
+    az storage blob delete --blob-url "${STAGING_VHD_URI}" --auth-mode login || return $?
+    if [ "${no_wait,,}" = "true" ]; then
+        echo "issued delete for staging VHD ${STAGING_VHD_URI} without waiting for completion"
+        return 0
+    fi
+    while [ -n "$(az storage blob show --blob-url "${STAGING_VHD_URI}" --auth-mode login 2>/dev/null | jq -r '.name // empty')" ]; do
+        echo "staging VHD ${STAGING_VHD_URI} has yet to be deleted, will wait 30s before checking again"
         sleep 30s
     done
-    echo "${VHD_URI} has been deleted"
+    echo "${STAGING_VHD_URI} has been deleted"
+}
+
+# retry_on_rate_limit runs the provided command, retrying only when it fails because image builder has
+# rate limited us (TooManyRequests - image builder rejects new work when too many tasks from a single
+# subscription are running or waiting). Because this limit clears slowly, we back off heavily between
+# attempts. Any other (non rate limit) failure is returned immediately without retrying.
+retry_on_rate_limit() {
+    local attempt=1
+    local exit_code
+    local logfile
+    set +x
+    logfile="$(mktemp)"
+    while true; do
+        # stream the command output live via tee while also capturing it so we can inspect it for the
+        # rate limit error; PIPESTATUS[0] preserves the wrapped command's exit code (not tee's).
+        "$@" 2>&1 | tee "${logfile}"
+        exit_code="${PIPESTATUS[0]}"
+        if [ "${exit_code}" -eq 0 ]; then
+            rm -f "${logfile}"
+            set -x
+            return 0
+        fi
+        if ! grep -qi "TooManyRequests" "${logfile}" || [ "${attempt}" -ge "${RATE_LIMIT_MAX_ATTEMPTS}" ]; then
+            rm -f "${logfile}"
+            set -x
+            return "${exit_code}"
+        fi
+        echo "command was rate limited by image builder (attempt ${attempt}/${RATE_LIMIT_MAX_ATTEMPTS}), waiting ${RATE_LIMIT_RETRY_DELAY_SECONDS}s before retrying..."
+        sleep "${RATE_LIMIT_RETRY_DELAY_SECONDS}"
+        attempt=$((attempt + 1))
+    done
 }
 
 main "$@"

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -943,7 +944,7 @@ var _ = Describe("GetGPUDriverVersion", func() {
 		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
-		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaLTSDriverVersion))
 	})
 	It("should use grid with nv v5", func() {
 		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.NvidiaGridDriverVersion))
@@ -958,14 +959,17 @@ var _ = Describe("GetGPUDriverVersion", func() {
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaLTSDriverVersion))
 	})
 })
 
 var _ = Describe("GetGPUDriverType", func() {
 
-	It("should use cuda with nc v3", func() {
-		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+	It("should use cuda-lts with nc v3", func() {
+		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
+	})
+	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
+		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
 		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
@@ -979,8 +983,8 @@ var _ = Describe("GetGPUDriverType", func() {
 		Expect(GetGPUDriverType("Standard_NC320lds_xl_RTXPRO6000BSE_v6")).To(Equal("grid-v20"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
-	It("should use cuda with nv v1", func() {
-		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
+	It("should use cuda-lts with nv v1", func() {
+		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda-lts"))
 	})
 })
 
@@ -992,8 +996,8 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc128ds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
 		Expect(GetAKSGPUImageSHA("standard_nc128lds_xl_rtxpro6000bse_v6")).To(Equal(datamodel.AKSGPUGridV20VersionSuffix))
 	})
-	It("should use newest AKSGPUCudaVersionSuffix with non grid SKU", func() {
-		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
+	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
+		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
 	})
 })
 
@@ -1118,7 +1122,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
-		Expect(vars).To(HaveKeyWithValue("GPU_DRIVER_TYPE", "cuda"))
+		Expect(vars).To(HaveKeyWithValue("GPU_DRIVER_TYPE", "cuda-lts"))
 	})
 
 	It("should handle custom cloud environment", func() {
@@ -1163,7 +1167,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 			GetNonceTimeout:           "custom-get-nonce-timeout",
 			GetAttestedDataTimeout:    "custom-get-attested-data-timeout",
 			GetCredentialTimeout:      "custom-get-credential-timeout",
-			Deadline:                  "custom-deadline",
 		}
 
 		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
@@ -1181,7 +1184,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT", "custom-get-nonce-timeout"))
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT", "custom-get-attested-data-timeout"))
 		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT", "custom-get-credential-timeout"))
-		Expect(vars).To(HaveKeyWithValue("SECURE_TLS_BOOTSTRAPPING_DEADLINE", "custom-deadline"))
 		Expect(vars).To(HaveKeyWithValue("CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL", "custom-client-download-url"))
 	})
 
@@ -1502,6 +1504,89 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
 		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
+	})
+
+	It("should move the operation-requests custom cloud init script to the path used by ANC", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom",
+		}
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		expectedMoveCommand := fmt.Sprintf(
+			`if [ "%[1]s" != "%[2]s" ] && [ -f "%[1]s" ]; then mv -f "%[1]s" "%[2]s"; fi`,
+			initAKSCustomCloudOperationRequestsFilepath,
+			initAKSCustomCloudFilepath,
+		)
+		Expect(string(decodedPayload)).To(ContainSubstring(expectedMoveCommand))
+	})
+
+	It("should run the custom cloud init rename service before aks-node-controller in Flatcar-based scriptless NBC ignition", func() {
+		for _, tc := range []struct {
+			name   string
+			osSKU  string
+			distro datamodel.Distro
+		}{
+			{
+				name:   "Flatcar",
+				osSKU:  datamodel.OSSKUFlatcar,
+				distro: datamodel.AKSFlatcarGen2,
+			},
+			{
+				name:   "ACL",
+				osSKU:  datamodel.OSSKUAzureContainerLinux,
+				distro: datamodel.AKSACLGen2TL,
+			},
+		} {
+			By(tc.name)
+			templateGenerator := InitializeTemplateGenerator()
+			config := newConfig(false)
+			config.OSSKU = tc.osSKU
+			config.AgentPoolProfile.Distro = tc.distro
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name: "akscustom",
+			}
+
+			payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+			decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+			Expect(err).NotTo(HaveOccurred())
+
+			var ignition struct {
+				Systemd struct {
+					Units []struct {
+						Name     string `json:"name"`
+						Enabled  bool   `json:"enabled"`
+						Contents string `json:"contents"`
+					} `json:"units"`
+				} `json:"systemd"`
+			}
+			Expect(json.Unmarshal(decodedPayload, &ignition)).To(Succeed())
+
+			expectedMoveCommand := fmt.Sprintf(
+				`if [ "%[1]s" != "%[2]s" ] && [ -f "%[1]s" ]; then mv -f "%[1]s" "%[2]s"; fi`,
+				initAKSCustomCloudOperationRequestsFilepath,
+				initAKSCustomCloudFilepath,
+			)
+			var renameUnit *struct {
+				Name     string `json:"name"`
+				Enabled  bool   `json:"enabled"`
+				Contents string `json:"contents"`
+			}
+			for i := range ignition.Systemd.Units {
+				if ignition.Systemd.Units[i].Name == "aks-custom-cloud-init-rename.service" {
+					renameUnit = &ignition.Systemd.Units[i]
+					break
+				}
+			}
+			Expect(renameUnit).NotTo(BeNil())
+			Expect(renameUnit.Enabled).To(BeTrue())
+			Expect(renameUnit.Contents).To(ContainSubstring("Before=aks-node-controller.service"))
+			Expect(renameUnit.Contents).To(ContainSubstring(expectedMoveCommand))
+		}
 	})
 
 	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
