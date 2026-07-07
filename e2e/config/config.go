@@ -176,9 +176,6 @@ func mustLoadConfig() *Configuration {
 	return cfg
 }
 
-func init() {
-}
-
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
 func mustGetNewRSAKeyPair() ([]byte, []byte, string) {
 	// Generate new key pair
