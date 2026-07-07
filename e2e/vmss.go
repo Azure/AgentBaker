@@ -105,6 +105,12 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 			break
 		}
 		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
+		// Close this attempt's bastion tunnel before recreating: the SSH client is established
+		// even on an exit-50 failure (the node booted, only the CSE preflight failed). The single
+		// cleanup registered after the loop covers only the terminal VM, so without this the
+		// detached "az network bastion tunnel" process and SSH client would leak until test exit
+		// and could interfere with subsequent retries.
+		cleanupBastionTunnel(vm.SSHClient)
 		deleteVMSSAndWait(ctx, s)
 	}
 
