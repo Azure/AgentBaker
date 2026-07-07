@@ -3214,9 +3214,17 @@ func ValidateRCV1PNotOptedIn(ctx context.Context, s *Scenario) {
 	ValidateEmptyDirectory(ctx, s, "/root/AzureCACertificates")
 
 	// Validate no refresh schedule was created
-	execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
-		1, "expected no ca-refresh cron entry when not opted in")
+	if s.VHD.Flatcar || s.VHD.OS == config.OSACL {
+		// Flatcar and ACL use systemd timer for cert refresh (see ValidateRCV1PCertMode).
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"systemctl is-enabled azure-ca-refresh.timer 2>/dev/null",
+			1, "expected azure-ca-refresh.timer to be absent/disabled when not opted in")
+	} else {
+		// Ubuntu, Mariner, AzureLinux use cron.
+		execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo crontab -l 2>/dev/null | grep -q ca-refresh",
+			1, "expected no ca-refresh cron entry when not opted in")
+	}
 }
 
 // ValidateRCV1PNotOptedInWindows validates that when the Windows VM does NOT have the opt-in tag,
