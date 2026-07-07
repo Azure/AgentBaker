@@ -92,7 +92,7 @@ installBcc() {
 
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-22 that is downloaded for 26.04
     if [ "${VERSION}" = "26.04" ]; then
-      apt_get_install 120 5 300 libpolly-22-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+      apt_get_purge 120 5 300 libpolly-22-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     rm -rf /tmp/bcc
