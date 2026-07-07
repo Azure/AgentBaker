@@ -84,7 +84,7 @@ install_azure_cli() {
     TEST_VM_ADMIN_USERNAME=${4}
 
     if [ "$OS_SKU" != "Ubuntu" ] && [ "$OS_SKU" != "CBLMariner" ] && [ "$OS_SKU" != "AzureLinux" ] && [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
-        echo "Unrecognized SKU, Version, and Architecture combination for downloading az: $OS_SKU $OS_VERSION $ARCHITECTURE"
+        echo "Unrecognized OS SKU for downloading az: $OS_SKU $OS_VERSION $ARCHITECTURE"
         exit 1
     fi
 
