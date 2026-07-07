@@ -132,12 +132,10 @@ the same GPU and therefore the same driver, so both are listed here.
 */
 //nolint:gochecknoglobals
 var RTXPro6000GPUDriverSizes = map[string]bool{
-	"standard_nc128ds_xl_rtxpro6000bse_v6":  true,
-	"standard_nc128lds_xl_rtxpro6000bse_v6": true,
-	"standard_nc256ds_xl_rtxpro6000bse_v6":  true,
-	"standard_nc256lds_xl_rtxpro6000bse_v6": true,
-	"standard_nc320ds_xl_rtxpro6000bse_v6":  true,
-	"standard_nc320lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc144ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc144lds_xl_rtxpro6000bse_v6": true,
+	"standard_nc288ds_xl_rtxpro6000bse_v6":  true,
+	"standard_nc288lds_xl_rtxpro6000bse_v6": true,
 }
 
 //nolint:gochecknoglobals

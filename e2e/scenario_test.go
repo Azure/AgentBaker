@@ -2459,13 +2459,13 @@ func Test_Ubuntu2404_GPU_RTXPro6000_GridV20(t *testing.T) {
 			// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
 			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NC128ds_xl_RTXPRO6000BSE_v6"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC128ds_xl_RTXPRO6000BSE_v6")
+				vmss.SKU.Name = to.Ptr("Standard_NC144ds_xl_RTXPRO6000BSE_v6")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
