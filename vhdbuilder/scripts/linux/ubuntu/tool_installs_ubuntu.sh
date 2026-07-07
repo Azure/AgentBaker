@@ -61,6 +61,7 @@ installBcc() {
     sudo make install || exit 1
     popd
     popd
+
     # we explicitly do not remove build-essential or python
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.

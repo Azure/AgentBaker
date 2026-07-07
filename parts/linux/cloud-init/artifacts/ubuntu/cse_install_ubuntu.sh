@@ -176,7 +176,7 @@ updatePMCRepository() {
 }
 
 updateAptWithNvidiaPkg() {
-    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.gpg"
     mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
 
     readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
@@ -214,8 +214,15 @@ updateAptWithNvidiaPkg() {
     fi
     local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"
 
-    # Download and add the GPG key for the NVIDIA repository
-    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    # Download the armored NVIDIA repo key and dearmor it into a binary keyring.
+    # apt only accepts a signed-by keyring with a .gpg (binary) or .asc (armored) extension;
+    # NVIDIA publishes an ASCII-armored *.pub, so a raw .pub file is rejected as an "unsupported
+    # filetype" and the key is ignored (the repo then fails to verify with NO_PUBKEY). Newer apt
+    # (e.g. 3.x on Ubuntu 26.04) enforces this strictly, so dearmor to nvidia.gpg.
+    local nvidia_gpg_key_tmp="/tmp/${nvidia_gpg_key_name}"
+    retrycmd_curl_file 120 5 25 "${nvidia_gpg_key_tmp}" "${nvidia_gpg_key_url}" 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor < "${nvidia_gpg_key_tmp}" > "${nvidia_gpg_keyring_path}" || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    rm -f "${nvidia_gpg_key_tmp}"
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -267,9 +274,13 @@ removeNvidiaRepos() {
         rm -f /etc/apt/sources.list.d/nvidia.list
         echo "Removed NVIDIA apt repository"
     fi
+    if [ -f /etc/apt/keyrings/nvidia.gpg ]; then
+        rm -f /etc/apt/keyrings/nvidia.gpg
+        echo "Removed NVIDIA GPG key (nvidia.gpg)"
+    fi
     if [ -f /etc/apt/keyrings/nvidia.pub ]; then
         rm -f /etc/apt/keyrings/nvidia.pub
-        echo "Removed NVIDIA GPG key"
+        echo "Removed NVIDIA GPG key (nvidia.pub)"
     fi
 }
 
