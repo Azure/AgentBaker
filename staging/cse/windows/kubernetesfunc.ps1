@@ -310,7 +310,9 @@ function Should-InstallCACertificatesRefreshTask {
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
         # Use 10 retries to match Linux make_request_with_retry resilience against
         # transient wireserver unavailability and rate limiting.
-        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
+        # TimeoutSec=30 bounds worst-case wall time to ~400s (10 * (30 + 10)) so a
+        # single hanging wireserver endpoint cannot exhaust Windows OS provisioning.
+        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
         Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
         $optInJson = $optInResponse.Content | ConvertFrom-Json
         return ($optInJson.IsOptedInForRootCerts -eq $true)
@@ -362,7 +364,8 @@ function Get-CACertificates {
     try {
         if ($certEndpointMode -eq "legacy") {
             $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
-            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
+            # TimeoutSec=30 bounds a stalled response so 10 retries cannot exceed ~400s.
+            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
             $caCerts = ($rawData.Content) | ConvertFrom-Json
             if ($null -eq $caCerts -or $null -eq $caCerts.Certificates -or $caCerts.Certificates.Length -eq 0) {
                 if ($FailOnError) {
@@ -384,7 +387,8 @@ function Get-CACertificates {
 
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
         # Wireserver opt-in check: 10 retries to match Linux make_request_with_retry.
-        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
+        # TimeoutSec=30 bounds a stalled response so retries cannot exceed ~400s.
+        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
         Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
         $optInJson = $optInResponse.Content | ConvertFrom-Json
         if ($optInJson.IsOptedInForRootCerts -ne $true) {
@@ -397,7 +401,7 @@ function Get-CACertificates {
 
         foreach ($requestType in $operationRequestTypes) {
             $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
-            $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
+            $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
             $operationJson = ($operationResponse.Content) | ConvertFrom-Json
 
             if ($null -eq $operationJson -or $null -eq $operationJson.OperationsInfo) {
@@ -415,7 +419,7 @@ function Get-CACertificates {
                 $resourceExt = [IO.Path]::GetExtension($resourceFileName).TrimStart('.')
                 $resourceUri = "http://168.63.129.16/machine?comp=acmspackage&type=$resourceType&ext=$resourceExt"
 
-                $certContentResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true} -Retries 10 -RetryDelaySeconds 10
+                $certContentResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
                 if ([string]::IsNullOrEmpty($certContentResponse.Content)) {
                     Write-Log "Warning: empty certificate content for $resourceFileName"
                     continue
