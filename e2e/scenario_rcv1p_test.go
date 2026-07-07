@@ -361,27 +361,6 @@ func Test_RCV1P_AzureLinuxV3(t *testing.T) {
 	})
 }
 
-// Test_RCV1P_Flatcar validates RCV1P on Flatcar Container Linux, which has a read-only root
-// filesystem and requires certificates to be placed in /etc/ssl/certs/ as .pem files.
-// This is the most constrained environment for cert installation.
-func Test_RCV1P_Flatcar(t *testing.T) {
-	skipIfRCV1PNotConfigured(t)
-	RunScenario(t, &Scenario{
-		Description:    "Tests RCV1P cert mode on Flatcar with VM opt-in tag",
-		Tags: Tags{
-			RCV1PCertMode: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDACLGen2TL,
-			VMConfigMutator: rcv1pVMConfigMutator(),
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateRCV1PCertMode(ctx, s)
-			},
-		},
-	})
-}
-
 // Test_RCV1P_ACL validates RCV1P on Azure Container Linux (ACL), which shares the same
 // trust store layout as Azure Linux (/etc/pki/ca-trust/). ACL requires Trusted Launch,
 // so the VMConfigMutator combines both the TrustedLaunch and opt-in tag settings.
