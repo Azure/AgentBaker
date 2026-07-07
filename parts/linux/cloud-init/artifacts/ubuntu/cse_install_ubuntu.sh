@@ -82,7 +82,12 @@ installDeps() {
     holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+
+    if [ "${OSVERSION}" != "26.04" ]; then
+        # linux-modules-extra-* content is bundled into linux-modules-* on 26.04 (resolute)
+        pkg_list+=(linux-modules-extra-$(uname -r))
+    fi
 
     local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     while IFS= read -r fallback_pkg; do
@@ -96,6 +101,7 @@ installDeps() {
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=("aznfs=3.0.14")
     elif [ "${OSVERSION}" = "26.04" ]; then
+        # TODO(2604): confirm aznfs=3.0.18 is okay to use with Andy
         pkg_list+=("aznfs=3.0.18")
     fi
 
