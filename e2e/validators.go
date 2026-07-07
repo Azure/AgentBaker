@@ -3173,7 +3173,9 @@ func rcv1pTrustStoreDir(s *Scenario) string {
 func ValidateRCV1PCertModeWindows(ctx context.Context, s *Scenario) {
 	s.T.Helper()
 
-	// Validate CA certificates were installed to the Windows certificate store
+	// Validate CA certificates were downloaded to C:\ca (matches Windows Get-CACertificates
+	// behavior; import into Cert:\LocalMachine\Root is handled out-of-band by the platform/
+	// refresh task, not by CSE).
 	command := []string{
 		"$ErrorActionPreference = 'Stop'",
 		"$caFolder = 'C:\\ca'",
