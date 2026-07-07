@@ -1236,7 +1236,8 @@ fi
 # retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
-pinPodSandboxImages
+# TODO(2604): uncomment once able
+# pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
