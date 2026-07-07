@@ -478,7 +478,12 @@ func getCustomScriptExtensionStatus(s *Scenario, vmssVM *armcompute.VirtualMachi
 	// The VM object passed in may have been fetched before the CSE finished executing,
 	// so the extension status message could be empty or stale.
 	if vmssVM.InstanceID != nil {
-		ctx := context.Background()
+		// Bounded fresh context (matches other diagnostic/cleanup paths in this file):
+		// this re-fetch collects post-mortem CSE status, so it should complete even if
+		// the caller's ctx was cancelled (e.g., test timeout), but must not hang the
+		// suite indefinitely on a stalled ARM call.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
 		freshVM, err := config.Azure.VMSSVM.Get(ctx,
 			*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 			s.Runtime.VMSSName,
