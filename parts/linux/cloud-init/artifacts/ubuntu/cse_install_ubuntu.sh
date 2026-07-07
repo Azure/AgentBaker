@@ -197,8 +197,8 @@ updateAptWithNvidiaPkg() {
         nvidia_ubuntu_release="ubuntu2204"
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
-    # elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
-    #     nvidia_ubuntu_release="ubuntu2604"
+    elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+        nvidia_ubuntu_release="ubuntu2604"
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return

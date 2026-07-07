@@ -345,9 +345,9 @@ starteBPFToolsInstallation() {
 }
 
 finisheBPFToolsInstallation() {
-  wait $BCC_PID
-  BCC_EXIT_CODE=$?
-  chmod 644 /var/log/bcc_installation.log
+  local BCC_EXIT_CODE=0
+  wait "$BCC_PID" || BCC_EXIT_CODE=$?
+  chmod 644 /var/log/bcc_installation.log || true
 
   if [ "$BCC_EXIT_CODE" -eq 0 ]; then
     echo "Bcc tools successfully installed."
@@ -357,7 +357,10 @@ finisheBPFToolsInstallation() {
 EOF
   else
     echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
-    exit $BCC_EXIT_CODE
+    echo "===== BEGIN /var/log/bcc_installation.log =====" >&2
+    cat /var/log/bcc_installation.log >&2 2>/dev/null || echo "(bcc_installation.log missing)" >&2
+    echo "===== END /var/log/bcc_installation.log =====" >&2
+    exit "$BCC_EXIT_CODE"
   fi
 }
 
