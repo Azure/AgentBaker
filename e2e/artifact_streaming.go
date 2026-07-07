@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +23,16 @@ const artifactStreamingE2ERepoTag = "artifact-streaming-e2e/base-core:2.0"
 // artifactStreamingSourceImage is a small, always-available public image we convert to an
 // overlaybd (artifact streaming) image so the pod pull exercises the streaming path.
 const artifactStreamingSourceImage = "mcr.microsoft.com/cbl-mariner/base/core:2.0"
+
+// overlaybdStreamingArtifactType is the artifactType of the ACR overlaybd streaming referrer that
+// `az acr artifact-streaming create` produces. Verified against a live ACR streaming artifact
+// (annotations include streaming.format=overlaybd). Filtering `list-referrers` by this type avoids
+// matching unrelated referrers such as signatures or SBOMs.
+const overlaybdStreamingArtifactType = "application/vnd.azure.artifact.streaming.v1"
+
+// streamingOperationIDRegex extracts the operation UUID from the async `az acr artifact-streaming
+// create` output, e.g. "... operation show ... --id 1a410a07-d2d5-4f3a-a386-a4a2e75c1e40".
+var streamingOperationIDRegex = regexp.MustCompile(`--id\s+([0-9a-fA-F-]{36})`)
 
 // ValidateArtifactStreamingImagePull verifies that artifact streaming actually streams an image
 // on pod launch, rather than merely bootstrapping the overlaybd/acr-mirror services.
@@ -95,9 +106,15 @@ func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) {
 }
 
 // ensureStreamingArtifactForImage imports the source image into the private ACR and ensures its
-// overlaybd artifact-streaming referrer exists. Success is defined by the end state (a streaming
-// referrer is present), not by the CLI exit code, so it is fully idempotent across cached-ACR
-// re-runs without depending on the exact wording of "already exists" messages.
+// overlaybd artifact-streaming referrer is fully created and ready to pull. It is idempotent across
+// cached-ACR re-runs.
+//
+// IMPORTANT: `az acr artifact-streaming create` is ASYNCHRONOUS — it returns immediately with an
+// operation ID while ACR converts the image to overlaybd format server-side. We MUST wait for that
+// operation to succeed before pulling: if the node pulls before conversion finishes, containerd
+// pulls the plain OCI image, caches it as overlayfs, and no streaming ever happens (and re-pulling
+// on the same node won't fix it, because the image is already cached). This async behaviour is the
+// reason the first version of this test failed.
 //
 // NOTE: this shells out to `az` (as the e2e suite already does in types.go). The E2E runner must be
 // authenticated to the subscription and have the `az acr artifact-streaming`/`az acr manifest`
@@ -120,16 +137,15 @@ func ensureStreamingArtifactForImage(ctx context.Context, s *Scenario, acrName, 
 			artifactStreamingSourceImage, acrName, err, string(out))
 	}
 
-	// 2. If the overlaybd streaming referrer already exists (e.g. cached ACR from a previous run),
-	//    there's nothing to do.
-	if streamingReferrerExists(ctx, s, acrName, repoTag) {
+	// 2. If the overlaybd streaming referrer is already present (cached ACR from a previous run),
+	//    conversion is done — nothing to do. ACR publishes the streaming referrer only once the
+	//    overlaybd blobs exist, so this is a reliable "ready" signal.
+	if streamingReferrerReady(ctx, s, acrName, repoTag) {
 		s.T.Logf("overlaybd streaming referrer already exists for %q in ACR %q, skipping create", repoTag, acrName)
 		return
 	}
 
-	// 3. Create the overlaybd streaming referrer. This is synchronous (`--no-wait` defaults to
-	//    false), so the conversion completes before we pull. Define success by re-checking that the
-	//    referrer now exists rather than trusting the CLI exit code.
+	// 3. Kick off conversion. The command is async and prints the operation ID to poll.
 	streamCmd := exec.CommandContext(ctx, "az", "acr", "artifact-streaming", "create",
 		"--name", acrName,
 		"--image", repoTag,
@@ -137,30 +153,105 @@ func ensureStreamingArtifactForImage(ctx context.Context, s *Scenario, acrName, 
 	)
 	out, err := streamCmd.CombinedOutput()
 	s.T.Logf("az acr artifact-streaming create output:\n%s", string(out))
-	if err != nil && !streamingReferrerExists(ctx, s, acrName, repoTag) {
+
+	// 4. Wait for the async conversion to finish. Prefer polling the returned operation; fall back
+	//    to polling for the referrer if no operation ID was printed (e.g. CLI-version differences).
+	if opID := parseStreamingOperationID(string(out)); opID != "" {
+		waitForStreamingOperationSucceeded(ctx, s, acrName, repoNameWithoutTag(repoTag), opID)
+	}
+	waitForStreamingReferrerReady(ctx, s, acrName, repoTag)
+
+	if err != nil && !streamingReferrerReady(ctx, s, acrName, repoTag) {
 		s.T.Fatalf("failed to create overlaybd streaming artifact for %q in ACR %q: %v", repoTag, acrName, err)
 	}
 }
 
-// streamingReferrerExists reports whether the given image already has an overlaybd artifact-
-// streaming referrer in the ACR. Best-effort: on any CLI error it returns false so the caller
-// falls through to (re-)creating the referrer.
-func streamingReferrerExists(ctx context.Context, s *Scenario, acrName, repoTag string) bool {
+// waitForStreamingOperationSucceeded polls `az acr artifact-streaming operation show` until the
+// conversion operation reports Succeeded, failing the test on a Failed status or timeout.
+func waitForStreamingOperationSucceeded(ctx context.Context, s *Scenario, acrName, repository, operationID string) {
+	s.T.Helper()
+	const timeout = 8 * time.Minute
+	deadline := time.Now().Add(timeout)
+	for {
+		cmd := exec.CommandContext(ctx, "az", "acr", "artifact-streaming", "operation", "show",
+			"--name", acrName,
+			"--repository", repository,
+			"--id", operationID,
+			"--subscription", config.Config.SubscriptionID,
+			"-o", "json",
+		)
+		out, err := cmd.CombinedOutput()
+		status := strings.ToLower(string(out))
+		switch {
+		case err == nil && strings.Contains(status, "succeeded"):
+			s.T.Logf("overlaybd streaming conversion operation %s for %q succeeded", operationID, repository)
+			return
+		case err == nil && strings.Contains(status, "failed"):
+			s.T.Fatalf("overlaybd streaming conversion operation %s for %q failed:\n%s", operationID, repository, string(out))
+		}
+		if time.Now().After(deadline) {
+			s.T.Fatalf("timed out after %s waiting for overlaybd streaming conversion operation %s (repo %q); last status:\n%s",
+				timeout, operationID, repository, string(out))
+		}
+		time.Sleep(10 * time.Second)
+	}
+}
+
+// waitForStreamingReferrerReady polls until the overlaybd streaming referrer is queryable, as a
+// backstop for the operation poll (covers CLI versions that don't print an operation ID and any lag
+// between the operation completing and the referrer being listable).
+func waitForStreamingReferrerReady(ctx context.Context, s *Scenario, acrName, repoTag string) {
+	s.T.Helper()
+	const timeout = 3 * time.Minute
+	deadline := time.Now().Add(timeout)
+	for {
+		if streamingReferrerReady(ctx, s, acrName, repoTag) {
+			return
+		}
+		if time.Now().After(deadline) {
+			s.T.Fatalf("timed out after %s waiting for the overlaybd streaming referrer of %q in ACR %q", timeout, repoTag, acrName)
+		}
+		time.Sleep(10 * time.Second)
+	}
+}
+
+// streamingReferrerReady reports whether the given image has a ready overlaybd artifact-streaming
+// referrer in the ACR. It filters `list-referrers` by the overlaybd streaming artifactType so it
+// does not match unrelated referrers (signatures, SBOMs). Best-effort: any CLI error returns false.
+func streamingReferrerReady(ctx context.Context, s *Scenario, acrName, repoTag string) bool {
 	s.T.Helper()
 	cmd := exec.CommandContext(ctx, "az", "acr", "manifest", "list-referrers",
 		"--name", repoTag,
 		"--registry", acrName,
+		"--artifact-type", overlaybdStreamingArtifactType,
 		"--subscription", config.Config.SubscriptionID,
 		"-o", "json",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		s.T.Logf("could not list referrers for %q in ACR %q (will attempt create): %v\n%s", repoTag, acrName, err, string(out))
+		s.T.Logf("could not list overlaybd streaming referrers for %q in ACR %q: %v\n%s", repoTag, acrName, err, string(out))
 		return false
 	}
-	// A streaming (overlaybd) referrer appears as an entry with an artifactType in the referrers
-	// list. An empty referrers list has no such field.
-	return strings.Contains(string(out), "artifactType")
+	// A matching referrer is present iff the (type-filtered) manifest list has at least one digest.
+	return strings.Contains(string(out), `"digest"`)
+}
+
+// parseStreamingOperationID extracts the conversion operation UUID from the async create output.
+func parseStreamingOperationID(createOutput string) string {
+	m := streamingOperationIDRegex.FindStringSubmatch(createOutput)
+	if len(m) == 2 {
+		return m[1]
+	}
+	return ""
+}
+
+// repoNameWithoutTag strips a ":tag" suffix, since `operation show --repository` wants the bare
+// repository name (e.g. "artifact-streaming-e2e/base-core", not "...:2.0").
+func repoNameWithoutTag(repoTag string) string {
+	if i := strings.LastIndex(repoTag, ":"); i != -1 {
+		return repoTag[:i]
+	}
+	return repoTag
 }
 
 // logArtifactStreamingDiagnostics dumps overlaybd's on-node log tail and exporter metrics to help
@@ -174,6 +265,22 @@ func logArtifactStreamingDiagnostics(ctx context.Context, s *Scenario) {
 	metrics := execScriptOnVMForScenario(ctx, s,
 		"sudo curl -s --max-time 5 http://localhost:9863/metrics 2>/dev/null | grep -iE 'overlaybd|obd' | head -n 30 || true")
 	s.T.Logf("overlaybd exporter (:9863) metrics sample:\n%s", metrics.stdout)
+
+	// acr-mirror is what discovers the ACR streaming referrer and redirects the pull to the
+	// overlaybd manifest; if it can't (auth/config), the pull silently falls back to overlayfs.
+	mirror := execScriptOnVMForScenario(ctx, s,
+		"sudo journalctl -u acr-mirror --no-pager 2>/dev/null | tail -n 40 || true")
+	s.T.Logf("acr-mirror journal tail:\n%s", mirror.stdout)
+
+	snapshotter := execScriptOnVMForScenario(ctx, s,
+		"sudo journalctl -u overlaybd-snapshotter --no-pager 2>/dev/null | tail -n 40 || true")
+	s.T.Logf("overlaybd-snapshotter journal tail:\n%s", snapshotter.stdout)
+
+	// Which snapshotter backs the pulled image, and the containerd hosts.toml that routes
+	// azurecr.io pulls through acr-mirror.
+	images := execScriptOnVMForScenario(ctx, s,
+		"sudo ctr -n k8s.io images ls 2>/dev/null | grep -iE 'base-core|REF' || true; echo '--- certs.d ---'; sudo cat /etc/containerd/certs.d/*azurecr.io*/hosts.toml 2>/dev/null || true")
+	s.T.Logf("containerd images + azurecr.io hosts.toml:\n%s", images.stdout)
 }
 
 // podStreamingImageLinux builds a pod pinned to the scenario's node that pulls the given ACR
