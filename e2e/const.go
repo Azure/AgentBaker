@@ -11,6 +11,12 @@ const (
 	linuxExtensionExitCodeStr = `Enable failed: failed to execute command: command terminated with exit status=(\d+)`
 )
 
+// cseExtensionName is the name given to the CustomScript (CSE) extension when it is attached to
+// the test VMSS (see createVMSSModel). It is used to locate the CSE status in a VM instance view
+// deterministically, so exit-code classification stays correct even as scenarios attach other
+// extensions.
+const cseExtensionName = "vmssCSE"
+
 // cseExitCodeOutboundConnFail is the CSE exit code for ERR_OUTBOUND_CONN_FAIL
 // (see parts/linux/cloud-init/artifacts/cse_helpers.sh). It indicates the node's
 // outbound connectivity preflight check (curl to mcr.microsoft.com, optionally routed

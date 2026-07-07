@@ -143,6 +143,11 @@ func getLinuxCSEExitCode(ctx context.Context, s *Scenario) (string, bool) {
 				continue
 			}
 			for _, extension := range vmssVM.Properties.InstanceView.Extensions {
+				// Only inspect the CSE extension; other extensions attached by a scenario must not
+				// be mistaken for the CSE status this classifier depends on.
+				if extension == nil || extension.Name == nil || *extension.Name != cseExtensionName {
+					continue
+				}
 				for _, status := range extension.Statuses {
 					if status == nil {
 						continue
@@ -838,17 +843,22 @@ func cleanupVMSS(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 func extractLogsFromVM(ctx context.Context, s *Scenario, vm *ScenarioVM) {
 	if s.IsWindows() {
 		extractLogsFromVMWindows(ctx, s)
+		return
+	}
+	// When provisioning fails before an SSH connection is established (e.g. the VMSS create
+	// or VM allocation itself failed), there is no SSH client to collect in-VM logs with.
+	// Skip SSH-based extraction in that case to avoid a burst of noisy "ssh client is nil"
+	// errors that would otherwise obscure the real provisioning failure. Boot diagnostics are
+	// still collected best-effort below, and VMSS deletion is handled by the caller.
+	if vm == nil || vm.SSHClient == nil {
+		s.T.Logf("skipping SSH log extraction for VMSS %q: no SSH connection (provisioning likely failed before SSH was established)", s.Runtime.VMSSName)
+	} else if err := extractLogsFromVMLinux(ctx, s, vm); err != nil {
+		s.T.Logf("failed to extract logs from VM: %s", err)
 	} else {
-		err := extractLogsFromVMLinux(ctx, s, vm)
-		if err != nil {
-			s.T.Logf("failed to extract logs from VM: %s", err)
-		} else {
-			s.T.Logf("extracted VM logs to %s", testDir(s.T))
-		}
-		err = extractBootDiagnostics(ctx, s)
-		if err != nil {
-			s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
-		}
+		s.T.Logf("extracted VM logs to %s", testDir(s.T))
+	}
+	if err := extractBootDiagnostics(ctx, s); err != nil {
+		s.T.Logf("failed to extract boot diagnostics from VM: %s", err)
 	}
 }
 
@@ -1521,7 +1531,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 				{
-					Name: to.Ptr("vmssCSE"),
+					Name: to.Ptr(cseExtensionName),
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),
