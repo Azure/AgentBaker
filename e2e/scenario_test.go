@@ -1922,7 +1922,9 @@ func Test_Ubuntu2404LocalDns_ProxyBypass_FileCheck(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				// PR #8834: the readiness curl to the link-local listener must bypass the HTTP proxy.
 				// Asserting the fixed script is present proves the fix is baked into the VHD.
-				ValidateFileHasContent(ctx, s, "/opt/azure/containers/localdns/localdns.sh", `--noproxy "${LOCALDNS_NODE_LISTENER_IP}"`)
+				// NOTE: the search string must not contain ${...} — ValidateFileHasContent embeds it in a
+				// double-quoted remote shell command, so a ${VAR} would be expanded on the node before grep.
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/localdns/localdns.sh", `CURL_COMMAND=(curl -s --noproxy`)
 				// localdns.service reaching active+enabled proves the readiness curl (which gates it)
 				// succeeded with the new script.
 				ValidateLocalDNSService(ctx, s, "enabled")
