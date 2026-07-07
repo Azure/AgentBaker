@@ -2888,6 +2888,9 @@ func ValidateMANATrafficFlowing(ctx context.Context, s *Scenario) {
 	require.NotEmpty(s.T, gatewayIP, "default gateway IP is empty")
 	s.T.Logf("MANA traffic test: using gateway %s as target", gatewayIP)
 
+   	// The "; true" ensures exit 0 regardless of curl's result — the gateway has
+	// no HTTP server so connections will fail, but TCP SYN packets still traverse
+	// the VF (incrementing vf_tx_packets). The real assertion is the counter delta below.
 	curlCmd := fmt.Sprintf("for i in $(seq 1 %d); do curl -s -o /dev/null -m 1 http://%s/ 2>/dev/null; done; true", requestCount, gatewayIP)
 	execOnVMForScenarioOnUnprivilegedPod(ctx, s, curlCmd)
 

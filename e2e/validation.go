@@ -48,7 +48,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 
 	// Validate MANA (Accelerated Networking) when hardware is present.
 	// MANA is the standard network adapter on V5+ VM series.
-	if hasMANAHardware(ctx, s) {
+	if hasMANAHardware(ctx, s) && !s.Tags.MANA {
 		ValidateMANA(ctx, s)
 	}
 
