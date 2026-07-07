@@ -47,8 +47,8 @@ installBcc() {
 
     local bcc_version="v0.29.0"
     if [ "${VERSION}" = "26.04" ]; then
-        # 26.04 requires a newer bcc version due to it baking CMake v4, otherwise CMake will fail with: "Compatibility with CMake < 3.5 has been removed from CMake"
-        bcc_version="v0.36.1"
+        # 26.04 bakes CMake v4 and thus requires a newer bcc version, otherwise CMake will fail with: "Compatibility with CMake < 3.5 has been removed from CMake"
+        bcc_version="v0.37.0"
     fi
 
     mkdir -p /tmp/bcc
