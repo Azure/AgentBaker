@@ -45,13 +45,17 @@ var streamingOperationIDRegex = regexp.MustCompile(`--id\s+([0-9a-fA-F-]{36})`)
 //     signal that the image was *streamed* on demand rather than downloaded and unpacked into
 //     overlayfs (the fallback path taken for plain OCI images like busybox).
 //
-// Requires a cluster with a private ACR attached and the ACR pull secret created in the cluster
-// (Tags.NonAnonymousACR = true, e.g. Cluster: ClusterAzureBootstrapProfileCache).
+// Uses the cluster's ANONYMOUS-pull private ACR (Cluster: ClusterAzureBootstrapProfileCache, which
+// attaches one). Anonymous pull is required because on the standalone e2e VMSS node the acr-mirror
+// service has no managed identity to obtain an AAD token, so it cannot authenticate to a
+// non-anonymous ACR to serve the overlaybd streaming manifest — the pull then silently falls back
+// to overlayfs. Against an anonymous-pull ACR, acr-mirror's anonymous path succeeds and streaming
+// works. (Observed acr-mirror error on a non-anon ACR: "Error with azure sdk, request token error"
+// -> "falling back to anonymous auth" -> 503.)
 func ValidateArtifactStreamingImagePull(ctx context.Context, s *Scenario) {
-	require.True(s.T, s.Tags.NonAnonymousACR,
-		"ValidateArtifactStreamingImagePull requires a private ACR with pull secret (set Tags.NonAnonymousACR = true)")
-
-	acrName := config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location)
+	// Deliberately use the anonymous ACR (NonAnonymousACR = false) regardless of the scenario tag,
+	// so acr-mirror can serve the streaming manifest without a node identity.
+	acrName := config.GetPrivateACRName(false, s.Location)
 	image := fmt.Sprintf("%s.azurecr.io/%s", acrName, artifactStreamingE2ERepoTag)
 
 	// Prepare the overlaybd streaming artifact in the ACR. This is idempotent across runs, so a
@@ -284,8 +288,9 @@ func logArtifactStreamingDiagnostics(ctx context.Context, s *Scenario) {
 }
 
 // podStreamingImageLinux builds a pod pinned to the scenario's node that pulls the given ACR
-// artifact-streaming image using the ACR pull secret. It mirrors the taint tolerations and node
-// selector used by podHTTPServerLinux so it schedules onto the freshly-provisioned node.
+// artifact-streaming image. The image is served from the anonymous-pull private ACR (see
+// ValidateArtifactStreamingImagePull), so no image pull secret is needed. It mirrors the taint
+// tolerations and node selector used by podHTTPServerLinux so it schedules onto the node.
 func podStreamingImageLinux(s *Scenario, image string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -293,9 +298,6 @@ func podStreamingImageLinux(s *Scenario, image string) *corev1.Pod {
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				{Name: config.Config.ACRSecretName},
-			},
 			Containers: []corev1.Container{
 				{
 					Name:    "streaming",

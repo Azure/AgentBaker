@@ -1412,14 +1412,12 @@ func Test_Ubuntu2204_ArtifactStreaming_NetworkIsolatedCluster(t *testing.T) {
 // image was streamed on demand (TCMU-backed block device) rather than downloaded into overlayfs.
 //
 // It uses ClusterAzureBootstrapProfileCache because that cluster attaches a Premium private ACR
-// (required for `az acr artifact-streaming`) and creates the ACR pull secret, without the added
-// complexity of full network isolation.
+// (required for `az acr artifact-streaming`), including an anonymous-pull ACR that the validator
+// uses so acr-mirror can serve the streaming manifest without a node managed identity — without the
+// added complexity of full network isolation.
 func Test_Ubuntu2204_ArtifactStreaming_ImagePull(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an artifact streaming node actually streams an overlaybd image on pod launch (TCMU-backed), not just that the streaming services are running",
-		Tags: Tags{
-			NonAnonymousACR: true,
-		},
 		Config: Config{
 			Cluster: ClusterAzureBootstrapProfileCache,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
