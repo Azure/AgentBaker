@@ -45,12 +45,18 @@ installBcc() {
       apt_get_install 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
+    local bcc_version="v0.29.0"
+    if [ "${VERSION}" = "26.04" ]; then
+        # 26.04 requires a newer bcc version due to it baking CMake v4, otherwise CMake will fail with: "Compatibility with CMake < 3.5 has been removed from CMake"
+        bcc_version="v0.36.1"
+    fi
+
     mkdir -p /tmp/bcc
     pushd /tmp/bcc
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build
 
-    git checkout v0.29.0
+    git checkout ${bcc_version}
 
     cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
