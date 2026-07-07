@@ -1573,7 +1573,10 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should not render initAKSCustomCloud file in scriptless custom data for non-custom cloud", func() {
+	It("should render initAKSCustomCloud file in scriptless custom data for non-custom cloud", func() {
+		// RCV1P cert bootstrap must run on all clouds (scriptless or otherwise), so the
+		// init script is dropped unconditionally into customData. Runtime gating inside
+		// the script itself decides whether there is anything to do.
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
@@ -1581,7 +1584,9 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		renderConfig.EnableScriptlessCSECmd = true
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 
-		Expect(nodeCustomData).NotTo(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring(initAKSCustomCloudFilepath))
+		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
+		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
 	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
