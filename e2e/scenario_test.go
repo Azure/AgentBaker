@@ -1899,6 +1899,38 @@ func Test_AzureLinuxV3LocalDns_Disabled_Scriptless(t *testing.T) {
 	})
 }
 
+// Test_Ubuntu2404LocalDns_ProxyBypass_FileCheck validates PR #8834
+// (yew/localdns-httpproxy-readiness-proxy-bypass): the localdns readiness curl must
+// bypass the HTTP proxy so it can reach the link-local listener. The fix lives in the
+// VHD-baked /opt/azure/containers/localdns/localdns.sh, so pointing a 24.04-gen2 node at
+// the fix VHD (via --build-id) and asserting the file content is direct proof the fix is
+// baked in. localdns is enabled by default in the scriptless node config, so the node
+// reaching Ready (readiness curl gates localdns.service) plus the service being active
+// confirms the fixed script executes cleanly.
+func Test_Ubuntu2404LocalDns_ProxyBypass_FileCheck(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates PR #8834: the baked localdns readiness curl bypasses the HTTP proxy on the 24.04-gen2 VHD, and localdns comes up healthy with the fixed script",
+		Tags: Tags{
+			Scriptless: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			// Empty mutator keeps the default scriptless node config, which enables localdns.
+			AKSNodeConfigMutator:  func(config *aksnodeconfigv1.Configuration) {},
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) {
+				// PR #8834: the readiness curl to the link-local listener must bypass the HTTP proxy.
+				// Asserting the fixed script is present proves the fix is baked into the VHD.
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/localdns/localdns.sh", `--noproxy "${LOCALDNS_NODE_LISTENER_IP}"`)
+				// localdns.service reaching active+enabled proves the readiness curl (which gates it)
+				// succeeded with the new script.
+				ValidateLocalDNSService(ctx, s, "enabled")
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV3_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 62535",
