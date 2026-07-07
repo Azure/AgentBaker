@@ -61,10 +61,38 @@ CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 NETWORKCTL_RELOAD_CMD="networkctl reload"
 
 START_LOCALDNS_TIMEOUT=10
+LOCALDNS_PID_POLL_INTERVAL_SECONDS=0.1
+LOCALDNS_READY_POLL_INTERVAL_SECONDS=0.1
+LOCALDNS_READY_TIMEOUT_SECONDS=60
 
 # DNS health check timeout.
 DNS_HEALTH_CHECK_TIMEOUT=2
 DNS_HEALTH_CHECK_TRIES=2
+
+# Convert a wall-clock timeout budget into a poll count for the configured interval.
+calculate_max_poll_attempts() {
+    local timeout_duration=$1
+    local poll_interval_seconds=$2
+
+    awk -v timeout="${timeout_duration}" -v interval="${poll_interval_seconds}" '
+        BEGIN {
+            if (timeout !~ /^[0-9]+$/ || interval !~ /^[0-9]+([.][0-9]+)?$/) {
+                exit 1
+            }
+
+            if (interval <= 0) {
+                exit 1
+            }
+
+            if (timeout == 0) {
+                print 0
+                exit 0
+            }
+
+            printf "%d\n", int((timeout / interval) + 0.999999)
+        }
+    '
+}
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -419,14 +447,21 @@ start_localdns() {
     ${COREDNS_COMMAND} &
 
     # Wait until the PID file is created.
-    local elapsed=0
+    local attempts=0
+    local max_attempts
+    max_attempts=$(calculate_max_poll_attempts "${START_LOCALDNS_TIMEOUT}" "${LOCALDNS_PID_POLL_INTERVAL_SECONDS}") || {
+        echo "Failed to calculate localdns PID poll attempts for timeout ${START_LOCALDNS_TIMEOUT} and interval ${LOCALDNS_PID_POLL_INTERVAL_SECONDS}."
+        return 1
+    }
+
     while [ ! -f "${LOCALDNS_PID_FILE}" ]; do
-        sleep 1
-        elapsed=$((elapsed + 1))
-        if [ "$elapsed" -ge "$START_LOCALDNS_TIMEOUT" ]; then
+        if [ "$attempts" -ge "$max_attempts" ]; then
             echo "Timed out waiting for CoreDNS to create PID file at ${LOCALDNS_PID_FILE}."
             return 1
         fi
+
+        sleep "${LOCALDNS_PID_POLL_INTERVAL_SECONDS}"
+        attempts=$((attempts + 1))
     done
 
     COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
@@ -436,26 +471,38 @@ start_localdns() {
 
 # Wait for localdns to be ready to serve traffic.
 wait_for_localdns_ready() {
-    local maxattempts=$1
-    local timeout_duration=$2
-    declare -i attempts=0
-    local starttime=$(date +%s)
+    local timeout_duration=$1
+    local starttime
+    local currenttime
+    local elapsedtime
+    local attempts=0
+    local max_attempts
+
+    max_attempts=$(calculate_max_poll_attempts "${timeout_duration}" "${LOCALDNS_READY_POLL_INTERVAL_SECONDS}") || {
+        echo "Failed to calculate localdns readiness poll attempts for timeout ${timeout_duration} and interval ${LOCALDNS_READY_POLL_INTERVAL_SECONDS}."
+        return 1
+    }
+
+    starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
     until [ "$($CURL_COMMAND)" = "OK" ]; do
-        if [ $attempts -ge $maxattempts ]; then
-            echo "Localdns failed to come online after $maxattempts attempts."
-            return 1
-        fi
-        # Check for timeout based on elapsed time.
+        # Keep both guards: elapsed time is the real wall-clock timeout, while max_attempts
+        # guarantees termination if date +%s stalls or does not advance as expected.
         currenttime=$(date +%s)
         elapsedtime=$((currenttime - starttime))
-        if [ $elapsedtime -ge $timeout_duration ]; then
+        if [ "$elapsedtime" -ge "$timeout_duration" ]; then
             echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
             return 1
         fi
-        sleep 1
-        ((attempts++))
+
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            echo "Localdns failed to come online after ${max_attempts} attempts (safety limit for ${timeout_duration} seconds timeout)."
+            return 1
+        fi
+
+        sleep "${LOCALDNS_READY_POLL_INTERVAL_SECONDS}"
+        attempts=$((attempts + 1))
     done
     echo "Localdns is online and ready to serve traffic."
     return 0
@@ -1059,7 +1106,7 @@ fi
 start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
-wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
+wait_for_localdns_ready "${LOCALDNS_READY_TIMEOUT_SECONDS}" || exit $ERR_LOCALDNS_FAIL
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
