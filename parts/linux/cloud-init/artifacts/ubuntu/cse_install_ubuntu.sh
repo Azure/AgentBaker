@@ -197,6 +197,8 @@ updateAptWithNvidiaPkg() {
         nvidia_ubuntu_release="ubuntu2204"
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
+    elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+        nvidia_ubuntu_release="ubuntu2604"
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return
@@ -206,7 +208,11 @@ updateAptWithNvidiaPkg() {
     echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
 
     # Add NVIDIA repository
-    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+    local nvidia_gpg_key_name="3bf863cc.pub"
+    if [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+        nvidia_gpg_key_name="60DF8A40.pub"
+    fi
+    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"
 
     # Download and add the GPG key for the NVIDIA repository
     retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
