@@ -108,6 +108,15 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		deleteVMSSAndWait(ctx, s)
 	}
 
+	// Register teardown once, for the terminal VMSS (successful attempt, or an exhausted /
+	// non-retryable failure). Intermediate exit-50 retry attempts are deleted synchronously
+	// above, so registering here avoids stale cleanup handlers that would otherwise re-extract
+	// logs from and re-delete a VMSS that was already replaced during the retry loop.
+	s.T.Cleanup(func() {
+		defer cleanupBastionTunnel(vm.SSHClient)
+		cleanupVMSS(ctx, s, vm)
+	})
+
 	skipTestIfSKUNotAvailableErr(s.T, err)
 
 	return vm, err
@@ -639,10 +648,9 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		return vm, fmt.Errorf("failed to get VM private IP address: %w", err)
 	}
 
-	s.T.Cleanup(func() {
-		defer cleanupBastionTunnel(vm.SSHClient)
-		cleanupVMSS(ctx, s, vm)
-	})
+	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
+	// ConfigureAndCreateVMSS after the outbound-flake retry loop settles, not here per attempt,
+	// to avoid stale cleanup handlers from retried/recreated VMSS instances.
 
 	result := "SSH Instructions: (may take a few minutes for the VM to be ready for SSH)\n========================\n"
 	if config.Config.KeepVMSS {
