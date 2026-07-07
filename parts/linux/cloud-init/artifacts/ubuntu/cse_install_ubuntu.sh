@@ -82,6 +82,9 @@ installDeps() {
     holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
     pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
     if [ "${OSVERSION}" != "26.04" ]; then
@@ -89,7 +92,6 @@ installDeps() {
         pkg_list+=(linux-modules-extra-$(uname -r))
     fi
 
-    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     while IFS= read -r fallback_pkg; do
         [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
     done < <(blobfuseFallbackPackages "${OSVERSION}")
