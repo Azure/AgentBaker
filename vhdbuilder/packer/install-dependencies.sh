@@ -334,7 +334,7 @@ starteBPFToolsInstallation() {
   echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
   PRESENT_DIR=$(pwd)
-  # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+  # run installBcc in a subshell asynchronously so we can do other things in the meantime
   (
     cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
     installBcc
@@ -393,7 +393,7 @@ configureLsmWithBpf() {
     local new_lsm="bpf,$current_lsm"
     echo "New LSM configuration: $new_lsm"
 
-    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$OS_VERSION" = "24.04" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; }; then
       local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
       if [ -f "$grub_cfg" ]; then
         if grep -q "lsm=" "$grub_cfg"; then
