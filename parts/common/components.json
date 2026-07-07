@@ -2102,7 +2102,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "4.8.2-ubuntu24.04u4"
+                "latestVersion": "4.8.2-ubuntu24.04u9"
               }
             ]
           },
@@ -2110,7 +2110,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dcgm-exporter, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "4.8.2-ubuntu22.04u4"
+                "latestVersion": "4.8.2-ubuntu22.04u9"
               }
             ]
           }
@@ -2120,7 +2120,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dcgm-exporter, os=azurelinux, release=3.0",
-                "latestVersion": "4.8.2-4.azl3"
+                "latestVersion": "4.8.2-9.azl3"
               }
             ]
           }
