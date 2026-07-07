@@ -3138,7 +3138,7 @@ func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) {
 	// Validate trust store was updated (distro-specific path)
 	trustStoreDir := rcv1pTrustStoreDir(s)
 	execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		fmt.Sprintf("sudo ls -1 %s/*.crt 2>/dev/null || sudo ls -1 %s/*.pem 2>/dev/null", trustStoreDir, trustStoreDir),
+		fmt.Sprintf("sudo bash -c 'ls -1 %s/*.{crt,pem} 2>/dev/null' | grep -q .", trustStoreDir),
 		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir))
 
 	// Validate refresh schedule was created (cron or systemd timer depending on distro)
