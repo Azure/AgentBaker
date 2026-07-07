@@ -525,7 +525,20 @@ function NodePrep {
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
     {{end}}
 
-    Get-CACertificates -Location $Location -FailOnError
+    # Feature-detect Get-CACertificates params for VHD/CSE-zip skew.
+    # Older CSE packages (pre-rcv1p) have Get-CACertificates with no parameters;
+    # newer versions accept -Location (optional) and -FailOnError. Bind only the
+    # parameters the resolved function actually supports so a new VHD paired with
+    # an older CSE zip does not fail with parameter-binding errors.
+    $getCACertsCmd = Get-Command -Name Get-CACertificates -ErrorAction Ignore
+    $getCACertsArgs = @{}
+    if ($getCACertsCmd -and $getCACertsCmd.Parameters.ContainsKey('Location')) {
+        $getCACertsArgs['Location'] = $Location
+    }
+    if ($getCACertsCmd -and $getCACertsCmd.Parameters.ContainsKey('FailOnError')) {
+        $getCACertsArgs['FailOnError'] = $true
+    }
+    Get-CACertificates @getCACertsArgs
 
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
