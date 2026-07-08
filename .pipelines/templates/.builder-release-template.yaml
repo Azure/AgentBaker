@@ -420,7 +420,10 @@ steps:
 
   - task: AzureCLI@2
     inputs:
-      azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+      # Hardcoded (MVP): was $(COSI_PMC_SERVICE_CONNECTION); pinning to the
+      # concrete TME COSI/PMC write service connection until the variable
+      # group is provisioned across all AgentBaker build pools.
+      azureSubscription: aks-acl-cosi-tme-write-sc
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
