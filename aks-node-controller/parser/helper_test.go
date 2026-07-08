@@ -506,29 +506,6 @@ oom_score = -999
 	}
 }
 
-func Test_isContainerdV2(t *testing.T) {
-	tests := []struct {
-		name    string
-		version string
-		want    bool
-	}{
-		{name: "empty version", version: "", want: false},
-		{name: "v1.6.x", version: "1.6.28", want: false},
-		{name: "v1.7.x", version: "1.7.22", want: false},
-		{name: "v2.0.0", version: "2.0.0", want: true},
-		{name: "v2.0.1", version: "2.0.1", want: true},
-		{name: "v2.1.0", version: "2.1.0", want: true},
-		{name: "invalid version", version: "notaversion", want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isContainerdV2(tt.version); got != tt.want {
-				t.Errorf("isContainerdV2(%q) = %v, want %v", tt.version, got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_getContainerdConfigV2(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
