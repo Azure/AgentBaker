@@ -90,25 +90,33 @@ func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
 	}
 }
 
-//nolint:exhaustive // NetworkPlugin_NETWORK_PLUGIN_NONE and NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED should both return ""
+//nolint:exhaustive // NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED should return ""
 func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE:
 		return helpers.NetworkPluginAzure
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET:
 		return helpers.NetworkPluginKubenet
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE:
+		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
+		// plugin; mirror it here so NETWORK_PLUGIN matches for BYO-CNI clusters.
+		return helpers.NetworkPluginNone
 	default:
 		return ""
 	}
 }
 
-//nolint:exhaustive // NetworkPolicy_NETWORK_POLICY_NONE and NetworkPolicy_NETWORK_POLICY_UNSPECIFIED should both return ""
+//nolint:exhaustive // NetworkPolicy_NETWORK_POLICY_UNSPECIFIED should return ""
 func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE:
 		return helpers.NetworkPolicyAzure
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
 		return helpers.NetworkPolicyCalico
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE:
+		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
+		// policy; mirror it here so NETWORK_POLICY matches when policy is "none".
+		return helpers.NetworkPolicyNone
 	default:
 		return ""
 	}
@@ -629,6 +637,20 @@ func getDisableSSH(v *aksnodeconfigv1.Configuration) bool {
 
 func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
+}
+
+// getEnableKubeletServingCertificateRotation reports whether kubelet serving
+// certificate rotation is enabled. The scriptful (NBC/CSE) path derives
+// ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION from the "--rotate-server-certificates"
+// kubelet flag. Depending on whether the kubelet config file is used, that setting
+// is carried either as the serverTLSBootstrap config-file field (config file enabled)
+// or as the "--rotate-server-certificates" command-line flag (config file disabled),
+// so we check both to stay in parity with the scriptful path.
+func getEnableKubeletServingCertificateRotation(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
+	if kubeletConfig.GetKubeletConfigFileConfig().GetServerTlsBootstrap() {
+		return true
+	}
+	return kubeletConfig.GetKubeletFlags()["--rotate-server-certificates"] == "true"
 }
 
 func marshalToJSON(v any) ([]byte, error) {

@@ -2083,3 +2083,98 @@ func Test_getLocalDnsCriticalFqdns(t *testing.T) {
 		})
 	}
 }
+
+func Test_getStringFromNetworkPluginType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPlugin
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE, helpers.NetworkPluginAzure},
+		{"kubenet", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET, helpers.NetworkPluginKubenet},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, "none"},
+		{"unspecified", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPluginType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPluginType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPolicyType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPolicy
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
+		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, "none"},
+		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPolicyType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPolicyType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getEnableKubeletServingCertificateRotation(t *testing.T) {
+	tests := []struct {
+		name          string
+		kubeletConfig *aksnodeconfigv1.KubeletConfig
+		want          bool
+	}{
+		{
+			name:          "nil kubelet config",
+			kubeletConfig: nil,
+			want:          false,
+		},
+		{
+			name: "enabled via config file serverTLSBootstrap",
+			kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+				KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+					ServerTlsBootstrap: true,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "enabled via --rotate-server-certificates flag when config file disabled",
+			kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+				KubeletFlags: map[string]string{
+					"--rotate-server-certificates": "true",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "disabled when flag is false and no config file",
+			kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+				KubeletFlags: map[string]string{
+					"--rotate-server-certificates": "false",
+				},
+			},
+			want: false,
+		},
+		{
+			name: "disabled when flag absent and no config file",
+			kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+				KubeletFlags: map[string]string{},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getEnableKubeletServingCertificateRotation(tt.kubeletConfig); got != tt.want {
+				t.Errorf("getEnableKubeletServingCertificateRotation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
