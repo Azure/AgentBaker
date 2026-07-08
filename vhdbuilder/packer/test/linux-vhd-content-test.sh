@@ -2475,13 +2475,13 @@ testAmdRocmPrebake() {
     return 1
   fi
 
-  if ! command -v rocminfo >/dev/null 2>&1; then
-    err "$test" "rocminfo is not on PATH"
+  if ! command -v rocminfo >/dev/null 2>&1 && [ ! -x /opt/rocm/bin/rocminfo ]; then
+    err "$test" "rocminfo is not available on PATH or at /opt/rocm/bin/rocminfo"
     return 1
   fi
 
-  if ! command -v rocm-smi >/dev/null 2>&1; then
-    err "$test" "rocm-smi is not on PATH"
+  if ! command -v rocm-smi >/dev/null 2>&1 && [ ! -x /opt/rocm/bin/rocm-smi ]; then
+    err "$test" "rocm-smi is not available on PATH or at /opt/rocm/bin/rocm-smi"
     return 1
   fi
 

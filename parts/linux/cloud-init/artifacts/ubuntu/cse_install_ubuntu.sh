@@ -253,43 +253,111 @@ isAmdRocmSupportedSku() {
     return 1
 }
 
+amdRocmRepoBaseUrl() {
+    local repo_base_url="${AMD_ROCM_REPO_BASE_URL:-https://repo.radeon.com}"
+    repo_base_url="${repo_base_url%/}"
+    case "${repo_base_url}" in
+        https://*)
+            echo "${repo_base_url}"
+            return 0
+            ;;
+    esac
+    echo "AMD_ROCM_REPO_BASE_URL must be an https URL, got '${repo_base_url}'"
+    return $ERR_AMD_ROCM_REPO_CONFIG_INVALID
+}
+
+amdRocmGpgKeyUrl() {
+    local repo_base_url="${1}"
+    local gpg_key_url="${AMD_ROCM_GPG_KEY_URL:-${repo_base_url}/rocm/rocm.gpg.key}"
+    case "${gpg_key_url}" in
+        https://*)
+            echo "${gpg_key_url}"
+            return 0
+            ;;
+    esac
+    echo "AMD_ROCM_GPG_KEY_URL must be an https URL, got '${gpg_key_url}'"
+    return $ERR_AMD_ROCM_REPO_CONFIG_INVALID
+}
+
+amdRocmAptPinOrigin() {
+    local repo_base_url="${1}"
+    if [ -n "${AMD_ROCM_APT_PIN_ORIGIN:-}" ]; then
+        echo "${AMD_ROCM_APT_PIN_ORIGIN}"
+        return 0
+    fi
+    if [ "${repo_base_url}" = "https://repo.radeon.com" ]; then
+        echo "repo.radeon.com"
+        return 0
+    fi
+    return 1
+}
+
+validateAmdRocmGpgKey() {
+    local gpg_key_path="${1}"
+    local expected_fingerprint="${AMD_ROCM_GPG_KEY_FINGERPRINT:-CA8BB4727A47B4D09B4EE8969386B48A1A693C5C}"
+    local actual_fingerprint
+
+    if [ -z "${expected_fingerprint}" ]; then
+        echo "AMD ROCm GPG key fingerprint validation is disabled"
+        return 0
+    fi
+
+    expected_fingerprint="$(echo "${expected_fingerprint}" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+    actual_fingerprint="$(gpg --show-keys --with-colons "${gpg_key_path}" 2>/dev/null | awk -F: '$1 == "fpr" { print $10; exit }' || true)"
+    actual_fingerprint="$(echo "${actual_fingerprint}" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+    if [ -z "${actual_fingerprint}" ] || [ "${actual_fingerprint}" != "${expected_fingerprint}" ]; then
+        echo "AMD ROCm GPG key fingerprint mismatch. expected=${expected_fingerprint} actual=${actual_fingerprint}"
+        return $ERR_AMD_ROCM_REPO_CONFIG_INVALID
+    fi
+}
+
 setupAmdRocmAptRepos() {
     local rocm_version="${1}"
     local amdgpu_repo_version="${2}"
     local rocm_gpg_keyring_path="/etc/apt/keyrings/rocm.gpg"
     local rocm_gpg_key_download_path="/tmp/rocm.gpg.key"
+    local repo_base_url
+    local gpg_key_url
+    local apt_pin_origin
     local ubuntu_codename
+    repo_base_url="$(amdRocmRepoBaseUrl)" || return $ERR_AMD_ROCM_REPO_CONFIG_INVALID
+    gpg_key_url="$(amdRocmGpgKeyUrl "${repo_base_url}")" || return $ERR_AMD_ROCM_REPO_CONFIG_INVALID
     ubuntu_codename="$(amdRocmUbuntuCodename)"
 
-    if [ -n "${PROXY_VARS}" ]; then
+    if [ -n "${PROXY_VARS:-}" ]; then
         eval "${PROXY_VARS}"
     fi
 
     if ! command -v gpg >/dev/null 2>&1; then
-        apt_get_install 30 1 300 gnupg || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+        apt_get_install 30 1 300 gnupg || return $ERR_AMD_ROCM_INSTALL_TIMEOUT
     fi
 
     mkdir -p "$(dirname "${rocm_gpg_keyring_path}")"
-    retrycmd_curl_file 120 5 25 "${rocm_gpg_key_download_path}" "https://repo.radeon.com/rocm/rocm.gpg.key" 300 || exit $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
-    gpg --dearmor --yes -o "${rocm_gpg_keyring_path}" "${rocm_gpg_key_download_path}" || exit $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 25 "${rocm_gpg_key_download_path}" "${gpg_key_url}" 300 || return $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
+    validateAmdRocmGpgKey "${rocm_gpg_key_download_path}" || return $ERR_AMD_ROCM_REPO_CONFIG_INVALID
+    gpg --dearmor --yes -o "${rocm_gpg_keyring_path}" "${rocm_gpg_key_download_path}" || return $ERR_AMD_ROCM_GPG_KEY_DOWNLOAD_TIMEOUT
     rm -f "${rocm_gpg_key_download_path}"
 
     cat > /etc/apt/sources.list.d/rocm.list <<EOF
-deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/rocm/apt/${rocm_version} ${ubuntu_codename} main
-deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/graphics/${rocm_version}/ubuntu ${ubuntu_codename} main
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] ${repo_base_url}/rocm/apt/${rocm_version} ${ubuntu_codename} main
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] ${repo_base_url}/graphics/${rocm_version}/ubuntu ${ubuntu_codename} main
 EOF
 
     cat > /etc/apt/sources.list.d/amdgpu.list <<EOF
-deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] https://repo.radeon.com/amdgpu/${amdgpu_repo_version}/ubuntu ${ubuntu_codename} main
+deb [arch=amd64 signed-by=${rocm_gpg_keyring_path}] ${repo_base_url}/amdgpu/${amdgpu_repo_version}/ubuntu ${ubuntu_codename} main
 EOF
 
-    cat > /etc/apt/preferences.d/repo-radeon-pin-600 <<EOF
+    if apt_pin_origin="$(amdRocmAptPinOrigin "${repo_base_url}")"; then
+        cat > /etc/apt/preferences.d/repo-radeon-pin-600 <<EOF
 Package: *
-Pin: release o=repo.radeon.com
+Pin: release o=${apt_pin_origin}
 Pin-Priority: 600
 EOF
+    else
+        rm -f /etc/apt/preferences.d/repo-radeon-pin-600
+    fi
 
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_update || return $ERR_APT_UPDATE_TIMEOUT
 }
 
 removeAmdRocmAptRepos() {
@@ -299,6 +367,8 @@ removeAmdRocmAptRepos() {
     rm -f /etc/apt/preferences.d/repo-radeon-pin-600
     rm -f /etc/apt/keyrings/rocm.gpg
     rm -f /var/lib/apt/lists/*repo.radeon.com*
+    rm -f /var/lib/apt/lists/*packages.microsoft.com*
+    rm -f /var/lib/apt/lists/*packages.aks.azure.com*
 }
 
 amdRocmBinaryPath() {
@@ -360,6 +430,7 @@ ensureAmdGpuDrivers() {
     local rocm_smi_lib_package_version="${AMD_ROCM_SMI_LIB_VERSION:-7.8.0.70204-93~24.04}"
     local kernel_version
     local ubuntu_release
+    local err
     kernel_version="$(uname -r)"
     ubuntu_release="$(amdRocmUbuntuRelease)"
 
@@ -375,16 +446,16 @@ ensureAmdGpuDrivers() {
         return 0
     fi
 
-    setupAmdRocmAptRepos "${rocm_version}" "${amdgpu_repo_version}"
+    setupAmdRocmAptRepos "${rocm_version}" "${amdgpu_repo_version}" || { err=$?; removeAmdRocmAptRepos; exit $err; }
 
-    apt_get_install 30 1 600 "linux-headers-${kernel_version}" "linux-modules-extra-${kernel_version}" || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+    apt_get_install 30 1 600 "linux-headers-${kernel_version}" "linux-modules-extra-${kernel_version}" || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_INSTALL_TIMEOUT; }
     apt_get_install 30 1 2400 \
         "amdgpu-dkms=${amdgpu_dkms_version}" \
         "libdrm-amdgpu-dev=${libdrm_amdgpu_dev_version}" \
         "rocm-core=${rocm_package_version}" \
         "rocminfo=${rocminfo_package_version}" \
-        "rocm-smi-lib=${rocm_smi_lib_package_version}" || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
-    ldconfig || exit $ERR_AMD_ROCM_INSTALL_TIMEOUT
+        "rocm-smi-lib=${rocm_smi_lib_package_version}" || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_INSTALL_TIMEOUT; }
+    ldconfig || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_INSTALL_TIMEOUT; }
 
     mkdir -p /opt/azure/amd-rocm
     cat > /opt/azure/amd-rocm/version <<EOF
@@ -399,7 +470,7 @@ installed_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EOF
     chmod 644 /opt/azure/amd-rocm/version
 
-    validateAmdRocmDriver || exit $ERR_AMD_ROCM_VALIDATE_FAIL
+    validateAmdRocmDriver || { removeAmdRocmAptRepos; exit $ERR_AMD_ROCM_VALIDATE_FAIL; }
     removeAmdRocmAptRepos
 }
 
