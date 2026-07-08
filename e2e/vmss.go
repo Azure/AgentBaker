@@ -81,43 +81,13 @@ func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error
 const maxOutboundCSERetries = 2
 
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	var vm *ScenarioVM
-	var err error
-	for attempt := 0; ; attempt++ {
-		vm, err = CreateVMSSWithRetry(ctx, s)
-		if err == nil {
-			break
-		}
-		// Known transient e2e-infra flake: the CSE outbound connectivity preflight check
-		// (curl mcr.microsoft.com, optionally via the e2e proxy) intermittently fails all
-		// retries and exits ERR_OUTBOUND_CONN_FAIL (50) before kubelet starts. Recreate the
-		// node a bounded number of times to reduce PR-gate noise without masking real
-		// regressions, which fail consistently and survive the retry budget.
-		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS {
-			break
-		}
-		// The VMExtensionProvisioningError returned by the create operation does not reliably
-		// embed the CSE status JSON, so classify the failure from the extension instance view
-		// (the same source getCustomScriptExtensionStatus parses) rather than string-matching
-		// the ARM error. Only the outbound preflight exit code is treated as retryable.
-		exitCode, ok := getLinuxCSEExitCode(ctx, s)
-		if !ok || exitCode != cseExitCodeOutboundConnFail {
-			break
-		}
-		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
-		// Close this attempt's bastion tunnel before recreating: the SSH client is established
-		// even on an exit-50 failure (the node booted, only the CSE preflight failed). The single
-		// cleanup registered after the loop covers only the terminal VM, so without this the
-		// detached "az network bastion tunnel" process and SSH client would leak until test exit
-		// and could interfere with subsequent retries.
-		cleanupBastionTunnel(vm.SSHClient)
-		deleteVMSSAndWait(ctx, s)
-	}
+	vm, err := createVMSSRecreatingOnOutboundCSEFlake(ctx, s)
 
 	// Register teardown once, for the terminal VMSS (successful attempt, or an exhausted /
 	// non-retryable failure). Intermediate exit-50 retry attempts are deleted synchronously
-	// above, so registering here avoids stale cleanup handlers that would otherwise re-extract
-	// logs from and re-delete a VMSS that was already replaced during the retry loop.
+	// inside createVMSSRecreatingOnOutboundCSEFlake, so registering here avoids stale cleanup
+	// handlers that would otherwise re-extract logs from and re-delete a VMSS that was already
+	// replaced during the retry loop.
 	s.T.Cleanup(func() {
 		defer cleanupBastionTunnel(vm.SSHClient)
 		cleanupVMSS(ctx, s, vm)
@@ -126,6 +96,47 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 	skipTestIfSKUNotAvailableErr(s.T, err)
 
 	return vm, err
+}
+
+// createVMSSRecreatingOnOutboundCSEFlake creates the VMSS and, on the known transient e2e-infra
+// outbound flake, recreates the node a bounded number of times.
+//
+// The CSE outbound connectivity preflight check (curl mcr.microsoft.com, optionally via the e2e
+// proxy) intermittently fails all of its own retries and exits ERR_OUTBOUND_CONN_FAIL (50) before
+// kubelet starts. Recreating the node up to maxOutboundCSERetries times reduces PR-gate noise
+// without masking real regressions: a genuine product regression fails on every attempt and still
+// surfaces once the retry budget is exhausted.
+//
+// The returned VMSS is the terminal one (successful attempt, or an exhausted / non-retryable
+// failure); the caller is responsible for registering its teardown.
+func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	var vm *ScenarioVM
+	var err error
+	for attempt := 0; ; attempt++ {
+		vm, err = CreateVMSSWithRetry(ctx, s)
+		if err == nil {
+			return vm, nil
+		}
+		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS {
+			return vm, err
+		}
+		// The VMExtensionProvisioningError returned by the create operation does not reliably
+		// embed the CSE status JSON, so classify the failure from the extension instance view
+		// (the same source getCustomScriptExtensionStatus parses) rather than string-matching
+		// the ARM error. Only the outbound preflight exit code is treated as retryable.
+		exitCode, ok := getLinuxCSEExitCode(ctx, s)
+		if !ok || exitCode != cseExitCodeOutboundConnFail {
+			return vm, err
+		}
+		toolkit.Logf(ctx, "CSE failed with ERR_OUTBOUND_CONN_FAIL (exit %s) on VMSS %q: known transient e2e outbound flake, recreating node (attempt %d/%d)", exitCode, s.Runtime.VMSSName, attempt+1, maxOutboundCSERetries)
+		// Close this attempt's bastion tunnel before recreating: the SSH client is established
+		// even on an exit-50 failure (the node booted, only the CSE preflight failed). The single
+		// cleanup registered by the caller covers only the terminal VM, so without this the
+		// detached "az network bastion tunnel" process and SSH client would leak until test exit
+		// and could interfere with subsequent retries.
+		cleanupBastionTunnel(vm.SSHClient)
+		deleteVMSSAndWait(ctx, s)
+	}
 }
 
 // getLinuxCSEExitCode queries the VMSS instance view and returns the Linux CSE exit code
