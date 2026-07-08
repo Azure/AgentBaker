@@ -364,6 +364,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
+    condition: always()
     displayName: Publish Release Notes
     inputs:
       artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
