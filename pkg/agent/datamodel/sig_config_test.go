@@ -15,8 +15,9 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSUbuntuFipsContainerd2204TLGen2: SIGUbuntuFipsContainerd2204TLGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuArm64Containerd2204Gen2:  SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuArm64Containerd2404Gen2:  SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(),
-			// GB200/GB300 now resolves to the vanilla released arm64 image (LinuxSIGImageVersion), so it
-			// is a maintained distro and is expected here (previously frozen -> excluded).
+			// GB200/GB300 now resolves to the vanilla released arm64 image (definition
+			// 2404gen2arm64containerd) at the current LinuxSIGImageVersion, so it is a maintained distro
+			// and is expected here (it was previously frozen to an unreleased image -> excluded).
 			AKSUbuntuArm64GB200Containerd2404Gen2:   SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2204:                 SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2204Gen2:             SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(),

@@ -488,16 +488,11 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		// GB200/GB300 nodes run on the VANILLA arm64 Ubuntu 24.04 image (2404gen2arm64containerd),
-		// which is released to production galleries. The bespoke arm64 "gb" image
-		// (2404gen2arm64gbcontainerd) is not released at all, so this distro must not point at it.
-		// The Go symbol/distro keeps the GB200 name for API/distro compatibility.
-		Definition: "2404gen2arm64containerd",
-		Version:    LinuxSIGImageVersion,
-	}
+	// GB200/GB300 nodes run on the VANILLA arm64 Ubuntu 24.04 image (2404gen2arm64containerd), which is
+	// released to production galleries. The bespoke arm64 "gb" image (2404gen2arm64gbcontainerd) is not
+	// released at all, so this distro must not point at it. Alias the vanilla template so the two can
+	// never drift; the Go symbol/distro keeps the GB200 name for API/distro compatibility.
+	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate
 
 	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
