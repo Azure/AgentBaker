@@ -1,23 +1,21 @@
 #!/bin/bash
-{{/* FIPS-related error codes */}}
-ERR_UA_TOOLS_INSTALL_TIMEOUT=180 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
-ERR_ADD_UA_APT_REPO=181 {{/* Error to add UA apt repository */}}
-ERR_UA_ATTACH=182 {{/* Error attaching UA */}}
-ERR_UA_DISABLE_LIVEPATCH=183 {{/* Error to disable UA livepatch */}}
-ERR_UA_ENABLE_FIPS=184 {{/* Error to enable UA FIPS */}}
-ERR_UA_DETACH=185 {{/* Error to detach UA */}}
-ERR_LINUX_HEADER_INSTALL_TIMEOUT=186 {{/* Timeout to install linux header */}}
-ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
-ERR_UA_ESM_HOOK_CLEANUP=188 {{/* Error removing the apt ESM hook for Ubuntu Pro */}}
-ERR_UA_MASK_UNIT=189 {{/* Error stopping/disabling/masking an Ubuntu Pro background unit */}}
-ERR_UA_TOKEN_CLEANUP=190 {{/* Error removing the baked-in Ubuntu Pro machine token state */}}
-
-ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
-ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
-ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for systemd-timesyncd stop */}}
-ERR_STOP_OR_DISABLE_NTP_TIMEOUT=13 {{/* Timeout waiting for ntp stop */}}
-ERR_CHRONY_INSTALL_TIMEOUT=14 {{/*Unable to install CHRONY */}}
-ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
+ERR_UA_TOOLS_INSTALL_TIMEOUT=180 # Timeout waiting for ubuntu-advantage-tools install
+ERR_ADD_UA_APT_REPO=181 # Error to add UA apt repository
+ERR_UA_ATTACH=182 # Error attaching UA
+ERR_UA_DISABLE_LIVEPATCH=183 # Error to disable UA livepatch
+ERR_UA_ENABLE_FIPS=184 # Error to enable UA FIPS
+ERR_UA_DETACH=185 # Error to detach UA
+ERR_LINUX_HEADER_INSTALL_TIMEOUT=186 # Timeout to install linux header
+ERR_STRONGSWAN_INSTALL_TIMEOUT=187 # Timeout to install strongswan
+ERR_UA_ESM_HOOK_CLEANUP=188 # Error removing the apt ESM hook for Ubuntu Pro
+ERR_UA_MASK_UNIT=189 # Error stopping/disabling/masking an Ubuntu Pro background unit
+ERR_UA_TOKEN_CLEANUP=190 # Error removing the baked-in Ubuntu Pro machine token state
+ERR_NTP_INSTALL_TIMEOUT=10 # Unable to install NTP
+ERR_NTP_START_TIMEOUT=11 # Unable to start NTP
+ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT=12 # Timeout waiting for systemd-timesyncd stop
+ERR_STOP_OR_DISABLE_NTP_TIMEOUT=13 # Timeout waiting for ntp stop
+ERR_CHRONY_INSTALL_TIMEOUT=14 # Unable to install CHRONY
+ERR_CHRONY_START_TIMEOUT=15 # Unable to start CHRONY
 
 
 echo "Sourcing tool_installs_ubuntu.sh"
@@ -61,9 +59,9 @@ installBcc() {
     fi
 
     mkdir -p /tmp/bcc
-    pushd /tmp/bcc
+    pushd /tmp/bcc || exit 1
     git clone https://github.com/iovisor/bcc.git
-    mkdir bcc/build; cd bcc/build
+    mkdir bcc/build; cd bcc/build || exit 1
 
     git checkout ${bcc_version}
 
@@ -71,11 +69,11 @@ installBcc() {
     make
     sudo make install || exit 1
     cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding
-    pushd src/python/
+    pushd src/python/ || exit 1
     make
     sudo make install || exit 1
-    popd
-    popd
+    popd || exit 1
+    popd || exit 1
 
     # we explicitly do not remove build-essential or python
     # these are standard packages we want to keep, they should usually be in the final build anyway.

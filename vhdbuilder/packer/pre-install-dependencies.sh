@@ -36,8 +36,8 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
 
-# Install minimal build dependencies as needed (currently only needed on Ubuntu 26.04)
-if [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+# Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
+if isMinimalImage && isUbuntu "$OS"; then
   installMinimalBuildDeps
 fi
 

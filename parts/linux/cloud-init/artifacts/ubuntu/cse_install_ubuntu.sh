@@ -4,6 +4,33 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+# Batch install all packages in a single apt_get_install call instead of looping one-by-one.
+# On failure, fall back to individual installs for diagnostic clarity. A return code of 2 from
+# apt_get_install signals a CSE timeout and is propagated immediately by exiting the script.
+aptGetBatchInstallPackagesWithFallback() {
+    local -a pkg_list=("$@")
+
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        local apt_package
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
+}
+
 blobfuseFallbackPackages() {
     local OSVERSION="${1}"
     # blobfuse/blobfuse2 started to be centralized in components.json around April 2026.
@@ -40,8 +67,21 @@ blobfuseFallbackPackages() {
     fi
 }
 
-# Used to install dependencies within pre-install-dependencies.sh on Ubuntu minimal images (currently only 26.04)
+# Installs any required dependencies needed to build the particular Ubuntu minimal image (currently only 26.04)
 installMinimalBuildDeps() {
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        installUbuntu2604MinimalBuildDeps
+        return 0
+    fi
+
+    echo "Unrecognized Ubuntu minimal version ${OSVERSION} - cannot install minimal build dependencies"
+    exit 1
+}
+
+installUbuntu2604MinimalBuildDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
@@ -49,29 +89,8 @@ installMinimalBuildDeps() {
     holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    local -a pkg_list+=(rsyslog gpg)
-
-    # Batch install all packages in a single apt_get_install call instead of
-    # looping one-by-one. On failure, fall back to individual installs for
-    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
-    apt_get_install 30 1 600 "${pkg_list[@]}"
-    local batch_rc=$?
-    if [ "$batch_rc" -eq 2 ]; then
-        exit "$batch_rc"
-    elif [ "$batch_rc" -ne 0 ]; then
-        echo "Batch install failed, falling back to individual package install"
-        for apt_package in "${pkg_list[@]}"; do
-            apt_get_install 30 1 600 "$apt_package"
-            local pkg_rc=$?
-            if [ "$pkg_rc" -eq 2 ]; then
-                exit "$pkg_rc"
-            elif [ "$pkg_rc" -ne 0 ]; then
-                tail -n 200 /var/log/apt/term.log || true
-                tail -n 200 /var/log/dpkg.log || true
-                exit $ERR_APT_INSTALL_TIMEOUT
-            fi
-        done
-    fi
+    local -a pkg_list=(rsyslog gpg)
+    aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
 }
 
 installDeps() {
@@ -107,27 +126,7 @@ installDeps() {
         pkg_list+=("aznfs=3.0.18")
     fi
 
-    # Batch install all packages in a single apt_get_install call instead of
-    # looping one-by-one. On failure, fall back to individual installs for
-    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
-    apt_get_install 30 1 600 "${pkg_list[@]}"
-    local batch_rc=$?
-    if [ "$batch_rc" -eq 2 ]; then
-        exit "$batch_rc"
-    elif [ "$batch_rc" -ne 0 ]; then
-        echo "Batch install failed, falling back to individual package install"
-        for apt_package in "${pkg_list[@]}"; do
-            apt_get_install 30 1 600 "$apt_package"
-            local pkg_rc=$?
-            if [ "$pkg_rc" -eq 2 ]; then
-                exit "$pkg_rc"
-            elif [ "$pkg_rc" -ne 0 ]; then
-                tail -n 200 /var/log/apt/term.log || true
-                tail -n 200 /var/log/dpkg.log || true
-                exit $ERR_APT_INSTALL_TIMEOUT
-            fi
-        done
-    fi
+    aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
 
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4

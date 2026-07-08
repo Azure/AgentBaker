@@ -969,6 +969,13 @@ isUbuntu() {
     return 1
 }
 
+isMinimalImage() {
+    if grep -q "minimal" <<< "$FEATURE_FLAGS"; then
+        return 0
+    fi
+    return 1
+}
+
 evalPackageDownloadURL() {
     local url=${1:-}
     if [ -n "$url" ]; then
