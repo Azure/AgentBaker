@@ -122,7 +122,6 @@ installDeps() {
     if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=("aznfs=3.0.14")
     elif [ "${OSVERSION}" = "26.04" ]; then
-        # TODO(2604): confirm aznfs=3.0.18 is okay to use with Andy
         pkg_list+=("aznfs=3.0.18")
     fi
 
