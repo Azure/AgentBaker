@@ -552,23 +552,24 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = ""
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
 [metrics]
   address = "0.0.0.0:10257"
+
 `)),
 		},
 		{
@@ -588,23 +589,24 @@ oom_score = -999
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = ""
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  default_runtime_name = "nvidia-container-runtime"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
 [metrics]
   address = "0.0.0.0:10257"
+
 `)),
 		},
 		{
@@ -624,21 +626,21 @@ oom_score = -999
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
-[plugins."io.containerd.cri.v1.images".pinned_images]
-  sandbox = ""
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [plugins."io.containerd.cri.v1.runtime".containerd]
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
 [metrics]
   address = "0.0.0.0:10257"
 `)),
