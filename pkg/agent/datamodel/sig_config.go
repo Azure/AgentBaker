@@ -399,9 +399,6 @@ const (
 	FrozenCBLMarinerV2KataGen2SIGImageVersion string = "202509.05.0"
 	FrozenAzureLinuxV2KataGen2SIGImageVersion string = "202509.05.0"
 
-	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
-	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
-
 	// Flatcar is deprecated on June 8th.
 	FrozenFlatcarSIGImageVersion string = "202607.02.0"
 
@@ -494,9 +491,12 @@ var (
 	SIGUbuntuArm64GB200Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		// The Go symbol keeps GB200 for API/distro compatibility, but the SIG image definition uses the generalized GB name.
-		Definition: "2404gen2arm64gbcontainerd",
-		Version:    FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion,
+		// GB200/GB300 nodes run on the VANILLA arm64 Ubuntu 24.04 image (2404gen2arm64containerd),
+		// which is released to production galleries. The bespoke arm64 "gb" image
+		// (2404gen2arm64gbcontainerd) is not released at all, so this distro must not point at it.
+		// The Go symbol/distro keeps the GB200 name for API/distro compatibility.
+		Definition: "2404gen2arm64containerd",
+		Version:    LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
