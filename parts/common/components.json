@@ -1035,7 +1035,7 @@
           "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=20.04",
+                "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.4.1-ubuntu20.04u1"
               }
             ]
