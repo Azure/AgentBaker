@@ -401,7 +401,7 @@ configureLsmWithBpf() {
         else
           sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
         fi
-        echo "Updating GRUB configuration for Ubuntu 24.04..."
+        echo "Updating GRUB configuration for Ubuntu..."
         update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
       else
         echo "Warning: $grub_cfg not found, skipping LSM configuration"
