@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/image-fetcher
 
-go 1.25.11
+go 1.26.4
 
 require (
 	github.com/containerd/containerd/v2 v2.2.5
