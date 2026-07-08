@@ -466,7 +466,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				azureLinuxOverrideVersion = "202402.25.2"
 				flatcarOverrideVersion    = "202402.25.2"
 				aclOverrideVersion        = "202402.25.2"
-				edgeZoneOverrideVersion   = "202402.25.3"
 			)
 			imageVersionOverrides := map[datamodel.Distro]string{}
 			for _, distro := range ubuntuDistros {
@@ -485,10 +484,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				imageVersionOverrides[distro] = aclOverrideVersion
 			}
 			for _, distro := range ubuntuEdgeZoneDistros {
-				imageVersionOverrides[distro] = edgeZoneOverrideVersion
+				imageVersionOverrides[distro] = ubuntuOverrideVersion
 			}
 			for _, distro := range azureLinuxEdgeZoneDistros {
-				imageVersionOverrides[distro] = edgeZoneOverrideVersion
+				imageVersionOverrides[distro] = azureLinuxOverrideVersion
 			}
 			toggles := &testToggles{
 				nodeImageVersionOverrides: imageVersionOverrides,
@@ -548,14 +547,14 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("AKSUbuntuEdgeZone"))
 				Expect(config.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
-				Expect(config.Version).To(Equal(edgeZoneOverrideVersion))
+				Expect(config.Version).To(Equal(ubuntuOverrideVersion))
 			}
 
 			for _, distro := range azureLinuxEdgeZoneDistros {
 				config := configs[distro]
 				Expect(config.Gallery).To(Equal("AKSAzureLinuxEdgeZone"))
 				Expect(config.ResourceGroup).To(Equal("AKS-AzureLinux-EdgeZone"))
-				Expect(config.Version).To(Equal(edgeZoneOverrideVersion))
+				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
 			}
 		})
 
