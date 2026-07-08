@@ -394,9 +394,16 @@ configureContainerdRegistryHost() {
   touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   CONTAINER_REGISTRY_URL=$(sed 's@/@/v2/@1' <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/")
+  # The "referrers" capability + top-level "server" fallback route OCI referrers
+  # API calls (where the dm-verity/notation signature manifest lives) to the mirror
+  # that holds them. Without it containerd falls back to the implicit registry
+  # (mcr.microsoft.com), which has no referrers, and the layer is rejected at
+  # unpack time as "dm-verity signature required but not present".
   tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+server = "https://${CONTAINER_REGISTRY_URL%/}"
+
 [host."https://${CONTAINER_REGISTRY_URL%/}"]
-  capabilities = ["pull", "resolve"]
+  capabilities = ["pull", "resolve", "referrers"]
   override_path = true
 EOF
 }
