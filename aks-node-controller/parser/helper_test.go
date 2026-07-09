@@ -520,9 +520,9 @@ func Test_getContainerdConfigV2(t *testing.T) {
 			name: "Containerd v2 default config",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 						ContainerdVersion: "2.0.0",
+						UseContainerdV2:   true,
 					},
 				},
 			},
