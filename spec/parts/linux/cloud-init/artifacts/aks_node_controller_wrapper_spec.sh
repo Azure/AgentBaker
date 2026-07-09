@@ -210,6 +210,22 @@ EOF
         The variable thirdCall should eq "provision"
     End
 
+    # Regression: the parse loop must honor the final line even when the file has no trailing
+    # newline. `read` returns non-zero at EOF but still populates the variables, so the
+    # "|| [ -n "$_key" ]" guard keeps the last KEY=VALUE from being silently dropped.
+    It 'parses the final line of enabled_features.sh without a trailing newline'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        printf 'ENABLE_PROVISIONING_HOTFIX=true' >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
+        The output should include "running check-hotfix"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        The variable firstCall should eq "check-hotfix"
+    End
+
     It 'does not run check-hotfix when enabled_features.sh omits the flag'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller

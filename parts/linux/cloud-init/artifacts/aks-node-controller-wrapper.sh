@@ -46,10 +46,12 @@ fi
 # today's behavior exactly. We PARSE KEY=VALUE lines rather than sourcing the file, so a malformed
 # file can never execute arbitrary shell or exit the wrapper (fail-open). The file is fully
 # controlled by the producer, so any valid identifier=value is accepted (not a fixed key list);
-# blank lines, comments, and non-identifier keys are skipped.
+# blank lines, comments, and non-identifier keys are skipped. The "|| [ -n "$_key" ]" guard
+# ensures the final line is still parsed even if the file has no trailing newline (read returns
+# non-zero at EOF but still populates the variables).
 if [ -f "$FEATURES_PATH" ]; then
     log "Reading feature flags from ${FEATURES_PATH}"
-    while IFS='=' read -r _key _val; do
+    while IFS='=' read -r _key _val || [ -n "$_key" ]; do
         case "$_key" in
         ''|\#*) continue ;;
         [!a-zA-Z_]*|*[!a-zA-Z0-9_]*) continue ;;
