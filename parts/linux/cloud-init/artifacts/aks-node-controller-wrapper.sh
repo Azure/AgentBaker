@@ -14,6 +14,10 @@ HOTFIX_BIN="${BIN_PATH}-hotfix"
 HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
+# FEATURES_PATH is an optional key=value feature-flag file the boothook (producer side) writes
+# ONLY when an aks-rp toggle is on. It is the on-node delivery channel for flags like
+# ENABLE_PROVISIONING_HOTFIX. Sourced below at wrapper runtime; absent file is a no-op.
+FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
 log() {
@@ -29,6 +33,17 @@ ${__SOURCED__:+return}
 if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     log "Gracefully exit aks-node-controller without provision config or nbc cmd"
     exit 0
+fi
+
+# Source the optional feature-flag file if present. The boothook writes it (with only literal
+# key=value lines) at provision time BEFORE this wrapper runs, so reading it here rests on the
+# same write-before-read ordering that config delivery already relies on - no systemd env-passing
+# or boot-ordering assumption. Absent file (default-off, or an older VHD) is a no-op, preserving
+# today's behavior exactly. Fail-open: a sourcing hiccup must never block provisioning.
+if [ -f "$FEATURES_PATH" ]; then
+    log "Sourcing feature flags from ${FEATURES_PATH}"
+    # shellcheck source=/dev/null
+    . "$FEATURES_PATH"
 fi
 
 # check-hotfix refreshes the on-disk hotfix pointer (its own default path, mirrored by

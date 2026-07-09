@@ -38,11 +38,14 @@ EOF
         # Point hotfix pointer at a test-local path (absent by default) so tests never
         # touch the production /opt/azure path and can control the download-hotfix branch.
         export HOTFIX_JSON="${TEST_DIR}/aks-node-controller-hotfix.json"
+        # Feature-flag file is test-local and absent by default; tests that exercise the
+        # source path create it explicitly.
+        export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH
     }
 
     create_fake_aks_node_controller() {
@@ -185,5 +188,38 @@ EOF
         lastCall=$(tail -n 1 "${TEST_DIR}/calls")
         The variable firstCall should eq "check-hotfix"
         The variable lastCall should eq "provision"
+    End
+
+    # The feature-flag file is the on-node delivery channel: the boothook writes
+    # ENABLE_PROVISIONING_HOTFIX=true into it, the wrapper sources it, and the existing gate fires -
+    # no environment variable is set by systemd here.
+    It 'sources enabled_features.sh and runs check-hotfix when the file sets the flag true'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Sourcing feature flags from ${FEATURES_PATH}"
+        The output should include "running check-hotfix"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
+        thirdCall=$(sed -n '3p' "${TEST_DIR}/calls")
+        The variable firstCall should eq "check-hotfix"
+        The variable secondCall should eq "download-hotfix"
+        The variable thirdCall should eq "provision"
+    End
+
+    It 'does not run check-hotfix when enabled_features.sh omits the flag'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+        printf 'SOME_OTHER_FLAG=true\n' >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Sourcing feature flags from ${FEATURES_PATH}"
+        The output should not include "running check-hotfix"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "provision"
     End
 End
