@@ -183,9 +183,13 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -364,9 +368,13 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -376,9 +384,13 @@
       ],
       "groupName": "acr-credential-provider-sysext",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -515,10 +527,15 @@
         "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>windows-hpc))?-(?<prerelease>\\d+)$",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },

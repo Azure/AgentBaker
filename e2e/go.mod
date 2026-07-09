@@ -29,7 +29,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
-	golang.org/x/crypto v0.51.0
+	golang.org/x/crypto v0.52.0
 	k8s.io/api v0.36.1
 	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v0.36.1
