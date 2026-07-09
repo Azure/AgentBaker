@@ -191,16 +191,16 @@ EOF
     End
 
     # The feature-flag file is the on-node delivery channel: the boothook writes
-    # ENABLE_PROVISIONING_HOTFIX=true into it, the wrapper sources it, and the existing gate fires -
+    # ENABLE_PROVISIONING_HOTFIX=true into it, the wrapper parses it, and the existing gate fires -
     # no environment variable is set by systemd here.
-    It 'sources enabled_features.sh and runs check-hotfix when the file sets the flag true'
+    It 'parses enabled_features.sh and runs check-hotfix when the file sets the flag true'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         create_recording_aks_node_controller
         printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
 
         When run bash "$SCRIPT"
         The status should be success
-        The output should include "Sourcing feature flags from ${FEATURES_PATH}"
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
         The output should include "running check-hotfix"
         firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
         secondCall=$(sed -n '2p' "${TEST_DIR}/calls")
@@ -217,9 +217,33 @@ EOF
 
         When run bash "$SCRIPT"
         The status should be success
-        The output should include "Sourcing feature flags from ${FEATURES_PATH}"
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
         The output should not include "running check-hotfix"
         calls=$(cat "${TEST_DIR}/calls")
         The variable calls should eq "provision"
+    End
+
+    # Security/fail-open: the file is PARSED, never executed. A hostile or malformed file
+    # (arbitrary commands, exit, etc.) must not run or abort the wrapper; only KEY=VALUE lines
+    # with valid identifier keys are honored. If the file were sourced, 'exit 7' would abort the
+    # wrapper and 'touch .../pwned' would run - both are asserted NOT to happen here.
+    It 'never executes enabled_features.sh contents (parses KEY=VALUE only)'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+        {
+            printf 'exit 7\n'
+            printf 'touch "%s/pwned"\n' "$TEST_DIR"
+            printf 'ENABLE_PROVISIONING_HOTFIX=true\n'
+        } >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
+        The path "${TEST_DIR}/pwned" should not be exist
+        The output should include "running check-hotfix"
+        firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
+        lastCall=$(tail -n 1 "${TEST_DIR}/calls")
+        The variable firstCall should eq "check-hotfix"
+        The variable lastCall should eq "provision"
     End
 End

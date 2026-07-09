@@ -14,9 +14,9 @@ HOTFIX_BIN="${BIN_PATH}-hotfix"
 HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
-# FEATURES_PATH is an optional key=value feature-flag file the boothook (producer side) writes
+# FEATURES_PATH is an optional KEY=VALUE feature-flag file the boothook (producer side) writes
 # ONLY when an aks-rp toggle is on. It is the on-node delivery channel for flags like
-# ENABLE_PROVISIONING_HOTFIX. Sourced below at wrapper runtime; absent file is a no-op.
+# ENABLE_PROVISIONING_HOTFIX. Parsed below at wrapper runtime; absent file is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
@@ -35,15 +35,23 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-# Source the optional feature-flag file if present. The boothook writes it (with only literal
-# key=value lines) at provision time BEFORE this wrapper runs, so reading it here rests on the
-# same write-before-read ordering that config delivery already relies on - no systemd env-passing
-# or boot-ordering assumption. Absent file (default-off, or an older VHD) is a no-op, preserving
-# today's behavior exactly. Fail-open: a sourcing hiccup must never block provisioning.
+# Read the optional feature-flag file if present. The boothook writes it (KEY=VALUE lines only)
+# at provision time BEFORE this wrapper runs, so reading it here rests on the same
+# write-before-read ordering that config delivery already relies on - no systemd env-passing or
+# boot-ordering assumption. Absent file (default-off, or an older VHD) is a no-op, preserving
+# today's behavior exactly. We PARSE KEY=VALUE lines rather than sourcing the file, so a malformed
+# file can never execute arbitrary shell or exit the wrapper (fail-open). The file is fully
+# controlled by the producer, so any valid identifier=value is accepted (not a fixed key list);
+# blank lines, comments, and non-identifier keys are skipped.
 if [ -f "$FEATURES_PATH" ]; then
-    log "Sourcing feature flags from ${FEATURES_PATH}"
-    # shellcheck source=/dev/null
-    . "$FEATURES_PATH"
+    log "Reading feature flags from ${FEATURES_PATH}"
+    while IFS='=' read -r _key _val; do
+        case "$_key" in
+        ''|\#*) continue ;;
+        [!a-zA-Z_]*|*[!a-zA-Z0-9_]*) continue ;;
+        esac
+        export "${_key}=${_val}"
+    done <"$FEATURES_PATH"
 fi
 
 # check-hotfix refreshes the on-disk hotfix pointer (its own default path, mirrored by
