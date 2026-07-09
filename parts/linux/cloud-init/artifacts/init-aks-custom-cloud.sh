@@ -236,8 +236,19 @@ function process_cert_operations {
     for cert_filename in "${cert_filenames[@]}"; do
         echo "Processing certificate file: $cert_filename"
 
-        local filename="${cert_filename%.*}"
-        local extension="${cert_filename##*.}"
+        # Defense-in-depth: reject filenames containing path separators or ".." to
+        # prevent path traversal via a malformed wireserver ResouceFileName value.
+        # Windows performs the equivalent sanitization via [IO.Path]::GetFileName.
+        local sanitized_filename
+        sanitized_filename=$(basename -- "$cert_filename")
+        if [ "$sanitized_filename" != "$cert_filename" ] || [ -z "$sanitized_filename" ] || \
+           [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
+            echo "Warning: rejecting certificate filename with path separators or traversal: '$cert_filename'"
+            continue
+        fi
+
+        local filename="${sanitized_filename%.*}"
+        local extension="${sanitized_filename##*.}"
         local cert_content
 
         cert_content=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension")
@@ -247,8 +258,8 @@ function process_cert_operations {
             continue
         fi
 
-        echo "$cert_content" > "/root/AzureCACertificates/$cert_filename"
-        echo "Successfully saved certificate: $cert_filename"
+        echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename"
+        echo "Successfully saved certificate: $sanitized_filename"
     done
 }
 
