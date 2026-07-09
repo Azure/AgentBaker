@@ -589,10 +589,9 @@ oom_score = -999
 		{
 			name: "Containerd v2 no GPU template",
 			args: args{
-				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 						ContainerdVersion: "2.0.0",
+						UseContainerdV2:   true,
 					},
 					GpuConfig: &aksnodeconfigv1.GpuConfig{
 						EnableNvidia: to.Ptr(true),
