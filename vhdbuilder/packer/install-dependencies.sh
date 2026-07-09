@@ -1224,16 +1224,27 @@ echo "VHD will be built with containerd as the container runtime"
 # TODO(2604): uncomment once able
 cachePackageAndBinaryComponents
 
+# k8s will use images in the k8s.io namespaces - create it
+# TODO(2604): uncomment all below once able
+ctr namespace create k8s.io
+
+# Fetch and pre-build the NVIDIA CUDA driver BEFORE starting the BCC background build and BEFORE caching
+# the bulk container images. The driver's kernel-module compile and userspace lib install are disk-heavy;
+# running them here (near-empty disk, BCC not yet started) avoids exhausting the 30GB packer build disk.
+# Running them after the container-image cache and/or concurrently with the BCC build fills the disk
+# (worse on 24.04), failing at the nvidia.ko link or the driver lib copy with "No space left on device".
+cacheGPUContainerImageComponents
+buildNVIDIAKernelModule
+capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
+
+# Start eBPF tool installation in the background while we pull container images in the foreground
 starteBPFToolsInstallation
 capture_benchmark "${SCRIPT_NAME}_start_install_ebpf_tools"
 
 # Cache container images declared within components.json
-# k8s will use images in the k8s.io namespaces - create it
 # TODO(2604): uncomment all below once able
-ctr namespace create k8s.io
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 cacheContainerImageComponents
-cacheGPUContainerImageComponents
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 configureGraceBlackwell
@@ -1293,13 +1304,9 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
+# Ensure eBPF tools installed successfully
 finisheBPFToolsInstallation
 capture_benchmark "${SCRIPT_NAME}_finish_installing_ebpf_tools"
-
-# Note: it seems that calling buildNVIDIAKernelModule while BCC is building/compiling in the background (starteBPFToolsInstallation) will cause
-# the packer VM's disk to run out of space while building the kernel module - explicitly build the kernel module AFTER BCC build/compilation is finished.
-buildNVIDIAKernelModule
-capture_benchmark "${SCRIPT_NAME}_build_nvidia_kernel_module"
 
 configureLsmWithBpf
 capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
