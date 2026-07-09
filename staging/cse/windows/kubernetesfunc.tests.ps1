@@ -59,6 +59,11 @@ BeforeAll {
     . $helperScriptPath
     . $scriptUnderTestPath
 
+    # Re-stub Set-ExitCode: the initial stub above is overwritten when
+    # windowscsehelper.ps1 is dot-sourced (it defines the real Set-ExitCode at
+    # ~line 288). Restore the throw-on-call sentinel so unexpected Set-ExitCode
+    # invocations in code under test surface as test failures instead of
+    # silently running the production exit path.
     function Set-ExitCode {
         param($ExitCode, $ErrorMessage)
         throw "Unexpected Set-ExitCode: $ExitCode $ErrorMessage"
