@@ -368,6 +368,7 @@ Describe 'cse_install_mariner.sh'
             dnf() {
                 echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
                 echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-590.1.0-1_6x6x121x1x1xazl3.x86_64"
                 echo "cuda-open-580.126.09-2_6.6.120.1.1.azl3.x86_64"
             }
 
@@ -395,7 +396,7 @@ Describe 'cse_install_mariner.sh'
             When call getAzureLinuxNvidiaDriverReleaseNotes
 
             The status should be success
-            The output should include "Components installed at node provisioning time (CSE) for supported Azure Linux GPU VM sizes (kernel 6.6.121.1.1.azl3):"
+            The output should include "NVIDIA GPU driver packages available at VHD build time for supported Azure Linux GPU VM sizes (kernel 6.6.121.1.1.azl3):"
             The output should include "  - nvidia-cuda-open-driver=cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
             The output should include "  - nvidia-cuda-driver=cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
             The output should include "  - nvidia-grid-driver=nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"

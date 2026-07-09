@@ -107,7 +107,7 @@ getLatestAzureLinuxNvidiaDriverPackageForKernel() {
     local kernel_version=$3
 
     dnf repoquery -y --available "${package_query}" 2>/dev/null | \
-        grep -E "${package_regex}.*_${kernel_version}" | sort -V | tail -n 1 || true
+        grep -E "${package_regex}" | grep -F "_${kernel_version}." | sort -V | tail -n 1 || true
 }
 
 getAzureLinuxNvidiaDriverReleaseNotes() {
@@ -125,7 +125,7 @@ getAzureLinuxNvidiaDriverReleaseNotes() {
         return 0
     fi
 
-    echo "Components installed at node provisioning time (CSE) for supported Azure Linux GPU VM sizes (kernel ${kernel_version}):"
+    echo "NVIDIA GPU driver packages available at VHD build time for supported Azure Linux GPU VM sizes (kernel ${kernel_version}):"
     if [ -n "${cuda_open_package}" ]; then
         echo "  - nvidia-cuda-open-driver=${cuda_open_package}"
     fi
