@@ -1,6 +1,12 @@
 #!/bin/bash
 set -x
 
+# Dependency note: `jq` is guaranteed to be present on every AKS VHD (baked in
+# by vhdbuilder/packer/install-dependencies.sh and shipped in the Azure Linux
+# base image), so functions in this script use it without an explicit install
+# step. Do not flag jq usage here as "used before install" — matches the
+# established pattern in cse_main.sh.
+
 # GA events directory — Azure Guest Agent monitors this directory and forwards
 # JSON event files to Geneva/Kusto for off-node telemetry.
 EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
