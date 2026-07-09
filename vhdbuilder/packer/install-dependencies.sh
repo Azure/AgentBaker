@@ -1216,7 +1216,7 @@ echo "VHD will be built with containerd as the container runtime"
 
 # Cache packages and binaries declared within components.json
 # TODO(2604): uncomment once able
-# cachePackageAndBinaryComponents
+cachePackageAndBinaryComponents
 
 starteBPFToolsInstallation
 capture_benchmark "${SCRIPT_NAME}_start_install_ebpf_tools"
@@ -1224,10 +1224,10 @@ capture_benchmark "${SCRIPT_NAME}_start_install_ebpf_tools"
 # Cache container images declared within components.json
 # k8s will use images in the k8s.io namespaces - create it
 # TODO(2604): uncomment all below once able
-# ctr namespace create k8s.io
+ctr namespace create k8s.io
 echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-# cacheContainerImageComponents
-# cacheGPUContainerImageComponents
+cacheContainerImageComponents
+cacheGPUContainerImageComponents
 capture_benchmark "${SCRIPT_NAME}_caching_container_images"
 
 configureGraceBlackwell
@@ -1236,11 +1236,11 @@ if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
 fi
 
 # TODO(2604): uncomment once able
-# retagAKSNodeCAWatcher
+retagAKSNodeCAWatcher
 capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
 
 # TODO(2604): uncomment once able
-# pinPodSandboxImages
+pinPodSandboxImages
 capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
@@ -1305,7 +1305,7 @@ fi
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
 # TODO(2604): uncomment once able
-# extractAndCacheCoreDnsBinary
+extractAndCacheCoreDnsBinary
 
 collect_grid_compatibility_data
 
