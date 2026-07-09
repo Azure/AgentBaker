@@ -47,9 +47,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	ValidateRxBufferDefault(ctx, s)
 
 	// Validate MANA (Accelerated Networking) when hardware is present.
-	// Skipped for scenarios tagged MANA to avoid running the same checks twice (those scenarios call ValidateMANA explicitly).
 	// MANA is the standard network adapter on V5+ VM series.
-	if !s.Tags.MANA && hasMANAHardware(ctx, s) {
+	if hasMANAHardware(ctx, s) {
 		ValidateMANA(ctx, s)
 	}
 

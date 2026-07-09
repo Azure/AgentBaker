@@ -3081,7 +3081,6 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V6 SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
-			MANA:                 true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -3095,9 +3094,6 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMANA(ctx, s)
-			},
 		},
 	})
 }
@@ -3107,7 +3103,6 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V6 SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
-			MANA:                 true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -3121,9 +3116,6 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
 			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMANA(ctx, s)
-			},
 		},
 	})
 }
@@ -3133,7 +3125,6 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V6 SKU",
 		Tags: Tags{
 			VMSeriesCoverageTest: true,
-			MANA:                 true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -3146,9 +3137,6 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMANA(ctx, s)
 			},
 		},
 	})
