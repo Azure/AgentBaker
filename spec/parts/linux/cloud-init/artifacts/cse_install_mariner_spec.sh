@@ -396,10 +396,10 @@ Describe 'cse_install_mariner.sh'
             When call getAzureLinuxNvidiaDriverReleaseNotes
 
             The status should be success
-            The output should include "NVIDIA GPU driver packages available at VHD build time for supported Azure Linux GPU VM sizes (kernel 6.6.121.1.1.azl3):"
-            The output should include "  - nvidia-cuda-open-driver=cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
-            The output should include "  - nvidia-cuda-driver=cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
-            The output should include "  - nvidia-grid-driver=nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"
+            The output should include "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+            The output should include "  - nvidia-cuda-open-driver version 580.126.09"
+            The output should include "  - nvidia-cuda-driver version 570.195.03"
+            The output should include "  - nvidia-grid-driver version 570.211.01"
         End
 
         It 'emits no release-note section when no driver packages match the current kernel'

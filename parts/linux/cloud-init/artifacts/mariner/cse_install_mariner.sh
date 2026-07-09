@@ -110,6 +110,13 @@ getLatestAzureLinuxNvidiaDriverPackageForKernel() {
         grep -E "${package_regex}" | grep -F "_${kernel_version}." | sort -V | tail -n 1 || true
 }
 
+getAzureLinuxNvidiaDriverVersionFromPackage() {
+    local package=$1
+    local package_prefix=$2
+
+    echo "${package#"${package_prefix}"}" | cut -d- -f1
+}
+
 getAzureLinuxNvidiaDriverReleaseNotes() {
     local kernel_version
     kernel_version=$(uname -r | sed 's/-/./g')
@@ -125,15 +132,15 @@ getAzureLinuxNvidiaDriverReleaseNotes() {
         return 0
     fi
 
-    echo "NVIDIA GPU driver packages available at VHD build time for supported Azure Linux GPU VM sizes (kernel ${kernel_version}):"
+    echo "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
     if [ -n "${cuda_open_package}" ]; then
-        echo "  - nvidia-cuda-open-driver=${cuda_open_package}"
+        echo "  - nvidia-cuda-open-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_open_package}" "cuda-open-")"
     fi
     if [ -n "${cuda_package}" ]; then
-        echo "  - nvidia-cuda-driver=${cuda_package}"
+        echo "  - nvidia-cuda-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_package}" "cuda-")"
     fi
     if [ -n "${grid_package}" ]; then
-        echo "  - nvidia-grid-driver=${grid_package}"
+        echo "  - nvidia-grid-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${grid_package}" "nvidia-vgpu-guest-driver-")"
     fi
 }
 
