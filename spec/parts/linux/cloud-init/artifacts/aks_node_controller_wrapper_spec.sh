@@ -226,6 +226,23 @@ EOF
         The variable firstCall should eq "check-hotfix"
     End
 
+    # Fail-open on an empty/miswritten feature file: with `set -u`, the first `read` hits EOF
+    # immediately but still assigns an empty "$_key", so the "|| [ -n "$_key" ]" guard evaluates
+    # cleanly (no unbound-variable abort) and the loop simply does not run. The wrapper must
+    # provision normally and never invoke check-hotfix.
+    It 'is a no-op when enabled_features.sh exists but is empty'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+        : >"$FEATURES_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
+        The output should not include "running check-hotfix"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "provision"
+    End
+
     It 'does not run check-hotfix when enabled_features.sh omits the flag'
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
