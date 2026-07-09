@@ -575,32 +575,9 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if vmssResp.ID != nil {
 		vmssID = *vmssResp.ID
 	}
-	rcv1pTagKey := "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
 	// In the single-subscription model, if the scenario tags RCV1PCertMode we set the opt-in tag ourselves.
 	weSetRCV1PTag := s.Tags.RCV1PCertMode
-	if vmssResp.Tags != nil {
-		s.T.Logf("VMSS %s (id: %s) tags after creation (%d):", s.Runtime.VMSSName, vmssID, len(vmssResp.Tags))
-		for k, v := range vmssResp.Tags {
-			val := "<nil>"
-			if v != nil {
-				val = *v
-			}
-			if k == rcv1pTagKey {
-				if weSetRCV1PTag {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — set by us]", k, val)
-				} else {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — platform-injected, NOT set by us]", k, val)
-				}
-			} else {
-				s.T.Logf("  tag: %s = %s", k, val)
-			}
-		}
-		if _, hasTag := vmssResp.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
-			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VMSS — this is expected for negative tests]", rcv1pTagKey)
-		}
-	} else {
-		s.T.Logf("VMSS %s (id: %s) has no tags after creation", s.Runtime.VMSSName, vmssID)
-	}
+	logRCV1PAwareTags(s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	if !s.Config.SkipSSHConnectivityValidation {
 		var bastErr error
 		vm.SSHClient, bastErr = DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
@@ -623,29 +600,7 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if vm.VM.ID != nil {
 		vmInstanceID = *vm.VM.ID
 	}
-	if vm.VM.Tags != nil {
-		s.T.Logf("VM instance %s (id: %s) tags after running (%d):", *vm.VM.InstanceID, vmInstanceID, len(vm.VM.Tags))
-		for k, v := range vm.VM.Tags {
-			val := "<nil>"
-			if v != nil {
-				val = *v
-			}
-			if k == rcv1pTagKey {
-				if weSetRCV1PTag {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, set by us]", k, val)
-				} else {
-					s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — inherited from VMSS, platform-injected]", k, val)
-				}
-			} else {
-				s.T.Logf("  tag: %s = %s", k, val)
-			}
-		}
-		if _, hasTag := vm.VM.Tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
-			s.T.Logf("  [RCV1P opt-in tag %q NOT present on VM instance — this is expected for negative tests]", rcv1pTagKey)
-		}
-	} else {
-		s.T.Logf("VM instance %s (id: %s) has no tags after running", *vm.VM.InstanceID, vmInstanceID)
-	}
+	logRCV1PAwareTags(s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
 
 	return &ScenarioVM{
 		VMSS:      &vmssResp.VirtualMachineScaleSet,
@@ -653,6 +608,44 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 		VM:        vm.VM,
 		SSHClient: vm.SSHClient,
 	}, nil
+}
+
+// rcv1pTagKey is the VMSS/VM tag that opts a resource into hardened root-cert bootstrap.
+const rcv1pTagKey = "platformsettings.host_environment.service.platform_optedin_for_rootcerts"
+
+// logRCV1PAwareTags logs the tags on a VMSS or VM instance, annotating the RCV1P
+// opt-in tag with provenance (set by us vs. platform-injected, inherited or not).
+// resourceKind is a human-readable kind ("VMSS" or "VM instance"); timingVerb describes
+// when the snapshot was taken ("creation" or "running"). inherited indicates the tags
+// were copied from a parent resource (true for VM instance tags inherited from VMSS).
+func logRCV1PAwareTags(s *Scenario, resourceKind, timingVerb, name, id string, tags map[string]*string, weSetTag, inherited bool) {
+	if tags == nil {
+		s.T.Logf("%s %s (id: %s) has no tags after %s", resourceKind, name, id, timingVerb)
+		return
+	}
+	s.T.Logf("%s %s (id: %s) tags after %s (%d):", resourceKind, name, id, timingVerb, len(tags))
+	inheritedNote := ""
+	if inherited {
+		inheritedNote = "inherited from VMSS, "
+	}
+	for k, v := range tags {
+		val := "<nil>"
+		if v != nil {
+			val = *v
+		}
+		if k == rcv1pTagKey {
+			if weSetTag {
+				s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — %sset by us]", k, val, inheritedNote)
+			} else {
+				s.T.Logf("  tag: %s = %s [RCV1P opt-in tag — %splatform-injected]", k, val, inheritedNote)
+			}
+		} else {
+			s.T.Logf("  tag: %s = %s", k, val)
+		}
+	}
+	if _, hasTag := tags[rcv1pTagKey]; !hasTag && s.Tags.RCV1PCertMode {
+		s.T.Logf("  [RCV1P opt-in tag %q NOT present on %s — this is expected for negative tests]", rcv1pTagKey, resourceKind)
+	}
 }
 
 // waitForVMRunningState polls until the VM reaches "Running" power state or the timeout elapses.
