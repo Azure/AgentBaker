@@ -14,9 +14,13 @@ HOTFIX_BIN="${BIN_PATH}-hotfix"
 HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
-# FEATURES_PATH is an optional KEY=VALUE feature-flag file the boothook (producer side) writes
-# ONLY when an aks-rp toggle is on. It is the on-node delivery channel for flags like
-# ENABLE_PROVISIONING_HOTFIX. Parsed below at wrapper runtime; absent file is a no-op.
+# FEATURES_PATH is an optional KEY=VALUE feature-flag file and the on-node delivery channel for
+# flags like ENABLE_PROVISIONING_HOTFIX (there is no systemd environment-variable delivery).
+# Writer: the cloud-init boothook (producer side, PR #8717), running as root at provision time,
+# writes it ONLY when the corresponding aks-rp toggle is on. It lands under /opt/azure/containers
+# (0644, root-owned) like the other provisioning artifacts, so only root can populate it and the
+# producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
+# or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
 LOGGER_TAG="aks-node-controller-wrapper"
 
