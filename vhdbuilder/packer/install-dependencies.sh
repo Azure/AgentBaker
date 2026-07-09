@@ -855,6 +855,22 @@ cacheGPUContainerImageComponents() {
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+  fi
+
+  # Add a separate section for runtime-installed components
+  # This clearly distinguishes components installed during CSE from VHD build-time components
+  # Only add for Ubuntu
+  if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
+  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
+EOF
+  fi
+}
+
+buildNVIDIAKernelModule() {
+  if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then # No ARM64 SKU with GPU now
+    gpu_action="copy"
 
     # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
     # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
@@ -882,16 +898,6 @@ EOF
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF
     fi
-  fi
-
-  # Add a separate section for runtime-installed components
-  # This clearly distinguishes components installed during CSE from VHD build-time components
-  # Only add for Ubuntu
-  if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
-Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
-  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
-EOF
   fi
 }
 
@@ -1288,7 +1294,12 @@ fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
 finisheBPFToolsInstallation
-capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
+capture_benchmark "${SCRIPT_NAME}_finish_installing_ebpf_tools"
+
+# Note: it seems that calling buildNVIDIAKernelModule while BCC is building/compiling in the background (starteBPFToolsInstallation) will cause
+# the packer VM's disk to run out of space while building the kernel module - explicitly build the kernel module AFTER BCC build/compilation is finished.
+buildNVIDIAKernelModule
+capture_benchmark "${SCRIPT_NAME}_build_nvidia_kernel_module"
 
 configureLsmWithBpf
 capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
