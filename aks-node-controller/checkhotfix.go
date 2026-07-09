@@ -13,8 +13,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/common"
@@ -185,7 +187,7 @@ func (a *App) runCheckHotfixCommand(ctx context.Context) (err error) {
 		message = fmt.Sprintf("%s error=%s", message, err.Error())
 		slog.Warn("check-hotfix completed with error (fail-open)", "outcome", outcome, "error", err)
 	} else {
-		slog.Info("check-hotfix completed", "outcome", outcome)
+		slog.Info("check-hotfix completed", "outcome", outcome, "total_elapsed_ms", endTime.Sub(startTime).Milliseconds())
 	}
 	if a.eventLogger != nil {
 		a.eventLogger.LogEvent("CheckHotfix", message, level, startTime, endTime)
@@ -203,12 +205,18 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 		hotfixPath = defaultHotfixVersionPath
 	}
 
+	// POC-ONLY latency instrumentation (do not ship): time each segment of the
+	// every-boot no-op path so we can break down the on-node cost from the journal.
+	segStart := time.Now()
 	data, fetchErr := a.fetchHotfix(ctx)
+	slog.Info("checkhotfix-latency segment=fetch", "elapsed_ms", time.Since(segStart).Milliseconds())
 	if fetchErr != nil {
 		return a.handleFetchError(hotfixPath, fetchErr)
 	}
 
+	segStart = time.Now()
 	cfg, err := parseHotfixConfig(data)
+	slog.Info("checkhotfix-latency segment=parse", "elapsed_ms", time.Since(segStart).Milliseconds())
 	if err != nil {
 		return outcomeFailed, fmt.Errorf("parsing LPS hotfix pointer: %w", err)
 	}
@@ -220,9 +228,11 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 	// LPSRead.
 	staged := hotfixConfig{Hotfixes: cfg.Hotfixes}
 
+	segStart = time.Now()
 	if err := writeHotfixConfig(hotfixPath, staged); err != nil {
 		return outcomeFailed, fmt.Errorf("writing hotfix config: %w", err)
 	}
+	slog.Info("checkhotfix-latency segment=write", "elapsed_ms", time.Since(segStart).Milliseconds())
 
 	// Report whether this node's base actually has a pointer in the staged config.
 	// download-hotfix still performs the authoritative patch-only-strictly-higher gating;
@@ -297,6 +307,16 @@ func (a *App) fetchHotfix(ctx context.Context) ([]byte, error) {
 // (non-benign 4xx -> no cold-start fallback) from a server/transport failure (5xx / transport
 // error -> cold-start fallback).
 func (a *App) fetchHotfixFromLPS(ctx context.Context) ([]byte, error) {
+	// POC / LOCAL-ONLY test hook (do not push, off by default). When LPS_ENDPOINT_OVERRIDE is
+	// set the fetch targets that URL directly instead of the apiserver-fronted SNI path. This
+	// lets an on-node (or in-process) mock LPS serve a real HTTP 200 without a real LPS, the
+	// apiserver front, or a cluster-CA-signed cert. With the env unset this is a no-op, so the
+	// shipped production path (SNI pinned to lpsSNIHost, forced dial to the apiserver FQDN,
+	// cluster-CA TLS) is completely unchanged.
+	if override := strings.TrimSpace(os.Getenv("LPS_ENDPOINT_OVERRIDE")); override != "" {
+		return a.fetchHotfixFromOverride(ctx, override)
+	}
+
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("resolving LPS endpoint from node config: %w", err)
@@ -343,6 +363,92 @@ func (a *App) fetchHotfixFromLPS(ctx context.Context) ([]byte, error) {
 		resp.StatusCode == http.StatusNotFound:
 		// Benign: reachable LPS with no hotfix published for this node yet.
 		// Surfaced as a typed error so the caller treats it as a no-op, not a failure.
+		return nil, &lpsUnavailableError{statusCode: resp.StatusCode}
+	default:
+		return nil, &lpsHTTPError{statusCode: resp.StatusCode}
+	}
+}
+
+// fetchHotfixFromOverride is the POC / LOCAL-ONLY counterpart to fetchHotfixFromLPS used when
+// LPS_ENDPOINT_OVERRIDE is set. It performs the real HTTP GET, TLS verification, status
+// mapping, and body read against an arbitrary endpoint so a mock LPS can be exercised end to
+// end (real client code, not a test seam) without the apiserver front or a cluster-CA cert.
+//
+//   - LPS_ENDPOINT_OVERRIDE : full URL to GET, e.g. https://127.0.0.1:8443/v1/anc-hotfix
+//   - LPS_CA_OVERRIDE       : path to a PEM CA bundle that signed the mock's cert. When unset
+//     the node-config cluster CA is used (best effort).
+//   - LPS_SKIP_ATTESTATION  : "true" sends a placeholder Authorization token instead of calling
+//     IMDS (useful off-Azure / in unit tests). On a real Azure VM IMDS works, so leave it unset
+//     to keep the attested-token path faithful.
+//
+// This entire function is dead code in production because the env var is never set there.
+func (a *App) fetchHotfixFromOverride(ctx context.Context, endpoint string) ([]byte, error) {
+	slog.Warn("check-hotfix using LPS_ENDPOINT_OVERRIDE (POC/test hook, not for production)", "endpoint", endpoint)
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Host == "" {
+		return nil, fmt.Errorf("invalid LPS_ENDPOINT_OVERRIDE %q: %w", endpoint, err)
+	}
+
+	var caPEM []byte
+	if caPath := strings.TrimSpace(os.Getenv("LPS_CA_OVERRIDE")); caPath != "" {
+		caPEM, err = os.ReadFile(caPath)
+		if err != nil {
+			return nil, fmt.Errorf("reading LPS_CA_OVERRIDE %s: %w", caPath, err)
+		}
+	} else if _, nodeCA, cerr := a.lpsTargetFromNodeConfig(); cerr == nil {
+		caPEM = nodeCA
+	}
+	if len(caPEM) == 0 {
+		return nil, fmt.Errorf("no CA available for LPS override; set LPS_CA_OVERRIDE")
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("failed to parse LPS override CA PEM")
+	}
+
+	var token string
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("LPS_SKIP_ATTESTATION")), "true") {
+		token = "lps-override-skip-attestation"
+	} else if token, err = a.attestedToken(ctx); err != nil {
+		return nil, fmt.Errorf("imds attested token: %w", err)
+	}
+
+	// Unlike the production path, dial the override host directly and pin ServerName to it
+	// (the mock cert's SAN), rather than forcing the apiserver FQDN with SNI=lpsSNIHost.
+	client := &http.Client{
+		Timeout: lpsFetchTimeout,
+		Transport: common.NewBaseTransport(common.HTTPTransportOptions{
+			DialTimeout:           lpsDialTimeout,
+			TLSHandshakeTimeout:   lpsTLSHandshakeTimeout,
+			ResponseHeaderTimeout: lpsResponseHeaderTimeout,
+			TLSConfig:             &tls.Config{MinVersion: tls.VersionTLS12, ServerName: u.Hostname(), RootCAs: pool},
+		}),
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("building request: %w", err)
+	}
+	req.Header.Set("Authorization", token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET %s: %w", u.String(), err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		return body, nil
+	case resp.StatusCode == http.StatusUnauthorized,
+		resp.StatusCode == http.StatusForbidden,
+		resp.StatusCode == http.StatusNotFound:
 		return nil, &lpsUnavailableError{statusCode: resp.StatusCode}
 	default:
 		return nil, &lpsHTTPError{statusCode: resp.StatusCode}

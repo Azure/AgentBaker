@@ -31,12 +31,21 @@ const (
 
 // downloadHotfix installs the requested hotfix and stages it alongside the VHD-baked binary.
 // The wrapper script decides which binary to execute after this command returns.
-func (a *App) downloadHotfix(ctx context.Context) error {
+func (a *App) downloadHotfix(ctx context.Context) (err error) {
+	// POC-ONLY latency instrumentation (do not ship): time the download-hotfix
+	// decision path so the every-boot no-op cost shows in the journal.
+	dlStart := time.Now()
+	defer func() {
+		slog.Info("downloadhotfix-latency segment=total", "elapsed_ms", time.Since(dlStart).Milliseconds())
+	}()
+
 	hotfixPath := a.hotfixVersionPath
 	if hotfixPath == "" {
 		hotfixPath = defaultHotfixVersionPath
 	}
+	readStart := time.Now()
 	cfg, err := readHotfixConfig(hotfixPath)
+	slog.Info("downloadhotfix-latency segment=read", "elapsed_ms", time.Since(readStart).Milliseconds())
 	if err != nil {
 		// Fail-open: an unreadable or malformed hotfix config must never block
 		// provisioning. Log and skip so the node boots on its VHD-baked binary.
@@ -44,7 +53,9 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 			"path", hotfixPath, "error", err)
 		return nil
 	}
+	resolveStart := time.Now()
 	hotfixVersion := cfg.resolveVersion(Version)
+	slog.Info("downloadhotfix-latency segment=resolve", "elapsed_ms", time.Since(resolveStart).Milliseconds())
 
 	if hotfixVersion == "" {
 		slog.Info("hotfix config does not request a version for this base, skipping download",
@@ -68,13 +79,18 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
+	installStart := time.Now()
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
+		slog.Info("downloadhotfix-latency segment=install", "elapsed_ms", time.Since(installStart).Milliseconds(), "result", "error")
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
 	}
+	slog.Info("downloadhotfix-latency segment=install", "elapsed_ms", time.Since(installStart).Milliseconds(), "result", "ok")
 
+	stageStart := time.Now()
 	if err := copyBinaryAlongside(pkgBinaryPath, hotfixBinaryPath, vhdBinaryPath); err != nil {
 		return fmt.Errorf("stage hotfix binary: %w", err)
 	}
+	slog.Info("downloadhotfix-latency segment=stage", "elapsed_ms", time.Since(stageStart).Milliseconds())
 
 	slog.Info("downloaded ANC hotfix", "target", hotfixVersion, "path", hotfixBinaryPath)
 	return nil
@@ -220,12 +236,15 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 	}
 
 	// Ensure any interrupted dpkg state is reconciled before running apt operations.
+	dpkgStart := time.Now()
 	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"dpkg", "--configure", "-a", "--force-confdef", "--force-confold"); err != nil {
 		return fmt.Errorf("dpkg --configure -a failed: %w", err)
 	}
+	slog.Info("installwithapt-latency segment=dpkg-configure", "elapsed_ms", time.Since(dpkgStart).Milliseconds())
 
 	// Refresh only the microsoft-prod repo to minimize time.
+	updateStart := time.Now()
 	if err := a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"apt-get", "update",
 		"-o", "Dpkg::Options::=--force-confold",
@@ -233,11 +252,15 @@ func (a *App) installWithApt(ctx context.Context, version string) error {
 		"-o", "Dir::Etc::sourceparts=-"); err != nil {
 		return fmt.Errorf("apt-get update failed: %w", err)
 	}
+	slog.Info("installwithapt-latency segment=apt-update", "elapsed_ms", time.Since(updateStart).Milliseconds())
 	// Install with --allow-downgrades in case the hotfix is older than the VHD-baked version.
-	return a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
+	installStart := time.Now()
+	err = a.retryCommand(ctx, "env", "DEBIAN_FRONTEND=noninteractive",
 		"apt-get", "install", "-y", "--allow-downgrades",
 		"-o", "Dpkg::Options::=--force-confold",
 		fmt.Sprintf("aks-node-controller=%s*", version))
+	slog.Info("installwithapt-latency segment=apt-install", "elapsed_ms", time.Since(installStart).Milliseconds())
+	return err
 }
 
 func resolveMicrosoftProdSourceListPath(sourcesDir string) (string, error) {
