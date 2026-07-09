@@ -101,6 +101,42 @@ downloadGridDrivers() {
     dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
+getLatestAzureLinuxNvidiaDriverPackageForKernel() {
+    local package_query=$1
+    local package_regex=$2
+    local kernel_version=$3
+
+    dnf repoquery -y --available "${package_query}" 2>/dev/null | \
+        grep -E "${package_regex}.*_${kernel_version}" | sort -V | tail -n 1 || true
+}
+
+getAzureLinuxNvidiaDriverReleaseNotes() {
+    local kernel_version
+    kernel_version=$(uname -r | sed 's/-/./g')
+
+    local cuda_open_package
+    local cuda_package
+    local grid_package
+    cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "${kernel_version}")
+    cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-[0-9]*" "^cuda-[0-9]" "${kernel_version}")
+    grid_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "nvidia-vgpu-guest-driver*" "^nvidia-vgpu-guest-driver-[0-9]" "${kernel_version}")
+
+    if [ -z "${cuda_open_package}" ] && [ -z "${cuda_package}" ] && [ -z "${grid_package}" ]; then
+        return 0
+    fi
+
+    echo "Components installed at node provisioning time (CSE) for supported Azure Linux GPU VM sizes (kernel ${kernel_version}):"
+    if [ -n "${cuda_open_package}" ]; then
+        echo "  - nvidia-cuda-open-driver=${cuda_open_package}"
+    fi
+    if [ -n "${cuda_package}" ]; then
+        echo "  - nvidia-cuda-driver=${cuda_package}"
+    fi
+    if [ -n "${grid_package}" ]; then
+        echo "  - nvidia-grid-driver=${grid_package}"
+    fi
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #

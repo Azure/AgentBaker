@@ -361,6 +361,56 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
+    Describe 'Azure Linux NVIDIA driver release notes'
+        uname() { echo "6.6.121.1-1.azl3"; }
+
+        It 'selects the latest package matching the current kernel'
+            dnf() {
+                echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.120.1.1.azl3.x86_64"
+            }
+
+            When call getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "6.6.121.1.1.azl3"
+
+            The status should be success
+            The output should equal "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+        End
+
+        It 'formats CUDA open, CUDA proprietary, and GRID driver package versions for release notes'
+            dnf() {
+                case "$4" in
+                    "cuda-open*")
+                        echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "cuda-[0-9]*")
+                        echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "nvidia-vgpu-guest-driver*")
+                        echo "nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                esac
+            }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should include "Components installed at node provisioning time (CSE) for supported Azure Linux GPU VM sizes (kernel 6.6.121.1.1.azl3):"
+            The output should include "  - nvidia-cuda-open-driver=cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+            The output should include "  - nvidia-cuda-driver=cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            The output should include "  - nvidia-grid-driver=nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"
+        End
+
+        It 'emits no release-note section when no driver packages match the current kernel'
+            dnf() { return 0; }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should equal ""
+        End
+    End
+
     Describe 'installAznfsPackage'
         ERR_AZNFS_INSTALL_FAIL=242
         aznfs_test_dir="$PWD/spec/tmp/aznfs-test"
