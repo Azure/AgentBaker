@@ -1233,12 +1233,12 @@ cacheGPUContainerImageComponents
 buildNVIDIAKernelModule
 capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
 
-if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+if [ "$OS" = "$AZURELINUX_OS_NAME" ] && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && ! isACL "$OS" "$OS_VARIANT"; then
   AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES=$(getAzureLinuxNvidiaDriverReleaseNotes)
   if [ -n "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" ]; then
     printf '%s\n' "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" >> "${VHD_LOGS_FILEPATH}"
   else
-    echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)"
+    echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)" | tee -a "${VHD_LOGS_FILEPATH}" >&2
   fi
 fi
 
