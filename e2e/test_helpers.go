@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -1080,4 +1081,36 @@ func runScenarioGPUNPD(t *testing.T, vmSize, location, k8sSystemPoolSKU string) 
 				ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
 			},
 		}}
+}
+
+func vmSKUGeneration(sku string) (int, error) {
+	// Extract the generation number from the SKU string (e.g., "Standard_D2s_v3" -> 3)
+	sku = strings.ToLower(sku)
+	idx := strings.LastIndex(sku, "_v")
+	if idx < 0 {
+		return 0, fmt.Errorf("invalid SKU format: %s", sku)
+	}
+	gen, err := strconv.Atoi(sku[idx+2:])
+	if err != nil {
+		return 0, fmt.Errorf("SKU %q has non-numeric generation suffix: %w", sku, err)
+	}
+	return gen, nil
+}
+
+func ensureMinVMGeneration(minSku string) string {
+	// Ensure that the VM SKU used is at least the minimum generation required for the test
+	// Get the minimum generation for the specified SKU
+	defaultGen, err := vmSKUGeneration(config.Config.DefaultVMSKU)
+	if err != nil {
+		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", config.Config.DefaultVMSKU))
+	}
+	minGen, err := vmSKUGeneration(minSku)
+	if err != nil {
+		panic(fmt.Sprintf("Warning: No minimum generation found for SKU %s", minSku))
+	}
+	if defaultGen < minGen {
+		return minSku
+	} else {
+		return config.Config.DefaultVMSKU
+	}
 }

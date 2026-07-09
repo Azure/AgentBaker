@@ -3088,11 +3088,11 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -3114,11 +3114,11 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -3140,11 +3140,11 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
+				nbc.AgentPoolProfile.VMSize = ensureMinVMGeneration("Standard_D2ds_v6")
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
+				vmss.SKU.Name = to.Ptr(ensureMinVMGeneration("Standard_D2ds_v6"))
 				enableAcceleratedNetworking(vmss)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
