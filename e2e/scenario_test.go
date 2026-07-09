@@ -3086,6 +3086,7 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
@@ -3093,7 +3094,6 @@ func Test_Ubuntu2404_MANA(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
 				enableAcceleratedNetworking(vmss)
-				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateMANA(ctx, s)
@@ -3112,6 +3112,7 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
@@ -3119,7 +3120,6 @@ func Test_Ubuntu2204_MANA(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
 				enableAcceleratedNetworking(vmss)
-				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateMANA(ctx, s)
@@ -3138,91 +3138,13 @@ func Test_AzureLinuxV3_MANA(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
+			UseNVMe: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ds_v6"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2ds_v6"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2ds_v6")
-				enableAcceleratedNetworking(vmss)
-				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMANA(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2404_MANA_V7(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 24.04 with a V7 SKU",
-		Tags: Tags{
-			VMSeriesCoverageTest: true,
-			MANA:                 true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			UseNVMe: true,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ads_v7"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2ads_v7"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2ads_v7")
-				enableAcceleratedNetworking(vmss)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMANA(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_MANA_V7(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Ubuntu 22.04 with a V7 SKU",
-		Tags: Tags{
-			VMSeriesCoverageTest: true,
-			MANA:                 true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			UseNVMe: true,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ads_v7"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2ads_v7"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2ads_v7")
-				enableAcceleratedNetworking(vmss)
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateMANA(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV3_MANA_V7(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that MANA (Accelerated Networking) is properly configured on Azure Linux V3 with a V7 SKU",
-		Tags: Tags{
-			VMSeriesCoverageTest: true,
-			MANA:                 true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV3Gen2,
-			UseNVMe: true,
-			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2ads_v7"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2ads_v7"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2ads_v7")
 				enableAcceleratedNetworking(vmss)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
