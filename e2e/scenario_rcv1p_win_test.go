@@ -1,6 +1,3 @@
-// REVERT ME: this file uses rcv1pWindowsCSEMutator to override CseScriptsPackageURL with a
-// branch-built CSE zip. Remove those overrides once the RCV1P code ships in a published CSE package.
-//
 // scenario_rcv1p_win_test.go contains end-to-end tests for the RCV1P cert mode on Windows.
 // Windows uses a different cert installation path than Linux: certificates are downloaded to
 // C:\ca and imported into the Windows certificate store (Cert:\LocalMachine\Root) via
@@ -20,7 +17,6 @@ import (
 // installation on Windows Server 2022.
 func Test_RCV1P_Windows2022(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode on Windows Server 2022 with VM opt-in tag",
 		Tags: Tags{
@@ -30,7 +26,6 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2022Containerd,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
 			},
@@ -41,7 +36,6 @@ func Test_RCV1P_Windows2022(t *testing.T) {
 // Test_RCV1P_Windows2025 validates RCV1P on Windows Server 2025 (non-gen2).
 func Test_RCV1P_Windows2025(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode on Windows Server 2025 with VM opt-in tag",
 		Tags: Tags{
@@ -52,7 +46,6 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 			VHD:             config.VHDWindows2025,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				cseMutator(c, nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -66,7 +59,6 @@ func Test_RCV1P_Windows2025(t *testing.T) {
 // installation on Windows Server 2022 Gen2. Covers the gen2 pipeline job.
 func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode on Windows Server 2022 Gen2 with VM opt-in tag",
 		Tags: Tags{
@@ -76,7 +68,6 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator:        rcv1pVMConfigMutator(),
-			BootstrapConfigMutator: cseMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PCertModeWindows(ctx, s)
 			},
@@ -87,7 +78,6 @@ func Test_RCV1P_Windows2022Gen2(t *testing.T) {
 // Test_RCV1P_Windows2025Gen2 validates RCV1P on Windows Server 2025 Gen2. Covers the gen2 pipeline job.
 func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 	skipIfRCV1PNotConfigured(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode on Windows Server 2025 Gen2 with VM opt-in tag",
 		Tags: Tags{
@@ -98,7 +88,6 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 			VHD:             config.VHDWindows2025Gen2,
 			VMConfigMutator: rcv1pVMConfigMutator(),
 			BootstrapConfigMutator: func(c *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-				cseMutator(c, nbc)
 				Windows2025BootstrapConfigMutator(t, nbc)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -117,16 +106,14 @@ func Test_RCV1P_Windows2025Gen2(t *testing.T) {
 // the opt-in tag on the default E2E subscription, making the negative test invalid.
 func Test_RCV1P_Windows_NotOptedIn(t *testing.T) {
 	skipIfRCV1PNotExplicit(t)
-	cseMutator := rcv1pWindowsCSEMutator(t) // REVERT ME: use branch CSE zip
 	RunScenario(t, &Scenario{
 		Description: "Tests RCV1P cert mode on Windows without VM opt-in tag; expects no cert installation",
 		Tags: Tags{
 			RCV1PCertMode: true,
 		},
 		Config: Config{
-			Cluster:                ClusterAzureNetwork,
-			VHD:                    config.VHDWindows2022Containerd,
-			BootstrapConfigMutator: cseMutator,
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDWindows2022Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateRCV1PNotOptedInWindows(ctx, s)
 			},
