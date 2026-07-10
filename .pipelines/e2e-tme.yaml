@@ -1,12 +1,8 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
-parameters:
-  - name: subscriptionId
-    type: string
-    displayName: Subscription ID to use for E2E tests (empty = use variable group default)
-    default: ""
 variables:
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 2
+  SUBSCRIPTION_ID: ""
 
 jobs:
   - template: ./templates/e2e-template.yaml
@@ -15,5 +11,5 @@ jobs:
       IgnoreScenariosWithMissingVhd: false
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
       variableGroup: ab-e2e-tme
-      subscriptionId: ${{ parameters.subscriptionId }}
+      subscriptionId: ${{ variables.SUBSCRIPTION_ID }}
 
