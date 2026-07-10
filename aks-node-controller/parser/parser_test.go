@@ -375,6 +375,7 @@ oom_score = -999
 				KubernetesVersion:       tt.k8sVersion,
 				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 					ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
+					ContainerdVersion:         "1.7.22",
 				},
 				OutboundCommand: helpers.GetDefaultOutboundCommand(),
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
@@ -576,4 +577,106 @@ func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
 func assertHasKeyWithValue[K comparable, V any](t *testing.T, m map[K]V, key K, value V) {
 	assert.Contains(t, m, key, "expected map to contain key: %v", key)
 	assert.Equal(t, value, m[key], "expected map to have key-value pair %s=%v", key, value)
+}
+
+func TestParseContainerdVersionOutput(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   string
+	}{
+		{
+			name:   "containerd v2 with package revision",
+			output: "containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f14765df376e5fc36f5a8f8e795b5670f61",
+			want:   "2.3.2",
+		},
+		{
+			name:   "containerd v2 without package revision",
+			output: "containerd github.com/containerd/containerd/v2 v2.0.0 abc123",
+			want:   "2.0.0",
+		},
+		{
+			name:   "containerd v1 with package revision",
+			output: "containerd containerd.io 1.7.22-1 c814c75abc123",
+			want:   "1.7.22",
+		},
+		{
+			name:   "containerd v1 without package revision",
+			output: "containerd containerd.io 1.7.22 c814c75abc123",
+			want:   "1.7.22",
+		},
+		{
+			name:   "empty output",
+			output: "",
+			want:   "",
+		},
+		{
+			name:   "unexpected format",
+			output: "not a valid output",
+			want:   "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseContainerdVersionOutput(tt.output)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
+	// Create a fake containerd binary that outputs a v2 version string.
+	tmpDir := t.TempDir()
+	fakeBin := tmpDir + "/containerd"
+	err := os.WriteFile(fakeBin, []byte("#!/bin/sh\necho 'containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f14765df376e5fc36f5a8f8e795b5670f61'\n"), 0755)
+	require.NoError(t, err)
+
+	// Prepend tmpDir to PATH so our fake binary is found first.
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+
+	config := &aksnodeconfigv1.Configuration{
+		NeedsCgroupv2: to.Ptr(true),
+		// ContainerdVersion is intentionally NOT set — should be auto-detected.
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+	}
+
+	cmd, err := BuildCSECmd(context.TODO(), config)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	// Verify the detected version was populated.
+	assert.Equal(t, "2.3.2", vars["CONTAINERD_VERSION"])
+
+	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
+	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+}
+
+func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
+	// Ensure no containerd binary is found by setting PATH to an empty temp dir.
+	tmpDir := t.TempDir()
+	t.Setenv("PATH", tmpDir)
+
+	config := &aksnodeconfigv1.Configuration{
+		// ContainerdVersion is intentionally NOT set and detection will fail.
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+	}
+
+	// BuildCSECmd should NOT return an error even when containerd detection fails.
+	cmd, err := BuildCSECmd(context.TODO(), config)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	// Version should remain empty (detection failed gracefully).
+	assert.Equal(t, "", vars["CONTAINERD_VERSION"])
+
+	// Verify the v1 containerd config template was used (uses "io.containerd.grpc.v1.cri" path).
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+	assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 }
