@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
@@ -1534,6 +1535,10 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 	})
 
 	It("should not embed a hotfix JSON file entry when the parts FS does not ship one", func() {
+		if _, err := parts.Templates.ReadFile(hotfixJSONFile); err == nil {
+			Skip("parts FS ships " + hotfixJSONFile + " on this branch; this case is covered by the 'should embed' test below")
+		}
+
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
@@ -1541,9 +1546,25 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
-		// The repository does not currently ship linux/cloud-init/artifacts/aks-node-controller-hotfix.json,
-		// so no hotfix file entry should be rendered into the boothook.
 		Expect(string(decodedPayload)).NotTo(ContainSubstring(aksHotfixJSONFilepath))
+	})
+
+	It("should embed a hotfix JSON file entry when the parts FS ships one", func() {
+		b, err := parts.Templates.ReadFile(hotfixJSONFile)
+		if err != nil {
+			Skip("parts FS does not ship " + hotfixJSONFile + " on this branch")
+		}
+
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, decodeErr := base64.StdEncoding.DecodeString(payload)
+		Expect(decodeErr).NotTo(HaveOccurred())
+
+		encodedHotfixJSON := getBase64EncodedGzippedCustomScriptFromStr(string(b))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksHotfixJSONFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedHotfixJSON))
 	})
 
 	It("should render valid ignition JSON with the encoded files for scriptless ACL custom data", func() {

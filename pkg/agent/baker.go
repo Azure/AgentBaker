@@ -58,8 +58,8 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
-	// boothookFileEntry is appended to the boothook when additional files are provided.
-	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script.
+	// boothookFileEntry is appended to the boothook for each additional file.
+	// It writes gzipped+base64-encoded content to disk before starting aks-node-controller.
 	boothookFileEntry = `
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s

@@ -53,9 +53,9 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 }
 
 func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
-	hotfixVersion := strings.TrimSpace(cfg.Scripts_Version)
+	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
 	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a scripts version for this base, skipping download", "current", Version)
+		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply", "current", Version)
 		return nil
 	}
 
@@ -63,18 +63,17 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
 	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
 	if err != nil {
-		slog.Warn("failed to compare versions, skipping hotfix download",
+		slog.Warn("failed to compare versions, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion, "error", err)
 		return nil
 	}
 	if !shouldUpgrade {
-		slog.Info("CSE scripts version not targeted by hotfix, skipping download",
+		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
 			"current", Version, "hotfix", hotfixVersion)
 		return nil
 	}
 
 	return applyNodeCustomData(a.getNodeCustomDataPath())
-
 }
 
 func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
@@ -120,8 +119,8 @@ type hotfixConfig struct {
 	// is empty, preserving backward compatibility with the original config shape.
 	Version string `json:"version,omitempty"`
 
-	// Scripts_Version is override version for cse scripts
-	Scripts_Version string `json:"scripts_version,omitempty"`
+	// ScriptsVersion is override version for cse scripts
+	ScriptsVersion string `json:"scripts_version,omitempty"`
 
 	// Hotfixes maps an ANC version base ("YYYYMM.DD") to the hotfix version
 	// ("YYYYMM.DD.PATCH") to apply to nodes whose baked ANC version shares that base.
