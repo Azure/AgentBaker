@@ -3213,6 +3213,8 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 	ValidatePodRunning(ctx, s, pod)
 
 	s.T.Logf("GPU workload is schedulable and runs successfully")
+}
+
 // ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during
 // Linux node provisioning, certificates were downloaded and installed, and a refresh task was scheduled.
 func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) {
