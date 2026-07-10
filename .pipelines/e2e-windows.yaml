@@ -37,3 +37,4 @@ jobs:
     parameters:
       name: Windows Tests
       IgnoreScenariosWithMissingVhd: false
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}

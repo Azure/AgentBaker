@@ -6,12 +6,14 @@ parameters:
     default: ""
 variables:
   SKIP_E2E_TESTS: false
+  E2E_FAILED_TESTS_RETRY_COUNT: 2
 
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
       variableGroup: ab-e2e-tme
       subscriptionId: ${{ parameters.subscriptionId }}
 

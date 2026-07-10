@@ -9,6 +9,7 @@ variables:
   TAGS_TO_RUN: "rcv1pcertmode=true"
   SKIP_E2E_TESTS: false
   E2E_GO_TEST_TIMEOUT: "75m"
+  E2E_FAILED_TESTS_RETRY_COUNT: 0
 trigger: none
 pr: none
 jobs:
@@ -19,3 +20,4 @@ jobs:
       # RCV1P subscription does NOT auto-inject the opt-in VMSS tag, so negative tests
       # (Test_RCV1P_*_NotOptedIn) can validate the not-opted-in behavior.
       rcv1pTagsAutoInjected: false
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
