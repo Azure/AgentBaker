@@ -260,9 +260,8 @@ func Test_DCGM_Exporter_Compatibility(t *testing.T) {
 			RunScenario(t, &Scenario{
 				Description: tc.description,
 				Config: Config{
-					Cluster:                ClusterKubenet,
-					VHD:                    tc.vhd,
-					BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {},
+					Cluster: ClusterKubenet,
+					VHD:     tc.vhd,
 
 					// We are only validating if the package versions are compatible, and for that we need an environment like
 					// Ubuntu or Az Linux, and nothing else. This test doesn't care about any other validation.
