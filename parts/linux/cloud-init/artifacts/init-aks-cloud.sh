@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+[ -n "${__SOURCED__:-}" ] || set -x
 
 # Dependency note: `jq` is guaranteed to be present on every AKS VHD (baked in
 # by vhdbuilder/packer/install-dependencies.sh and shipped in the Azure Linux
@@ -79,34 +79,9 @@ IS_UBUNTU=0
 IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
-# shellcheck disable=SC3010
-if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    # shellcheck disable=SC3010
-    if [[ $NAME == *"Ubuntu"* ]]; then
-        IS_UBUNTU=1
-    elif [[ $ID == *"flatcar"* ]]; then
-        IS_FLATCAR=1
-    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
-        IS_ACL=1
-    elif [[ $NAME == *"Mariner"* ]]; then
-        IS_MARINER=1
-    elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
-        IS_AZURELINUX=1
-    else
-        echo "Unknown Linux distribution"
-        exit 1
-    fi
-else
-    echo "Unsupported operating system"
-    exit 1
-fi
-
-echo "distribution is $distribution"
-echo "Running on $NAME"
 
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
-WIRESERVER_ENDPOINT="http://168.63.129.16"
+WIRESERVER_ENDPOINT="${WIRESERVER_ENDPOINT:-http://168.63.129.16}"
 
 function make_request_with_retry {
     local url="$1"
@@ -314,107 +289,42 @@ function install_certs_to_trust_store {
     debug_print_trust_store "after"
     return $rc
 }
-
-# Certificate refresh behavior summary:
-# - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
-# - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
-# - Wireserver failures are fatal — cert installation must succeed for the selected mode.
-
-refresh_location="${2:-${LOCATION}}"
-
-location_normalized="${refresh_location,,}"
-location_normalized="${location_normalized//[[:space:]]/}"
-if [ -z "$location_normalized" ]; then
-    echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
-fi
-
-cert_endpoint_mode="rcv1p"
-case "$location_normalized" in
-    ussec*|usnat*) cert_endpoint_mode="legacy" ;;
-esac
-
-echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
-emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
-install_ca_refresh_schedule=0
-mkdir -p /root/AzureCACertificates
-rm -f /root/AzureCACertificates/*
-if [ "$cert_endpoint_mode" = "legacy" ]; then
-    install_ca_refresh_schedule=1
-    if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
-    else
-        echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
-        exit 1
-    fi
-elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
-    logs_to_events "AKS.CSE.rcv1p.isOptedIn" is_opted_in_for_root_certs
-    opt_in_result=$?
-    if [ $opt_in_result -eq 2 ]; then
-        # Fatal: wireserver was unreachable after retries. We cannot determine whether
-        # the node should use hardened certs or the default trust store. Silently
-        # falling back to the distro trust store would be a security hole if the
-        # customer intended hardened certs, so we fail hard here.
-        echo "ERROR: cannot provision node — wireserver unreachable for cert opt-in check"
-        emit_event "AKS.CSE.rcv1p.optInCheckFailed" "wireserver unreachable after retries" "Error"
-        exit 1
-    elif [ $opt_in_result -eq 0 ]; then
-        install_ca_refresh_schedule=1
-        emit_event "AKS.CSE.rcv1p.optedIn" "IsOptedInForRootCerts=true"
-        if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
-            cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
-            emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
-            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
-                echo "ERROR: failed to install rcv1p CA certificates into trust store" >&2
-                emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install rcv1p CA certificates" "Error"
-                exit 1
-            }
-        else
-            echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
-            emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
-            exit 1
-        fi
-    else
-        emit_event "AKS.CSE.rcv1p.notOptedIn" "IsOptedInForRootCerts=false, skipping cert installation"
-    fi
-fi
-
-# In ca-refresh mode (invoked by the scheduled cron/systemd task with the location as arg),
-# only the cert refresh above is needed; exit before running the full init path.
-# Action values:
-# - init (default): full provisioning path
-# - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
-action=${1:-init}
-if [ "$action" = "ca-refresh" ]; then
-    exit
-fi
-
 function init_ubuntu_main_repo_depot {
     local repodepot_endpoint="$1"
+    local keyrings_dir="${APT_KEYRINGS_DIR:-/etc/apt/keyrings}"
+    local ssl_certs_dir="${SSL_CERTS_DIR:-/etc/ssl/certs}"
+    local ssl_cert_target="${SSL_CERT_TARGET:-/usr/lib/ssl/cert.pem}"
+    local backup_dir="${APT_BACKUP_DIR:-/etc/apt/backup}"
+    local sources_list="${APT_SOURCES_LIST:-/etc/apt/sources.list}"
+    local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
+    local os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
+
     # Initialize directory for keys
-    mkdir -p /etc/apt/keyrings
+    mkdir -p "$keyrings_dir"
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used
     echo "Copying updated bundle to OpenSSL .pem file..."
-    cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
+    cp "${ssl_certs_dir}/ca-certificates.crt" "$ssl_cert_target"
     echo "Updated bundle copied."
 
     # Back up sources.list and sources.list.d contents
-    mkdir -p /etc/apt/backup/
-    if [ -f "/etc/apt/sources.list" ]; then
-        mv /etc/apt/sources.list /etc/apt/backup/
+    mkdir -p "$backup_dir"
+    if [ -f "$sources_list" ]; then
+        mv "$sources_list" "$backup_dir/"
     fi
-    for sources_file in /etc/apt/sources.list.d/*; do
+    for sources_file in "${sources_list_d}"/*; do
         if [ -f "$sources_file" ]; then
-            mv "$sources_file" /etc/apt/backup/
+            mv "$sources_file" "$backup_dir/"
         fi
     done
 
     # Set location of sources file
-    . /etc/os-release
-    aptSourceFile="/etc/apt/sources.list.d/ubuntu.sources"
+    # shellcheck disable=SC1090
+    . "$os_release_file"
+    local aptSourceFile="${sources_list_d}/ubuntu.sources"
 
     # Create main sources file
-    cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
+    cat <<EOF > "$aptSourceFile"
 
 Types: deb
 URIs: ${repodepot_endpoint}/ubuntu
@@ -425,13 +335,13 @@ EOF
 
     # Update the apt sources file using the RepoDepot Ubuntu URL for this cloud. Update it by replacing
     # all urls with the RepoDepot Ubuntu url
-    ubuntuUrl=${repodepot_endpoint}/ubuntu
+    local ubuntuUrl="${repodepot_endpoint}/ubuntu"
     echo "Converting URLs in $aptSourceFile to RepoDepot URLs..."
-    sed -i "s,https\?://.[^ ]*,$ubuntuUrl,g" $aptSourceFile
+    sed -i "s,https\?://.[^ ]*,$ubuntuUrl,g" "$aptSourceFile"
     echo "apt source URLs converted, see new file below:"
     echo ""
     echo "-----"
-    cat $aptSourceFile
+    cat "$aptSourceFile"
     echo "-----"
     echo ""
 }
@@ -456,11 +366,13 @@ function write_to_sources_file {
     local source_uri=$2
     shift 2
     local key_paths=("$@")
+    local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
 
-    sources_file_path="/etc/apt/sources.list.d/${sources_list_d_file}.sources"
+    local sources_file_path="${sources_list_d}/${sources_list_d_file}.sources"
+    local ubuntuDist
     ubuntuDist=$(lsb_release -c | awk '{print $2}')
 
-    tee -a $sources_file_path <<EOF
+    tee -a "$sources_file_path" <<EOF
 
 Types: deb
 URIs: $source_uri
@@ -473,6 +385,7 @@ EOF
 
 function add_key_ubuntu {
     local key_name=$1
+    local keyrings_dir="${APT_KEYRINGS_DIR:-/etc/apt/keyrings}"
 
     key_url="${repodepot_endpoint}/keys/${key_name}"
     check_url $key_url
@@ -486,9 +399,10 @@ function add_key_ubuntu {
 function derive_key_paths {
     local key_names=("$@")
     local key_paths=()
+    local keyrings_dir="${APT_KEYRINGS_DIR:-/etc/apt/keyrings}"
 
     for key_name in "${key_names[@]}"; do
-        key_paths+=("/etc/apt/keyrings/${key_name}.gpg")
+        key_paths+=("${keyrings_dir}/${key_name}.gpg")
     done
 
     echo "${key_paths[*]}"
@@ -600,6 +514,111 @@ function dnf_makecache {
     done
     echo "Executed dnf makecache -y $i times"
 }
+
+# Function definitions above this line are sourced and tested in
+# spec/parts/linux/cloud-init/artifacts/init_aks_custom_cloud_spec.sh.
+# shellcheck disable=SC2317
+${__SOURCED__:+return 0}
+
+# shellcheck disable=SC3010
+if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    # shellcheck disable=SC3010
+    if [[ $NAME == *"Ubuntu"* ]]; then
+        IS_UBUNTU=1
+    elif [[ $ID == *"flatcar"* ]]; then
+        IS_FLATCAR=1
+    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
+        IS_ACL=1
+    elif [[ $NAME == *"Mariner"* ]]; then
+        IS_MARINER=1
+    elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
+        IS_AZURELINUX=1
+    else
+        echo "Unknown Linux distribution"
+        exit 1
+    fi
+else
+    echo "Unsupported operating system"
+    exit 1
+fi
+
+echo "Running on $NAME"
+
+
+# Certificate refresh behavior summary:
+# - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
+# - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
+# - Wireserver failures are fatal — cert installation must succeed for the selected mode.
+
+refresh_location="${2:-${LOCATION}}"
+
+location_normalized="${refresh_location,,}"
+location_normalized="${location_normalized//[[:space:]]/}"
+if [ -z "$location_normalized" ]; then
+    echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
+fi
+
+cert_endpoint_mode="rcv1p"
+case "$location_normalized" in
+    ussec*|usnat*) cert_endpoint_mode="legacy" ;;
+esac
+
+echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
+emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
+install_ca_refresh_schedule=0
+mkdir -p /root/AzureCACertificates
+rm -f /root/AzureCACertificates/*
+if [ "$cert_endpoint_mode" = "legacy" ]; then
+    install_ca_refresh_schedule=1
+    if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
+        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
+    else
+        echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
+        exit 1
+    fi
+elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
+    logs_to_events "AKS.CSE.rcv1p.isOptedIn" is_opted_in_for_root_certs
+    opt_in_result=$?
+    if [ $opt_in_result -eq 2 ]; then
+        # Fatal: wireserver was unreachable after retries. We cannot determine whether
+        # the node should use hardened certs or the default trust store. Silently
+        # falling back to the distro trust store would be a security hole if the
+        # customer intended hardened certs, so we fail hard here.
+        echo "ERROR: cannot provision node — wireserver unreachable for cert opt-in check"
+        emit_event "AKS.CSE.rcv1p.optInCheckFailed" "wireserver unreachable after retries" "Error"
+        exit 1
+    elif [ $opt_in_result -eq 0 ]; then
+        install_ca_refresh_schedule=1
+        emit_event "AKS.CSE.rcv1p.optedIn" "IsOptedInForRootCerts=true"
+        if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
+            cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
+            emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"
+            logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
+                echo "ERROR: failed to install rcv1p CA certificates into trust store" >&2
+                emit_event "AKS.CSE.rcv1p.installCertsFailed" "failed to install rcv1p CA certificates" "Error"
+                exit 1
+            }
+        else
+            echo "ERROR: failed to retrieve rcv1p certificates from wireserver after retries"
+            emit_event "AKS.CSE.rcv1p.retrieveCertsFailed" "failed to retrieve rcv1p certificates" "Error"
+            exit 1
+        fi
+    else
+        emit_event "AKS.CSE.rcv1p.notOptedIn" "IsOptedInForRootCerts=false, skipping cert installation"
+    fi
+fi
+
+# In ca-refresh mode (invoked by the scheduled cron/systemd task with the location as arg),
+# only the cert refresh above is needed; exit before running the full init path.
+# Action values:
+# - init (default): full provisioning path
+# - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
+action=${1:-init}
+if [ "$action" = "ca-refresh" ]; then
+    exit
+fi
+
 
 if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
     scriptPath=$0
