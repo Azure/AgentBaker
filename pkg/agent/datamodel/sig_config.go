@@ -886,6 +886,11 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
 		for distro, config := range m {
+			if distro.Is2604VHDDistro() {
+				// 26.04 images don't exist yet
+				// TODO(26.04): remove once images are published against LinuxSIGImageVersion
+				continue
+			}
 			if config.Version == LinuxSIGImageVersion {
 				maintained[distro] = config
 			}
