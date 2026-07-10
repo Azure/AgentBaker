@@ -384,15 +384,16 @@ EOF
 }
 
 function add_key_ubuntu {
-    local key_name=$1
-    local keyrings_dir="${APT_KEYRINGS_DIR:-/etc/apt/keyrings}"
+    local key_name="$1"
 
-    key_url="${repodepot_endpoint}/keys/${key_name}"
-    check_url $key_url
+    local key_url="${repodepot_endpoint}/keys/${key_name}"
+    check_url "$key_url"
     echo "Adding $key_name key to keyring..."
-    key_data=$(wget -O - $key_url)
-    key_path=$(derive_key_paths $key_name)
-    echo "$key_data" | gpg --dearmor | tee $key_path > /dev/null
+    local key_data
+    key_data=$(wget -O - "$key_url")
+    local key_path
+    key_path=$(derive_key_paths "$key_name")
+    echo "$key_data" | gpg --dearmor | tee "$key_path" > /dev/null
     echo "$key_name key added to keyring."
 }
 
