@@ -135,6 +135,9 @@ installDeps() {
 }
 
 updateAptWithMicrosoftPkg() {
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
 
@@ -142,6 +145,13 @@ updateAptWithMicrosoftPkg() {
 
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        # Ubuntu 26.04 (Resolute) PMC repo is signed with Microsoft's newer 2025 gpg key
+        retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft-2025.asc | gpg --dearmor > /tmp/microsoft-2025.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 10 5 10 cp /tmp/microsoft-2025.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    fi
+
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
