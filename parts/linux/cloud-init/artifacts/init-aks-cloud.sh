@@ -302,10 +302,15 @@ function init_ubuntu_main_repo_depot {
     # Initialize directory for keys
     mkdir -p "$keyrings_dir"
 
-    # This copies the updated bundle to the location used by OpenSSL which is commonly used
-    echo "Copying updated bundle to OpenSSL .pem file..."
-    cp "${ssl_certs_dir}/ca-certificates.crt" "$ssl_cert_target"
-    echo "Updated bundle copied."
+    # This copies the updated bundle to the location used by OpenSSL which is commonly used.
+    # On Ubuntu 24.04, ssl_cert_target may be a symlink to ca-certificates.crt (same file),
+    # so skip the copy if source and destination resolve to the same inode.
+    local src_file="${ssl_certs_dir}/ca-certificates.crt"
+    if [ -f "$src_file" ] && ! [ "$src_file" -ef "$ssl_cert_target" ]; then
+        echo "Copying updated bundle to OpenSSL .pem file..."
+        cp "$src_file" "$ssl_cert_target"
+        echo "Updated bundle copied."
+    fi
 
     # Back up sources.list and sources.list.d contents
     mkdir -p "$backup_dir"
@@ -385,8 +390,9 @@ EOF
 
 function add_key_ubuntu {
     local key_name="$1"
+    local endpoint="$2"
 
-    local key_url="${repodepot_endpoint}/keys/${key_name}"
+    local key_url="${endpoint}/keys/${key_name}"
     check_url "$key_url"
     echo "Adding $key_name key to keyring..."
     local key_data
@@ -410,11 +416,12 @@ function derive_key_paths {
 }
 
 function add_ms_keys {
+    local endpoint="$1"
     # Add the Microsoft package server keys to keyring.
     echo "Adding Microsoft keys to keyring..."
 
-    add_key_ubuntu microsoft.asc
-    add_key_ubuntu msopentech.asc
+    add_key_ubuntu microsoft.asc "$endpoint"
+    add_key_ubuntu msopentech.asc "$endpoint"
 }
 
 function aptget_update {
@@ -434,17 +441,17 @@ function init_ubuntu_pmc_repo_depot {
     # Add Microsoft packages source to the azure specific sources.list.
     echo "Adding the packages.microsoft.com Ubuntu-$ubuntuRel repo..."
 
-    microsoftPackageSource="$repodepot_endpoint/microsoft/ubuntu/$ubuntuRel/prod"
-    check_url $microsoftPackageSource
-    write_to_sources_file microsoft-prod $microsoftPackageSource $(derive_key_paths microsoft.asc msopentech.asc)
-    write_to_sources_file microsoft-prod-testing $microsoftPackageSource $(derive_key_paths microsoft.asc msopentech.asc)
+    local microsoftPackageSource="$repodepot_endpoint/microsoft/ubuntu/$ubuntuRel/prod"
+    check_url "$microsoftPackageSource"
+    write_to_sources_file microsoft-prod "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc)
+    write_to_sources_file microsoft-prod-testing "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc)
     echo "Ubuntu ($ubuntuRel) repo added."
     echo "Adding packages.microsoft.com keys"
-    add_ms_keys $repodepot_endpoint
+    add_ms_keys "$repodepot_endpoint"
 }
 
 function init_mariner_repo_depot {
-    local repodepot_endpoint=$1
+    local repodepot_endpoint="$1"
     local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
 
     echo "Adding [extended] repo"
@@ -471,15 +478,15 @@ function init_mariner_repo_depot {
 }
 
 function init_azurelinux_repo_depot {
-    local repodepot_endpoint=$1
+    local repodepot_endpoint="$1"
     local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
     local repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
 
     rm -f "${yum_repos_dir}"/azurelinux*
 
     for repo in "${repos[@]}"; do
-        output_file="${yum_repos_dir}/azurelinux-${repo}.repo"
-        repo_content=(
+        local output_file="${yum_repos_dir}/azurelinux-${repo}.repo"
+        local repo_content=(
             "[azurelinux-official-$repo]"
             "name=Azure Linux Official $repo \$releasever \$basearch"
             "baseurl=$repodepot_endpoint/azurelinux/\$releasever/prod/$repo/\$basearch"

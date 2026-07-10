@@ -228,6 +228,7 @@ gpgcheck=1
 enabled=1
 REPO
             When call init_mariner_repo_depot "https://repodepot.ussec.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_DIR}/mariner-extended.repo" should be exist
             The path "${YUM_REPOS_DIR}/mariner-nvidia.repo" should be exist
@@ -243,6 +244,7 @@ REPO
             export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
             mkdir -p "${YUM_REPOS_DIR}"
             When call init_azurelinux_repo_depot "https://repodepot.usnat.example.com"
+            The output should be present
             The status should be success
             The path "${YUM_REPOS_DIR}/azurelinux-base.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-nvidia.repo" should be exist
@@ -256,6 +258,7 @@ REPO
             export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
             mkdir -p "${YUM_REPOS_DIR}"
             When call init_azurelinux_repo_depot "https://repodepot.mooncake.example.com"
+            The output should be present
             The status should be success
             The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.mooncake.example.com/azurelinux/"
         End
@@ -265,6 +268,7 @@ REPO
         It 'works for Fairfax (USGov) cloud endpoint'
             write_ubuntu_os_release
             When call init_ubuntu_main_repo_depot "https://repodepot.fairfax.example.com"
+            The output should be present
             The status should be success
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.fairfax.example.com/ubuntu"
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should not include "archive.ubuntu.com"
@@ -273,6 +277,7 @@ REPO
         It 'works for Mooncake (China) cloud endpoint'
             write_ubuntu_os_release
             When call init_ubuntu_main_repo_depot "https://repodepot.mooncake.example.com"
+            The output should be present
             The status should be success
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.mooncake.example.com/ubuntu"
         End
@@ -280,6 +285,7 @@ REPO
         It 'works for USsec cloud endpoint'
             write_ubuntu_os_release
             When call init_ubuntu_main_repo_depot "https://repodepot.ussec.example.com"
+            The output should be present
             The status should be success
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.ussec.example.com/ubuntu"
         End
