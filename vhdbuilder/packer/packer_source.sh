@@ -162,7 +162,7 @@ copyPackerFiles() {
 
   PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
-  cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
+  cpAndMode $PVT_HOST_SVC_SRC $PVT_HOST_SVC_DEST 600
 
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
     # KataCC SPEC file assumes kata config points to the files exactly under this path

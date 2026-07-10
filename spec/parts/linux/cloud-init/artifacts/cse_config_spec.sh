@@ -18,6 +18,62 @@ Describe 'cse_config.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
+    Describe 'logGPUDriverPrebakeReadiness'
+        It 'reports marker_present=false when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "AKS_GPU_PREBAKE event=managed_gpu"
+            The output should include "marker_present=false"
+            The output should include "driver_kind_match=false"
+        End
+
+        It 'reports marker_present=true driver_kind_match=true when the marker matches the node driver kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=true"
+            rm -f "$marker"
+        End
+
+        It 'matches a cuda marker for a cuda-lts (R580 LTS) node: driver-type maps to the aks-gpu driver_kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=true"
+            The output should include "driver_type=cuda-lts"
+            rm -f "$marker"
+        End
+
+        It 'reports driver_kind_match=false when a CUDA marker is on a GRID node (not skip-ready)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=false"
+            rm -f "$marker"
+        End
+
+        It 'does not false-positive when the marker lacks driver_kind and the driver type is unset (both empty)'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE=""
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=false"
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
@@ -1597,7 +1653,6 @@ SETUP_EOF
             SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT="custom-get-nonce-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT="custom-get-attested-data-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT="custom-get-credential-timeout"
-            SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
             When call configureAndEnableSecureTLSBootstrapping
@@ -1611,7 +1666,7 @@ SETUP_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "EnvironmentFile=default/secure-tls-bootstrap"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
-            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline'
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout'
             The status should be success
         End
     End
@@ -2088,6 +2143,25 @@ SETUP_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # Run the wrapped command so pullGPUDriverImage's failure propagates through the guard;
+            # the default logs_to_events mock only echoes the event name and never runs the command.
+            logs_to_events() { shift; "$@"; }
+            # ctr images ls returns empty -> cache miss -> pull path taken. The pull fails; install
+            # would otherwise succeed, so a missing guard would let INSTALL_RAN leak into the output.
+            pullGPUDriverImage() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
         End
 
         It 'times the driver download and toolkit install on Mariner/AzureLinux'

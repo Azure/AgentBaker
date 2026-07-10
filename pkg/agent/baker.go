@@ -82,13 +82,13 @@ chmod 0600 %[1]s
        "files": [{
         "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
         "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+        "contents": { "compression": "gzip","source": "data:;base64,%[1]s" }
        },
 	   {
         "path": "/opt/azure/containers/nodecustomdata.yml",
         "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%s" }
-       }%s]
+        "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
+       }%[3]s]
       }
      }`
 	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
@@ -167,6 +167,7 @@ func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, enc
 	if encodedAKSNodeConfig != "" {
 		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
 	}
+
 	return fmt.Sprintf(
 		boothookTemplate,
 		nodeCustomDataPath,
@@ -739,9 +740,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetSecureTLSBootstrappingGetCredentialTimeout": func() string {
 			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
-		},
-		"GetSecureTLSBootstrappingDeadline": func() string {
-			return config.SecureTLSBootstrappingConfig.GetDeadline()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -1497,7 +1495,7 @@ func GetGPUDriverVersion(size string) string {
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.NvidiaCudaDriverVersion
+	return datamodel.NvidiaCudaLTSDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
@@ -1522,9 +1520,15 @@ func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridVersionSuffix
 	}
-	return datamodel.AKSGPUCudaVersionSuffix
+	return datamodel.AKSGPUCudaLTSVersionSuffix
 }
 
+// GetGPUDriverType maps a GPU VM size to the aks-gpu image variant used to install its driver.
+// The value becomes NVIDIA_GPU_DRIVER_TYPE at provision time, which selects the container image
+// mcr.microsoft.com/aks/aks-gpu-<type>. Modern CUDA compute SKUs (T4, V100, A100, H100, H200, ...)
+// use the R580 LTS image (aks-gpu-cuda-lts): it retains Volta/V100 support that the newer aks-gpu-cuda
+// R595 line drops, is supported through Aug 2028, and is the branch the VHD driver prebake is built
+// against. Legacy NCv1 (K80) keeps the separate "cuda" path with its pinned R470 driver.
 func GetGPUDriverType(size string) string {
 	if useGridV20Drivers(size) {
 		return "grid-v20"
@@ -1532,7 +1536,10 @@ func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
 	}
-	return "cuda"
+	if isStandardNCv1(size) {
+		return "cuda"
+	}
+	return "cuda-lts"
 }
 
 func GPUNeedsFabricManager(size string) bool {
