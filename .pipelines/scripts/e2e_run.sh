@@ -113,7 +113,8 @@ if [ "${E2E_FAILED_TESTS_RETRY_COUNT}" -gt 0 ]; then
   rerun_fails="${E2E_FAILED_TESTS_RETRY_COUNT}"
 fi
 ./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" \
-  ${rerun_fails:+--rerun-fails=$rerun_fails} -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
+  ${rerun_fails:+--rerun-fails=$rerun_fails} ${rerun_fails:+--packages=.} \
+  -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"
