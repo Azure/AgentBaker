@@ -197,7 +197,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
 	var _template *template.Template
-	if aksnodeconfig.GetContainerdConfig().GetUseContainerdV2() {
+	if isContainerdV2(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -215,6 +215,16 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	}
 
 	return buffer.String(), nil
+}
+
+// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
+// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
+// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
+func isContainerdV2(version string) bool {
+	if version == "" {
+		return false
+	}
+	return helpers.IsKubernetesVersionGe(version, "2.0.0")
 }
 
 func getIsMIGNode(gpuInstanceProfile string) bool {
