@@ -2,8 +2,10 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 
@@ -265,6 +267,12 @@ var (
 
 var ErrNotFound = fmt.Errorf("not found")
 
+type vhdMetadataEntry struct {
+	ResourceID VHDResourceID `json:"resourceId"`
+	Version    string        `json:"version"`
+	Regions    []string      `json:"regions"`
+}
+
 type perLocationVHDCache struct {
 	vhd  VHDResourceID
 	err  error
@@ -299,6 +307,15 @@ func (i *Image) SupportsScriptless() bool {
 }
 
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
+	if i.Version == "" && Config.vhdMetadata != nil {
+		vhd, err := getVHDResourceIDFromMetadata(Config.vhdMetadata, i, location)
+		if err != nil {
+			return "", err
+		}
+		toolkit.Logf(ctx, "Got image from E2E VHD metadata: %s", vhd)
+		return vhd, nil
+	}
+
 	switch {
 	case i.Version != "":
 		vhd, err := Azure.EnsureSIGImageVersion(ctx, &i, location)
@@ -319,6 +336,48 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 		}
 		return vhd, nil
 	}
+}
+
+func loadVHDMetadata(path string) (map[string]vhdMetadataEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+
+	metadata := make(map[string]vhdMetadataEntry)
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("%s contains no VHD metadata", path)
+	}
+	for imageName, entry := range metadata {
+		if imageName == "" || entry.ResourceID == "" || len(entry.Regions) == 0 {
+			return nil, fmt.Errorf("%s contains incomplete metadata for image %q", path, imageName)
+		}
+	}
+	return metadata, nil
+}
+
+func getVHDResourceIDFromMetadata(metadata map[string]vhdMetadataEntry, image Image, location string) (VHDResourceID, error) {
+	var entry vhdMetadataEntry
+	var found bool
+	for imageName, candidate := range metadata {
+		if strings.EqualFold(imageName, image.Name) {
+			entry = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("%w: image %s is not present in E2E VHD metadata", ErrNotFound, image.Name)
+	}
+	for _, region := range entry.Regions {
+		if strings.EqualFold(region, location) {
+			return entry.ResourceID, nil
+		}
+	}
+	return "", fmt.Errorf("%w: image %s is not replicated to %s according to E2E VHD metadata", ErrNotFound, image.Name, location)
 }
 
 func (i *Image) azurePortalImageUrl() string {
