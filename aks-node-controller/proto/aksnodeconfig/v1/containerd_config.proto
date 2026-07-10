@@ -12,7 +12,4 @@ message ContainerdConfig {
 
   // The URL for downloading the containerd package.
   string containerd_package_url = 3;
-
-  // Specify if use containerd 2.0, default to false.
-  bool use_containerd_v2 = 4;
 }
