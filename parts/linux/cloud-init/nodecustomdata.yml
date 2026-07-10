@@ -25,6 +25,13 @@ write_files:
     Any overridden files will be listed here - Hotfix mode
     Example: {{GetCSEHelpersScriptFilepath}}
 
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
+
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
@@ -137,6 +144,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
+
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"
