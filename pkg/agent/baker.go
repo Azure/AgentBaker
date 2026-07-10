@@ -54,23 +54,13 @@ mkdir -p /opt/azure/containers
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-cat <<'EOF' | base64 -d | gzip -d >%[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
-
-cat <<'EOF' | base64 -d | gzip -d >%[3]s
-%[4]s
-EOF
-chmod 0600 %[3]s
-%[5]s
+%s
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
-	// aksNodeConfigBlock is appended to the boothook when AKSNodeConfig is provided.
-	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script
-	// can pass --provision-config alongside --nbc-cmd for env comparison.
-	aksNodeConfigBlockFmt = `
+	// boothookFileEntry is appended to the boothook when additional files are provided.
+	// It writes the gzipped+base64-encoded JSON config to disk so the wrapper script.
+	boothookFileEntry = `
 cat <<'EOF' | base64 -d | gzip -d >%[1]s
 %[2]s
 EOF
@@ -79,29 +69,18 @@ chmod 0600 %[1]s
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
      "storage": {
-       "files": [{
-        "path": "/opt/azure/containers/aks-node-controller-nbc-cmd.sh",
-        "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%[1]s" }
-       },
-	   {
-        "path": "/opt/azure/containers/nodecustomdata.yml",
-        "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
-       }%[3]s]
+       "files": [%s]
       }
      }`
-	// flatcarAKSNodeConfigEntry is an Ignition file entry appended to the files array
-	// when AKSNodeConfig is provided for env comparison.
-	flatcarAKSNodeConfigEntry = `,
+	// flatcarFileEntry is an Ignition file entry appended to the files array
+	// when additional files are provided. Entries are joined with "," by
+	// buildScriptlessCustomData to form a valid JSON array.
+	flatcarFileEntry = `
 	   {
-        "path": "/opt/azure/containers/aks-node-controller-config.json",
+        "path": "%[1]s",
         "mode": 384,
-        "contents": { "compression": "gzip","source": "data:;base64,%s" }
+        "contents": { "compression": "gzip","source": "data:;base64,%[2]s" }
        }`
-	nodeCustomDataPath = "/opt/azure/containers/nodecustomdata.yml"
-	nbcCmdFilePath     = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-	aksNodeConfigPath  = "/opt/azure/containers/aks-node-controller-config.json"
 )
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -144,38 +123,48 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 
+	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
+	// pointer ship this file. Skip silently when it's absent from the embedded parts FS.
+	var encodedHotfixJSON string
+	if b, err := parts.Templates.ReadFile(hotfixJSONFile); err == nil {
+		encodedHotfixJSON = getBase64EncodedGzippedCustomScriptFromStr(string(b))
+	}
+
+	// Use an ordered slice (not a map) so the rendered customData is deterministic
+	// across runs/tests instead of depending on Go's randomized map iteration order.
+	encodedFiles := []struct {
+		path    string
+		content string
+	}{
+		{aksNbcCmdFilepath, encodedNBCCMD},
+		{aksNodeCustomDataFilepath, encodedNodeCustomData},
+		{aksNodeConfigFilepath, encodedAKSNodeConfig},
+		{aksHotfixJSONFilepath, encodedHotfixJSON},
+	}
+
 	var customData string
 	if config.IsFlatcar() || config.IsACL() {
-		customData = buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 	} else {
-		customData = buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig)
+		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
-func buildFlatcarScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
-	var flatcarAKSNodeConfigBlock string
-	if encodedAKSNodeConfig != "" {
-		flatcarAKSNodeConfigBlock = fmt.Sprintf(flatcarAKSNodeConfigEntry, encodedAKSNodeConfig)
-	}
-	return fmt.Sprintf(flatcarTemplate, encodedNBCCMD, encodedNodeCustomData, flatcarAKSNodeConfigBlock)
-}
-
-func buildBoothookScriptlessCustomData(encodedNBCCMD, encodedNodeCustomData, encodedAKSNodeConfig string) string {
-	var aksNodeConfigBlock string
-	if encodedAKSNodeConfig != "" {
-		aksNodeConfigBlock = fmt.Sprintf(aksNodeConfigBlockFmt, aksNodeConfigPath, encodedAKSNodeConfig)
+func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator string, encodedFiles []struct {
+	path    string
+	content string
+}) string {
+	var fileList []string
+	for _, f := range encodedFiles {
+		if f.content == "" {
+			continue
+		}
+		fileList = append(fileList, fmt.Sprintf(fileListTemplate, f.path, f.content))
 	}
 
-	return fmt.Sprintf(
-		boothookTemplate,
-		nodeCustomDataPath,
-		encodedNodeCustomData,
-		nbcCmdFilePath,
-		encodedNBCCMD,
-		aksNodeConfigBlock,
-	)
+	return fmt.Sprintf(cloudInitTemplate, strings.Join(fileList, separator))
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
