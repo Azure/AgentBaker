@@ -10,6 +10,7 @@ set -euo pipefail
 #   the main branch is used.
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
+# * E2E_FAILED_TESTS_RETRY_COUNT: the number of times gotestsum should retry failed tests. Defaults to 0.
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
@@ -39,8 +40,16 @@ ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-true}"
 TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
 E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
+E2E_FAILED_TESTS_RETRY_COUNT="${E2E_FAILED_TESTS_RETRY_COUNT:-0}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+
+case "${E2E_FAILED_TESTS_RETRY_COUNT}" in
+  '' | *[!0-9]*)
+    echo "##vso[task.logissue type=error]E2E_FAILED_TESTS_RETRY_COUNT must be a non-negative integer, got: ${E2E_FAILED_TESTS_RETRY_COUNT}" >&2
+    exit 1
+    ;;
+esac
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
 echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
@@ -53,6 +62,7 @@ echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
 echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "E2E_GO_TEST_TIMEOUT: ${E2E_GO_TEST_TIMEOUT}"
+echo "E2E_FAILED_TESTS_RETRY_COUNT: ${E2E_FAILED_TESTS_RETRY_COUNT}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
@@ -98,7 +108,12 @@ rm -f "$temp_file"
 # gotestsum configure to only show logs for failed tests, json file for detailed logs
 # Run the tests! Yey!
 test_exit_code=0
-./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
+rerun_fails=""
+if [ "${E2E_FAILED_TESTS_RETRY_COUNT}" -gt 0 ]; then
+  rerun_fails="${E2E_FAILED_TESTS_RETRY_COUNT}"
+fi
+./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" \
+  ${rerun_fails:+--rerun-fails=$rerun_fails} -- -parallel 60 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
 
 # Upload test results as Azure DevOps artifacts
 echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"

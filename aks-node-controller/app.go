@@ -43,11 +43,23 @@ type App struct {
 	eventLogger *helpers.EventLogger
 
 	// hotfixVersionPath overrides the default hotfix version file location for testing.
+	// It is also the path check-hotfix writes the resolved pointer to.
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
+	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
+	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
+	// cold-start fallback pointer.
+	nodeConfigPath string
+	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
+	// unit tests inject a canned pointer body or errors without real networking.
+	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
+	// fetchAttestedToken overrides retrieval of the IMDS attested-data token used as the
+	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
+	// is queried.
+	fetchAttestedToken func(ctx context.Context) (string, error)
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -135,6 +147,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						return fmt.Errorf("unexpected download-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
 					}
 					return a.runDownloadHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:  "check-hotfix",
+				Usage: "Read the hotfix pointer from the live-patching-service and stage it (fail-open)",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						// Fail-open: check-hotfix must always exit 0 so provisioning is never
+						// blocked, so unexpected args are logged and ignored rather than turned
+						// into a non-zero exit code via errToExitCode.
+						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
+					}
+					return a.runCheckHotfixCommand(ctx)
 				},
 			},
 		},

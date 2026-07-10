@@ -13,9 +13,11 @@ const Nvidia470CudaDriverVersion = "cuda-470.82.01"
 //nolint:gochecknoglobals
 var (
 	NvidiaCudaDriverVersion    string
+	NvidiaCudaLTSDriverVersion string
 	NvidiaGridDriverVersion    string
 	NvidiaGridV20DriverVersion string
 	AKSGPUCudaVersionSuffix    string
+	AKSGPUCudaLTSVersionSuffix string
 	AKSGPUGridVersionSuffix    string
 	AKSGPUGridV20VersionSuffix string
 )
@@ -62,7 +64,13 @@ func LoadConfig() error {
 		// repos sharing a prefix (e.g. "aks-gpu-grid" vs "aks-gpu-grid-v20") are not
 		// confused by substring matching.
 		switch gpuImageRepo(image.DownloadURL) {
+		case "aks-gpu-cuda-lts":
+			NvidiaCudaLTSDriverVersion = version
+			AKSGPUCudaLTSVersionSuffix = suffix
 		case "aks-gpu-cuda":
+			// Pre-LTS CUDA image, pinned to the R580 line (V100-capable). Loaded so its version is
+			// available if a SKU is ever routed to the "cuda" image in CSE; the default managed CUDA
+			// image is aks-gpu-cuda-lts (see GetGPUDriverType / GetGPUDriverVersion in baker.go).
 			NvidiaCudaDriverVersion = version
 			AKSGPUCudaVersionSuffix = suffix
 		case "aks-gpu-grid":

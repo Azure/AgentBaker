@@ -16,10 +16,11 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # distro/package revisions can differ. The PMC feeds typically publish multiple
 # ig revisions per OS while ig-gadgets is published once per upstream release.
 # Example: ig 0.51.0-4.azl3 is compatible with ig-gadgets 0.51.0-1.azl3.
-# Since ig-gadgets is NOT in components.json (no Renovate coverage), its version
-# must still be updated manually here whenever ig moves to a new upstream
-# release. testInspektorGadgetAssets should catch any mismatch.
+# Since ig-gadgets has a different publishing pattern, keep it out of
+# components.json and let Renovate manage the pinned package versions here.
+# renovate: datasource=custom.deb2004 depName=ig-gadgets versioning=deb
 IG_GADGETS_DEB_VERSION="0.53.2-ubuntu20.04u1"
+# renovate: datasource=rpm depName=ig-gadgets registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
 IG_GADGETS_RPM_VERSION="0.53.2-1.azl3"
 
 ig_detect_arch() {

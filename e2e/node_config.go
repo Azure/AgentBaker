@@ -852,10 +852,6 @@ func baseTemplateLinux(t testing.TB, location string, k8sVersion string, arch st
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
 				},
-				"AKSFlatcar": {
-					GalleryName:   "aksflatcar",
-					ResourceGroup: "resourcegroup",
-				},
 			},
 		},
 		IsARM64:                   false,
@@ -1059,10 +1055,6 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 				"AKSUbuntuEdgeZone": {
 					GalleryName:   "AKSUbuntuEdgeZone",
 					ResourceGroup: "AKS-Ubuntu-EdgeZone",
-				},
-				"AKSFlatcar": {
-					GalleryName:   "aksflatcar",
-					ResourceGroup: "resourcegroup",
 				},
 			},
 		},

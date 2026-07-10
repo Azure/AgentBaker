@@ -183,9 +183,13 @@
       "enabled": true,
       "groupName": "credential-provider-pmc",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -221,10 +225,14 @@
         "oss/v2/azure/ip-masq-agent-v2"
       ],
       "reviewers": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ],
       "assignees": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ]
     },
     {
@@ -360,9 +368,13 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -372,9 +384,13 @@
       ],
       "groupName": "acr-credential-provider-sysext",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -392,7 +408,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -409,7 +426,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -509,10 +527,15 @@
         "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>windows-hpc))?-(?<prerelease>\\d+)$",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -566,11 +589,22 @@
     },
     {
       "matchPackageNames": [
+        "aks/aks-gpu-cuda-lts"
+      ],
+      "groupName": "nvidia-gpu-cuda-lts",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": [
         "aks/aks-gpu-cuda"
       ],
-      "groupName": "nvidia-gpu-cuda",
+      "groupName": "nvidia-gpu-cuda-legacy",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": true,
+      "allowedVersions": "/^580\\./",
+      "automerge": false,
       "enabled": true,
       "ignoreUnstable": false
     },
@@ -793,6 +827,17 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update ig-gadgets versions in install-ig.sh from PMC",
+      "managerFilePatterns": [
+        "/install-ig\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*IG_GADGETS_[A-Z_]+_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\""
       ]
     },
     {

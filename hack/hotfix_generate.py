@@ -60,9 +60,6 @@ SOURCE_TO_VARKEY = {
     "setup-custom-search-domains.sh": "customSearchDomainsScript",
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-custom-cloud.sh": "initAKSCustomCloud",
-    "init-aks-custom-cloud-mariner.sh": "initAKSCustomCloud",
-    "init-aks-custom-cloud-operation-requests.sh": "initAKSCustomCloud",
-    "init-aks-custom-cloud-operation-requests-mariner.sh": "initAKSCustomCloud",
     # Distro-specific scripts
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
     "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",

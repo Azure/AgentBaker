@@ -720,7 +720,7 @@ EOF
         BeforeEach 'setup'
     #------------------------- wait_for_localdns_ready -----------------------------------------------------------
         It 'should return success if localdns is ready'
-            CURL_COMMAND="echo OK"
+            CURL_COMMAND=(echo OK)
             MAX_ATTEMPTS=100
             TIMEOUT=5
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
@@ -730,7 +730,7 @@ EOF
         End
 
         It 'should return failure if localdns is not ready, after timeout'
-            CURL_COMMAND="echo NOTOK"
+            CURL_COMMAND=(echo NOTOK)
             MAX_ATTEMPTS=1000
             TIMEOUT=2
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
@@ -739,7 +739,7 @@ EOF
         End
 
         It 'should return failure if localdns is not ready, after max attempts'
-            CURL_COMMAND="echo NOTOK"
+            CURL_COMMAND=(echo NOTOK)
             MAX_ATTEMPTS=2
             TIMEOUT=50
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
