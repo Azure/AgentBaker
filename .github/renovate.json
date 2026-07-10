@@ -11,7 +11,7 @@
   "branchConcurrentLimit": 0,
   "commitHourlyLimit": 1,
   "separateMinorPatch": true,
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "labels": [
     "renovate"
   ],
