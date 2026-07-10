@@ -639,20 +639,6 @@ func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
 
-// getEnableKubeletServingCertificateRotation reports whether kubelet serving
-// certificate rotation is enabled. The scriptful (NBC/CSE) path derives
-// ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION from the "--rotate-server-certificates"
-// kubelet flag. Depending on whether the kubelet config file is used, that setting
-// is carried either as the serverTLSBootstrap config-file field (config file enabled)
-// or as the "--rotate-server-certificates" command-line flag (config file disabled),
-// so we check both to stay in parity with the scriptful path.
-func getEnableKubeletServingCertificateRotation(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
-	if kubeletConfig.GetKubeletConfigFileConfig().GetServerTlsBootstrap() {
-		return true
-	}
-	return kubeletConfig.GetKubeletFlags()["--rotate-server-certificates"] == "true"
-}
-
 func marshalToJSON(v any) ([]byte, error) {
 	// Originally we can set the Multiline here and it will marshal to a JSON we can use.
 	// However the protojson team intentionally randomly add extra whitespace after the key in the key-value.

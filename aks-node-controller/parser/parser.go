@@ -140,7 +140,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		//nolint:staticcheck // keeping for now for backwards compatibility - will soon be removed
 		"SECURE_TLS_BOOTSTRAPPING_DEADLINE":                   config.GetBootstrappingConfig().GetSecureTlsBootstrappingDeadline(),
 		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL": config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
-		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":         fmt.Sprintf("%v", getEnableKubeletServingCertificateRotation(config.GetKubeletConfig())),
+		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":         fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
 		"DHCPV6_SERVICE_FILEPATH":                             getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                              getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                         config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
