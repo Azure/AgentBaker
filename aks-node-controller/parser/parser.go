@@ -290,6 +290,18 @@ func mapToEnviron(input map[string]string) []string {
 }
 
 func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*exec.Cmd, error) {
+	// Detect containerd version from the system if not already set in the config.
+	// This allows the correct containerd config template (v1 vs v2) to be selected
+	// on VHDs where the caller doesn't provide the version explicitly.
+	if config.GetContainerdConfig().GetContainerdVersion() == "" {
+		if version, err := detectContainerdVersion(ctx); err == nil && version != "" {
+			if config.ContainerdConfig == nil {
+				config.ContainerdConfig = &aksnodeconfigv1.ContainerdConfig{}
+			}
+			config.ContainerdConfig.ContainerdVersion = version
+		}
+	}
+
 	triggerBootstrapScript, err := executeBootstrapTemplate(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
@@ -301,4 +313,30 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil
+}
+
+// detectContainerdVersion runs "containerd --version" and parses the version string.
+// The expected output format is: "containerd <source> v<major>.<minor>.<patch> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
+// Returns the semver version without the leading "v" prefix, or empty string if detection fails.
+func detectContainerdVersion(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "containerd", "--version").Output()
+	if err != nil {
+		return "", fmt.Errorf("running containerd --version: %w", err)
+	}
+	return parseContainerdVersionOutput(string(out)), nil
+}
+
+// parseContainerdVersionOutput extracts the semver version from containerd --version output.
+func parseContainerdVersionOutput(output string) string {
+	// Output format: "containerd <source> v<version> <commit>"
+	// Find the field that looks like a version (starts with a digit or "v" followed by a digit).
+	fields := strings.Fields(strings.TrimSpace(output))
+	for _, field := range fields {
+		clean := strings.TrimPrefix(field, "v")
+		if len(clean) > 0 && clean[0] >= '0' && clean[0] <= '9' && strings.Contains(clean, ".") {
+			return clean
+		}
+	}
+	return ""
 }
