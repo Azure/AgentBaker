@@ -84,7 +84,7 @@ SOURCE_TO_VARKEY = {
     "validate-kubelet-credentials.sh": "validateKubeletCredentialsScript",
     "setup-custom-search-domains.sh": "customSearchDomainsScript",
     "configure-azure-network.sh": "configureAzureNetworkScript",
-    "init-aks-custom-cloud.sh": "initAKSCustomCloud",
+    "init-aks-cloud.sh": "initAKSCloud",
     # Distro-specific scripts
     "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
     "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",

@@ -70,21 +70,21 @@ BeforeAll {
     }
 }
 
-Describe 'Get-CustomCloudCertEndpointModeFromLocation' {
+Describe 'Get-CertEndpointModeFromLocation' {
     It 'returns legacy for ussec regions' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'ussecwest' | Should -Be 'legacy'
+        Get-CertEndpointModeFromLocation -Location 'ussecwest' | Should -Be 'legacy'
     }
 
     It 'returns legacy for usnat regions' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'usnatcentral' | Should -Be 'legacy'
+        Get-CertEndpointModeFromLocation -Location 'usnatcentral' | Should -Be 'legacy'
     }
 
     It 'returns rcv1p for public regions' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'southcentralus' | Should -Be 'rcv1p'
+        Get-CertEndpointModeFromLocation -Location 'southcentralus' | Should -Be 'rcv1p'
     }
 
     It 'handles mixed-case input' {
-        Get-CustomCloudCertEndpointModeFromLocation -Location 'UsSeCeast' | Should -Be 'legacy'
+        Get-CertEndpointModeFromLocation -Location 'UsSeCeast' | Should -Be 'legacy'
     }
 }
 

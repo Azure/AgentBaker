@@ -1119,11 +1119,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAKSCustomCloud": func() bool {
 			return cs.IsAKSCustomCloud()
 		},
-		"GetInitAKSCustomCloudFilepath": func() string {
-			return initAKSCustomCloudFilepath
+		"GetInitAKSCloudFilepath": func() string {
+			return initAKSCloudFilepath
 		},
 		"AKSCustomCloudRepoDepotEndpoint": func() string {
-			return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			if cs.IsAKSCustomCloud() {
+				return cs.Properties.CustomCloudEnv.RepoDepotEndpoint
+			}
+			return ""
 		},
 		"AKSCustomCloudManagementPortalURL": func() string {
 			return cs.Properties.CustomCloudEnv.ManagementPortalURL
