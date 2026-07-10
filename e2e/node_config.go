@@ -265,7 +265,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
-			ContainerdVersion:         getContainerdVersionFromDistro(nbc.AgentPoolProfile),
 		},
 		OutboundCommand:  helpers.GetDefaultOutboundCommand(),
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
@@ -1087,15 +1086,4 @@ func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBoots
 		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
 	}
 	return datamodel, nil
-}
-
-// getContainerdVersionFromDistro returns a containerd version string based on the distro,
-// matching baker.go's logic where Is2404VHDDistro() selects the v2 containerd config template.
-// This allows the aks-node-controller to select the correct containerd config template (v1 vs v2)
-// based on the containerd version string.
-func getContainerdVersionFromDistro(profile *datamodel.AgentPoolProfile) string {
-	if profile != nil && profile.Is2404VHDDistro() {
-		return "2.0.0"
-	}
-	return ""
 }
