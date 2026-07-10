@@ -445,24 +445,26 @@ function init_ubuntu_pmc_repo_depot {
 
 function init_mariner_repo_depot {
     local repodepot_endpoint=$1
+    local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
+
     echo "Adding [extended] repo"
-    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-extended.repo
-    sed -i -e "s|extras|extended|" /etc/yum.repos.d/mariner-extended.repo
-    sed -i -e "s|Extras|Extended|" /etc/yum.repos.d/mariner-extended.repo
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-extended.repo"
+    sed -i -e "s|extras|extended|" "${yum_repos_dir}/mariner-extended.repo"
+    sed -i -e "s|Extras|Extended|" "${yum_repos_dir}/mariner-extended.repo"
 
     echo "Adding [nvidia] repo"
-    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-nvidia.repo
-    sed -i -e "s|extras|nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
-    sed -i -e "s|Extras|Nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-nvidia.repo"
+    sed -i -e "s|extras|nvidia|" "${yum_repos_dir}/mariner-nvidia.repo"
+    sed -i -e "s|Extras|Nvidia|" "${yum_repos_dir}/mariner-nvidia.repo"
 
     echo "Adding [cloud-native] repo"
-    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-cloud-native.repo
-    sed -i -e "s|extras|cloud-native|" /etc/yum.repos.d/mariner-cloud-native.repo
-    sed -i -e "s|Extras|Cloud-Native|" /etc/yum.repos.d/mariner-cloud-native.repo
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-cloud-native.repo"
+    sed -i -e "s|extras|cloud-native|" "${yum_repos_dir}/mariner-cloud-native.repo"
+    sed -i -e "s|Extras|Cloud-Native|" "${yum_repos_dir}/mariner-cloud-native.repo"
 
     echo "Pointing Mariner repos at RepoDepot..."
-    for f in /etc/yum.repos.d/*.repo; do
-        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" $f
+    for f in "${yum_repos_dir}"/*.repo; do
+        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" "$f"
         echo "$f modified."
     done
     echo "Mariner repo setup complete."
@@ -470,12 +472,13 @@ function init_mariner_repo_depot {
 
 function init_azurelinux_repo_depot {
     local repodepot_endpoint=$1
+    local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
     local repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
 
-    rm -f /etc/yum.repos.d/azurelinux*
+    rm -f "${yum_repos_dir}"/azurelinux*
 
     for repo in "${repos[@]}"; do
-        output_file="/etc/yum.repos.d/azurelinux-${repo}.repo"
+        output_file="${yum_repos_dir}/azurelinux-${repo}.repo"
         repo_content=(
             "[azurelinux-official-$repo]"
             "name=Azure Linux Official $repo \$releasever \$basearch"
@@ -514,6 +517,21 @@ function dnf_makecache {
         fi
     done
     echo "Executed dnf makecache -y $i times"
+}
+
+# Determines the certificate endpoint mode based on location.
+# Returns "legacy" for ussec/usnat regions, "rcv1p" for all others.
+# Usage: cert_endpoint_mode=$(determine_cert_endpoint_mode "$location")
+function determine_cert_endpoint_mode {
+    local location="$1"
+    local normalized="${location,,}"
+    normalized="${normalized//[[:space:]]/}"
+
+    local mode="rcv1p"
+    case "$normalized" in
+        ussec*|usnat*) mode="legacy" ;;
+    esac
+    echo "$mode"
 }
 
 # Function definitions above this line are sourced and tested in
@@ -560,10 +578,7 @@ if [ -z "$location_normalized" ]; then
     echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
 fi
 
-cert_endpoint_mode="rcv1p"
-case "$location_normalized" in
-    ussec*|usnat*) cert_endpoint_mode="legacy" ;;
-esac
+cert_endpoint_mode=$(determine_cert_endpoint_mode "$refresh_location")
 
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
 emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"

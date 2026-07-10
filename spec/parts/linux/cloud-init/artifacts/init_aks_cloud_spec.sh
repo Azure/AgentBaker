@@ -26,7 +26,7 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 
     It 'maps ussec/usnat locations to legacy cert endpoint mode'
-        When run grep -Eq 'ussec\*\|usnat\*\) cert_endpoint_mode="legacy"' "$script_path"
+        When run grep -Eq 'ussec\*\|usnat\*\) mode="legacy"' "$script_path"
         The status should eq 0
     End
 
@@ -170,6 +170,118 @@ EOF
             When call check_url "https://repodepot.bleu.example.com/ubuntu/dists/jammy/Release"
             The status should be success
             The stdout should include "Checking url"
+        End
+    End
+
+    Describe 'determine_cert_endpoint_mode'
+        It 'returns legacy for ussec region'
+            When call determine_cert_endpoint_mode "ussec"
+            The output should eq "legacy"
+        End
+
+        It 'returns legacy for usnat region'
+            When call determine_cert_endpoint_mode "usnat"
+            The output should eq "legacy"
+        End
+
+        It 'returns legacy for ussec with suffix (e.g. ussecwest)'
+            When call determine_cert_endpoint_mode "USSecWest"
+            The output should eq "legacy"
+        End
+
+        It 'returns legacy for usnat with suffix (e.g. usnateast)'
+            When call determine_cert_endpoint_mode "USNatEast"
+            The output should eq "legacy"
+        End
+
+        It 'returns rcv1p for fairfax (USGov)'
+            When call determine_cert_endpoint_mode "usgovvirginia"
+            The output should eq "rcv1p"
+        End
+
+        It 'returns rcv1p for mooncake (China)'
+            When call determine_cert_endpoint_mode "chinaeast2"
+            The output should eq "rcv1p"
+        End
+
+        It 'returns rcv1p for bleu (EU sovereign)'
+            When call determine_cert_endpoint_mode "francesouth"
+            The output should eq "rcv1p"
+        End
+
+        It 'returns rcv1p for empty location'
+            When call determine_cert_endpoint_mode ""
+            The output should eq "rcv1p"
+        End
+    End
+
+    Describe 'init_mariner_repo_depot'
+        It 'creates extended, nvidia, and cloud-native repos and points all at RepoDepot'
+            export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
+            mkdir -p "${YUM_REPOS_DIR}"
+            # Seed the extras repo that the function copies from
+            cat > "${YUM_REPOS_DIR}/mariner-extras.repo" <<'REPO'
+[mariner-official-extras]
+name=CBL-Mariner Official Extras 2.0 x86_64
+baseurl=https://packages.microsoft.com/cbl-mariner/2.0/prod/extras/x86_64
+gpgcheck=1
+enabled=1
+REPO
+            When call init_mariner_repo_depot "https://repodepot.ussec.example.com"
+            The status should be success
+            The path "${YUM_REPOS_DIR}/mariner-extended.repo" should be exist
+            The path "${YUM_REPOS_DIR}/mariner-nvidia.repo" should be exist
+            The path "${YUM_REPOS_DIR}/mariner-cloud-native.repo" should be exist
+            The contents of file "${YUM_REPOS_DIR}/mariner-extended.repo" should include "repodepot.ussec.example.com/mariner/packages.microsoft.com"
+            The contents of file "${YUM_REPOS_DIR}/mariner-extended.repo" should not include "https://packages.microsoft.com/cbl-mariner"
+            The contents of file "${YUM_REPOS_DIR}/mariner-nvidia.repo" should include "repodepot.ussec.example.com/mariner/packages.microsoft.com"
+        End
+    End
+
+    Describe 'init_azurelinux_repo_depot'
+        It 'creates all expected repo files for Azure Linux (USNat cloud)'
+            export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
+            mkdir -p "${YUM_REPOS_DIR}"
+            When call init_azurelinux_repo_depot "https://repodepot.usnat.example.com"
+            The status should be success
+            The path "${YUM_REPOS_DIR}/azurelinux-base.repo" should be exist
+            The path "${YUM_REPOS_DIR}/azurelinux-nvidia.repo" should be exist
+            The path "${YUM_REPOS_DIR}/azurelinux-cloud-native.repo" should be exist
+            The path "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should be exist
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.usnat.example.com/azurelinux/"
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should not include "packages.microsoft.com"
+        End
+
+        It 'creates all expected repo files for Azure Linux (Mooncake cloud)'
+            export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
+            mkdir -p "${YUM_REPOS_DIR}"
+            When call init_azurelinux_repo_depot "https://repodepot.mooncake.example.com"
+            The status should be success
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.mooncake.example.com/azurelinux/"
+        End
+    End
+
+    Describe 'init_ubuntu_main_repo_depot with different cloud endpoints'
+        It 'works for Fairfax (USGov) cloud endpoint'
+            write_ubuntu_os_release
+            When call init_ubuntu_main_repo_depot "https://repodepot.fairfax.example.com"
+            The status should be success
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.fairfax.example.com/ubuntu"
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should not include "archive.ubuntu.com"
+        End
+
+        It 'works for Mooncake (China) cloud endpoint'
+            write_ubuntu_os_release
+            When call init_ubuntu_main_repo_depot "https://repodepot.mooncake.example.com"
+            The status should be success
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.mooncake.example.com/ubuntu"
+        End
+
+        It 'works for USsec cloud endpoint'
+            write_ubuntu_os_release
+            When call init_ubuntu_main_repo_depot "https://repodepot.ussec.example.com"
+            The status should be success
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.ussec.example.com/ubuntu"
         End
     End
 End
