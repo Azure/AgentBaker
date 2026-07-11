@@ -917,8 +917,8 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.2.2"
+                "renovateTag": "github-releases-with-assets=oras-project/oras",
+                "latestVersion": "1.3.3"
               }
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
@@ -938,8 +938,8 @@
           "default": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.3.0"
+                "renovateTag": "github-releases-with-assets=oras-project/oras",
+                "latestVersion": "1.3.3"
               }
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_windows_amd64.zip"
