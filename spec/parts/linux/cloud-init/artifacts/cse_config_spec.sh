@@ -161,6 +161,128 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'disableSSHPubkeyAuth'
+        setup() {
+            SSHD_CONFIG_FILE="$(mktemp)"
+            SSH_SERVICE_ACTIVE="true"
+            SSH_SERVICE_EXISTS="true"
+        }
+
+        cleanup() {
+            rm -f "${SSHD_CONFIG_FILE}"
+            unset SSHD_CONFIG_FILE
+            unset SSH_SERVICE_ACTIVE
+            unset SSH_SERVICE_EXISTS
+        }
+
+        systemctl() {
+            echo "systemctl $*" >&2
+            if [ "$1" = "cat" ] && [ "${SSH_SERVICE_EXISTS}" != "true" ]; then
+                return 1
+            fi
+            if [ "$1" = "is-active" ] && [ "${SSH_SERVICE_ACTIVE}" != "true" ]; then
+                return 3
+            fi
+            return 0
+        }
+
+        sshd() {
+            echo "sshd $*" >&2
+            return 0
+        }
+
+        install() {
+            while [ "$#" -gt 2 ]; do
+                shift
+            done
+            command cp "$1" "$2"
+        }
+
+        run_disable_ssh_pubkey_auth() {
+            disableSSHPubkeyAuth
+            cat "${SSHD_CONFIG_FILE}"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'disables the global setting without changing a Match block'
+            cat > "${SSHD_CONFIG_FILE}" <<'EOF'
+PasswordAuthentication no
+PubkeyAuthentication yes
+Match User entra
+  AuthenticationMethods publickey
+  PubkeyAuthentication yes
+EOF
+            expected='PasswordAuthentication no
+PubkeyAuthentication no
+Match User entra
+  AuthenticationMethods publickey
+  PubkeyAuthentication yes'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'inserts the global setting before the first Match block'
+            cat > "${SSHD_CONFIG_FILE}" <<'EOF'
+PasswordAuthentication no
+Match User entra
+  PubkeyAuthentication yes
+EOF
+            expected='PasswordAuthentication no
+PubkeyAuthentication no
+Match User entra
+  PubkeyAuthentication yes'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'appends the setting when the config has no Match block'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            expected='PasswordAuthentication no
+PubkeyAuthentication no'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'starts ssh.service when the Ubuntu service is not active'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            SSH_SERVICE_ACTIVE="false"
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "PasswordAuthentication no
+PubkeyAuthentication no"
+            The stderr should include "systemctl start ssh.service"
+        End
+
+        It 'starts sshd.service when ssh.service does not exist'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            SSH_SERVICE_ACTIVE="false"
+            SSH_SERVICE_EXISTS="false"
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "PasswordAuthentication no
+PubkeyAuthentication no"
+            The stderr should include "systemctl start sshd.service"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"

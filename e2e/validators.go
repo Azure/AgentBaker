@@ -453,7 +453,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) {
 	s.T.Logf("skip_vhd_ig sentinel file found, validating Inspektor Gadget installation")
 
 	ValidateSystemdUnitIsNotFailed(ctx, s, serviceName)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s", serviceName), 0, fmt.Sprintf("%s should be enabled", serviceName))
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-enabled %s | grep -qx disabled", serviceName), 0, fmt.Sprintf("%s should be disabled", serviceName))
 
 	ValidateFileExists(ctx, s, skipFile)
 	ValidateFileExists(ctx, s, servicePath)
