@@ -40,6 +40,19 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
 
+wait_for_network_online() {
+    echo "Waiting for network-online.target at $(date -Ins)"
+
+    if timeout 30 sh -c 'until systemctl is-active --quiet network-online.target; do sleep 0.1; done'; then
+        echo "network-online.target reached at $(date -Ins)"
+    else
+        echo "Timed out waiting for network-online.target at $(date -Ins)" >&2
+        return 1
+    fi
+}
+
+wait_for_network_online || exit 124
+
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
 source "${CSE_INSTALL_FILEPATH}"

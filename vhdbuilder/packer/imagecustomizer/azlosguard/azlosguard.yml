@@ -338,7 +338,6 @@ os:
     - measure-tls-bootstrapping-latency
     - systemd-sysext
     - ipv6_nftables
-    - aks-node-controller
     - update_certs.path
     - disk_queue
     - ci-syslog-watcher.path
@@ -349,6 +348,7 @@ os:
     # Disable Azure Linux iptables service so k8s has control
     - iptables
     - auditd
+    - aks-node-controller
 
 previewFeatures:
   - uki

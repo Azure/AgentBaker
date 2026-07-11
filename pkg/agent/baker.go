@@ -70,8 +70,19 @@ chmod 0600 %[1]s
 `
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
+     "systemd": {
+       "units": [{
+         "name": "aks-node-controller.service",
+         "enabled": true
+       }]
+     },
      "storage": {
-       "files": [%s]
+       "files": [%s],
+       "links": [{
+         "path": "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
+         "target": "/etc/systemd/system/aks-node-controller.service",
+         "overwrite": true
+       }]
       }
      }`
 	// flatcarFileEntry is an Ignition file entry appended to the files array

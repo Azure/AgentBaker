@@ -41,11 +41,18 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
+
+        __SOURCED__=1 . "$SCRIPT"
+        unset __SOURCED__
+        wait_for_network_online() {
+            return 0
+        }
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
         unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH
+        unset -f main wait_for_network_online log
     }
 
     create_fake_aks_node_controller() {
@@ -86,7 +93,7 @@ EOF
         touch "$CONFIG_PATH" "$NBC_CMD_PATH"
         create_fake_aks_node_controller
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
         The output should include "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
@@ -102,7 +109,7 @@ EOF
         touch "$CONFIG_PATH"
         create_fake_aks_node_controller
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
         The output should not include "Launching aks-node-controller with nbc cmd"
@@ -118,7 +125,7 @@ EOF
         touch "$NBC_CMD_PATH"
         create_fake_aks_node_controller
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should not include "Launching aks-node-controller with config"
         The output should include "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
@@ -134,7 +141,7 @@ EOF
         touch "$CONFIG_PATH"
         create_recording_aks_node_controller
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should not include "running check-hotfix"
         The path "${TEST_DIR}/calls" should be exist
@@ -148,7 +155,7 @@ EOF
         create_recording_aks_node_controller
         export ENABLE_PROVISIONING_HOTFIX="1"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should not include "running check-hotfix"
         calls=$(cat "${TEST_DIR}/calls")
@@ -160,7 +167,7 @@ EOF
         create_recording_aks_node_controller
         export ENABLE_PROVISIONING_HOTFIX="true"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "running check-hotfix"
         The output should include "ANC check-hotfix completed"
@@ -181,7 +188,7 @@ EOF
         export ENABLE_PROVISIONING_HOTFIX="true"
         export CHECK_HOTFIX_EXIT="1"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "ANC check-hotfix failed; continuing (fail-open)"
         firstCall=$(sed -n '1p' "${TEST_DIR}/calls")
@@ -198,7 +205,7 @@ EOF
         create_recording_aks_node_controller
         printf 'ENABLE_PROVISIONING_HOTFIX=true\n' >"$FEATURES_PATH"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Reading feature flags from ${FEATURES_PATH}"
         The output should include "running check-hotfix"
@@ -218,7 +225,7 @@ EOF
         create_recording_aks_node_controller
         printf 'ENABLE_PROVISIONING_HOTFIX=true' >"$FEATURES_PATH"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Reading feature flags from ${FEATURES_PATH}"
         The output should include "running check-hotfix"
@@ -235,7 +242,7 @@ EOF
         create_recording_aks_node_controller
         : >"$FEATURES_PATH"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Reading feature flags from ${FEATURES_PATH}"
         The output should not include "running check-hotfix"
@@ -248,7 +255,7 @@ EOF
         create_recording_aks_node_controller
         printf 'SOME_OTHER_FLAG=true\n' >"$FEATURES_PATH"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Reading feature flags from ${FEATURES_PATH}"
         The output should not include "running check-hotfix"
@@ -269,7 +276,7 @@ EOF
             printf 'ENABLE_PROVISIONING_HOTFIX=true\n'
         } >"$FEATURES_PATH"
 
-        When run bash "$SCRIPT"
+        When call main
         The status should be success
         The output should include "Reading feature flags from ${FEATURES_PATH}"
         The path "${TEST_DIR}/pwned" should not be exist

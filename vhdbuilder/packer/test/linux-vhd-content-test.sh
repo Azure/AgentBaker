@@ -1948,17 +1948,13 @@ testAKSNodeControllerService() {
   local service_name="aks-node-controller.service"
   echo "$test:Start"
 
-  # is-enabled returns:
-  # 'enabled' if the service is enabled.
-  # empty string if the service is not installed.
-  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
-  echo "$test: Checking that $service_name is enabled"
+  echo "$test: Checking that $service_name is disabled"
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [ "${is_enabled}" = "enabled" ]; then
-    echo "$test: $service_name is correctly enabled"
+  if [ "${is_enabled}" = "disabled" ]; then
+    echo "$test: $service_name is correctly disabled"
   else
-    err $test "$service_name is not enabled, instead in state $is_enabled"
+    err $test "$service_name is not disabled, instead in state $is_enabled"
   fi
 
   echo "$test:Finish"

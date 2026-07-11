@@ -1704,8 +1704,25 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		var ignition map[string]interface{}
 		Expect(json.Unmarshal(decodedPayload, &ignition)).To(Succeed())
 
+		systemd, ok := ignition["systemd"].(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		units, ok := systemd["units"].([]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(units).To(ConsistOf(map[string]interface{}{
+			"name":    "aks-node-controller.service",
+			"enabled": true,
+		}))
+
 		storage, ok := ignition["storage"].(map[string]interface{})
 		Expect(ok).To(BeTrue())
+		links, ok := storage["links"].([]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(links).To(ConsistOf(map[string]interface{}{
+			"path":      "/etc/systemd/system/basic.target.wants/aks-node-controller.service",
+			"target":    "/etc/systemd/system/aks-node-controller.service",
+			"overwrite": true,
+		}))
+
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
 		Expect(len(files)).To(Equal(3)) // nbc-cmd, nodecustomdata, aks-node-config (no hotfix file present)

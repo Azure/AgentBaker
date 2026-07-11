@@ -78,8 +78,9 @@ rm -f /etc/cron.daily/logrotate
 systemctlEnableAndStart sync-container-logs.service 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
-# enable aks-node-controller.service
-systemctl enable aks-node-controller.service
+# The cloud-init boothook starts ANC after writing its provisioning files.
+# Keep the unit disabled in the VHD image so it cannot run before those files are ready.
+systemctl disable aks-node-controller.service || exit 1
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
