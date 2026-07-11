@@ -2105,6 +2105,20 @@ SETUP_EOF
             The output should include "warning: nvidia-dcgm could not be enqueued"
             The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
         End
+
+        It 'starts the DRA driver blocking but dcgm and dcgm-exporter off the critical path in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
     End
 
     Describe 'configGPUDrivers'

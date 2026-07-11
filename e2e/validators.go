@@ -3155,6 +3155,14 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 		Spec: resourcev1.DeviceClassSpec{},
 	}, metav1.CreateOptions{})
 	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create DeviceClass %q: %v", deviceClassName, err)
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		err := s.Runtime.Kube.Typed.ResourceV1().DeviceClasses().Delete(cleanupCtx, deviceClassName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Errorf("failed to delete DeviceClass %q: %v", deviceClassName, err)
+		}
+	}()
 
 	_, err = s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Create(ctx, &resourcev1.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -3175,6 +3183,14 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) {
 		},
 	}, metav1.CreateOptions{})
 	require.Truef(s.T, err == nil || apierrors.IsAlreadyExists(err), "failed to create ResourceClaim %q: %v", claimName, err)
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims("default").Delete(cleanupCtx, claimName, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.T.Errorf("failed to delete ResourceClaim %q: %v", claimName, err)
+		}
+	}()
 
 	// Create a DRA test pod that consumes the ResourceClaim.
 	pod := &corev1.Pod{
