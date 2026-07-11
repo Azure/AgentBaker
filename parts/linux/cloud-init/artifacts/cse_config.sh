@@ -1688,6 +1688,7 @@ LOCALDNS_COREFILE_BASE=${corefile_base}
 LOCALDNS_COREFILE_WITH_HOSTS=${LOCALDNS_COREFILE_WITH_HOSTS:-}
 SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-false}
 LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS:-}
+LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS=${LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS:-}
 EOF
     chmod 0644 "${LOCALDNS_ENV_FILE}"
 
@@ -1833,6 +1834,7 @@ enableAKSLocalDNSHostsSetup() {
     mkdir -p "$(dirname "${env_file}")"
     cat > "${env_file}" <<EOF
 LOCALDNS_CRITICAL_FQDNS=${LOCALDNS_CRITICAL_FQDNS}
+LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS=${LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS:-}
 EOF
     chmod 0644 "${env_file}"
 
@@ -1842,8 +1844,33 @@ EOF
     touch "${hosts_file}"
     chmod 0644 "${hosts_file}"
 
-    # Enable the timer for periodic refresh (every 15 minutes)
-    # This will update the hosts file with fresh IPs from live DNS
+    local hosts_plugin_refresh_interval="${LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS:-}"
+    if [ -n "${hosts_plugin_refresh_interval}" ]; then
+        case "${hosts_plugin_refresh_interval}" in
+            *[!0-9]*)
+                echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be a positive integer, got '${hosts_plugin_refresh_interval}'. Using default timer interval."
+                ;;
+            *)
+                if [ "${hosts_plugin_refresh_interval}" -gt 0 ]; then
+                    sed -i "s/^OnUnitActiveSec=.*/OnUnitActiveSec=${hosts_plugin_refresh_interval}s/" "${hosts_setup_timer}"
+                    if grep -q "^OnUnitActiveSec=${hosts_plugin_refresh_interval}s$" "${hosts_setup_timer}"; then
+                        if systemctl daemon-reload; then
+                            echo "Configured aks-localdns-hosts-setup timer refresh interval to ${hosts_plugin_refresh_interval}s."
+                        else
+                            echo "Warning: Failed to reload systemd after updating ${hosts_setup_timer}"
+                        fi
+                    else
+                        echo "Warning: Failed to update ${hosts_setup_timer} with refresh interval ${hosts_plugin_refresh_interval}s"
+                    fi
+                else
+                    echo "Warning: LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS must be a positive integer, got '${hosts_plugin_refresh_interval}'. Using default timer interval."
+                fi
+                ;;
+        esac
+    fi
+
+    # Enable the timer for periodic refresh.
+    # This will update the hosts file with fresh IPs from live DNS.
     echo "Enabling aks-localdns-hosts-setup timer..."
     if systemctlEnableAndStartNoBlock aks-localdns-hosts-setup.timer 30; then
         echo "aks-localdns-hosts-setup timer enabled successfully."

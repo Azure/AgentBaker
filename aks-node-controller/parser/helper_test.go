@@ -2084,6 +2084,61 @@ func Test_getLocalDnsCriticalFqdns(t *testing.T) {
 	}
 }
 
+func Test_getLocalDnsHostsPluginRefreshIntervalInSeconds(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is non-positive",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(0)),
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns the refresh interval in seconds",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(45)),
+				},
+			}},
+			want: "45",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsHostsPluginRefreshIntervalInSeconds(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsHostsPluginRefreshIntervalInSeconds() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getStringFromNetworkPluginType(t *testing.T) {
 	tests := []struct {
 		name string

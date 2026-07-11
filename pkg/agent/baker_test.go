@@ -318,6 +318,45 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
+		Describe("GetLocalDNSHostsPluginRefreshIntervalInSeconds template func", func() {
+			It("returns empty string when LocalDNSProfile is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = nil
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSHostsPluginRefreshIntervalInSeconds"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal(""))
+			})
+			It("returns empty string when refresh interval is nil", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSHostsPluginRefreshIntervalInSeconds"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal(""))
+			})
+			It("returns empty string when refresh interval is non-positive", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:                      true,
+					HostsPluginRefreshIntervalInSeconds: to.Int32Ptr(0),
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSHostsPluginRefreshIntervalInSeconds"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal(""))
+			})
+			It("returns the refresh interval in seconds", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:                      true,
+					HostsPluginRefreshIntervalInSeconds: to.Int32Ptr(30),
+				}
+				funcMap := getContainerServiceFuncMap(config)
+				fn, ok := funcMap["GetLocalDNSHostsPluginRefreshIntervalInSeconds"].(func() string)
+				Expect(ok).To(BeTrue())
+				Expect(fn()).To(Equal("30"))
+			})
+		})
+
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {

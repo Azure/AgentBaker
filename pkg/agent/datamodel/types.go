@@ -2561,6 +2561,9 @@ type LocalDNSProfile struct {
 	// CriticalFQDNs is the list of critical FQDNs to resolve for the hosts plugin.
 	// Passed from RP so the script doesn't need cloud-specific logic.
 	CriticalFQDNs []string `json:"criticalFQDNs,omitempty"`
+
+	// HostsPluginRefreshIntervalInSeconds overrides the default hosts plugin timer cadence.
+	HostsPluginRefreshIntervalInSeconds *int32 `json:"hostsPluginRefreshIntervalInSeconds,omitempty"`
 }
 
 type LocalDNSCoreFileData struct {

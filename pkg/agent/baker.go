@@ -1415,6 +1415,16 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return strings.Join(criticalFQDNs, ",")
 		},
+		"GetLocalDNSHostsPluginRefreshIntervalInSeconds": func() string {
+			if profile.LocalDNSProfile == nil || profile.LocalDNSProfile.HostsPluginRefreshIntervalInSeconds == nil {
+				return ""
+			}
+			refreshIntervalInSeconds := *profile.LocalDNSProfile.HostsPluginRefreshIntervalInSeconds
+			if refreshIntervalInSeconds <= 0 {
+				return ""
+			}
+			return strconv.FormatInt(int64(refreshIntervalInSeconds), 10)
+		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
 		"GetSkipWaAgentHold":  func() bool { return config.EnableScriptlessNBCCSECmd },
