@@ -30,20 +30,6 @@
       "enabled": false
     },
     {
-      "matchDatasources": [
-        "custom.oras-github-releases"
-      ],
-      "matchPackageNames": [
-        "oras-project/oras"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
       "matchPackageNames": [
         "oss/v2/**",
         "!oss/v2/kubernetes/*-sysext"
@@ -820,20 +806,6 @@
     },
     {
       "customType": "regex",
-      "description": "auto update ORAS GitHub release versions with required assets in components.json",
-      "managerFilePatterns": [
-        "/parts/common/components.json/"
-      ],
-      "matchStringsStrategy": "any",
-      "matchStrings": [
-        "\"renovateTag\":\\s*\"github-releases-with-assets=(?<packageName>oras-project/oras)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "custom.oras-github-releases",
-      "versioningTemplate": "semver",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"github-releases-with-assets={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\""
-    },
-    {
-      "customType": "regex",
       "description": "auto update GitHub release versions in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -881,13 +853,6 @@
     }
   ],
   "customDatasources": {
-    "oras-github-releases": {
-      "defaultRegistryUrlTemplate": "https://api.github.com/repos/{{packageName}}/releases",
-      "format": "json",
-      "transformTemplates": [
-        "{\"releases\": $map($[draft = false and prerelease = false], function($v) { ($version := $substringAfter($v.tag_name, \"v\"); $count($v.assets[name = \"oras_\" & $version & \"_linux_amd64.tar.gz\"]) > 0 and $count($v.assets[name = \"oras_\" & $version & \"_linux_arm64.tar.gz\"]) > 0 and $count($v.assets[name = \"oras_\" & $version & \"_windows_amd64.zip\"]) > 0 ? {\"version\": $version, \"releaseTimestamp\": $v.published_at, \"sourceUrl\": $v.html_url, \"changelogUrl\": $v.html_url} : undefined) }), \"sourceUrl\": \"https://github.com/oras-project/oras\", \"homepage\": \"https://oras.land/\"}"
-      ]
-    },
     "deb2004": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",

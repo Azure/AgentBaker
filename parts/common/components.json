@@ -917,7 +917,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "github-releases-with-assets=oras-project/oras",
+                "renovateTag": "github-releases=oras-project/oras",
                 "latestVersion": "1.3.3"
               }
             ],
@@ -938,7 +938,7 @@
           "default": {
             "versionsV2": [
               {
-                "renovateTag": "github-releases-with-assets=oras-project/oras",
+                "renovateTag": "github-releases=oras-project/oras",
                 "latestVersion": "1.3.3"
               }
             ],
