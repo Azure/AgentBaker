@@ -640,7 +640,7 @@ ensurePodInfraContainerImage() {
     # signatures) copied into the OCI layout by the recursive oras cp; without it they are
     # discarded on import and the EROFS differ cannot find the layer's dm-verity signature.
     if ctr -n k8s.io image import --digests --base-name $base_name ${POD_INFRA_CONTAINER_IMAGE_TAR}; then
-        ctr -n k8s.io image tag "${base_name}:${tag}" "${pod_infra_container_image}"
+        ctr -n k8s.io image tag --local "${base_name}:${tag}" "${pod_infra_container_image}"
         echo "Successfully imported $pod_infra_container_image"
         labelContainerImage "${pod_infra_container_image}" "io.cri-containerd.pinned" "pinned"
     else
