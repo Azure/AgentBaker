@@ -16,8 +16,7 @@ const (
 
 	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
 
-	// EnabledFeaturesFilePath holds KEY=value feature flags (e.g. ENABLE_PROVISIONING_HOTFIX=true)
-	// written by the cloud-boothook and read by the wrapper. Must match the wrapper's FEATURES_PATH.
+	// EnabledFeaturesFilePath is read by the wrapper; must match its FEATURES_PATH.
 	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
 
 	boothookTemplate = `#cloud-boothook
@@ -124,10 +123,8 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 	return err
 }
 
-// enabledFeaturesBlock returns the cloud-boothook snippet that writes the enabled-features file,
-// or "" when no feature is on. Returning "" keeps custom data byte-identical to the default,
-// preserving the 6-month VHD backward-compat window. Uses a quoted heredoc and emits the literal
-// lowercase "true" the wrapper matches on; the file is chmod 0600.
+// enabledFeaturesBlock returns the boothook snippet writing the enabled-features file, or ""
+// when no feature is on (keeping custom data byte-identical to the default for VHD compat).
 func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
 	if !cfg.GetEnableProvisioningHotfix() {
 		return ""

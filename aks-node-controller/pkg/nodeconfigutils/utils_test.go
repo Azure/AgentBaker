@@ -327,7 +327,7 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 	require.Contains(t, on, "\nENABLE_PROVISIONING_HOTFIX=true\n")
 	require.Contains(t, on, "chmod 0600 /opt/azure/containers/enabled_features.sh")
 
-	// The features file must be written BEFORE the service is started, so the wrapper can source it.
+	// The features file must be written BEFORE the service starts, so the wrapper can read it.
 	featuresIdx := strings.Index(on, "enabled_features.sh")
 	startIdx := strings.Index(on, "systemctl start --no-block aks-node-controller.service")
 	require.NotEqual(t, -1, featuresIdx)
@@ -336,8 +336,8 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 }
 
 func TestEnabledFeaturesFilePathMatchesWrapperContract(t *testing.T) {
-	// This path is a shared contract with the aks-node-controller wrapper's FEATURES_PATH default.
-	// If it changes here it must change there too, or the wrapper will never source the file.
+	// Shared contract with the wrapper's FEATURES_PATH default; if it changes here it must
+	// change there too, or the wrapper will never read the file.
 	require.Equal(t, "/opt/azure/containers/enabled_features.sh", EnabledFeaturesFilePath)
 }
 
