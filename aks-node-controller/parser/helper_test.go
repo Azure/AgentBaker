@@ -2092,7 +2092,7 @@ func Test_getStringFromNetworkPluginType(t *testing.T) {
 	}{
 		{"azure", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE, helpers.NetworkPluginAzure},
 		{"kubenet", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET, helpers.NetworkPluginKubenet},
-		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, "none"},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, helpers.NetworkPluginNone},
 		{"unspecified", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED, ""},
 	}
 	for _, tt := range tests {
@@ -2112,7 +2112,7 @@ func Test_getStringFromNetworkPolicyType(t *testing.T) {
 	}{
 		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
 		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
-		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, "none"},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
 		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
 	}
 	for _, tt := range tests {
