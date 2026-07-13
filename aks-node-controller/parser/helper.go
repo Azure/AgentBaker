@@ -900,9 +900,6 @@ func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
 // getLocalDnsHostsPluginRefreshIntervalInSeconds returns the refresh interval in seconds
 // for the LocalDNS hosts plugin timer. Empty string means use the default timer cadence.
 func getLocalDnsHostsPluginRefreshIntervalInSeconds(config *aksnodeconfigv1.Configuration) string {
-	if config == nil || config.GetLocalDnsProfile() == nil {
-		return ""
-	}
 	refreshIntervalInSeconds := config.GetLocalDnsProfile().GetHostsPluginRefreshIntervalInSeconds()
 	if refreshIntervalInSeconds <= 0 {
 		return ""

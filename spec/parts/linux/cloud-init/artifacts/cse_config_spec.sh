@@ -1597,7 +1597,42 @@ TIMER_EOF
             The status should be success
             The output should include "Configured aks-localdns-hosts-setup timer refresh interval to 30s."
             The output should include "systemctl daemon-reload"
-            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=30s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "OnUnitActiveSec=30s"
+            The contents of file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should include "AccuracySec=1s"
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+        End
+
+        It 'should restore the default timer when refresh interval is unset'
+            mkdir -p "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d"
+            cat > "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" <<'OVERRIDE_EOF'
+[Timer]
+OnUnitActiveSec=30s
+AccuracySec=1s
+OVERRIDE_EOF
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Restored default aks-localdns-hosts-setup timer refresh interval."
+            The output should include "systemctl daemon-reload"
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should keep the default timer when refresh interval is invalid'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="abc"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "must be an integer >= 5, got 'abc'. Using default timer interval."
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should keep the default timer when refresh interval is below minimum'
+            LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS="1"
+            When call enableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "must be an integer >= 5, got '1'. Using default timer interval."
+            The contents of file "$AKS_LOCALDNS_HOSTS_SETUP_TIMER" should include "OnUnitActiveSec=15min"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
         End
 
         It 'should skip when setup script is missing'
