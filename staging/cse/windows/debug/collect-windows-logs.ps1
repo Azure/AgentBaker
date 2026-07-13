@@ -167,6 +167,28 @@ else {
   Write-Host "AKSGMSAPlugin events are not available"
 }
 
+$handlePath = "C:\aks-tools\Handle\handle64.exe"
+if (Test-Path $handlePath) {
+  Write-Host "Collecting RSA key container handles"
+  $handleOutputFile = "$ENV:TEMP\$timeStamp-rsa-key-container-handles.txt"
+  & $handlePath -accepteula rsa-key-container *> $handleOutputFile
+  $handleExitCode = $LASTEXITCODE
+
+  if (Test-Path $handleOutputFile) {
+    $paths += $handleOutputFile
+  }
+  else {
+    Write-Host "handle64.exe did not create $handleOutputFile"
+  }
+
+  if ($handleExitCode -ne 0) {
+    Write-Host "handle64.exe exited with code $handleExitCode"
+  }
+}
+else {
+  Write-Host "Skipping RSA key container handle collection because $handlePath does not exist"
+}
+
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
