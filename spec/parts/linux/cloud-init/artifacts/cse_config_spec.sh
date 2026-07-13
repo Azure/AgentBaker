@@ -74,6 +74,77 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'cleanUpMismatchedPrebakedGPUDriver'
+        # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
+        # real filesystem, and stub the on-disk prebaked version so tests control it without a real
+        # DKMS tree. Both stubs print sentinels / values we can match on.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+        prebakedGPUDriverVersion() { echo "${STUB_PREBAKED_VER:-}"; }
+
+        It 'is a no-op when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"; GPU_DV="580.159.04"; STUB_PREBAKED_VER="580.159.04"
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+        End
+
+        It 'keeps the prebaked driver on an exact kind+version match (agentpool cuda-lts consume path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"; GPU_DV="580.159.04"; STUB_PREBAKED_VER="580.159.04"
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "action=keep"
+            The output should not include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down on same kind but different version (NAP cuda node inheriting cuda-lts prebake)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"; GPU_DV="580.126.09"; STUB_PREBAKED_VER="580.159.04"
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down a cuda prebaked driver on a GRID node (kind mismatch; A10/GRID outage path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"; GPU_DV="570.00.00"; STUB_PREBAKED_VER="580.159.04"
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down when the marker lacks driver_kind (cannot prove a match)'
+            marker="$(mktemp)"
+            printf 'kernel=6.8.0-1059-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"; GPU_DV="580.159.04"; STUB_PREBAKED_VER="580.159.04"
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down when the prebaked on-disk version cannot be determined (empty)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"; GPU_DV="580.159.04"; STUB_PREBAKED_VER=""
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
