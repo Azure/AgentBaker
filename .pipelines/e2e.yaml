@@ -2,6 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
+  E2E_FAILED_TESTS_RETRY_COUNT: 0
 schedules:
   - cron: "0 8 * * *"
     displayName: Daily midnight PST
@@ -32,3 +33,4 @@ jobs:
     parameters:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}

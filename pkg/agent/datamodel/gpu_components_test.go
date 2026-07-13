@@ -63,6 +63,16 @@ func TestLoadConfig(t *testing.T) {
 	if !suffixPattern.MatchString(AKSGPUGridV20VersionSuffix) {
 		t.Errorf("AKSGPUGridV20VersionSuffix '%s' does not match expected format", AKSGPUGridV20VersionSuffix)
 	}
+
+	// aks-gpu-cuda-lts drives the render, so its version/suffix must be loaded. aks-gpu-cuda
+	// (NvidiaCudaDriverVersion / AKSGPUCudaVersionSuffix, checked above) is the recognized pre-LTS
+	// image, available if a SKU is routed to the "cuda" image in CSE later.
+	if !versionPattern.MatchString(NvidiaCudaLTSDriverVersion) {
+		t.Errorf("NvidiaCudaLTSDriverVersion '%s' does not match expected format", NvidiaCudaLTSDriverVersion)
+	}
+	if !suffixPattern.MatchString(AKSGPUCudaLTSVersionSuffix) {
+		t.Errorf("AKSGPUCudaLTSVersionSuffix '%s' does not match expected format", AKSGPUCudaLTSVersionSuffix)
+	}
 }
 
 // TestGPUImageRepo verifies that the bare repo name is extracted via exact final

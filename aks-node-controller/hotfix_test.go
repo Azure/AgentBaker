@@ -16,7 +16,7 @@ func TestReadHotfixConfig(t *testing.T) {
 	t.Run("file does not exist returns zero config", func(t *testing.T) {
 		cfg, err := readHotfixConfig("/nonexistent/path")
 		assert.NoError(t, err)
-		assert.Equal(t, hotfixConfig{}, cfg)
+		assert.Equal(t, &hotfixConfig{}, cfg)
 	})
 
 	t.Run("empty file returns zero config", func(t *testing.T) {
@@ -24,7 +24,7 @@ func TestReadHotfixConfig(t *testing.T) {
 		require.NoError(t, os.WriteFile(path, []byte("  \n"), 0644))
 		cfg, err := readHotfixConfig(path)
 		assert.NoError(t, err)
-		assert.Equal(t, hotfixConfig{}, cfg)
+		assert.Equal(t, &hotfixConfig{}, cfg)
 	})
 
 	t.Run("parses legacy version field", func(t *testing.T) {
@@ -135,13 +135,58 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 }
 
 func TestDetectPackageManager(t *testing.T) {
-	// This test reads the real /etc/os-release so it's OS-dependent.
-	// We just verify it doesn't error on the current host.
-	pkgMgr, err := detectPackageManager()
-	if err != nil {
-		t.Skipf("skipping on unsupported OS: %v", err)
-	}
-	assert.Contains(t, []packageManager{pkgMgrApt, pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
+	t.Run("real host os-release", func(t *testing.T) {
+		// This exercises the real /etc/os-release so it's OS-dependent.
+		// We just verify it doesn't error on the current host.
+		a := &App{}
+		pkgMgr, err := a.detectPackageManager()
+		if err != nil {
+			t.Skipf("skipping on unsupported OS: %v", err)
+		}
+		assert.Contains(t, []packageManager{pkgMgrApt, pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
+	})
+
+	t.Run("ubuntu returns apt", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"), 0644))
+		a := &App{osReleasePath: path}
+		pkgMgr, err := a.detectPackageManager()
+		require.NoError(t, err)
+		assert.Equal(t, pkgMgrApt, pkgMgr)
+	})
+
+	t.Run("mariner or azurelinux returns dnf or tdnf", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte(`ID="azurelinux"`+"\n"), 0644))
+		a := &App{osReleasePath: path}
+		pkgMgr, err := a.detectPackageManager()
+		require.NoError(t, err)
+		assert.Contains(t, []packageManager{pkgMgrDnf, pkgMgrTdnf}, pkgMgr)
+	})
+
+	t.Run("unsupported OS errors", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=windows\n"), 0644))
+		a := &App{osReleasePath: path}
+		_, err := a.detectPackageManager()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported OS")
+	})
+
+	t.Run("missing ID line errors", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("VERSION_ID=1\n"), 0644))
+		a := &App{osReleasePath: path}
+		_, err := a.detectPackageManager()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ID not found")
+	})
+
+	t.Run("unreadable os-release errors", func(t *testing.T) {
+		a := &App{osReleasePath: filepath.Join(t.TempDir(), "does-not-exist")}
+		_, err := a.detectPackageManager()
+		require.Error(t, err)
+	})
 }
 
 func TestResolveMicrosoftProdSourceListPath(t *testing.T) {
@@ -248,6 +293,11 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	require.NoError(t, os.MkdirAll(aptDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
 
+	// Provide a fake /etc/os-release so detectPackageManager resolves deterministically
+	// to apt-get regardless of the host OS running this test (e.g. macOS dev machines).
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\n"), 0o644))
+
 	installCalled := false
 	tt := NewTestApp(t, TestAppConfig{
 		RunFunc: func(cmd *exec.Cmd) error {
@@ -257,6 +307,7 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	})
 	tt.App.hotfixVersionPath = path
 	tt.App.aptSourcesDir = aptDir
+	tt.App.osReleasePath = osReleasePath
 	// Will fail at copyBinaryAlongside since pkgBinaryPath doesn't exist in test,
 	// but install should have been called.
 	err := tt.App.downloadHotfix(context.Background())
@@ -359,6 +410,11 @@ func TestDownloadHotfix_MapMatchingBaseUpgrades(t *testing.T) {
 	require.NoError(t, os.MkdirAll(aptDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(aptDir, "microsoft-prod.list"), []byte("deb ..."), 0o644))
 
+	// Provide a fake /etc/os-release so detectPackageManager resolves deterministically
+	// to apt-get regardless of the host OS running this test (e.g. macOS dev machines).
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=ubuntu\n"), 0o644))
+
 	installCalled := false
 	tt := NewTestApp(t, TestAppConfig{
 		RunFunc: func(cmd *exec.Cmd) error {
@@ -368,6 +424,7 @@ func TestDownloadHotfix_MapMatchingBaseUpgrades(t *testing.T) {
 	})
 	tt.App.hotfixVersionPath = path
 	tt.App.aptSourcesDir = aptDir
+	tt.App.osReleasePath = osReleasePath
 	// Will fail at copyBinaryAlongside since pkgBinaryPath doesn't exist in test,
 	// but install should have been called for the matching base entry.
 	err := tt.App.downloadHotfix(context.Background())

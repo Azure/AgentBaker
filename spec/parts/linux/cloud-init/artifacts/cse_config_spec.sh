@@ -74,6 +74,93 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'cleanUpGridNodeCudaPrebake'
+        # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
+        # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
+        OS="$UBUNTU_OS_NAME"
+        # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+
+        It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=cuda"
+            The output should include "node_kind=grid"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down for a grid-v20 node whose driver-type maps to grid'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'treats a legacy marker without driver_kind as a cuda prebake and tears down on a GRID node'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=none"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'is a no-op on a CUDA node (leaves the cuda prebake for the version-match/library-bump path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when the prebake is already grid (matches the grid node)'
+            marker="$(mktemp)"
+            printf 'driver_kind=grid\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+        End
+
+        It 'is a no-op on a non-Ubuntu OS even when a mismatched marker is present'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="MARINER"   # override the Ubuntu default set at the Describe level
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
@@ -1653,7 +1740,6 @@ SETUP_EOF
             SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT="custom-get-nonce-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT="custom-get-attested-data-timeout"
             SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT="custom-get-credential-timeout"
-            SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
             SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
             SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
             When call configureAndEnableSecureTLSBootstrapping
@@ -1667,7 +1753,7 @@ SETUP_EOF
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "EnvironmentFile=default/secure-tls-bootstrap"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
             The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
-            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout --deadline=custom-deadline'
+            The contents of file "default/secure-tls-bootstrap" should include 'BOOTSTRAP_FLAGS=--aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id --validate-kubeconfig-timeout=custom-validate-kubeconfig-timeout --get-access-token-timeout=custom-get-access-token-timeout --get-instance-data-timeout=custom-get-instance-data-timeout --get-nonce-timeout=custom-get-nonce-timeout --get-attested-data-timeout=custom-get-attested-data-timeout --get-credential-timeout=custom-get-credential-timeout'
             The status should be success
         End
     End
@@ -2080,7 +2166,7 @@ SETUP_EOF
             echo "systemctl $@"
         }
 
-        BeforeEach 'MIG_NODE="false"'
+        BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
 
         It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
             When call startNvidiaManagedExpServices
@@ -2105,6 +2191,20 @@ SETUP_EOF
             The status should be success
             The output should include "warning: nvidia-dcgm could not be enqueued"
             The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
+        End
+
+        It 'starts the DRA driver blocking but dcgm and dcgm-exporter off the critical path in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
         End
     End
 
@@ -2144,6 +2244,25 @@ SETUP_EOF
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # Run the wrapped command so pullGPUDriverImage's failure propagates through the guard;
+            # the default logs_to_events mock only echoes the event name and never runs the command.
+            logs_to_events() { shift; "$@"; }
+            # ctr images ls returns empty -> cache miss -> pull path taken. The pull fails; install
+            # would otherwise succeed, so a missing guard would let INSTALL_RAN leak into the output.
+            pullGPUDriverImage() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
         End
 
         It 'times the driver download and toolkit install on Mariner/AzureLinux'
@@ -2261,6 +2380,51 @@ EOF
             The variable AMD_AMA_DRIVER_PACKAGE should equal \
                 "amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
             The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
+        End
+    End
+
+    Describe 'managedGPUPackageList on Ubuntu'
+        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
         End
     End
 End

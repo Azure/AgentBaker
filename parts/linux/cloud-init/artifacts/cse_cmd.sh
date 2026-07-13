@@ -18,8 +18,9 @@ fi;
 {{end}}
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
-{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
+LOCATION={{GetVariable "location"}}
+{{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1 || exit $?;
 ADMINUSER={{GetParameter "linuxAdminUsername"}}
 MOBY_VERSION={{GetParameter "mobyVersion"}}
 TENANT_ID={{GetVariable "tenantID"}}
@@ -32,7 +33,6 @@ KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
-LOCATION={{GetVariable "location"}}
 VM_TYPE={{GetVariable "vmType"}}
 SUBNET={{GetVariable "subnetName"}}
 NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
@@ -80,6 +80,7 @@ CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 MANAGED_GPU_EXPERIENCE_AFEC_ENABLED="{{IsManagedGPUExperienceAFECEnabled}}"
 ENABLE_MANAGED_GPU="{{IsEnableManagedGPU}}"
+ENABLE_MANAGED_GPU_DRA="{{IsEnableManagedGPUDRA}}"
 NVIDIA_MIG_STRATEGY="{{GetMigStrategy}}"
 CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
@@ -139,7 +140,6 @@ SECURE_TLS_BOOTSTRAPPING_GET_INSTANCE_DATA_TIMEOUT="{{GetSecureTLSBootstrappingG
 SECURE_TLS_BOOTSTRAPPING_GET_NONCE_TIMEOUT="{{GetSecureTLSBootstrappingGetNonceTimeout}}"
 SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT="{{GetSecureTLSBootstrappingGetAttestedDataTimeout}}"
 SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT="{{GetSecureTLSBootstrappingGetCredentialTimeout}}"
-SECURE_TLS_BOOTSTRAPPING_DEADLINE="{{GetSecureTLSBootstrappingDeadline}}"
 CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL="{{GetCustomSecureTLSBootstrappingClientDownloadURL}}"
 ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="{{EnableKubeletServingCertificateRotation}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
