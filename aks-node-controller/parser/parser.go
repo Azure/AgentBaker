@@ -34,8 +34,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	// Detect containerd version from the system if not already set in the config.
 	// This allows the correct containerd config template (v1 vs v2) to be selected
 	// on VHDs where the caller doesn't provide the version explicitly.
-	var containerdVersion string
-	if config.GetContainerdConfig().GetContainerdVersion() == "" {
+	containerdVersion := config.GetContainerdConfig().GetContainerdVersion()
+	if containerdVersion == "" {
 		if version, err := detectContainerdVersion(); err == nil && version != "" {
 			containerdVersion = version
 		}
