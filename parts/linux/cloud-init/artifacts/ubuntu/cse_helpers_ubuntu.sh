@@ -2,14 +2,19 @@
 
 echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
-# The Ubuntu Pro / ESM apt hooks (apt-news, esm-cache) log connection errors to stderr when they
-# cannot reach their snapd/dbus socket during early boot, e.g.:
+# The ubuntu-pro-client apt hook (/etc/apt/apt.conf.d/20apt-esm-hook.conf) ships in the stock Ubuntu
+# image and runs on every apt-get update EVEN WHEN the node is NOT attached to Ubuntu Pro/ESM. Its
+# APT::Update::Pre-Invoke starts apt-news.service / esm-cache.service; during early boot (before
+# systemd has finished starting) that D-Bus/systemctl handshake to the local system bus can fail and
+# print to stderr, e.g.:
 #   Error connecting: Error sending credentials: Error sending message: Broken pipe
-# These are cosmetic — the apt operation itself still succeeds (the repo line shows "Hit: ... InRelease").
-# The generic error grep used by the apt wrappers below matches any line starting with "Error", so it
-# would otherwise treat the whole apt-get run as failed and CSE would exit 99 (the node never joins).
-# Strip these known-benign lines before error detection; real apt failures (E:/W:/Err: prefixed) are
-# still caught. Not marked readonly so the file stays safe to re-source.
+# This is a LOCAL IPC error (SCM_CREDENTIALS over the systemd/D-Bus unix socket), NOT a remote-repo
+# reachability problem, and it is cosmetic — the apt operation itself still succeeds ("Hit: ... InRelease").
+# The generic error grep below matches any line starting with "Error", so it would otherwise treat the
+# whole apt-get run as failed and CSE would exit 99 (the node never joins). Strip only this specific
+# benign local-IPC signature before error detection. Genuine repo failures — including an unreachable
+# PMC/Canonical mirror — still surface as apt's own "E:"/"W:"/"Err:"/"Failed to fetch" lines, which do
+# NOT match this pattern and are still caught. Not marked readonly so the file stays safe to re-source.
 APT_BENIGN_STDERR_REGEX='^Error (connecting|sending (credentials|message)):.*Broken pipe'
 
 

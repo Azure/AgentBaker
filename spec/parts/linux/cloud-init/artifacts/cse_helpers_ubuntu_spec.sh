@@ -151,15 +151,16 @@ Describe 'apt_get_install budget timeout'
         sleep() { :; }
 
         It "succeeds when apt-get update prints only the benign Ubuntu Pro/ESM hook line"
-            # The apt-news / esm-cache apt hook logs this to stderr during early boot when it cannot
-            # reach its snapd/dbus socket. The apt operation itself still succeeds (Hit: ... InRelease),
-            # so it must NOT be treated as a failure. Regression test for the exit-99 false positive:
-            # apt-get update succeeded yet CSE exited 99 because the error grep matched "Error ...".
+            # The ubuntu-pro-client apt hook (esm-cache/apt-news) writes this to STDERR during early
+            # boot when the local systemd/D-Bus handshake isn't ready. The real code merges it via
+            # 2>&1, and the apt operation itself still succeeds (Hit: ... InRelease), so it must NOT be
+            # treated as a failure. Regression test for the exit-99 false positive: apt-get update
+            # succeeded yet CSE exited 99 because the error grep matched "Error ...".
             apt-get() {
                 case "$*" in
                     *update*)
                         echo "Hit:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease"
-                        echo "Error connecting: Error sending credentials: Error sending message: Broken pipe"
+                        echo "Error connecting: Error sending credentials: Error sending message: Broken pipe" >&2
                         echo "Reading package lists..."
                         ;;
                 esac
@@ -185,13 +186,16 @@ Describe 'apt_get_install budget timeout'
             The stdout should include "Executed apt-get update 1 times"
         End
 
-        It "fails after exhausting retries on a real apt error (E:/Err: output)"
+        It "still FAILS when PMC/Canonical is genuinely unreachable"
+            # Guards against masking real remote-repo failures: an unreachable mirror surfaces as apt's
+            # own E:/Err:/Failed-to-fetch lines, which do NOT match the benign filter and must still fail.
             apt-get() {
                 case "$*" in
                     *update*)
-                        echo "Err:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease"
-                        echo "E: Failed to fetch https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/InRelease  Could not connect"
-                        echo "E: Some index files failed to download."
+                        echo "Err:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease" >&2
+                        echo "  Could not connect to packages.microsoft.com:443 (13.107.9.104), connection timed out" >&2
+                        echo "E: Failed to fetch https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/InRelease  Could not connect" >&2
+                        echo "E: Some index files failed to download." >&2
                         ;;
                 esac
                 return 0
@@ -199,6 +203,44 @@ Describe 'apt_get_install budget timeout'
             When call _apt_get_update 2 ""
             The status should eq 1
             The stdout should not include "Executed apt-get update"
+        End
+    End
+
+    Describe 'apt_get_dist_upgrade error detection (VHD build)'
+        # apt_get_dist_upgrade is VHD-build only; retries=10 is hardcoded, so stub sleep for speed.
+        wait_for_apt_locks() { :; }
+        dpkg() { :; }
+        sleep() { :; }
+
+        It "ignores the benign ESM/D-Bus line on dist-upgrade"
+            apt-get() {
+                case "$*" in
+                    *dist-upgrade*)
+                        echo "Calculating upgrade..."
+                        echo "Error connecting: Error sending credentials: Error sending message: Broken pipe" >&2
+                        echo "0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded."
+                        ;;
+                esac
+                return 0
+            }
+            When call apt_get_dist_upgrade
+            The status should eq 0
+            The stdout should include "Executed apt-get dist-upgrade 1 times"
+        End
+
+        It "still fails on a real apt error during dist-upgrade"
+            apt-get() {
+                case "$*" in
+                    *dist-upgrade*)
+                        echo "E: Failed to fetch https://packages.microsoft.com/... Could not connect to packages.microsoft.com:443" >&2
+                        echo "E: Some index files failed to download." >&2
+                        ;;
+                esac
+                return 0
+            }
+            When call apt_get_dist_upgrade
+            The status should eq 1
+            The stdout should not include "Executed apt-get dist-upgrade"
         End
     End
 End
