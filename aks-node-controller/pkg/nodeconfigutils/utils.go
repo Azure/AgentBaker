@@ -16,6 +16,14 @@ const (
 
 	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
 
+	// EnabledFeaturesFilePath is a KEY=value feature-flag file written at early boot by the
+	// cloud-boothook and read by the aks-node-controller wrapper before it starts. It carries
+	// KEY=value lines (e.g. ENABLE_PROVISIONING_HOTFIX=true) that gate optional node-controller
+	// behavior. This path is a shared contract with the wrapper's FEATURES_PATH default and must
+	// match it exactly. The file is only written when at least one feature is enabled; when no
+	// features are on, it is not written at all so custom data stays byte-identical to the default.
+	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
@@ -30,7 +38,7 @@ cat <<'EOF' | base64 -d >%[1]s
 %[2]s
 EOF
 chmod 0600 %[1]s
-
+%[3]s
 logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
 systemctl start --no-block aks-node-controller.service
 `
@@ -63,7 +71,7 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON)
+	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, enabledFeaturesBlock(cfg))
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -118,6 +126,29 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 
 	_, err = part.Write([]byte(content))
 	return err
+}
+
+// enabledFeaturesBlock returns the shell snippet that the cloud-boothook runs to write the
+// enabled-features file, or an empty string when no features are enabled. Returning "" keeps the
+// generated custom data byte-identical to the default (no file written, no stray lines), which is
+// required for the 6-month VHD backward-compatibility window: a node provisioned with every feature
+// off must produce exactly the same custom data as before this feature existed.
+//
+// The snippet is executed as root at early boot and the file it writes is later parsed by the
+// aks-node-controller wrapper (KEY=value lines, not sourced), so it must only ever contain
+// hardcoded literal KEY=value lines. It uses a quoted heredoc (<<'EOF') so nothing expands, and
+// only interpolates the trusted path constant. The file is chmod 0600 so nothing unprivileged can
+// tamper with values the root wrapper will export into its environment. Emit the literal lowercase
+// "true" the wrapper tests for; never stringify a Go bool.
+func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
+	if !cfg.GetEnableProvisioningHotfix() {
+		return ""
+	}
+	return fmt.Sprintf(`cat <<'EOF' >%[1]s
+ENABLE_PROVISIONING_HOTFIX=true
+EOF
+chmod 0600 %[1]s
+`, EnabledFeaturesFilePath)
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
