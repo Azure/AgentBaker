@@ -146,6 +146,19 @@ Describe 'cse_config.sh'
             The output should not include "STUB_TEARDOWN_CALLED"
             The status should be success
         End
+
+        It 'is a no-op on a non-Ubuntu OS even when a mismatched marker is present'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="MARINER"   # override the Ubuntu default set at the Describe level
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
+            rm -f "$marker"
+        End
     End
 
     Describe 'configureAzureJson'
