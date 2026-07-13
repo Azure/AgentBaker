@@ -169,7 +169,7 @@ type Configuration struct {
 	CseTimeout *int32 `protobuf:"varint,44,opt,name=cse_timeout,json=cseTimeout,proto3,oneof" json:"cse_timeout,omitempty"`
 	// Enables provisioning-time hotfix checking. When true, aks-node-controller's
 	// check-hotfix reads the hotfix pointer from the LPS (live-patching-service)
-	// endpoint; when false or unset it no-ops without any remote call. Default-off, fail-open.
+	// endpoint; when false it no-ops without any remote call. Default-off, fail-open.
 	EnableProvisioningHotfix bool `protobuf:"varint,45,opt,name=enable_provisioning_hotfix,json=enableProvisioningHotfix,proto3" json:"enable_provisioning_hotfix,omitempty"`
 }
 
