@@ -2,6 +2,16 @@
 
 echo "Sourcing cse_helpers_distro.sh for Ubuntu"
 
+# The Ubuntu Pro / ESM apt hooks (apt-news, esm-cache) log connection errors to stderr when they
+# cannot reach their snapd/dbus socket during early boot, e.g.:
+#   Error connecting: Error sending credentials: Error sending message: Broken pipe
+# These are cosmetic — the apt operation itself still succeeds (the repo line shows "Hit: ... InRelease").
+# The generic error grep used by the apt wrappers below matches any line starting with "Error", so it
+# would otherwise treat the whole apt-get run as failed and CSE would exit 99 (the node never joins).
+# Strip these known-benign lines before error detection; real apt failures (E:/W:/Err: prefixed) are
+# still caught. Not marked readonly so the file stays safe to re-source.
+APT_BENIGN_STDERR_REGEX='^Error (connecting|sending (credentials|message)):.*Broken pipe'
+
 
 holdWALinuxAgent() {
     echo $(date),$(hostname), startHoldWALinuxAgent "$1"
@@ -36,7 +46,7 @@ _apt_get_update() {
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
         apt-get ${apt_opts} -f -y install
-        ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
+        ! (apt-get ${apt_opts} update 2>&1 | tee $apt_update_output | grep -vE "${APT_BENIGN_STDERR_REGEX}" | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
         cat $apt_update_output
         if [ $i -eq $retries ]; then
@@ -174,7 +184,7 @@ apt_get_dist_upgrade() {
     # inline (not via /etc/apt/apt.conf.d) so it does not leak into the captured VHD or change node
     # runtime apt behavior. apt_get_dist_upgrade is only invoked during VHD build.
     # https://ubuntu.com/server/docs/explanation/software/about-apt-upgrade-and-phased-updates/#how-do-i-turn-off-phased-updates
-    ! (apt-get -o Dpkg::Options::="--force-confnew" -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
+    ! (apt-get -o Dpkg::Options::="--force-confnew" -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -vE "${APT_BENIGN_STDERR_REGEX}" | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then

@@ -143,4 +143,62 @@ Describe 'apt_get_install budget timeout'
             The stdout should include "dist-upgrade"
         End
     End
+
+    Describe '_apt_get_update error detection'
+        # Isolate the apt-get update retry/error-grep logic. sleep is stubbed so retries are fast.
+        wait_for_apt_locks() { :; }
+        dpkg() { :; }
+        sleep() { :; }
+
+        It "succeeds when apt-get update prints only the benign Ubuntu Pro/ESM hook line"
+            # The apt-news / esm-cache apt hook logs this to stderr during early boot when it cannot
+            # reach its snapd/dbus socket. The apt operation itself still succeeds (Hit: ... InRelease),
+            # so it must NOT be treated as a failure. Regression test for the exit-99 false positive:
+            # apt-get update succeeded yet CSE exited 99 because the error grep matched "Error ...".
+            apt-get() {
+                case "$*" in
+                    *update*)
+                        echo "Hit:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease"
+                        echo "Error connecting: Error sending credentials: Error sending message: Broken pipe"
+                        echo "Reading package lists..."
+                        ;;
+                esac
+                return 0
+            }
+            When call _apt_get_update 3 ""
+            The status should eq 0
+            The stdout should include "Executed apt-get update 1 times"
+        End
+
+        It "succeeds on a clean apt-get update"
+            apt-get() {
+                case "$*" in
+                    *update*)
+                        echo "Hit:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease"
+                        echo "Reading package lists..."
+                        ;;
+                esac
+                return 0
+            }
+            When call _apt_get_update 3 ""
+            The status should eq 0
+            The stdout should include "Executed apt-get update 1 times"
+        End
+
+        It "fails after exhausting retries on a real apt error (E:/Err: output)"
+            apt-get() {
+                case "$*" in
+                    *update*)
+                        echo "Err:1 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease"
+                        echo "E: Failed to fetch https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/InRelease  Could not connect"
+                        echo "E: Some index files failed to download."
+                        ;;
+                esac
+                return 0
+            }
+            When call _apt_get_update 2 ""
+            The status should eq 1
+            The stdout should not include "Executed apt-get update"
+        End
+    End
 End
