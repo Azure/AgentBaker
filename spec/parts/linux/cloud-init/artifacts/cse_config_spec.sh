@@ -74,6 +74,64 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'cleanUpMismatchedPrebakedGPUDriver'
+        It 'is a no-op when the prebake marker is absent'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            OS="$UBUNTU_OS_NAME"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            # shellcheck disable=SC2329 # cleanUpMismatchedPrebakedGPUDriver invokes this stub dynamically.
+            cleanUpPrebakedGPUDriver() { echo "unexpected cleanup"; }
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should equal ""
+        End
+
+        It 'removes a CUDA prebake before installing a GRID driver'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="$UBUNTU_OS_NAME"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            # shellcheck disable=SC2329 # cleanUpMismatchedPrebakedGPUDriver invokes this stub dynamically.
+            cleanUpPrebakedGPUDriver() { echo "mock cleanup"; }
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "AKS_GPU_PREBAKE event=managed_gpu_cleanup"
+            The output should include "marker_driver_kind=cuda"
+            The output should include "node_driver_kind=grid"
+            The output should include "reason=driver_kind_mismatch"
+            The output should include "mock cleanup"
+            rm -f "$marker"
+        End
+
+        It 'treats a legacy marker without driver_kind as CUDA prebake on a GRID node'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="$UBUNTU_OS_NAME"
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            # shellcheck disable=SC2329 # cleanUpMismatchedPrebakedGPUDriver invokes this stub dynamically.
+            cleanUpPrebakedGPUDriver() { echo "mock cleanup"; }
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should include "marker_driver_kind=unknown"
+            The output should include "node_driver_kind=grid"
+            The output should include "reason=legacy_cuda_prebake_marker_on_grid_node"
+            The output should include "mock cleanup"
+            rm -f "$marker"
+        End
+
+        It 'keeps a matching CUDA prebake for a CUDA node'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="$UBUNTU_OS_NAME"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            # shellcheck disable=SC2329 # cleanUpMismatchedPrebakedGPUDriver invokes this stub dynamically.
+            cleanUpPrebakedGPUDriver() { echo "unexpected cleanup"; }
+            When call cleanUpMismatchedPrebakedGPUDriver
+            The output should equal ""
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"

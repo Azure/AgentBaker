@@ -1295,23 +1295,35 @@ validateGPUDrivers() {
     fi
 }
 
-# logGPUDriverPrebakeReadiness emits a stage-1 observability signal on a managed GPU node: whether
-# the aks-gpu prebake marker is present and matches this node's driver kind -- i.e. whether stage-2
-# (skip-build) would take the fast path. Lets the rollout confirm managed CUDA GPU nodes are ready
-# before enabling consume. Observability only; no behavior change.
+getGPUDriverKindFromType() {
+    local driver_type="${1:-}"
+
+    case "${driver_type}" in
+        cuda*) echo "cuda" ;;
+        grid*) echo "grid" ;;
+        *) echo "${driver_type}" ;;
+    esac
+}
+
+getPrebakedGPUDriverKind() {
+    local marker="${1:-${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}}"
+
+    if [ ! -f "${marker}" ]; then
+        return 1
+    fi
+
+    sed -n 's/^driver_kind=//p' "${marker}" | head -n1
+}
+
+# logGPUDriverPrebakeReadiness emits whether the aks-gpu prebake marker is present and matches this
+# managed GPU node's driver kind -- i.e. whether the aks-gpu installer can safely use skip-build.
 logGPUDriverPrebakeReadiness() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     local marker_present=false driver_kind_match=false m_kind node_kind
-    # Map the AgentBaker driver-type to the aks-gpu marker's driver_kind (the container's DRIVER_KIND
-    # build arg): image variants "cuda-lts" and "grid-v20" bake markers as "cuda"/"grid" respectively.
-    case "${NVIDIA_GPU_DRIVER_TYPE}" in
-        cuda*) node_kind=cuda ;;
-        grid*) node_kind=grid ;;
-        *) node_kind="${NVIDIA_GPU_DRIVER_TYPE}" ;;
-    esac
+    node_kind="$(getGPUDriverKindFromType "${NVIDIA_GPU_DRIVER_TYPE:-}")"
     if [ -f "${marker}" ]; then
         marker_present=true
-        m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+        m_kind="$(getPrebakedGPUDriverKind "${marker}")"
         # require both sides non-empty so a marker missing driver_kind= (or an unset
         # NVIDIA_GPU_DRIVER_TYPE) does not falsely report a match (empty = empty).
         if [ -n "${m_kind}" ] && [ -n "${node_kind}" ] && [ "${m_kind}" = "${node_kind}" ]; then
@@ -1321,9 +1333,39 @@ logGPUDriverPrebakeReadiness() {
     echo "AKS_GPU_PREBAKE event=managed_gpu driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_present=${marker_present} driver_kind_match=${driver_kind_match}"
 }
 
+cleanUpMismatchedPrebakedGPUDriver() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local marker_kind node_kind reason
+
+    if [ "$OS" != "$UBUNTU_OS_NAME" ] || [ ! -f "${marker}" ]; then
+        return 0
+    fi
+
+    node_kind="$(getGPUDriverKindFromType "${NVIDIA_GPU_DRIVER_TYPE:-}")"
+    marker_kind="$(getPrebakedGPUDriverKind "${marker}")"
+
+    if [ -n "${marker_kind}" ] && [ -n "${node_kind}" ]; then
+        if [ "${marker_kind}" = "${node_kind}" ]; then
+            return 0
+        fi
+        reason="driver_kind_mismatch"
+    elif [ -z "${marker_kind}" ] && [ "${node_kind}" = "grid" ]; then
+        reason="legacy_cuda_prebake_marker_on_grid_node"
+    else
+        return 0
+    fi
+
+    echo "AKS_GPU_PREBAKE event=managed_gpu_cleanup driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_driver_kind=${marker_kind:-unknown} node_driver_kind=${node_kind:-unknown} reason=${reason}"
+    cleanUpPrebakedGPUDriver
+}
+
 ensureGPUDrivers() {
     if [ "$(isARM64)" -eq 1 ]; then
         return
+    fi
+
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpMismatchedPrebakedGPUDriver" cleanUpMismatchedPrebakedGPUDriver || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
     if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then

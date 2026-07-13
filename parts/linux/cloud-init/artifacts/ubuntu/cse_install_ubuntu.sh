@@ -231,12 +231,11 @@ removeNvidiaRepos() {
     fi
 }
 
-# cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
-# NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
-# skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
-# skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
-# patch) and, on an opted-out GPU node, unused attack surface. The module is never loaded on these
-# nodes (ensureGPUDrivers doesn't run), so deregistration is safe. No-op unless the marker exists.
+# cleanUpPrebakedGPUDriver removes a driver pre-baked into the shared VHD on nodes that should not
+# keep it: non-GPU VMs, GPU VMs opted out via --gpu-driver None or skip toggles, and managed GPU
+# nodes whose requested driver kind does not match the prebaked driver marker. There the driver is
+# either dead weight (wasted disk; nvidia.ko rebuilt on every kernel patch), unused attack surface, or
+# the wrong driver family for the node SKU. No-op unless the marker exists.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     if [ ! -f "${marker}" ]; then
