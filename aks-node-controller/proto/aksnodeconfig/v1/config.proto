@@ -172,6 +172,6 @@ message Configuration {
 
   // Enables provisioning-time hotfix checking. When true, aks-node-controller's
   // check-hotfix reads the hotfix pointer from the LPS (live-patching-service)
-  // endpoint; when false or unset it no-ops without any remote call. Default-off, fail-open.
+  // endpoint; when false it no-ops without any remote call. Default-off, fail-open.
   bool enable_provisioning_hotfix = 45;
 }
