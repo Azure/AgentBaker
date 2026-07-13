@@ -74,6 +74,93 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'cleanUpGridNodeCudaPrebake'
+        # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
+        # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
+        OS="$UBUNTU_OS_NAME"
+        # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+
+        It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=cuda"
+            The output should include "node_kind=grid"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down for a grid-v20 node whose driver-type maps to grid'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'treats a legacy marker without driver_kind as a cuda prebake and tears down on a GRID node'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=none"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'is a no-op on a CUDA node (leaves the cuda prebake for the version-match/library-bump path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when the prebake is already grid (matches the grid node)'
+            marker="$(mktemp)"
+            printf 'driver_kind=grid\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+        End
+
+        It 'is a no-op on a non-Ubuntu OS even when a mismatched marker is present'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="MARINER"   # override the Ubuntu default set at the Describe level
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
+            rm -f "$marker"
+        End
+    End
+
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
