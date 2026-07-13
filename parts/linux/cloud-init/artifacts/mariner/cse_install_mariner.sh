@@ -419,12 +419,18 @@ isPackageInstalled() {
 }
 
 managedGPUPackageList() {
-    packages=(
-        nvidia-device-plugin
+    local packages=(
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         dcgm-exporter
     )
+
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE:-false}" = "true" ]; then
+        packages+=(nvidia-device-plugin)
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
+        packages+=(dra-driver-nvidia-gpu)
+    fi
+
     echo "${packages[@]}"
 }
 
@@ -436,6 +442,8 @@ installNvidiaManagedExpPkgFromCache() {
 
   # Ensure kubelet device-plugins directory exists BEFORE package installation
   mkdir -p /var/lib/kubelet/device-plugins
+  mkdir -p /var/lib/kubelet/plugins_registry
+  mkdir -p /var/lib/kubelet/plugins
 
   for packageName in $(managedGPUPackageList); do
     downloadDir="$(getPackageDownloadDir "${packageName}")"

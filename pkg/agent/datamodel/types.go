@@ -188,7 +188,7 @@ const (
 	AKSUbuntuContainerd2404                 Distro = "aks-ubuntu-containerd-24.04"
 	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
-	AKSUbuntuArm64MinimalContainerd2604Gen2 Distro = "aks-ubuntu-arm64-minimal-containerd-26.04-gen2"
+	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
 	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
@@ -277,7 +277,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -1729,6 +1729,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
+	EnableManagedGPUDRA             bool
 	MigStrategy                     string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
@@ -1881,13 +1882,6 @@ type SecureTLSBootstrappingConfig struct {
 	// GetCredentialTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
 	GetCredentialTimeout string `json:"secureTLSBootstrappingGetCredentialTimeout,omitempty"`
-
-	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
-	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
-	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
-	//
-	// Deprecated: Use individual RPC timeouts instead.
-	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
@@ -1958,13 +1952,6 @@ func (c *SecureTLSBootstrappingConfig) GetGetCredentialTimeout() string {
 		return ""
 	}
 	return c.GetCredentialTimeout
-}
-
-func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
-	if c == nil {
-		return ""
-	}
-	return c.Deadline
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.

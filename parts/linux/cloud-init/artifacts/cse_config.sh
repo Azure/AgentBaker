@@ -544,9 +544,6 @@ configureAndEnableSecureTLSBootstrapping() {
     if [ -n "${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}" ]; then
         BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --get-credential-timeout=${SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT}"
     fi
-    if [ -n "${SECURE_TLS_BOOTSTRAPPING_DEADLINE}" ]; then
-        BOOTSTRAP_CLIENT_FLAGS="${BOOTSTRAP_CLIENT_FLAGS} --deadline=${SECURE_TLS_BOOTSTRAPPING_DEADLINE}"
-    fi
 
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}")"
     touch "${SECURE_TLS_BOOTSTRAPPING_DEFAULT_FILE}"
@@ -1855,6 +1852,10 @@ configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
     fi
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        echo "Error: ENABLE_MANAGED_GPU_EXPERIENCE and ENABLE_MANAGED_GPU_EXPERIENCE_DRA cannot both be true"
+        exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
+    fi
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
@@ -1862,10 +1863,19 @@ configureManagedGPUExperience() {
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
+        # defer startNvidiaManagedExpServices() after kubelet starts
+        addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        mkdir -p "$(dirname "${managed_gpu_marker}")"
+        touch "${managed_gpu_marker}"
     else
         # EnableManagedGPUExperience is mutable, so services may have been
         # installed on a previous CSE run. Stop them if they exist.
+        # systemctlDisableAndStop check if the service exists before attempting to stop it,
+        # so this is safe to call even if the services were never installed.
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+        logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
         rm -f "${managed_gpu_marker}"
@@ -1873,46 +1883,65 @@ configureManagedGPUExperience() {
 }
 
 startNvidiaManagedExpServices() {
-    # 1. Start the nvidia-device-plugin service.
-    # Create systemd override directory to configure device plugin
-    NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
-    mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
+    # 1. Start the nvidia-device-plugin service or dra-driver-nvidia-gpu service.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        # Create systemd override directory to configure device plugin
+        NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR="/etc/systemd/system/nvidia-device-plugin.service.d"
+        mkdir -p "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}"
 
-    if [ "${MIG_NODE}" = "true" ]; then
-        # Configure with MIG strategy for MIG nodes.
-        # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
-        #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
-        #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
-        #
-        # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
-        # Otherwise, we default to "single" which is the safer/simpler option.
-        # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
-        # "None" and "Single" both result in using the "single" strategy.
-        if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
-            MIG_STRATEGY_FLAG="--mig-strategy mixed"
-        else
-            # Default to "single" for "Single", "None", empty, or any other value
-            MIG_STRATEGY_FLAG="--mig-strategy single"
-        fi
+        if [ "${MIG_NODE}" = "true" ]; then
+            # Configure with MIG strategy for MIG nodes.
+            # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
+            #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
+            #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
+            #
+            # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
+            # Otherwise, we default to "single" which is the safer/simpler option.
+            # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
+            # "None" and "Single" both result in using the "single" strategy.
+            if [ "${NVIDIA_MIG_STRATEGY}" = "Mixed" ]; then
+                MIG_STRATEGY_FLAG="--mig-strategy mixed"
+            else
+                # Default to "single" for "Single", "None", empty, or any other value
+                MIG_STRATEGY_FLAG="--mig-strategy single"
+            fi
 
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
+            tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=/usr/bin/nvidia-device-plugin ${MIG_STRATEGY_FLAG} --pass-device-specs
 EOF
-    else
-        # Configure with pass-device-specs for non-MIG nodes
-        tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
+        else
+            # Configure with pass-device-specs for non-MIG nodes
+            tee "${NVIDIA_DEVICE_PLUGIN_OVERRIDE_DIR}/10-device-plugin-config.conf" > /dev/null <<'EOF'
 [Service]
 ExecStart=
 ExecStart=/usr/bin/nvidia-device-plugin --pass-device-specs
 EOF
+        fi
+
+        # Reload systemd to pick up the override
+        systemctl daemon-reload
+
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
+        mkdir -p "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}"
+
+        tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=kubelet.service
+[Service]
+ExecStart=
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME}
+EOF
+
+        # Reload systemd to pick up the override
+        systemctl daemon-reload
+
+        logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
     fi
-
-    # Reload systemd to pick up the override
-    systemctl daemon-reload
-
-    logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
 
     # 2. Start the nvidia-dcgm service.
     # DCGM is monitoring/telemetry and does not gate GPU workload scheduling, so start it without

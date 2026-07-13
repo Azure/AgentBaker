@@ -90,13 +90,8 @@ const (
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
 
-	// scripts for initializing specifically within AKS stack cloud environments (AGC).
-	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
-	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
-
-	// scripts for initializing specifically within AKS custom cloud environments other than stack cloud (e.g. Bleu).
-	initAKSCustomCloudOperationRequestsScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests.sh"
-	initAKSCustomCloudOperationRequestsMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests-mariner.sh"
+	// script for initializing AKS custom cloud environment.
+	initAKSCustomCloudScript = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
@@ -106,6 +101,8 @@ const (
 	azureNetworkUdevRule        = "linux/cloud-init/artifacts/99-azure-network.rules"
 
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
+
+	hotfixJSONFile = "linux/cloud-init/artifacts/aks-node-controller-hotfix.json"
 )
 
 // cloud-init destination file references.
@@ -119,6 +116,10 @@ const (
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
 	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	aksNbcCmdFilepath                    = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	aksNodeCustomDataFilepath            = "/opt/azure/containers/nodecustomdata.yml"
+	aksNodeConfigFilepath                = "/opt/azure/containers/aks-node-controller-config.json"
+	aksHotfixJSONFilepath                = "/opt/azure/containers/aks-node-controller-hotfix.json"
 )
 
 const (

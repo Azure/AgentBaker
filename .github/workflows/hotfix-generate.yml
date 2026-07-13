@@ -1,8 +1,16 @@
 name: Hotfix Template Update
-# This workflow is for temporary use and will deprecate once we move to the
-# final stage of scriptless, as hotfixes will be applied directly to the
-# aks-node-controller instead of nodecustomdata.yml template.
-
+# Auto-detects whether a hotfix is needed for a PR targeting an official/* release
+# branch and, if so, computes the version numbers and updates the generated files:
+#   - If aks-node-controller/ changed vs the base branch, bumps `version`.
+#   - If parts/linux/cloud-init/nodecustomdata.yml ends up changed vs the base branch
+#     (either directly, or via auto-injection of changed CSE scripts), bumps
+#     `scripts_version`.
+#   - Writes the result to
+#     parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json (embedded
+#     directly into scriptless customData by pkg/agent/baker.go).
+#
+# See hotfix/hotfix_generate.py for the full algorithm.
+#
 # Triggers:
 # 1. Automatically when a PR targets an official/* release branch
 # 2. Manually when a "hotfix" label is added to any PR
@@ -66,24 +74,48 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: Detect changed scripts and update template
+      - name: Generate hotfix files
         run: |
-          python3 hack/hotfix_generate.py "origin/${{ github.base_ref }}"
+          python3 hotfix/hotfix_generate.py "origin/${{ github.base_ref }}"
 
       - name: Commit changes via API
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          FILE="parts/linux/cloud-init/nodecustomdata.yml"
-          if git diff --quiet "$FILE"; then
+          FILES=(
+            "parts/linux/cloud-init/nodecustomdata.yml"
+            "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json"
+          )
+          CHANGED=0
+          for FILE in "${FILES[@]}"; do
+            # git diff --quiet misses untracked files (e.g. the target hotfix json on
+            # its first-ever generation on this branch), so use `git status
+            # --porcelain` instead, which reports both modified and untracked paths.
+            if [ -z "$(git status --porcelain -- "$FILE")" ]; then
+              continue
+            fi
+            CHANGED=1
+            CONTENT=$(base64 -w 0 "$FILE")
+            # For a brand-new file the Contents API lookup 404s (no sha yet); the
+            # step runs under `bash -e`, so guard the lookup and only pass -f sha
+            # when the file already exists on the branch, otherwise the PUT must
+            # omit sha entirely to create the file.
+            SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha' 2>/dev/null || true)
+            if [ -n "$SHA" ]; then
+              gh api "repos/${{ github.repository }}/contents/${FILE}" \
+                -X PUT \
+                -f message="chore: auto-generate hotfix content for ${FILE}" \
+                -f content="$CONTENT" \
+                -f branch="${{ github.head_ref }}" \
+                -f sha="$SHA"
+            else
+              gh api "repos/${{ github.repository }}/contents/${FILE}" \
+                -X PUT \
+                -f message="chore: auto-generate hotfix content for ${FILE}" \
+                -f content="$CONTENT" \
+                -f branch="${{ github.head_ref }}"
+            fi
+          done
+          if [ "$CHANGED" -eq 0 ]; then
             echo "No template changes needed."
-            exit 0
           fi
-          CONTENT=$(base64 -w 0 "$FILE")
-          SHA=$(gh api "repos/${{ github.repository }}/contents/${FILE}?ref=${{ github.head_ref }}" --jq '.sha')
-          gh api "repos/${{ github.repository }}/contents/${FILE}" \
-            -X PUT \
-            -f message="chore: auto-generate hotfix template entries" \
-            -f content="$CONTENT" \
-            -f branch="${{ github.head_ref }}" \
-            -f sha="$SHA"

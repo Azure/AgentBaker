@@ -25,9 +25,6 @@ else ifeq (${OS_SKU},CBLMariner)
 else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
-else ifeq (${OS_SKU},Flatcar)
-	@echo "Using packer template file vhd-image-builder-flatcar-arm64.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar-arm64.json
 else ifeq (${OS_SKU},AzureContainerLinux)
 	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
@@ -61,9 +58,6 @@ else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
-else ifeq (${OS_SKU},Flatcar)
-	@echo "Using packer template file vhd-image-builder-flatcar.json"
-	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-flatcar.json
 else ifeq (${OS_SKU},AzureContainerLinux)
 	@echo "Using packer template file vhd-image-builder-acl.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
@@ -162,10 +156,6 @@ build-image-fetcher:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
-
-generate-flatcar-customdata: vhdbuilder/packer/flatcar-customdata.json
-vhdbuilder/packer/flatcar-customdata.json: vhdbuilder/packer/flatcar-customdata.yaml | hack/tools/bin/butane
-	@hack/tools/bin/butane --strict $< -o $@
 
 generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
 vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane

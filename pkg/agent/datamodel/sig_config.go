@@ -109,7 +109,7 @@ var AvailableUbuntu2404Distros = []Distro{
 //nolint:gochecknoglobals
 var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -165,7 +165,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -184,7 +184,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
-	AKSUbuntuArm64MinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
@@ -402,6 +402,9 @@ const (
 	// Check with Keith and Alex before changing the frozen NVIDIA GB image version.
 	FrozenUbuntuArm64GB200Containerd2404Gen2SIGImageVersion string = "202602.19.0"
 
+	// Flatcar is deprecated on June 8th.
+	FrozenFlatcarSIGImageVersion string = "202607.02.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -566,7 +569,7 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuArm64MinimalContainerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2604minimalgen2arm64containerd",
@@ -752,14 +755,14 @@ var (
 		ResourceGroup: AKSFlatcarResourceGroup,
 		Gallery:       AKSFlatcarGalleryName,
 		Definition:    "flatcargen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenFlatcarSIGImageVersion,
 	}
 
 	SIGFlatcarArm64Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSFlatcarResourceGroup,
 		Gallery:       AKSFlatcarGalleryName,
 		Definition:    "flatcargen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenFlatcarSIGImageVersion,
 	}
 
 	SIGACLGen2TLImageConfigTemplate = SigImageConfigTemplate{
@@ -883,6 +886,11 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
 		for distro, config := range m {
+			if distro.Is2604VHDDistro() {
+				// 26.04 images don't exist yet
+				// TODO(26.04): remove once images are published against LinuxSIGImageVersion
+				continue
+			}
 			if config.Version == LinuxSIGImageVersion {
 				maintained[distro] = config
 			}
@@ -912,7 +920,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2404Gen2:             SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2404TLGen2:           SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2604Gen2:      SIGUbuntuMinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64MinimalContainerd2604Gen2: SIGUbuntuArm64MinimalContainerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalArm64Containerd2604Gen2: SIGUbuntuMinimalArm64Containerd2604Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
