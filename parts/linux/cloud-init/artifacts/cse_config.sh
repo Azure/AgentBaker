@@ -1219,6 +1219,13 @@ installGPUDriverImage() {
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
+        # If the shared VHD prebaked a driver that is not an EXACT match (kind AND version) for what
+        # this node installs -- e.g. the cuda-lts prebake on a NAP cuda node (same kind, different
+        # version) or on a grid/converged A10 node (different kind) -- tear it down first, otherwise
+        # the stale prebaked module collides with the driver installed below and nvidia-smi fails with
+        # an NVML driver/library version mismatch. No-op when there is no marker or on an exact match
+        # (the consume fast path).
+        cleanUpMismatchedPrebakedGPUDriver
         mkdir -p /opt/{actions,gpu}
         # The driver image is normally pre-pulled into the VHD; only hit the registry when it is
         # actually missing so provisioning doesn't pay a redundant manifest/layer round trip.
@@ -1295,6 +1302,60 @@ validateGPUDrivers() {
     fi
 }
 
+# gpuDriverKindFromType maps the AgentBaker driver-type ($NVIDIA_GPU_DRIVER_TYPE) to the aks-gpu
+# marker's driver_kind (the container's DRIVER_KIND build arg): image variants "cuda-lts" and
+# "grid-v20" bake markers as "cuda"/"grid" respectively. Echoes the mapped kind on stdout.
+gpuDriverKindFromType() {
+    case "${1}" in
+        cuda*) echo cuda ;;
+        grid*) echo grid ;;
+        *) echo "${1}" ;;
+    esac
+}
+
+# prebakedGPUDriverVersion echoes the version of the driver DKMS-registered by the VHD prebake, read
+# from the on-disk DKMS source tree (/var/lib/dkms/nvidia/<version>). Empty if none is registered.
+# The prebake marker itself records only driver_kind, not the version, so the DKMS tree is the
+# authoritative source for what version is actually baked in.
+prebakedGPUDriverVersion() {
+    local d
+    for d in /var/lib/dkms/nvidia/*/; do
+        [ -d "${d}" ] || continue
+        basename "${d}"
+        return 0
+    done
+}
+
+# cleanUpMismatchedPrebakedGPUDriver tears down a VHD-prebaked driver on a managed GPU node unless it
+# EXACTLY matches the driver this node is about to install -- same kind (marker driver_kind vs mapped
+# $NVIDIA_GPU_DRIVER_TYPE) AND same version (on-disk DKMS version vs $GPU_DV). A kind-only match is
+# not enough: a NAP "cuda" node inherits the shared VHD's "cuda-lts" prebake (both kind=cuda) but at
+# a different version (e.g. 580.126.09 vs 580.159.04), so the stale libs in /usr/bin/lib64 collide
+# with the freshly installed driver and nvidia-smi fails with "Failed to initialize NVML:
+# Driver/library version mismatch". GRID/converged A10 nodes mismatch on kind. Only an exact
+# kind+version match (the consume fast path this node is meant to take) is kept. No-op when the
+# marker is absent (VHD without prebake). Reuses cleanUpPrebakedGPUDriver (sourced from
+# cse_install_ubuntu.sh) for the actual removal.
+cleanUpMismatchedPrebakedGPUDriver() {
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    [ -f "${marker}" ] || return 0
+    local m_kind node_kind prebaked_ver node_ver
+    m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+    node_kind="$(gpuDriverKindFromType "${NVIDIA_GPU_DRIVER_TYPE}")"
+    prebaked_ver="$(prebakedGPUDriverVersion)"
+    node_ver="${GPU_DV:-}"
+    # Keep ONLY on an exact kind+version match, and only when every field is known -- an unprovable
+    # match (empty kind or empty version on either side) falls through to teardown, since an unusable
+    # prebaked module is worse than a redundant rebuild.
+    if [ -n "${m_kind}" ] && [ "${m_kind}" = "${node_kind}" ] && \
+       [ -n "${prebaked_ver}" ] && [ -n "${node_ver}" ] && [ "${prebaked_ver}" = "${node_ver}" ]; then
+        echo "AKS_GPU_PREBAKE event=mismatch_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind} node_kind=${node_kind} prebaked_version=${prebaked_ver} node_version=${node_ver} action=keep"
+        return 0
+    fi
+    echo "AKS_GPU_PREBAKE event=mismatch_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-} node_kind=${node_kind} prebaked_version=${prebaked_ver:-} node_version=${node_ver:-} action=teardown"
+    cleanUpPrebakedGPUDriver
+}
+
 # logGPUDriverPrebakeReadiness emits a stage-1 observability signal on a managed GPU node: whether
 # the aks-gpu prebake marker is present and matches this node's driver kind -- i.e. whether stage-2
 # (skip-build) would take the fast path. Lets the rollout confirm managed CUDA GPU nodes are ready
@@ -1302,13 +1363,7 @@ validateGPUDrivers() {
 logGPUDriverPrebakeReadiness() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     local marker_present=false driver_kind_match=false m_kind node_kind
-    # Map the AgentBaker driver-type to the aks-gpu marker's driver_kind (the container's DRIVER_KIND
-    # build arg): image variants "cuda-lts" and "grid-v20" bake markers as "cuda"/"grid" respectively.
-    case "${NVIDIA_GPU_DRIVER_TYPE}" in
-        cuda*) node_kind=cuda ;;
-        grid*) node_kind=grid ;;
-        *) node_kind="${NVIDIA_GPU_DRIVER_TYPE}" ;;
-    esac
+    node_kind="$(gpuDriverKindFromType "${NVIDIA_GPU_DRIVER_TYPE}")"
     if [ -f "${marker}" ]; then
         marker_present=true
         m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
