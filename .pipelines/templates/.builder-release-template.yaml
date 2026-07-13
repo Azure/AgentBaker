@@ -24,6 +24,21 @@ steps:
       vstsPackageVersion: '0.0.230'
       downloadDirectory: vhdbuilder/
 
+  # Compliance Engine (benchmark-agnostic) scan — opt-in shadow of the CIS-CAT
+  # scan above. Downloads the assessor + Ubuntu benchmark MOFs onto the agent;
+  # vhd-scanning.sh then stages them onto the scan VM and publishes native JSON.
+  # This is fully additive: it no-ops unless ENABLE_COMPLIANCE_ENGINE_SCAN=true.
+  #
+  # Package names + versions are pinned (PR-gated) in the manifest
+  # vhdbuilder/packer/compliance-versions.json — bumping requires a PR, exactly
+  # like the CIS scanner version pin above. The compliance-engine packages live
+  # on the ComplianceEnginePackages feed in the SAME ADO org, so basic auth
+  # (System.AccessToken) is used and the build identity needs Feed Reader there.
+  - template: ./.compliance-engine-scan-template.yaml
+    parameters:
+      condition: and(succeeded(), eq(variables['ENABLE_COMPLIANCE_ENGINE_SCAN'], 'true'), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
+      feedName: ComplianceEnginePackages
+
   - task: DownloadPipelineArtifact@2
     condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
     displayName: 'Download Kata CC UVM artifact'
@@ -361,6 +376,19 @@ steps:
       Contents: |
         cis-report.html
         cis-report.txt
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  # Compliance Engine native JSON results (+ assessor logs). Non-blocking: the
+  # glob simply matches nothing when the scan is disabled or produced no output.
+  - task: CopyFiles@2
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'))
+    continueOnError: true
+    displayName: Copy Compliance Engine Reports
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: |
+        compliance-engine-*.json
+        compliance-engine-*.log
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
