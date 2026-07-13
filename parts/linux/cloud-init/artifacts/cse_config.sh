@@ -1321,9 +1321,46 @@ logGPUDriverPrebakeReadiness() {
     echo "AKS_GPU_PREBAKE event=managed_gpu driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_present=${marker_present} driver_kind_match=${driver_kind_match}"
 }
 
+# cleanUpGridNodeCudaPrebake tears down a cuda-lts driver pre-baked into the shared Ubuntu VHD when
+# THIS node installs a GRID driver. The shared VHD bakes only the cuda(-lts) driver + a DKMS marker;
+# a GRID/converged (A10, NVv5) node then installs the grid driver on top, and the stale prebaked
+# cuda module + its /usr/bin/lib64 userspace libs collide with the grid driver -> nvidia-smi fails
+# with "Failed to initialize NVML: Driver/library version mismatch". This is a pure driver-KIND
+# mismatch (grid vs cuda), so no version comparison is needed. A legacy marker with no driver_kind=
+# line is treated as a cuda prebake (the only kind the VHD bakes today). No-op unless the node is
+# GRID and a prebake marker exists. Reuses cleanUpPrebakedGPUDriver (from cse_install_ubuntu.sh) for
+# the actual removal. NAP/agentpool cuda nodes are intentionally untouched here.
+cleanUpGridNodeCudaPrebake() {
+    [ "$OS" = "$UBUNTU_OS_NAME" ] || return 0
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    [ -f "${marker}" ] || return 0
+
+    local node_kind m_kind
+    case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
+        grid*) node_kind=grid ;;
+        *) return 0 ;;
+    esac
+    m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+
+    # Keep only when the prebake is explicitly grid (matches this grid node). An empty marker kind is
+    # a legacy cuda prebake; a "cuda" marker is a cuda prebake -- both mismatch a grid node, tear down.
+    if [ "${m_kind}" = "grid" ]; then
+        return 0
+    fi
+    echo "AKS_GPU_PREBAKE event=grid_cuda_prebake_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-none} node_kind=${node_kind} action=teardown"
+    cleanUpPrebakedGPUDriver
+}
+
 ensureGPUDrivers() {
     if [ "$(isARM64)" -eq 1 ]; then
         return
+    fi
+
+    # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
+    # stale module/libs collide with the grid driver (NVML version mismatch). Runs before the dispatch
+    # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
     if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
