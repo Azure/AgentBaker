@@ -16,12 +16,8 @@ const (
 
 	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
 
-	// EnabledFeaturesFilePath is a KEY=value feature-flag file written at early boot by the
-	// cloud-boothook and read by the aks-node-controller wrapper before it starts. It carries
-	// KEY=value lines (e.g. ENABLE_PROVISIONING_HOTFIX=true) that gate optional node-controller
-	// behavior. This path is a shared contract with the wrapper's FEATURES_PATH default and must
-	// match it exactly. The file is only written when at least one feature is enabled; when no
-	// features are on, it is not written at all so custom data stays byte-identical to the default.
+	// EnabledFeaturesFilePath holds KEY=value feature flags (e.g. ENABLE_PROVISIONING_HOTFIX=true)
+	// written by the cloud-boothook and read by the wrapper. Must match the wrapper's FEATURES_PATH.
 	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
 
 	boothookTemplate = `#cloud-boothook
@@ -128,18 +124,10 @@ func writeMIMEPart(writer *multipart.Writer, contentType, content string) error 
 	return err
 }
 
-// enabledFeaturesBlock returns the shell snippet that the cloud-boothook runs to write the
-// enabled-features file, or an empty string when no features are enabled. Returning "" keeps the
-// generated custom data byte-identical to the default (no file written, no stray lines), which is
-// required for the 6-month VHD backward-compatibility window: a node provisioned with every feature
-// off must produce exactly the same custom data as before this feature existed.
-//
-// The snippet is executed as root at early boot and the file it writes is later parsed by the
-// aks-node-controller wrapper (KEY=value lines, not sourced), so it must only ever contain
-// hardcoded literal KEY=value lines. It uses a quoted heredoc (<<'EOF') so nothing expands, and
-// only interpolates the trusted path constant. The file is chmod 0600 so nothing unprivileged can
-// tamper with values the root wrapper will export into its environment. Emit the literal lowercase
-// "true" the wrapper tests for; never stringify a Go bool.
+// enabledFeaturesBlock returns the cloud-boothook snippet that writes the enabled-features file,
+// or "" when no feature is on. Returning "" keeps custom data byte-identical to the default,
+// preserving the 6-month VHD backward-compat window. Uses a quoted heredoc and emits the literal
+// lowercase "true" the wrapper matches on; the file is chmod 0600.
 func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
 	if !cfg.GetEnableProvisioningHotfix() {
 		return ""
