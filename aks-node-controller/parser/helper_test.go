@@ -499,7 +499,7 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -655,11 +655,12 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			containerdVersion := tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion()
 			var got string
 			if tt.args.noGpu {
-				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig)
+				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
 			} else {
-				got = getContainerdConfigBase64(tt.args.aksnodeconfig)
+				got = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
 			}
 			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)

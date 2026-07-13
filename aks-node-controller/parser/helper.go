@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -161,12 +162,12 @@ func getKubenetTemplate() string {
 }
 
 // getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false, containerdVersion)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -175,12 +176,12 @@ func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 }
 
 // getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true, containerdVersion)
 	if err != nil {
 		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
 	}
@@ -188,7 +189,7 @@ func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool, containerdVersion string) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
@@ -197,7 +198,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
 	var _template *template.Template
-	if isContainerdV2(aksnodeconfig.GetContainerdConfig().GetContainerdVersion()) {
+	if isContainerdV2(containerdVersion) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -215,6 +216,18 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	}
 
 	return buffer.String(), nil
+}
+
+// detectContainerdVersion runs "containerd --version" and parses the version string.
+// The expected output format is: "containerd <source> <version> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
+// Returns the semver version without the leading "v" prefix, or empty string if detection fails.
+func detectContainerdVersion() (string, error) {
+	out, err := exec.Command("containerd", "--version").Output()
+	if err != nil {
+		return "", fmt.Errorf("running containerd --version: %w", err)
+	}
+	return parseContainerdVersionOutput(string(out)), nil
 }
 
 // isContainerdV2 returns true if the containerd version string indicates a 2.x release.
@@ -763,6 +776,27 @@ func removeNewlines(str string) string {
 	sanitizedStr := strings.ReplaceAll(str, "\n", "")
 	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
 	return sanitizedStr
+}
+
+// parseContainerdVersionOutput extracts the semver version from containerd --version output.
+func parseContainerdVersionOutput(output string) string {
+	// Output format: "containerd <source> <version> <commit>"
+	// e.g. "containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f1..."
+	// Find the field that looks like a version (starts with a digit or "v" followed by a digit).
+	// Strip any package revision suffix (e.g. "-1" in "2.3.2-1") to get a clean semver.
+	fields := strings.Fields(strings.TrimSpace(output))
+	for _, field := range fields {
+		clean := strings.TrimPrefix(field, "v")
+		if len(clean) > 0 && clean[0] >= '0' && clean[0] <= '9' && strings.Contains(clean, ".") {
+			// Strip package revision suffix: keep only "major.minor.patch"
+			// e.g. "2.3.2-1" -> "2.3.2"
+			if idx := strings.LastIndex(clean, "-"); idx > 0 {
+				clean = clean[:idx]
+			}
+			return clean
+		}
+	}
+	return ""
 }
 
 // ---------------------- Start of localdns related helper code ----------------------//

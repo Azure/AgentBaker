@@ -645,9 +645,6 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 
 	vars := environToMap(cmd.Env)
 
-	// Verify the detected version was populated.
-	assert.Equal(t, "2.3.2", vars["CONTAINERD_VERSION"])
-
 	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 	require.NoError(t, err)

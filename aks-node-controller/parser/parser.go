@@ -31,6 +31,16 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 
 //nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
+	// Detect containerd version from the system if not already set in the config.
+	// This allows the correct containerd config template (v1 vs v2) to be selected
+	// on VHDs where the caller doesn't provide the version explicitly.
+	var containerdVersion string
+	if config.GetContainerdConfig().GetContainerdVersion() == "" {
+		if version, err := detectContainerdVersion(); err == nil && version != "" {
+			containerdVersion = version
+		}
+	}
+
 	cloudProviderSettings := getCloudProviderSettings(config)
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
@@ -167,8 +177,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"AZURE_ENVIRONMENT_FILEPATH":                          getAzureEnvironmentFilepath(config),
 		"KUBE_CA_CRT":                                         config.GetKubernetesCaCert(),
 		"KUBENET_TEMPLATE":                                    getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                           getContainerdConfigBase64(config),
-		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                    getNoGPUContainerdConfigBase64(config),
+		"CONTAINERD_CONFIG_CONTENT":                           getContainerdConfigBase64(config, containerdVersion),
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                    getNoGPUContainerdConfigBase64(config, containerdVersion),
 		"IS_KATA":                                             fmt.Sprintf("%v", config.GetIsKata()),
 		"ARTIFACT_STREAMING_ENABLED":                          fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
 		"SYSCTL_CONTENT":                                      getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),
@@ -290,18 +300,6 @@ func mapToEnviron(input map[string]string) []string {
 }
 
 func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*exec.Cmd, error) {
-	// Detect containerd version from the system if not already set in the config.
-	// This allows the correct containerd config template (v1 vs v2) to be selected
-	// on VHDs where the caller doesn't provide the version explicitly.
-	if config.GetContainerdConfig().GetContainerdVersion() == "" {
-		if version, err := detectContainerdVersion(ctx); err == nil && version != "" {
-			if config.ContainerdConfig == nil {
-				config.ContainerdConfig = &aksnodeconfigv1.ContainerdConfig{}
-			}
-			config.ContainerdConfig.ContainerdVersion = version
-		}
-	}
-
 	triggerBootstrapScript, err := executeBootstrapTemplate(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
@@ -313,37 +311,4 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*e
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil
-}
-
-// detectContainerdVersion runs "containerd --version" and parses the version string.
-// The expected output format is: "containerd <source> v<major>.<minor>.<patch> <commit>"
-// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
-// Returns the semver version without the leading "v" prefix, or empty string if detection fails.
-func detectContainerdVersion(ctx context.Context) (string, error) {
-	out, err := exec.CommandContext(ctx, "containerd", "--version").Output()
-	if err != nil {
-		return "", fmt.Errorf("running containerd --version: %w", err)
-	}
-	return parseContainerdVersionOutput(string(out)), nil
-}
-
-// parseContainerdVersionOutput extracts the semver version from containerd --version output.
-func parseContainerdVersionOutput(output string) string {
-	// Output format: "containerd <source> <version> <commit>"
-	// e.g. "containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f1..."
-	// Find the field that looks like a version (starts with a digit or "v" followed by a digit).
-	// Strip any package revision suffix (e.g. "-1" in "2.3.2-1") to get a clean semver.
-	fields := strings.Fields(strings.TrimSpace(output))
-	for _, field := range fields {
-		clean := strings.TrimPrefix(field, "v")
-		if len(clean) > 0 && clean[0] >= '0' && clean[0] <= '9' && strings.Contains(clean, ".") {
-			// Strip package revision suffix: keep only "major.minor.patch"
-			// e.g. "2.3.2-1" -> "2.3.2"
-			if idx := strings.LastIndex(clean, "-"); idx > 0 {
-				clean = clean[:idx]
-			}
-			return clean
-		}
-	}
-	return ""
 }
