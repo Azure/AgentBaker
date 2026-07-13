@@ -1115,8 +1115,8 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.2.4-6004.verity.azl3",
-                "previousLatestVersion": "2.2.4-6003.verity.azl3"
+                "latestVersion": "2.2.4-6005.verity.azl3",
+                "previousLatestVersion": "2.2.4-6004.verity.azl3"
               }
             ]
           },
