@@ -606,6 +606,16 @@ func TestParseContainerdVersionOutput(t *testing.T) {
 			want:   "1.7.22",
 		},
 		{
+			name:   "containerd v2 pre-release suffix",
+			output: "containerd github.com/containerd/containerd/v2 2.0.0-beta.1 abc123",
+			want:   "2.0.0",
+		},
+		{
+			name:   "containerd v2 rc suffix",
+			output: "containerd github.com/containerd/containerd/v2 v2.1.0-rc.2 abc123",
+			want:   "2.1.0",
+		},
+		{
 			name:   "empty output",
 			output: "",
 			want:   "",

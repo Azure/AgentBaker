@@ -783,14 +783,14 @@ func parseContainerdVersionOutput(output string) string {
 	// Output format: "containerd <source> <version> <commit>"
 	// e.g. "containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f1..."
 	// Find the field that looks like a version (starts with a digit or "v" followed by a digit).
-	// Strip any package revision suffix (e.g. "-1" in "2.3.2-1") to get a clean semver.
+	// Strip any package revision or pre-release suffix to get a clean major.minor.patch.
 	fields := strings.Fields(strings.TrimSpace(output))
 	for _, field := range fields {
 		clean := strings.TrimPrefix(field, "v")
 		if len(clean) > 0 && clean[0] >= '0' && clean[0] <= '9' && strings.Contains(clean, ".") {
-			// Strip package revision suffix: keep only "major.minor.patch"
-			// e.g. "2.3.2-1" -> "2.3.2"
-			if idx := strings.LastIndex(clean, "-"); idx > 0 {
+			// Strip everything after the first "-" (package revision or pre-release suffix).
+			// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
+			if idx := strings.Index(clean, "-"); idx > 0 {
 				clean = clean[:idx]
 			}
 			return clean
