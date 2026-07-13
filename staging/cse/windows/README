@@ -36,7 +36,7 @@ pushd aks-windows-cse
 	done
 
 	pushd debug
-		files=("VFP.psm1" "captureNetworkFlows.ps1" "collect-windows-logs.ps1" "collectlogs.ps1" "dumpVfpPolicies.ps1" "helper.psm1" "hns.psm1" "hns.v2.psm1" "networkhealth.ps1" "portReservationTest.ps1" "starthnstrace.cmd" "starthnstrace.ps1" "startpacketcapture.cmd" "startpacketcapture.ps1" "stoppacketcapture.cmd")
+		files=("VFP.psm1" "captureNetworkFlows.ps1" "collect-windows-logs-helper.psm1" "collect-windows-logs.ps1" "collectlogs.ps1" "dumpVfpPolicies.ps1" "helper.psm1" "hns.psm1" "hns.v2.psm1" "networkhealth.ps1" "portReservationTest.ps1" "starthnstrace.cmd" "starthnstrace.ps1" "startpacketcapture.cmd" "startpacketcapture.ps1" "stoppacketcapture.cmd")
 		for file in ${files[@]}; do
 		    echo "Downloading $file from $url/debug/$file"
 		   curl -O "$url/debug/$file"

@@ -5,6 +5,8 @@ param (
 )
 # param must be at the beginning of the script, add more param if needed
 
+Import-Module "$PSScriptRoot\collect-windows-logs-helper.psm1" -Force
+
 # NOTE: Please also update staging/cse/windows/provisioningscripts/loggenerator.ps1 when collecting new logs.
 
 # SilentlyContinue mode suppresses errors and continues the script execution.
@@ -167,26 +169,11 @@ else {
   Write-Host "AKSGMSAPlugin events are not available"
 }
 
-$handlePath = "C:\aks-tools\Handle\handle64.exe"
-if (Test-Path $handlePath) {
-  Write-Host "Collecting RSA key container handles"
-  $handleOutputFile = "$ENV:TEMP\$timeStamp-rsa-key-container-handles.txt"
-  & $handlePath -accepteula rsa-key-container *> $handleOutputFile
-  $handleExitCode = $LASTEXITCODE
-
-  if (Test-Path $handleOutputFile) {
-    $paths += $handleOutputFile
-  }
-  else {
-    Write-Host "handle64.exe did not create $handleOutputFile"
-  }
-
-  if ($handleExitCode -ne 0) {
-    Write-Host "handle64.exe exited with code $handleExitCode"
-  }
-}
-else {
-  Write-Host "Skipping RSA key container handle collection because $handlePath does not exist"
+$handleOutputFile = Get-RSAKeyContainerHandleLog `
+  -HandlePath "C:\aks-tools\Handle\handle64.exe" `
+  -OutputPath "$ENV:TEMP\$timeStamp-rsa-key-container-handles.txt"
+if ($handleOutputFile) {
+  $paths += $handleOutputFile
 }
 
 Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
