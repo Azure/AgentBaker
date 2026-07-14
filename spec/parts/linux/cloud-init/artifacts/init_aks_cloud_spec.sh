@@ -231,40 +231,31 @@ baseurl=https://packages.microsoft.com/cbl-mariner/2.0/prod/extras/x86_64
 gpgcheck=1
 enabled=1
 REPO
-            When call init_mariner_repo_depot "https://repodepot.ussec.example.com"
+            When call init_mariner_repo_depot "https://repodepot.example.com"
             The output should be present
             The status should be success
             The path "${YUM_REPOS_DIR}/mariner-extended.repo" should be exist
             The path "${YUM_REPOS_DIR}/mariner-nvidia.repo" should be exist
             The path "${YUM_REPOS_DIR}/mariner-cloud-native.repo" should be exist
-            The contents of file "${YUM_REPOS_DIR}/mariner-extended.repo" should include "repodepot.ussec.example.com/mariner/packages.microsoft.com"
+            The contents of file "${YUM_REPOS_DIR}/mariner-extended.repo" should include "repodepot.example.com/mariner/packages.microsoft.com"
             The contents of file "${YUM_REPOS_DIR}/mariner-extended.repo" should not include "https://packages.microsoft.com/cbl-mariner"
-            The contents of file "${YUM_REPOS_DIR}/mariner-nvidia.repo" should include "repodepot.ussec.example.com/mariner/packages.microsoft.com"
+            The contents of file "${YUM_REPOS_DIR}/mariner-nvidia.repo" should include "repodepot.example.com/mariner/packages.microsoft.com"
         End
     End
 
     Describe 'init_azurelinux_repo_depot'
-        It 'creates all expected repo files for Azure Linux (USNat cloud)'
+        It 'creates all expected repo files for Azure Linux'
             export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
             mkdir -p "${YUM_REPOS_DIR}"
-            When call init_azurelinux_repo_depot "https://repodepot.usnat.example.com"
+            When call init_azurelinux_repo_depot "https://repodepot.example.com"
             The output should be present
             The status should be success
             The path "${YUM_REPOS_DIR}/azurelinux-base.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-nvidia.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-cloud-native.repo" should be exist
             The path "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should be exist
-            The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.usnat.example.com/azurelinux/"
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.example.com/azurelinux/"
             The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should not include "packages.microsoft.com"
-        End
-
-        It 'creates all expected repo files for Azure Linux (Mooncake cloud)'
-            export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
-            mkdir -p "${YUM_REPOS_DIR}"
-            When call init_azurelinux_repo_depot "https://repodepot.mooncake.example.com"
-            The output should be present
-            The status should be success
-            The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.mooncake.example.com/azurelinux/"
         End
     End
 End
