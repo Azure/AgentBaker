@@ -33,7 +33,7 @@ pruneStaleWALinuxAgentDirs() {
     fi
     find "${base_dir}" -mindepth 1 -maxdepth 1 -type d -name 'WALinuxAgent-*' \
         ! -name "WALinuxAgent-${pinned_version}" \
-        -exec rm -rf {} +
+        -exec rm -rf -- {} +
 }
 
 # Ensure cleanup and sync always run, even if the script errors (bash -e).
