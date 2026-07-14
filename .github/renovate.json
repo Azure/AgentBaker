@@ -166,10 +166,16 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
-        "team:aks-node-lifecycle"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {
