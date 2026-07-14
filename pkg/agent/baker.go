@@ -1014,7 +1014,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetContainerdConfigContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+				if profile.IsContainerdV2Distro() {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
@@ -1026,7 +1026,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+				if profile.IsContainerdV2Distro() {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
