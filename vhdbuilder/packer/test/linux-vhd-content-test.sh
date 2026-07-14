@@ -1935,8 +1935,8 @@ testAKSNodeControllerVersion() {
     return 1
   fi
 
-  if ! printf '%s\n' "$ancVersion" | grep -Eq '^(dev|[0-9]{6}\.[0-9]{2}\.[0-9]+)$'; then
-    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'dev' or YYYYMM.DD.PATCH"
+  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
     return 1
   fi
 
