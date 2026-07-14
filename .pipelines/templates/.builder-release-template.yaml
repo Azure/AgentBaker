@@ -36,7 +36,11 @@ steps:
   # (System.AccessToken) is used and the build identity needs Feed Reader there.
   - template: ./.compliance-engine-scan-template.yaml
     parameters:
-      condition: and(succeeded(), eq(variables['ENABLE_COMPLIANCE_ENGINE_SCAN'], 'true'), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
+      # TEMPORARY (testing): the ENABLE_COMPLIANCE_ENGINE_SCAN gate is removed so
+      # the scan runs on every Ubuntu 22.04/24.04 build without setting the
+      # variable. RESTORE before merge:
+      #   and(succeeded(), eq(variables['ENABLE_COMPLIANCE_ENGINE_SCAN'], 'true'), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
+      condition: and(succeeded(), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
       feedName: ComplianceEnginePackages
 
   - task: DownloadPipelineArtifact@2
