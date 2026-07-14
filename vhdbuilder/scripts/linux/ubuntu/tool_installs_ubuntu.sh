@@ -11,7 +11,6 @@ ERR_STRONGSWAN_INSTALL_TIMEOUT=187 {{/* Timeout to install strongswan */}}
 ERR_UA_ESM_HOOK_CLEANUP=188 {{/* Error removing the apt ESM hook for Ubuntu Pro */}}
 ERR_UA_MASK_UNIT=189 {{/* Error stopping/disabling/masking an Ubuntu Pro background unit */}}
 ERR_UA_TOKEN_CLEANUP=190 {{/* Error removing the baked-in Ubuntu Pro machine token state */}}
-ERR_PACKAGEKIT_PURGE=191 {{/* Error purging PackageKit and its apt hook from the VHD */}}
 
 ERR_NTP_INSTALL_TIMEOUT=10 {{/*Unable to install NTP */}}
 ERR_NTP_START_TIMEOUT=11 {{/* Unable to start NTP */}}
@@ -318,18 +317,4 @@ detachAndCleanUpUA() {
     rm -rf /var/lib/ubuntu-advantage/messages /var/lib/ubuntu-advantage/esm-cache || true
 
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-}
-
-# PackageKit is a desktop D-Bus package-management service present only on the non-minimal Ubuntu
-# image (pulled in transitively via software-properties-common); nothing on an AKS node consumes it.
-# Its apt hook (/etc/apt/apt.conf.d/20packagekit) runs `gdbus call --system ... StateHasChanged` after
-# every `apt-get update`. During early-boot node provisioning (CSE) the system D-Bus is not yet ready,
-# so that gdbus call prints a benign `Error connecting: ... Broken pipe` to apt's stderr, which the
-# node-bootstrap apt error-check misreads as a failure -> CSE exit 99 -> node never joins. Purge it
-# (matching the minimal image); this also removes packagekit-tools and software-properties-common
-# (add-apt-repository), which are unused at node runtime -- the build's only add-apt-repository usage is
-# in pre-install-dependencies.sh, which has already run. No-op on the minimal image (packages absent);
-# the caller's subsequent `autoremove --purge` sweeps orphaned deps.
-removePackageKit() {
-    retrycmd_if_failure 10 2 60 apt-get purge --auto-remove packagekit packagekit-tools software-properties-common -y || exit $ERR_PACKAGEKIT_PURGE
 }
