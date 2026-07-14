@@ -2383,6 +2383,33 @@ EOF
         End
     End
 
+    Describe 'configureSSHPubkeyAuth CIS-compliant sshd_config permissions'
+        # These are static assertions on cse_config.sh to guard against a
+        # regression of the CIS Benchmark 5.1.1 fix, which requires
+        # /etc/ssh/sshd_config to be mode 0600 (or more restrictive) and
+        # owned by root:root. Previously, configureSSHPubkeyAuth used
+        # `install -m 644 ...` which overwrote the VHD-hardened 0600 mode
+        # from configureSsh() in cis.sh, causing CIS control 5.1.1 to fail
+        # on Ubuntu 22.04 and 24.04 nodes.
+        #
+        # If configureSSHPubkeyAuth ever reverts to a non-compliant mode
+        # (e.g. 644, 640, 660, 755) when replacing $SSHD_CONFIG, these
+        # tests will fail and flag the regression before it ships.
+        cse_config_path="./parts/linux/cloud-init/artifacts/cse_config.sh"
+
+        It 'replaces sshd_config with mode 0600 (CIS Benchmark 5.1.1)'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+0?600[[:space:]]+-o[[:space:]]+root[[:space:]]+-g[[:space:]]+root[[:space:]]+"\$TMP"[[:space:]]+"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be success
+            The output should include 'install'
+            The output should include 'SSHD_CONFIG'
+        End
+
+        It 'does not replace sshd_config with a world/group-readable mode'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+(0?(644|640|660|755|777))[[:space:]].*"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be failure
+        End
+    End
+
     Describe 'managedGPUPackageList on Ubuntu'
         Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 

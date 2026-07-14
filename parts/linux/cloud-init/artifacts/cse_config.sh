@@ -1506,8 +1506,9 @@ configureSSHPubkeyAuth() {
   # Validate the candidate config
   sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
-  # Replace the original with the candidate (permissions 644, owned by root)
-  install -m 644 -o root -g root "$TMP" "$SSHD_CONFIG"
+  # Replace the original with the candidate (permissions 600, owned by root)
+  # Mode 0600 is required by CIS Benchmark control 5.1.1
+  install -m 0600 -o root -g root "$TMP" "$SSHD_CONFIG"
   rm -f "$TMP"
 
   # Reload sshd

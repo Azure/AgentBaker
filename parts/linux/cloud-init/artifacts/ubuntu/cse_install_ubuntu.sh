@@ -13,7 +13,7 @@ blobfuseFallbackPackages() {
     # This combination is unlikely, so this fallback can be removed
     # 6 months after the April 2026 release.
     local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
-    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.4"
     local HAS_BLOBFUSE_COMPONENT="false"
     local HAS_BLOBFUSE2_COMPONENT="false"
 
