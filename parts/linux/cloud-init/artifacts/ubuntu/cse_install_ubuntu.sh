@@ -13,7 +13,7 @@ blobfuseFallbackPackages() {
     # This combination is unlikely, so this fallback can be removed
     # 6 months after the April 2026 release.
     local LEGACY_FALLBACK_BLOBFUSE_VERSION="1.4.5"
-    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.3"
+    local LEGACY_FALLBACK_BLOBFUSE2_VERSION="2.5.4"
     local HAS_BLOBFUSE_COMPONENT="false"
     local HAS_BLOBFUSE2_COMPONENT="false"
 
@@ -179,18 +179,26 @@ isPackageInstalled() {
 }
 
 managedGPUPackageList() {
-    packages=(
-        nvidia-device-plugin
+    local packages=(
         datacenter-gpu-manager-4-core
         datacenter-gpu-manager-4-proprietary
         dcgm-exporter
     )
+
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE:-false}" = "true" ]; then
+        packages+=(nvidia-device-plugin)
+    elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA:-false}" = "true" ]; then
+        packages+=(dra-driver-nvidia-gpu)
+    fi
+
     echo "${packages[@]}"
 }
 
 installNvidiaManagedExpPkgFromCache() {
     # Ensure kubelet device-plugins directory exists BEFORE package installation
     mkdir -p /var/lib/kubelet/device-plugins
+    mkdir -p /var/lib/kubelet/plugins_registry
+    mkdir -p /var/lib/kubelet/plugins
 
     for packageName in $(managedGPUPackageList); do
         downloadDir="/opt/${packageName}/downloads"

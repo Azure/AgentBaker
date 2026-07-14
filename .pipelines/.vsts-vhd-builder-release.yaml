@@ -947,3 +947,4 @@ stages:
         parameters:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
+          useVhdMetadataArtifacts: true

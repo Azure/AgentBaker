@@ -4,12 +4,14 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
@@ -1499,10 +1501,98 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
 		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
-		Expect(string(decodedPayload)).To(ContainSubstring(nodeCustomDataPath))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
-		Expect(string(decodedPayload)).To(ContainSubstring(nbcCmdFilePath))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNbcCmdFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
+	})
+
+	It("should embed the encoded AKSNodeConfig in the scriptless NBC boothook when provided", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.AKSNodeConfigJSON = `{"foo":"bar"}`
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
+	})
+
+	It("should not embed an AKSNodeConfig file entry in the scriptless NBC boothook when not provided", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.AKSNodeConfigJSON = ""
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(aksNodeConfigFilepath))
+	})
+
+	It("should not embed a hotfix JSON file entry when the parts FS does not ship one", func() {
+		if _, err := parts.Templates.ReadFile(hotfixJSONFile); err == nil {
+			Skip("parts FS ships " + hotfixJSONFile + " on this branch; this case is covered by the 'should embed' test below")
+		}
+
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(aksHotfixJSONFilepath))
+	})
+
+	It("should embed a hotfix JSON file entry when the parts FS ships one", func() {
+		b, err := parts.Templates.ReadFile(hotfixJSONFile)
+		if err != nil {
+			Skip("parts FS does not ship " + hotfixJSONFile + " on this branch")
+		}
+
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, decodeErr := base64.StdEncoding.DecodeString(payload)
+		Expect(decodeErr).NotTo(HaveOccurred())
+
+		encodedHotfixJSON := getBase64EncodedGzippedCustomScriptFromStr(string(b))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksHotfixJSONFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedHotfixJSON))
+	})
+
+	It("should render valid ignition JSON with the encoded files for scriptless ACL custom data", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.AKSNodeConfigJSON = `{"foo":"bar"}`
+
+		// getScriptlessNBCCustomData's ignition branch is gated on IsFlatcar()/IsACL();
+		// use an ACL distro so we exercise the ignition path without a flatcar fixture.
+		config.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
+		Expect(config.IsACL()).To(BeTrue())
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		var ignition map[string]interface{}
+		Expect(json.Unmarshal(decodedPayload, &ignition)).To(Succeed())
+
+		storage, ok := ignition["storage"].(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		files, ok := storage["files"].([]interface{})
+		Expect(ok).To(BeTrue())
+		Expect(len(files)).To(Equal(3)) // nbc-cmd, nodecustomdata, aks-node-config (no hotfix file present)
+
+		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
 	It("should render initAKSCustomCloud file in scriptless custom data for default cloud with Ubuntu", func() {
@@ -1603,8 +1693,8 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
 
 		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nodeCustomDataPath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(nbcCmdFilePath))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
+		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
 	})
 })
 

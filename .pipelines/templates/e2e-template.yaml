@@ -18,6 +18,10 @@ parameters:
     type: number
     displayName: Number of times to retry failed E2E tests
     default: 0
+  - name: useVhdMetadataArtifacts
+    type: boolean
+    displayName: Resolve VHDs from metadata artifacts produced by this pipeline
+    default: false
   - name: rcv1pTagsAutoInjected
     type: boolean
     displayName: |
@@ -51,6 +55,31 @@ jobs:
         fetchTags: false
         fetchDepth: 1
 
+      - ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: Download E2E VHD metadata
+          inputs:
+            buildType: current
+            itemPattern: 'e2e-vhd-metadata-*/**/*.json'
+            targetPath: $(Pipeline.Workspace)/e2e-vhd-metadata
+
+        - bash: |
+            set -euo pipefail
+
+            metadata_dir="$(Pipeline.Workspace)/e2e-vhd-metadata"
+            metadata_file="$(Build.SourcesDirectory)/e2e-vhd-metadata.json"
+            # Pipeline artifacts are immutable, so rerun attempts publish uniquely suffixed
+            # artifacts. Sort naturally by attempt so metadata from the latest attempt wins.
+            mapfile -d '' metadata_files < <(find "$metadata_dir" -type f -name '*.json' -print0 | sort -zV)
+            if [ "${#metadata_files[@]}" -eq 0 ]; then
+              echo "##vso[task.logissue type=error]No E2E VHD metadata artifacts were downloaded" >&2
+              exit 1
+            fi
+
+            jq -s 'reduce .[] as $item ({}; . * $item)' "${metadata_files[@]}" > "$metadata_file"
+            echo "##vso[task.setvariable variable=E2E_VHD_METADATA_FILE]$metadata_file"
+          displayName: Merge E2E VHD metadata
+
       - task: AzureCLI@2
         inputs:
           azureSubscription: $(E2E_ARM_SERVICE_CONNECTION)
@@ -68,6 +97,8 @@ jobs:
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           E2E_FAILED_TESTS_RETRY_COUNT: ${{parameters.failedTestsRetryCount}}
           RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
+          ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
+            E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
 
       - task: PublishTestResults@2
         displayName: Upload test results

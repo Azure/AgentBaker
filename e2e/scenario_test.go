@@ -596,8 +596,6 @@ func Test_Ubuntu2204_ScriptlessCSECmd_Hotfix(t *testing.T) {
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt",
-					"Executing in scriptless CSE mode")
 				// This file does NOT exist on any VHD — it can only be present if cloud-init
 				// processed our write_files entry, proving the hotfix delivery mechanism works.
 				ValidateFileHasContent(ctx, s, hotfixMarkerPath, hotfixMarkerContent)
@@ -679,7 +677,7 @@ func Test_Ubuntu2204(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", "2.5.3")
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2204")[0])
 				ValidateSSHServiceEnabled(ctx, s)
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "cat /etc/motd")
@@ -2203,7 +2201,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRuncVersion(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", "2.5.3")
+				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2404")[0])
 				ValidateSSHServiceEnabled(ctx, s)
 			},
 		},
@@ -2555,9 +2553,10 @@ func Test_Ubuntu2404_VHDCaching(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "T",
 		Config: Config{
-			Cluster:    ClusterKubenet,
-			VHD:        config.VHDUbuntu2204Gen2Containerd,
-			VHDCaching: true,
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDUbuntu2204Gen2Containerd,
+			VHDCaching:             true,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {

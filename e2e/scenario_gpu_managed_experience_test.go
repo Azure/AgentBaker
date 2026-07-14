@@ -783,3 +783,41 @@ func Test_Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2404_DraDriverNvidiaGpuRunning(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
+		Tags: Tags{
+			GPU: true,
+		},
+
+		Config: Config{
+			Cluster:           ClusterKubenet,
+			SkipScriptlessNBC: true,
+			VHD:               config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.EnableManagedGPUDRA = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(t.Context(), vmss.Location)
+				require.NoError(t, err, "creating AKS VM extension")
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRuncVersion(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateDraDriverNvidiaGpuServiceRunning(ctx, s)
+				ValidateDRAWorkloadSchedulable(ctx, s)
+			},
+		},
+	})
+}

@@ -83,7 +83,7 @@ func TestParseHotfixConfig(t *testing.T) {
 		require.NoError(t, os.WriteFile(path, []byte(body), 0644))
 		fromFile, err := readHotfixConfig(path)
 		require.NoError(t, err)
-		assert.Equal(t, fromFile, fromLPS)
+		assert.Equal(t, *fromFile, fromLPS)
 	})
 }
 
