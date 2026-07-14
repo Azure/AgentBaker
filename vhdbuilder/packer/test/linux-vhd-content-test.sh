@@ -1920,15 +1920,22 @@ testAKSNodeControllerBinary () {
 testAKSNodeControllerVersion() {
   local test="testAKSNodeControllerVersion"
   local go_binary_path="/opt/azure/containers/aks-node-controller"
+  local ancVersionRaw
   local ancVersion
 
-  ancVersion=$("${go_binary_path}" version 2>/dev/null | tr -d '\r\n')
+  ancVersionRaw=$("${go_binary_path}" version 2>&1)
+  if [ "$?" -ne 0 ]; then
+    err "$test" "failed to run '${go_binary_path} version': ${ancVersionRaw}"
+    return 1
+  fi
+
+  ancVersion=$(printf '%s' "$ancVersionRaw" | tr -d '\r\n')
   if [ -z "$ancVersion" ]; then
     err "$test" "aks-node-controller version is empty"
     return 1
   fi
 
-  if ! echo "$ancVersion" | grep -Eq '^(dev|[0-9]{6}\.[0-9]{2}\.[0-9]+)$'; then
+  if ! printf '%s\n' "$ancVersion" | grep -Eq '^(dev|[0-9]{6}\.[0-9]{2}\.[0-9]+)$'; then
     err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'dev' or YYYYMM.DD.PATCH"
     return 1
   fi
