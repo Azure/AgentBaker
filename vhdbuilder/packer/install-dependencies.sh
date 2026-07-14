@@ -330,6 +330,11 @@ cacheKubePackageFromPrivateUrl() {
 }
 
 starteBPFToolsInstallation() {
+  if [ "$OS_VERSION" = "26.04" ]; then
+    echo "Ubuntu 26.04 - skipping eBPF tools installation"
+    return 0
+  fi
+
   installBpftrace
   echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
@@ -345,6 +350,11 @@ starteBPFToolsInstallation() {
 }
 
 finisheBPFToolsInstallation() {
+  if [ "$OS_VERSION" = "26.04" ]; then
+    echo "Ubuntu 26.04 - skipping eBPF tools installation"
+    return 0
+  fi
+
   local BCC_EXIT_CODE=0
   wait "$BCC_PID" || BCC_EXIT_CODE=$?
   chmod 644 /var/log/bcc_installation.log || true
