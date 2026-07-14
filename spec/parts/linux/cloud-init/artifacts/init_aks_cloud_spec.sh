@@ -107,11 +107,11 @@ EOF
     Describe 'init_ubuntu_main_repo_depot'
         It 'writes a ubuntu.sources file pointing at the depot, with no upstream URLs'
             write_ubuntu_os_release
-            When call init_ubuntu_main_repo_depot "https://repodepot.bleu.example.com"
+            When call init_ubuntu_main_repo_depot "https://repodepot.example.com"
             The output should be present
             The status should be success
             The path "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should be exist
-            The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.bleu.example.com/ubuntu"
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "URIs: https://repodepot.example.com/ubuntu"
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should include "jammy jammy-updates jammy-backports jammy-security"
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should not include "archive.ubuntu.com"
             The contents of file "${APT_SOURCES_LIST_D_DIR}/ubuntu.sources" should not include "security.ubuntu.com"
@@ -122,7 +122,7 @@ EOF
             write_ubuntu_os_release
             echo "deb http://archive.ubuntu.com/ubuntu jammy main" > "${APT_SOURCES_LIST}"
             echo "deb http://packages.microsoft.com/repos/azure-cli/ jammy main" > "${APT_SOURCES_LIST_D_DIR}/azure-cli.list"
-            When call init_ubuntu_main_repo_depot "https://repodepot.bleu.example.com"
+            When call init_ubuntu_main_repo_depot "https://repodepot.example.com"
             The output should be present
             The status should be success
             The path "${APT_BACKUP_DIR}/sources.list" should be exist
@@ -148,13 +148,13 @@ EOF
 
         It 'writes microsoft-prod sources files pointing at the depot only'
             ubuntuRel=22.04
-            repodepot_endpoint="https://repodepot.bleu.example.com"
+            repodepot_endpoint="https://repodepot.example.com"
             When call init_ubuntu_pmc_repo_depot "${repodepot_endpoint}"
             The output should be present
             The status should be success
             The path "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should be exist
             The path "${APT_SOURCES_LIST_D_DIR}/microsoft-prod-testing.sources" should be exist
-            The contents of file "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should include "URIs: https://repodepot.bleu.example.com/microsoft/ubuntu/22.04/prod"
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should include "URIs: https://repodepot.example.com/microsoft/ubuntu/22.04/prod"
             The contents of file "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should not include "https://packages.microsoft.com"
             The path "${APT_KEYRINGS_DIR}/microsoft.asc.gpg" should be exist
             The path "${APT_KEYRINGS_DIR}/msopentech.asc.gpg" should be exist
@@ -167,7 +167,7 @@ EOF
         End
 
         It 'passes for a 200 response'
-            When call check_url "https://repodepot.bleu.example.com/ubuntu/dists/jammy/Release"
+            When call check_url "https://repodepot.example.com/ubuntu/dists/jammy/Release"
             The status should be success
             The stdout should include "Checking url"
         End
