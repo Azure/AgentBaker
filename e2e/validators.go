@@ -2992,6 +2992,18 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) {
 		"$zipFile = Get-ChildItem -Filter \"*_logs.zip\" | Sort-Object LastWriteTime -Descending | Select-Object -First 1",
 		"if (-not $zipFile) { throw \"collect-windows-logs.ps1 did not create a zip file\" }",
 		"Write-Host \"Zip file created: $($zipFile.FullName) (Size: $($zipFile.Length) bytes)\"",
+		"$extractDir = Join-Path (Get-Location) \"expanded-logs\"",
+		"Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue",
+		"Expand-Archive -Path $zipFile.FullName -DestinationPath $extractDir -Force",
+		"$handlePath = \"C:\\aks-tools\\Handle\\handle64.exe\"",
+		"if (Test-Path $handlePath) {",
+		"  $handleOutputFile = Get-ChildItem -Path $extractDir -Filter \"*-rsa-key-container-handles.txt\" -Recurse | Select-Object -First 1",
+		"  if (-not $handleOutputFile) { throw \"collect-windows-logs.ps1 did not collect RSA key container handles\" }",
+		"  if ($handleOutputFile.Length -eq 0) { throw \"RSA key container handle output is empty\" }",
+		"  Write-Host \"Handle output collected: $($handleOutputFile.FullName) (Size: $($handleOutputFile.Length) bytes)\"",
+		"} else {",
+		"  Write-Host \"Skipping Handle output validation because $handlePath does not exist\"",
+		"}",
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		"collect-windows-logs.ps1 failed or did not produce a zip file")

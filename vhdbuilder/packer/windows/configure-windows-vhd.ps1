@@ -508,6 +508,13 @@ function Get-ToolsToVHD
     Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
 
     LogFilesInDirectory "$global:aksToolsDir\DU"
+
+    Write-Log "Getting Handle (Windows Sysinternals Handle)"
+    Download-File -URL "https://download.sysinternals.com/files/Handle.zip" -Dest "$global:aksToolsDir\Handle.zip"
+    Expand-Archive -Path "$global:aksToolsDir\Handle.zip" -DestinationPath "$global:aksToolsDir\Handle" -Force
+    Remove-Item -Path "$global:aksToolsDir\Handle.zip" -Force
+
+    LogFilesInDirectory "$global:aksToolsDir\Handle"
 }
 
 function Register-ExpandVolumeTask

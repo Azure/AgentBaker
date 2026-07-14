@@ -590,7 +590,12 @@ function Test-WindowsDefenderPlatformUpdate {
 
 function Test-ToolsToCacheOnVHD {
     $toolsDir = "c:\aks-tools"
-    $toolsList = @("DU\du.exe", "DU\du64.exe", "DU\du64a.exe")
+    $toolsList = @(
+        "DU\du.exe",
+        "DU\du64.exe",
+        "DU\du64a.exe",
+        "Handle\handle64.exe"
+    )
 
     foreach ($tool in $toolsList) {
         $toolPath = Join-Path -Path $toolsDir -ChildPath $tool
