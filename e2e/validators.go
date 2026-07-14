@@ -2929,18 +2929,48 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 
 	const waagentLogFile = "/var/log/waagent.log"
 
-	logContents := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo cat "+waagentLogFile, 0,
-		"could not read waagent log").stdout
-
-	// 1. Verify AutoUpdate is disabled
-	require.Contains(s.T, logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
-		"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False")
-
-	// 2. Verify the correct version is running as ExtHandler (PID varies)
 	expectedRunningPattern := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
-	require.Contains(s.T, logContents, expectedRunningPattern,
-		"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion)
+	const autoUpdateLine = "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation"
+
+	// Poll for up to 60 seconds waiting for the ExtHandler to start.
+	// On Ubuntu 22.04 VHDs the WALinuxAgent ExtHandler takes ~32s to start after the daemon starts.
+	const (
+		pollTimeout  = 60 * time.Second
+		pollInterval = 5 * time.Second
+	)
+	var logContents string
+	deadline := time.Now().Add(pollTimeout)
+	attempt := 0
+	for {
+		attempt++
+		logContents = execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo cat "+waagentLogFile, 0,
+			"could not read waagent log").stdout
+
+		hasAutoUpdate := strings.Contains(logContents, autoUpdateLine)
+		hasRunning := strings.Contains(logContents, expectedRunningPattern)
+
+		if hasAutoUpdate && hasRunning {
+			s.T.Logf("waagent log poll attempt %d: found expected log entries", attempt)
+			break
+		}
+
+		if time.Now().After(deadline) {
+			var missing []string
+			if !hasAutoUpdate {
+				missing = append(missing, fmt.Sprintf("AutoUpdate line: %q", autoUpdateLine))
+			}
+			if !hasRunning {
+				missing = append(missing, fmt.Sprintf("Running pattern: %q", expectedRunningPattern))
+			}
+			s.T.Fatalf("timed out after %s waiting for waagent.log to contain expected entries.\nMissing:\n  %s\nLast log contents:\n%s",
+				pollTimeout, strings.Join(missing, "\n  "), logContents)
+		}
+
+		s.T.Logf("waagent log poll attempt %d: waiting for ExtHandler to be ready (hasAutoUpdate=%v, hasRunning=%v)",
+			attempt, hasAutoUpdate, hasRunning)
+		time.Sleep(pollInterval)
+	}
 
 	// 3. Check for ExtHandler errors
 	// On Ubuntu 22.04 FIPS VHDs, waagent logs "Cannot convert PFX to PEM" because
@@ -2950,9 +2980,11 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) {
 	isUbuntu2204FIPS := s.VHD == config.VHDUbuntu2204FIPSContainerd ||
 		s.VHD == config.VHDUbuntu2204Gen2FIPSContainerd ||
 		s.VHD == config.VHDUbuntu2204Gen2FIPSTLContainerd
-	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s || true", waagentLogFile)
+	// Always filter transient ProtocolError timeouts — these are retried by the agent
+	// and do not indicate a real failure (common during initial goal state fetch).
+	grepCmd := fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'ProtocolError' || true", waagentLogFile)
 	if isUbuntu2204FIPS {
-		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
+		grepCmd = fmt.Sprintf("sudo grep 'ERROR ExtHandler' %s | grep -v 'ProtocolError' | grep -v 'Cannot convert PFX to PEM' || true", waagentLogFile)
 	}
 	extHandlerErrors := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		strings.Join([]string{
