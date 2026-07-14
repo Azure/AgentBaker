@@ -271,6 +271,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		`^-A .* -j IP-MASQ-AGENT`,
 		`^.*--comment.*cilium:`,
 		`^.*--comment.*cilium-feeder:`,
+		`^-A CILIUM_\S+ `,
 		`-A FORWARD ! -s (?:\d{1,3}\.){3}\d{1,3}/32 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP`,
 	}
 
