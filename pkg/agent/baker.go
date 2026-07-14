@@ -130,6 +130,14 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		encodedHotfixJSON = getBase64EncodedGzippedCustomScriptFromStr(string(b))
 	}
 
+	// enabledFeaturesFile is dropped only when a feature toggle is on. Its KEY=VALUE contents are
+	// read by the aks-node-controller wrapper (FEATURES_PATH). Empty content => skipped by
+	// buildScriptlessCustomData, keeping custom data byte-identical when every toggle is off.
+	var encodedEnabledFeatures string
+	if config.EnableProvisioningHotfix {
+		encodedEnabledFeatures = getBase64EncodedGzippedCustomScriptFromStr("ENABLE_PROVISIONING_HOTFIX=true\n")
+	}
+
 	// Use an ordered slice (not a map) so the rendered customData is deterministic
 	// across runs/tests instead of depending on Go's randomized map iteration order.
 	encodedFiles := []struct {
@@ -140,6 +148,7 @@ func (t *TemplateGenerator) getScriptlessNBCCustomData(config *datamodel.NodeBoo
 		{aksNodeCustomDataFilepath, encodedNodeCustomData},
 		{aksNodeConfigFilepath, encodedAKSNodeConfig},
 		{aksHotfixJSONFilepath, encodedHotfixJSON},
+		{enabledFeaturesFilepath, encodedEnabledFeatures},
 	}
 
 	var customData string
