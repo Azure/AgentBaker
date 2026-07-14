@@ -173,6 +173,10 @@ EOF
         End
     End
 
+    # Cloud coverage:
+    #   legacy : ussec (US Secret), usnat (US Nationwide), incl. suffixed regions
+    #   rcv1p  : fairfax/usgovvirginia (US Gov), mooncake/chinaeast2 (China),
+    #            bleu/francesouth (France), and empty location
     Describe 'determine_cert_endpoint_mode'
         It 'returns legacy for ussec region'
             When call determine_cert_endpoint_mode "ussec"
