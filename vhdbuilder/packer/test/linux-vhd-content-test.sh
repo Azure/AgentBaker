@@ -1917,6 +1917,25 @@ testAKSNodeControllerBinary () {
   echo "$test: aks-node-controller go binary exists at $go_binary_path"
 }
 
+testAKSNodeControllerVersion() {
+  local test="testAKSNodeControllerVersion"
+  local go_binary_path="/opt/azure/containers/aks-node-controller"
+  local ancVersion
+
+  ancVersion=$("${go_binary_path}" version 2>/dev/null | tr -d '\r\n')
+  if [ -z "$ancVersion" ]; then
+    err "$test" "aks-node-controller version is empty"
+    return 1
+  fi
+
+  if ! echo "$ancVersion" | grep -Eq '^(dev|[0-9]{6}\.[0-9]{2}\.[0-9]+)$'; then
+    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'dev' or YYYYMM.DD.PATCH"
+    return 1
+  fi
+
+  echo "$test: aks-node-controller version '${ancVersion}' is valid"
+}
+
 testAKSNodeControllerService() {
   local test="testNBCParserService"
   local service_name="aks-node-controller.service"
@@ -2542,6 +2561,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
+testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
