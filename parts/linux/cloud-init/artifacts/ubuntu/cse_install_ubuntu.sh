@@ -235,19 +235,40 @@ removeNvidiaRepos() {
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
 # skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
-# patch) and, on an opted-out GPU node, unused attack surface. The module is never loaded on these
-# nodes (ensureGPUDrivers doesn't run), so deregistration is safe. No-op unless the marker exists.
+# patch) and, on an opted-out GPU node, unused attack surface.
+#
+# The prebaked module MAY already be loaded when we run: cuda(-lts) prebakes auto-load nvidia.ko at
+# boot (~5s, well before CSE), so on a cuda/cuda-lts SKU opted out via --gpu-driver None the module
+# is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
+# arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
+# (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
+# install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
     if [ ! -f "${marker}" ]; then
         return 0
     fi
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
-    local dkms_before=false
+    local dkms_before=false module_before=false module_after=false
     [ -d /var/lib/dkms/nvidia ] && dkms_before=true
 
+    # Unload the prebaked nvidia module if it auto-loaded at boot (cuda/cuda-lts SKUs). Only when idle
+    # (refcnt 0 and no device nodes) -- this node doesn't install a driver, so nothing should be using
+    # it; if something is, leave it and let module_after=true flag an incomplete teardown. Unload the
+    # dependent modules first (modeset/uvm/drm) so nvidia's refcnt drops to 0. Best-effort; failures
+    # do not abort provisioning.
+    if lsmod | grep -q '^nvidia'; then
+        module_before=true
+        if [ "$(cat /sys/module/nvidia/refcnt 2>/dev/null || echo 0)" = "0" ] && ! ls /dev/nvidia* >/dev/null 2>&1; then
+            for mod in nvidia_uvm nvidia_drm nvidia_modeset nvidia_peermem nvidia; do
+                rmmod "${mod}" 2>/dev/null || true
+            done
+        fi
+    fi
+    lsmod | grep -q '^nvidia' && module_after=true
+
     # Deregister the nvidia DKMS module by removing its source tree (avoids the slow `dkms remove
-    # --all`, ~35s). The module isn't loaded here, so no depmod/initramfs refresh is needed.
+    # --all`, ~35s). Any loaded module was unloaded above, so no depmod/initramfs refresh is needed.
     rm -rf /var/lib/dkms/nvidia || true
     rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
     # The prebake stages libs under the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh),
@@ -264,21 +285,21 @@ cleanUpPrebakedGPUDriver() {
     ldconfig || true
 
     # Stage-1 observability + retry: assess completeness BEFORE dropping the marker. status=incomplete
-    # means the DKMS registration or the setuid nvidia-modprobe binary lingered (a security-coverage
-    # alert). On an incomplete teardown we KEEP the marker so the next provision re-runs this cleanup
-    # (the marker is the "still needs cleanup" flag); on a clean teardown we drop it. status=cleaned
-    # counts toward fleet-wide coverage. Greppable prefix AKS_GPU_PREBAKE.
+    # means the DKMS registration, the setuid nvidia-modprobe binary, or a still-resident nvidia
+    # module lingered (a security-coverage alert). On an incomplete teardown we KEEP the marker so the
+    # next provision re-runs this cleanup (the marker is the "still needs cleanup" flag); on a clean
+    # teardown we drop it. status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
     local dkms_after=false modprobe_after=false marker_after=true status=cleaned
     [ -d /var/lib/dkms/nvidia ] && dkms_after=true
     [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
-    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ]; then
+    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
         rm -f "${marker}" || true
         [ -f "${marker}" ] || marker_after=false
     fi
-    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ]; then
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
         status=incomplete
     fi
-    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
 }
 
 cleanUpGPUDrivers() {
