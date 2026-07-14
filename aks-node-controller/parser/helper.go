@@ -19,6 +19,7 @@ package parser
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -224,7 +225,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 // e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
 // Returns the semver version without the leading "v" prefix, or empty string if detection fails.
 func detectContainerdVersion() (string, error) {
-	out, err := exec.Command("containerd", "--version").Output()
+	out, err := exec.CommandContext(context.Background(), "containerd", "--version").Output()
 	if err != nil {
 		return "", fmt.Errorf("running containerd --version: %w", err)
 	}
