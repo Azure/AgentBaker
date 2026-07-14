@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: Extract buf version from Makefile
+        id: buf-version
+        run: echo "version=$(grep '^BUF_VERSION' aks-node-controller/Makefile | cut -d'=' -f2 | tr -d ' ')" >> "$GITHUB_OUTPUT"
       - uses: bufbuild/buf-action@v1
         with:
           input: aks-node-controller
+          version: ${{ steps.buf-version.outputs.version }}
