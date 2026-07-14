@@ -1197,7 +1197,7 @@ func (a *AgentPoolProfile) Is2604VHDDistro() bool {
 }
 
 func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
-	return a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
+	return a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
