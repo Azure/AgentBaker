@@ -49,16 +49,10 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   # remove apport
   retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
-  # Remove PackageKit: a desktop D-Bus package-management service present only on the non-minimal
-  # Ubuntu image (nothing on an AKS node consumes it). Its apt hook (/etc/apt/apt.conf.d/20packagekit)
-  # runs `gdbus call --system ... StateHasChanged` after every `apt-get update`; during early-boot node
-  # provisioning (CSE) the system bus is not yet ready, so that call prints a benign
-  # `Error connecting: ... Broken pipe` to apt's stderr which the node-bootstrap apt error-check
-  # misreads as a failure -> CSE exit 99 -> node never joins. Purging it also removes packagekit-tools
-  # and software-properties-common (add-apt-repository), which are unused at node runtime; the build's
-  # only add-apt-repository usage is in pre-install-dependencies.sh, which has already run. No-op on the
-  # minimal image, which does not ship these.
-  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove packagekit packagekit-tools software-properties-common -y || exit 1
+  # Remove PackageKit (desktop D-Bus package manager) whose apt hook fires a `gdbus --system` call
+  # after every apt update; during early-boot CSE the system bus isn't ready, so that benign stderr
+  # line trips the node-bootstrap apt error-check -> exit 99. See removePackageKit for details.
+  removePackageKit
 
   # strip old kernels/packages
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
