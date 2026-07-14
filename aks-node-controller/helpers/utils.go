@@ -184,6 +184,8 @@ func isKubeletServingCertificateRotationEnabled(kubeletFlags map[string]string) 
 	return kubeletFlags["--rotate-server-certificates"] == "true"
 }
 
+// TODO: this function is not called by any non-test code in ANC — the actual scriptless path
+// uses parser/parser.go. Consider removing this as dead code in a future cleanup.
 func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) {
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
@@ -226,6 +228,13 @@ func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamod
 	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
 		!IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+	}
+
+	// streamingConnectionIdleTimeout was removed from Kube
+	// letConfiguration in k8s 1.34+.
+	// It must not appear on the command line or in the config file for those versions.
+	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
+		delete(kubeletFlags, "--streaming-connection-idle-timeout")
 	}
 }
 
