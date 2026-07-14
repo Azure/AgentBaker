@@ -42,9 +42,6 @@ steps:
       #   and(succeeded(), eq(variables['ENABLE_COMPLIANCE_ENGINE_SCAN'], 'true'), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
       condition: and(succeeded(), eq(variables['OS_SKU'], 'Ubuntu'), in(variables['OS_VERSION'], '22.04', '24.04'))
       feedName: ComplianceEnginePackages
-      # ComplianceEnginePackages is a project-scoped feed; the flat2 URL must
-      # include the project or downloads 404. Verify the project in the feed URL
-      # (ADO Artifacts) and change this if it is not 'One'.
       feedProject: One
 
   - task: DownloadPipelineArtifact@2
